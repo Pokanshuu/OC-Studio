@@ -1,0 +1,201 @@
+'use client'
+
+import { useEffect, useRef } from 'react'
+import type { Editor } from '@tiptap/core'
+import {
+  Pilcrow,
+  Heading1,
+  Heading2,
+  Heading3,
+  List,
+  ListOrdered,
+  ListTodo,
+  Quote,
+  Scissors,
+  Image as ImageIcon,
+  Table as TableIcon,
+} from 'lucide-react'
+import React from 'react'
+
+interface BlockButton {
+  label: string
+  icon: React.ReactNode
+  action: () => void
+  isActive: () => boolean
+}
+
+interface BlockTypeMenuProps {
+  editor: Editor
+  position: { x: number; y: number } | null
+  onClose: () => void
+  blockPos?: number
+}
+
+export function BlockTypeMenu({ editor, position, onClose, blockPos }: BlockTypeMenuProps) {
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!position) return
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        onClose()
+      }
+    }
+    const id = setTimeout(() => {
+      document.addEventListener('click', handleClick)
+    }, 0)
+    return () => {
+      clearTimeout(id)
+      document.removeEventListener('click', handleClick)
+    }
+  }, [position, onClose])
+
+  useEffect(() => {
+    if (!position) return
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [position, onClose])
+
+  if (!position) return null
+
+  const chain = () => {
+    if (blockPos != null) {
+      return editor.chain().setNodeSelection(blockPos)
+    }
+    return editor.chain().focus()
+  }
+
+  const buttons: BlockButton[] = [
+    {
+      label: '段落',
+      icon: <Pilcrow size={14} strokeWidth={2} />,
+      action: () => {
+        chain().setParagraph().run()
+        onClose()
+      },
+      isActive: () => editor.isActive('paragraph'),
+    },
+    {
+      label: 'H1',
+      icon: <Heading1 size={14} strokeWidth={2} />,
+      action: () => {
+        chain().toggleHeading({ level: 1 }).run()
+        onClose()
+      },
+      isActive: () => editor.isActive('heading', { level: 1 }),
+    },
+    {
+      label: 'H2',
+      icon: <Heading2 size={14} strokeWidth={2} />,
+      action: () => {
+        chain().toggleHeading({ level: 2 }).run()
+        onClose()
+      },
+      isActive: () => editor.isActive('heading', { level: 2 }),
+    },
+    {
+      label: 'H3',
+      icon: <Heading3 size={14} strokeWidth={2} />,
+      action: () => {
+        chain().toggleHeading({ level: 3 }).run()
+        onClose()
+      },
+      isActive: () => editor.isActive('heading', { level: 3 }),
+    },
+    {
+      label: '无序列表',
+      icon: <List size={14} strokeWidth={2} />,
+      action: () => {
+        chain().toggleBulletList().run()
+        onClose()
+      },
+      isActive: () => editor.isActive('bulletList'),
+    },
+    {
+      label: '有序列表',
+      icon: <ListOrdered size={14} strokeWidth={2} />,
+      action: () => {
+        chain().toggleOrderedList().run()
+        onClose()
+      },
+      isActive: () => editor.isActive('orderedList'),
+    },
+    {
+      label: '待办列表',
+      icon: <ListTodo size={14} strokeWidth={2} />,
+      action: () => {
+        chain().toggleTaskList().run()
+        onClose()
+      },
+      isActive: () => editor.isActive('taskList'),
+    },
+    {
+      label: '引用',
+      icon: <Quote size={14} strokeWidth={2} />,
+      action: () => {
+        chain().toggleBlockquote().run()
+        onClose()
+      },
+      isActive: () => editor.isActive('blockquote'),
+    },
+    {
+      label: '分割线',
+      icon: <Scissors size={14} strokeWidth={2} />,
+      action: () => {
+        chain().setHorizontalRule().run()
+        onClose()
+      },
+      isActive: () => false,
+    },
+    {
+      label: '图片占位',
+      icon: <ImageIcon size={14} strokeWidth={2} />,
+      action: () => {
+        chain().setNode('imagePlaceholder').run()
+        onClose()
+      },
+      isActive: () => editor.isActive('imagePlaceholder'),
+    },
+    {
+      label: '表格',
+      icon: <TableIcon size={14} strokeWidth={2} />,
+      action: () => {
+        chain().insertTable({ rows: 3, cols: 3 }).run()
+        onClose()
+      },
+      isActive: () => false,
+    },
+  ]
+
+  return (
+    <div
+      ref={ref}
+      style={{
+        position: 'fixed',
+        left: position.x + 12,
+        top: position.y - 4,
+        zIndex: 100,
+      }}
+      className="flex gap-0.5 rounded-md border border-line bg-paper-card p-1 shadow-none ring-1 ring-black/5"
+    >
+      {buttons.map((btn) => (
+        <button
+          key={btn.label}
+          onClick={btn.action}
+          title={btn.label}
+          onMouseDown={(e) => e.preventDefault()}
+          className={`flex h-7 w-7 items-center justify-center rounded transition-colors ${
+            btn.isActive()
+              ? 'text-ink bg-paper-alt'
+              : 'text-ink-muted hover:text-ink hover:bg-paper-alt'
+          }`}
+        >
+          {btn.icon}
+        </button>
+      ))}
+    </div>
+  )
+}
