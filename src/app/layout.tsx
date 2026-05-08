@@ -3,6 +3,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { NavigationProvider } from "@/components/layout/NavigationContext";
 import { WordCountProvider } from "@/components/layout/WordCountContext";
 import { EntityNavigateProvider } from "@/components/layout/EntityNavigateContext";
+import { NavigationSourceProvider } from "@/components/layout/NavigationSourceContext";
 import { SettingsProvider } from "@/lib/settings";
 import { Providers } from "./providers";
 import "./globals.css";
@@ -25,9 +26,11 @@ export default function RootLayout({
             <EntityNavigateProvider>
               <WordCountProvider>
                 <NavigationProvider>
+                  <NavigationSourceProvider>
                   <AppShell>
                     {children}
                   </AppShell>
+                  </NavigationSourceProvider>
                 </NavigationProvider>
               </WordCountProvider>
             </EntityNavigateProvider>

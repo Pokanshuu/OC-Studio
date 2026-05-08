@@ -3,8 +3,11 @@
 import { useQuery } from '@tanstack/react-query'
 import * as timelineService from '../services'
 import type { TimelineEvent } from '../types'
+import type { TimelineFilter } from '../services'
 
-export function useTimelineEvents(): {
+export function useTimelineEvents(
+  filter?: TimelineFilter,
+): {
   events: TimelineEvent[]
   loading: boolean
   error: string | null
@@ -16,8 +19,8 @@ export function useTimelineEvents(): {
     error,
     refetch,
   } = useQuery<TimelineEvent[]>({
-    queryKey: ['timeline-events'],
-    queryFn: timelineService.getTimelineEvents,
+    queryKey: ['timeline-events', filter],
+    queryFn: () => timelineService.getTimelineEvents(filter),
     staleTime: 0,
   })
 

@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import {
   Plus,
   Search,
+  ChevronDown,
 } from 'lucide-react'
 import type { Character } from '@/types'
 import { DeleteButton } from '@/components/shared/DeleteButton'
@@ -29,6 +30,70 @@ function writeViewPreference(mode: ViewMode): void {
   if (typeof window !== 'undefined') {
     localStorage.setItem('oc-characters-view', mode)
   }
+}
+
+interface CountryOption {
+  value: number | 'all'
+  label: string
+}
+
+function CountryFilterSelect({
+  value,
+  onChange,
+  options,
+}: {
+  value: number | 'all'
+  onChange: (val: number | 'all') => void
+  options: CountryOption[]
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [open])
+
+  const selectedLabel = options.find((o) => o.value === value)?.label ?? '全部国家'
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex h-9 items-center gap-1 rounded border border-line bg-paper-card px-3 text-sm text-ink transition-colors hover:border-line-hover"
+      >
+        <span>{selectedLabel}</span>
+        <ChevronDown size={16} strokeWidth={2} />
+      </button>
+
+      {open ? (
+        <div className="absolute left-0 top-full z-30 mt-1 flex max-h-64 flex-col overflow-auto rounded-md border border-line bg-paper p-1 shadow-none ring-1 ring-black/5">
+          {options.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => {
+                onChange(opt.value)
+                setOpen(false)
+              }}
+              className={`whitespace-nowrap rounded-sm px-3 py-1.5 text-left text-sm transition-colors ${
+                value === opt.value
+                  ? 'bg-paper-card text-ink'
+                  : 'text-ink hover:bg-paper-alt'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
 }
 
 function sortCharacters(characters: Character[], key: SortKey): Character[] {
@@ -181,6 +246,7 @@ export function CharacterList({
   const [sortKey, setSortKey] = useState<SortKey>('updatedAt')
   const [viewMode, setViewMode] = useState<ViewMode>(readViewPreference)
   const [search, setSearch] = useState('')
+  const [countryFilter, setCountryFilter] = useState<number | 'all'>('all')
   const { countries } = useCountryList()
 
   const countryMap = useMemo(() => {
@@ -191,6 +257,15 @@ export function CharacterList({
       }
     }
     return map
+  }, [countries])
+
+  const countryOptions = useMemo<CountryOption[]>(() => {
+    return [
+      { value: 'all', label: '全部国家' },
+      ...countries
+        .filter((c) => c.id !== undefined)
+        .map((c) => ({ value: c.id as number, label: c.name })),
+    ]
   }, [countries])
 
   const getCountryName = useCallback(
@@ -205,6 +280,9 @@ export function CharacterList({
 
   const filtered = useMemo(() => {
     let result = characters
+    if (countryFilter !== 'all') {
+      result = result.filter((c) => c.countryId === countryFilter)
+    }
     if (search.trim()) {
       const q = search.trim().toLowerCase()
       result = result.filter(
@@ -216,7 +294,7 @@ export function CharacterList({
       )
     }
     return sortCharacters(result, sortKey)
-  }, [characters, sortKey, search])
+  }, [characters, sortKey, search, countryFilter])
 
   const handleViewChange = (mode: ViewMode) => {
     setViewMode(mode)
@@ -265,6 +343,12 @@ export function CharacterList({
               className="h-9 w-48 rounded border border-line bg-paper-card pl-9 pr-3 text-sm text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none"
             />
           </div>
+          <Separator orientation="vertical" className="h-4 !self-center" />
+          <CountryFilterSelect
+            value={countryFilter}
+            onChange={setCountryFilter}
+            options={countryOptions}
+          />
           <Separator orientation="vertical" className="h-4 !self-center" />
           <SortViewControls
             sortKey={sortKey}
