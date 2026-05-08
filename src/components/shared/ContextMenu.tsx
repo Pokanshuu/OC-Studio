@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react'
+import { useState, useRef, useEffect, useCallback, useLayoutEffect, type ReactNode } from 'react'
 import { Separator } from '@/components/ui/separator'
+import { adjustContextMenuPosition, adjustSubMenuPosition } from '@/lib/menu-utils'
 
 interface ContextMenuProps {
   children: ReactNode
@@ -23,6 +24,7 @@ function SubMenu({ item }: { item: ContextMenuItem }) {
   const subRef = useRef<HTMLDivElement>(null)
   const itemRef = useRef<HTMLButtonElement>(null)
   const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [subStyle, setSubStyle] = useState<React.CSSProperties>({})
 
   const handleMouseEnter = useCallback(() => {
     if (closeTimeoutRef.current) {
@@ -41,6 +43,17 @@ function SubMenu({ item }: { item: ContextMenuItem }) {
   const handleItemClick = useCallback(() => {
     setSubOpen(false)
   }, [])
+
+  useLayoutEffect(() => {
+    if (!subOpen || !itemRef.current || !subRef.current) return
+    const parentRect = itemRef.current.getBoundingClientRect()
+    const subRect = subRef.current.getBoundingClientRect()
+    const offset = adjustSubMenuPosition(parentRect, subRect.width, subRect.height)
+    setSubStyle({
+      left: offset.xOffset,
+      top: offset.yOffset,
+    })
+  }, [subOpen])
 
   useEffect(() => {
     return () => {
@@ -72,7 +85,8 @@ function SubMenu({ item }: { item: ContextMenuItem }) {
           ref={subRef}
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
-          className="absolute left-full top-0 z-50 ml-1 flex min-w-[140px] flex-col rounded-md border border-line bg-paper p-1 shadow-none ring-1 ring-black/5"
+          className="absolute z-50 ml-1 flex min-w-[140px] flex-col rounded-md border border-line bg-paper p-1 shadow-none ring-1 ring-black/5"
+          style={subStyle}
         >
           {children.map((child, i) => {
             if (child.separator) {
@@ -110,20 +124,33 @@ function SubMenu({ item }: { item: ContextMenuItem }) {
 export function ContextMenu({ children, items }: ContextMenuProps) {
   const [open, setOpen] = useState(false)
   const [position, setPosition] = useState({ x: 0, y: 0 })
+  const [adjPosition, setAdjPosition] = useState({ x: 0, y: 0 })
+  const [visible, setVisible] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
   const handleContextMenu = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault()
+      e.stopPropagation()
       setPosition({ x: e.clientX, y: e.clientY })
+      setVisible(false)
       setOpen(true)
     },
     [],
   )
 
+  useLayoutEffect(() => {
+    if (!open || !menuRef.current) return
+    const rect = menuRef.current.getBoundingClientRect()
+    const adjusted = adjustContextMenuPosition(position.x, position.y, rect.width, rect.height)
+    setAdjPosition(adjusted)
+    setVisible(true)
+  }, [open, position])
+
   const handleClickOutside = useCallback((e: MouseEvent) => {
     if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
       setOpen(false)
+      setVisible(false)
     }
   }, [])
 
@@ -143,7 +170,11 @@ export function ContextMenu({ children, items }: ContextMenuProps) {
           <div
             ref={menuRef}
             className="pointer-events-auto absolute flex flex-col rounded-md border border-line bg-paper p-1 shadow-none ring-1 ring-black/5"
-            style={{ left: position.x, top: position.y }}
+            style={{
+              left: adjPosition.x,
+              top: adjPosition.y,
+              visibility: visible ? 'visible' : 'hidden',
+            }}
           >
             {items.map((item, i) => {
               if (item.separator) {
@@ -162,6 +193,7 @@ export function ContextMenu({ children, items }: ContextMenuProps) {
                   onClick={() => {
                     item.onClick?.()
                     setOpen(false)
+                    setVisible(false)
                   }}
                   disabled={item.disabled}
                   className={`flex items-center gap-4 rounded-sm px-3 py-1.5 text-left text-sm transition-colors ${

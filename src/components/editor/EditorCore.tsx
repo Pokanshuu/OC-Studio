@@ -24,6 +24,7 @@ import { BlockTypeMenu } from './BlockTypeMenu'
 import { SlashCommand } from './SlashCommandMenu'
 import { WikiLinkExtension } from './WikiLinkExtension'
 import { searchAllEntitiesFlat } from '@/lib/reference-registry'
+import { adjustSuggestionPosition } from '@/lib/menu-utils'
 import type { ReferableEntity } from '@/lib/reference-registry'
 import { useDevice } from '@/lib/use-device'
 import { ContextMenu } from '@/components/shared/ContextMenu'
@@ -77,17 +78,36 @@ function createMentionRender() {
       popup = document.createElement('div')
       popup.className = 'absolute z-50 max-h-56 overflow-auto rounded-md border border-line bg-paper p-1 shadow-none ring-1 ring-black/5 min-w-[200px]'
       const rect = props.clientRect()
-      if (rect) { popup.style.left = `${rect.left}px`; popup.style.top = `${rect.bottom + 4}px` }
+      if (rect) {
+        popup.style.left = `${rect.left}px`
+        popup.style.top = `${rect.bottom + 4}px`
+      }
       renderMentionGroups(popup, props.items, props.command)
       document.body.appendChild(popup)
+      if (rect) {
+        requestAnimationFrame(() => {
+          if (!popup) return
+          const adjusted = adjustSuggestionPosition(rect, popup.offsetWidth, popup.offsetHeight)
+          popup.style.left = `${adjusted.x}px`
+          popup.style.top = `${adjusted.y}px`
+        })
+      }
     },
     onUpdate: (props: SuggestionProps<ReferableEntity>) => {
       if (isComposing(props.editor)) return
       if (!popup || props.items.length === 0) { popup?.remove(); popup = null; return }
       const rect = props.clientRect?.()
-      if (rect) { popup.style.left = `${rect.left}px`; popup.style.top = `${rect.bottom + 4}px` }
+      if (rect) {
+        popup.style.left = `${rect.left}px`
+        popup.style.top = `${rect.bottom + 4}px`
+      }
       popup.innerHTML = ''
       renderMentionGroups(popup, props.items, props.command)
+      if (rect) {
+        const adjusted = adjustSuggestionPosition(rect, popup.offsetWidth, popup.offsetHeight)
+        popup.style.left = `${adjusted.x}px`
+        popup.style.top = `${adjusted.y}px`
+      }
     },
     onExit: (props: SuggestionProps<ReferableEntity>) => {
       if (isComposing(props.editor)) return
@@ -148,6 +168,7 @@ export function EditorCore({
   const [blockMenuPosition, setBlockMenuPosition] = useState<{ x: number; y: number } | null>(null)
   const [blockMenuPos, setBlockMenuPos] = useState<number | undefined>(undefined)
   const editorRef = useRef<Editor | null>(null)
+  const [isTableActive, setIsTableActive] = useState(false)
   const { isMobile } = useDevice()
 
   const handleBlockMenuEvent = useCallback((e: Event) => {
@@ -280,6 +301,19 @@ export function EditorCore({
     },
   })
 
+  useEffect(() => {
+    if (!editor) return
+    const updateTableState = () => {
+      setIsTableActive(editor.isActive('table'))
+    }
+    editor.on('selectionUpdate', updateTableState)
+    editor.on('transaction', updateTableState)
+    return () => {
+      editor.off('selectionUpdate', updateTableState)
+      editor.off('transaction', updateTableState)
+    }
+  }, [editor])
+
   const contextMenuItems = useMemo((): ContextMenuItem[] => [
     {
       label: '撤销',
@@ -331,7 +365,49 @@ export function EditorCore({
         },
       ],
     },
-  ], [editor])
+    ...(isTableActive
+      ? [
+          { separator: true, label: '', onClick: () => {} } as ContextMenuItem,
+          {
+            label: '表格',
+            children: [
+              {
+                label: '在上方插入行',
+                onClick: () => editor?.chain().focus().addRowBefore().run(),
+              },
+              {
+                label: '在下方插入行',
+                onClick: () => editor?.chain().focus().addRowAfter().run(),
+              },
+              {
+                label: '在左侧插入列',
+                onClick: () => editor?.chain().focus().addColumnBefore().run(),
+              },
+              {
+                label: '在右侧插入列',
+                onClick: () => editor?.chain().focus().addColumnAfter().run(),
+              },
+              { separator: true, label: '', onClick: () => {} } as ContextMenuItem,
+              {
+                label: '删除当前行',
+                danger: true,
+                onClick: () => editor?.chain().focus().deleteRow().run(),
+              },
+              {
+                label: '删除当前列',
+                danger: true,
+                onClick: () => editor?.chain().focus().deleteColumn().run(),
+              },
+              {
+                label: '删除整个表格',
+                danger: true,
+                onClick: () => editor?.chain().focus().deleteTable().run(),
+              },
+            ],
+          },
+        ]
+      : []),
+  ], [editor, isTableActive])
 
   if (!editor) {
     return <div className="flex h-32 items-center justify-center text-sm text-ink-muted">编辑器加载中...</div>

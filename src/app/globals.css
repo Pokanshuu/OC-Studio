@@ -318,6 +318,29 @@ body {
   font-size: 0.85em;
 }
 
+/* Table column resize handles */
+.ProseMirror table .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background-color: var(--color-line-hover);
+  cursor: col-resize;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.ProseMirror table .column-resize-handle:hover,
+.ProseMirror table .column-resize-handle.is-dragging {
+  opacity: 1;
+}
+
+.ProseMirror table td,
+.ProseMirror table th {
+  position: relative;
+}
+
 /* Selection styles */
 ::selection {
   background-color: #F3EFE9;

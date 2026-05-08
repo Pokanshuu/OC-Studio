@@ -2,6 +2,7 @@ import Mention from '@tiptap/extension-mention'
 import type { SuggestionProps, SuggestionKeyDownProps } from '@tiptap/suggestion'
 import type { Editor } from '@tiptap/core'
 import { searchAllEntitiesFlat } from '@/lib/reference-registry'
+import { adjustSuggestionPosition } from '@/lib/menu-utils'
 import type { ReferableEntity } from '@/lib/reference-registry'
 
 const isComposing = (editor: Editor): boolean => {
@@ -18,17 +19,36 @@ function createWikiLinkRender() {
       popup = document.createElement('div')
       popup.className = 'absolute z-50 max-h-56 overflow-auto rounded-md border border-line bg-paper p-1 shadow-none ring-1 ring-black/5 min-w-[180px]'
       const rect = props.clientRect()
-      if (rect) { popup.style.left = `${rect.left}px`; popup.style.top = `${rect.bottom + 4}px` }
+      if (rect) {
+        popup.style.left = `${rect.left}px`
+        popup.style.top = `${rect.bottom + 4}px`
+      }
       renderWikiItems(popup, props.items, props.command)
       document.body.appendChild(popup)
+      if (rect) {
+        requestAnimationFrame(() => {
+          if (!popup) return
+          const adjusted = adjustSuggestionPosition(rect, popup.offsetWidth, popup.offsetHeight)
+          popup.style.left = `${adjusted.x}px`
+          popup.style.top = `${adjusted.y}px`
+        })
+      }
     },
     onUpdate: (props: SuggestionProps<ReferableEntity>) => {
       if (isComposing(props.editor)) return
       if (!popup || props.items.length === 0) { popup?.remove(); popup = null; return }
       const rect = props.clientRect?.()
-      if (rect) { popup.style.left = `${rect.left}px`; popup.style.top = `${rect.bottom + 4}px` }
+      if (rect) {
+        popup.style.left = `${rect.left}px`
+        popup.style.top = `${rect.bottom + 4}px`
+      }
       popup.innerHTML = ''
       renderWikiItems(popup, props.items, props.command)
+      if (rect) {
+        const adjusted = adjustSuggestionPosition(rect, popup.offsetWidth, popup.offsetHeight)
+        popup.style.left = `${adjusted.x}px`
+        popup.style.top = `${adjusted.y}px`
+      }
     },
     onExit: (props: SuggestionProps<ReferableEntity>) => {
       if (isComposing(props.editor)) return

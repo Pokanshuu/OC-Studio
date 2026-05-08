@@ -1,6 +1,7 @@
 import { Extension } from '@tiptap/core'
 import Suggestion from '@tiptap/suggestion'
 import type { SuggestionProps, SuggestionKeyDownProps } from '@tiptap/suggestion'
+import { adjustSuggestionPosition } from '@/lib/menu-utils'
 
 interface SlashCommandItem {
   title: string
@@ -130,7 +131,7 @@ export const SlashCommand = Extension.create({
 
             popup = document.createElement('div')
             popup.className =
-              'absolute z-50 max-h-48 overflow-auto rounded-md border border-line bg-paper p-1 shadow-none ring-1 ring-black/5 min-w-[180px]'
+              'absolute z-50 max-h-[60vh] overflow-auto rounded-md border border-line bg-paper p-1 shadow-none ring-1 ring-black/5 min-w-[180px]'
 
             const rect = props.clientRect?.()
             if (rect) {
@@ -141,6 +142,14 @@ export const SlashCommand = Extension.create({
             selectedIndex = 0
             renderItems(popup, currentItems, selectedIndex, props.command)
             document.body.appendChild(popup)
+            if (rect) {
+              requestAnimationFrame(() => {
+                if (!popup) return
+                const adjusted = adjustSuggestionPosition(rect, popup.offsetWidth, popup.offsetHeight)
+                popup.style.left = `${adjusted.x}px`
+                popup.style.top = `${adjusted.y}px`
+              })
+            }
           },
 
           onUpdate: (props: SuggestionProps<SlashCommandItem>) => {
@@ -161,6 +170,11 @@ export const SlashCommand = Extension.create({
             selectedIndex = Math.min(selectedIndex, currentItems.length - 1)
             popup.innerHTML = ''
             renderItems(popup, currentItems, selectedIndex, props.command)
+            if (rect) {
+              const adjusted = adjustSuggestionPosition(rect, popup.offsetWidth, popup.offsetHeight)
+              popup.style.left = `${adjusted.x}px`
+              popup.style.top = `${adjusted.y}px`
+            }
           },
 
           onExit: () => {
