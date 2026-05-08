@@ -639,14 +639,50 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
         onZoomChange={handleZoomChange}
         onZoomCommit={handleZoomCommit}
         density={'year'}
-        characterFilter={'all'}
-        onCharacterFilterChange={() => {}}
-        characterOptions={[]}
-        countryFilter={'all'}
-        onCountryFilterChange={() => {}}
-        countryOptions={[]}
+        characterFilter={characterFilter}
+        onCharacterFilterChange={setCharacterFilter}
+        characterOptions={characterOptions}
+        countryFilter={countryFilter}
+        onCountryFilterChange={setCountryFilter}
+        countryOptions={countryOptions}
       />
       <EmptyTimeline />
+      </div>
+    )
+  }
+
+  const isFiltering = characterFilter !== 'all' || countryFilter !== 'all' || filterMajor
+
+  if (filtered.length === 0 && events.length > 0) {
+    return (
+      <div className="flex h-full flex-col">
+        <TimelineToolbar
+          filterMajor={filterMajor}
+          setFilterMajor={setFilterMajor}
+          editMode={editMode}
+          onToggleEdit={toggleEditMode}
+          showNav={false}
+          onPrev={() => {}}
+          onNext={() => {}}
+          isFirst={true}
+          isLast={true}
+          showZoom={false}
+          zoomRatio={zoomRatio}
+          onZoomChange={handleZoomChange}
+          onZoomCommit={handleZoomCommit}
+          density={'year'}
+          characterFilter={characterFilter}
+          onCharacterFilterChange={setCharacterFilter}
+          characterOptions={characterOptions}
+          countryFilter={countryFilter}
+          onCountryFilterChange={setCountryFilter}
+          countryOptions={countryOptions}
+        />
+        <div className="flex flex-1 items-center justify-center">
+          <p className="text-sm text-ink-muted">
+            {isFiltering ? '暂无符合筛选条件的事件' : '暂无事件，请先创建事件后查看时间线'}
+          </p>
+        </div>
       </div>
     )
   }
