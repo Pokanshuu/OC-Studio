@@ -21,7 +21,9 @@ export async function getTimelineEvents(
   let alive = all.filter((e) => !e.deleted)
 
   if (filter?.characterId !== undefined) {
-    alive = alive.filter((e) => e.characters.includes(filter.characterId!))
+    alive = alive.filter(
+      (e) => Array.isArray(e.characters) && e.characters.includes(filter.characterId!),
+    )
   }
   if (filter?.countryId !== undefined) {
     alive = alive.filter(

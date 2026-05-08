@@ -318,6 +318,13 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
                 >
                   <Menu size={20} strokeWidth={2} />
                 </button>
+              ) : treeCollapsed ? (
+                <button
+                  onClick={() => setTreeCollapsed(false)}
+                  className="mb-4 flex h-8 w-8 mx-auto items-center justify-center rounded text-ink-muted hover:text-ink"
+                >
+                  <Menu size={20} strokeWidth={2} />
+                </button>
               ) : null}
               <p className="text-sm text-ink-muted">
                 {entries.length === 0 ? '暂无词条，从左侧创建' : '选择一个词条或新建词条'}
