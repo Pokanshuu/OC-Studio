@@ -8,6 +8,7 @@ import {
   Clock,
   GitBranch,
   Settings,
+  Trash2,
 } from 'lucide-react'
 import { useNavigation } from './NavigationContext'
 import { useSettingsTrigger } from './SettingsTriggerContext'
@@ -48,6 +49,17 @@ export function Sidebar() {
       </nav>
 
       <div className="flex flex-col gap-1 border-t border-line p-3">
+        <button
+          onClick={() => setActiveItem('回收站')}
+          className={`flex items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors ${
+            activeItem === '回收站'
+              ? 'bg-paper-card text-ink'
+              : 'text-ink-muted hover:text-ink'
+          }`}
+        >
+          <Trash2 size={16} strokeWidth={2} />
+          <span>回收站</span>
+        </button>
         <button
           onClick={() => openSettings()}
           className="flex items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-ink-muted transition-colors hover:text-ink"

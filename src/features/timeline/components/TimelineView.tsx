@@ -13,11 +13,15 @@ import {
   Circle,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
 } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { useDevice } from '@/lib/use-device'
 import { useTimelineEvents } from '../hooks/useTimelineEvents'
+import { useCharacterList } from '@/features/characters/hooks/useCharacters'
+import { useCountryList } from '@/features/countries/hooks/useCountries'
 import { updateEventTime } from '../services'
+import type { TimelineFilter } from '../services'
 import {
   parseYear,
   computeDensity,
@@ -157,6 +161,72 @@ function EmptyTimeline() {
   )
 }
 
+interface FilterOption {
+  value: number | 'all'
+  label: string
+}
+
+function FilterSelect({
+  value,
+  onChange,
+  options,
+  placeholder,
+}: {
+  value: number | 'all'
+  onChange: (val: number | 'all') => void
+  options: FilterOption[]
+  placeholder: string
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [open])
+
+  const selectedLabel = options.find((o) => o.value === value)?.label ?? placeholder
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex h-9 items-center gap-1 rounded border border-line bg-paper-card px-3 text-sm text-ink transition-colors hover:border-line-hover"
+      >
+        <span className="max-w-[120px] truncate">{selectedLabel}</span>
+        <ChevronDown size={16} strokeWidth={2} />
+      </button>
+
+      {open ? (
+        <div className="absolute left-0 top-full z-30 mt-1 flex max-h-64 flex-col overflow-auto rounded-md border border-line bg-paper p-1 shadow-none ring-1 ring-black/5">
+          {options.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => {
+                onChange(opt.value)
+                setOpen(false)
+              }}
+              className={`whitespace-nowrap rounded-sm px-3 py-1.5 text-left text-sm transition-colors ${
+                value === opt.value
+                  ? 'bg-paper-card text-ink'
+                  : 'text-ink hover:bg-paper-alt'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 function BucketView({
   buckets,
   onSelectEvent,
@@ -204,10 +274,41 @@ function BucketView({
 
 export function TimelineView({ onSelectEvent }: TimelineViewProps) {
   const { isMobile } = useDevice()
-  const { events, loading, error, refresh } = useTimelineEvents()
   const [editMode, setEditMode] = useState(false)
   const [filterMajor, setFilterMajor] = useState(false)
+  const [characterFilter, setCharacterFilter] = useState<number | 'all'>('all')
+  const [countryFilter, setCountryFilter] = useState<number | 'all'>('all')
   const [zoomRatio, setZoomRatio] = useState(1.0)
+
+  const { characters } = useCharacterList()
+  const { countries } = useCountryList()
+
+  const characterOptions = useMemo<FilterOption[]>(() => {
+    return [
+      { value: 'all', label: '全部角色' },
+      ...characters
+        .filter((c) => c.id !== undefined)
+        .map((c) => ({ value: c.id as number, label: c.name })),
+    ]
+  }, [characters])
+
+  const countryOptions = useMemo<FilterOption[]>(() => {
+    return [
+      { value: 'all', label: '全部国家' },
+      ...countries
+        .filter((c) => c.id !== undefined)
+        .map((c) => ({ value: c.id as number, label: c.name })),
+    ]
+  }, [countries])
+
+  const timelineFilter = useMemo<TimelineFilter | undefined>(() => {
+    const f: TimelineFilter = {}
+    if (characterFilter !== 'all') f.characterId = characterFilter
+    if (countryFilter !== 'all') f.countryId = countryFilter
+    return Object.keys(f).length > 0 ? f : undefined
+  }, [characterFilter, countryFilter])
+
+  const { events, loading, error, refresh } = useTimelineEvents(timelineFilter)
   const scrollRef = useRef<HTMLDivElement>(null)
   const [containerWidth, setContainerWidth] = useState(0)
   const [navEdge, setNavEdge] = useState({ prev: true, next: false })
@@ -523,23 +624,29 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
   if (events.length === 0) {
     return (
       <div className="flex h-full flex-col">
-        <TimelineToolbar
-          filterMajor={filterMajor}
-          setFilterMajor={setFilterMajor}
-          editMode={editMode}
-          onToggleEdit={toggleEditMode}
-          showNav={false}
-          onPrev={() => {}}
-          onNext={() => {}}
-          isFirst={true}
-          isLast={true}
-          showZoom={false}
-          zoomRatio={zoomRatio}
-          onZoomChange={handleZoomChange}
-          onZoomCommit={handleZoomCommit}
-          density={'year'}
-        />
-        <EmptyTimeline />
+      <TimelineToolbar
+        filterMajor={filterMajor}
+        setFilterMajor={setFilterMajor}
+        editMode={editMode}
+        onToggleEdit={toggleEditMode}
+        showNav={false}
+        onPrev={() => {}}
+        onNext={() => {}}
+        isFirst={true}
+        isLast={true}
+        showZoom={false}
+        zoomRatio={zoomRatio}
+        onZoomChange={handleZoomChange}
+        onZoomCommit={handleZoomCommit}
+        density={'year'}
+        characterFilter={'all'}
+        onCharacterFilterChange={() => {}}
+        characterOptions={[]}
+        countryFilter={'all'}
+        onCountryFilterChange={() => {}}
+        countryOptions={[]}
+      />
+      <EmptyTimeline />
       </div>
     )
   }
@@ -567,6 +674,12 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
         onZoomChange={handleZoomChange}
         onZoomCommit={handleZoomCommit}
         density={density}
+        characterFilter={characterFilter}
+        onCharacterFilterChange={setCharacterFilter}
+        characterOptions={characterOptions}
+        countryFilter={countryFilter}
+        onCountryFilterChange={setCountryFilter}
+        countryOptions={countryOptions}
       />
 
       <div ref={scrollRef} className="flex-1 overflow-auto">
@@ -720,6 +833,12 @@ function TimelineToolbar({
   onZoomChange,
   onZoomCommit,
   density,
+  characterFilter,
+  onCharacterFilterChange,
+  characterOptions,
+  countryFilter,
+  onCountryFilterChange,
+  countryOptions,
 }: {
   filterMajor: boolean
   setFilterMajor: (v: boolean) => void
@@ -735,6 +854,12 @@ function TimelineToolbar({
   onZoomChange: (value: number) => void
   onZoomCommit: (value: number) => void
   density: TimelineDensity
+  characterFilter: number | 'all'
+  onCharacterFilterChange: (val: number | 'all') => void
+  characterOptions: FilterOption[]
+  countryFilter: number | 'all'
+  onCountryFilterChange: (val: number | 'all') => void
+  countryOptions: FilterOption[]
 }) {
   return (
     <div className="flex items-center justify-between border-b border-line px-6 py-3">
@@ -761,6 +886,20 @@ function TimelineToolbar({
         >
           全部事件
         </button>
+
+        <Separator orientation="vertical" className="h-4 !self-center" />
+        <FilterSelect
+          value={characterFilter}
+          onChange={onCharacterFilterChange}
+          options={characterOptions}
+          placeholder="全部角色"
+        />
+        <FilterSelect
+          value={countryFilter}
+          onChange={onCountryFilterChange}
+          options={countryOptions}
+          placeholder="全部国家"
+        />
 
         {showNav ? (
           <>

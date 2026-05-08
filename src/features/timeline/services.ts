@@ -3,15 +3,31 @@ import { logOperation } from '@/lib/sync'
 import type { TimelineEvent } from './types'
 import { pickTimelineFields } from './types'
 
+export interface TimelineFilter {
+  characterId?: number
+  countryId?: number
+}
+
 function parseYear(time: string): number | null {
   if (!time) return null
   const match = /^\d+/.exec(time)
   return match ? parseInt(match[0], 10) : null
 }
 
-export async function getTimelineEvents(): Promise<TimelineEvent[]> {
+export async function getTimelineEvents(
+  filter?: TimelineFilter,
+): Promise<TimelineEvent[]> {
   const all = await db.events.orderBy('time').toArray()
-  const alive = all.filter((e) => !e.deleted)
+  let alive = all.filter((e) => !e.deleted)
+
+  if (filter?.characterId !== undefined) {
+    alive = alive.filter((e) => e.characters.includes(filter.characterId!))
+  }
+  if (filter?.countryId !== undefined) {
+    alive = alive.filter(
+      (e) => e.countries !== undefined && e.countries.includes(filter.countryId!),
+    )
+  }
 
   const withTime = alive.filter((e) => !!e.time)
   const withoutTime = alive.filter((e) => !e.time)

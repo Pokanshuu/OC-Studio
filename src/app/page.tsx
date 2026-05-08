@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { useNavigation } from '@/components/layout/NavigationContext'
+import { useNavigationSource } from '@/components/layout/NavigationSourceContext'
 import { useWordCount } from '@/components/layout/WordCountContext'
 import { useEntityNavigate } from '@/components/layout/EntityNavigateContext'
 import { EventList } from '@/features/events/components/EventList'
@@ -15,6 +16,7 @@ import { CountryEditor } from '@/features/countries/components/CountryEditor'
 import { useCreateCountry, useDeleteCountry } from '@/features/countries/hooks/useCountries'
 import { WorldLayout } from '@/features/world/components/WorldLayout'
 import { TimelineView } from '@/features/timeline/components/TimelineView'
+import { TrashView } from '@/features/trash/components/TrashView'
 import type { EventFormData } from '@/features/events/types'
 
 type EventView = { sub: 'list' } | { sub: 'editor'; eventId: number }
@@ -27,6 +29,7 @@ const PLACEHOLDER_MAP: Record<string, string> = {
 
 export default function Home() {
   const { activeItem, setActiveItem } = useNavigation()
+  const { source, setSource, clearSource } = useNavigationSource()
   const [eventView, setEventView] = useState<EventView>({ sub: 'list' })
   const [characterView, setCharacterView] = useState<CharacterView>({ sub: 'list' })
   const [countryView, setCountryView] = useState<CountryView>({ sub: 'list' })
@@ -63,8 +66,9 @@ const [worldSelectedEntryId, setWorldSelectedEntryId] = useState<number | null>(
   const { deleteCountry, deleting: deletingCountry } = useDeleteCountry()
 
   const handleSelectEvent = useCallback((id: number) => {
+    setSource('eventList')
     setEventView({ sub: 'editor', eventId: id })
-  }, [])
+  }, [setSource])
 
   const handleCreateEvent = useCallback(() => {
     if (creating) return
@@ -105,13 +109,47 @@ const [worldSelectedEntryId, setWorldSelectedEntryId] = useState<number | null>(
     [deleteEvent, deleting, refresh],
   )
 
+  const crossBackRef = useRef<{
+    activeItem: string | null
+    eventView: EventView
+    characterView: CharacterView
+    countryView: CountryView
+    source: ReturnType<typeof useNavigationSource>['source']
+  } | null>(null)
+
+  const restoreCrossBack = useCallback(() => {
+    const saved = crossBackRef.current
+    if (!saved) return false
+    crossBackRef.current = null
+    setEventView(saved.eventView)
+    setCharacterView(saved.characterView)
+    setCountryView(saved.countryView)
+    if (saved.activeItem) {
+      setActiveItem(saved.activeItem)
+    }
+    if (saved.source) {
+      setSource(saved.source)
+    } else {
+      clearSource()
+    }
+    return true
+  }, [setActiveItem, setSource, clearSource])
+
   const handleBackToList = useCallback(() => {
-    setEventView({ sub: 'list' })
-  }, [])
+    if (restoreCrossBack()) return
+    if (source === 'timeline') {
+      setEventView({ sub: 'list' })
+      setActiveItem('时间线')
+    } else {
+      setEventView({ sub: 'list' })
+    }
+    clearSource()
+  }, [source, setActiveItem, clearSource, restoreCrossBack])
 
   const handleSelectCharacter = useCallback((id: number) => {
+    setSource('characterList')
     setCharacterView({ sub: 'editor', characterId: id })
-  }, [])
+  }, [setSource])
 
   const handleCreateCharacter = useCallback(() => {
     if (creatingChar) return
@@ -139,9 +177,11 @@ const [worldSelectedEntryId, setWorldSelectedEntryId] = useState<number | null>(
   }, [createCharacter, creatingChar, refreshCharacters])
 
   const handleBackToCharacterList = useCallback(() => {
+    if (restoreCrossBack()) return
     setCharacterView({ sub: 'list' })
     refreshCharacters()
-  }, [refreshCharacters])
+    clearSource()
+  }, [refreshCharacters, clearSource, restoreCrossBack])
 
   const handleDeleteCharacter = useCallback(
     (id: number) => {
@@ -182,36 +222,58 @@ const [worldSelectedEntryId, setWorldSelectedEntryId] = useState<number | null>(
   )
 
   const handleSelectCountry = useCallback((id: number) => {
+    setSource('countryList')
     setCountryView({ sub: 'editor', countryId: id })
-  }, [])
+  }, [setSource])
 
   const handleBackToCountryList = useCallback(() => {
+    if (restoreCrossBack()) return
     setCountryView({ sub: 'list' })
-  }, [])
+    clearSource()
+  }, [clearSource, restoreCrossBack])
 
   const handleTimelineSelectEvent = useCallback(
     (id: number) => {
+      setSource('timeline')
       setEventView({ sub: 'editor', eventId: id })
       setActiveItem('事件')
     },
-    [setActiveItem],
+    [setSource, setActiveItem],
   )
 
   const handleRelatedItemNavigate = useCallback((id: number, type?: string) => {
+    if (
+      eventView.sub === 'editor' ||
+      characterView.sub === 'editor' ||
+      countryView.sub === 'editor'
+    ) {
+      crossBackRef.current = {
+        activeItem,
+        eventView,
+        characterView,
+        countryView,
+        source,
+      }
+    }
+
     if (type === 'character') {
       setCharacterView({ sub: 'editor', characterId: id })
       setActiveItem('角色')
+      clearSource()
     } else if (type === 'event') {
       setEventView({ sub: 'editor', eventId: id })
       setActiveItem('事件')
+      clearSource()
     } else if (type === 'country') {
       setCountryView({ sub: 'editor', countryId: id })
       setActiveItem('国家')
+      clearSource()
     } else if (type === 'world') {
       setWorldSelectedEntryId(id)
       setActiveItem('世界观')
+      clearSource()
     }
-  }, [setActiveItem])
+  }, [eventView, characterView, countryView, activeItem, source, setActiveItem, clearSource])
 
   const handleMentionClick = useCallback((id: string, entityType?: string) => {
     const numId = Number(id)
@@ -230,7 +292,8 @@ const [worldSelectedEntryId, setWorldSelectedEntryId] = useState<number | null>(
   const showCountries = activeItem === '国家'
   const showWorld = activeItem === '世界观'
   const showTimeline = activeItem === '时间线'
-  const showPlaceholder = activeItem !== null && !showEvents && !showCharacters && !showCountries && !showWorld && !showTimeline
+  const showTrash = activeItem === '回收站'
+  const showPlaceholder = activeItem !== null && !showEvents && !showCharacters && !showCountries && !showWorld && !showTimeline && !showTrash
   const placeholderText = activeItem !== null
     ? (PLACEHOLDER_MAP[activeItem] ?? '功能开发中...')
     : null
@@ -398,6 +461,15 @@ const [worldSelectedEntryId, setWorldSelectedEntryId] = useState<number | null>(
         }}
       >
         <TimelineView onSelectEvent={handleTimelineSelectEvent} />
+      </div>
+
+      <div
+        className="h-full"
+        style={{
+          display: showTrash ? undefined : 'none',
+        }}
+      >
+        <TrashView />
       </div>
 
       <div
