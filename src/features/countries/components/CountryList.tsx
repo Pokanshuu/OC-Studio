@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react'
 import { Plus, Search } from 'lucide-react'
 import type { Country } from '@/types'
 import { stripHtml } from '@/lib/utils'
+import { extractCountryPreview } from '@/lib/document-utils'
 import { DeleteButton } from '@/components/shared/DeleteButton'
 import { Separator } from '@/components/ui/separator'
 import { useCountryList } from '../hooks/useCountries'
@@ -72,8 +73,8 @@ function CountryRow({
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <h3 className="truncate text-sm font-medium text-ink">{country.name}</h3>
         <div className="flex items-center gap-2">
-          {country.system ? (
-            <span className="text-xs text-ink-muted">{stripHtml(country.system)}</span>
+          {extractCountryPreview(country.document) ?? (country.system ? stripHtml(country.system) : null) ? (
+            <span className="text-xs text-ink-muted">{extractCountryPreview(country.document) ?? stripHtml(country.system)}</span>
           ) : null}
           <span className="text-xs text-ink-faint">
             编辑于 {formatRelativeTime(country.updatedAt)}
@@ -103,9 +104,9 @@ function CountryCard({
         <h3 className="truncate text-sm font-medium text-ink">{country.name}</h3>
 
         <div className="flex flex-wrap gap-1.5">
-          {country.system ? (
+          {extractCountryPreview(country.document) ?? (country.system ? stripHtml(country.system) : null) ? (
             <span className="inline-flex rounded border border-line px-1.5 py-0.5 text-xs text-ink-muted">
-              {stripHtml(country.system)}
+              {extractCountryPreview(country.document) ?? stripHtml(country.system)}
             </span>
           ) : null}
         </div>
@@ -182,7 +183,7 @@ export function CountryList({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-line px-6 py-3">
+      <div className="flex items-center justify-between border-b border-line px-6 py-3 min-h-[60px]">
         <div className="flex items-center gap-3">
           <h2 className="text-lg text-ink">国家</h2>
           <Separator orientation="vertical" className="h-4 !self-center" />

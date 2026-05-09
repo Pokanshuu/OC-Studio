@@ -3,12 +3,13 @@
 import { useState, useCallback, useRef, useMemo } from 'react'
 import { Save, ArrowLeft, Sparkles } from 'lucide-react'
 import type { Editor } from '@tiptap/core'
-import { EditorCore } from '@/components/editor/EditorCore'
+import { DocumentEditor } from '@/components/editor/DocumentEditor'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Separator } from '@/components/ui/separator'
 import { RelatedItemsSelector } from '@/components/shared/RelatedItemsSelector'
 import type { RelatedItem } from '@/components/shared/RelatedItemsSelector'
+import { useDevice } from '@/lib/use-device'
 import type { Event } from '@/types'
 import type { EventFormData } from '../types'
 import { useCharacterList } from '@/features/characters/hooks/useCharacters'
@@ -44,6 +45,7 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
   const [saving, setSaving] = useState(false)
   const [aiLoading, setAiLoading] = useState(false)
   const editorRef = useRef<Editor | null>(null)
+  const { isMobile } = useDevice()
 
   const { characters } = useCharacterList()
   const { countries } = useCountryList()
@@ -88,15 +90,16 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
     if (!editorRef.current) return
     setSaving(true)
     try {
-      const content = editorRef.current.getHTML()
       const time = assembleTime(year, month, day)
+      const document = editorRef.current.getJSON()
       await onSave(event.id as number, {
         title,
         time,
         location,
         summary,
         isMajor,
-        content,
+        document,
+        content: event.content,
         characters: selectedCharacterIds,
         countries: selectedCountryIds,
       })
@@ -105,6 +108,7 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
     }
   }, [
     event.id,
+    event.content,
     title,
     year,
     month,
@@ -188,23 +192,27 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
             </div>
           </div>
 
-          <div className="mt-3 space-y-2">
-            <p className="text-sm text-ink-muted font-medium mb-1">相关角色</p>
-            <RelatedItemsSelector
-              items={characterItems}
-              selectedIds={selectedCharacterIds}
-              onChange={setSelectedCharacterIds}
-              placeholder="搜索相关角色..."
-              onNavigateItem={(id) => onNavigateItem?.(id, 'character')}
-            />
-            <p className="text-sm text-ink-muted font-medium mb-1 mt-3">相关国家</p>
-            <RelatedItemsSelector
-              items={countryItems}
-              selectedIds={selectedCountryIds}
-              onChange={setSelectedCountryIds}
-              placeholder="搜索相关国家..."
-              onNavigateItem={(id) => onNavigateItem?.(id, 'country')}
-            />
+          <div className={`mt-3 grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2'} gap-4`}>
+            <div>
+              <p className="text-sm text-ink-muted font-medium mb-1">相关角色</p>
+              <RelatedItemsSelector
+                items={characterItems}
+                selectedIds={selectedCharacterIds}
+                onChange={setSelectedCharacterIds}
+                placeholder="搜索相关角色..."
+                onNavigateItem={(id) => onNavigateItem?.(id, 'character')}
+              />
+            </div>
+            <div>
+              <p className="text-sm text-ink-muted font-medium mb-1">相关国家</p>
+              <RelatedItemsSelector
+                items={countryItems}
+                selectedIds={selectedCountryIds}
+                onChange={setSelectedCountryIds}
+                placeholder="搜索相关国家..."
+                onNavigateItem={(id) => onNavigateItem?.(id, 'country')}
+              />
+            </div>
           </div>
 
           {summary ? (
@@ -225,9 +233,11 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
           </div>
 
           <div className="mt-4">
-            <EditorCore
+            <DocumentEditor
+              entityId={event.id as number}
+              entityType="event"
+              fallbackContent={event.content || undefined}
               onReady={handleEditorReady}
-              content={event.content}
               placeholder="开始编写事件内容..."
               onMentionClick={onMentionClick}
               onCharacterCount={onCharacterCount}

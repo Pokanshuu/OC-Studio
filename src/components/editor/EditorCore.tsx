@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useId, useRef, useMemo } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import { BubbleMenu } from '@tiptap/react/menus'
 import StarterKit from '@tiptap/starter-kit'
+import Paragraph from '@tiptap/extension-paragraph'
 import Placeholder from '@tiptap/extension-placeholder'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
@@ -159,10 +160,11 @@ interface EditorCoreProps {
   placeholder?: string
   onMentionClick?: (id: string, entityType?: string) => void
   onWikiLinkClick?: (id: string) => void
+  plain?: boolean
 }
 
 export function EditorCore({
-  onReady, onCharacterCount, onContentChange, content, placeholder, onMentionClick, onWikiLinkClick,
+  onReady, onCharacterCount, onContentChange, content, placeholder, onMentionClick, onWikiLinkClick, plain,
 }: EditorCoreProps) {
   const editorId = useId()
   const [blockMenuPosition, setBlockMenuPosition] = useState<{ x: number; y: number } | null>(null)
@@ -191,11 +193,33 @@ export function EditorCore({
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
+        paragraph: false,
         blockquote: {
           HTMLAttributes: { class: 'border-l-2 border-line pl-4 bg-paper-alt rounded-r-sm italic text-ink-muted my-3 py-1' },
         },
       }),
-      Placeholder.configure({ placeholder: placeholder ?? '开始创作你的世界...' }),
+      Paragraph.extend({
+        addAttributes() {
+          return {
+            placeholder: {
+              default: null,
+              parseHTML: (element) => element.getAttribute('data-placeholder'),
+              renderHTML: (attrs) => {
+                if (!attrs.placeholder) return {}
+                return { 'data-placeholder': attrs.placeholder }
+              },
+            },
+          }
+        },
+      }),
+      Placeholder.configure({
+        placeholder: ({ node }) => {
+          if (node.type.name === 'paragraph') {
+            return (node.attrs.placeholder as string | null) ?? placeholder ?? '开始创作你的世界...'
+          }
+          return placeholder ?? '开始创作你的世界...'
+        },
+      }),
       TaskList, TaskItem.configure({ nested: true }),
       Table.configure({
         resizable: true,
@@ -286,7 +310,11 @@ export function EditorCore({
       }),
     ],
     editorProps: {
-      attributes: { class: 'tiptap max-w-none pl-8 pr-4 py-2 text-[15px] leading-relaxed focus:outline-none min-h-[2em]' },
+      attributes: {
+        class: plain
+          ? 'tiptap max-w-none pl-0 pr-0 py-0 text-[15px] leading-relaxed focus:outline-none min-h-[2em]'
+          : 'tiptap max-w-none pl-8 pr-4 py-2 text-[15px] leading-relaxed focus:outline-none min-h-[2em]',
+      },
     },
     content: content ?? '',
     onCreate({ editor: readyEditor }) {
@@ -416,7 +444,10 @@ export function EditorCore({
   return (
     <ContextMenu items={contextMenuItems}>
     <div
-      className="relative rounded-md border border-transparent bg-paper transition-colors hover:border-line focus-within:border-line-hover"
+      className={plain
+        ? 'relative'
+        : 'relative rounded-md border border-transparent bg-paper transition-colors hover:border-line focus-within:border-line-hover'
+      }
       onClick={(e) => {
         const target = e.target as HTMLElement
         const mentionEl = target.closest?.('[data-type="mention"]') as HTMLElement | null
