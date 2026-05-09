@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { Save, ArrowLeft } from 'lucide-react'
 import type { Editor } from '@tiptap/core'
-import { EditorCore } from '@/components/editor/EditorCore'
+import { DocumentEditor } from '@/components/editor/DocumentEditor'
 import type { Country, Character, Event } from '@/types'
 import type { CountryFormData } from '../types'
 import { useCountry, useUpdateCountry } from '../hooks/useCountries'
@@ -123,54 +123,25 @@ function CountryEditorInner({
   const [editableCharIds, setEditableCharIds] = useState<number[]>(country.characters)
   const [editableEventIds, setEditableEventIds] = useState<number[]>(country.events)
 
-  const systemEditorRef = useRef<Editor | null>(null)
-  const geographyEditorRef = useRef<Editor | null>(null)
-  const cultureEditorRef = useRef<Editor | null>(null)
-  const systemCountRef = useRef(0)
-  const geographyCountRef = useRef(0)
-  const cultureCountRef = useRef(0)
+  const docEditorRef = useRef<Editor | null>(null)
 
-  const handleSystemReady = useCallback((editor: Editor) => {
-    systemEditorRef.current = editor
+  const handleDocReady = useCallback((editor: Editor) => {
+    docEditorRef.current = editor
   }, [])
-
-  const handleGeographyReady = useCallback((editor: Editor) => {
-    geographyEditorRef.current = editor
-  }, [])
-
-  const handleCultureReady = useCallback((editor: Editor) => {
-    cultureEditorRef.current = editor
-  }, [])
-
-  const handleSystemCharCount = useCallback((count: number) => {
-    systemCountRef.current = count
-    onCharacterCount?.(count + geographyCountRef.current + cultureCountRef.current)
-  }, [onCharacterCount])
-
-  const handleGeographyCharCount = useCallback((count: number) => {
-    geographyCountRef.current = count
-    onCharacterCount?.(systemCountRef.current + count + cultureCountRef.current)
-  }, [onCharacterCount])
-
-  const handleCultureCharCount = useCallback((count: number) => {
-    cultureCountRef.current = count
-    onCharacterCount?.(systemCountRef.current + geographyCountRef.current + count)
-  }, [onCharacterCount])
 
   const handleSave = useCallback(async () => {
     setSaving(true)
     try {
-      const system = systemEditorRef.current?.getHTML() ?? country.system
-      const geography = geographyEditorRef.current?.getHTML() ?? country.geography
-      const culture = cultureEditorRef.current?.getHTML() ?? country.culture
+      const document = docEditorRef.current?.getJSON()
 
       await onSave(country.id as number, {
         name,
         parentId: country.parentId,
         description: '',
-        system,
-        geography,
-        culture,
+        document,
+        system: country.system,
+        geography: country.geography,
+        culture: country.culture,
         characters: editableCharIds,
         events: editableEventIds,
       })
@@ -245,45 +216,17 @@ function CountryEditorInner({
 
           <Separator />
 
-          {/* Political System */}
+          {/* System + Geography + Culture (merged into one document) */}
           <section>
-            <h3 className="text-base text-ink mb-3">政治制度</h3>
-            <EditorCore
-              onReady={handleSystemReady}
-              content={country.system}
-              placeholder="政治制度、权力结构..."
+            <h3 className="text-base text-ink mb-3">国家详情</h3>
+            <DocumentEditor
+              entityId={country.id as number}
+              entityType="country"
+              fallbackContent={mergeCountrySections(country.system, country.geography, country.culture)}
+              onReady={handleDocReady}
+              placeholder="政治制度、地理、文化..."
               onMentionClick={onMentionClick}
-              onCharacterCount={handleSystemCharCount}
-              onWikiLinkClick={onWikiLinkClick}
-            />
-          </section>
-
-          <Separator />
-
-          {/* Geography */}
-          <section>
-            <h3 className="text-base text-ink mb-3">地理环境</h3>
-            <EditorCore
-              onReady={handleGeographyReady}
-              content={country.geography}
-              placeholder="地形、气候、自然资源..."
-              onMentionClick={onMentionClick}
-              onCharacterCount={handleGeographyCharCount}
-              onWikiLinkClick={onWikiLinkClick}
-            />
-          </section>
-
-          <Separator />
-
-          {/* Culture */}
-          <section>
-            <h3 className="text-base text-ink mb-3">人文风貌</h3>
-            <EditorCore
-              onReady={handleCultureReady}
-              content={country.culture}
-              placeholder="文化、宗教、人口..."
-              onMentionClick={onMentionClick}
-              onCharacterCount={handleCultureCharCount}
+              onCharacterCount={onCharacterCount}
               onWikiLinkClick={onWikiLinkClick}
             />
           </section>
@@ -320,4 +263,13 @@ function CountryEditorInner({
       </div>
     </div>
   )
+}
+
+function mergeCountrySections(system: string, geography: string, culture: string): string | undefined {
+  if (!system && !geography && !culture) return undefined
+  const parts: string[] = []
+  if (system) { parts.push('<h2>政治制度</h2>'); parts.push(system) }
+  if (geography) { parts.push('<h2>地理环境</h2>'); parts.push(geography) }
+  if (culture) { parts.push('<h2>人文风貌</h2>'); parts.push(culture) }
+  return parts.join('\n')
 }

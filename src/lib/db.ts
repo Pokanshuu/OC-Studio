@@ -28,6 +28,15 @@ export class OCStudioDB extends Dexie {
       tags: '++id, name, category',
       operationLog: '++id, timestamp, targetType, targetId',
     })
+
+    this.version(4).stores({
+      characters: '++id, name, race, element, occupation, nationalityLegacy, countryId, deleted, _syncStatus',
+      events: '++id, title, time, parentEventId, isMajor, deleted, _syncStatus',
+      countries: '++id, name, parentId, deleted, _syncStatus',
+      worldEntries: '++id, title, category, parentId, deleted, _syncStatus',
+      tags: '++id, name, category',
+      operationLog: '++id, timestamp, targetType, targetId',
+    })
   }
 }
 

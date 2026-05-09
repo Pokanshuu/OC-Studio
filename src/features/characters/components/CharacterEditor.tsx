@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { Save, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react'
 import type { Editor } from '@tiptap/core'
-import { EditorCore } from '@/components/editor/EditorCore'
+import { DocumentEditor } from '@/components/editor/DocumentEditor'
 import type { Character, RelatedCharacter } from '@/types'
 import type { CharacterFormData } from '../types'
 import { useCharacter, useUpdateCharacter } from '../hooks/useCharacters'
@@ -121,10 +121,7 @@ function CharacterEditorInner({
   )
 
   const [saving, setSaving] = useState(false)
-  const bioEditorRef = useRef<Editor | null>(null)
-  const lifeStoryEditorRef = useRef<Editor | null>(null)
-  const bioCountRef = useRef(0)
-  const lifeStoryCountRef = useRef(0)
+  const docEditorRef = useRef<Editor | null>(null)
 
   const { characters: allCharacters } = useCharacterList()
   const { countries } = useCountryList()
@@ -187,23 +184,9 @@ function CharacterEditorInner({
     [],
   )
 
-  const handleBioReady = useCallback((editor: Editor) => {
-    bioEditorRef.current = editor
+  const handleDocReady = useCallback((editor: Editor) => {
+    docEditorRef.current = editor
   }, [])
-
-  const handleLifeStoryReady = useCallback((editor: Editor) => {
-    lifeStoryEditorRef.current = editor
-  }, [])
-
-  const handleBioCharCount = useCallback((count: number) => {
-    bioCountRef.current = count
-    onCharacterCount?.(count + lifeStoryCountRef.current)
-  }, [onCharacterCount])
-
-  const handleLifeStoryCharCount = useCallback((count: number) => {
-    lifeStoryCountRef.current = count
-    onCharacterCount?.(bioCountRef.current + count)
-  }, [onCharacterCount])
 
   function parseAliases(str: string): string[] {
     return str
@@ -215,8 +198,7 @@ function CharacterEditorInner({
   const handleSave = useCallback(async () => {
     setSaving(true)
     try {
-      const bio = bioEditorRef.current?.getHTML() ?? character.bio
-      const lifeStory = lifeStoryEditorRef.current?.getHTML() ?? character.lifeStory
+      const document = docEditorRef.current?.getJSON()
 
       await onSave(character.id as number, {
         name,
@@ -229,8 +211,9 @@ function CharacterEditorInner({
         height,
         birthday,
         avatarUrl: character.avatarUrl,
-        bio,
-        lifeStory,
+        bio: character.bio,
+        lifeStory: character.lifeStory,
+        document,
         relatedCharacters,
         gallery: character.gallery,
         avatars: character.avatars,
@@ -386,30 +369,17 @@ function CharacterEditorInner({
 
           <div className="border-t border-line" />
 
-          {/* Bio (rich text) */}
+          {/* Bio + LifeStory (merged into one document) */}
           <section>
-            <h3 className="text-base text-ink mb-3">人物简介</h3>
-            <EditorCore
-              onReady={handleBioReady}
-              content={character.bio}
+            <h3 className="text-base text-ink mb-3">人物详情</h3>
+            <DocumentEditor
+              entityId={character.id as number}
+              entityType="character"
+              fallbackContent={mergeBioLifeStory(character.bio, character.lifeStory)}
+              onReady={handleDocReady}
               placeholder="编写角色简介..."
               onMentionClick={onMentionClick}
-              onCharacterCount={handleBioCharCount}
-              onWikiLinkClick={onWikiLinkClick}
-            />
-          </section>
-
-          <div className="border-t border-line" />
-
-          {/* Life Story (rich text) */}
-          <section>
-            <h3 className="text-base text-ink mb-3">人物生平</h3>
-            <EditorCore
-              onReady={handleLifeStoryReady}
-              content={character.lifeStory}
-              placeholder="编写角色生平..."
-              onMentionClick={onMentionClick}
-              onCharacterCount={handleLifeStoryCharCount}
+              onCharacterCount={onCharacterCount}
               onWikiLinkClick={onWikiLinkClick}
             />
           </section>
@@ -443,4 +413,15 @@ function CharacterEditorInner({
       </div>
     </div>
   )
+}
+
+function mergeBioLifeStory(bio: string, lifeStory: string): string | undefined {
+  if (!bio && !lifeStory) return undefined
+  const parts: string[] = []
+  if (bio) parts.push(bio)
+  if (lifeStory) {
+    parts.push('<h2>人物生平</h2>')
+    parts.push(lifeStory)
+  }
+  return parts.join('\n')
 }

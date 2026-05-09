@@ -123,9 +123,8 @@ export function TrashView() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-line px-6 py-3">
+      <div className="flex items-center justify-between border-b border-line px-6 py-3 min-h-[60px]">
         <div className="flex items-center gap-3">
-          <Trash2 size={18} strokeWidth={2} className="text-ink-muted" />
           <h2 className="text-lg text-ink">回收站</h2>
           {items.length > 0 ? (
             <span className="rounded border border-line px-2 py-0.5 text-xs text-ink-muted">

@@ -325,7 +325,7 @@ export function CharacterList({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-line px-6 py-3">
+      <div className="flex items-center justify-between border-b border-line px-6 py-3 min-h-[60px]">
         <div className="flex items-center gap-3">
           <h2 className="text-lg text-ink">角色</h2>
           <Separator orientation="vertical" className="h-4 !self-center" />

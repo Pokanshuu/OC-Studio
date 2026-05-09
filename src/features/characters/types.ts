@@ -13,6 +13,7 @@ export interface CharacterFormData {
   avatarUrl: string
   bio: string
   lifeStory: string
+  document?: unknown
   relatedCharacters: RelatedCharacter[]
   gallery: GalleryImage[]
   avatars: AvatarImage[]

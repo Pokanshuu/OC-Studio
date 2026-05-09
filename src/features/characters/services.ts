@@ -139,7 +139,21 @@ export async function updateCharacter(
     )
   }
 
+  if (data.document !== undefined) {
+    ;(updates as Record<string, unknown>).document = data.document
+  }
+
   await db.characters.update(id, updates)
+}
+
+export async function saveDocument(id: number, document: unknown): Promise<void> {
+  const now = Date.now()
+  await db.characters.update(id, {
+    document,
+    updatedAt: now,
+    _syncStatus: 'pending',
+    _lastModified: now,
+  })
 }
 
 export async function deleteCharacter(id: number): Promise<void> {

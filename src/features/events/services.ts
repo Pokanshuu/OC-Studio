@@ -101,7 +101,21 @@ export async function updateEvent(id: number, data: Partial<EventFormData>): Pro
     )
   }
 
+  if (data.document !== undefined) {
+    ;(updates as Record<string, unknown>).document = data.document
+  }
+
   await db.events.update(id, updates)
+}
+
+export async function saveDocument(id: number, document: unknown): Promise<void> {
+  const now = Date.now()
+  await db.events.update(id, {
+    document,
+    updatedAt: now,
+    _syncStatus: 'pending',
+    _lastModified: now,
+  })
 }
 
 export async function deleteEvent(id: number): Promise<void> {

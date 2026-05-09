@@ -207,7 +207,7 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
               <ArrowLeft size={16} strokeWidth={2} />
             </button>
           ) : null}
-          <h2 className="text-lg text-ink">百科</h2>
+          <h2 className="text-lg text-ink">世界观</h2>
         </div>
         <div className="flex items-center gap-1">
           {!isMobile ? (
@@ -258,7 +258,7 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
       <div className="flex flex-1 flex-col min-w-0">
         {selectedId !== null && currentEntry ? (
           <>
-            <div className="flex items-center justify-between border-b border-line px-6 py-3">
+      <div className="flex items-center justify-between border-b border-line px-6 py-3 min-h-[60px]">
               <div className="flex items-center gap-3 flex-1 min-w-0">
                 {treeCollapsed && !isMobile ? (
                   <button
@@ -287,8 +287,9 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
                 />
               </div>
             </div>
-            <div className="flex-1 overflow-auto">
+            <div className="flex-1 overflow-auto px-8 py-2">
               <EditorCore
+                plain
                 key={selectedId}
                 onReady={handleEditorReady}
                 content=""
