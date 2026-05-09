@@ -5,6 +5,7 @@ import { WordCountProvider } from "@/components/layout/WordCountContext";
 import { EntityNavigateProvider } from "@/components/layout/EntityNavigateContext";
 import { NavigationSourceProvider } from "@/components/layout/NavigationSourceContext";
 import { SettingsProvider } from "@/lib/settings";
+import { ActiveEditorProvider } from "@/lib/editor-context";
 import { Providers } from "./providers";
 import "./globals.css";
 
@@ -23,6 +24,7 @@ export default function RootLayout({
       <body className="flex h-screen flex-col overflow-hidden bg-paper">
         <Providers>
           <SettingsProvider>
+            <ActiveEditorProvider>
             <EntityNavigateProvider>
               <WordCountProvider>
                 <NavigationProvider>
@@ -34,6 +36,7 @@ export default function RootLayout({
                 </NavigationProvider>
               </WordCountProvider>
             </EntityNavigateProvider>
+            </ActiveEditorProvider>
           </SettingsProvider>
         </Providers>
       </body>
