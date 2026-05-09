@@ -27,6 +27,7 @@ import { searchAllEntitiesFlat } from '@/lib/reference-registry'
 import { adjustSuggestionPosition } from '@/lib/menu-utils'
 import type { ReferableEntity } from '@/lib/reference-registry'
 import { useDevice } from '@/lib/use-device'
+import { useActiveEditor } from '@/lib/editor-context'
 import { ContextMenu } from '@/components/shared/ContextMenu'
 import type { ContextMenuItem } from '@/components/shared/ContextMenu'
 
@@ -170,6 +171,7 @@ export function EditorCore({
   const editorRef = useRef<Editor | null>(null)
   const [isTableActive, setIsTableActive] = useState(false)
   const { isMobile } = useDevice()
+  const { setActiveEditor } = useActiveEditor()
 
   const handleBlockMenuEvent = useCallback((e: Event) => {
     const detail = (e as CustomEvent).detail
@@ -291,6 +293,7 @@ export function EditorCore({
     content: content ?? '',
     onCreate({ editor: readyEditor }) {
       editorRef.current = readyEditor as Editor
+      setActiveEditor(readyEditor as Editor)
       onReady(readyEditor as Editor)
       onCharacterCount?.(readyEditor.getText().length)
       onContentChange?.(readyEditor.getHTML())
@@ -314,6 +317,15 @@ export function EditorCore({
     }
   }, [editor])
 
+  useEffect(() => {
+    if (!editor) return
+    const handleFocus = () => setActiveEditor(editor)
+    editor.on('focus', handleFocus)
+    return () => {
+      editor.off('focus', handleFocus)
+    }
+  }, [editor, setActiveEditor])
+
   const contextMenuItems = useMemo((): ContextMenuItem[] => [
     {
       label: '撤销',
@@ -329,23 +341,35 @@ export function EditorCore({
     {
       label: '剪切',
       shortcut: 'Ctrl+X',
-      onClick: () => { try { document.execCommand('cut') } catch { /* noop */ } },
+      onClick: () => {
+        editor?.view.focus()
+        try { document.execCommand('cut') } catch { /* noop */ }
+      },
     },
     {
       label: '复制',
       shortcut: 'Ctrl+C',
-      onClick: () => { try { document.execCommand('copy') } catch { /* noop */ } },
+      onClick: () => {
+        editor?.view.focus()
+        try { document.execCommand('copy') } catch { /* noop */ }
+      },
     },
     {
       label: '粘贴',
       shortcut: 'Ctrl+V',
-      onClick: () => { try { document.execCommand('paste') } catch { /* noop */ } },
+      onClick: () => {
+        if (!editor) return
+        editor.view.focus()
+        navigator.clipboard.readText()
+          .then((text) => { editor.chain().focus().insertContent(text).run() })
+          .catch(() => {})
+      },
     },
     { separator: true, label: '', onClick: () => {} },
     {
       label: '全选',
       shortcut: 'Ctrl+A',
-      onClick: () => { try { document.execCommand('selectAll') } catch { /* noop */ } },
+      onClick: () => editor?.chain().focus().selectAll().run(),
     },
     { separator: true, label: '', onClick: () => {} },
     {

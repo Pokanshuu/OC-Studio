@@ -12,6 +12,7 @@ import { useSettingsTrigger } from '@/components/layout/SettingsTriggerContext'
 import { useSettings } from '@/lib/settings'
 import type { Settings } from '@/lib/settings'
 import { useImportExport } from '@/components/shared/ImportExportUI'
+import { useActiveEditor } from '@/lib/editor-context'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -45,35 +46,44 @@ const TYPE_LABEL_MAP: Record<string, string> = {
   world: '词条',
 }
 
-function handleUndo() {
-  try { document.execCommand('undo') } catch { /* noop */ }
-}
-
-function handleRedo() {
-  try { document.execCommand('redo') } catch { /* noop */ }
-}
-
-function handleCut() {
-  try { document.execCommand('cut') } catch { /* noop */ }
-}
-
-function handleCopy() {
-  try { document.execCommand('copy') } catch { /* noop */ }
-}
-
-function handlePaste() {
-  try { document.execCommand('paste') } catch { /* noop */ }
-}
-
-function handleSelectAll() {
-  try { document.execCommand('selectAll') } catch { /* noop */ }
-}
-
 export function MenuBar() {
   const { navigateToEntity } = useEntityNavigate()
   const { settings, updateSetting } = useSettings()
   const { openSettings } = useSettingsTrigger()
   const { handleExport, handleImportClick, dialog: importExportDialog } = useImportExport()
+  const { activeEditor } = useActiveEditor()
+
+  const handleUndo = useCallback(() => {
+    activeEditor?.chain().focus().undo().run()
+  }, [activeEditor])
+
+  const handleRedo = useCallback(() => {
+    activeEditor?.chain().focus().redo().run()
+  }, [activeEditor])
+
+  const handleCut = useCallback(() => {
+    if (!activeEditor) return
+    activeEditor.view.focus()
+    try { document.execCommand('cut') } catch { /* noop */ }
+  }, [activeEditor])
+
+  const handleCopy = useCallback(() => {
+    if (!activeEditor) return
+    activeEditor.view.focus()
+    try { document.execCommand('copy') } catch { /* noop */ }
+  }, [activeEditor])
+
+  const handlePaste = useCallback(() => {
+    if (!activeEditor) return
+    activeEditor.view.focus()
+    navigator.clipboard.readText()
+      .then((text) => { activeEditor.chain().focus().insertContent(text).run() })
+      .catch(() => {})
+  }, [activeEditor])
+
+  const handleSelectAll = useCallback(() => {
+    activeEditor?.chain().focus().selectAll().run()
+  }, [activeEditor])
 
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<GroupedResults[]>([])
