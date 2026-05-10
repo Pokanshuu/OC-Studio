@@ -1,6 +1,6 @@
 {
   "name": "oc-studio",
-  "version": "0.1.0",
+  "version": "0.1.3-alpha",
   "private": true,
   "scripts": {
     "dev": "next dev",
