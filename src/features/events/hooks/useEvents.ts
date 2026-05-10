@@ -52,6 +52,12 @@ export function useEventList(): {
     }
   }, [refreshKey])
 
+  useEffect(() => {
+    const handler = () => refresh()
+    window.addEventListener('data-updated', handler)
+    return () => window.removeEventListener('data-updated', handler)
+  }, [refresh])
+
   return { events, loading, error, refresh }
 }
 

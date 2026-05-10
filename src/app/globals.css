@@ -167,6 +167,9 @@
   html {
     @apply font-sans;
   }
+  button {
+    @apply hover:bg-paper-alt dark:hover:bg-white/5;
+  }
 }
 
 body {

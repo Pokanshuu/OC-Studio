@@ -1,6 +1,7 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useEffect } from 'react'
 import type { Country } from '@/types'
 import type { CountryFormData } from '../types'
 import * as countryService from '../services'
@@ -22,6 +23,12 @@ export function useCountryList(): {
     queryFn: () => countryService.getCountries(),
     staleTime: 30_000,
   })
+
+  useEffect(() => {
+    const handler = () => { void refetch() }
+    window.addEventListener('data-updated', handler)
+    return () => window.removeEventListener('data-updated', handler)
+  }, [refetch])
 
   return {
     countries: data ?? [],

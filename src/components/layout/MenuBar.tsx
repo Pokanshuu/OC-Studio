@@ -394,21 +394,21 @@ export function MenuBar() {
 
       <div className="flex items-center gap-0">
         <button
-          className="h-7 w-7 flex items-center justify-center rounded text-ink-muted hover:text-ink hover:bg-paper-card transition-colors"
+          className="h-7 w-7 flex items-center justify-center rounded text-ink-muted hover:text-ink hover:bg-paper-card dark:hover:bg-white/10 transition-colors"
           onClick={() => { appWindow?.minimize() }}
           aria-label="最小化"
         >
           <Minus size={14} strokeWidth={2} />
         </button>
         <button
-          className="h-7 w-7 flex items-center justify-center rounded text-ink-muted hover:text-ink hover:bg-paper-card transition-colors"
+          className="h-7 w-7 flex items-center justify-center rounded text-ink-muted hover:text-ink hover:bg-paper-card dark:hover:bg-white/10 transition-colors"
           onClick={() => { appWindow?.toggleMaximize() }}
           aria-label={isMaximized ? '还原' : '最大化'}
         >
           {isMaximized ? <Minimize2 size={14} strokeWidth={2} /> : <Maximize2 size={14} strokeWidth={2} />}
         </button>
         <button
-          className="h-7 w-7 flex items-center justify-center rounded text-ink-muted hover:text-error hover:bg-red-50/50 transition-colors"
+          className="h-7 w-7 flex items-center justify-center rounded text-ink-muted hover:text-error hover:bg-red-50/50 dark:hover:bg-red-900 transition-colors"
           onClick={() => { appWindow?.close() }}
           aria-label="关闭"
         >

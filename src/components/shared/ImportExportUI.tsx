@@ -17,7 +17,14 @@ import {
 
 import { exportAllData, downloadJson } from '@/lib/export'
 import { validateImportData, importData } from '@/lib/import'
-import type { ImportSummary } from '@/lib/import'
+import type { ImportSummary, MergeStrategy } from '@/lib/import'
+
+const MERGE_OPTIONS: { value: MergeStrategy; label: string; description: string }[] = [
+  { value: 'skip', label: '跳过重复', description: '仅添加不重名的数据，已有记录保持不变' },
+  { value: 'overwrite', label: '覆盖重复', description: '用导入数据替换本地同名记录' },
+  { value: 'keep-both', label: '保留两者', description: '导入数据作为新条目，生成新 ID' },
+  { value: 'replace', label: '清空并导入', description: '清除所有数据后导入，等同于覆盖替换' },
+]
 
 export function useImportExport() {
   const queryClient = useQueryClient()
@@ -27,6 +34,7 @@ export function useImportExport() {
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [importing, setImporting] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [strategy, setStrategy] = useState<MergeStrategy>('skip')
 
   const handleExport = useCallback(async () => {
     if (exporting) return
@@ -57,6 +65,7 @@ export function useImportExport() {
         const s = validateImportData(json)
         setPendingJson(json)
         setSummary(s)
+        setStrategy('skip')
         setConfirmOpen(true)
       } catch (err) {
         const message = err instanceof Error ? err.message : '无效的数据格式'
@@ -74,8 +83,15 @@ export function useImportExport() {
     if (!pendingJson) return
     setImporting(true)
     try {
-      await importData(pendingJson, queryClient)
-      toast.success('导入成功')
+      const result = await importData(pendingJson, strategy, queryClient)
+      window.dispatchEvent(new CustomEvent('data-updated'))
+
+      const parts: string[] = []
+      if (result.added > 0) parts.push(`新增 ${result.added} 条`)
+      if (result.skipped > 0) parts.push(`跳过 ${result.skipped} 条`)
+      if (result.overwritten > 0) parts.push(`覆盖 ${result.overwritten} 条`)
+
+      toast.success(`导入完成：${parts.join('，')}`)
       setConfirmOpen(false)
       setPendingJson(null)
       setSummary(null)
@@ -84,7 +100,7 @@ export function useImportExport() {
     } finally {
       setImporting(false)
     }
-  }, [pendingJson, queryClient])
+  }, [pendingJson, strategy, queryClient])
 
   const handleCancel = useCallback(() => {
     setConfirmOpen(false)
@@ -110,12 +126,44 @@ export function useImportExport() {
           <AlertDialogHeader>
             <AlertDialogTitle>确认导入数据</AlertDialogTitle>
             <AlertDialogDescription>
-              此操作将<span className="text-error">覆盖现有数据</span>，当前数据库中的所有记录将被清除。
               {summaryText ? (
                 <span className="mt-1 block">导入数据包含：{summaryText}</span>
               ) : null}
             </AlertDialogDescription>
           </AlertDialogHeader>
+
+          <div className="flex flex-col gap-2 py-2">
+            <span className="text-sm text-ink-muted">重复记录处理策略</span>
+            {MERGE_OPTIONS.map((opt) => (
+              <label
+                key={opt.value}
+                className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors ${
+                  strategy === opt.value
+                    ? 'border-line-hover bg-paper-card'
+                    : 'border-line hover:border-line-hover'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="merge-strategy"
+                  value={opt.value}
+                  checked={strategy === opt.value}
+                  onChange={() => setStrategy(opt.value)}
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded-full border-line bg-paper-card text-ink accent-ink"
+                />
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-sm text-ink">{opt.label}</span>
+                  <span className="text-xs text-ink-muted">{opt.description}</span>
+                  {opt.value === 'keep-both' && strategy === 'keep-both' ? (
+                    <span className="text-xs text-error pt-0.5">
+                      注意：关联关系（如 relatedCharacters）可能需要手动修复
+                    </span>
+                  ) : null}
+                </div>
+              </label>
+            ))}
+          </div>
+
           <AlertDialogFooter>
             <AlertDialogCancel onClick={handleCancel}>取消</AlertDialogCancel>
             <AlertDialogAction
