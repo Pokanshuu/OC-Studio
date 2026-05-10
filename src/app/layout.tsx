@@ -19,7 +19,23 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-CN" className="h-full antialiased">
+    <html lang="zh-CN" className="h-full antialiased" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var s = JSON.parse(localStorage.getItem('oc-studio-settings') || '{}');
+                  var t = s.theme || 'auto';
+                  var d = t === 'auto' ? window.matchMedia('(prefers-color-scheme: dark)').matches : t === 'dark';
+                  if (d) { document.documentElement.classList.add('dark'); document.documentElement.setAttribute('data-theme', 'dark'); }
+                } catch(e) {}
+              })()
+            `,
+          }}
+        />
+      </head>
       <body className="flex h-screen flex-col overflow-hidden bg-paper">
         <Providers>
           <SettingsProvider>

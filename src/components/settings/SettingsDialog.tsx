@@ -76,28 +76,24 @@ export function SettingsDialog({ open, onOpenChange, defaultTab = "general" }: S
                   </button>
                 </label>
 
-                <label className="flex items-center justify-between">
-                  <div className="flex flex-col">
-                    <span className="text-sm text-ink">自动切换暗黑模式</span>
-                    <span className="text-xs text-ink-faint">根据系统主题自动切换</span>
+                <div className="flex flex-col gap-2">
+                  <span className="text-sm text-ink">主题</span>
+                  <div className="flex gap-2">
+                    {(["light", "dark", "auto"] as const).map((t) => (
+                      <button
+                        key={t}
+                        onClick={() => updateSetting("theme", t)}
+                        className={`flex-1 h-9 rounded border px-3 text-sm transition-colors ${
+                          settings.theme === t
+                            ? "border-line-hover bg-paper-card text-ink"
+                            : "border-line text-ink-muted hover:text-ink"
+                        }`}
+                      >
+                        {t === "light" ? "白天" : t === "dark" ? "夜间" : "跟随系统"}
+                      </button>
+                    ))}
                   </div>
-                  <button
-                    role="switch"
-                    aria-checked={settings.autoDarkMode}
-                    onClick={() => updateSetting("autoDarkMode", !settings.autoDarkMode)}
-                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border transition-colors ${
-                      settings.autoDarkMode
-                        ? "border-ink bg-ink"
-                        : "border-line bg-paper-card"
-                    }`}
-                  >
-                    <span
-                      className={`block h-3.5 w-3.5 rounded-full transition-transform ${
-                        settings.autoDarkMode ? "translate-x-[18px] bg-paper" : "translate-x-[2px] bg-ink-muted"
-                      }`}
-                    />
-                  </button>
-                </label>
+                </div>
               </div>
             </TabsContent>
 

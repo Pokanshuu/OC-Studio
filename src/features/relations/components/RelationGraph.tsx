@@ -182,7 +182,7 @@ export function RelationGraph({
         <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#E7E3DC" />
         <Controls className="!border !border-line !rounded-md !bg-paper !shadow-none" position="bottom-right" />
 
-        <Panel position="top-left" className="flex items-center gap-4 bg-paper/90 backdrop-blur-sm border border-line rounded-md px-3 py-2 m-3">
+        <Panel position="top-left" className="flex items-center gap-4 bg-paper/70 backdrop-blur-md border border-line rounded-md px-3 py-2 m-3">
           <div className="flex items-center gap-1">
             <button
               onClick={() => setShowCharacters(!showCharacters)}

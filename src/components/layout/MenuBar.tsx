@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
-import { Search, Users, Calendar, Flag, BookOpen, Minus, Maximize2, Minimize2, X } from 'lucide-react'
+import { Search, Users, Calendar, Flag, BookOpen, Minus, Maximize2, Minimize2, X, Check } from 'lucide-react'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 
 let appWindow: ReturnType<typeof getCurrentWindow> | null = null
@@ -10,7 +10,6 @@ import { searchAllEntitiesFlat } from '@/lib/reference-registry'
 import { useEntityNavigate } from '@/components/layout/EntityNavigateContext'
 import { useSettingsTrigger } from '@/components/layout/SettingsTriggerContext'
 import { useSettings } from '@/lib/settings'
-import type { Settings } from '@/lib/settings'
 import { useImportExport } from '@/components/shared/ImportExportUI'
 import {
   DropdownMenu,
@@ -80,6 +79,20 @@ export function MenuBar() {
   const [isOpen, setIsOpen] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [isMaximized, setIsMaximized] = useState(false)
+  const [openMenu, setOpenMenu] = useState<string | null>(null)
+  const openMenuRef = useRef<string | null>(null)
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const setOpen = (v: string | null) => {
+    openMenuRef.current = v
+    setOpenMenu(v)
+  }
+
+  const scheduleSwitch = (menu: string) => {
+    if (!openMenuRef.current || openMenuRef.current === menu) return
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current)
+    hoverTimerRef.current = setTimeout(() => setOpen(menu), 25)
+  }
 
   useEffect(() => {
     if (!appWindow) return
@@ -183,13 +196,6 @@ export function MenuBar() {
     })
   }, [])
 
-  const cycleTheme = useCallback(() => {
-    const order: Array<Settings["theme"]> = ["light", "dark", "auto"]
-    const currentIdx = order.indexOf(settings.theme === "auto" ? "auto" : settings.theme)
-    const next = order[(currentIdx + 1) % order.length]
-    updateSetting("theme", next)
-  }, [settings.theme, updateSetting])
-
   return (
     <>
     <nav
@@ -199,8 +205,8 @@ export function MenuBar() {
       <div className="flex items-center gap-4">
         <span className="font-serif text-sm text-ink">OC Studio</span>
         <div className="hidden sm:flex sm:items-center sm:gap-1">
-          <DropdownMenu>
-            <DropdownMenuTrigger>文件</DropdownMenuTrigger>
+          <DropdownMenu open={openMenu === 'file'} onOpenChange={(o) => { if (o) setOpen('file'); else if (openMenuRef.current === 'file') setOpen(null) }}>
+            <DropdownMenuTrigger onMouseEnter={() => scheduleSwitch('file')}>文件</DropdownMenuTrigger>
             <DropdownMenuContent>
               <DropdownMenuItem onClick={handleImportClick}>
                 导入...
@@ -235,8 +241,8 @@ export function MenuBar() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger>编辑</DropdownMenuTrigger>
+          <DropdownMenu open={openMenu === 'edit'} onOpenChange={(o) => { if (o) setOpen('edit'); else if (openMenuRef.current === 'edit') setOpen(null) }}>
+            <DropdownMenuTrigger onMouseEnter={() => scheduleSwitch('edit')}>编辑</DropdownMenuTrigger>
             <DropdownMenuContent>
               <DropdownMenuItem onClick={handleUndo}>
                 撤销
@@ -267,8 +273,8 @@ export function MenuBar() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger>视图</DropdownMenuTrigger>
+          <DropdownMenu open={openMenu === 'view'} onOpenChange={(o) => { if (o) setOpen('view'); else if (openMenuRef.current === 'view') setOpen(null) }}>
+            <DropdownMenuTrigger onMouseEnter={() => scheduleSwitch('view')}>视图</DropdownMenuTrigger>
             <DropdownMenuContent>
               <DropdownMenuItem onClick={() => updateSetting("editMode", !settings.editMode)}>
                 {settings.editMode ? "浏览模式" : "编辑模式"}
@@ -277,14 +283,30 @@ export function MenuBar() {
                 {settings.sidebarVisible ? "隐藏侧边栏" : "显示侧边栏"}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={cycleTheme}>
-                {settings.theme === "dark" ? "浅色模式" : settings.theme === "light" ? "深色模式" : "跟随系统"}
-              </DropdownMenuItem>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  主题
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  <DropdownMenuItem onClick={() => updateSetting("theme", "light")}>
+                    <span>白天模式</span>
+                    {settings.theme === "light" ? <Check size={14} strokeWidth={2} className="ml-auto" /> : null}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => updateSetting("theme", "dark")}>
+                    <span>夜间模式</span>
+                    {settings.theme === "dark" ? <Check size={14} strokeWidth={2} className="ml-auto" /> : null}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => updateSetting("theme", "auto")}>
+                    <span>跟随系统</span>
+                    {settings.theme === "auto" ? <Check size={14} strokeWidth={2} className="ml-auto" /> : null}
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger>关于</DropdownMenuTrigger>
+          <DropdownMenu open={openMenu === 'about'} onOpenChange={(o) => { if (o) setOpen('about'); else if (openMenuRef.current === 'about') setOpen(null) }}>
+            <DropdownMenuTrigger onMouseEnter={() => scheduleSwitch('about')}>关于</DropdownMenuTrigger>
             <DropdownMenuContent>
               <DropdownMenuItem onClick={() => openSettings("about")}>
                 关于软件
@@ -315,7 +337,7 @@ export function MenuBar() {
           {isOpen ? (
             <div
               ref={panelRef}
-              className="absolute left-0 top-[calc(100%+4px)] z-50 w-full rounded-md border border-line bg-paper/90 backdrop-blur-sm shadow-none ring-1 ring-black/5 max-h-[320px] overflow-auto"
+              className="absolute left-0 top-[calc(100%+4px)] z-50 w-full rounded-md border border-line bg-paper/70 backdrop-blur-md shadow-none ring-1 ring-black/5 max-h-[320px] overflow-auto"
             >
               {results.length === 0 ? (
                 <div className="px-3 py-4 text-center text-sm text-ink-faint">
