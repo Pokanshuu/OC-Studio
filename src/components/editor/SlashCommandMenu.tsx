@@ -131,7 +131,7 @@ export const SlashCommand = Extension.create({
 
             popup = document.createElement('div')
             popup.className =
-              'absolute z-50 max-h-[60vh] overflow-auto rounded-md border border-line bg-paper/90 backdrop-blur-sm p-1 shadow-none ring-1 ring-black/5 min-w-[180px]'
+              'absolute z-50 max-h-[60vh] overflow-auto rounded-md border border-line bg-paper/70 backdrop-blur-md p-1 shadow-none ring-1 ring-black/5 min-w-[180px]'
 
             const rect = props.clientRect?.()
             if (rect) {
