@@ -4,15 +4,37 @@
 
 @custom-variant dark (&:is(.dark *));
 
+:root {
+  --oc-paper: #FEFCF8;
+  --oc-paper-alt: #FAF7F2;
+  --oc-paper-card: #F3EFE9;
+  --oc-line: #E7E3DC;
+  --oc-line-hover: #D6D0C4;
+  --oc-ink: #2B2B2B;
+  --oc-ink-muted: #6E6A63;
+  --oc-ink-faint: #A5A098;
+}
+
+.dark {
+  --oc-paper: #1C1B1A;
+  --oc-paper-alt: #242321;
+  --oc-paper-card: #2D2B28;
+  --oc-line: #38352F;
+  --oc-line-hover: #4A4642;
+  --oc-ink: #E3DFD8;
+  --oc-ink-muted: #A5A098;
+  --oc-ink-faint: #6E6A63;
+}
+
 @theme inline {
-  --color-paper: #FEFCF8;
-  --color-paper-alt: #FAF7F2;
-  --color-paper-card: #F3EFE9;
-  --color-line: #E7E3DC;
-  --color-line-hover: #D6D0C4;
-  --color-ink: #2B2B2B;
-  --color-ink-muted: #6E6A63;
-  --color-ink-faint: #A5A098;
+  --color-paper: var(--oc-paper);
+  --color-paper-alt: var(--oc-paper-alt);
+  --color-paper-card: var(--oc-paper-card);
+  --color-line: var(--oc-line);
+  --color-line-hover: var(--oc-line-hover);
+  --color-ink: var(--oc-ink);
+  --color-ink-muted: var(--oc-ink-muted);
+  --color-ink-faint: var(--oc-ink-faint);
   --color-error: #B36651;
   --color-warning: #C68D44;
   --color-success: #A5A098;
@@ -434,4 +456,29 @@ body {
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+}
+
+/* 自定义滚动条 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--oc-line-hover); /* 亮色 #D6D0C4 / 暗色 #4A4642 */
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--oc-ink-faint); /* 亮色 #A5A098 / 暗色 #6E6A63 */
+}
+
+/* Firefox 兜底 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--oc-line-hover) transparent;
 }

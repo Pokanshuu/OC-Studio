@@ -85,7 +85,7 @@ function SubMenu({ item }: { item: ContextMenuItem }) {
           ref={subRef}
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
-          className="absolute z-50 ml-1 flex min-w-[140px] flex-col rounded-md border border-line bg-paper p-1 shadow-none ring-1 ring-black/5"
+          className="absolute z-50 ml-1 flex min-w-[140px] flex-col rounded-md border border-line bg-paper/70 backdrop-blur-md p-1 shadow-none ring-1 ring-black/5"
           style={subStyle}
         >
           {children.map((child, i) => {
@@ -169,7 +169,7 @@ export function ContextMenu({ children, items }: ContextMenuProps) {
         <div className="pointer-events-none fixed inset-0 z-50">
           <div
             ref={menuRef}
-            className="pointer-events-auto absolute flex flex-col rounded-md border border-line bg-paper p-1 shadow-none ring-1 ring-black/5"
+            className="pointer-events-auto absolute flex flex-col rounded-md border border-line bg-paper/70 backdrop-blur-md p-1 shadow-none ring-1 ring-black/5"
             style={{
               left: adjPosition.x,
               top: adjPosition.y,

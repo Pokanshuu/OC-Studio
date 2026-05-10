@@ -73,22 +73,21 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const root = document.documentElement
     const applyTheme = () => {
-      if (settings.autoDarkMode) {
-        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
-        root.classList.toggle("dark", prefersDark)
-      } else {
-        root.classList.toggle("dark", settings.theme === "dark")
-      }
+      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
+      const isDark = settings.theme === "auto" ? prefersDark : settings.theme === "dark"
+
+      root.classList.toggle("dark", isDark)
+      root.setAttribute("data-theme", isDark ? "dark" : "light")
     }
     applyTheme()
 
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
     const handler = () => {
-      if (settings.autoDarkMode) applyTheme()
+      if (settings.theme === "auto") applyTheme()
     }
     mediaQuery.addEventListener("change", handler)
     return () => mediaQuery.removeEventListener("change", handler)
-  }, [settings.theme, settings.autoDarkMode])
+  }, [settings.theme])
 
   const updateSetting = useCallback(
     <K extends keyof Settings>(key: K, value: Settings[K]) => {

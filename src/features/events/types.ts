@@ -9,6 +9,7 @@ export interface EventFormData {
   summary: string
   isMajor: boolean
   content: string
+  document?: unknown
   characters?: number[]
   countries?: number[]
 }

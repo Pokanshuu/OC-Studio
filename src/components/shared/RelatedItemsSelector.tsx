@@ -142,7 +142,7 @@ export function RelatedItemsSelector({
             className="h-8 w-full rounded border border-line bg-paper-card px-3 text-sm text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none"
           />
           {open && filtered.length > 0 ? (
-            <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-md border border-line bg-paper p-1 shadow-none ring-1 ring-black/5 max-h-48 overflow-auto">
+            <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-md border border-line bg-paper/70 backdrop-blur-md p-1 shadow-none ring-1 ring-black/5 max-h-48 overflow-auto">
               {filtered.map((item) => (
                 <button
                   key={item.id}

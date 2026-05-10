@@ -28,6 +28,7 @@ export interface Character {
   avatarUrl: string
   bio: string
   lifeStory: string
+  document?: unknown
   relationships: Relationship[]
   relatedCharacters: RelatedCharacter[]
   gallery: GalleryImage[]
@@ -53,6 +54,7 @@ export interface Event {
   location: string
   summary: string
   content: string
+  document?: unknown
   characters: number[]
   countries?: number[]
   parentEventId: number | null
@@ -82,6 +84,7 @@ export interface Country {
   name: string
   parentId: number | null
   description: string
+  document?: unknown
   system: string
   geography: string
   culture: string
@@ -99,6 +102,7 @@ export interface WorldEntry {
   id?: number
   title: string
   content: string
+  document?: unknown
   category: string
   parentId: number | null
   order: number
