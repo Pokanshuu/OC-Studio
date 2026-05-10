@@ -81,7 +81,21 @@ export async function updateCountry(id: number, data: Partial<CountryFormData>):
     await logOperation(TABLE, id, 'events', JSON.stringify(existing.events), JSON.stringify(data.events))
   }
 
+  if (data.document !== undefined) {
+    ;(updates as Record<string, unknown>).document = data.document
+  }
+
   await db.countries.update(id, updates)
+}
+
+export async function saveDocument(id: number, document: unknown): Promise<void> {
+  const now = Date.now()
+  await db.countries.update(id, {
+    document,
+    updatedAt: now,
+    _syncStatus: 'pending',
+    _lastModified: now,
+  })
 }
 
 export async function deleteCountry(id: number): Promise<void> {

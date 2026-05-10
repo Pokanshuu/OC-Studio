@@ -204,7 +204,7 @@ function FilterSelect({
       </button>
 
       {open ? (
-        <div className="absolute left-0 top-full z-30 mt-1 flex max-h-64 flex-col overflow-auto rounded-md border border-line bg-paper p-1 shadow-none ring-1 ring-black/5">
+        <div className="absolute left-0 top-full z-30 mt-1 flex max-h-64 flex-col overflow-auto rounded-md border border-line bg-paper/70 backdrop-blur-md p-1 shadow-none ring-1 ring-black/5">
           {options.map((opt) => (
             <button
               key={opt.value}
@@ -898,7 +898,7 @@ function TimelineToolbar({
   countryOptions: FilterOption[]
 }) {
   return (
-    <div className="flex items-center justify-between border-b border-line px-6 py-3">
+    <div className="flex items-center justify-between border-b border-line px-6 py-3 min-h-[60px]">
       <div className="flex items-center gap-3">
         <h2 className="text-lg text-ink">时间线</h2>
         <Separator orientation="vertical" className="h-4 !self-center" />
