@@ -315,7 +315,7 @@ export function MenuBar() {
           {isOpen ? (
             <div
               ref={panelRef}
-              className="absolute left-0 top-[calc(100%+4px)] z-50 w-full rounded-md border border-line bg-paper shadow-none ring-1 ring-black/5 max-h-[320px] overflow-auto"
+              className="absolute left-0 top-[calc(100%+4px)] z-50 w-full rounded-md border border-line bg-paper/90 backdrop-blur-sm shadow-none ring-1 ring-black/5 max-h-[320px] overflow-auto"
             >
               {results.length === 0 ? (
                 <div className="px-3 py-4 text-center text-sm text-ink-faint">

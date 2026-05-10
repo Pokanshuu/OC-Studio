@@ -396,6 +396,38 @@ function CharacterEditorInner({
               placeholder="搜索关联角色..."
               onNavigateItem={onNavigateToCharacter}
             />
+
+            {relatedCharacters.length > 0 ? (
+              <div className="mt-3 space-y-2">
+                {relatedCharacters.map((rc, idx) => (
+                  <div key={rc.characterId ?? idx} className="flex items-center gap-2">
+                    <span className="text-sm text-ink-muted w-20 shrink-0 truncate">{rc.name}</span>
+                    <span className="text-sm text-ink-muted shrink-0">关系：</span>
+                    <input
+                      type="text"
+                      value={rc.relation}
+                      onChange={(e) => {
+                        const next = [...relatedCharacters]
+                        next[idx] = { ...next[idx], relation: e.target.value }
+                        setRelatedCharacters(next)
+                      }}
+                      placeholder="挚友、师徒..."
+                      className="flex-1 h-9 rounded border border-line bg-paper-card px-3 text-sm text-ink placeholder:text-ink-faint focus:border-line-hover focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRelatedCharacters(relatedCharacters.filter((_, i) => i !== idx))
+                        handleRelatedCharactersChange(relatedCharacterIds.filter((id) => id !== rc.characterId))
+                      }}
+                      className="text-ink-faint hover:text-error text-sm px-1"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </section>
 
           <div className="border-t border-line" />

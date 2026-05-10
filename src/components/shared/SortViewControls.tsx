@@ -55,7 +55,7 @@ function SortSelect({
       </button>
 
       {open ? (
-        <div className="absolute left-0 top-full z-30 mt-1 flex flex-col rounded-md border border-line bg-paper p-1 shadow-none ring-1 ring-black/5">
+        <div className="absolute left-0 top-full z-30 mt-1 flex flex-col rounded-md border border-line bg-paper/90 backdrop-blur-sm p-1 shadow-none ring-1 ring-black/5">
           {options.map((opt) => (
             <button
               key={opt.value}

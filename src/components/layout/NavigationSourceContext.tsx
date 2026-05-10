@@ -7,6 +7,7 @@ export type NavigationSource =
   | 'characterList'
   | 'countryList'
   | 'timeline'
+  | 'relations'
   | null
 
 interface NavigationSourceContextValue {
