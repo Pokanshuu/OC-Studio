@@ -18,14 +18,14 @@
 - **暗黑模式**：白天/夜间/跟随系统，完整设计令牌覆盖，无纯黑纯白
 - **全局搜索**：`Ctrl+K` / `Cmd+K` 唤起，跨模块搜索角色、事件、国家、词条
 - **回收站**：软删除条目管理，支持恢复和永久删除，按类型分组展示
-- **数据导入/导出**：JSON 格式（`.ocbak`），支持数据备份与迁移
+- **数据导入/导出**：JSON 格式（`.ocbak`），支持增量合并（跳过/覆盖/保留两者/清空）
 - **桌面应用**：Windows 原生体验（Tauri 打包），无边框窗口
 
 ---
 
 ## 技术栈
 
-- **前端**：Next.js 14 (App Router) + TypeScript + Tailwind CSS v4 + shadcn/ui
+- **前端**：Next.js 16 (App Router) + TypeScript + Tailwind CSS v4 + shadcn/ui
 - **编辑器**：Tiptap (ProseMirror)
 - **本地数据库**：Dexie.js (IndexedDB)
 - **图谱**：@xyflow/react
