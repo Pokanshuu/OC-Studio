@@ -53,6 +53,12 @@ export function useEntryList() {
     return () => { cancelled = true }
   }, [refreshKey])
 
+  useEffect(() => {
+    const handler = () => refresh()
+    window.addEventListener('data-updated', handler)
+    return () => window.removeEventListener('data-updated', handler)
+  }, [refresh])
+
   return { entries, loading, error, refresh }
 }
 

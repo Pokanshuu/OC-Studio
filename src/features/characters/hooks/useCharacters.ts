@@ -56,6 +56,12 @@ export function useCharacterList(): {
     }
   }, [refreshKey])
 
+  useEffect(() => {
+    const handler = () => refresh()
+    window.addEventListener('data-updated', handler)
+    return () => window.removeEventListener('data-updated', handler)
+  }, [refresh])
+
   return { characters, loading, error, refresh }
 }
 
