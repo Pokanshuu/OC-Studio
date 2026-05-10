@@ -77,7 +77,7 @@ function createMentionRender() {
       if (!props.clientRect || props.items.length === 0) return
       if (isComposing(props.editor)) return
       popup = document.createElement('div')
-      popup.className = 'absolute z-50 max-h-56 overflow-auto rounded-md border border-line bg-paper p-1 shadow-none ring-1 ring-black/5 min-w-[200px]'
+      popup.className = 'absolute z-50 max-h-56 overflow-auto rounded-md border border-line bg-paper/90 backdrop-blur-sm p-1 shadow-none ring-1 ring-black/5 min-w-[200px]'
       const rect = props.clientRect()
       if (rect) {
         popup.style.left = `${rect.left}px`
@@ -470,7 +470,7 @@ export function EditorCore({
         }
       }}
     >
-      <BubbleMenu editor={editor} className="flex gap-0.5 rounded-md border border-line bg-paper p-1 shadow-none ring-1 ring-black/5">
+      <BubbleMenu editor={editor} className="flex gap-0.5 rounded-md border border-line bg-paper/90 backdrop-blur-sm p-1 shadow-none ring-1 ring-black/5">
         <button onClick={() => editor.chain().focus().toggleBold().run()} className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${editor.isActive('bold') ? 'bg-paper-card text-ink' : 'text-ink-muted hover:bg-paper-card hover:text-ink'}`}>
           <Bold size={16} strokeWidth={2} />
         </button>

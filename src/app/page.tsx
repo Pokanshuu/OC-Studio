@@ -17,15 +17,14 @@ import { useCreateCountry, useDeleteCountry } from '@/features/countries/hooks/u
 import { WorldLayout } from '@/features/world/components/WorldLayout'
 import { TimelineView } from '@/features/timeline/components/TimelineView'
 import { TrashView } from '@/features/trash/components/TrashView'
+import { RelationGraph } from '@/features/relations'
 import type { EventFormData } from '@/features/events/types'
 
 type EventView = { sub: 'list' } | { sub: 'editor'; eventId: number }
 type CharacterView = { sub: 'list' } | { sub: 'editor'; characterId: number }
 type CountryView = { sub: 'list' } | { sub: 'editor'; countryId: number }
 
-const PLACEHOLDER_MAP: Record<string, string> = {
-  '关系图': '关系网络开发中...',
-}
+const PLACEHOLDER_MAP: Record<string, string> = {}
 
 export default function Home() {
   const { activeItem, setActiveItem } = useNavigation()
@@ -245,7 +244,8 @@ const [worldSelectedEntryId, setWorldSelectedEntryId] = useState<number | null>(
     if (
       eventView.sub === 'editor' ||
       characterView.sub === 'editor' ||
-      countryView.sub === 'editor'
+      countryView.sub === 'editor' ||
+      activeItem === '关系图'
     ) {
       crossBackRef.current = {
         activeItem,
@@ -293,7 +293,8 @@ const [worldSelectedEntryId, setWorldSelectedEntryId] = useState<number | null>(
   const showWorld = activeItem === '世界观'
   const showTimeline = activeItem === '时间线'
   const showTrash = activeItem === '回收站'
-  const showPlaceholder = activeItem !== null && !showEvents && !showCharacters && !showCountries && !showWorld && !showTimeline && !showTrash
+  const showRelations = activeItem === '关系图'
+  const showPlaceholder = activeItem !== null && !showEvents && !showCharacters && !showCountries && !showWorld && !showTimeline && !showTrash && !showRelations
   const placeholderText = activeItem !== null
     ? (PLACEHOLDER_MAP[activeItem] ?? '功能开发中...')
     : null
@@ -470,6 +471,29 @@ const [worldSelectedEntryId, setWorldSelectedEntryId] = useState<number | null>(
         }}
       >
         <TrashView />
+      </div>
+
+      <div
+        className="h-full"
+        style={{
+          display: showRelations ? undefined : 'none',
+        }}
+      >
+        <RelationGraph
+          visible={showRelations}
+          onNavigateToCharacter={(id) => {
+            setSource('relations')
+            handleRelatedItemNavigate(id, 'character')
+          }}
+          onNavigateToEvent={(id) => {
+            setSource('relations')
+            handleRelatedItemNavigate(id, 'event')
+          }}
+          onNavigateToCountry={(id) => {
+            setSource('relations')
+            handleRelatedItemNavigate(id, 'country')
+          }}
+        />
       </div>
 
       <div
