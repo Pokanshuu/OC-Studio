@@ -200,11 +200,7 @@ export function SettingsDialog({ open, onOpenChange, defaultTab = "general" }: S
               <div className="flex flex-col gap-5">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-ink">版本</span>
-<<<<<<< HEAD
-                  <span className="text-sm text-ink-muted font-mono">0.1.1</span>
-=======
                   <span className="text-sm text-ink-muted font-mono">v0.1.3-alpha</span>
->>>>>>> feature/relation-graph
                 </div>
                 <button
                   disabled
