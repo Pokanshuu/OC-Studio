@@ -234,13 +234,6 @@ export function MenuBar() {
     }
   }, [selectedIndex])
 
-  useEffect(() => {
-    console.log('[MenuBar] Tauri 环境检测:', {
-      hasTAURI: typeof window !== 'undefined' && '__TAURI__' in window,
-      appWindow: typeof window !== 'undefined' && '__TAURI__' in window,
-    })
-  }, [])
-
   return (
     <>
     <nav
@@ -392,7 +385,7 @@ export function MenuBar() {
             ? createPortal(
                 <div
                   ref={panelRef}
-                  className="fixed rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-md shadow-none ring-1 ring-black/5 max-h-[320px] overflow-auto"
+                  className="fixed rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-md shadow-none ring-1 ring-black/5 max-h-[320px] overflow-auto pointer-events-auto"
                   style={{
                     left: panelPos.x,
                     top: panelPos.y,

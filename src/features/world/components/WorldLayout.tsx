@@ -59,10 +59,8 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
     }
     const { title: t, content: c } = pendingSaveRef.current
     try {
-      console.log(`[save] flushSave 开始, id=${selectedIdRef.current}`)
       await saveEntryContent(selectedIdRef.current, t, c)
       pendingSaveRef.current = null
-      console.log(`[save] flushSave 写入成功, id=${selectedIdRef.current}`)
       refresh()
     } catch (err) {
       console.error(`[save] flushSave 写入失败:`, err)
@@ -72,7 +70,6 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
   const scheduleSave = useCallback((newTitle: string, json: object) => {
     if (!selectedIdRef.current) return
     const contentStr = JSON.stringify(json)
-    console.log(`[save] scheduleSave 排队, id=${selectedIdRef.current}`)
     pendingSaveRef.current = { title: newTitle, content: contentStr }
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => {
@@ -140,14 +137,11 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
     const handler = () => {
       if (selectedIdRef.current && pendingSaveRef.current) {
         if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-        console.log(`[WorldLayout] beforeunload 紧急保存, id=${selectedIdRef.current}`)
         void saveEntryContent(
           selectedIdRef.current,
           pendingSaveRef.current.title,
           pendingSaveRef.current.content,
-        ).then(() => {
-          console.log(`[WorldLayout] beforeunload 保存成功`)
-        }).catch((err) => {
+        ).catch((err) => {
           console.error(`[WorldLayout] beforeunload 保存失败:`, err)
         })
       }
@@ -181,7 +175,6 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
       editor.commands.setContent(content)
       setTimeout(() => {
         saveEnabledRef.current = true
-        console.log(`[save] 自动保存已启用(init), id=${selectedIdRef.current}`)
       }, 300)
     }
   }, [])
@@ -193,7 +186,6 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
       editorRef.current.commands.setContent(content)
       setTimeout(() => {
         saveEnabledRef.current = true
-        console.log(`[save] 自动保存已启用(update), id=${selectedId}`)
       }, 300)
     }
   }, [currentEntry, selectedId])

@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { invoke } from "@tauri-apps/api/core"
 import { Database, Cpu, Info } from "lucide-react"
 import {
   Dialog,
@@ -23,12 +24,6 @@ const TAB_ITEMS = [
   { value: "data", label: "数据与同步", icon: Database },
   { value: "ai", label: "AI 与云", icon: Cpu },
   { value: "about", label: "关于", icon: Info },
-] as const
-
-const BLUR_OPTIONS = [
-  { value: "mica", label: "Mica（云母）" },
-  { value: "acrylic", label: "亚克力" },
-  { value: "blur", label: "模糊" },
 ] as const
 
 const THEME_OPTIONS = [
@@ -75,46 +70,6 @@ function ThemeRadio({
   )
 }
 
-function BlurRadio({
-  value,
-  onChange,
-  disabled,
-}: {
-  value: string
-  onChange: (v: string) => void
-  disabled: boolean
-}) {
-  return (
-    <div className={`flex gap-3 ${disabled ? "opacity-50 pointer-events-none" : ""}`}>
-      {BLUR_OPTIONS.map((opt) => (
-        <label
-          key={opt.value}
-          className="flex items-center gap-2 cursor-pointer"
-        >
-          <div
-            className={`relative flex items-center justify-center rounded-full border h-4 w-4 shrink-0 ${
-              value === opt.value ? "border-line-hover" : "border-line"
-            } bg-paper-card`}
-          >
-            {value === opt.value && (
-              <div className="h-2 w-2 rounded-full bg-ink-muted" />
-            )}
-          </div>
-          <input
-            type="radio"
-            name="blur-effect"
-            value={opt.value}
-            checked={value === opt.value}
-            onChange={() => onChange(opt.value)}
-            className="sr-only"
-          />
-          <span className="text-sm text-ink">{opt.label}</span>
-        </label>
-      ))}
-    </div>
-  )
-}
-
 const SWITCH_CLASSES = {
   base: "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border transition-colors",
   on: "border-line-hover bg-ink-muted",
@@ -139,43 +94,35 @@ export function SettingsDialog({
     return localStorage.getItem("blur-effect-enabled") === "true"
   })
 
-  const [blurEffect, setBlurEffect] = useState(() => {
-    if (typeof window === "undefined") return "mica"
-    return localStorage.getItem("blur-effect-type") || "mica"
-  })
+  const [blurSupported, setBlurSupported] = useState(false)
 
   const isTauri =
     typeof window !== "undefined" &&
     ("__TAURI_INTERNALS__" in window || "__TAURI__" in window)
 
+  const toggleDisabled = !isTauri || !blurSupported
+
+  useEffect(() => {
+    if (!isTauri) return
+    try {
+      invoke<boolean>('init_blur', { enabled: false, isDark: false }).then((supported) => {
+        if (supported === true) setBlurSupported(true)
+      }).catch(() => {})
+    } catch {}
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleBlurToggle = () => {
+    if (toggleDisabled) return
     const next = !blurEnabled
     setBlurEnabled(next)
+    try { localStorage.setItem("blur-effect-enabled", String(next)) } catch {}
     try {
-      localStorage.setItem("blur-effect-enabled", String(next))
-    } catch {}
-    if (next) {
-      try {
-        import("@tauri-apps/api/core")
-          .then(({ invoke }) =>
-            invoke("update_blur_effect", { effect: blurEffect })
-          )
-          .catch(() => {})
-      } catch {}
-    }
-  }
-
-  const handleBlurEffectChange = (effect: string) => {
-    setBlurEffect(effect)
-    try {
-      localStorage.setItem("blur-effect-type", effect)
-    } catch {}
-    try {
-      import("@tauri-apps/api/core")
-        .then(({ invoke }) =>
-          invoke("update_blur_effect", { effect })
-        )
-        .catch(() => {})
+      invoke<boolean>("update_blur_effect", {
+        enabled: next,
+        isDark: document.documentElement.classList.contains("dark"),
+      }).then((applied) => {
+        document.documentElement.classList.toggle("tauri-mica", applied)
+      }).catch(() => {})
     } catch {}
   }
 
@@ -256,11 +203,11 @@ export function SettingsDialog({
                     <button
                       role="switch"
                       aria-checked={blurEnabled}
-                      disabled={!isTauri}
+                      disabled={toggleDisabled}
                       onClick={handleBlurToggle}
                       className={`${SWITCH_CLASSES.base} ${
                         blurEnabled ? SWITCH_CLASSES.on : SWITCH_CLASSES.off
-                      } ${!isTauri ? "opacity-50 cursor-not-allowed" : ""}`}
+                      } ${toggleDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
                     >
                       <span
                         className={`${SWITCH_DOT} ${
@@ -271,13 +218,6 @@ export function SettingsDialog({
                       />
                     </button>
                   </label>
-
-                  <span className="text-sm text-ink">模糊效果类型</span>
-                  <BlurRadio
-                    value={blurEffect}
-                    onChange={handleBlurEffectChange}
-                    disabled={!isTauri || !blurEnabled}
-                  />
                 </div>
               </div>
             </TabsContent>

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useCallback, useEffect, type ReactNode } from "react"
+import { invoke } from "@tauri-apps/api/core"
 import { MenuBar } from "@/components/layout/MenuBar"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { StatusBar } from "@/components/layout/StatusBar"
@@ -36,6 +37,21 @@ export function AppShell({ children }: { children: ReactNode }) {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
+  useEffect(() => {
+    requestIdleCallback(() => {
+      if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) return
+      try {
+        const enabled = localStorage.getItem('blur-effect-enabled') === 'true'
+        const isDark = document.documentElement.classList.contains('dark')
+        invoke<boolean>('init_blur', { enabled, isDark })
+          .then((applied) => {
+            document.documentElement.classList.toggle('tauri-mica', applied)
+          })
+          .catch(() => {})
+      } catch { /* 非 Tauri 环境静默跳过 */ }
+    })
   }, [])
 
   return (
