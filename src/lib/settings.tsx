@@ -1,6 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react"
+import { invoke } from "@tauri-apps/api/core"
 
 const STORAGE_KEY = "oc-studio-settings"
 
@@ -80,12 +81,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       root.setAttribute("data-theme", isDark ? "dark" : "light")
 
       if (typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window)) {
-        import("@tauri-apps/api/core")
-          .then(({ invoke }) => invoke<boolean>("update_theme", { isDark }))
-          .then((applied) => {
-            root.classList.toggle("tauri-mica", applied)
-          })
-          .catch(() => {})
+        try {
+          const enabled = window.localStorage.getItem("blur-effect-enabled") === "true"
+          invoke<boolean>("update_blur_effect", { enabled, isDark })
+            .then((applied) => {
+              root.classList.toggle("tauri-mica", applied)
+            })
+            .catch(() => {})
+        } catch {}
       }
     }
     applyTheme()

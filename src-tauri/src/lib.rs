@@ -1,32 +1,95 @@
-use tauri::Manager;
+use std::sync::OnceLock;
+
+#[cfg(target_os = "windows")]
+static IS_WIN11: OnceLock<bool> = OnceLock::new();
+
+#[cfg(target_os = "windows")]
+fn is_windows_11() -> bool {
+    *IS_WIN11.get_or_init(|| {
+        let v = windows_version::OsVersion::current();
+        v.major >= 10 && v.build >= 22000
+    })
+}
 
 #[tauri::command]
-fn update_theme(window: tauri::WebviewWindow, is_dark: bool) -> bool {
+fn init_blur(window: tauri::WebviewWindow, enabled: bool, is_dark: bool) -> bool {
+    use tauri::webview::Color;
+
     #[cfg(target_os = "windows")]
-    return window_vibrancy::apply_mica(&window, Some(is_dark)).is_ok();
+    {
+        if !is_windows_11() { return false; }
+        if enabled {
+            let _ = window.set_background_color(Some(Color(0, 0, 0, 0)));
+            window_vibrancy::apply_mica(&window, None).ok();
+        } else {
+            window_vibrancy::clear_mica(&window).ok();
+            window_vibrancy::clear_acrylic(&window).ok();
+            window_vibrancy::clear_blur(&window).ok();
+            let color = if is_dark { Color(28, 27, 26, 255) } else { Color(254, 252, 248, 255) };
+            let _ = window.set_background_color(Some(color));
+        }
+        return true;
+    }
 
     #[cfg(target_os = "macos")]
-    return window_vibrancy::apply_blur(&window, None, None, None).is_ok();
+    {
+        if enabled {
+            let _ = window.set_background_color(Some(Color(0, 0, 0, 0)));
+            window_vibrancy::apply_blur(&window, None, None, None).ok();
+        } else {
+            window_vibrancy::clear_vibrancy(&window).ok();
+            let color = if is_dark { Color(28, 27, 26, 255) } else { Color(254, 252, 248, 255) };
+            let _ = window.set_background_color(Some(color));
+        }
+        return true;
+    }
 
     #[cfg(target_os = "linux")]
     return false;
 }
 
 #[tauri::command]
-fn update_blur_effect(window: tauri::WebviewWindow, effect: String) {
+fn update_blur_effect(window: tauri::WebviewWindow, enabled: bool, is_dark: bool) -> bool {
+    use tauri::webview::Color;
+
     #[cfg(target_os = "windows")]
-    match effect.as_str() {
-        "mica" => { window_vibrancy::apply_mica(&window, None).ok(); }
-        "acrylic" => { window_vibrancy::apply_acrylic(&window, Some((18, 18, 18, 125))).ok(); }
-        "blur" => { window_vibrancy::apply_blur(&window, None).ok(); }
-        _ => {}
-    };
+    {
+        if enabled {
+            let _ = window.set_background_color(Some(Color(0, 0, 0, 0)));
+            if is_windows_11() {
+                window_vibrancy::apply_mica(&window, Some(is_dark)).ok();
+                return true;
+            } else {
+                let accent = if is_dark { (28, 27, 26, 200u8) } else { (254, 252, 248, 200u8) };
+                window_vibrancy::apply_acrylic(&window, Some(accent)).ok();
+                return true;
+            }
+        } else {
+            window_vibrancy::clear_mica(&window).ok();
+            window_vibrancy::clear_acrylic(&window).ok();
+            window_vibrancy::clear_blur(&window).ok();
+            let color = if is_dark { Color(28, 27, 26, 255) } else { Color(254, 252, 248, 255) };
+            let _ = window.set_background_color(Some(color));
+            return false;
+        }
+    }
 
     #[cfg(target_os = "macos")]
-    window_vibrancy::apply_blur(&window, None, None, None).ok();
+    {
+        if enabled {
+            let _ = window.set_background_color(Some(Color(0, 0, 0, 0)));
+            window_vibrancy::apply_blur(&window, None, None, None).ok();
+            return true;
+        } else {
+            window_vibrancy::clear_vibrancy(&window).ok();
+            let color = if is_dark { Color(28, 27, 26, 255) } else { Color(254, 252, 248, 255) };
+            let _ = window.set_background_color(Some(color));
+            return false;
+        }
+    }
 
     #[cfg(target_os = "linux")]
-    { /* 不处理 */ }
+    return false;
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -41,25 +104,14 @@ pub fn run() {
         )?;
       }
 
+      use tauri::Manager;
       let window = app.get_webview_window("main").expect("主窗口未找到");
-
-      #[cfg(target_os = "windows")]
-      {
-        if window_vibrancy::apply_mica(&window, None).is_err() {
-          window_vibrancy::apply_acrylic(&window, Some((18, 18, 18, 125))).ok();
-        }
-      }
-
-      #[cfg(target_os = "macos")]
-      window_vibrancy::apply_blur(&window, None, None, None)
-        .expect("应用模糊效果失败");
-
-      #[cfg(target_os = "linux")]
-      { /* 不调用 window-vibrancy，保持透明无原生效果 */ }
+      use tauri::webview::Color;
+      let _ = window.set_background_color(Some(Color(254, 252, 248, 255)));
 
       Ok(())
     })
-    .invoke_handler(tauri::generate_handler![update_theme, update_blur_effect])
+    .invoke_handler(tauri::generate_handler![update_blur_effect, init_blur])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }

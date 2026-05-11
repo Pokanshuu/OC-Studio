@@ -86,6 +86,7 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-log",
  "window-vibrancy 0.7.1",
+ "windows-version",
 ]
 
 [[package]]
