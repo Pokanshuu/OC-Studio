@@ -73,7 +73,7 @@ function CountryFilterSelect({
       </button>
 
       {open ? (
-        <div className="absolute left-0 top-full z-30 mt-1 flex max-h-64 flex-col overflow-auto rounded-md border border-line bg-paper/70 backdrop-blur-md p-1 shadow-none ring-1 ring-black/5">
+        <div className="absolute left-0 top-full z-[1] mt-1 flex max-h-64 flex-col overflow-auto rounded-md border border-line bg-paper/70 backdrop-blur-md p-1 shadow-none ring-1 ring-black/5">
           {options.map((opt) => (
             <button
               key={opt.value}
@@ -166,7 +166,7 @@ function CharacterCard({
         </span>
       </button>
 
-      <div className="absolute right-3 top-3 z-10">
+      <div className="absolute right-3 top-3">
         <DeleteButton onDelete={() => onDelete(character.id as number)} />
       </div>
     </div>
@@ -289,8 +289,8 @@ export function CharacterList({
         (c) =>
           c.name.toLowerCase().includes(q) ||
           aliasesMatch(c.aliases, q) ||
-          c.race.toLowerCase().includes(q) ||
-          c.nationalityLegacy.toLowerCase().includes(q),
+          c.race?.toLowerCase().includes(q) ||
+          c.nationalityLegacy?.toLowerCase().includes(q),
       )
     }
     return sortCharacters(result, sortKey)

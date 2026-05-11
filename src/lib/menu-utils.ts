@@ -70,7 +70,7 @@ export function adjustSubMenuPosition(
   parentRect: DOMRect,
   subMenuWidth: number,
   subMenuHeight: number,
-): { xOffset: number; yOffset: number } {
+): { xOffset: number; yOffset: number; xViewport: number; yViewport: number } {
   const vw = window.innerWidth
   const vh = window.innerHeight
 
@@ -80,7 +80,6 @@ export function adjustSubMenuPosition(
   let x = defaultX
   let y = defaultY
 
-  // if sub-menu overflows right edge, flip to left
   if (x + subMenuWidth > vw - GAP) {
     x = parentRect.left - subMenuWidth - 4
     if (x < GAP) {
@@ -88,10 +87,9 @@ export function adjustSubMenuPosition(
     }
   }
 
-  // if sub-menu overflows bottom edge, shift up
   if (y + subMenuHeight > vh - GAP) {
     y = Math.max(GAP, vh - subMenuHeight - GAP)
   }
 
-  return { xOffset: x - parentRect.left, yOffset: y - parentRect.top }
+  return { xOffset: x - parentRect.left, yOffset: y - parentRect.top, xViewport: x, yViewport: y }
 }

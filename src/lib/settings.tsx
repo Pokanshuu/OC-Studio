@@ -78,6 +78,15 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
       root.classList.toggle("dark", isDark)
       root.setAttribute("data-theme", isDark ? "dark" : "light")
+
+      if (typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window)) {
+        import("@tauri-apps/api/core")
+          .then(({ invoke }) => invoke<boolean>("update_theme", { isDark }))
+          .then((applied) => {
+            root.classList.toggle("tauri-mica", applied)
+          })
+          .catch(() => {})
+      }
     }
     applyTheme()
 

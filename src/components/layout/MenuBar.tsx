@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { Search, Users, Calendar, Flag, BookOpen, Minus, Maximize2, Minimize2, X, Check } from 'lucide-react'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 
@@ -101,8 +102,34 @@ export function MenuBar() {
   const scheduleSwitch = (menu: string) => {
     if (!openMenuRef.current || openMenuRef.current === menu) return
     if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current)
-    hoverTimerRef.current = setTimeout(() => setOpen(menu), 25)
+    hoverTimerRef.current = setTimeout(() => setOpen(menu), 10)
   }
+
+  useEffect(() => {
+    if (!openMenu) return
+
+    const handler = (e: MouseEvent) => {
+      const triggers = document.querySelectorAll('[data-menu-trigger]')
+      for (const el of triggers) {
+        const rect = el.getBoundingClientRect()
+        if (
+          e.clientX >= rect.left &&
+          e.clientX <= rect.right &&
+          e.clientY >= rect.top &&
+          e.clientY <= rect.bottom
+        ) {
+          const menu = el.getAttribute('data-menu-trigger')
+          if (menu && menu !== openMenuRef.current) {
+            scheduleSwitch(menu)
+          }
+          break
+        }
+      }
+    }
+
+    document.addEventListener('mousemove', handler)
+    return () => document.removeEventListener('mousemove', handler)
+  }, [openMenu]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!appWindow) return
@@ -118,6 +145,14 @@ export function MenuBar() {
   }, [])
   const inputRef = useRef<HTMLInputElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
+  const searchWrapperRef = useRef<HTMLDivElement>(null)
+  const [panelPos, setPanelPos] = useState({ x: 0, y: 0 })
+
+  useEffect(() => {
+    if (!isOpen || !searchWrapperRef.current) return
+    const rect = searchWrapperRef.current.getBoundingClientRect()
+    setPanelPos({ x: rect.left, y: rect.bottom + 4 })
+  }, [isOpen])
 
   const flatItems = useMemo(
     () => results.flatMap((g) => g.items),
@@ -209,14 +244,17 @@ export function MenuBar() {
   return (
     <>
     <nav
+      data-menubar
       data-tauri-drag-region
-      className="relative z-40 flex h-10 shrink-0 items-center justify-between border-b border-line bg-paper-alt px-4"
+      className="relative flex h-10 shrink-0 items-center justify-between border-b border-line bg-transparent px-4"
     >
       <div className="flex items-center gap-4">
-        <span className="font-serif text-sm text-ink">OC Studio</span>
+        <span className="font-serif text-sm text-ink transparent-text">OC Studio</span>
         <div className="hidden sm:flex sm:items-center sm:gap-1">
           <DropdownMenu open={openMenu === 'file'} onOpenChange={(o) => { if (o) setOpen('file'); else if (openMenuRef.current === 'file') setOpen(null) }}>
-            <DropdownMenuTrigger onMouseEnter={() => scheduleSwitch('file')}>文件</DropdownMenuTrigger>
+            <span data-menu-trigger="file">
+              <DropdownMenuTrigger>文件</DropdownMenuTrigger>
+            </span>
             <DropdownMenuContent>
               <DropdownMenuItem onClick={handleImportClick}>
                 导入...
@@ -252,7 +290,9 @@ export function MenuBar() {
           </DropdownMenu>
 
           <DropdownMenu open={openMenu === 'edit'} onOpenChange={(o) => { if (o) setOpen('edit'); else if (openMenuRef.current === 'edit') setOpen(null) }}>
-            <DropdownMenuTrigger onMouseEnter={() => scheduleSwitch('edit')}>编辑</DropdownMenuTrigger>
+            <span data-menu-trigger="edit">
+              <DropdownMenuTrigger>编辑</DropdownMenuTrigger>
+            </span>
             <DropdownMenuContent>
               <DropdownMenuItem onClick={handleUndo}>
                 撤销
@@ -284,7 +324,9 @@ export function MenuBar() {
           </DropdownMenu>
 
           <DropdownMenu open={openMenu === 'view'} onOpenChange={(o) => { if (o) setOpen('view'); else if (openMenuRef.current === 'view') setOpen(null) }}>
-            <DropdownMenuTrigger onMouseEnter={() => scheduleSwitch('view')}>视图</DropdownMenuTrigger>
+            <span data-menu-trigger="view">
+              <DropdownMenuTrigger>视图</DropdownMenuTrigger>
+            </span>
             <DropdownMenuContent>
               <DropdownMenuItem onClick={() => updateSetting("editMode", !settings.editMode)}>
                 {settings.editMode ? "浏览模式" : "编辑模式"}
@@ -316,7 +358,9 @@ export function MenuBar() {
           </DropdownMenu>
 
           <DropdownMenu open={openMenu === 'about'} onOpenChange={(o) => { if (o) setOpen('about'); else if (openMenuRef.current === 'about') setOpen(null) }}>
-            <DropdownMenuTrigger onMouseEnter={() => scheduleSwitch('about')}>关于</DropdownMenuTrigger>
+            <span data-menu-trigger="about">
+              <DropdownMenuTrigger>关于</DropdownMenuTrigger>
+            </span>
             <DropdownMenuContent>
               <DropdownMenuItem onClick={() => openSettings("about")}>
                 关于软件
@@ -330,7 +374,7 @@ export function MenuBar() {
       </div>
 
       <div className="absolute left-1/2 -translate-x-1/2">
-        <div className="relative">
+        <div className="relative" ref={searchWrapperRef}>
           <Search size={14} strokeWidth={2} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-faint" />
           <input
             ref={inputRef}
@@ -341,14 +385,20 @@ export function MenuBar() {
             onBlur={() => { setTimeout(() => setIsOpen(false), 150) }}
             onKeyDown={handleKeyDown}
             placeholder="搜索..."
-            className="h-8 w-40 rounded border border-line bg-paper-card pl-8 pr-3 text-sm text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none sm:w-56 lg:w-64 xl:w-96"
+            className="h-8 w-40 rounded border border-line bg-black/5 dark:bg-white/5 pl-8 pr-3 text-sm text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none focus:bg-black/10 dark:focus:bg-white/10 sm:w-56 lg:w-64 xl:w-96"
           />
 
-          {isOpen ? (
-            <div
-              ref={panelRef}
-              className="absolute left-0 top-[calc(100%+4px)] z-50 w-full rounded-md border border-line bg-paper/70 backdrop-blur-md shadow-none ring-1 ring-black/5 max-h-[320px] overflow-auto"
-            >
+          {isOpen
+            ? createPortal(
+                <div
+                  ref={panelRef}
+                  className="fixed rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-md shadow-none ring-1 ring-black/5 max-h-[320px] overflow-auto"
+                  style={{
+                    left: panelPos.x,
+                    top: panelPos.y,
+                    width: searchWrapperRef.current?.getBoundingClientRect().width ?? 256,
+                  }}
+                >
               {results.length === 0 ? (
                 <div className="px-3 py-4 text-center text-sm text-ink-faint">
                   {query.trim() ? '无匹配结果' : '开始输入搜索...'}
@@ -387,28 +437,29 @@ export function MenuBar() {
                   )
                 })
               )}
-            </div>
+            </div>,
+            document.getElementById('overlay-root')!,
           ) : null}
         </div>
       </div>
 
       <div className="flex items-center gap-0">
         <button
-          className="h-7 w-7 flex items-center justify-center rounded text-ink-muted hover:text-ink hover:bg-paper-card dark:hover:bg-white/10 transition-colors"
+          className="h-7 w-7 flex items-center justify-center rounded text-ink-muted hover:text-ink hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
           onClick={() => { appWindow?.minimize() }}
           aria-label="最小化"
         >
           <Minus size={14} strokeWidth={2} />
         </button>
         <button
-          className="h-7 w-7 flex items-center justify-center rounded text-ink-muted hover:text-ink hover:bg-paper-card dark:hover:bg-white/10 transition-colors"
+          className="h-7 w-7 flex items-center justify-center rounded text-ink-muted hover:text-ink hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
           onClick={() => { appWindow?.toggleMaximize() }}
           aria-label={isMaximized ? '还原' : '最大化'}
         >
           {isMaximized ? <Minimize2 size={14} strokeWidth={2} /> : <Maximize2 size={14} strokeWidth={2} />}
         </button>
         <button
-          className="h-7 w-7 flex items-center justify-center rounded text-ink-muted hover:text-error hover:bg-red-50/50 dark:hover:bg-red-900 transition-colors"
+          className="h-7 w-7 flex items-center justify-center rounded text-ink-muted hover:text-error hover:bg-red-100 dark:hover:bg-red-900 transition-colors"
           onClick={() => { appWindow?.close() }}
           aria-label="关闭"
         >

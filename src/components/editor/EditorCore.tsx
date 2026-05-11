@@ -78,7 +78,7 @@ function createMentionRender() {
       if (!props.clientRect || props.items.length === 0) return
       if (isComposing(props.editor)) return
       popup = document.createElement('div')
-      popup.className = 'absolute z-50 max-h-56 overflow-auto rounded-md border border-line bg-paper/70 backdrop-blur-md p-1 shadow-none ring-1 ring-black/5 min-w-[200px]'
+      popup.className = 'absolute z-50 max-h-56 overflow-auto rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-md p-1 shadow-none ring-1 ring-black/5 min-w-[200px]'
       const rect = props.clientRect()
       if (rect) {
         popup.style.left = `${rect.left}px`
@@ -144,7 +144,7 @@ function renderMentionGroups(
     for (const item of groups[type]) {
       const btn = document.createElement('button')
       btn.type = 'button'
-      btn.className = 'flex w-full items-center gap-2 rounded-sm px-3 py-1.5 text-left text-sm text-ink transition-colors hover:bg-paper-alt'
+      btn.className = 'flex w-full items-center gap-2 rounded-sm px-3 py-1.5 text-left text-sm text-ink transition-colors hover:bg-black/5 dark:hover:bg-white/5'
       btn.innerHTML = `<span>${item.name}</span><span class="ml-auto text-xs text-ink-faint">${ENTITY_TYPE_LABELS[item.type] ?? item.type}</span>`
       btn.addEventListener('click', () => command(item))
       btn.addEventListener('mousedown', (e) => e.preventDefault())
@@ -494,17 +494,17 @@ export function EditorCore({
         }
       }}
     >
-      <BubbleMenu editor={editor} className="flex gap-0.5 rounded-md border border-line bg-paper/70 backdrop-blur-md p-1 shadow-none ring-1 ring-black/5">
-        <button onClick={() => editor.chain().focus().toggleBold().run()} className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${editor.isActive('bold') ? 'bg-paper-card text-ink' : 'text-ink-muted hover:bg-paper-card hover:text-ink'}`}>
+      <BubbleMenu editor={editor} className="flex gap-0.5 rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-md p-1 shadow-none ring-1 ring-black/5">
+        <button onClick={() => editor.chain().focus().toggleBold().run()} className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${editor.isActive('bold') ? 'bg-black/10 dark:bg-white/10 text-ink' : 'text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-ink'}`}>
           <Bold size={16} strokeWidth={2} />
         </button>
-        <button onClick={() => editor.chain().focus().toggleItalic().run()} className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${editor.isActive('italic') ? 'bg-paper-card text-ink' : 'text-ink-muted hover:bg-paper-card hover:text-ink'}`}>
+        <button onClick={() => editor.chain().focus().toggleItalic().run()} className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${editor.isActive('italic') ? 'bg-black/10 dark:bg-white/10 text-ink' : 'text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-ink'}`}>
           <Italic size={16} strokeWidth={2} />
         </button>
-        <button onClick={() => editor.chain().focus().toggleUnderline().run()} className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${editor.isActive('underline') ? 'bg-paper-card text-ink' : 'text-ink-muted hover:bg-paper-card hover:text-ink'}`}>
+        <button onClick={() => editor.chain().focus().toggleUnderline().run()} className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${editor.isActive('underline') ? 'bg-black/10 dark:bg-white/10 text-ink' : 'text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-ink'}`}>
           <UnderlineIcon size={16} strokeWidth={2} />
         </button>
-        <button onClick={() => { editor.chain().focus().insertContent('@').run() }} className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${editor.isActive('mention') ? 'bg-paper-card text-ink' : 'text-ink-muted hover:bg-paper-card hover:text-ink'}`} title="@ 引用">
+        <button onClick={() => { editor.chain().focus().insertContent('@').run() }} className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${editor.isActive('mention') ? 'bg-black/10 dark:bg-white/10 text-ink' : 'text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-ink'}`} title="@ 引用">
           <AtSign size={16} strokeWidth={2} />
         </button>
       </BubbleMenu>

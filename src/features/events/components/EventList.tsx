@@ -77,7 +77,7 @@ function EventCard({
         </span>
       </button>
 
-      <div className="absolute right-3 top-3 z-10">
+      <div className="absolute right-3 top-3">
         <DeleteButton onDelete={() => onDelete(event.id as number)} />
       </div>
     </div>
