@@ -101,27 +101,27 @@ export function GlobalContextMenu({ children }: { children: ReactNode }) {
     <div className="pointer-events-none fixed inset-0 z-50">
       <div
         ref={menuRef}
-        className="pointer-events-auto absolute flex flex-col rounded-md border border-line bg-paper/70 backdrop-blur-md p-1 shadow-none ring-1 ring-black/5"
+        className="pointer-events-auto absolute flex flex-col rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-md p-1 shadow-none ring-1 ring-black/5"
         style={{
           left: adjPosition.x,
           top: adjPosition.y,
           visibility: visible ? 'visible' : 'hidden',
         }}
       >
-        <button onClick={handleCut} className="flex items-center gap-4 rounded-sm px-3 py-1.5 text-left text-sm text-ink hover:bg-paper-alt">
+        <button onClick={handleCut} className="flex items-center gap-4 rounded-sm px-3 py-1.5 text-left text-sm text-ink hover:bg-black/5 dark:hover:bg-white/5">
           <span>剪切</span>
           <span className="ml-auto text-xs text-ink-faint">Ctrl+X</span>
         </button>
-        <button onClick={handleCopy} className="flex items-center gap-4 rounded-sm px-3 py-1.5 text-left text-sm text-ink hover:bg-paper-alt">
+        <button onClick={handleCopy} className="flex items-center gap-4 rounded-sm px-3 py-1.5 text-left text-sm text-ink hover:bg-black/5 dark:hover:bg-white/5">
           <span>复制</span>
           <span className="ml-auto text-xs text-ink-faint">Ctrl+C</span>
         </button>
-        <button onClick={handlePaste} className="flex items-center gap-4 rounded-sm px-3 py-1.5 text-left text-sm text-ink hover:bg-paper-alt">
+        <button onClick={handlePaste} className="flex items-center gap-4 rounded-sm px-3 py-1.5 text-left text-sm text-ink hover:bg-black/5 dark:hover:bg-white/5">
           <span>粘贴</span>
           <span className="ml-auto text-xs text-ink-faint">Ctrl+V</span>
         </button>
         <Separator className="my-1" />
-        <button onClick={handleSelectAll} className="flex items-center gap-4 rounded-sm px-3 py-1.5 text-left text-sm text-ink hover:bg-paper-alt">
+        <button onClick={handleSelectAll} className="flex items-center gap-4 rounded-sm px-3 py-1.5 text-left text-sm text-ink hover:bg-black/5 dark:hover:bg-white/5">
           <span>全选</span>
           <span className="ml-auto text-xs text-ink-faint">Ctrl+A</span>
         </button>
@@ -132,7 +132,7 @@ export function GlobalContextMenu({ children }: { children: ReactNode }) {
   return (
     <>
       {children}
-      {open ? createPortal(menuEl, document.body) : null}
+      {open ? createPortal(menuEl, document.getElementById('overlay-root')!) : null}
     </>
   )
 }

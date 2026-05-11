@@ -87,7 +87,7 @@ function renderItems(
   items.forEach((item, index) => {
     const btn = document.createElement('button')
     btn.type = 'button'
-    btn.className = `flex w-full items-center rounded-sm px-3 py-1.5 text-left text-sm transition-colors hover:bg-paper-alt ${
+    btn.className = `flex w-full items-center rounded-sm px-3 py-1.5 text-left text-sm transition-colors hover:bg-black/5 dark:hover:bg-white/5 ${
       index === selected ? 'bg-paper-card text-ink' : 'text-ink'
     }`
     btn.textContent = item.title

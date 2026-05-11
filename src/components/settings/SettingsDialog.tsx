@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Settings, Database, Cpu, Info } from "lucide-react"
+import { Database, Cpu, Info } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -19,22 +19,170 @@ interface SettingsDialogProps {
 }
 
 const TAB_ITEMS = [
-  { value: "general", label: "通用", icon: Settings },
+  { value: "general", label: "通用", icon: Cpu },
   { value: "data", label: "数据与同步", icon: Database },
   { value: "ai", label: "AI 与云", icon: Cpu },
   { value: "about", label: "关于", icon: Info },
 ] as const
 
-export function SettingsDialog({ open, onOpenChange, defaultTab = "general" }: SettingsDialogProps) {
+const BLUR_OPTIONS = [
+  { value: "mica", label: "Mica（云母）" },
+  { value: "acrylic", label: "亚克力" },
+  { value: "blur", label: "模糊" },
+] as const
+
+const THEME_OPTIONS = [
+  { value: "light", label: "白天模式" },
+  { value: "dark", label: "夜间模式" },
+  { value: "auto", label: "跟随系统" },
+] as const
+
+function ThemeRadio({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (v: string) => void
+}) {
+  return (
+    <div className="flex gap-3">
+      {THEME_OPTIONS.map((opt) => (
+        <label
+          key={opt.value}
+          className="flex items-center gap-2 cursor-pointer"
+        >
+          <div
+            className={`relative flex items-center justify-center rounded-full border h-4 w-4 shrink-0 ${
+              value === opt.value ? "border-line-hover" : "border-line"
+            } bg-paper-card`}
+          >
+            {value === opt.value && (
+              <div className="h-2 w-2 rounded-full bg-ink-muted" />
+            )}
+          </div>
+          <input
+            type="radio"
+            name="theme"
+            value={opt.value}
+            checked={value === opt.value}
+            onChange={() => onChange(opt.value)}
+            className="sr-only"
+          />
+          <span className="text-sm text-ink">{opt.label}</span>
+        </label>
+      ))}
+    </div>
+  )
+}
+
+function BlurRadio({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: string
+  onChange: (v: string) => void
+  disabled: boolean
+}) {
+  return (
+    <div className={`flex gap-3 ${disabled ? "opacity-50 pointer-events-none" : ""}`}>
+      {BLUR_OPTIONS.map((opt) => (
+        <label
+          key={opt.value}
+          className="flex items-center gap-2 cursor-pointer"
+        >
+          <div
+            className={`relative flex items-center justify-center rounded-full border h-4 w-4 shrink-0 ${
+              value === opt.value ? "border-line-hover" : "border-line"
+            } bg-paper-card`}
+          >
+            {value === opt.value && (
+              <div className="h-2 w-2 rounded-full bg-ink-muted" />
+            )}
+          </div>
+          <input
+            type="radio"
+            name="blur-effect"
+            value={opt.value}
+            checked={value === opt.value}
+            onChange={() => onChange(opt.value)}
+            className="sr-only"
+          />
+          <span className="text-sm text-ink">{opt.label}</span>
+        </label>
+      ))}
+    </div>
+  )
+}
+
+const SWITCH_CLASSES = {
+  base: "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border transition-colors",
+  on: "border-line-hover bg-ink-muted",
+  off: "border-line bg-paper-card",
+}
+
+const SWITCH_DOT =
+  "block h-3.5 w-3.5 rounded-full transition-transform bg-ink-muted"
+
+export function SettingsDialog({
+  open,
+  onOpenChange,
+  defaultTab = "general",
+}: SettingsDialogProps) {
   const { settings, updateSetting } = useSettings()
-  const { handleExport, handleImportClick, dialog: importExportDialog } = useImportExport()
+  const { handleExport, handleImportClick, dialog: importExportDialog } =
+    useImportExport()
   const [tab, setTab] = useState(defaultTab)
+
+  const [blurEnabled, setBlurEnabled] = useState(() => {
+    if (typeof window === "undefined") return false
+    return localStorage.getItem("blur-effect-enabled") === "true"
+  })
+
+  const [blurEffect, setBlurEffect] = useState(() => {
+    if (typeof window === "undefined") return "mica"
+    return localStorage.getItem("blur-effect-type") || "mica"
+  })
+
+  const isTauri =
+    typeof window !== "undefined" &&
+    ("__TAURI_INTERNALS__" in window || "__TAURI__" in window)
+
+  const handleBlurToggle = () => {
+    const next = !blurEnabled
+    setBlurEnabled(next)
+    try {
+      localStorage.setItem("blur-effect-enabled", String(next))
+    } catch {}
+    if (next) {
+      try {
+        import("@tauri-apps/api/core")
+          .then(({ invoke }) =>
+            invoke("update_blur_effect", { effect: blurEffect })
+          )
+          .catch(() => {})
+      } catch {}
+    }
+  }
+
+  const handleBlurEffectChange = (effect: string) => {
+    setBlurEffect(effect)
+    try {
+      localStorage.setItem("blur-effect-type", effect)
+    } catch {}
+    try {
+      import("@tauri-apps/api/core")
+        .then(({ invoke }) =>
+          invoke("update_blur_effect", { effect })
+        )
+        .catch(() => {})
+    } catch {}
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg p-0" showCloseButton={false}>
         <DialogHeader className="flex flex-row items-center gap-3 px-6 pt-6 pb-2">
-          <Settings size={18} strokeWidth={2} className="text-ink-muted" />
           <DialogTitle>设置</DialogTitle>
         </DialogHeader>
 
@@ -42,7 +190,11 @@ export function SettingsDialog({ open, onOpenChange, defaultTab = "general" }: S
           <div className="px-6">
             <TabsList className="w-full justify-start gap-0">
               {TAB_ITEMS.map((item) => (
-                <TabsTrigger key={item.value} value={item.value} className="flex items-center gap-1.5">
+                <TabsTrigger
+                  key={item.value}
+                  value={item.value}
+                  className="flex items-center gap-1.5"
+                >
                   <item.icon size={14} strokeWidth={2} />
                   <span className="hidden sm:inline">{item.label}</span>
                 </TabsTrigger>
@@ -51,26 +203,31 @@ export function SettingsDialog({ open, onOpenChange, defaultTab = "general" }: S
           </div>
 
           <div className="px-6 pb-6">
+            {/* ---- general ---- */}
             <TabsContent value="general">
               <div className="flex flex-col gap-5">
                 <label className="flex items-center justify-between">
                   <div className="flex flex-col">
                     <span className="text-sm text-ink">开机自启动</span>
-                    <span className="text-xs text-ink-faint">应用程序将在系统启动时自动运行</span>
+                    <span className="text-xs text-ink-faint">
+                      应用程序将在系统启动时自动运行
+                    </span>
                   </div>
                   <button
                     role="switch"
                     aria-checked={settings.autoStart}
-                    onClick={() => updateSetting("autoStart", !settings.autoStart)}
-                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border transition-colors ${
-                      settings.autoStart
-                        ? "border-ink bg-ink"
-                        : "border-line bg-paper-card"
+                    onClick={() =>
+                      updateSetting("autoStart", !settings.autoStart)
+                    }
+                    className={`${SWITCH_CLASSES.base} ${
+                      settings.autoStart ? SWITCH_CLASSES.on : SWITCH_CLASSES.off
                     }`}
                   >
                     <span
-                      className={`block h-3.5 w-3.5 rounded-full transition-transform ${
-                        settings.autoStart ? "translate-x-[18px] bg-paper" : "translate-x-[2px] bg-ink-muted"
+                      className={`${SWITCH_DOT} ${
+                        settings.autoStart
+                          ? "translate-x-[18px] bg-paper"
+                          : "translate-x-[2px]"
                       }`}
                     />
                   </button>
@@ -78,25 +235,54 @@ export function SettingsDialog({ open, onOpenChange, defaultTab = "general" }: S
 
                 <div className="flex flex-col gap-2">
                   <span className="text-sm text-ink">主题</span>
-                  <div className="flex gap-2">
-                    {(["light", "dark", "auto"] as const).map((t) => (
-                      <button
-                        key={t}
-                        onClick={() => updateSetting("theme", t)}
-                        className={`flex-1 h-9 rounded border px-3 text-sm transition-colors ${
-                          settings.theme === t
-                            ? "border-line-hover bg-paper-card text-ink"
-                            : "border-line text-ink-muted hover:text-ink"
+                  <ThemeRadio
+                    value={settings.theme}
+                    onChange={(v) =>
+                      updateSetting("theme", v as "light" | "dark" | "auto")
+                    }
+                  />
+                </div>
+
+                <div className="flex flex-col gap-3 pt-2 border-t border-line">
+                  <label className="flex items-center justify-between">
+                    <div className="flex flex-col">
+                      <span className="text-sm text-ink">
+                        启用窗口模糊效果
+                      </span>
+                      <span className="text-xs text-ink-faint">
+                        将在桌面环境下生效
+                      </span>
+                    </div>
+                    <button
+                      role="switch"
+                      aria-checked={blurEnabled}
+                      disabled={!isTauri}
+                      onClick={handleBlurToggle}
+                      className={`${SWITCH_CLASSES.base} ${
+                        blurEnabled ? SWITCH_CLASSES.on : SWITCH_CLASSES.off
+                      } ${!isTauri ? "opacity-50 cursor-not-allowed" : ""}`}
+                    >
+                      <span
+                        className={`${SWITCH_DOT} ${
+                          blurEnabled
+                            ? "translate-x-[18px] bg-paper"
+                            : "translate-x-[2px]"
                         }`}
-                      >
-                        {t === "light" ? "白天" : t === "dark" ? "夜间" : "跟随系统"}
-                      </button>
-                    ))}
-                  </div>
+                      />
+                    </button>
+                  </label>
+
+                  <span className="text-sm text-ink">模糊效果类型</span>
+                  <BlurRadio
+                    value={blurEffect}
+                    onChange={handleBlurEffectChange}
+                    disabled={!isTauri || !blurEnabled}
+                  />
                 </div>
               </div>
             </TabsContent>
 
+            {/* ---- data ---- */}
             <TabsContent value="data">
               <div className="flex flex-col gap-4">
                 <p className="text-sm text-ink-muted">
@@ -125,21 +311,30 @@ export function SettingsDialog({ open, onOpenChange, defaultTab = "general" }: S
                 <div className="flex items-center justify-between pt-2 border-t border-line">
                   <div className="flex flex-col">
                     <span className="text-sm text-ink">云同步</span>
-                    <span className="text-xs text-ink-faint">开启后将自动同步数据到云端</span>
+                    <span className="text-xs text-ink-faint">
+                      开启后将自动同步数据到云端
+                    </span>
                   </div>
                   <button
                     role="switch"
                     aria-checked={settings.cloudSyncEnabled}
-                    onClick={() => updateSetting("cloudSyncEnabled", !settings.cloudSyncEnabled)}
-                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border transition-colors ${
+                    onClick={() =>
+                      updateSetting(
+                        "cloudSyncEnabled",
+                        !settings.cloudSyncEnabled
+                      )
+                    }
+                    className={`${SWITCH_CLASSES.base} ${
                       settings.cloudSyncEnabled
-                        ? "border-ink bg-ink"
-                        : "border-line bg-paper-card"
+                        ? SWITCH_CLASSES.on
+                        : SWITCH_CLASSES.off
                     }`}
                   >
                     <span
-                      className={`block h-3.5 w-3.5 rounded-full transition-transform ${
-                        settings.cloudSyncEnabled ? "translate-x-[18px] bg-paper" : "translate-x-[2px] bg-ink-muted"
+                      className={`${SWITCH_DOT} ${
+                        settings.cloudSyncEnabled
+                          ? "translate-x-[18px] bg-paper"
+                          : "translate-x-[2px]"
                       }`}
                     />
                   </button>
@@ -147,6 +342,7 @@ export function SettingsDialog({ open, onOpenChange, defaultTab = "general" }: S
               </div>
             </TabsContent>
 
+            {/* ---- ai ---- */}
             <TabsContent value="ai">
               <div className="flex flex-col gap-5">
                 <div className="flex flex-col gap-1.5">
@@ -158,7 +354,9 @@ export function SettingsDialog({ open, onOpenChange, defaultTab = "general" }: S
                     placeholder="sk-..."
                     className="h-9 w-full rounded border border-line bg-paper-card px-3 text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
                   />
-                  <span className="text-xs text-ink-faint">密钥仅存储在本地，不会上传到任何服务器</span>
+                  <span className="text-xs text-ink-faint">
+                    密钥仅存储在本地，不会上传到任何服务器
+                  </span>
                 </div>
 
                 <div className="flex flex-col gap-1.5">
@@ -177,7 +375,9 @@ export function SettingsDialog({ open, onOpenChange, defaultTab = "general" }: S
                   <input
                     type="text"
                     value={settings.aiBaseUrl}
-                    onChange={(e) => updateSetting("aiBaseUrl", e.target.value)}
+                    onChange={(e) =>
+                      updateSetting("aiBaseUrl", e.target.value)
+                    }
                     placeholder="https://api.openai.com/v1"
                     className="h-9 w-full rounded border border-line bg-paper-card px-3 text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
                   />
@@ -188,7 +388,9 @@ export function SettingsDialog({ open, onOpenChange, defaultTab = "general" }: S
                   <input
                     type="text"
                     value={settings.syncServerUrl}
-                    onChange={(e) => updateSetting("syncServerUrl", e.target.value)}
+                    onChange={(e) =>
+                      updateSetting("syncServerUrl", e.target.value)
+                    }
                     placeholder="https://your-sync-server.com"
                     className="h-9 w-full rounded border border-line bg-paper-card px-3 text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
                   />
@@ -196,11 +398,14 @@ export function SettingsDialog({ open, onOpenChange, defaultTab = "general" }: S
               </div>
             </TabsContent>
 
+            {/* ---- about ---- */}
             <TabsContent value="about">
               <div className="flex flex-col gap-5">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-ink">版本</span>
-                  <span className="text-sm text-ink-muted font-mono">v0.1.3-alpha</span>
+                  <span className="text-sm text-ink-muted font-mono">
+                    v0.1.4-alpha
+                  </span>
                 </div>
                 <button
                   disabled
@@ -209,7 +414,7 @@ export function SettingsDialog({ open, onOpenChange, defaultTab = "general" }: S
                   检查更新
                 </button>
                 <a
-                  href="https://github.com/anomalyco/oc-studio"
+                  href="https://github.com/Pokanshuu/OC-Studio"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center justify-center h-9 px-4 rounded text-sm border border-line bg-paper-card text-ink transition-colors hover:border-line-hover hover:bg-paper-alt"

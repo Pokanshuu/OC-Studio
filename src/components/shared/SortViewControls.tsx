@@ -66,7 +66,7 @@ function SortSelect({
               className={`rounded-sm px-3 py-1.5 text-left text-sm transition-colors ${
                 sortKey === opt.value
                   ? 'bg-paper-card text-ink'
-                  : 'text-ink hover:bg-paper-alt'
+                  : 'text-ink hover:bg-black/5 dark:hover:bg-white/5'
               }`}
             >
               {opt.label}

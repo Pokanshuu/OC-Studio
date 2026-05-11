@@ -179,7 +179,7 @@ export function BlockTypeMenu({ editor, position, onClose, blockPos }: BlockType
         top: position.y - 4,
         zIndex: 100,
       }}
-      className="flex gap-0.5 rounded-md border border-line bg-paper-card p-1 shadow-none ring-1 ring-black/5"
+      className="flex gap-0.5 rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-md p-1 shadow-none ring-1 ring-black/5"
     >
       {buttons.map((btn) => (
         <button
@@ -190,7 +190,7 @@ export function BlockTypeMenu({ editor, position, onClose, blockPos }: BlockType
           className={`flex h-7 w-7 items-center justify-center rounded transition-colors ${
             btn.isActive()
               ? 'text-ink bg-paper-alt'
-              : 'text-ink-muted hover:text-ink hover:bg-paper-alt'
+              : 'text-ink-muted hover:text-ink hover:bg-black/5 dark:hover:bg-white/5'
           }`}
         >
           {btn.icon}

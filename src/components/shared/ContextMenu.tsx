@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback, useLayoutEffect, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { Separator } from '@/components/ui/separator'
 import { adjustContextMenuPosition, adjustSubMenuPosition } from '@/lib/menu-utils'
 
@@ -24,7 +25,28 @@ function SubMenu({ item }: { item: ContextMenuItem }) {
   const subRef = useRef<HTMLDivElement>(null)
   const itemRef = useRef<HTMLButtonElement>(null)
   const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastMouseRef = useRef({ x: 0, y: 0 })
   const [subStyle, setSubStyle] = useState<React.CSSProperties>({})
+
+  useEffect(() => {
+    if (!subOpen) return
+
+    const h = (e: MouseEvent) => {
+      lastMouseRef.current = { x: e.clientX, y: e.clientY }
+      if (!closeTimeoutRef.current || !subRef.current) return
+      const rect = subRef.current.getBoundingClientRect()
+      if (
+        e.clientX >= rect.left && e.clientX <= rect.right &&
+        e.clientY >= rect.top && e.clientY <= rect.bottom
+      ) {
+        clearTimeout(closeTimeoutRef.current)
+        closeTimeoutRef.current = null
+      }
+    }
+
+    document.addEventListener('mousemove', h, true)
+    return () => document.removeEventListener('mousemove', h, true)
+  }, [subOpen])
 
   const handleMouseEnter = useCallback(() => {
     if (closeTimeoutRef.current) {
@@ -37,7 +59,7 @@ function SubMenu({ item }: { item: ContextMenuItem }) {
   const handleMouseLeave = useCallback(() => {
     closeTimeoutRef.current = setTimeout(() => {
       setSubOpen(false)
-    }, 150)
+    }, 200)
   }, [])
 
   const handleItemClick = useCallback(() => {
@@ -50,8 +72,8 @@ function SubMenu({ item }: { item: ContextMenuItem }) {
     const subRect = subRef.current.getBoundingClientRect()
     const offset = adjustSubMenuPosition(parentRect, subRect.width, subRect.height)
     setSubStyle({
-      left: offset.xOffset,
-      top: offset.yOffset,
+      left: offset.xViewport,
+      top: offset.yViewport,
     })
   }, [subOpen])
 
@@ -64,14 +86,14 @@ function SubMenu({ item }: { item: ContextMenuItem }) {
   const children = item.children ?? []
 
   return (
-    <div className="relative">
+    <div>
       <button
         ref={itemRef}
         disabled={item.disabled}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         className={`flex w-full items-center gap-4 rounded-sm px-3 py-1.5 text-left text-sm transition-colors ${
-          item.disabled ? 'text-ink-faint' : 'text-ink hover:bg-paper-alt'
+          item.disabled ? 'text-ink-faint' : 'text-ink hover:bg-black/5 dark:hover:bg-white/5 dark:hover:bg-white/5'
         }`}
       >
         <span>{item.label}</span>
@@ -80,14 +102,15 @@ function SubMenu({ item }: { item: ContextMenuItem }) {
         </svg>
       </button>
 
-      {subOpen && children.length > 0 ? (
-        <div
-          ref={subRef}
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
-          className="absolute z-50 ml-1 flex min-w-[140px] flex-col rounded-md border border-line bg-paper/70 backdrop-blur-md p-1 shadow-none ring-1 ring-black/5"
-          style={subStyle}
-        >
+      {subOpen && children.length > 0
+        ? createPortal(
+            <div
+              ref={subRef}
+              onMouseEnter={handleMouseEnter}
+              onMouseLeave={handleMouseLeave}
+              className="fixed z-50 ml-1 flex min-w-[140px] flex-col rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-md p-1 shadow-none ring-1 ring-black/5 pointer-events-auto"
+              style={subStyle}
+            >
           {children.map((child, i) => {
             if (child.separator) {
               return <Separator key={i} className="my-1" />
@@ -102,10 +125,10 @@ function SubMenu({ item }: { item: ContextMenuItem }) {
                 }}
                 className={`flex items-center gap-4 rounded-sm px-3 py-1.5 text-left text-sm transition-colors ${
                   child.danger
-                    ? 'text-error hover:bg-error-light'
+                    ? 'text-error hover:bg-error-light dark:hover:bg-red-950/30'
                     : child.disabled
                       ? 'text-ink-faint'
-                      : 'text-ink hover:bg-paper-alt'
+                      : 'text-ink hover:bg-black/5 dark:hover:bg-white/5 dark:hover:bg-white/5'
                 }`}
               >
                 <span>{child.label}</span>
@@ -115,7 +138,8 @@ function SubMenu({ item }: { item: ContextMenuItem }) {
               </button>
             )
           })}
-        </div>
+        </div>,
+        document.getElementById('overlay-root')!,
       ) : null}
     </div>
   )
@@ -169,7 +193,7 @@ export function ContextMenu({ children, items }: ContextMenuProps) {
         <div className="pointer-events-none fixed inset-0 z-50">
           <div
             ref={menuRef}
-            className="pointer-events-auto absolute flex flex-col rounded-md border border-line bg-paper/70 backdrop-blur-md p-1 shadow-none ring-1 ring-black/5"
+            className="pointer-events-auto absolute flex flex-col rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-md p-1 shadow-none ring-1 ring-black/5"
             style={{
               left: adjPosition.x,
               top: adjPosition.y,
@@ -198,10 +222,10 @@ export function ContextMenu({ children, items }: ContextMenuProps) {
                   disabled={item.disabled}
                   className={`flex items-center gap-4 rounded-sm px-3 py-1.5 text-left text-sm transition-colors ${
                     item.danger
-                      ? 'text-error hover:bg-error-light'
+                      ? 'text-error hover:bg-error-light dark:hover:bg-red-950/30'
                       : item.disabled
                         ? 'text-ink-faint'
-                        : 'text-ink hover:bg-paper-alt'
+                        : 'text-ink hover:bg-black/5 dark:hover:bg-white/5 dark:hover:bg-white/5'
                   }`}
                 >
                   <span>{item.label}</span>

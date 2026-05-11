@@ -172,10 +172,42 @@
   }
 }
 
+/* Degradation: opaque background by default (browser dev / Linux) */
 body {
-  background: var(--color-paper);
+  background: var(--color-paper) !important;
   color: var(--color-ink);
   font-family: var(--font-sans);
+}
+
+/* Mica active: transparent body */
+html.tauri-mica body {
+  background: transparent !important;
+}
+
+.transparent-text {
+  text-shadow: none;
+}
+
+html.tauri-mica .transparent-text {
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
+}
+
+html.tauri-mica.dark .transparent-text {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* Degradation: layout shells restore standard bg */
+html:not(.tauri-mica) [data-sidebar],
+html:not(.tauri-mica) [data-menubar],
+html:not(.tauri-mica) [data-statusbar] {
+  background: var(--color-paper-alt);
+}
+
+/* Mica active: layout shells transparent */
+html.tauri-mica [data-sidebar],
+html.tauri-mica [data-menubar],
+html.tauri-mica [data-statusbar] {
+  background: transparent;
 }
 
 .main-scroll::-webkit-scrollbar {
@@ -394,23 +426,23 @@ body {
 
 /* Selection styles */
 ::selection {
-  background-color: #F3EFE9;
-  color: #2B2B2B;
+  background: rgba(107, 102, 93, 0.25);
+  color: inherit;
 }
 
 .dark ::selection {
-  background-color: #2D2B28;
-  color: #E3DFD8;
+  background: rgba(227, 223, 216, 0.3);
+  color: inherit;
 }
 
 .ProseMirror *::selection {
-  background-color: #F3EFE9 !important;
-  color: #2B2B2B !important;
+  background: rgba(107, 102, 93, 0.25) !important;
+  color: inherit !important;
 }
 
 .dark .ProseMirror *::selection {
-  background-color: #2D2B28 !important;
-  color: #E3DFD8 !important;
+  background: rgba(227, 223, 216, 0.3) !important;
+  color: inherit !important;
 }
 
 /* AlertDialog — zoom animations should originate from center */

@@ -15,11 +15,11 @@ function DropdownMenuTrigger({
 }: Menu.Trigger.Props) {
   return (
     <Menu.Trigger
+      {...props}
       className={cn(
-        "inline-flex items-center justify-center rounded px-2 py-1 text-sm text-ink-muted transition-colors hover:text-ink data-open:text-ink",
+        "inline-flex items-center justify-center rounded px-3 py-1 text-sm text-ink-muted transition-colors hover:text-ink data-open:text-ink transparent-text",
         className
       )}
-      {...props}
     />
   )
 }
@@ -31,10 +31,10 @@ function DropdownMenuContent({
 }: Menu.Popup.Props) {
   return (
     <Menu.Portal>
-      <Menu.Positioner sideOffset={4}>
+      <Menu.Positioner sideOffset={4} align="start" positionMethod="fixed">
         <Menu.Popup
           className={cn(
-            "z-50 min-w-[160px] rounded-md border border-line bg-paper/70 backdrop-blur-md p-1 shadow-none ring-1 ring-black/5",
+            "z-[99999] min-w-[160px] rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-md p-1 shadow-none ring-1 ring-black/5 pointer-events-none",
             className
           )}
           {...props}
@@ -53,7 +53,7 @@ function DropdownMenuItem({
   return (
     <Menu.Item
       className={cn(
-        "flex cursor-pointer items-center gap-2 rounded-sm px-3 py-1.5 text-sm text-ink outline-none transition-colors data-highlighted:bg-paper-alt data-highlighted:text-ink disabled:pointer-events-none disabled:text-ink-faint",
+        "flex cursor-pointer items-center gap-2 rounded-sm px-3 py-1.5 text-sm text-ink outline-none transition-colors data-highlighted:bg-black/5 dark:data-highlighted:bg-white/5 data-highlighted:text-ink disabled:pointer-events-none disabled:text-ink-faint pointer-events-auto",
         className
       )}
       {...props}
@@ -109,7 +109,7 @@ function DropdownMenuRadioItem({
   return (
     <Menu.RadioItem
       className={cn(
-        "relative flex cursor-pointer items-center gap-2 rounded-sm px-3 py-1.5 text-sm text-ink outline-none transition-colors data-highlighted:bg-paper-alt data-highlighted:text-ink",
+        "relative flex cursor-pointer items-center gap-2 rounded-sm px-3 py-1.5 text-sm text-ink outline-none transition-colors data-highlighted:bg-black/5 dark:data-highlighted:bg-white/5 data-highlighted:text-ink pointer-events-auto",
         className
       )}
       {...props}
@@ -130,7 +130,7 @@ function DropdownMenuCheckboxItem({
   return (
     <Menu.CheckboxItem
       className={cn(
-        "relative flex cursor-pointer items-center gap-2 rounded-sm px-3 py-1.5 text-sm text-ink outline-none transition-colors data-highlighted:bg-paper-alt data-highlighted:text-ink",
+        "relative flex cursor-pointer items-center gap-2 rounded-sm px-3 py-1.5 text-sm text-ink outline-none transition-colors data-highlighted:bg-black/5 dark:data-highlighted:bg-white/5 data-highlighted:text-ink pointer-events-auto",
         className
       )}
       {...props}
@@ -160,7 +160,7 @@ function DropdownMenuSubTrigger({
   return (
     <Menu.SubmenuTrigger
       className={cn(
-        "flex w-full cursor-pointer items-center gap-2 rounded-sm px-3 py-1.5 text-sm text-ink outline-none transition-colors data-highlighted:bg-paper-alt data-highlighted:text-ink",
+        "flex w-full cursor-pointer items-center gap-2 rounded-sm px-3 py-1.5 text-sm text-ink outline-none transition-colors data-highlighted:bg-black/5 dark:data-highlighted:bg-white/5 data-highlighted:text-ink pointer-events-auto",
         className
       )}
       {...props}
@@ -180,10 +180,10 @@ function DropdownMenuSubContent({
 }: Menu.Popup.Props) {
   return (
     <Menu.Portal>
-      <Menu.Positioner sideOffset={4} alignOffset={-4}>
+      <Menu.Positioner sideOffset={4} alignOffset={-4} align="start" positionMethod="fixed">
         <Menu.Popup
           className={cn(
-            "z-50 min-w-[160px] rounded-md border border-line bg-paper/70 backdrop-blur-md p-1 shadow-none ring-1 ring-black/5",
+            "z-[99999] min-w-[160px] rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-md p-1 shadow-none ring-1 ring-black/5 pointer-events-none",
             className
           )}
           {...props}

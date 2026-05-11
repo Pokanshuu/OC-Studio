@@ -149,7 +149,7 @@ export function RelatedItemsSelector({
                   type="button"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => addItem(item.id)}
-                  className={`flex w-full items-center rounded-sm px-3 py-1.5 text-sm transition-colors hover:bg-paper-alt ${
+                  className={`flex w-full items-center rounded-sm px-3 py-1.5 text-sm transition-colors hover:bg-black/5 dark:hover:bg-white/5 ${
                     selectedIds.includes(item.id) ? 'bg-paper-card text-ink' : 'text-ink'
                   }`}
                 >
