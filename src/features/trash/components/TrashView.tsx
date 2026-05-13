@@ -122,8 +122,8 @@ export function TrashView() {
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-line px-6 py-3 min-h-[60px]">
+    <div className="flex flex-col min-h-full">
+      <div className="flex items-center justify-between sticky top-0 z-10 border-b border-line px-6 py-3 min-h-[60px] bg-paper/70 dark:bg-[#1C1B1A]/70 backdrop-blur-md">
         <div className="flex items-center gap-3">
           <h2 className="text-lg text-ink">回收站</h2>
           {items.length > 0 ? (
@@ -134,7 +134,7 @@ export function TrashView() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 p-6">
         {items.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-2">
             <Trash2 size={32} strokeWidth={2} className="text-ink-faint" />

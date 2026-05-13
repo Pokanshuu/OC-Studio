@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
-import { Save, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Save, ArrowLeft } from 'lucide-react'
 import type { Editor } from '@tiptap/core'
 import { DocumentEditor } from '@/components/editor/DocumentEditor'
 import type { Character, RelatedCharacter } from '@/types'
@@ -11,6 +11,9 @@ import { useCharacterList } from '../hooks/useCharacters'
 import { useCountryList } from '@/features/countries/hooks/useCountries'
 import { RelatedItemsSelector } from '@/components/shared/RelatedItemsSelector'
 import type { RelatedItem } from '@/components/shared/RelatedItemsSelector'
+import { ImageUploader } from '@/components/shared/ImageUploader'
+import { ImageGallery } from '@/components/shared/ImageGallery'
+import { ProfileBannerEditor } from '@/components/shared/ProfileBannerEditor'
 
 interface CharacterEditorProps {
   editCharacterId: number
@@ -116,6 +119,15 @@ function CharacterEditorInner({
   const [height, setHeight] = useState(character.height)
   const [birthday, setBirthday] = useState(character.birthday)
 
+  const [avatarUrl, setAvatarUrl] = useState(character.avatarUrl)
+  const [qAvatarUrl, setQAvatarUrl] = useState(character.qAvatarUrl ?? '')
+  const [headerUrl, setHeaderUrl] = useState(character.headerUrl ?? '')
+  const [avatarUrls, setAvatarUrls] = useState<string[]>(
+    (Array.isArray(character.avatars) ? character.avatars : []).map((a) => (typeof a === 'string' ? a : a.url)),
+  )
+  const [galleryUrls, setGalleryUrls] = useState<string[]>(
+    (Array.isArray(character.gallery) ? character.gallery : []).map((g) => (typeof g === 'string' ? g : g.url)),
+  )
   const [relatedCharacters, setRelatedCharacters] = useState<RelatedCharacter[]>(
     character.relatedCharacters,
   )
@@ -210,13 +222,15 @@ function CharacterEditorInner({
         countryId,
         height,
         birthday,
-        avatarUrl: character.avatarUrl,
+        avatarUrl,
+        qAvatarUrl: qAvatarUrl || undefined,
+        headerUrl: headerUrl || undefined,
         bio: character.bio,
         lifeStory: character.lifeStory,
         document,
         relatedCharacters,
-        gallery: character.gallery,
-        avatars: character.avatars,
+        gallery: galleryUrls.map((url) => ({ url, caption: '' })),
+        avatars: avatarUrls.map((url) => ({ url, type: 'portrait' as const })),
       })
     } finally {
       setSaving(false)
@@ -225,9 +239,11 @@ function CharacterEditorInner({
     character.id,
     character.bio,
     character.lifeStory,
-    character.avatarUrl,
-    character.gallery,
-    character.avatars,
+    avatarUrl,
+    qAvatarUrl,
+    headerUrl,
+    avatarUrls,
+    galleryUrls,
     name,
     aliasesStr,
     race,
@@ -251,8 +267,8 @@ function CharacterEditorInner({
   ]
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-line px-6 py-3">
+    <div className="flex flex-col min-h-full">
+      <div className="flex items-center justify-between sticky top-0 z-10 border-b border-line px-6 py-3 bg-paper/70 dark:bg-[#1C1B1A]/70 backdrop-blur-md">
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
@@ -267,30 +283,44 @@ function CharacterEditorInner({
           onClick={handleSave}
           disabled={saving || !name.trim()}
           data-save-button
-          className="flex h-9 items-center gap-1.5 rounded border border-line bg-paper-alt px-3 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink disabled:opacity-50"
+          className="flex h-9 items-center gap-1.5 rounded border border-line bg-paper-card/60 px-3 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink disabled:opacity-50"
         >
           <Save size={16} strokeWidth={2} />
           <span>{saving ? '保存中...' : '保存'}</span>
         </button>
       </div>
 
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1">
         <div className="mx-auto max-w-3xl px-8 py-6 space-y-8">
-          {/* Name */}
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="角色名称"
-            className="w-full bg-transparent text-xl text-ink placeholder:text-ink-faint focus:outline-none"
-          />
-
-          {/* Basic info + Avatar placeholder */}
+          {/* Profile header */}
           <section>
-            <h3 className="text-base text-ink mb-3">基本信息</h3>
+            <ProfileBannerEditor
+              headerUrl={headerUrl}
+              avatarUrl={avatarUrl}
+              onHeaderChange={setHeaderUrl}
+              onAvatarChange={(path) => setAvatarUrl(path)}
+              onHeaderRemove={() => setHeaderUrl('')}
+              onAvatarRemove={() => setAvatarUrl('')}
+            />
+          </section>
+
+          {/* Name — below avatar with enough padding */}
+          <div>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="角色名称"
+              className="w-full bg-transparent text-xl text-ink placeholder:text-ink-faint focus:outline-none"
+            />
+          </div>
+
+          {/* Basic info */}
+          <section>
+            <h3 className="text-base text-ink mt-8 mb-3">基本信息</h3>
             <div className="flex flex-col lg:flex-row gap-6">
               {/* Info table */}
-              <div className="flex-1">
+              <div className="flex-1 max-w-[300px]">
                 {infoRows.map(([label]) => {
                   const value = label === '别名'
                     ? aliasesStr
@@ -358,11 +388,33 @@ function CharacterEditorInner({
                 </div>
               </div>
 
-              {/* Avatar placeholder */}
-              <div className="w-full lg:w-48 shrink-0">
+              {/* Q版头像 */}
+              <div className="shrink-0 w-32">
+                <h4 className="text-xs text-ink-muted mb-2">Q版头像</h4>
+                <ImageUploader
+                  value={qAvatarUrl}
+                  onChange={setQAvatarUrl}
+                  onRemove={() => setQAvatarUrl('')}
+                  aspectRatio="1:1"
+                  size="md"
+                  enableCrop
+                  cropAspect={1}
+                  placeholderText="点击上传Q版头像"
+                />
+              </div>
+
+              {/* 立绘 (portrait) */}
+              <div className="flex-1 max-w-[200px]">
                 <h4 className="text-xs text-ink-muted mb-2">立绘</h4>
-                <div className="flex flex-col items-center justify-center rounded border border-dashed border-line bg-paper-card py-8 px-4">
-                  <span className="text-xs text-ink-faint text-center">立绘功能开发中...</span>
+                <div className="aspect-[9/16]">
+                  <ImageGallery
+                    mode="slider"
+                    images={avatarUrls}
+                    enableCrop
+                    cropAspect={9 / 16}
+                    onAdd={(path) => setAvatarUrls((prev) => [...prev, path])}
+                    onRemove={(index) => setAvatarUrls((prev) => prev.filter((_, i) => i !== index))}
+                  />
                 </div>
               </div>
             </div>
@@ -433,14 +485,15 @@ function CharacterEditorInner({
 
           <div className="border-t border-line" />
 
-          {/* Gallery placeholder */}
+          {/* Gallery */}
           <section>
             <h3 className="text-base text-ink mb-3">相册</h3>
-            <div className="flex items-center justify-center gap-4 rounded border border-dashed border-line bg-paper-card py-12 px-4">
-              <ChevronLeft size={20} strokeWidth={2} className="text-ink-faint" />
-              <span className="text-sm text-ink-faint">相册功能开发中...</span>
-              <ChevronRight size={20} strokeWidth={2} className="text-ink-faint" />
-            </div>
+            <ImageGallery
+              mode="grid"
+              images={galleryUrls}
+              onAdd={(path) => setGalleryUrls((prev) => [...prev, path])}
+              onRemove={(index) => setGalleryUrls((prev) => prev.filter((_, i) => i !== index))}
+            />
           </section>
         </div>
       </div>

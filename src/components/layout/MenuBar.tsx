@@ -25,6 +25,8 @@ import {
   DropdownMenuSubContent,
 } from '@/components/ui/dropdown-menu'
 import type { ReferableEntity } from '@/lib/reference-registry'
+import { Avatar } from '@/components/shared/Avatar'
+import { getImageUrl } from '@/lib/image-service'
 
 const TYPE_ICON_MAP: Record<string, typeof Users> = {
   character: Users,
@@ -421,7 +423,11 @@ export function MenuBar() {
                             onMouseDown={(e) => e.preventDefault()}
                             onClick={() => handleSelect(entity)}
                           >
-                            <Icon size={14} strokeWidth={2} className="shrink-0 text-ink-faint" />
+                            {entity.type === 'character' ? (
+                              <Avatar src={getImageUrl(entity.avatarUrl, 'avatar')} size="sm" />
+                            ) : (
+                              <Icon size={14} strokeWidth={2} className="shrink-0 text-ink-faint" />
+                            )}
                             <span className="truncate">{entity.name}</span>
                           </button>
                         )

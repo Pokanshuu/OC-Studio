@@ -9,6 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Separator } from '@/components/ui/separator'
 import { RelatedItemsSelector } from '@/components/shared/RelatedItemsSelector'
 import type { RelatedItem } from '@/components/shared/RelatedItemsSelector'
+import { ProfileBannerEditor } from '@/components/shared/ProfileBannerEditor'
 import { useDevice } from '@/lib/use-device'
 import type { Event } from '@/types'
 import type { EventFormData } from '../types'
@@ -30,6 +31,7 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
   const initialTime = useMemo(() => parseTime(event.time), [event.time])
 
   const [title, setTitle] = useState(event.title)
+  const [headerUrl, setHeaderUrl] = useState(event.headerUrl ?? '')
   const [year, setYear] = useState(initialTime.year)
   const [month, setMonth] = useState(initialTime.month)
   const [day, setDay] = useState(initialTime.day)
@@ -100,6 +102,7 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
         isMajor,
         document,
         content: event.content,
+        headerUrl: headerUrl || undefined,
         characters: selectedCharacterIds,
         countries: selectedCountryIds,
       })
@@ -110,6 +113,7 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
     event.id,
     event.content,
     title,
+    headerUrl,
     year,
     month,
     day,
@@ -122,8 +126,8 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
   ])
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-line px-6 py-3">
+    <div className="flex flex-col min-h-full">
+      <div className="flex items-center justify-between sticky top-0 z-10 border-b border-line px-6 py-3 bg-paper/70 dark:bg-[#1C1B1A]/70 backdrop-blur-md">
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
@@ -138,22 +142,34 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
           onClick={handleSave}
           disabled={saving || !title.trim()}
           data-save-button
-          className="flex h-9 items-center gap-1.5 rounded border border-line bg-paper-alt px-3 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink disabled:opacity-50"
+          className="flex h-9 items-center gap-1.5 rounded border border-line bg-paper-card/60 px-3 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink disabled:opacity-50"
         >
           <Save size={16} strokeWidth={2} />
           <span>{saving ? '保存中...' : '保存'}</span>
         </button>
       </div>
 
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1">
         <div className="mx-auto max-w-3xl px-8 py-6">
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="事件标题"
-            className="w-full bg-transparent text-xl text-ink placeholder:text-ink-faint focus:outline-none"
-          />
+          {/* Profile header */}
+          <section>
+            <ProfileBannerEditor
+              headerUrl={headerUrl}
+              onHeaderChange={setHeaderUrl}
+              onHeaderRemove={() => setHeaderUrl('')}
+            />
+          </section>
+
+          {/* Title — below avatar area with enough padding */}
+          <div className="pt-8">
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="事件标题"
+              className="w-full bg-transparent text-xl text-ink placeholder:text-ink-faint focus:outline-none"
+            />
+          </div>
 
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <Input

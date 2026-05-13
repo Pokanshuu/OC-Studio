@@ -20,7 +20,7 @@ export interface ContextMenuItem {
   children?: ContextMenuItem[]
 }
 
-function SubMenu({ item }: { item: ContextMenuItem }) {
+function SubMenu({ item, onCloseParent }: { item: ContextMenuItem; onCloseParent: () => void }) {
   const [subOpen, setSubOpen] = useState(false)
   const subRef = useRef<HTMLDivElement>(null)
   const itemRef = useRef<HTMLButtonElement>(null)
@@ -60,10 +60,6 @@ function SubMenu({ item }: { item: ContextMenuItem }) {
     closeTimeoutRef.current = setTimeout(() => {
       setSubOpen(false)
     }, 200)
-  }, [])
-
-  const handleItemClick = useCallback(() => {
-    setSubOpen(false)
   }, [])
 
   useLayoutEffect(() => {
@@ -121,7 +117,7 @@ function SubMenu({ item }: { item: ContextMenuItem }) {
                 disabled={child.disabled}
                 onClick={() => {
                   child.onClick?.()
-                  handleItemClick()
+                  onCloseParent()
                 }}
                 className={`flex items-center gap-4 rounded-sm px-3 py-1.5 text-left text-sm transition-colors ${
                   child.danger
@@ -172,7 +168,10 @@ export function ContextMenu({ children, items }: ContextMenuProps) {
   }, [open, position])
 
   const handleClickOutside = useCallback((e: MouseEvent) => {
-    if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+    const target = e.target as Node
+    const overlay = document.getElementById('overlay-root')
+    if (menuRef.current && !menuRef.current.contains(target)) {
+      if (overlay && overlay.contains(target)) return
       setOpen(false)
       setVisible(false)
     }
@@ -208,7 +207,7 @@ export function ContextMenu({ children, items }: ContextMenuProps) {
               }
 
               if (item.children && item.children.length > 0) {
-                return <SubMenu key={i} item={item} />
+                return <SubMenu key={i} item={item} onCloseParent={() => { setOpen(false); setVisible(false) }} />
               }
 
               return (

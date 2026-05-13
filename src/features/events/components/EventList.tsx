@@ -185,8 +185,8 @@ export function EventList({
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-line px-6 py-3 min-h-[60px]">
+    <div className="flex flex-col min-h-full">
+      <div className="flex items-center justify-between sticky top-0 z-10 border-b border-line px-6 py-3 min-h-[60px] bg-paper/70 dark:bg-[#1C1B1A]/70 backdrop-blur-md">
         <div className="flex items-center gap-3">
           <h2 className="text-lg text-ink">事件</h2>
           <Separator orientation="vertical" className="h-4 !self-center" />
@@ -201,7 +201,7 @@ export function EventList({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="搜索事件..."
-              className="h-9 w-48 rounded border border-line bg-paper-card pl-9 pr-3 text-sm text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none"
+              className="h-9 w-48 rounded border border-line bg-paper-card/60 pl-9 pr-3 text-sm text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none focus:bg-paper-card/80"
             />
           </div>
           <Separator orientation="vertical" className="h-4 !self-center" />
@@ -215,14 +215,14 @@ export function EventList({
         </div>
         <button
           onClick={onCreateEvent}
-          className="flex h-9 items-center gap-1.5 rounded border border-line bg-paper-alt px-3 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
+          className="flex h-9 items-center gap-1.5 rounded border border-line bg-paper-card/60 px-3 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
         >
           <Plus size={16} strokeWidth={2} />
           <span>新建事件</span>
         </button>
       </div>
 
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 p-6">
         {events.length === 0 ? (
           <div className="flex h-full items-center justify-center">
             <button

@@ -6,6 +6,8 @@ export interface CountryFormData {
   system: string
   geography: string
   culture: string
+  flagUrl?: string
+  headerUrl?: string
   characters?: number[]
   events?: number[]
 }

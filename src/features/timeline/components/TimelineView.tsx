@@ -197,7 +197,7 @@ function FilterSelect({
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="flex h-9 items-center gap-1 rounded border border-line bg-paper-card px-3 text-sm text-ink transition-colors hover:border-line-hover"
+        className="flex h-9 items-center gap-1 rounded border border-line bg-paper-card/60 px-3 text-sm text-ink transition-colors hover:border-line-hover"
       >
         <span className="max-w-[120px] truncate">{selectedLabel}</span>
         <ChevronDown size={16} strokeWidth={2} />
@@ -694,7 +694,7 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
   const hasContent = density === 'year' ? nodes.items.length > 0 : (buckets && buckets.length > 0)
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex flex-col min-h-full">
       <TimelineToolbar
         filterMajor={filterMajor}
         setFilterMajor={setFilterMajor}
@@ -718,7 +718,7 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
         countryOptions={countryOptions}
       />
 
-      <div ref={scrollRef} className="flex-1 overflow-auto">
+      <div ref={scrollRef} className="flex-1 overflow-x-auto">
         <div
           className="relative min-h-full"
           style={{
@@ -898,7 +898,7 @@ function TimelineToolbar({
   countryOptions: FilterOption[]
 }) {
   return (
-    <div className="flex items-center justify-between border-b border-line px-6 py-3 min-h-[60px]">
+    <div className="flex items-center justify-between sticky top-0 z-10 border-b border-line px-6 py-3 min-h-[60px] bg-paper/70 dark:bg-[#1C1B1A]/70 backdrop-blur-md">
       <div className="flex items-center gap-3">
         <h2 className="text-lg text-ink">时间线</h2>
         <Separator orientation="vertical" className="h-4 !self-center" />
@@ -906,7 +906,7 @@ function TimelineToolbar({
           onClick={() => setFilterMajor(true)}
           className={`h-9 rounded border px-3 text-xs transition-colors ${
             filterMajor
-              ? 'border-line-hover bg-paper-card text-ink'
+              ? 'border-line-hover bg-paper-card/60 text-ink'
               : 'border-line text-ink-muted hover:text-ink'
           }`}
         >
@@ -916,7 +916,7 @@ function TimelineToolbar({
           onClick={() => setFilterMajor(false)}
           className={`h-9 rounded border px-3 text-xs transition-colors ${
             !filterMajor
-              ? 'border-line-hover bg-paper-card text-ink'
+              ? 'border-line-hover bg-paper-card/60 text-ink'
               : 'border-line text-ink-muted hover:text-ink'
           }`}
         >

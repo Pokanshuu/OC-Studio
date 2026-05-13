@@ -26,6 +26,8 @@ export interface Character {
   height: string
   birthday: string
   avatarUrl: string
+  qAvatarUrl?: string
+  headerUrl?: string
   bio: string
   lifeStory: string
   document?: unknown
@@ -57,6 +59,7 @@ export interface Event {
   document?: unknown
   characters: number[]
   countries?: number[]
+  headerUrl?: string
   parentEventId: number | null
   relations: EventRelation[]
   tags: number[]
@@ -88,6 +91,8 @@ export interface Country {
   system: string
   geography: string
   culture: string
+  flagUrl?: string
+  headerUrl?: string
   characters: number[]
   events: number[]
   tags: number[]

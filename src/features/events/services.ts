@@ -68,7 +68,7 @@ export async function updateEvent(id: number, data: Partial<EventFormData>): Pro
   }
 
   type FieldKey = keyof EventFormData
-  const fields: FieldKey[] = ['title', 'time', 'location', 'summary', 'isMajor', 'content']
+  const fields: FieldKey[] = ['title', 'time', 'location', 'summary', 'isMajor', 'content', 'headerUrl']
 
   for (const field of fields) {
     const newValue = data[field]
