@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { LayoutGrid, List, ChevronDown } from 'lucide-react'
 
 export interface SortOption {
@@ -31,22 +32,38 @@ function SortSelect({
   options: SortOption[]
 }) {
   const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState({ x: 0, y: 0 })
 
   useEffect(() => {
-    if (!open) return
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+    if (open && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect()
+      setPos({ x: rect.left, y: rect.bottom + 4 })
+    }
+  }, [open])
+
+  const handleClickOutside = useCallback((e: MouseEvent) => {
+    const target = e.target as Node
+    const overlay = document.getElementById('overlay-root')
+    if (triggerRef.current && !triggerRef.current.contains(target)) {
+      if (panelRef.current && !panelRef.current.contains(target)) {
+        if (overlay && overlay.contains(target)) return
         setOpen(false)
       }
     }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [open])
+  }, [])
+
+  useEffect(() => {
+    if (!open) return
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [open, handleClickOutside])
 
   return (
-    <div ref={ref} className="relative">
+    <div>
       <button
+        ref={triggerRef}
         onClick={() => setOpen(!open)}
         className="flex h-9 items-center gap-1 rounded border border-line bg-paper-card/60 px-3 text-sm text-ink transition-colors hover:border-line-hover"
       >
@@ -54,26 +71,33 @@ function SortSelect({
         <ChevronDown size={16} strokeWidth={2} />
       </button>
 
-      {open ? (
-        <div className="absolute left-0 top-full z-30 mt-1 flex flex-col rounded-md border border-line bg-paper/70 backdrop-blur-md p-1 shadow-none ring-1 ring-black/5">
-          {options.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => {
-                onChange(opt.value)
-                setOpen(false)
-              }}
-              className={`rounded-sm px-3 py-1.5 text-left text-sm transition-colors ${
-                sortKey === opt.value
-                  ? 'bg-paper-card text-ink'
-                  : 'text-ink hover:bg-black/5 dark:hover:bg-white/5'
-              }`}
+      {open
+        ? createPortal(
+            <div
+              ref={panelRef}
+              className="fixed z-30 mt-1 flex flex-col rounded-md border border-line bg-paper/70 backdrop-blur-md p-1 shadow-none ring-1 ring-black/5 pointer-events-auto"
+              style={{ left: pos.x, top: pos.y }}
             >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      ) : null}
+              {options.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => {
+                    onChange(opt.value)
+                    setOpen(false)
+                  }}
+                  className={`rounded-sm px-3 py-1.5 text-left text-sm transition-colors ${
+                    sortKey === opt.value
+                      ? 'bg-paper-card text-ink'
+                      : 'text-ink hover:bg-black/5 dark:hover:bg-white/5'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>,
+            document.getElementById('overlay-root')!,
+          )
+        : null}
     </div>
   )
 }
@@ -99,7 +123,7 @@ export function SortViewControls({
       <button
         onClick={() => onViewModeChange('grid')}
         className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${
-          viewMode === 'grid' ? 'text-ink bg-black/10 dark:bg-white/10' : 'text-ink-muted hover:text-ink hover:bg-black/5 dark:hover:bg-white/5'
+          viewMode === 'grid' ? 'text-ink bg-black/5 dark:bg-white/5' : 'text-ink-muted hover:text-ink hover:bg-black/5 dark:hover:bg-white/5'
         }`}
         title="网格视图"
       >
@@ -108,7 +132,7 @@ export function SortViewControls({
       <button
         onClick={() => onViewModeChange('list')}
         className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${
-          viewMode === 'list' ? 'text-ink bg-black/10 dark:bg-white/10' : 'text-ink-muted hover:text-ink hover:bg-black/5 dark:hover:bg-white/5'
+          viewMode === 'list' ? 'text-ink bg-black/5 dark:bg-white/5' : 'text-ink-muted hover:text-ink hover:bg-black/5 dark:hover:bg-white/5'
         }`}
         title="列表视图"
       >

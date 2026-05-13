@@ -1,6 +1,7 @@
 'use client'
 
 import { memo, useMemo, useCallback, useState, useRef, useEffect, useLayoutEffect } from 'react'
+import { createPortal } from 'react-dom'
 import {
   DndContext,
   useDraggable,
@@ -178,24 +179,40 @@ function FilterSelect({
   placeholder: string
 }) {
   const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState({ x: 0, y: 0 })
 
   useEffect(() => {
-    if (!open) return
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+    if (open && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect()
+      setPos({ x: rect.left, y: rect.bottom + 4 })
+    }
+  }, [open])
+
+  const handleClickOutside = useCallback((e: MouseEvent) => {
+    const target = e.target as Node
+    const overlay = document.getElementById('overlay-root')
+    if (triggerRef.current && !triggerRef.current.contains(target)) {
+      if (panelRef.current && !panelRef.current.contains(target)) {
+        if (overlay && overlay.contains(target)) return
         setOpen(false)
       }
     }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [open])
+  }, [])
+
+  useEffect(() => {
+    if (!open) return
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [open, handleClickOutside])
 
   const selectedLabel = options.find((o) => o.value === value)?.label ?? placeholder
 
   return (
-    <div ref={ref} className="relative">
+    <div>
       <button
+        ref={triggerRef}
         onClick={() => setOpen(!open)}
         className="flex h-9 items-center gap-1 rounded border border-line bg-paper-card/60 px-3 text-sm text-ink transition-colors hover:border-line-hover"
       >
@@ -203,8 +220,13 @@ function FilterSelect({
         <ChevronDown size={16} strokeWidth={2} />
       </button>
 
-      {open ? (
-        <div className="absolute left-0 top-full z-[1] mt-1 flex max-h-64 flex-col overflow-auto rounded-md border border-line bg-paper/70 backdrop-blur-md p-1 shadow-none ring-1 ring-black/5">
+      {open
+        ? createPortal(
+            <div
+              ref={panelRef}
+              className="fixed z-30 mt-1 flex max-h-64 flex-col overflow-auto rounded-md border border-line bg-paper/70 backdrop-blur-md p-1 shadow-none ring-1 ring-black/5 pointer-events-auto"
+              style={{ left: pos.x, top: pos.y }}
+            >
           {options.map((opt) => (
             <button
               key={opt.value}
@@ -221,8 +243,10 @@ function FilterSelect({
               {opt.label}
             </button>
           ))}
-        </div>
-      ) : null}
+            </div>,
+            document.getElementById('overlay-root')!,
+          )
+        : null}
     </div>
   )
 }

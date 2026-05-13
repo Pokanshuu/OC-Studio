@@ -235,9 +235,9 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
   )
 
   return (
-    <div className="flex min-h-full">
+    <div className="flex h-full">
       {!treeCollapsed && !isMobile ? (
-        <div className="w-[200px] shrink-0 sticky top-0 h-screen overflow-auto">{treePanel}</div>
+        <div className="w-[200px] shrink-0 overflow-auto">{treePanel}</div>
       ) : null}
 
       {showMobileTree && isMobile ? (
@@ -279,7 +279,7 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
                 />
               </div>
             </div>
-            <div className="flex-1 px-8 py-2">
+            <div className="flex-1 overflow-auto px-8 py-2">
               <EditorCore
                 plain
                 key={selectedId}
