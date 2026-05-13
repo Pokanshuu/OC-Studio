@@ -30,7 +30,7 @@ function DropdownMenuContent({
   ...props
 }: Menu.Popup.Props) {
   return (
-    <Menu.Portal>
+    <Menu.Portal container={typeof document !== 'undefined' ? document.getElementById('overlay-root') || document.body : undefined}>
       <Menu.Positioner sideOffset={4} align="start" positionMethod="fixed">
         <Menu.Popup
           className={cn(
@@ -179,7 +179,7 @@ function DropdownMenuSubContent({
   ...props
 }: Menu.Popup.Props) {
   return (
-    <Menu.Portal>
+    <Menu.Portal container={typeof document !== 'undefined' ? document.getElementById('overlay-root') || document.body : undefined}>
       <Menu.Positioner sideOffset={4} alignOffset={-4} align="start" positionMethod="fixed">
         <Menu.Popup
           className={cn(
