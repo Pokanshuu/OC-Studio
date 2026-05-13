@@ -11,6 +11,8 @@ export interface CharacterFormData {
   height: string
   birthday: string
   avatarUrl: string
+  qAvatarUrl?: string
+  headerUrl?: string
   bio: string
   lifeStory: string
   document?: unknown

@@ -48,7 +48,7 @@ function SortSelect({
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="flex h-9 items-center gap-1 rounded border border-line bg-paper-card px-3 text-sm text-ink transition-colors hover:border-line-hover"
+        className="flex h-9 items-center gap-1 rounded border border-line bg-paper-card/60 px-3 text-sm text-ink transition-colors hover:border-line-hover"
       >
         <span>{getSortLabel(options, sortKey)}</span>
         <ChevronDown size={16} strokeWidth={2} />
@@ -98,8 +98,8 @@ export function SortViewControls({
       <SortSelect sortKey={sortKey} onChange={onSortChange} options={sortOptions} />
       <button
         onClick={() => onViewModeChange('grid')}
-        className={`flex h-8 w-8 items-center justify-center transition-colors ${
-          viewMode === 'grid' ? 'text-ink' : 'text-ink-muted hover:text-ink'
+        className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${
+          viewMode === 'grid' ? 'text-ink bg-black/10 dark:bg-white/10' : 'text-ink-muted hover:text-ink hover:bg-black/5 dark:hover:bg-white/5'
         }`}
         title="网格视图"
       >
@@ -107,8 +107,8 @@ export function SortViewControls({
       </button>
       <button
         onClick={() => onViewModeChange('list')}
-        className={`flex h-8 w-8 items-center justify-center transition-colors ${
-          viewMode === 'list' ? 'text-ink' : 'text-ink-muted hover:text-ink'
+        className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${
+          viewMode === 'list' ? 'text-ink bg-black/10 dark:bg-white/10' : 'text-ink-muted hover:text-ink hover:bg-black/5 dark:hover:bg-white/5'
         }`}
         title="列表视图"
       >

@@ -61,7 +61,7 @@ export async function updateCountry(id: number, data: Partial<CountryFormData>):
   }
 
   type FieldKey = keyof CountryFormData
-  const fields: FieldKey[] = ['name', 'parentId', 'description', 'system', 'geography', 'culture']
+  const fields: FieldKey[] = ['name', 'parentId', 'description', 'system', 'geography', 'culture', 'flagUrl', 'headerUrl']
 
   for (const field of fields) {
     const newValue = data[field]

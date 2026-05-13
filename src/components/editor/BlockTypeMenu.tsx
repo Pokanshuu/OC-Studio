@@ -154,10 +154,10 @@ export function BlockTypeMenu({ editor, position, onClose, blockPos }: BlockType
       label: '图片占位',
       icon: <ImageIcon size={14} strokeWidth={2} />,
       action: () => {
-        chain().setNode('imagePlaceholder').run()
+         chain().insertContent({ type: 'imageBlock' }).run()
         onClose()
       },
-      isActive: () => editor.isActive('imagePlaceholder'),
+      isActive: () => editor.isActive('imageBlock'),
     },
     {
       label: '表格',

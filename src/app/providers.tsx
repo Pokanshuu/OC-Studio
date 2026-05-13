@@ -1,7 +1,8 @@
 'use client'
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useState, type ReactNode } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
+import { initImageService } from '@/lib/image-service'
 
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
@@ -15,6 +16,10 @@ export function Providers({ children }: { children: ReactNode }) {
         },
       }),
   )
+
+  useEffect(() => {
+    void initImageService()
+  }, [])
 
   return (
     <QueryClientProvider client={queryClient}>

@@ -65,9 +65,9 @@ const slashCommands: SlashCommandItem[] = [
     },
   },
   {
-    title: '图片占位',
+    title: '图片',
     command: ({ editor, range }) => {
-      editor.chain().focus().deleteRange(range).setNode('imagePlaceholder').run()
+      editor.chain().focus().deleteRange(range).setNode('imageBlock').run()
     },
   },
   {

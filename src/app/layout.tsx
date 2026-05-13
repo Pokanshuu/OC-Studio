@@ -7,6 +7,7 @@ import { NavigationSourceProvider } from "@/components/layout/NavigationSourceCo
 import { SettingsProvider } from "@/lib/settings";
 import { ActiveEditorProvider } from "@/lib/editor-context";
 import { Providers } from "./providers";
+import { SeedData } from "@/components/shared/SeedData";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -43,6 +44,7 @@ export default function RootLayout({
       </head>
       <body className="flex h-screen flex-col overflow-hidden">
         <Providers>
+          <SeedData />
           <SettingsProvider>
             <ActiveEditorProvider>
             <EntityNavigateProvider>

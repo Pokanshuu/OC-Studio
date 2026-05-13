@@ -5,6 +5,7 @@ export interface ReferableEntity {
   id: string
   name: string
   keywords: string[]
+  avatarUrl?: string
 }
 
 export interface EntityTypeConfig {
@@ -77,6 +78,7 @@ registerEntityType({
         id: String(c.id),
         name: c.name,
         keywords: Array.isArray(c.aliases) ? c.aliases : [],
+        avatarUrl: c.avatarUrl || undefined,
       }))
   },
 })

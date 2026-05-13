@@ -10,6 +10,7 @@ export interface EventFormData {
   isMajor: boolean
   content: string
   document?: unknown
+  headerUrl?: string
   characters?: number[]
   countries?: number[]
 }

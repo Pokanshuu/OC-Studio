@@ -12,6 +12,7 @@ import { useEventList } from '@/features/events/hooks/useEvents'
 import { Separator } from '@/components/ui/separator'
 import { RelatedItemsSelector } from '@/components/shared/RelatedItemsSelector'
 import type { RelatedItem } from '@/components/shared/RelatedItemsSelector'
+import { ProfileBannerEditor } from '@/components/shared/ProfileBannerEditor'
 
 interface CountryEditorProps {
   editCountryId: number
@@ -119,6 +120,8 @@ function CountryEditorInner({
   onWikiLinkClick?: (id: string) => void
 }) {
   const [name, setName] = useState(country.name)
+  const [flagUrl, setFlagUrl] = useState(country.flagUrl ?? '')
+  const [headerUrl, setHeaderUrl] = useState(country.headerUrl ?? '')
   const [saving, setSaving] = useState(false)
   const [editableCharIds, setEditableCharIds] = useState<number[]>(country.characters)
   const [editableEventIds, setEditableEventIds] = useState<number[]>(country.events)
@@ -142,13 +145,15 @@ function CountryEditorInner({
         system: country.system,
         geography: country.geography,
         culture: country.culture,
+        flagUrl: flagUrl || undefined,
+        headerUrl: headerUrl || undefined,
         characters: editableCharIds,
         events: editableEventIds,
       })
     } finally {
       setSaving(false)
     }
-  }, [country.id, country.parentId, country.system, country.geography, country.culture, name, editableCharIds, editableEventIds, onSave])
+  }, [country.id, country.parentId, country.system, country.geography, country.culture, name, flagUrl, headerUrl, editableCharIds, editableEventIds, onSave])
 
   const relatedCharacterItems: RelatedItem[] = useMemo(
     () =>
@@ -181,8 +186,8 @@ function CountryEditorInner({
   )
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-line px-6 py-3">
+    <div className="flex flex-col min-h-full">
+      <div className="flex items-center justify-between sticky top-0 z-10 border-b border-line px-6 py-3 bg-paper/70 dark:bg-[#1C1B1A]/70 backdrop-blur-md">
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
@@ -197,23 +202,38 @@ function CountryEditorInner({
           onClick={handleSave}
           disabled={saving || !name.trim()}
           data-save-button
-          className="flex h-9 items-center gap-1.5 rounded border border-line bg-paper-alt px-3 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink disabled:opacity-50"
+          className="flex h-9 items-center gap-1.5 rounded border border-line bg-paper-card/60 px-3 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink disabled:opacity-50"
         >
           <Save size={16} strokeWidth={2} />
           <span>{saving ? '保存中...' : '保存'}</span>
         </button>
       </div>
 
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1">
         <div className="mx-auto max-w-3xl px-8 py-6 space-y-8">
-          {/* Name */}
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="国家/地区名称"
-            className="w-full bg-transparent text-xl text-ink placeholder:text-ink-faint focus:outline-none"
-          />
+          {/* Profile header */}
+          <section>
+            <ProfileBannerEditor
+              headerUrl={headerUrl}
+              avatarUrl={flagUrl}
+              onHeaderChange={setHeaderUrl}
+              onAvatarChange={setFlagUrl}
+              onHeaderRemove={() => setHeaderUrl('')}
+              onAvatarRemove={() => setFlagUrl('')}
+              avatarType="flag"
+            />
+          </section>
+
+          {/* Name — below avatar with enough padding */}
+          <div>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="国家/地区名称"
+              className="w-full bg-transparent text-xl text-ink placeholder:text-ink-faint focus:outline-none"
+            />
+          </div>
 
           <Separator />
 

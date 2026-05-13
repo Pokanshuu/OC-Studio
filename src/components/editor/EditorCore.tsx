@@ -15,11 +15,10 @@ import { TableHeader } from '@tiptap/extension-table-header'
 import Mention from '@tiptap/extension-mention'
 import { DragHandle } from '@tiptap/extension-drag-handle'
 import type { SuggestionProps, SuggestionKeyDownProps } from '@tiptap/suggestion'
-import { Node } from '@tiptap/core'
-import { ReactNodeViewRenderer, NodeViewWrapper } from '@tiptap/react'
 import type { Editor } from '@tiptap/core'
-import { Bold, Italic, Underline as UnderlineIcon, Image as ImageIcon, AtSign } from 'lucide-react'
+import { Bold, Italic, Underline as UnderlineIcon, AtSign } from 'lucide-react'
 import React from 'react'
+import { ImageBlock } from './extensions/ImageBlock'
 
 import { BlockTypeMenu } from './BlockTypeMenu'
 import { SlashCommand } from './SlashCommandMenu'
@@ -42,28 +41,6 @@ const ENTITY_TYPE_LABELS: Record<string, string> = {
   character: '角色',
   event: '事件',
   country: '国家',
-}
-
-const ImagePlaceholderNode = Node.create({
-  name: 'imagePlaceholder',
-  group: 'block',
-  atom: true,
-  parseHTML() { return [{ tag: 'div[data-type="image-placeholder"]' }] },
-  renderHTML({ HTMLAttributes }) {
-    return ['div', { 'data-type': 'image-placeholder', ...HTMLAttributes }]
-  },
-  addNodeView() { return ReactNodeViewRenderer(ImagePlaceholderView) },
-})
-
-function ImagePlaceholderView() {
-  return (
-    <NodeViewWrapper>
-      <div className="border-dashed border border-line rounded-md h-40 flex flex-col items-center justify-center gap-2" contentEditable={false}>
-        <ImageIcon size={24} strokeWidth={1.5} className="text-ink-faint" />
-        <span className="text-sm text-ink-faint">点击上传图片（功能开发中）</span>
-      </div>
-    </NodeViewWrapper>
-  )
 }
 
 function createMentionRender() {
@@ -236,7 +213,7 @@ export function EditorCore({
       TableHeader.configure({
         HTMLAttributes: { class: 'border border-line bg-paper-alt px-3 py-2 text-sm font-medium text-ink text-left' },
       }),
-      ImagePlaceholderNode,
+      ImageBlock,
       SlashCommand,
       WikiLinkExtension,
       ...(isMobile ? [] : [
@@ -405,15 +382,26 @@ export function EditorCore({
       children: [
         {
           label: '表格',
-          onClick: () => editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
+          onClick: () => {
+            if (!editor) return
+            const chain = editor.chain().focus()
+            chain.insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+          },
         },
         {
-          label: '图片占位符',
-          onClick: () => editor?.chain().focus().setNode('imagePlaceholder').run(),
+          label: '图片',
+          onClick: () => {
+            if (!editor) return
+            editor.chain().focus().insertContent({ type: 'imageBlock' }).run()
+          },
         },
         {
           label: '分割线',
-          onClick: () => editor?.chain().focus().setHorizontalRule().run(),
+          onClick: () => {
+            if (!editor) return
+            const chain = editor.chain().focus()
+            chain.setHorizontalRule().run()
+          },
         },
       ],
     },
@@ -425,35 +413,63 @@ export function EditorCore({
             children: [
               {
                 label: '在上方插入行',
-                onClick: () => editor?.chain().focus().addRowBefore().run(),
+                onClick: () => {
+                  if (!editor) return
+                  const chain = editor.chain().focus()
+                  chain.addRowBefore().run()
+                },
               },
               {
                 label: '在下方插入行',
-                onClick: () => editor?.chain().focus().addRowAfter().run(),
+                onClick: () => {
+                  if (!editor) return
+                  const chain = editor.chain().focus()
+                  chain.addRowAfter().run()
+                },
               },
               {
                 label: '在左侧插入列',
-                onClick: () => editor?.chain().focus().addColumnBefore().run(),
+                onClick: () => {
+                  if (!editor) return
+                  const chain = editor.chain().focus()
+                  chain.addColumnBefore().run()
+                },
               },
               {
                 label: '在右侧插入列',
-                onClick: () => editor?.chain().focus().addColumnAfter().run(),
+                onClick: () => {
+                  if (!editor) return
+                  const chain = editor.chain().focus()
+                  chain.addColumnAfter().run()
+                },
               },
               { separator: true, label: '', onClick: () => {} } as ContextMenuItem,
               {
                 label: '删除当前行',
                 danger: true,
-                onClick: () => editor?.chain().focus().deleteRow().run(),
+                onClick: () => {
+                  if (!editor) return
+                  const chain = editor.chain().focus()
+                  chain.deleteRow().run()
+                },
               },
               {
                 label: '删除当前列',
                 danger: true,
-                onClick: () => editor?.chain().focus().deleteColumn().run(),
+                onClick: () => {
+                  if (!editor) return
+                  const chain = editor.chain().focus()
+                  chain.deleteColumn().run()
+                },
               },
               {
                 label: '删除整个表格',
                 danger: true,
-                onClick: () => editor?.chain().focus().deleteTable().run(),
+                onClick: () => {
+                  if (!editor) return
+                  const chain = editor.chain().focus()
+                  chain.deleteTable().run()
+                },
               },
             ],
           },

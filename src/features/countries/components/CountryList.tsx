@@ -6,6 +6,8 @@ import type { Country } from '@/types'
 import { stripHtml } from '@/lib/utils'
 import { extractCountryPreview } from '@/lib/document-utils'
 import { DeleteButton } from '@/components/shared/DeleteButton'
+import { Avatar } from '@/components/shared/Avatar'
+import { getImageUrl } from '@/lib/image-service'
 import { Separator } from '@/components/ui/separator'
 import { useCountryList } from '../hooks/useCountries'
 import { SortViewControls } from '@/components/shared/SortViewControls'
@@ -68,8 +70,9 @@ function CountryRow({
       tabIndex={0}
       onClick={() => onSelect(country.id as number)}
       onKeyDown={handleKeyDown}
-      className="flex w-full cursor-pointer items-center gap-4 rounded-md px-4 py-3 text-left transition-colors hover:bg-paper-alt"
+      className="flex w-full cursor-pointer items-center gap-3 rounded-md px-4 py-3 text-left transition-colors hover:bg-paper-alt"
     >
+      <Avatar src={getImageUrl(country.flagUrl, 'flag')} size="md" type="flag" />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <h3 className="truncate text-sm font-medium text-ink">{country.name}</h3>
         <div className="flex items-center gap-2">
@@ -99,8 +102,9 @@ function CountryCard({
     <div className="relative">
       <button
         onClick={() => onSelect(country.id as number)}
-        className="flex w-full flex-col gap-2 rounded-md border border-line bg-paper-card p-4 text-left transition-shadow hover:shadow-[0_1px_3px_rgba(0,0,0,0.03)]"
+        className="flex w-full flex-col items-center gap-2 rounded-md border border-line bg-paper-card p-4 text-left transition-shadow hover:shadow-[0_1px_3px_rgba(0,0,0,0.03)]"
       >
+        <Avatar src={getImageUrl(country.flagUrl, 'flag')} size="lg" type="flag" />
         <h3 className="truncate text-sm font-medium text-ink">{country.name}</h3>
 
         <div className="flex flex-wrap gap-1.5">
@@ -182,8 +186,8 @@ export function CountryList({
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-line px-6 py-3 min-h-[60px]">
+    <div className="flex flex-col min-h-full">
+      <div className="flex items-center justify-between sticky top-0 z-10 border-b border-line px-6 py-3 min-h-[60px] bg-paper/70 dark:bg-[#1C1B1A]/70 backdrop-blur-md">
         <div className="flex items-center gap-3">
           <h2 className="text-lg text-ink">国家</h2>
           <Separator orientation="vertical" className="h-4 !self-center" />
@@ -198,7 +202,7 @@ export function CountryList({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="搜索国家..."
-              className="h-9 w-48 rounded border border-line bg-paper-card pl-9 pr-3 text-sm text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none"
+              className="h-9 w-48 rounded border border-line bg-paper-card/60 pl-9 pr-3 text-sm text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none focus:bg-paper-card/80"
             />
           </div>
           <Separator orientation="vertical" className="h-4 !self-center" />
@@ -212,14 +216,14 @@ export function CountryList({
         </div>
         <button
           onClick={onCreateCountry}
-          className="flex h-9 items-center gap-1.5 rounded border border-line bg-paper-alt px-3 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
+          className="flex h-9 items-center gap-1.5 rounded border border-line bg-paper-card/60 px-3 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
         >
           <Plus size={16} strokeWidth={2} />
           <span>新建国家</span>
         </button>
       </div>
 
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 p-6">
         {countries.length === 0 ? (
           <div className="flex h-full items-center justify-center">
             <button

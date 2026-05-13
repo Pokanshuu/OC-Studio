@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import {
   Users,
   Calendar,
@@ -9,9 +10,11 @@ import {
   GitBranch,
   Settings,
   Trash2,
+  Images,
 } from 'lucide-react'
 import { useNavigation } from './NavigationContext'
 import { useSettingsTrigger } from './SettingsTriggerContext'
+import { GlobalAlbum } from '@/components/shared/GlobalAlbum'
 
 const navItems = [
   { label: '角色', icon: Users },
@@ -25,6 +28,7 @@ const navItems = [
 export function Sidebar() {
   const { activeItem, setActiveItem } = useNavigation()
   const { openSettings } = useSettingsTrigger()
+  const [albumOpen, setAlbumOpen] = useState(false)
 
   return (
     <aside data-sidebar className="flex h-full w-[120px] shrink-0 flex-col overflow-y-auto border-r border-line bg-transparent aside-scroll">
@@ -50,6 +54,13 @@ export function Sidebar() {
 
       <div className="flex flex-col gap-1 border-t border-line p-3">
         <button
+          onClick={() => setAlbumOpen(true)}
+          className="flex items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-ink-muted transition-colors hover:text-ink hover:bg-black/5 dark:hover:bg-white/5"
+        >
+          <Images size={16} strokeWidth={2} />
+          <span className="transparent-text">相册</span>
+        </button>
+        <button
           onClick={() => setActiveItem('回收站')}
           className={`flex items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors ${
             activeItem === '回收站'
@@ -68,6 +79,8 @@ export function Sidebar() {
           <span className="transparent-text">设置</span>
         </button>
       </div>
+
+      {albumOpen ? <GlobalAlbum onClose={() => setAlbumOpen(false)} /> : null}
     </aside>
   )
 }
