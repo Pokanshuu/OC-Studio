@@ -8,10 +8,9 @@ import {
   ChevronDown,
 } from 'lucide-react'
 import type { Character } from '@/types'
-import { ProfileBanner } from '@/components/shared/ProfileBanner'
 import { Avatar } from '@/components/shared/Avatar'
 import { DeleteButton } from '@/components/shared/DeleteButton'
-import { getImageUrl } from '@/lib/image-service'
+import { getImageUrl, resolveImageUrl } from '@/lib/image-service'
 import { Separator } from '@/components/ui/separator'
 import { useCountryList } from '@/features/countries/hooks/useCountries'
 import { SortViewControls } from '@/components/shared/SortViewControls'
@@ -109,7 +108,7 @@ function CountryFilterSelect({
               className={`whitespace-nowrap rounded-sm px-3 py-1.5 text-left text-sm transition-colors ${
                 value === opt.value
                   ? 'bg-paper-card text-ink'
-                  : 'text-ink hover:bg-paper-alt'
+                  : 'text-ink hover:bg-black/5 dark:hover:bg-white/5'
               }`}
             >
               {opt.label}
@@ -145,15 +144,6 @@ function aliasesMatch(aliases: string[], q: string): boolean {
   return aliases.some((a) => a.toLowerCase().includes(q))
 }
 
-function formatRelativeTime(timestamp: number): string {
-  const diff = Date.now() - timestamp
-  if (diff < 60_000) return '刚刚'
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}分钟前`
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}小时前`
-  if (diff < 604_800_000) return `${Math.floor(diff / 86_400_000)}天前`
-  return new Date(timestamp).toLocaleDateString('zh-CN')
-}
-
 function CharacterCard({
   character,
   onSelect,
@@ -166,38 +156,39 @@ function CharacterCard({
   countryName?: string
 }) {
   const displayNationality = countryName || character.nationalityLegacy
+  const aliasText = aliasesText(character.aliases)
 
   return (
     <div className="relative">
       <button
         onClick={() => onSelect(character.id as number)}
-        className="flex w-full flex-col items-center gap-2 rounded-md border border-line bg-paper-card pb-4 text-left transition-shadow hover:shadow-[0_1px_3px_rgba(0,0,0,0.03)]"
+        className="flex w-full flex-col rounded-md border border-line bg-paper-card overflow-hidden text-left transition-shadow hover:shadow-[0_1px_3px_rgba(0,0,0,0.03)]"
       >
-        <ProfileBanner
-          headerUrl={character.headerUrl}
-          avatarUrl={character.avatarUrl}
-        />
-        <h3 className="truncate px-2 pt-6 text-sm font-medium text-ink">{character.name}</h3>
-
-        <div className="flex flex-wrap gap-1.5 px-2">
-          {displayNationality ? (
-            <span className="inline-flex rounded border border-line px-1.5 py-0.5 text-xs text-ink-muted">
-              {displayNationality}
-            </span>
-          ) : null}
-          {character.race ? (
-            <span className="inline-flex rounded border border-line px-1.5 py-0.5 text-xs text-ink-muted">
-              {character.race}
-            </span>
-          ) : null}
+        {character.headerUrl ? (
+          <div className="relative w-full aspect-[3/1] bg-paper-card">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={resolveImageUrl(character.headerUrl, 'header')}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+          </div>
+        ) : null}
+        <div className="flex items-start gap-3 p-3">
+          <Avatar src={character.avatarUrl} size="md" className="shrink-0" />
+          <div className="flex flex-col min-w-0 gap-0.5">
+            <h3 className="text-sm font-medium text-ink truncate">{character.name}</h3>
+            {aliasText ? (
+              <p className="text-xs text-ink-muted truncate">{aliasText}</p>
+            ) : null}
+            {displayNationality ? (
+              <span className="text-xs text-ink-faint">{displayNationality}</span>
+            ) : null}
+          </div>
         </div>
-
-        <span className="mt-auto text-xs text-ink-faint">
-          编辑于 {formatRelativeTime(character.updatedAt)}
-        </span>
       </button>
 
-      <div className="absolute right-3 top-3">
+      <div className="absolute right-2 top-2">
         <DeleteButton onDelete={() => onDelete(character.id as number)} />
       </div>
     </div>
@@ -216,6 +207,7 @@ function CharacterRow({
   countryName?: string
 }) {
   const displayNationality = countryName || character.nationalityLegacy
+  const aliasText = aliasesText(character.aliases)
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -229,16 +221,14 @@ function CharacterRow({
       tabIndex={0}
       onClick={() => onSelect(character.id as number)}
       onKeyDown={handleKeyDown}
-      className="flex w-full cursor-pointer items-center gap-3 rounded-md px-4 py-3 text-left transition-colors hover:bg-paper-alt"
+      className="flex w-full cursor-pointer items-center gap-3 rounded-md px-4 py-3 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/5"
     >
       <Avatar src={getImageUrl(character.avatarUrl, 'avatar')} size="md" />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <div className="flex items-center gap-2">
           <h3 className="truncate text-sm font-medium text-ink">{character.name}</h3>
-          {character.aliases.length > 0 ? (
-            <span className="shrink-0 text-xs text-ink-faint">
-              ({aliasesText(character.aliases)})
-            </span>
+          {aliasText ? (
+            <span className="shrink-0 text-xs text-ink-faint">({aliasText})</span>
           ) : null}
         </div>
         <div className="flex items-center gap-2">
@@ -248,9 +238,6 @@ function CharacterRow({
           {character.race ? (
             <span className="text-xs text-ink-muted">{character.race}</span>
           ) : null}
-          <span className="text-xs text-ink-faint">
-            编辑于 {formatRelativeTime(character.updatedAt)}
-          </span>
         </div>
       </div>
       <DeleteButton onDelete={() => onDelete(character.id as number)} />
@@ -399,9 +386,9 @@ export function CharacterList({
         </button>
       </div>
 
-      <div className="flex-1 p-6">
+      <div className="flex-1 p-6 flex flex-col">
         {characters.length === 0 ? (
-          <div className="flex h-full items-center justify-center">
+          <div className="flex-1 flex items-center justify-center">
             <button
               onClick={onCreateCharacter}
               className="text-sm text-ink-muted transition-colors hover:text-ink"

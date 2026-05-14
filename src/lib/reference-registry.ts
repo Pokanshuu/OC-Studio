@@ -78,7 +78,7 @@ registerEntityType({
         id: String(c.id),
         name: c.name,
         keywords: Array.isArray(c.aliases) ? c.aliases : [],
-        avatarUrl: c.avatarUrl || undefined,
+        avatarUrl: c.qAvatarUrl || c.avatarUrl || undefined,
       }))
   },
 })
@@ -111,6 +111,7 @@ registerEntityType({
         id: String(c.id),
         name: c.name,
         keywords: [c.system].filter(Boolean),
+        avatarUrl: c.flagUrl || undefined,
       }))
   },
 })

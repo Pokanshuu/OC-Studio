@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { AppShell } from "@/components/layout/AppShell";
 import { NavigationProvider } from "@/components/layout/NavigationContext";
 import { WordCountProvider } from "@/components/layout/WordCountContext";
@@ -8,6 +9,7 @@ import { SettingsProvider } from "@/lib/settings";
 import { ActiveEditorProvider } from "@/lib/editor-context";
 import { Providers } from "./providers";
 import { SeedData } from "@/components/shared/SeedData";
+import { OverlayRoot } from "@/components/layout/OverlayRoot";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -23,24 +25,20 @@ export default function RootLayout({
   return (
     <html lang="zh-CN" className="h-full antialiased" suppressHydrationWarning>
       <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                try {
-                  var s = JSON.parse(localStorage.getItem('oc-studio-settings') || '{}');
-                  var t = s.theme || 'auto';
-                  var d = t === 'auto' ? window.matchMedia('(prefers-color-scheme: dark)').matches : t === 'dark';
-                  if (d) { document.documentElement.classList.add('dark'); document.documentElement.setAttribute('data-theme', 'dark'); }
+        <Script id="theme-init" strategy="beforeInteractive">{`
+          (function() {
+            try {
+              var s = JSON.parse(localStorage.getItem('oc-studio-settings') || '{}');
+              var t = s.theme || 'auto';
+              var d = t === 'auto' ? window.matchMedia('(prefers-color-scheme: dark)').matches : t === 'dark';
+              if (d) { document.documentElement.classList.add('dark'); document.documentElement.setAttribute('data-theme', 'dark'); }
 
-                  if (window.__TAURI__ || window.__TAURI_INTERNALS__) {
-                    document.documentElement.classList.add('tauri-mica');
-                  }
-                } catch(e) {}
-              })()
-            `,
-          }}
-        />
+              if (window.__TAURI__ || window.__TAURI_INTERNALS__) {
+                document.documentElement.classList.add('tauri-mica');
+              }
+            } catch(e) {}
+          })()
+        `}</Script>
       </head>
       <body className="flex h-screen flex-col overflow-hidden">
         <Providers>
@@ -61,7 +59,7 @@ export default function RootLayout({
             </ActiveEditorProvider>
           </SettingsProvider>
         </Providers>
-      <div id="overlay-root" style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 999999 }} />
+      <OverlayRoot />
       </body>
     </html>
   );

@@ -15,7 +15,6 @@ export function useGraphData() {
     setError(null)
     try {
       const data = await buildGraphData()
-      console.log('[useGraphData] refresh 完成', { nodes: data.nodes.length, edges: data.edges.length })
       setNodes(data.nodes)
       setEdges(data.edges)
     } catch (e) {
@@ -33,7 +32,6 @@ export function useGraphData() {
       setError(null)
       try {
         const data = await buildGraphData()
-        console.log('[useGraphData] load 完成', { nodes: data.nodes.length, edges: data.edges.length })
         if (!cancelled) {
           setNodes(data.nodes)
           setEdges(data.edges)

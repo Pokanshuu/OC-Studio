@@ -76,6 +76,7 @@ export function CharacterEditor({ editCharacterId, onBack, onNavigateToCharacter
 
   return (
     <CharacterEditorInner
+      key={character.id}
       character={character}
       onBack={onBack}
       onNavigateToCharacter={onNavigateToCharacter}
@@ -134,6 +135,32 @@ function CharacterEditorInner({
 
   const [saving, setSaving] = useState(false)
   const docEditorRef = useRef<Editor | null>(null)
+  const prevUpdatedAtRef = useRef(character.updatedAt)
+
+  useEffect(() => {
+    if (prevUpdatedAtRef.current !== character.updatedAt) {
+      prevUpdatedAtRef.current = character.updatedAt
+      setName(character.name)
+      setAliasesStr(safeAliasesJoin(character.aliases))
+      setRace(character.race)
+      setElement(character.element)
+      setOccupation(character.occupation)
+      setNationalityLegacy(character.nationalityLegacy)
+      setCountryId(character.countryId)
+      setHeight(character.height)
+      setBirthday(character.birthday)
+      setAvatarUrl(character.avatarUrl)
+      setQAvatarUrl(character.qAvatarUrl ?? '')
+      setHeaderUrl(character.headerUrl ?? '')
+      setAvatarUrls(
+        (Array.isArray(character.avatars) ? character.avatars : []).map((a) => (typeof a === 'string' ? a : a.url)),
+      )
+      setGalleryUrls(
+        (Array.isArray(character.gallery) ? character.gallery : []).map((g) => (typeof g === 'string' ? g : g.url)),
+      )
+      setRelatedCharacters(character.relatedCharacters)
+    }
+  }, [character])
 
   const { characters: allCharacters } = useCharacterList()
   const { countries } = useCountryList()
@@ -223,8 +250,8 @@ function CharacterEditorInner({
         height,
         birthday,
         avatarUrl,
-        qAvatarUrl: qAvatarUrl || undefined,
-        headerUrl: headerUrl || undefined,
+        qAvatarUrl,
+        headerUrl,
         bio: character.bio,
         lifeStory: character.lifeStory,
         document,
@@ -296,15 +323,15 @@ function CharacterEditorInner({
           <section>
             <ProfileBannerEditor
               headerUrl={headerUrl}
-              avatarUrl={avatarUrl}
+              avatarUrl={qAvatarUrl}
               onHeaderChange={setHeaderUrl}
-              onAvatarChange={(path) => setAvatarUrl(path)}
+              onAvatarChange={(path) => setQAvatarUrl(path)}
               onHeaderRemove={() => setHeaderUrl('')}
-              onAvatarRemove={() => setAvatarUrl('')}
+              onAvatarRemove={() => setQAvatarUrl('')}
             />
           </section>
 
-          {/* Name — below avatar with enough padding */}
+          {/* Name */}
           <div>
             <input
               type="text"
@@ -317,7 +344,7 @@ function CharacterEditorInner({
 
           {/* Basic info */}
           <section>
-            <h3 className="text-base text-ink mt-8 mb-3">基本信息</h3>
+            <h3 className="text-base text-ink mb-3">基本信息</h3>
             <div className="flex flex-col lg:flex-row gap-6">
               {/* Info table */}
               <div className="flex-1 max-w-[300px]">
@@ -388,23 +415,24 @@ function CharacterEditorInner({
                 </div>
               </div>
 
-              {/* Q版头像 */}
+              {/* 头像 */}
               <div className="shrink-0 w-32">
-                <h4 className="text-xs text-ink-muted mb-2">Q版头像</h4>
+                <h4 className="text-xs text-ink-muted mb-2">头像</h4>
                 <ImageUploader
-                  value={qAvatarUrl}
-                  onChange={setQAvatarUrl}
-                  onRemove={() => setQAvatarUrl('')}
+                  value={avatarUrl}
+                  onChange={setAvatarUrl}
+                  onRemove={() => setAvatarUrl('')}
                   aspectRatio="1:1"
                   size="md"
                   enableCrop
                   cropAspect={1}
-                  placeholderText="点击上传Q版头像"
+                  shape="rect"
+                  placeholderText="上传头像"
                 />
               </div>
 
               {/* 立绘 (portrait) */}
-              <div className="flex-1 max-w-[200px]">
+              <div className="flex-1 max-w-[200px] ml-auto">
                 <h4 className="text-xs text-ink-muted mb-2">立绘</h4>
                 <div className="aspect-[9/16]">
                   <ImageGallery
@@ -497,6 +525,7 @@ function CharacterEditorInner({
           </section>
         </div>
       </div>
+
     </div>
   )
 }

@@ -13,6 +13,8 @@
     "core:window:allow-start-dragging",
     "dialog:default",
     "fs:default",
+    "fs:allow-app-write",
+    "fs:allow-app-write-recursive",
     {
       "identifier": "fs:allow-read",
       "allow": [

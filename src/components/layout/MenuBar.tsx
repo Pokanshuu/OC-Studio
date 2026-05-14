@@ -148,12 +148,12 @@ export function MenuBar() {
   const inputRef = useRef<HTMLInputElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const searchWrapperRef = useRef<HTMLDivElement>(null)
-  const [panelPos, setPanelPos] = useState({ x: 0, y: 0 })
+  const [panelPos, setPanelPos] = useState({ x: 0, y: 0, width: 256 })
 
   useEffect(() => {
     if (!isOpen || !searchWrapperRef.current) return
     const rect = searchWrapperRef.current.getBoundingClientRect()
-    setPanelPos({ x: rect.left, y: rect.bottom + 4 })
+    setPanelPos({ x: rect.left, y: rect.bottom + 4, width: rect.width })
   }, [isOpen])
 
   const flatItems = useMemo(
@@ -391,7 +391,7 @@ export function MenuBar() {
                   style={{
                     left: panelPos.x,
                     top: panelPos.y,
-                    width: searchWrapperRef.current?.getBoundingClientRect().width ?? 256,
+                    width: panelPos.width,
                   }}
                 >
               {results.length === 0 ? (
@@ -418,13 +418,15 @@ export function MenuBar() {
                             className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors ${
                               globalIdx === selectedIndex
                                 ? 'bg-paper-card text-ink'
-                                : 'text-ink-muted hover:bg-paper-card hover:text-ink'
+                                : 'text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-ink'
                             }`}
                             onMouseDown={(e) => e.preventDefault()}
                             onClick={() => handleSelect(entity)}
                           >
                             {entity.type === 'character' ? (
                               <Avatar src={getImageUrl(entity.avatarUrl, 'avatar')} size="sm" />
+                            ) : entity.type === 'country' ? (
+                              <Avatar src={getImageUrl(entity.avatarUrl, 'flag')} size="sm" type="flag" />
                             ) : (
                               <Icon size={14} strokeWidth={2} className="shrink-0 text-ink-faint" />
                             )}

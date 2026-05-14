@@ -154,7 +154,7 @@ export function RelationGraph({
     )
   }
 
-  if (nodes.length === 0) {
+  if (rawNodes.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3">
         <span className="text-sm text-ink-muted">暂无关系数据，请先创建角色、事件或国家，并添加关联关系</span>

@@ -120,7 +120,7 @@ export function ProfileBannerEditor({
             <div className="absolute inset-0 flex items-center justify-center bg-black/30 text-sm text-white opacity-0 transition-opacity group-hover/header:opacity-100 pointer-events-none">
               <button
                 onClick={() => headerInputRef.current?.click()}
-                className="pointer-events-auto flex items-center gap-1.5"
+                className="pointer-events-auto flex items-center gap-1.5 bg-transparent hover:bg-transparent"
               >
                 <Camera size={18} strokeWidth={2} />
                 更换头图
@@ -146,7 +146,7 @@ export function ProfileBannerEditor({
             <button
               type="button"
               onClick={() => avatarInputRef.current?.click()}
-              className="relative block"
+              className="relative block bg-transparent hover:bg-transparent"
             >
               <div className="overflow-hidden rounded-full border-[4px] border-paper dark:border-[#1C1B1A]">
                 <Avatar src={avatarUrl} size="lg" type={avatarType} />

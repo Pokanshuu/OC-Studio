@@ -26,6 +26,7 @@ import { WikiLinkExtension } from './WikiLinkExtension'
 import { searchAllEntitiesFlat } from '@/lib/reference-registry'
 import { adjustSuggestionPosition } from '@/lib/menu-utils'
 import type { ReferableEntity } from '@/lib/reference-registry'
+import { getImageUrl, getDefaultImage } from '@/lib/image-service'
 import { useDevice } from '@/lib/use-device'
 import { useActiveEditor } from '@/lib/editor-context'
 import { ContextMenu } from '@/components/shared/ContextMenu'
@@ -122,7 +123,27 @@ function renderMentionGroups(
       const btn = document.createElement('button')
       btn.type = 'button'
       btn.className = 'flex w-full items-center gap-2 rounded-sm px-3 py-1.5 text-left text-sm text-ink transition-colors hover:bg-black/5 dark:hover:bg-white/5'
-      btn.innerHTML = `<span>${item.name}</span><span class="ml-auto text-xs text-ink-faint">${ENTITY_TYPE_LABELS[item.type] ?? item.type}</span>`
+
+      if (item.type === 'character' || item.type === 'country') {
+        const avatarType = item.type === 'country' ? 'flag' : 'avatar'
+        const img = document.createElement('img')
+        img.src = getImageUrl(item.avatarUrl, avatarType)
+        img.alt = ''
+        img.className = 'w-5 h-5 rounded-full object-cover shrink-0 border border-line'
+        img.onerror = () => { img.src = getDefaultImage(avatarType) }
+        btn.appendChild(img)
+      }
+
+      const nameSpan = document.createElement('span')
+      nameSpan.className = 'truncate'
+      nameSpan.textContent = item.name
+      btn.appendChild(nameSpan)
+
+      const typeSpan = document.createElement('span')
+      typeSpan.className = 'ml-auto shrink-0 text-xs text-ink-faint'
+      typeSpan.textContent = ENTITY_TYPE_LABELS[item.type] ?? item.type
+      btn.appendChild(typeSpan)
+
       btn.addEventListener('click', () => command(item))
       btn.addEventListener('mousedown', (e) => e.preventDefault())
       container.appendChild(btn)

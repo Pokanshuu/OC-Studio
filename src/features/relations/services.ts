@@ -12,14 +12,6 @@ export async function buildGraphData(): Promise<{ nodes: GraphNode[]; edges: Gra
   const events = eventsRaw.filter((e) => e.deleted === 0)
   const countries = countriesRaw.filter((c) => !c.deleted)
 
-  console.log('[buildGraphData] 开始聚合数据', {
-    charactersCount: characters.length,
-    eventsCount: events.length,
-    countriesCount: countries.length,
-    示例角色: characters[0]?.name,
-    示例角色deleted: characters[0]?.deleted,
-  })
-
   const nodes: GraphNode[] = []
   const edges: GraphEdge[] = []
   const nodeIds = new Set<string>()
@@ -60,7 +52,7 @@ export async function buildGraphData(): Promise<{ nodes: GraphNode[]; edges: Gra
   }
 
   for (const e of events) {
-    addNode(`event-${e.id}`, e.title, 'event', e.id as number, e.time || undefined)
+    addNode(`event-${e.id}`, e.title, 'event', e.id as number, e.time)
   }
 
   for (const c of countries) {
