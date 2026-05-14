@@ -18,7 +18,9 @@ export function Providers({ children }: { children: ReactNode }) {
   )
 
   useEffect(() => {
-    void initImageService()
+    initImageService().catch((err) => {
+      console.warn('[Providers] initImageService failed:', err)
+    })
   }, [])
 
   return (

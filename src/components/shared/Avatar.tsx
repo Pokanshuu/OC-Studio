@@ -9,6 +9,7 @@ export interface AvatarProps {
   size?: 'sm' | 'md' | 'lg'
   className?: string
   type?: 'avatar' | 'flag'
+  shape?: 'circle' | 'square'
 }
 
 const SIZE_MAP: Record<string, string> = {
@@ -17,24 +18,26 @@ const SIZE_MAP: Record<string, string> = {
   lg: 'w-16 h-16',
 }
 
-export function Avatar({ src, alt = '', size = 'md', className = '', type = 'avatar' }: AvatarProps) {
-  const [error, setError] = useState(false)
-  const imgSrc = error ? undefined : resolveImageUrl(src, type)
+export function Avatar({ src, alt = '', size = 'md', className = '', type = 'avatar', shape = 'circle' }: AvatarProps) {
+  const [failedImgSrc, setFailedImgSrc] = useState<string | undefined>()
+  const imgSrc = resolveImageUrl(src, type)
+  const showImage = imgSrc && imgSrc !== failedImgSrc
+  const rounded = shape === 'square' ? 'rounded-md' : 'rounded-full'
 
   return (
     <div
-      className={`shrink-0 overflow-hidden rounded-full border border-line ${SIZE_MAP[size]} ${className}`}
+      className={`shrink-0 overflow-hidden border border-line ${rounded} ${SIZE_MAP[size]} ${className}`}
     >
-      {imgSrc ? (
+      {showImage ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={imgSrc}
           alt={alt}
-          onError={() => setError(true)}
+          onError={() => setFailedImgSrc(imgSrc)}
           className="h-full w-full object-cover"
         />
       ) : (
-        <div className="flex h-full w-full items-center justify-center bg-paper-card">
+        <div className={`flex h-full w-full items-center justify-center bg-paper-card ${rounded}`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={getDefaultImage(type)}

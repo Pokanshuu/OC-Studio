@@ -39,8 +39,7 @@ export function SeedData() {
     const seed = async () => {
       const { db } = await import('@/lib/db')
       const count = await db.characters.count()
-      if (count > 0) { console.log('[SeedData] 已有数据，跳过'); return }
-      console.log('[SeedData] 开始注入种子数据...')
+      if (count > 0) return
 
       const char1Id = await db.characters.add({
         name: '索尔',
@@ -148,7 +147,6 @@ export function SeedData() {
         _lastModified: Date.now(),
       })
 
-      console.log('[SeedData] 种子数据注入完成, 测试URL:', TEST_RED.substring(0, 100) + '...')
       window.dispatchEvent(new CustomEvent('data-updated'))
     }
 

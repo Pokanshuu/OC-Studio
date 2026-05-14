@@ -102,7 +102,7 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
         isMajor,
         document,
         content: event.content,
-        headerUrl: headerUrl || undefined,
+        headerUrl,
         characters: selectedCharacterIds,
         countries: selectedCountryIds,
       })
@@ -242,7 +242,7 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
             <button
               onClick={handleAISummarize}
               disabled={aiLoading}
-              className="flex items-center gap-1.5 rounded border border-warning px-2.5 py-1.5 text-xs text-warning transition-colors hover:bg-paper-alt disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded border border-warning px-2.5 py-1.5 text-xs text-warning transition-colors hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-50"
             >
               <Sparkles size={14} strokeWidth={2} />
               <span>{aiLoading ? '生成中...' : 'AI 概括'}</span>
@@ -253,7 +253,7 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
             <DocumentEditor
               entityId={event.id as number}
               entityType="event"
-              fallbackContent={event.content || undefined}
+              fallbackContent={event.content}
               onReady={handleEditorReady}
               placeholder="开始编写事件内容..."
               onMentionClick={onMentionClick}

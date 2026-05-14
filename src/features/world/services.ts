@@ -85,7 +85,6 @@ export async function saveEntryContent(
   title: string,
   content: string,
 ): Promise<void> {
-  console.log(`[saveEntryContent] 自动保存 id=${id}, title="${title}", content前100字符="${content.slice(0, 100)}"`)
   try {
     const now = Date.now()
     await db.worldEntries.update(id, {
@@ -95,7 +94,6 @@ export async function saveEntryContent(
       _syncStatus: 'pending',
       _lastModified: now,
     })
-    console.log(`[saveEntryContent] 自动保存成功 id=${id}`)
   } catch (err) {
     console.error(`[saveEntryContent] 自动保存失败 id=${id}:`, err)
     throw err

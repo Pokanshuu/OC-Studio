@@ -7,20 +7,11 @@ import { stripHtml } from '@/lib/utils'
 import { extractCountryPreview } from '@/lib/document-utils'
 import { DeleteButton } from '@/components/shared/DeleteButton'
 import { Avatar } from '@/components/shared/Avatar'
-import { getImageUrl } from '@/lib/image-service'
+import { getImageUrl, resolveImageUrl } from '@/lib/image-service'
 import { Separator } from '@/components/ui/separator'
 import { useCountryList } from '../hooks/useCountries'
 import { SortViewControls } from '@/components/shared/SortViewControls'
 import type { SortOption, ViewMode } from '@/components/shared/SortViewControls'
-
-function formatRelativeTime(timestamp: number): string {
-  const diff = Date.now() - timestamp
-  if (diff < 60_000) return '刚刚'
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}分钟前`
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}小时前`
-  if (diff < 604_800_000) return `${Math.floor(diff / 86_400_000)}天前`
-  return new Date(timestamp).toLocaleDateString('zh-CN')
-}
 
 function readViewPreference(): ViewMode {
   if (typeof window === 'undefined') return 'grid'
@@ -58,6 +49,8 @@ function CountryRow({
   onSelect: (id: number) => void
   onDelete: (id: number) => void
 }) {
+  const preview = extractCountryPreview(country.document) ?? stripHtml(country.system ?? '')
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       onSelect(country.id as number)
@@ -70,19 +63,14 @@ function CountryRow({
       tabIndex={0}
       onClick={() => onSelect(country.id as number)}
       onKeyDown={handleKeyDown}
-      className="flex w-full cursor-pointer items-center gap-3 rounded-md px-4 py-3 text-left transition-colors hover:bg-paper-alt"
+      className="flex w-full cursor-pointer items-center gap-3 rounded-md px-4 py-3 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/5"
     >
       <Avatar src={getImageUrl(country.flagUrl, 'flag')} size="md" type="flag" />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <h3 className="truncate text-sm font-medium text-ink">{country.name}</h3>
-        <div className="flex items-center gap-2">
-          {extractCountryPreview(country.document) ?? (country.system ? stripHtml(country.system) : null) ? (
-            <span className="text-xs text-ink-muted">{extractCountryPreview(country.document) ?? stripHtml(country.system)}</span>
-          ) : null}
-          <span className="text-xs text-ink-faint">
-            编辑于 {formatRelativeTime(country.updatedAt)}
-          </span>
-        </div>
+        {preview ? (
+          <span className="text-xs text-ink-muted truncate">{preview}</span>
+        ) : null}
       </div>
       <DeleteButton onDelete={() => onDelete(country.id as number)} />
     </div>
@@ -98,29 +86,36 @@ function CountryCard({
   onSelect: (id: number) => void
   onDelete: (id: number) => void
 }) {
+  const preview = extractCountryPreview(country.document) ?? stripHtml(country.system ?? '')
+
   return (
     <div className="relative">
       <button
         onClick={() => onSelect(country.id as number)}
-        className="flex w-full flex-col items-center gap-2 rounded-md border border-line bg-paper-card p-4 text-left transition-shadow hover:shadow-[0_1px_3px_rgba(0,0,0,0.03)]"
+        className="flex w-full flex-col rounded-md border border-line bg-paper-card overflow-hidden text-left transition-shadow hover:shadow-[0_1px_3px_rgba(0,0,0,0.03)]"
       >
-        <Avatar src={getImageUrl(country.flagUrl, 'flag')} size="lg" type="flag" />
-        <h3 className="truncate text-sm font-medium text-ink">{country.name}</h3>
-
-        <div className="flex flex-wrap gap-1.5">
-          {extractCountryPreview(country.document) ?? (country.system ? stripHtml(country.system) : null) ? (
-            <span className="inline-flex rounded border border-line px-1.5 py-0.5 text-xs text-ink-muted">
-              {extractCountryPreview(country.document) ?? stripHtml(country.system)}
-            </span>
-          ) : null}
+        {country.headerUrl ? (
+          <div className="relative w-full aspect-[3/1] bg-paper-card">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={resolveImageUrl(country.headerUrl, 'header')}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+          </div>
+        ) : null}
+        <div className="flex items-start gap-3 p-3">
+          <Avatar src={country.flagUrl} size="md" type="flag" className="shrink-0" />
+          <div className="flex flex-col min-w-0 gap-0.5">
+            <h3 className="text-sm font-medium text-ink truncate">{country.name}</h3>
+            {preview ? (
+              <p className="text-xs text-ink-muted truncate">{preview}</p>
+            ) : null}
+          </div>
         </div>
-
-        <span className="mt-auto text-xs text-ink-faint">
-          编辑于 {formatRelativeTime(country.updatedAt)}
-        </span>
       </button>
 
-      <div className="absolute right-3 top-3">
+      <div className="absolute right-2 top-2">
         <DeleteButton onDelete={() => onDelete(country.id as number)} />
       </div>
     </div>
@@ -223,9 +218,9 @@ export function CountryList({
         </button>
       </div>
 
-      <div className="flex-1 p-6">
+      <div className="flex-1 p-6 flex flex-col">
         {countries.length === 0 ? (
-          <div className="flex h-full items-center justify-center">
+          <div className="flex-1 flex items-center justify-center">
             <button
               onClick={onCreateCountry}
               className="text-sm text-ink-muted transition-colors hover:text-ink"

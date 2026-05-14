@@ -237,7 +237,7 @@ function FilterSelect({
               className={`whitespace-nowrap rounded-sm px-3 py-1.5 text-left text-sm transition-colors ${
                 value === opt.value
                   ? 'bg-paper-card text-ink'
-                  : 'text-ink hover:bg-paper-alt'
+                  : 'text-ink hover:bg-black/5 dark:hover:bg-white/5'
               }`}
             >
               {opt.label}
@@ -277,7 +277,7 @@ function BucketView({
             <button
               key={event.id}
               onClick={() => onSelectEvent(event.id)}
-              className="flex h-6 w-full items-center gap-1 rounded px-1 text-xs text-ink-muted transition-colors hover:text-ink hover:bg-paper-alt truncate"
+              className="flex h-6 w-full items-center gap-1 rounded px-1 text-xs text-ink-muted transition-colors hover:text-ink hover:bg-black/5 dark:hover:bg-white/5 truncate"
               title={event.summary || event.title}
             >
               {event.isMajor ? (

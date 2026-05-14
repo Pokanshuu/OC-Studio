@@ -47,8 +47,8 @@ export async function uploadImage(type: string): Promise<string> {
         await ensureTauriAppDataDir()
       }
       return result
-    } catch {
-      // fall through to browser adapter
+    } catch (err) {
+      console.error('[uploadImage] LocalAdapter failed, falling back to BrowserAdapter:', err)
     }
   }
 
@@ -57,19 +57,16 @@ export async function uploadImage(type: string): Promise<string> {
 
 export function resolveImageUrl(path: string | undefined, type: string = 'avatar'): string {
   if (!path) return getDefaultImage(type)
-  if (path.startsWith('https://') || path.startsWith('http://') || path.startsWith('data:') || path.startsWith('blob:')) {
-    return path
-  }
-  if (path.startsWith('/')) {
-    return path
-  }
-  // Tauri: relative path like "images/xxx.png" — use convertFileSrc
+  if (path.startsWith('https://') || path.startsWith('http://') || path.startsWith('data:') || path.startsWith('blob:')) return path
+  if (path.startsWith('/')) return path
+
   if (isTauri() && tauriAppDataDir && tauriConvertFileSrc) {
-    const base = tauriAppDataDir.replace(/\/+$/, '')
-    return tauriConvertFileSrc(`${base}/${path}`)
+    const base = tauriAppDataDir.replace(/\/+$/, '').replace(/\\/g, '/')
+    const normalizedPath = path.replace(/\\/g, '/')
+    return tauriConvertFileSrc(`${base}/${normalizedPath}`)
   }
-  // Browser fallback: prepend /images/defaults/ for old-style paths
-  return `/images/defaults/${path}`
+
+  return getDefaultImage(type)
 }
 
 export function getImageUrl(path: string | undefined, type: string): string {
@@ -83,7 +80,17 @@ export async function saveBlobToDisk(blob: Blob, type: string): Promise<string> 
     }
 
     const basePath = (await ensureTauriAppDataDir()).replace(/\/+$/, '')
-    const { writeFile, mkdir } = await import('@tauri-apps/plugin-fs')
+
+    let writeFile: (path: string, data: Uint8Array) => Promise<void>
+    let mkdir: (path: string, opts?: { recursive: boolean }) => Promise<void>
+    try {
+      const fsModule = await import('@tauri-apps/plugin-fs')
+      writeFile = fsModule.writeFile
+      mkdir = fsModule.mkdir
+    } catch (importErr) {
+      console.error('[saveBlobToDisk] Failed to import @tauri-apps/plugin-fs:', importErr)
+      throw importErr
+    }
 
     const imagesDir = `${basePath}/images`
     const timestamp = Date.now()
@@ -101,8 +108,8 @@ export async function saveBlobToDisk(blob: Blob, type: string): Promise<string> 
     await writeFile(destPath, bytes)
 
     return `images/${fileName}`
-  } catch {
-    // Fallback: return blob URL (session-only, but better than nothing)
+  } catch (err) {
+    console.error('[saveBlobToDisk] FAILED, falling back to blob URL:', err)
     return URL.createObjectURL(blob)
   }
 }

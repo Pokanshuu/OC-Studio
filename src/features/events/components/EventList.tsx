@@ -105,7 +105,7 @@ function EventRow({
       tabIndex={0}
       onClick={() => onSelect(event.id as number)}
       onKeyDown={handleKeyDown}
-      className="flex w-full cursor-pointer items-center gap-4 rounded-md px-4 py-3 text-left transition-colors hover:bg-paper-alt"
+      className="flex w-full cursor-pointer items-center gap-4 rounded-md px-4 py-3 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/5"
     >
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <div className="flex items-center gap-2">
@@ -222,9 +222,9 @@ export function EventList({
         </button>
       </div>
 
-      <div className="flex-1 p-6">
+      <div className="flex-1 p-6 flex flex-col">
         {events.length === 0 ? (
-          <div className="flex h-full items-center justify-center">
+          <div className="flex-1 flex items-center justify-center">
             <button
               onClick={onCreateEvent}
               className="text-sm text-ink-muted transition-colors hover:text-ink"

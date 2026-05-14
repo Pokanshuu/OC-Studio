@@ -12,9 +12,9 @@ export class LocalAdapter {
     }
   }
 
-  private generateFileName(_type: string): string {
+  private generateFileName(type: string): string {
     const timestamp = Date.now()
-    return `character-avatar-${timestamp}.png`
+    return `${type}-${timestamp}.png`
   }
 
   async upload(_type: string): Promise<string> {
@@ -28,7 +28,15 @@ export class LocalAdapter {
     if (!selected) return ''
 
     const filePath = selected as string
-    const fileBytes = await readFile(filePath)
+
+    let fileBytes: Uint8Array
+    try {
+      fileBytes = await readFile(filePath)
+    } catch (readErr) {
+      console.error('[LocalAdapter.upload] readFile failed:', readErr)
+      throw readErr
+    }
+
     const imagesDir = `${this.appDataDirPath}/images`
     const fileName = this.generateFileName(_type)
     const destPath = `${imagesDir}/${fileName}`
@@ -39,7 +47,12 @@ export class LocalAdapter {
       // directory may already exist
     }
 
-    await writeFile(destPath, fileBytes)
+    try {
+      await writeFile(destPath, fileBytes)
+    } catch (writeErr) {
+      console.error('[LocalAdapter.upload] writeFile failed:', writeErr)
+      throw writeErr
+    }
 
     return `images/${fileName}`
   }

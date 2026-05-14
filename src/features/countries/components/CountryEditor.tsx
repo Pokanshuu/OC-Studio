@@ -145,8 +145,8 @@ function CountryEditorInner({
         system: country.system,
         geography: country.geography,
         culture: country.culture,
-        flagUrl: flagUrl || undefined,
-        headerUrl: headerUrl || undefined,
+        flagUrl,
+        headerUrl,
         characters: editableCharIds,
         events: editableEventIds,
       })
@@ -170,7 +170,7 @@ function CountryEditorInner({
       allEvents.map((e) => ({
         id: e.id as number,
         name: e.title,
-        subtitle: e.time || undefined,
+        subtitle: e.time,
       })),
     [allEvents],
   )
