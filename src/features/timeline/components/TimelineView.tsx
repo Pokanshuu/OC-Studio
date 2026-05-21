@@ -15,16 +15,31 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
+  Plus,
+  X,
 } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { useDevice } from '@/lib/use-device'
 import { useTimelineEvents } from '../hooks/useTimelineEvents'
 import { useCharacterList } from '@/features/characters/hooks/useCharacters'
 import { useCountryList } from '@/features/countries/hooks/useCountries'
+import { usePeriods } from '@/features/periods'
+import { PeriodDialog } from '@/components/shared/PeriodDialog'
+import { PERIOD_COLORS } from '@/types'
 import { updateEventTime } from '../services'
 import type { TimelineFilter } from '../services'
+import { parseYear, addOneYear } from '@/features/events/utils'
 import {
-  parseYear,
   computeDensity,
   densityLabel,
   buildBuckets,
@@ -49,6 +64,7 @@ const DEFAULT_PX_PER_YEAR = 120
 const MIN_PX_PER_YEAR = 12
 const MAX_PX_PER_YEAR = 120
 const ZOOM_SNAP_STEP = 10
+const minBarWidth = 80
 
 function shiftYear(time: string, delta: number): string {
   if (!time) return String(delta)
@@ -61,6 +77,7 @@ function shiftYear(time: string, delta: number): string {
 interface ComputedEvent {
   event: TimelineEvent
   x: number
+  width: number
   lane: number
 }
 
@@ -68,7 +85,7 @@ function assignLanes(sortedByX: ComputedEvent[]): ComputedEvent[] {
   const laneEnds: number[] = []
   return sortedByX.map((item) => {
     const nodeStart = item.x
-    const nodeEnd = item.x + 140
+    const nodeEnd = item.x + item.width
     let lane = 0
     for (; lane < MAX_LANES; lane++) {
       if (!(lane in laneEnds) || laneEnds[lane] <= nodeStart) {
@@ -85,30 +102,46 @@ const DraggableNode = memo(function DraggableNode({
   event,
   x,
   y,
+  width,
   onSelect,
 }: {
   event: TimelineEvent
   x: number
   y: number
+  width: number
   onSelect: (id: number) => void
 }) {
-  const { attributes, listeners, setNodeRef, transform } = useDraggable({
-    id: `event-${event.id}`,
-    data: { event, startX: x },
+  const bodyDrag = useDraggable({
+    id: `event-body-${event.id}`,
+    data: { event, startX: x, type: 'move' },
   })
 
-  const finalX = transform ? x + transform.x : x
+  const leftDrag = useDraggable({
+    id: `event-left-${event.id}`,
+    data: { event, startX: x, type: 'resize-left' },
+  })
+
+  const rightDrag = useDraggable({
+    id: `event-right-${event.id}`,
+    data: { event, startX: x, type: 'resize-right' },
+  })
+
+  const dragDelta = (bodyDrag.transform || leftDrag.transform || rightDrag.transform)?.x ?? 0
+  const isRange = !!event.endTime
+  const barWidth = isRange ? Math.max(width, minBarWidth) : undefined
 
   return (
     <div
-      ref={setNodeRef}
-      className="absolute flex cursor-pointer items-center gap-1.5 rounded-md border border-line bg-paper-card px-2 py-1 text-sm text-ink transition-colors hover:border-line-hover will-change-transform"
+      ref={bodyDrag.setNodeRef}
+      className={`absolute flex items-center gap-1.5 rounded-md border border-line bg-paper-card px-2 py-1 text-sm text-ink transition-colors hover:border-line-hover ${isRange ? 'bg-ink-muted/10' : ''}`}
       style={{
+        left: x + dragDelta,
         top: y,
-        transform: `translateX(${finalX}px)`,
+        width: barWidth,
+        height: 32,
       }}
-      {...listeners}
-      {...attributes}
+      {...bodyDrag.listeners}
+      {...bodyDrag.attributes}
       onClick={(e) => {
         e.stopPropagation()
         onSelect(event.id)
@@ -118,7 +151,23 @@ const DraggableNode = memo(function DraggableNode({
       {event.isMajor ? (
         <span className="flex h-2 w-2 shrink-0 rounded-full bg-error" />
       ) : null}
-      <span className="truncate max-w-[120px]">{event.title}</span>
+      <span className="truncate sticky left-2">{event.title}</span>
+      {isRange ? (
+        <>
+          <div
+            ref={leftDrag.setNodeRef}
+            className="absolute left-0 top-0 h-full w-2 cursor-ew-resize"
+            {...leftDrag.listeners}
+            {...leftDrag.attributes}
+          />
+          <div
+            ref={rightDrag.setNodeRef}
+            className="absolute right-0 top-0 h-full w-2 cursor-ew-resize"
+            {...rightDrag.listeners}
+            {...rightDrag.attributes}
+          />
+        </>
+      ) : null}
     </div>
   )
 })
@@ -127,19 +176,24 @@ const StaticNode = memo(function StaticNode({
   event,
   x,
   y,
+  width,
   onSelect,
 }: {
   event: TimelineEvent
   x: number
   y: number
+  width: number
   onSelect: (id: number) => void
 }) {
+  const isRange = !!event.endTime
   return (
     <div
-      className="absolute flex cursor-pointer items-center gap-1.5 rounded-md border border-line bg-paper-card px-2 py-1 text-sm text-ink transition-colors hover:border-line-hover will-change-transform"
+      className={`absolute flex items-center gap-1.5 rounded-md border border-line bg-paper-card px-2 py-1 text-sm text-ink transition-colors hover:border-line-hover ${isRange ? 'bg-ink-muted/10' : ''}`}
       style={{
+        left: x,
         top: y,
-        transform: `translateX(${x}px)`,
+        width: isRange ? width : undefined,
+        height: 32,
       }}
       title={event.summary || event.title}
       onClick={() => onSelect(event.id)}
@@ -147,7 +201,7 @@ const StaticNode = memo(function StaticNode({
       {event.isMajor ? (
         <span className="flex h-2 w-2 shrink-0 rounded-full bg-error" />
       ) : null}
-      <span className="truncate max-w-[120px]">{event.title}</span>
+      <span className="truncate sticky left-2">{event.title}</span>
     </div>
   )
 })
@@ -254,9 +308,11 @@ function FilterSelect({
 function BucketView({
   buckets,
   onSelectEvent,
+  axisY,
 }: {
   buckets: TimeBucket[]
   onSelectEvent: (id: number) => void
+  axisY: number
 }) {
   return (
     <>
@@ -266,7 +322,7 @@ function BucketView({
           className="absolute rounded-md border border-line bg-paper-card py-1.5 px-2"
           style={{
             left: bucket.x,
-            top: TOP_AXIS_Y + 24,
+            top: axisY + 24,
             width: Math.max(bucket.width - 8, 120),
           }}
         >
@@ -288,6 +344,11 @@ function BucketView({
                 />
               ) : null}
               <span className="truncate">{event.title}</span>
+              {event.endTime ? (
+                <span className="shrink-0 text-[10px] text-ink-faint ml-1">
+                  {event.time}~{event.endTime}
+                </span>
+              ) : null}
             </button>
           ))}
         </div>
@@ -333,12 +394,19 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
   }, [characterFilter, countryFilter])
 
   const { events, loading, error, refresh } = useTimelineEvents(timelineFilter)
+  const { periods, addPeriod, updatePeriod, removePeriod } = usePeriods()
+  const [periodDialogOpen, setPeriodDialogOpen] = useState(false)
+  const [editingPeriod, setEditingPeriod] = useState<import('@/types').Period | undefined>(undefined)
+  const [deleteTarget, setDeleteTarget] = useState<import('@/types').Period | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const [containerWidth, setContainerWidth] = useState(0)
   const [navEdge, setNavEdge] = useState({ prev: true, next: false })
   const [scrollLeft, setScrollLeft] = useState(0)
   const [dragId, setDragId] = useState<number | null>(null)
-  const centerYearRef = useRef<number | null>(null)
+  const zoomOffsetRef = useRef(0)
+  const zoomOriginRef = useRef(0)
+  const oldScaleRef = useRef(0)
+  const didZoomRef = useRef(false)
 
   useEffect(() => {
     const el = scrollRef.current
@@ -362,19 +430,35 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
     async (e: DragEndEvent, pxPerYear: number) => {
       const { active, delta } = e
       const data = active.data.current as
-        | { event: TimelineEvent; startX: number }
+        | { event: TimelineEvent; startX: number; type: 'move' | 'resize-left' | 'resize-right' }
         | undefined
       if (!data) return
 
       const deltaYears = Math.round(delta.x / pxPerYear)
       if (deltaYears === 0) return
 
-      const newTime = shiftYear(data.event.time, deltaYears)
-      try {
-        await updateEventTime(data.event.id, newTime)
-        refresh()
-      } catch {
-        // silently ignore drag errors
+      if (data.type === 'resize-left') {
+        const newTime = shiftYear(data.event.time, deltaYears)
+        try {
+          await updateEventTime(data.event.id, newTime, data.event.endTime)
+          refresh()
+        } catch { /* ignore */ }
+      } else if (data.type === 'resize-right') {
+        const endTime = data.event.endTime || addOneYear(data.event.time)
+        const newEndTime = shiftYear(endTime, deltaYears)
+        try {
+          await updateEventTime(data.event.id, data.event.time, newEndTime)
+          refresh()
+        } catch { /* ignore */ }
+      } else {
+        const newTime = shiftYear(data.event.time, deltaYears)
+        const newEndTime = data.event.endTime
+          ? shiftYear(data.event.endTime, deltaYears)
+          : undefined
+        try {
+          await updateEventTime(data.event.id, newTime, newEndTime)
+          refresh()
+        } catch { /* ignore */ }
       }
     },
     [refresh],
@@ -387,9 +471,13 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
   const yearRange = useMemo(() => {
     const withTime = filtered.filter((e) => !!e.time)
     if (withTime.length === 0) return null
-    const years = withTime.map((e) => parseYear(e.time) ?? 0)
-    const minYear = Math.min(...years)
-    const maxYear = Math.max(...years)
+    const startYears = withTime.map((e) => parseYear(e.time) ?? 0)
+    const endYears = withTime.map((e) => {
+      const endTime = e.endTime || addOneYear(e.time)
+      return parseYear(endTime) ?? (parseYear(e.time) ?? 0) + 1
+    })
+    const minYear = Math.min(...startYears)
+    const maxYear = Math.max(...startYears, ...endYears)
     return {
       minYear,
       maxYear,
@@ -419,6 +507,13 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
     return Math.max(Math.round(pxPerYear * 0.2), 2)
   }, [density, pxPerYear])
 
+  const displayPxRef = useRef(displayPxPerYear)
+  displayPxRef.current = displayPxPerYear
+
+  if (!didZoomRef.current) {
+    oldScaleRef.current = displayPxPerYear
+  }
+
   const nodes = useMemo(() => {
     const withTime = filtered.filter((e) => !!e.time)
     const withoutTime = filtered.filter((e) => !e.time)
@@ -427,11 +522,15 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
       return { items: [] as ComputedEvent[], withoutTime }
     }
 
-    const raw = withTime.map((e) => ({
-      event: e,
-      x: LEFT_PADDING + ((parseYear(e.time) ?? 0) - yearRange.rangeStart) * pxPerYear,
-      lane: 0,
-    }))
+    const raw = withTime.map((e) => {
+      const startYear = parseYear(e.time) ?? 0
+      const x = LEFT_PADDING + (startYear - yearRange.rangeStart) * pxPerYear
+      const effectiveEndTime = e.endTime || addOneYear(e.time)
+      const endYear = parseYear(effectiveEndTime) ?? startYear + 1
+      const endX = LEFT_PADDING + (endYear - yearRange.rangeStart) * pxPerYear
+      const width = Math.max(endX - x, 8)
+      return { event: e, x, width, lane: 0 }
+    })
 
     raw.sort((a, b) => a.x - b.x)
     const assigned = assignLanes(raw)
@@ -565,14 +664,16 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
   const handleZoomChange = useCallback(
     (value: number) => {
       const container = scrollRef.current
-      if (container && yearRange) {
-        const viewCenter = container.scrollLeft + container.clientWidth / 2
-        const centerYear = yearRange.rangeStart + (viewCenter - LEFT_PADDING) / pxPerYear
-        centerYearRef.current = centerYear
+      if (container) {
+        const origin = container.clientWidth / 2
+        zoomOriginRef.current = origin
+        zoomOffsetRef.current = container.scrollLeft + origin - LEFT_PADDING
+        oldScaleRef.current = displayPxPerYear
+        didZoomRef.current = true
       }
       setZoomRatio(value / 100)
     },
-    [yearRange, pxPerYear],
+    [displayPxPerYear],
   )
 
   const handleZoomCommit = useCallback(
@@ -582,52 +683,98 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
       const snappedRatio = snapped / autoPxPerYear
 
       const container = scrollRef.current
-      if (container && yearRange) {
-        const viewCenter = container.scrollLeft + container.clientWidth / 2
-        const centerYear = yearRange.rangeStart + (viewCenter - LEFT_PADDING) / pxPerYear
-        centerYearRef.current = centerYear
+      if (container) {
+        const origin = container.clientWidth / 2
+        zoomOriginRef.current = origin
+        zoomOffsetRef.current = container.scrollLeft + origin - LEFT_PADDING
+        oldScaleRef.current = displayPxPerYear
+        didZoomRef.current = true
       }
-
       setZoomRatio(snappedRatio)
     },
-    [autoPxPerYear, yearRange, pxPerYear],
-  )
-
-  const handleWheelZoom = useCallback(
-    (e: WheelEvent) => {
-      if (!e.ctrlKey && !e.metaKey) return
-      e.preventDefault()
-
-      setZoomRatio((prev) => {
-        const next = Math.max(0.1, Math.min(1.0, prev + -e.deltaY * 0.005))
-        const container = scrollRef.current
-        if (container && yearRange) {
-          const viewCenter = container.scrollLeft + container.clientWidth / 2
-          const centerYear = yearRange.rangeStart + (viewCenter - LEFT_PADDING) / pxPerYear
-          centerYearRef.current = centerYear
-        }
-        return next
-      })
-    },
-    [yearRange, pxPerYear],
+    [autoPxPerYear, displayPxPerYear],
   )
 
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
-    el.addEventListener('wheel', handleWheelZoom, { passive: false })
-    return () => el.removeEventListener('wheel', handleWheelZoom)
-  }, [handleWheelZoom])
+
+    const handleWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault()
+        const rect = el.getBoundingClientRect()
+        const origin = e.clientX - rect.left
+        zoomOriginRef.current = origin
+        zoomOffsetRef.current = el.scrollLeft + origin - LEFT_PADDING
+        oldScaleRef.current = displayPxRef.current
+        didZoomRef.current = true
+        setZoomRatio((prev) => Math.max(0.1, Math.min(1.0, prev - e.deltaY * 0.005)))
+      } else {
+        e.preventDefault()
+        el.scrollLeft += e.deltaX + e.deltaY
+      }
+    }
+
+    el.addEventListener('wheel', handleWheel, { passive: false })
+    return () => el.removeEventListener('wheel', handleWheel)
+  }, [events])
 
   useLayoutEffect(() => {
-    if (centerYearRef.current === null || !yearRange) return
     const container = scrollRef.current
     if (!container) return
 
-    const newCenterX = LEFT_PADDING + (centerYearRef.current - yearRange.rangeStart) * pxPerYear
-    container.scrollLeft = newCenterX - container.clientWidth / 2
-    centerYearRef.current = null
-  }, [pxPerYear, yearRange])
+    const oldScale = oldScaleRef.current
+    oldScaleRef.current = displayPxPerYear
+    didZoomRef.current = false
+    if (oldScale === displayPxPerYear) return
+
+    const newScroll = LEFT_PADDING + zoomOffsetRef.current * (displayPxPerYear / oldScale) - zoomOriginRef.current
+    container.scrollLeft = newScroll
+  }, [displayPxPerYear])
+
+  const handlePeriodSave = useCallback(async (data: { name: string; startTime: string; endTime: string; color: string }) => {
+    if (editingPeriod?.id) {
+      await updatePeriod(editingPeriod.id, data)
+    } else {
+      await addPeriod(data)
+    }
+  }, [editingPeriod, addPeriod, updatePeriod])
+
+  const handlePeriodDelete = useCallback(async () => {
+    if (deleteTarget?.id) {
+      await removePeriod(deleteTarget.id)
+    }
+    setDeleteTarget(null)
+  }, [deleteTarget, removePeriod])
+
+  const periodLanes = useMemo(() => {
+    if (periods.length === 0) return { rows: [] as { period: import('@/types').Period; row: number }[], maxRows: 0 }
+    const sorted = [...periods].sort((a, b) => {
+      const aY = parseYear(a.startTime) ?? 0
+      const bY = parseYear(b.startTime) ?? 0
+      if (aY !== bY) return aY - bY
+      return a.startTime.localeCompare(b.startTime)
+    })
+    const laneEnds: number[] = []
+    const rows: { period: import('@/types').Period; row: number }[] = []
+    let maxRow = 0
+    for (const p of sorted) {
+      const s = parseYear(p.startTime) ?? 0
+      let row = 0
+      for (; row < MAX_LANES; row++) {
+        if (!(row in laneEnds) || laneEnds[row] <= s) {
+          laneEnds[row] = parseYear(p.endTime) ?? s
+          if (row > maxRow) maxRow = row
+          rows.push({ period: p, row })
+          break
+        }
+      }
+    }
+    return { rows, maxRows: maxRow + 1 }
+  }, [periods])
+
+  const periodsHeight = periodLanes.maxRows > 0 ? periodLanes.maxRows * 28 + 4 : 0
+  const axisY = TOP_AXIS_Y + periodsHeight + 4
 
   if (loading) {
     return (
@@ -669,6 +816,7 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
         countryFilter={countryFilter}
         onCountryFilterChange={setCountryFilter}
         countryOptions={countryOptions}
+        onAddPeriod={() => { setEditingPeriod(undefined); setPeriodDialogOpen(true) }}
       />
       <EmptyTimeline />
       </div>
@@ -699,9 +847,10 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
           onCharacterFilterChange={setCharacterFilter}
           characterOptions={characterOptions}
           countryFilter={countryFilter}
-          onCountryFilterChange={setCountryFilter}
-          countryOptions={countryOptions}
-        />
+        onCountryFilterChange={setCountryFilter}
+        countryOptions={countryOptions}
+        onAddPeriod={() => { setEditingPeriod(undefined); setPeriodDialogOpen(true) }}
+      />
         <div className="flex flex-1 items-center justify-center">
           <p className="text-sm text-ink-muted">
             {isFiltering ? '暂无符合筛选条件的事件' : '暂无事件，请先创建事件后查看时间线'}
@@ -740,6 +889,7 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
         countryFilter={countryFilter}
         onCountryFilterChange={setCountryFilter}
         countryOptions={countryOptions}
+        onAddPeriod={() => { setEditingPeriod(undefined); setPeriodDialogOpen(true) }}
       />
 
       <div ref={scrollRef} className="flex-1 overflow-x-auto">
@@ -749,17 +899,60 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
             width: totalWidth > 0 ? totalWidth : '100%',
             minHeight: Math.max(
               300,
-              TOP_AXIS_Y +
+              axisY +
                 MAX_LANES * LANE_HEIGHT +
                 (nodes.withoutTime.length > 0 ? 120 : 0) +
                 40,
             ),
           }}
-        >
+          >
+          {/* Period bars */}
+          {periodLanes.rows.length > 0 && yearRange ? (
+            <div className="absolute left-0 right-0" style={{ top: 4, height: periodsHeight }}>
+              {periodLanes.rows.map(({ period, row }) => {
+                const startYear = parseYear(period.startTime)
+                const endYear = parseYear(period.endTime)
+                if (startYear === null || endYear === null) return null
+                const left = LEFT_PADDING + (startYear - yearRange.rangeStart) * displayPxPerYear
+                const right = LEFT_PADDING + (endYear - yearRange.rangeStart) * displayPxPerYear
+                const w = Math.max(right - left, 4)
+                if (density !== 'year' && w < 40) return null
+                const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+                const hex = PERIOD_COLORS.find(c => c.value === period.color)?.hex ?? '#F3EFE9'
+                const hexDark = PERIOD_COLORS.find(c => c.value === period.color)?.hexDark ?? hex
+                return (
+                  <div
+                    key={period.id}
+                    className="absolute group flex items-center rounded"
+                    style={{
+                      left,
+                      top: row * 28,
+                      width: w,
+                      height: 24,
+                      backgroundColor: isDark ? hexDark : hex,
+                    }}
+                    onClick={() => { setEditingPeriod(period); setPeriodDialogOpen(true) }}
+                    title={period.name}
+                  >
+                    <span className="truncate sticky left-2 px-2 text-xs text-ink font-medium leading-4">
+                      {period.name}
+                    </span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setDeleteTarget(period) }}
+                      className="absolute -top-1 -right-1 hidden h-4 w-4 items-center justify-center rounded-full bg-paper-card border border-line text-ink-muted group-hover:flex hover:text-error"
+                    >
+                      <X size={10} strokeWidth={2} />
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          ) : null}
+
           {/* Time axis line */}
           <div
             className="absolute left-0 right-0"
-            style={{ top: TOP_AXIS_Y, height: 1, background: 'var(--color-line)' }}
+            style={{ top: axisY, height: 1, background: 'var(--color-line)' }}
           />
 
           {/* Year ticks */}
@@ -773,7 +966,7 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
                   style={{
                     position: 'absolute',
                     left: 0,
-                    top: TOP_AXIS_Y - YEAR_TICK_HEIGHT,
+                    top: axisY - YEAR_TICK_HEIGHT,
                     width: 1,
                     height: YEAR_TICK_HEIGHT,
                     background: 'var(--color-line)',
@@ -783,7 +976,7 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
                   className="absolute text-xs text-ink-muted whitespace-nowrap"
                   style={{
                     left: 4,
-                    top: TOP_AXIS_Y - YEAR_TICK_HEIGHT - 18,
+                    top: axisY - YEAR_TICK_HEIGHT - 18,
                   }}
                 >
                   {tick.year > 0 ? `${tick.year}年` : `前${Math.abs(tick.year)}年`}
@@ -809,7 +1002,8 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
                     key={item.event.id}
                     event={item.event}
                     x={item.x}
-                    y={TOP_AXIS_Y + 24 + item.lane * LANE_HEIGHT}
+                    y={axisY + 24 + item.lane * LANE_HEIGHT}
+                    width={item.width}
                     onSelect={onSelectEvent}
                   />
                 ))}
@@ -820,7 +1014,8 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
                   key={item.event.id}
                   event={item.event}
                   x={item.x}
-                  y={TOP_AXIS_Y + 24 + item.lane * LANE_HEIGHT}
+                  y={axisY + 24 + item.lane * LANE_HEIGHT}
+                  width={item.width}
                   onSelect={onSelectEvent}
                 />
               ))
@@ -829,7 +1024,7 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
 
           {/* Time buckets (aggregation mode) */}
           {inAggregation && buckets ? (
-            <BucketView buckets={buckets} onSelectEvent={onSelectEvent} />
+            <BucketView buckets={buckets} onSelectEvent={onSelectEvent} axisY={axisY} />
           ) : null}
 
           {/* Mode indicator */}
@@ -848,7 +1043,7 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
             <div
               className="absolute left-0 right-0 border-t border-dashed border-line px-4 py-3"
               style={{
-                top: TOP_AXIS_Y + 24 + MAX_LANES * LANE_HEIGHT + 16,
+                top: axisY + 24 + MAX_LANES * LANE_HEIGHT + 16,
               }}
             >
               <p className="mb-2 text-xs text-ink-faint">未标注时间的事件</p>
@@ -874,6 +1069,31 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
           ) : null}
         </div>
       </div>
+
+      <PeriodDialog
+        key={editingPeriod?.id ?? 'new'}
+        open={periodDialogOpen}
+        period={editingPeriod}
+        onSave={handlePeriodSave}
+        onClose={() => { setPeriodDialogOpen(false); setEditingPeriod(undefined) }}
+      />
+
+      <AlertDialog open={deleteTarget !== null} onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>删除时期</AlertDialogTitle>
+            <AlertDialogDescription>
+              确认删除「{deleteTarget?.name}」？此操作不可撤销。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={handlePeriodDelete} className="bg-transparent border border-error text-error hover:bg-red-50">
+              删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
@@ -899,6 +1119,7 @@ function TimelineToolbar({
   countryFilter,
   onCountryFilterChange,
   countryOptions,
+  onAddPeriod,
 }: {
   filterMajor: boolean
   setFilterMajor: (v: boolean) => void
@@ -920,6 +1141,7 @@ function TimelineToolbar({
   countryFilter: number | 'all'
   onCountryFilterChange: (val: number | 'all') => void
   countryOptions: FilterOption[]
+  onAddPeriod?: () => void
 }) {
   return (
     <div className="flex items-center justify-between sticky top-0 z-10 border-b border-line px-6 py-3 min-h-[60px] bg-paper/70 dark:bg-[#1C1B1A]/70 backdrop-blur-md">
@@ -990,15 +1212,21 @@ function TimelineToolbar({
             </button>
           </>
         ) : null}
+        {onAddPeriod ? (
+          <>
+            <Separator orientation="vertical" className="h-4 !self-center" />
+            <button
+              onClick={onAddPeriod}
+              className="flex h-8 w-8 items-center justify-center rounded text-ink-muted transition-colors hover:text-ink"
+              title="添加时期"
+            >
+              <Plus size={16} strokeWidth={2} />
+            </button>
+          </>
+        ) : null}
       </div>
 
       <div className="flex items-center gap-2">
-        {density !== 'year' ? (
-          <span className="text-xs text-ink-muted border border-line rounded px-2 py-0.5">
-            {densityLabel(density)}
-          </span>
-        ) : null}
-
         {showZoom ? (
           <div className="flex items-center gap-1.5">
             <span className="text-[10px] text-ink-faint">百年</span>

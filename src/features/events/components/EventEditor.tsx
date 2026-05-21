@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef, useMemo } from 'react'
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react'
 import { Save, ArrowLeft, Sparkles } from 'lucide-react'
 import type { Editor } from '@tiptap/core'
 import { DocumentEditor } from '@/components/editor/DocumentEditor'
@@ -28,13 +28,14 @@ interface EventEditorProps {
 }
 
 export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateItem, onCharacterCount, onWikiLinkClick }: EventEditorProps) {
-  const initialTime = useMemo(() => parseTime(event.time), [event.time])
-
   const [title, setTitle] = useState(event.title)
   const [headerUrl, setHeaderUrl] = useState(event.headerUrl ?? '')
-  const [year, setYear] = useState(initialTime.year)
-  const [month, setMonth] = useState(initialTime.month)
-  const [day, setDay] = useState(initialTime.day)
+  const [year, setYear] = useState('')
+  const [month, setMonth] = useState('')
+  const [day, setDay] = useState('')
+  const [endYear, setEndYear] = useState('')
+  const [endMonth, setEndMonth] = useState('')
+  const [endDay, setEndDay] = useState('')
   const [location, setLocation] = useState(event.location)
   const [summary, setSummary] = useState(event.summary)
   const [isMajor, setIsMajor] = useState(event.isMajor)
@@ -48,6 +49,17 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
   const [aiLoading, setAiLoading] = useState(false)
   const editorRef = useRef<Editor | null>(null)
   const { isMobile } = useDevice()
+
+  useEffect(() => {
+    const t = parseTime(event.time)
+    const et = parseTime(event.endTime ?? '')
+    setYear(t.year)
+    setMonth(t.month)
+    setDay(t.day)
+    setEndYear(et.year)
+    setEndMonth(et.month)
+    setEndDay(et.day)
+  }, [event.time, event.endTime])
 
   const { characters } = useCharacterList()
   const { countries } = useCountryList()
@@ -93,10 +105,12 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
     setSaving(true)
     try {
       const time = assembleTime(year, month, day)
+      const endTimeVal = assembleTime(endYear, endMonth, endDay)
       const document = editorRef.current.getJSON()
       await onSave(event.id as number, {
         title,
         time,
+        endTime: endTimeVal || undefined,
         location,
         summary,
         isMajor,
@@ -117,6 +131,9 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
     year,
     month,
     day,
+    endYear,
+    endMonth,
+    endDay,
     location,
     summary,
     isMajor,
@@ -171,24 +188,43 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
             />
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-3">
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             <Input
               value={year}
               onChange={(e) => setYear(e.target.value)}
               placeholder="年份"
-              className="w-20"
+              className="w-16"
             />
             <Input
               value={month}
               onChange={(e) => setMonth(e.target.value)}
               placeholder="月"
-              className="w-20"
+              className="w-12"
             />
             <Input
               value={day}
               onChange={(e) => setDay(e.target.value)}
               placeholder="日"
-              className="w-20"
+              className="w-12"
+            />
+            <span className="text-xs text-ink-faint">→</span>
+            <Input
+              value={endYear}
+              onChange={(e) => setEndYear(e.target.value)}
+              placeholder="结束年"
+              className="w-16"
+            />
+            <Input
+              value={endMonth}
+              onChange={(e) => setEndMonth(e.target.value)}
+              placeholder="月"
+              className="w-12"
+            />
+            <Input
+              value={endDay}
+              onChange={(e) => setEndDay(e.target.value)}
+              placeholder="日"
+              className="w-12"
             />
             <Separator orientation="vertical" className="h-4 !self-center" />
             <Input

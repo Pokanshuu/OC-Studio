@@ -31,7 +31,7 @@ export function Sidebar() {
   const [albumOpen, setAlbumOpen] = useState(false)
 
   return (
-    <aside data-sidebar className="flex h-full w-[120px] shrink-0 flex-col overflow-y-auto border-r border-line bg-transparent aside-scroll">
+    <aside data-sidebar className="flex h-full w-[140px] shrink-0 flex-col overflow-y-auto border-r border-line bg-transparent aside-scroll">
       <nav className="flex flex-1 flex-col gap-1 p-3">
         {navItems.map((item) => {
           const isActive = activeItem === item.label

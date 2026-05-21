@@ -15,7 +15,7 @@ interface ExportPayload {
 export async function exportAllData(): Promise<ExportPayload> {
   const [characters, events, countries, worldEntries, tags] = await Promise.all([
     db.characters.filter((c) => !c.deleted).toArray(),
-    db.events.filter((e) => e.deleted !== 1).toArray(),
+    db.events.filter((e) => !e.deleted).toArray(),
     db.countries.filter((c) => !c.deleted).toArray(),
     db.worldEntries.filter((w) => !w.deleted).toArray(),
     db.tags.toArray(),

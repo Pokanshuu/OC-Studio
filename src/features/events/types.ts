@@ -5,6 +5,7 @@ export type { Event }
 export interface EventFormData {
   title: string
   time: string
+  endTime?: string
   location: string
   summary: string
   isMajor: boolean

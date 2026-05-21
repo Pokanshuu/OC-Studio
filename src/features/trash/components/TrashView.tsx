@@ -71,6 +71,7 @@ export function TrashView() {
         await trashService.restoreItem(type, id)
         toast("已恢复")
         refresh()
+        window.dispatchEvent(new CustomEvent('data-updated'))
       } catch {
         toast.error("恢复失败")
       } finally {
@@ -87,6 +88,7 @@ export function TrashView() {
         toast("已永久删除")
         setConfirmTarget(null)
         refresh()
+        window.dispatchEvent(new CustomEvent('data-updated'))
       } catch {
         toast.error("删除失败")
       }
@@ -134,9 +136,9 @@ export function TrashView() {
         </div>
       </div>
 
-      <div className="flex-1 p-6">
+      <div className={items.length === 0 ? 'flex-1 flex items-center justify-center p-6' : 'flex-1 p-6'}>
         {items.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center gap-2">
+          <div className="flex flex-col items-center gap-2">
             <Trash2 size={32} strokeWidth={2} className="text-ink-faint" />
             <p className="text-sm text-ink-muted">回收站为空</p>
           </div>

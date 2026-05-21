@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 import { logOperation } from '@/lib/sync'
+import type { Event } from '@/types'
 import type { TimelineEvent } from './types'
 import { pickTimelineFields } from './types'
 
@@ -10,7 +11,7 @@ export interface TimelineFilter {
 
 function parseYear(time: string): number | null {
   if (!time) return null
-  const match = /^\d+/.exec(time)
+  const match = /^-?\d+/.exec(time)
   return match ? parseInt(match[0], 10) : null
 }
 
@@ -47,7 +48,11 @@ export async function getTimelineEvents(
   ]
 }
 
-export async function updateEventTime(id: number, newTime: string): Promise<void> {
+export async function updateEventTime(
+  id: number,
+  newTime: string,
+  newEndTime?: string,
+): Promise<void> {
   const now = Date.now()
   const existing = await db.events.get(id)
   if (!existing) {
@@ -57,10 +62,12 @@ export async function updateEventTime(id: number, newTime: string): Promise<void
   const oldTime = existing.time
   await db.events.update(id, {
     time: newTime,
+    endTime: newEndTime,
     updatedAt: now,
     _syncStatus: 'pending',
     _lastModified: now,
-  })
+  } as Partial<Event>)
 
   await logOperation('events', id, 'time', oldTime, newTime)
+  window.dispatchEvent(new CustomEvent('data-updated'))
 }
