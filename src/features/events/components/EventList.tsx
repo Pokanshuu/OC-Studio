@@ -9,7 +9,15 @@ import {
 import type { Event } from '@/types'
 import { formatEventTime, formatRelativeTime, sortEvents } from '../utils'
 import type { SortKey } from '../utils'
+import { resolveImageUrl } from '@/lib/image-service'
 import { DeleteButton } from '@/components/shared/DeleteButton'
+
+function formatTimeDisplay(event: Event): string {
+  const start = formatEventTime(event.time)
+  if (!event.endTime) return start
+  const end = formatEventTime(event.endTime)
+  return `${start} ~ ${end}`
+}
 import { Separator } from '@/components/ui/separator'
 import { SortViewControls } from '@/components/shared/SortViewControls'
 import type { SortOption, ViewMode } from '@/components/shared/SortViewControls'
@@ -53,28 +61,40 @@ function EventCard({
     <div className="relative">
       <button
         onClick={() => onSelect(event.id as number)}
-        className="flex w-full flex-col gap-2 rounded-md border border-line bg-paper-card p-4 text-left transition-shadow hover:shadow-[0_1px_3px_rgba(0,0,0,0.03)]"
+        className="flex w-full flex-col rounded-md border border-line bg-paper-card overflow-hidden text-left transition-shadow hover:shadow-[0_1px_3px_rgba(0,0,0,0.03)]"
       >
-        <div className="flex items-center gap-2 pr-6">
-          {event.isMajor ? (
-            <Circle size={8} fill="var(--color-error)" className="shrink-0 text-error" />
+        {event.headerUrl ? (
+          <div className="relative w-full aspect-[3/1] bg-paper-card">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={resolveImageUrl(event.headerUrl, 'header')}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+          </div>
+        ) : null}
+        <div className="flex flex-col gap-2 p-4">
+          <div className="flex items-center gap-2 pr-6">
+            {event.isMajor ? (
+              <Circle size={8} fill="var(--color-error)" className="shrink-0 text-error" />
+            ) : null}
+            <h3 className="truncate text-sm font-medium text-ink">{event.title}</h3>
+          </div>
+
+          {event.time ? (
+            <span className="text-xs text-ink-faint">{formatTimeDisplay(event)}</span>
           ) : null}
-          <h3 className="truncate text-sm font-medium text-ink">{event.title}</h3>
+
+          {event.summary ? (
+            <p className="line-clamp-2 text-xs leading-relaxed text-ink-muted">
+              {event.summary}
+            </p>
+          ) : null}
+
+          <span className="mt-auto text-xs text-ink-faint">
+            编辑于 {formatRelativeTime(event.updatedAt)}
+          </span>
         </div>
-
-        {event.time ? (
-          <span className="text-xs text-ink-faint">{formatEventTime(event.time)}</span>
-        ) : null}
-
-        {event.summary ? (
-          <p className="line-clamp-2 text-xs leading-relaxed text-ink-muted">
-            {event.summary}
-          </p>
-        ) : null}
-
-        <span className="mt-auto text-xs text-ink-faint">
-          编辑于 {formatRelativeTime(event.updatedAt)}
-        </span>
       </button>
 
       <div className="absolute right-3 top-3">
@@ -114,7 +134,7 @@ function EventRow({
           ) : null}
           <h3 className="truncate text-sm font-medium text-ink">{event.title}</h3>
           {event.time ? (
-            <span className="shrink-0 text-xs text-ink-faint">{formatEventTime(event.time)}</span>
+            <span className="shrink-0 text-xs text-ink-faint">{formatTimeDisplay(event)}</span>
           ) : null}
         </div>
         <span className="text-xs text-ink-faint">
@@ -233,7 +253,7 @@ export function EventList({
             </button>
           </div>
         ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             {filteredEvents.map((event) => (
               <EventCard
                 key={event.id}

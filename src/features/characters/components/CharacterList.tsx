@@ -177,10 +177,12 @@ function CharacterCard({
         <div className="flex items-start gap-3 p-3">
           <Avatar src={character.avatarUrl} size="md" className="shrink-0" />
           <div className="flex flex-col min-w-0 gap-0.5">
-            <h3 className="text-sm font-medium text-ink truncate">{character.name}</h3>
-            {aliasText ? (
-              <p className="text-xs text-ink-muted truncate">{aliasText}</p>
-            ) : null}
+            <div className="flex items-center gap-1 min-w-0">
+              <h3 className="text-sm font-medium text-ink truncate">{character.name}</h3>
+              {aliasText ? (
+                <span className="shrink-0 text-xs text-ink-muted">({aliasText})</span>
+              ) : null}
+            </div>
             {displayNationality ? (
               <span className="text-xs text-ink-faint">{displayNationality}</span>
             ) : null}
@@ -228,7 +230,7 @@ function CharacterRow({
         <div className="flex items-center gap-2">
           <h3 className="truncate text-sm font-medium text-ink">{character.name}</h3>
           {aliasText ? (
-            <span className="shrink-0 text-xs text-ink-faint">({aliasText})</span>
+            <span className="shrink-0 text-xs text-ink-muted">({aliasText})</span>
           ) : null}
         </div>
         <div className="flex items-center gap-2">
@@ -397,7 +399,7 @@ export function CharacterList({
             </button>
           </div>
         ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             {filtered.map((character) => (
               <CharacterCard
                 key={character.id}

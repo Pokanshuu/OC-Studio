@@ -74,3 +74,4 @@ Thumbs.db
 # 编辑器配置
 .vscode/
 .opencode/
+opencode.json

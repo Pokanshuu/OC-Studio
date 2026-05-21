@@ -142,7 +142,7 @@ export function SeedData() {
         headerUrl: SAMPLE_HEADER_1,
         createdAt: Date.now(),
         updatedAt: Date.now(),
-        deleted: 0,
+        deleted: false,
         _syncStatus: 'pending',
         _lastModified: Date.now(),
       })

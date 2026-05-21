@@ -17,13 +17,18 @@ const TABLES: Record<TrashItemType, string> = {
 }
 
 export async function getDeletedItems(): Promise<TrashItem[]> {
-  const [deletedChars, deletedEvents, deletedCountries, deletedEntries] =
+  const [allChars, allEvents, allCountries, allEntries] =
     await Promise.all([
-      db.characters.where('deleted').equals(1).toArray(),
-      db.events.where('deleted').equals(1).toArray(),
-      db.countries.where('deleted').equals(1).toArray(),
-      db.worldEntries.where('deleted').equals(1).toArray(),
+      db.characters.orderBy('name').toArray(),
+      db.events.orderBy('time').toArray(),
+      db.countries.orderBy('name').toArray(),
+      db.worldEntries.orderBy('title').toArray(),
     ])
+
+  const deletedChars = allChars.filter((c) => c.deleted === true || (c.deleted as unknown) === 1)
+  const deletedEvents = allEvents.filter((e) => e.deleted === true || (e.deleted as unknown) === 1)
+  const deletedCountries = allCountries.filter((c) => c.deleted === true || (c.deleted as unknown) === 1)
+  const deletedEntries = allEntries.filter((e) => e.deleted === true || (e.deleted as unknown) === 1)
 
   const items: TrashItem[] = []
 
@@ -79,22 +84,13 @@ export async function restoreItem(type: TrashItemType, id: number): Promise<void
   const tableName = TABLES[type]
   const now = Date.now()
 
-  if (type === 'event') {
-    await db.events.update(id, {
-      deleted: 0,
-      updatedAt: now,
-      _syncStatus: 'pending',
-      _lastModified: now,
-    })
-  } else {
-    const table = db.table(tableName)
-    await table.update(id, {
-      deleted: false,
-      updatedAt: now,
-      _syncStatus: 'pending',
-      _lastModified: now,
-    })
-  }
+  const table = db.table(tableName)
+  await table.update(id, {
+    deleted: false,
+    updatedAt: now,
+    _syncStatus: 'pending',
+    _lastModified: now,
+  })
 
   await logOperation(tableName, id, 'deleted', 'true', 'false')
 }
@@ -103,11 +99,6 @@ export async function permanentlyDeleteItem(
   type: TrashItemType,
   id: number,
 ): Promise<void> {
-  const tableName = TABLES[type]
-  if (type === 'event') {
-    await db.events.delete(id)
-  } else {
-    const table = db.table(tableName)
-    await table.delete(id)
-  }
+  const table = db.table(TABLES[type])
+  await table.delete(id)
 }

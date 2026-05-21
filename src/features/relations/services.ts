@@ -9,7 +9,7 @@ export async function buildGraphData(): Promise<{ nodes: GraphNode[]; edges: Gra
   ])
 
   const characters = charactersRaw.filter((c) => !c.deleted)
-  const events = eventsRaw.filter((e) => e.deleted === 0)
+  const events = eventsRaw.filter((e) => !e.deleted)
   const countries = countriesRaw.filter((c) => !c.deleted)
 
   const nodes: GraphNode[] = []

@@ -10,6 +10,7 @@ function buildDefaultEvent(data: EventFormData, overrides: Partial<Event> = {}):
   return {
     title: data.title,
     time: data.time,
+    endTime: data.endTime,
     location: data.location,
     summary: data.summary,
     isMajor: data.isMajor,
@@ -22,7 +23,7 @@ function buildDefaultEvent(data: EventFormData, overrides: Partial<Event> = {}):
     images: [],
     createdAt: now,
     updatedAt: now,
-    deleted: 0,
+    deleted: false,
     _syncStatus: 'pending',
     _lastModified: now,
     ...overrides,
@@ -68,7 +69,7 @@ export async function updateEvent(id: number, data: Partial<EventFormData>): Pro
   }
 
   type FieldKey = keyof EventFormData
-  const fields: FieldKey[] = ['title', 'time', 'location', 'summary', 'isMajor', 'content', 'headerUrl']
+  const fields: FieldKey[] = ['title', 'time', 'endTime', 'location', 'summary', 'isMajor', 'content', 'headerUrl']
 
   for (const field of fields) {
     const newValue = data[field]
@@ -121,10 +122,10 @@ export async function saveDocument(id: number, document: unknown): Promise<void>
 export async function deleteEvent(id: number): Promise<void> {
   const now = Date.now()
   await db.events.update(id, {
-    deleted: 1,
+    deleted: true,
     _syncStatus: 'pending',
     _lastModified: now,
   })
 
-  await logOperation(TABLE, id, 'deleted', '0', '1')
+  await logOperation(TABLE, id, 'deleted', 'false', 'true')
 }

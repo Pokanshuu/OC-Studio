@@ -1,6 +1,6 @@
 import type { TimelineEvent } from './types'
 
-export type TimelineDensity = 'year' | 'decade' | 'century'
+export type TimelineDensity = 'year' | 'decade' | 'half-century' | 'century'
 
 export interface TimeBucket {
   label: string
@@ -12,20 +12,22 @@ export interface TimeBucket {
 }
 
 export function computeDensity(pxPerYear: number): TimelineDensity {
-  if (pxPerYear >= 50) return 'year'
-  if (pxPerYear >= 15) return 'decade'
+  if (pxPerYear >= 60) return 'year'
+  if (pxPerYear >= 30) return 'decade'
+  if (pxPerYear >= 15) return 'half-century'
   return 'century'
 }
 
 export function densityLabel(density: TimelineDensity): string {
   if (density === 'year') return '年视图'
   if (density === 'decade') return '十年视图'
+  if (density === 'half-century') return '五十年视图'
   return '百年视图'
 }
 
 export function parseYear(time: string): number | null {
   if (!time) return null
-  const match = /^\d+/.exec(time)
+  const match = /^-?\d+/.exec(time)
   return match ? parseInt(match[0], 10) : null
 }
 
@@ -37,10 +39,10 @@ export function buildBuckets(
   pxPerYear: number,
   leftPadding: number,
 ): TimeBucket[] {
-  const bucketSize = density === 'decade' ? 10 : 100
+  const bucketSize = density === 'decade' ? 10 : density === 'half-century' ? 50 : 100
 
   const bucketStart =
-    Math.floor(rangeStart / bucketSize) * bucketSize
+    Math.trunc(rangeStart / bucketSize) * bucketSize
 
   const bucketEnd = rangeStart + totalYears
   const bucketCount =
@@ -52,12 +54,20 @@ export function buildBuckets(
     const startYear = bucketStart + i * bucketSize
     const endYear = startYear + bucketSize - 1
 
-    const bucketEvents = timedEvents
+      const bucketEvents = timedEvents
       .filter((e) => {
         const y = parseYear(e.time)
-        return y !== null && y >= startYear && y <= endYear
+        if (y === null) return false
+        const endTime = e.endTime || e.time
+        const eventEndYear = parseYear(endTime) ?? y
+        return eventEndYear !== null && eventEndYear >= startYear && y <= endYear
       })
-      .sort((a, b) => a.time.localeCompare(b.time))
+      .sort((a, b) => {
+        const aY = parseYear(a.time) ?? 0
+        const bY = parseYear(b.time) ?? 0
+        if (aY !== bY) return aY - bY
+        return a.time.localeCompare(b.time)
+      })
 
     if (bucketEvents.length === 0) continue
 
@@ -100,9 +110,9 @@ export function buildYearTicks(
     return ticks
   }
 
-  const step = density === 'decade' ? 10 : 100
+  const step = density === 'decade' ? 10 : density === 'half-century' ? 50 : 100
   const start =
-    Math.floor(rangeStart / step) * step
+    Math.trunc(rangeStart / step) * step
   const end = rangeStart + totalYears
   const ticks: YearTick[] = []
 

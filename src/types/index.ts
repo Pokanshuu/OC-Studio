@@ -53,6 +53,7 @@ export interface Event {
   id?: number
   title: string
   time: string
+  endTime?: string
   location: string
   summary: string
   content: string
@@ -67,7 +68,7 @@ export interface Event {
   isMajor: boolean
   createdAt: number
   updatedAt: number
-  deleted: number
+  deleted: boolean
   _syncStatus: string
   _lastModified: number
 }
@@ -142,3 +143,23 @@ export interface OperationLog {
   oldValue: string
   newValue: string
 }
+
+export interface Period {
+  id?: number
+  name: string
+  startTime: string
+  endTime: string
+  color: string
+  _syncStatus?: string
+  _lastModified?: number
+  deleted?: boolean
+}
+
+export const PERIOD_COLORS = [
+  { label: '暖灰', value: 'bg-paper-card', hex: '#F3EFE9', hexDark: '#2D2B28' },
+  { label: '线灰', value: 'bg-line', hex: '#E7E3DC', hexDark: '#38352F' },
+  { label: '深灰', value: 'bg-ink-muted', hex: '#6E6A63', hexDark: '#A5A098' },
+  { label: '淡灰', value: 'bg-ink-faint', hex: '#A5A098', hexDark: '#6E6A63' },
+  { label: '暖黄', value: 'bg-warning', hex: '#C68D44', hexDark: '#C68D44' },
+  { label: '暖红', value: 'bg-error', hex: '#B36651', hexDark: '#B36651' },
+] as const

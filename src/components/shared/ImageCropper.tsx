@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Cropper from 'react-easy-crop'
 import type { Area, Point } from 'react-easy-crop'
-import { RotateCcw, RotateCw, Check, X } from 'lucide-react'
+import { RotateCcw, RotateCw, Check, X, ZoomOut, ZoomIn } from 'lucide-react'
 import { getCroppedBlob } from '@/lib/image-crop'
 import 'react-easy-crop/react-easy-crop.css'
 
@@ -118,6 +118,39 @@ export function ImageCropper({
           >
             重置
           </button>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <ZoomOut size={16} strokeWidth={2} className="text-ink-muted" />
+          <input
+            type="range"
+            min={1}
+            max={3}
+            step={0.1}
+            value={zoom}
+            onChange={(e) => setZoom(Number(e.target.value))}
+            className="h-8 w-32 cursor-pointer appearance-none bg-transparent
+              [&::-webkit-slider-runnable-track]:h-1
+              [&::-webkit-slider-runnable-track]:rounded
+              [&::-webkit-slider-runnable-track]:bg-line-hover
+              [&::-webkit-slider-thumb]:appearance-none
+              [&::-webkit-slider-thumb]:-mt-1
+              [&::-webkit-slider-thumb]:h-3.5
+              [&::-webkit-slider-thumb]:w-3.5
+              [&::-webkit-slider-thumb]:rounded-full
+              [&::-webkit-slider-thumb]:bg-ink
+              [&::-webkit-slider-thumb]:border
+              [&::-webkit-slider-thumb]:border-line
+              [&::-moz-range-track]:h-1
+              [&::-moz-range-track]:rounded
+              [&::-moz-range-track]:bg-line-hover
+              [&::-moz-range-thumb]:h-3.5
+              [&::-moz-range-thumb]:w-3.5
+              [&::-moz-range-thumb]:rounded-full
+              [&::-moz-range-thumb]:bg-ink
+              [&::-moz-range-thumb]:border-line"
+          />
+          <ZoomIn size={16} strokeWidth={2} className="text-ink-muted" />
         </div>
 
         <div className="flex items-center gap-2">
