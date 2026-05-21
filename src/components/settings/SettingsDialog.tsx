@@ -128,7 +128,7 @@ export function SettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg p-0" showCloseButton={false}>
+      <DialogContent className="max-w-lg p-0 overflow-hidden" showCloseButton={false}>
         <DialogHeader className="flex flex-row items-center gap-3 px-6 pt-6 pb-2">
           <DialogTitle>设置</DialogTitle>
         </DialogHeader>
@@ -344,7 +344,7 @@ export function SettingsDialog({
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-ink">版本</span>
                   <span className="text-sm text-ink-muted font-mono">
-                    v0.1.4-alpha
+                    v0.1.5-alpha
                   </span>
                 </div>
                 <button
