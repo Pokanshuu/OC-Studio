@@ -36,10 +36,13 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ### 核心上下文
 - `src/lib/editor-context.tsx` — ActiveEditorProvider（追踪当前聚焦编辑器）
+- `src/components/layout/EditorContext.tsx` — EditorProvider + useEditor()（编辑状态 isEditing）
 - `src/components/layout/NavigationContext.tsx` — activeItem 导航状态
 - `src/components/layout/NavigationSourceContext.tsx` — 导航来源追踪
 - `src/components/layout/MobileNavigationContext.tsx` — 移动端两层导航（section + gallerySubTab）
-- `src/components/layout/MobilePageHeaderContext.tsx` — 移动端页面顶栏标题+动作注册
+- `src/components/layout/MobilePageHeaderContext.tsx` — 移动端页面顶栏标题注册
+- `src/components/layout/TrashOverlayContext.tsx` — TrashOverlayProvider（回收站浮层开关）
+- `src/lib/useBackButton.ts` — Capacitor 系统返回键处理
 - `src/lib/reference-registry.ts` — @ 引用和 [[ 内链数据源注册
 - `src/lib/settings.tsx` — 主题/同步/AI 设置
 - `src/lib/use-device.ts` — useDevice() (isMobile)
