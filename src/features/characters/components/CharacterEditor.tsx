@@ -317,7 +317,7 @@ function CharacterEditorInner({
         </button>
       </div>
 
-      <div className="flex-1">
+      <div className="flex-1 max-md:pt-[60px]">
         <div className="mx-auto w-full px-4 py-6 space-y-6 md:max-w-3xl md:px-8 md:space-y-8">
           {/* Profile header */}
           <section>
@@ -391,8 +391,8 @@ function CharacterEditorInner({
 
                 {/* Nationality */}
                 <div className="flex items-center border-b border-line py-1.5">
-                  <span className="w-24 inline-block shrink-0 text-sm text-ink-muted">国籍</span>
-      <div className="flex-1 max-md:pt-[60px]">
+                   <span className="w-24 inline-block shrink-0 text-sm text-ink-muted">国籍</span>
+                  <div className="flex-1">
                     {countries.length > 0 ? (
                       <RelatedItemsSelector
                         items={countryItems}
