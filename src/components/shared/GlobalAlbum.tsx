@@ -57,7 +57,7 @@ function getTopCount(entries: AlbumEntry[], top: TopCategory): number {
 }
 
 function getSubCount(entries: AlbumEntry[], sub: SubCategory): number {
-  return entries.filter((e) => e.sourceType === sub.sourceType && sub.category === sub.category).length
+  return entries.filter((e) => e.sourceType === sub.sourceType && e.category === sub.category).length
 }
 
 interface GlobalAlbumProps {
@@ -110,7 +110,7 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
         for (const t of CATEGORY_TREE) {
           const sub = t.children.find((s) => s.key === selectedKey)
           if (sub) {
-            result = result.filter((e) => e.sourceType === sub.sourceType && sub.category === sub.category)
+            result = result.filter((e) => e.sourceType === sub.sourceType && e.category === sub.category)
             break
           }
         }
