@@ -49,6 +49,13 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
     else setConfig(null)
   }, [isMobile, section, setConfig])
 
+  // Listen for mobile top bar toggle event
+  useEffect(() => {
+    const handler = () => setShowMobileTree(true)
+    window.addEventListener('worldToggle', handler)
+    return () => window.removeEventListener('worldToggle', handler)
+  }, [])
+
   const editorRef = useRef<Editor | null>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingSaveRef = useRef<{ title: string; content: string } | null>(null)

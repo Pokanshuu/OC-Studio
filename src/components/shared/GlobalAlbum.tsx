@@ -79,8 +79,8 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
   // Listen for mobile top bar toggle event
   useEffect(() => {
     const handler = () => setShowMobileTree(true)
-    window.addEventListener('oc:album-toggle', handler)
-    return () => window.removeEventListener('oc:album-toggle', handler)
+    window.addEventListener('albumToggle', handler)
+    return () => window.removeEventListener('albumToggle', handler)
   }, [])
 
   const { entries, loading, refresh } = useAlbumData()

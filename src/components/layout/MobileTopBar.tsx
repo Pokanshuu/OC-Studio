@@ -41,8 +41,8 @@ export function MobileTopBar() {
         {!isGallery && needsMenu ? (
           <button
             onClick={() => {
-              if (section === 'wiki') window.dispatchEvent(new CustomEvent('oc:world-toggle'))
-              else if (section === 'album') window.dispatchEvent(new CustomEvent('oc:album-toggle'))
+              if (section === 'wiki') window.dispatchEvent(new Event('worldToggle'))
+              else if (section === 'album') window.dispatchEvent(new Event('albumToggle'))
             }}
             className="flex h-10 w-10 items-center justify-center rounded -ml-1 text-ink-muted transition-colors hover:text-ink"
             aria-label="目录"
@@ -70,7 +70,7 @@ export function MobileTopBar() {
             })}
           </div>
         ) : (
-          <span className="text-xl font-serif font-bold text-ink pl-2">{displayTitle}</span>
+          <span className={`text-xl font-serif font-bold text-ink ${needsMenu ? '' : 'pl-2'}`}>{displayTitle}</span>
         )}
       </div>
 
