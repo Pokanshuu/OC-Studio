@@ -84,6 +84,7 @@ npx tauri build   # Tauri 打包 (.exe/.msi)
 6. **移动端布局**：CSS-first 方案（`max-md:hidden`/`md:hidden`），不依赖 `useDevice()` 做壳切换
 7. **图标规则**：返回/关闭=ArrowLeft，折叠=ChevronLeft，展开=Menu，统一 `strokeWidth={2}`
 8. **模糊效果**：`backdrop-blur` 的 header 必须放在滚动容器内部（非平级兄弟），否则内容永远无法经过 header 背后导致模糊无效
+9. **安全区域**：所有移动端固定定位元素使用 `h-[calc(60px+var(--safe-top))] pt-[var(--safe-top))]` 模式（精确高度，非 min-h）。CSS 变量定义在 `globals.css`，Java 层在 `MainActivity.java`
 
 ## 已知差异（技术债，待后续修复）
 - `lib/ai/context-builder.ts` 在规范中引用但尚未实现
