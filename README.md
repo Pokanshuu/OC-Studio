@@ -22,7 +22,7 @@
 - **回收站**：软删除条目管理，支持恢复和永久删除
 - **数据导入/导出**：JSON 格式（`.ocbak`），4 种合并策略
 - **桌面应用**：Tauri v2 打包，无边框窗口，Mica/亚克力效果
-- **移动端应用**：Capacitor v8 打包 Android 原生应用，底部导航 TabBar，CSS-first 响应式布局
+- **移动端应用**：Capacitor v8 Android 原生应用，底部 5-Tab 导航，MobileTopBar（动态标题+搜索/回收站/设置），MobileFilterBar（筛选+新建），MobileFab（网格/列表切换），编辑页自动隐藏壳层，系统返回键处理，禁止文字选择+页面缩放
 - **全局快捷键**：`Ctrl+S` 保存，`Ctrl+K` 搜索
 
 ---
