@@ -51,7 +51,7 @@ export function MobileTopBar() {
           </button>
         ) : null}
         {isGallery ? (
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 pl-2">
             {GALLERY_TABS.map((t) => {
               const isActive = gallerySubTab === t.key
               return (
@@ -70,7 +70,7 @@ export function MobileTopBar() {
             })}
           </div>
         ) : (
-          <span className="text-xl font-serif font-bold text-ink">{displayTitle}</span>
+          <span className="text-xl font-serif font-bold text-ink pl-2">{displayTitle}</span>
         )}
       </div>
 
