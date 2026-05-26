@@ -154,7 +154,7 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
   }
 
   const treePanel = (
-    <div className="flex h-full flex-col border-r border-line bg-paper-alt">
+    <div className="flex h-full flex-col border-r border-line bg-paper-alt pt-[var(--safe-top)]">
       {isMobile ? (
         <div className="flex items-center justify-between border-b border-line px-3 py-3">
           <button onClick={() => setShowMobileTree(false)} className="flex h-9 w-9 items-center justify-center rounded text-ink-muted">
@@ -246,7 +246,7 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
       {showMobileTree && isMobile ? (
         <div className="fixed inset-0 z-50">
           <div className="absolute inset-0 bg-black/20" onClick={() => setShowMobileTree(false)} />
-          <div className="absolute top-[var(--safe-top)] bottom-0 left-0 w-[280px]">{treePanel}</div>
+          <div className="absolute top-0 bottom-0 left-0 w-[280px]">{treePanel}</div>
         </div>
       ) : null}
 
