@@ -10,7 +10,7 @@ interface MobileFabProps {
 
 export function MobileFab({ viewMode, onViewModeChange }: MobileFabProps) {
   return (
-    <div className="md:hidden fixed bottom-20 right-4 z-40 flex flex-col gap-1 rounded-full border border-line bg-paper/80 p-1 shadow-sm backdrop-blur-md">
+    <div className="md:hidden fixed bottom-[calc(5rem+var(--safe-bottom))] right-4 z-40 flex flex-col gap-1 rounded-full border border-line bg-paper/80 p-1 shadow-sm backdrop-blur-md">
       <button
         onClick={() => onViewModeChange('grid')}
         className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors ${

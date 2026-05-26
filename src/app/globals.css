@@ -13,6 +13,8 @@
   --oc-ink: #2B2B2B;
   --oc-ink-muted: #6E6A63;
   --oc-ink-faint: #A5A098;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .dark {
