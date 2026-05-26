@@ -177,6 +177,25 @@ body {
   background: var(--color-paper) !important;
   color: var(--color-ink);
   font-family: var(--font-sans);
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Allow text selection inside editors and inputs */
+.ProseMirror,
+input,
+textarea,
+[contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Prevent page zoom on double-tap / pinch */
+html {
+  touch-action: manipulation;
+  -ms-touch-action: manipulation;
 }
 
 /* Mica active: transparent body */
@@ -476,3 +495,4 @@ html.tauri-mica [data-statusbar] {
   scrollbar-width: thin;
   scrollbar-color: var(--oc-line-hover) transparent;
 }
+

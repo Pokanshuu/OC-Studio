@@ -1,15 +1,49 @@
 "use client"
 
 import { useState, useCallback, useEffect, type ReactNode } from "react"
-import { invoke } from "@tauri-apps/api/core"
 import { MenuBar } from "@/components/layout/MenuBar"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { StatusBar } from "@/components/layout/StatusBar"
+import { MobileTopBar } from "@/components/layout/MobileTopBar"
+import { MobileTabBar } from "@/components/layout/MobileTabBar"
 import { Toaster } from "@/components/shared/toaster"
 import { GlobalContextMenu } from "@/components/shared/GlobalContextMenu"
 import { SettingsDialog } from "@/components/settings/SettingsDialog"
 import { SettingsTriggerContext } from "@/components/layout/SettingsTriggerContext"
+import { EditorProvider, useEditor } from "@/components/layout/EditorContext"
+import { MobileNavigationProvider } from "@/components/layout/MobileNavigationContext"
+import { TrashOverlayProvider, useTrashOverlay } from "@/components/layout/TrashOverlayContext"
+import { MobilePageHeaderProvider } from "@/components/layout/MobilePageHeaderContext"
+import { TrashView } from "@/features/trash/components/TrashView"
 import { useSettings } from "@/lib/settings"
+import { useBackButton } from "@/lib/useBackButton"
+
+function TrashOverlayRenderer() {
+  const { trashOpen, closeTrash } = useTrashOverlay()
+  if (!trashOpen) return null
+  return <TrashView onClose={closeTrash} />
+}
+
+function AppShellChrome({ settings, children }: { settings: ReturnType<typeof useSettings>['settings'], children: ReactNode }) {
+  useBackButton()
+  const { isEditing } = useEditor()
+  const hideMobileShell = isEditing
+
+  return (
+    <>
+      <MenuBar />
+      {!hideMobileShell && <MobileTopBar />}
+      <div className="flex flex-1 overflow-hidden">
+        {settings.sidebarVisible ? <Sidebar /> : null}
+        <main className={`flex-1 overflow-y-auto overflow-x-auto main-scroll bg-paper dark:bg-[#1C1B1A] pb-14 md:pb-0 ${hideMobileShell ? '' : 'max-md:pt-[60px]'}`}>
+          <GlobalContextMenu>{children}</GlobalContextMenu>
+        </main>
+      </div>
+      <StatusBar />
+      {!hideMobileShell && <MobileTabBar />}
+    </>
+  )
+}
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { settings } = useSettings()
@@ -40,9 +74,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    requestIdleCallback(() => {
-      if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) return
+    if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) return
+    const init = async () => {
       try {
+        const { invoke } = await import('@tauri-apps/api/core')
         const enabled = localStorage.getItem('blur-effect-enabled') === 'true'
         const isDark = document.documentElement.classList.contains('dark')
         invoke<boolean>('init_blur', { enabled, isDark })
@@ -51,19 +86,24 @@ export function AppShell({ children }: { children: ReactNode }) {
           })
           .catch(() => {})
       } catch { /* 非 Tauri 环境静默跳过 */ }
-    })
+    }
+    requestIdleCallback(() => { void init() })
   }, [])
 
   return (
     <SettingsTriggerContext.Provider value={{ openSettings, closeSettings }}>
-      <MenuBar />
-      <div className="flex flex-1 overflow-hidden">
-        {settings.sidebarVisible ? <Sidebar /> : null}
-        <main className="flex-1 overflow-y-auto overflow-x-auto main-scroll bg-paper dark:bg-[#1C1B1A]">
-          <GlobalContextMenu>{children}</GlobalContextMenu>
-        </main>
-      </div>
-      <StatusBar />
+      <TrashOverlayProvider>
+        <EditorProvider>
+          <MobileNavigationProvider>
+            <MobilePageHeaderProvider>
+              <AppShellChrome settings={settings}>
+                {children}
+              </AppShellChrome>
+              <TrashOverlayRenderer />
+            </MobilePageHeaderProvider>
+          </MobileNavigationProvider>
+        </EditorProvider>
+      </TrashOverlayProvider>
       <Toaster />
       <SettingsDialog
         open={settingsOpen}

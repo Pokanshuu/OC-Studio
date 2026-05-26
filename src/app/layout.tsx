@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { AppShell } from "@/components/layout/AppShell";
 import { NavigationProvider } from "@/components/layout/NavigationContext";
@@ -15,6 +15,14 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "OC Studio",
   description: "原创角色与世界观创作工作台",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -36,11 +44,12 @@ export default function RootLayout({
               if (window.__TAURI__ || window.__TAURI_INTERNALS__) {
                 document.documentElement.classList.add('tauri-mica');
               }
+
             } catch(e) {}
           })()
         `}</Script>
       </head>
-      <body className="flex h-screen flex-col overflow-hidden">
+      <body className="flex flex-col min-h-dvh md:h-screen md:overflow-hidden">
         <Providers>
           <SeedData />
           <SettingsProvider>

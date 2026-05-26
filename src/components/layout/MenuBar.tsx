@@ -3,10 +3,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { Search, Users, Calendar, Flag, BookOpen, Minus, Maximize2, Minimize2, X, Check } from 'lucide-react'
-import { getCurrentWindow } from '@tauri-apps/api/window'
-
-let appWindow: ReturnType<typeof getCurrentWindow> | null = null
-try { appWindow = getCurrentWindow() } catch { /* 非 Tauri 环境 */ }
 import { searchAllEntitiesFlat } from '@/lib/reference-registry'
 import { useEntityNavigate } from '@/components/layout/EntityNavigateContext'
 import { useSettingsTrigger } from '@/components/layout/SettingsTriggerContext'
@@ -134,14 +130,17 @@ export function MenuBar() {
   }, [openMenu]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!appWindow) return
+    if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) return
     let unlisten: (() => void) | undefined
 
-    appWindow.isMaximized().then(setIsMaximized).catch(() => {})
-    appWindow.onResized(async () => {
-      const maximized = await appWindow!.isMaximized()
-      setIsMaximized(maximized)
-    }).then((fn) => { unlisten = fn }).catch(() => {})
+    import('@tauri-apps/api/window').then(({ getCurrentWindow }) => {
+      const aw = getCurrentWindow()
+      aw.isMaximized().then(setIsMaximized).catch(() => {})
+      aw.onResized(async () => {
+        const maximized = await aw.isMaximized()
+        setIsMaximized(maximized)
+      }).then((fn) => { unlisten = fn }).catch(() => {})
+    })
 
     return () => { unlisten?.() }
   }, [])
@@ -241,7 +240,7 @@ export function MenuBar() {
     <nav
       data-menubar
       data-tauri-drag-region
-      className="relative flex h-10 shrink-0 items-center justify-between border-b border-line bg-transparent px-4"
+      className="max-md:hidden relative flex h-10 shrink-0 items-center justify-between border-b border-line bg-transparent px-4"
     >
       <div className="flex items-center gap-4">
         <span className="font-serif text-sm text-ink transparent-text">OC Studio</span>
@@ -447,21 +446,21 @@ export function MenuBar() {
       <div className="flex items-center gap-0">
         <button
           className="h-7 w-7 flex items-center justify-center rounded text-ink-muted hover:text-ink hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-          onClick={() => { appWindow?.minimize() }}
+          onClick={() => { import('@tauri-apps/api/window').then(({ getCurrentWindow }) => getCurrentWindow().minimize()).catch(() => {}) }}
           aria-label="最小化"
         >
           <Minus size={14} strokeWidth={2} />
         </button>
         <button
           className="h-7 w-7 flex items-center justify-center rounded text-ink-muted hover:text-ink hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-          onClick={() => { appWindow?.toggleMaximize() }}
+          onClick={() => { import('@tauri-apps/api/window').then(({ getCurrentWindow }) => getCurrentWindow().toggleMaximize()).catch(() => {}) }}
           aria-label={isMaximized ? '还原' : '最大化'}
         >
           {isMaximized ? <Minimize2 size={14} strokeWidth={2} /> : <Maximize2 size={14} strokeWidth={2} />}
         </button>
         <button
           className="h-7 w-7 flex items-center justify-center rounded text-ink-muted hover:text-error hover:bg-red-100 dark:hover:bg-red-900 transition-colors"
-          onClick={() => { appWindow?.close() }}
+          onClick={() => { import('@tauri-apps/api/window').then(({ getCurrentWindow }) => getCurrentWindow().close()).catch(() => {}) }}
           aria-label="关闭"
         >
           <X size={14} strokeWidth={2} />

@@ -10,8 +10,11 @@ import { Avatar } from '@/components/shared/Avatar'
 import { getImageUrl, resolveImageUrl } from '@/lib/image-service'
 import { Separator } from '@/components/ui/separator'
 import { useCountryList } from '../hooks/useCountries'
-import { SortViewControls } from '@/components/shared/SortViewControls'
+import { SortViewControls, SortSelect } from '@/components/shared/SortViewControls'
 import type { SortOption, ViewMode } from '@/components/shared/SortViewControls'
+import { useDevice } from '@/lib/use-device'
+import { MobileFilterBar } from '@/components/layout/MobileFilterBar'
+import { MobileFab } from '@/components/layout/MobileFab'
 
 function readViewPreference(): ViewMode {
   if (typeof window === 'undefined') return 'grid'
@@ -133,6 +136,7 @@ export function CountryList({
   onCreateCountry,
   onDeleteCountry,
 }: CountryListProps) {
+  const { isMobile } = useDevice()
   const { countries, loading, error } = useCountryList()
   const [search, setSearch] = useState('')
   const [sortKey, setSortKey] = useState<CountrySortKey>('updatedAt')
@@ -182,11 +186,11 @@ export function CountryList({
 
   return (
     <div className="flex flex-col min-h-full">
-      <div className="flex items-center justify-between sticky top-0 z-10 border-b border-line px-6 py-3 min-h-[60px] bg-paper/70 dark:bg-[#1C1B1A]/70 backdrop-blur-md">
+      <div className="max-md:hidden flex items-center justify-between sticky top-0 z-10 border-b border-line px-6 py-3 min-h-[60px] bg-paper/70 dark:bg-[#1C1B1A]/70 backdrop-blur-md">
         <div className="flex items-center gap-3">
-          <h2 className="text-lg text-ink">国家</h2>
-          <Separator orientation="vertical" className="h-4 !self-center" />
-          <div className="relative">
+          <h2 className="text-lg text-ink font-serif font-bold">国家</h2>
+          <Separator orientation="vertical" className="max-md:hidden md:flex h-4 !self-center" />
+          <div className="relative max-md:hidden md:block">
             <Search
               size={16}
               strokeWidth={2}
@@ -200,7 +204,7 @@ export function CountryList({
               className="h-9 w-48 rounded border border-line bg-paper-card/60 pl-9 pr-3 text-sm text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none focus:bg-paper-card/80"
             />
           </div>
-          <Separator orientation="vertical" className="h-4 !self-center" />
+          <Separator orientation="vertical" className="max-md:hidden md:flex h-4 !self-center" />
           <SortViewControls
             sortKey={sortKey}
             onSortChange={(key) => setSortKey(key as CountrySortKey)}
@@ -218,7 +222,24 @@ export function CountryList({
         </button>
       </div>
 
-      <div className="flex-1 p-6 flex flex-col">
+      <MobileFilterBar>
+        <SortSelect
+          sortKey={sortKey}
+          onChange={(key) => setSortKey(key as CountrySortKey)}
+          options={COUNTRY_SORT_OPTIONS}
+        />
+        <button
+          onClick={onCreateCountry}
+          className="flex h-7 items-center gap-1 rounded border border-line bg-paper-card/60 px-2.5 text-[11px] text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
+        >
+          <Plus size={14} strokeWidth={2} />
+          <span>新建</span>
+        </button>
+      </MobileFilterBar>
+
+      <div className="max-md:h-10 flex-shrink-0" />
+
+      <div className="flex-1 p-4 flex flex-col">
         {countries.length === 0 ? (
           <div className="flex-1 flex items-center justify-center">
             <button
@@ -251,6 +272,7 @@ export function CountryList({
             ))}
           </div>
         )}
+        <MobileFab viewMode={viewMode} onViewModeChange={handleViewChange} />
       </div>
     </div>
   )

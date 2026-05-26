@@ -22,7 +22,7 @@ function getSortLabel(options: SortOption[], value: string): string {
   return SORT_LABEL_MAP[value] ?? value
 }
 
-function SortSelect({
+export function SortSelect({
   sortKey,
   onChange,
   options,
@@ -65,7 +65,7 @@ function SortSelect({
       <button
         ref={triggerRef}
         onClick={() => setOpen(!open)}
-        className="flex h-9 items-center gap-1 rounded border border-line bg-paper-card/60 px-3 text-sm text-ink transition-colors hover:border-line-hover"
+        className="flex md:h-9 h-7 items-center gap-1 rounded border border-line bg-paper-card/60 md:px-3 px-2 md:text-sm text-[11px] text-ink transition-colors hover:border-line-hover"
       >
         <span>{getSortLabel(options, sortKey)}</span>
         <ChevronDown size={16} strokeWidth={2} />

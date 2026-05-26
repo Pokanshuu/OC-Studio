@@ -253,7 +253,7 @@ function SortableTreeItem({
           <span
             {...attributes}
             {...listeners}
-            className="flex h-5 w-5 shrink-0 items-center justify-center cursor-grab text-ink-faint opacity-0 group-hover:opacity-100 transition-opacity"
+            className="flex h-5 w-5 shrink-0 items-center justify-center cursor-grab text-ink-faint opacity-100 md:opacity-0 md:group-hover:opacity-100 md:transition-opacity"
           >
             <GripVertical size={12} strokeWidth={2} />
           </span>
@@ -293,7 +293,7 @@ function SortableTreeItem({
           </span>
         )}
 
-        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex items-center gap-0.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:transition-opacity">
           {!isMobile ? (
             <DeleteButton onDelete={() => onDelete(entryId)} />
           ) : null}

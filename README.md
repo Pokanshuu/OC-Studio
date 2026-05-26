@@ -22,6 +22,7 @@
 - **回收站**：软删除条目管理，支持恢复和永久删除
 - **数据导入/导出**：JSON 格式（`.ocbak`），4 种合并策略
 - **桌面应用**：Tauri v2 打包，无边框窗口，Mica/亚克力效果
+- **移动端应用**：Capacitor v8 打包 Android 原生应用，底部导航 TabBar，CSS-first 响应式布局
 - **全局快捷键**：`Ctrl+S` 保存，`Ctrl+K` 搜索
 
 ---
@@ -33,6 +34,7 @@
 - **本地数据库**：Dexie.js (IndexedDB)
 - **图谱**：@xyflow/react
 - **桌面打包**：Tauri v2
+- **移动端打包**：Capacitor v8
 - **图标**：lucide-react
 
 ---
@@ -56,6 +58,17 @@ npx tauri build
 ```
 
 生成的 `.exe` / `.msi` 在 `src-tauri/target/release/bundle/` 目录下。
+
+### 移动端应用（Android）
+
+```bash
+npm run build
+npx cap add android        # 首次初始化
+npx cap sync               # 同步构建产物
+npx cap open android       # 在 Android Studio 中打开
+```
+
+> **注意**：`capacitor.config.ts` 中的 `server.url` 仅在开发热更新时使用。生产构建必须移除 `server.url`，否则 Capacitor WebView 的 HMR WebSocket 失败会导致 React runtime 异常。
 
 ---
 
@@ -84,8 +97,8 @@ npx tauri build
 - [x] 时间线五十年聚合视图
 - [x] 负数年份支持
 - [x] 全局相册重构
+- [x] 移动端适配（Capacitor Phase 1）
 - [ ] 模板系统
-- [ ] 移动端适配
 - [ ] 云存储/同步
 
 ---

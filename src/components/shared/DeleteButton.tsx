@@ -34,7 +34,7 @@ export function DeleteButton({ onDelete, label = '删除' }: DeleteButtonProps) 
   if (done) {
     return (
       <button
-        className="flex h-6 w-6 items-center justify-center rounded text-success transition-colors duration-150"
+        className="flex h-11 w-11 md:h-6 md:w-6 items-center justify-center rounded text-success transition-colors duration-150"
         title={label}
       >
         <CheckCircle size={16} strokeWidth={2} />
@@ -47,7 +47,7 @@ export function DeleteButton({ onDelete, label = '删除' }: DeleteButtonProps) 
       <div onClick={(e) => e.stopPropagation()}>
         <AlertDialogTrigger asChild>
           <button
-          className="flex h-6 w-6 items-center justify-center rounded text-ink-muted transition-colors duration-150 hover:text-error"
+          className="flex h-11 w-11 md:h-6 md:w-6 items-center justify-center rounded text-ink-muted transition-colors duration-150 hover:text-error"
           title={label}
         >
           <Trash2 size={16} strokeWidth={2} />

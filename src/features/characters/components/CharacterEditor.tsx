@@ -295,16 +295,16 @@ function CharacterEditorInner({
 
   return (
     <div className="flex flex-col min-h-full">
-      <div className="flex items-center justify-between sticky top-0 z-10 border-b border-line px-6 py-3 bg-paper/70 dark:bg-[#1C1B1A]/70 backdrop-blur-md">
+      <div className="flex items-center justify-between max-md:fixed max-md:top-0 max-md:left-0 max-md:right-0 md:sticky md:top-0 z-10 border-b border-line px-4 py-3 min-h-[60px] bg-paper/70 dark:bg-[#1C1B1A]/70 backdrop-blur-md">
         <div className="flex items-center gap-3">
           <button
+            data-mobile-back
             onClick={onBack}
-            className="flex items-center gap-1 text-sm text-ink-muted transition-colors hover:text-ink"
+            className="flex h-9 w-9 items-center justify-center rounded text-ink-muted transition-colors hover:text-ink"
           >
-            <ArrowLeft size={16} strokeWidth={2} />
-            <span>返回</span>
+            <ArrowLeft size={20} strokeWidth={2} />
           </button>
-          <h2 className="text-lg text-ink">编辑角色</h2>
+          <h2 className="text-lg text-ink font-serif font-bold">编辑角色</h2>
         </div>
         <button
           onClick={handleSave}
@@ -318,7 +318,7 @@ function CharacterEditorInner({
       </div>
 
       <div className="flex-1">
-        <div className="mx-auto max-w-3xl px-8 py-6 space-y-8">
+        <div className="mx-auto w-full px-4 py-6 space-y-6 md:max-w-3xl md:px-8 md:space-y-8">
           {/* Profile header */}
           <section>
             <ProfileBannerEditor
@@ -347,7 +347,7 @@ function CharacterEditorInner({
             <h3 className="text-base text-ink mb-3">基本信息</h3>
             <div className="flex flex-col lg:flex-row gap-6">
               {/* Info table */}
-              <div className="flex-1 max-w-[300px]">
+              <div className="flex-1 max-w-full md:max-w-[300px]">
                 {infoRows.map(([label]) => {
                   const value = label === '别名'
                     ? aliasesStr
@@ -377,7 +377,7 @@ function CharacterEditorInner({
 
                   return (
                     <div key={label} className="flex items-center border-b border-line py-1.5">
-                      <span className="w-24 inline-block shrink-0 text-sm text-ink-muted">{label}</span>
+                      <span className="w-20 md:w-24 inline-block shrink-0 text-sm text-ink-muted">{label}</span>
                       <input
                         type="text"
                         value={value}
@@ -392,7 +392,7 @@ function CharacterEditorInner({
                 {/* Nationality */}
                 <div className="flex items-center border-b border-line py-1.5">
                   <span className="w-24 inline-block shrink-0 text-sm text-ink-muted">国籍</span>
-                  <div className="flex-1">
+      <div className="flex-1 max-md:pt-[60px]">
                     {countries.length > 0 ? (
                       <RelatedItemsSelector
                         items={countryItems}
@@ -432,7 +432,7 @@ function CharacterEditorInner({
               </div>
 
               {/* 立绘 (portrait) */}
-              <div className="flex-1 max-w-[200px] ml-auto">
+              <div className="flex-1 max-w-full md:max-w-[200px] md:ml-auto">
                 <h4 className="text-xs text-ink-muted mb-2">立绘</h4>
                 <div className="aspect-[9/16]">
                   <ImageGallery

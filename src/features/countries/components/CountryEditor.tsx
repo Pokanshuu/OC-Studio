@@ -187,16 +187,16 @@ function CountryEditorInner({
 
   return (
     <div className="flex flex-col min-h-full">
-      <div className="flex items-center justify-between sticky top-0 z-10 border-b border-line px-6 py-3 bg-paper/70 dark:bg-[#1C1B1A]/70 backdrop-blur-md">
+      <div className="flex items-center justify-between max-md:fixed max-md:top-0 max-md:left-0 max-md:right-0 md:sticky md:top-0 z-10 border-b border-line px-4 py-3 min-h-[60px] bg-paper/70 dark:bg-[#1C1B1A]/70 backdrop-blur-md">
         <div className="flex items-center gap-3">
           <button
+            data-mobile-back
             onClick={onBack}
-            className="flex items-center gap-1 text-sm text-ink-muted transition-colors hover:text-ink"
+            className="flex h-9 w-9 items-center justify-center rounded text-ink-muted transition-colors hover:text-ink"
           >
-            <ArrowLeft size={16} strokeWidth={2} />
-            <span>返回</span>
+            <ArrowLeft size={20} strokeWidth={2} />
           </button>
-          <h2 className="text-lg text-ink">编辑国家</h2>
+          <h2 className="text-lg text-ink font-serif font-bold">编辑国家</h2>
         </div>
         <button
           onClick={handleSave}
@@ -209,8 +209,8 @@ function CountryEditorInner({
         </button>
       </div>
 
-      <div className="flex-1">
-        <div className="mx-auto max-w-3xl px-8 py-6 space-y-8">
+      <div className="flex-1 max-md:pt-[60px]">
+        <div className="mx-auto w-full px-4 py-6 space-y-6 md:max-w-3xl md:px-8 md:space-y-8">
           {/* Profile header */}
           <section>
             <ProfileBannerEditor

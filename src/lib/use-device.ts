@@ -6,13 +6,34 @@ interface UseDeviceResult {
   isMobile: boolean
 }
 
+function isCapacitor(): boolean {
+  if (typeof window === 'undefined') return false
+  return (
+    typeof (window as any).Capacitor !== 'undefined' ||
+    navigator.userAgent.includes('Android') ||
+    navigator.userAgent.includes('iPhone') ||
+    navigator.userAgent.includes('iPad')
+  )
+}
+
+function isNarrowScreen(): boolean {
+  if (typeof window === 'undefined') return false
+  return window.innerWidth < 768
+}
+
+function isMobileAgent(): boolean {
+  if (typeof navigator === 'undefined') return false
+  return /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+}
+
 export function useDevice(): UseDeviceResult {
   const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
     const check = (): void => {
-      setIsMobile(window.innerWidth < 768)
+      setIsMobile(isCapacitor() || isNarrowScreen() || isMobileAgent())
     }
+
     check()
     window.addEventListener('resize', check)
     return () => window.removeEventListener('resize', check)

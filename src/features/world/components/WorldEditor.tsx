@@ -59,7 +59,7 @@ function WorldEditorInner({
           <button onClick={onBack} className="flex items-center gap-1 text-sm text-ink-muted transition-colors hover:text-ink">
             <ArrowLeft size={16} strokeWidth={2} /><span>返回</span>
           </button>
-          <h2 className="text-lg text-ink">编辑词条</h2>
+          <h2 className="text-lg text-ink font-serif font-bold">编辑词条</h2>
         </div>
         <button onClick={handleSave} disabled={saving || !title.trim()} className="flex h-9 items-center gap-1.5 rounded border border-line bg-paper-alt px-3 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink disabled:opacity-50">
           <Save size={16} strokeWidth={2} /><span>{saving ? '保存中...' : '保存'}</span>

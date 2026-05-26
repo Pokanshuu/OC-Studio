@@ -144,16 +144,16 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
 
   return (
     <div className="flex flex-col min-h-full">
-      <div className="flex items-center justify-between sticky top-0 z-10 border-b border-line px-6 py-3 bg-paper/70 dark:bg-[#1C1B1A]/70 backdrop-blur-md">
+      <div className="flex items-center justify-between max-md:fixed max-md:top-0 max-md:left-0 max-md:right-0 md:sticky md:top-0 z-10 border-b border-line px-4 py-3 min-h-[60px] bg-paper/70 dark:bg-[#1C1B1A]/70 backdrop-blur-md">
         <div className="flex items-center gap-3">
           <button
+            data-mobile-back
             onClick={onBack}
-            className="flex items-center gap-1 text-sm text-ink-muted transition-colors hover:text-ink"
+            className="flex h-9 w-9 items-center justify-center rounded text-ink-muted transition-colors hover:text-ink"
           >
-            <ArrowLeft size={16} strokeWidth={2} />
-            <span>返回</span>
+            <ArrowLeft size={20} strokeWidth={2} />
           </button>
-          <h2 className="text-lg text-ink">编辑事件</h2>
+          <h2 className="text-lg text-ink font-serif font-bold">编辑事件</h2>
         </div>
         <button
           onClick={handleSave}
@@ -166,8 +166,8 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
         </button>
       </div>
 
-      <div className="flex-1">
-        <div className="mx-auto max-w-3xl px-8 py-6">
+      <div className="flex-1 max-md:pt-[60px]">
+        <div className="mx-auto w-full px-4 py-6 md:max-w-3xl md:px-8">
           {/* Profile header */}
           <section>
             <ProfileBannerEditor
@@ -188,60 +188,42 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
             />
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <Input
-              value={year}
-              onChange={(e) => setYear(e.target.value)}
-              placeholder="年份"
-              className="w-16"
-            />
-            <Input
-              value={month}
-              onChange={(e) => setMonth(e.target.value)}
-              placeholder="月"
-              className="w-12"
-            />
-            <Input
-              value={day}
-              onChange={(e) => setDay(e.target.value)}
-              placeholder="日"
-              className="w-12"
-            />
-            <span className="text-xs text-ink-faint">→</span>
-            <Input
-              value={endYear}
-              onChange={(e) => setEndYear(e.target.value)}
-              placeholder="结束年"
-              className="w-16"
-            />
-            <Input
-              value={endMonth}
-              onChange={(e) => setEndMonth(e.target.value)}
-              placeholder="月"
-              className="w-12"
-            />
-            <Input
-              value={endDay}
-              onChange={(e) => setEndDay(e.target.value)}
-              placeholder="日"
-              className="w-12"
-            />
-            <Separator orientation="vertical" className="h-4 !self-center" />
-            <Input
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder="地点"
-              className="flex-1"
-            />
+          {/* Mobile: time inputs stacked */}
+          <div className="mt-3 flex flex-col gap-2 md:hidden">
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-ink-faint w-8 shrink-0">开始</span>
+              <Input value={year} onChange={(e) => setYear(e.target.value)} placeholder="年份" className="w-16" />
+              <Input value={month} onChange={(e) => setMonth(e.target.value)} placeholder="月" className="w-12" />
+              <Input value={day} onChange={(e) => setDay(e.target.value)} placeholder="日" className="w-12" />
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-ink-faint w-8 shrink-0">结束</span>
+              <Input value={endYear} onChange={(e) => setEndYear(e.target.value)} placeholder="结束年" className="w-16" />
+              <Input value={endMonth} onChange={(e) => setEndMonth(e.target.value)} placeholder="月" className="w-12" />
+              <Input value={endDay} onChange={(e) => setEndDay(e.target.value)} placeholder="日" className="w-12" />
+            </div>
             <div className="flex items-center gap-2">
-              <Checkbox
-                id="isMajor"
-                checked={isMajor}
-                onCheckedChange={(checked) => setIsMajor(checked === true)}
-              />
-              <label htmlFor="isMajor" className="cursor-pointer text-sm text-ink">
-                重大事件
-              </label>
+              <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="地点" className="flex-1" />
+              <div className="flex items-center gap-2 shrink-0">
+                <Checkbox id="isMajor" checked={isMajor} onCheckedChange={(checked) => setIsMajor(checked === true)} />
+                <label htmlFor="isMajor" className="cursor-pointer text-sm text-ink">重大事件</label>
+              </div>
+            </div>
+          </div>
+          {/* Desktop: time inputs inline */}
+          <div className="mt-3 max-md:hidden md:flex md:flex-wrap md:items-center md:gap-2">
+            <Input value={year} onChange={(e) => setYear(e.target.value)} placeholder="年份" className="w-16" />
+            <Input value={month} onChange={(e) => setMonth(e.target.value)} placeholder="月" className="w-12" />
+            <Input value={day} onChange={(e) => setDay(e.target.value)} placeholder="日" className="w-12" />
+            <span className="text-xs text-ink-faint">→</span>
+            <Input value={endYear} onChange={(e) => setEndYear(e.target.value)} placeholder="结束年" className="w-16" />
+            <Input value={endMonth} onChange={(e) => setEndMonth(e.target.value)} placeholder="月" className="w-12" />
+            <Input value={endDay} onChange={(e) => setEndDay(e.target.value)} placeholder="日" className="w-12" />
+            <Separator orientation="vertical" className="h-4 !self-center" />
+            <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="地点" className="flex-1" />
+            <div className="flex items-center gap-2">
+              <Checkbox id="isMajor" checked={isMajor} onCheckedChange={(checked) => setIsMajor(checked === true)} />
+              <label htmlFor="isMajor" className="cursor-pointer text-sm text-ink">重大事件</label>
             </div>
           </div>
 

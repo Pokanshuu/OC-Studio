@@ -136,7 +136,7 @@ export function ImageGallery({
                   </div>
                 ))}
               </div>
-              <div className="absolute right-1 top-1 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+              <div className="absolute right-1 top-1 flex gap-1 opacity-100 md:opacity-0 md:transition-opacity md:group-hover:opacity-100">
                 {onRemove ? (
                   <button
                     onClick={() => {
@@ -239,7 +239,7 @@ export function ImageGallery({
               {onRemove ? (
                 <button
                   onClick={() => onRemove(idx)}
-                  className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/40 text-white/80 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/60"
+                  className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/40 text-white/80 opacity-100 md:opacity-0 md:transition-opacity md:group-hover:opacity-100 hover:bg-black/60"
                 >
                   <Trash2 size={12} strokeWidth={2} />
                 </button>

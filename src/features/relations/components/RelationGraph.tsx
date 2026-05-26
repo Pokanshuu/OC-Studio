@@ -6,23 +6,22 @@ import {
   Background,
   Controls,
   MiniMap,
-  Panel,
   useNodesState,
   useEdgesState,
   useReactFlow,
-  useStore,
   BackgroundVariant,
   type Node,
   type Edge,
+  type ReactFlowInstance,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { Users, Calendar, Flag, Minus, Plus } from 'lucide-react'
 
 import { useGraphData } from '../hooks/useGraphData'
 import { CharacterNode } from './CharacterNode'
 import { EventNode } from './EventNode'
 import { CountryNode } from './CountryNode'
 import { RelationEdge } from './RelationEdge'
+import { MobileRelationControls, DesktopRelationPanel } from './MobileRelationControls'
 
 interface RelationGraphProps {
   onNavigateToCharacter?: (id: number) => void
@@ -55,6 +54,12 @@ function FitViewOnLoad({ ready }: { ready: boolean }) {
   return null
 }
 
+function ZoomReader({ onInstance }: { onInstance: (rf: ReactFlowInstance) => void }) {
+  const rf = useReactFlow()
+  useEffect(() => { onInstance(rf) }, [rf, onInstance])
+  return null
+}
+
 export function RelationGraph({
   onNavigateToCharacter,
   onNavigateToEvent,
@@ -67,6 +72,20 @@ export function RelationGraph({
   const [showCharacters, setShowCharacters] = useState(true)
   const [showEvents, setShowEvents] = useState(true)
   const [showCountries, setShowCountries] = useState(true)
+  const [zoom, setZoom] = useState(1)
+  const rfRef = useRef<ReactFlowInstance | null>(null)
+
+  const handleZoomChange = useCallback((value: number) => {
+    rfRef.current?.zoomTo(value / 100, { duration: 0 })
+  }, [])
+
+  const handleInstance = useCallback((rf: ReactFlowInstance) => {
+    rfRef.current = rf
+  }, [])
+
+  const handleMove = useCallback((_event: any, viewport: { zoom: number }) => {
+    setZoom(viewport.zoom)
+  }, [])
 
   useEffect(() => {
     const isVisible = visible ?? false
@@ -171,6 +190,7 @@ export function RelationGraph({
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onNodeClick={handleNodeClick}
+        onMove={handleMove}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView
@@ -179,42 +199,20 @@ export function RelationGraph({
         maxZoom={2}
         proOptions={{ hideAttribution: true }}
       >
+        <ZoomReader onInstance={handleInstance} />
         <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#E7E3DC" />
         <Controls className="!border !border-line !rounded-md !bg-paper !shadow-none" position="bottom-right" />
 
-        <Panel position="top-left" className="flex items-center gap-4 bg-paper/70 backdrop-blur-md border border-line rounded-md px-3 py-2 m-3">
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setShowCharacters(!showCharacters)}
-              className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors ${
-                showCharacters ? 'bg-paper-card border border-line-hover text-ink' : 'text-ink-faint hover:text-ink-muted'
-              }`}
-            >
-              <Users size={14} strokeWidth={2} />
-              <span>角色</span>
-            </button>
-            <button
-              onClick={() => setShowEvents(!showEvents)}
-              className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors ${
-                showEvents ? 'bg-paper-card border border-line-hover text-ink' : 'text-ink-faint hover:text-ink-muted'
-              }`}
-            >
-              <Calendar size={14} strokeWidth={2} />
-              <span>事件</span>
-            </button>
-            <button
-              onClick={() => setShowCountries(!showCountries)}
-              className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors ${
-                showCountries ? 'bg-paper-card border border-line-hover text-ink' : 'text-ink-faint hover:text-ink-muted'
-              }`}
-            >
-              <Flag size={14} strokeWidth={2} />
-              <span>国家</span>
-            </button>
-          </div>
-
-          <ZoomSlider />
-        </Panel>
+        <DesktopRelationPanel
+          showCharacters={showCharacters}
+          showEvents={showEvents}
+          showCountries={showCountries}
+          onToggleCharacters={() => setShowCharacters(!showCharacters)}
+          onToggleEvents={() => setShowEvents(!showEvents)}
+          onToggleCountries={() => setShowCountries(!showCountries)}
+          zoom={zoom}
+          onZoomChange={handleZoomChange}
+        />
 
         <FitViewOnLoad key={filteredNodes.length} ready={filteredNodes.length > 0 && !loading} />
         <MiniMap
@@ -234,62 +232,17 @@ export function RelationGraph({
           className="!border !border-line !rounded-md !bg-paper"
         />
       </ReactFlow>
-    </div>
-  )
-}
 
-function ZoomSlider() {
-  const { zoomTo } = useReactFlow()
-  const zoom = useStore((state) => state.transform[2])
-  const zoomValue = Math.round(zoom * 100)
-
-  const handleZoom = (value: number) => {
-    const clamped = Math.max(10, Math.min(200, value))
-    zoomTo(clamped / 100, { duration: 0 })
-  }
-
-  return (
-    <div className="flex items-center gap-1">
-      <button
-        onClick={() => handleZoom(zoomValue - 10)}
-        className="h-6 w-6 flex items-center justify-center rounded text-ink-faint hover:text-ink transition-colors"
-      >
-        <Minus size={14} strokeWidth={2} />
-      </button>
-      <input
-        type="range"
-        min={10}
-        max={200}
-        step={1}
-        value={zoomValue}
-        onChange={(e) => handleZoom(Number(e.target.value))}
-        className="w-24 h-6 cursor-pointer appearance-none bg-transparent
-          [&::-webkit-slider-runnable-track]:h-1
-          [&::-webkit-slider-runnable-track]:rounded
-          [&::-webkit-slider-runnable-track]:bg-line
-          [&::-webkit-slider-thumb]:appearance-none
-          [&::-webkit-slider-thumb]:-mt-1
-          [&::-webkit-slider-thumb]:h-3.5
-          [&::-webkit-slider-thumb]:w-3.5
-          [&::-webkit-slider-thumb]:rounded-full
-          [&::-webkit-slider-thumb]:bg-ink-muted
-          [&::-webkit-slider-thumb]:border
-          [&::-webkit-slider-thumb]:border-line
-          [&::-moz-range-track]:h-1
-          [&::-moz-range-track]:rounded
-          [&::-moz-range-track]:bg-line
-          [&::-moz-range-thumb]:h-3.5
-          [&::-moz-range-thumb]:w-3.5
-          [&::-moz-range-thumb]:rounded-full
-          [&::-moz-range-thumb]:bg-ink-muted
-          [&::-moz-range-thumb]:border-0"
+      <MobileRelationControls
+        showCharacters={showCharacters}
+        showEvents={showEvents}
+        showCountries={showCountries}
+        onToggleCharacters={() => setShowCharacters(!showCharacters)}
+        onToggleEvents={() => setShowEvents(!showEvents)}
+        onToggleCountries={() => setShowCountries(!showCountries)}
+        zoom={zoom}
+        onZoomChange={handleZoomChange}
       />
-      <button
-        onClick={() => handleZoom(zoomValue + 10)}
-        className="h-6 w-6 flex items-center justify-center rounded text-ink-faint hover:text-ink transition-colors"
-      >
-        <Plus size={14} strokeWidth={2} />
-      </button>
     </div>
   )
 }

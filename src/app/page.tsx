@@ -1,8 +1,12 @@
 'use client'
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
+import dynamic from 'next/dynamic'
 import { useNavigation } from '@/components/layout/NavigationContext'
 import { useNavigationSource } from '@/components/layout/NavigationSourceContext'
+import { useEditor } from '@/components/layout/EditorContext'
+import { useDevice } from '@/lib/use-device'
+import { useMobileNavigation } from '@/components/layout/MobileNavigationContext'
 import { useWordCount } from '@/components/layout/WordCountContext'
 import { useEntityNavigate } from '@/components/layout/EntityNavigateContext'
 import { EventList } from '@/features/events/components/EventList'
@@ -16,8 +20,11 @@ import { CountryEditor } from '@/features/countries/components/CountryEditor'
 import { useCreateCountry, useDeleteCountry } from '@/features/countries/hooks/useCountries'
 import { WorldLayout } from '@/features/world/components/WorldLayout'
 import { TimelineView } from '@/features/timeline/components/TimelineView'
-import { TrashView } from '@/features/trash/components/TrashView'
-import { RelationGraph } from '@/features/relations'
+import { GlobalAlbum } from '@/components/shared/GlobalAlbum'
+const RelationGraph = dynamic(
+  () => import('@/features/relations').then((mod) => ({ default: mod.RelationGraph })),
+  { ssr: false },
+)
 import type { EventFormData } from '@/features/events/types'
 
 type EventView = { sub: 'list' } | { sub: 'editor'; eventId: number }
@@ -27,8 +34,20 @@ type CountryView = { sub: 'list' } | { sub: 'editor'; countryId: number }
 const PLACEHOLDER_MAP: Record<string, string> = {}
 
 export default function Home() {
-  const { activeItem, setActiveItem } = useNavigation()
+  const { activeItem: desktopActiveItem, setActiveItem } = useNavigation()
   const { source, setSource, clearSource } = useNavigationSource()
+  const { setEditing, clearEditing } = useEditor()
+  const { isMobile } = useDevice()
+  const mobileNav = useMobileNavigation()
+  const activeItem = isMobile
+    ? (mobileNav.section === 'gallery'
+        ? ({ characters: '角色', events: '事件', countries: '国家' } as const)[mobileNav.gallerySubTab]
+        : mobileNav.section === 'wiki' ? '世界观'
+        : mobileNav.section === 'timeline' ? '时间线'
+        : mobileNav.section === 'relations' ? '关系图'
+        : mobileNav.section === 'album' ? '相册'
+        : desktopActiveItem)
+    : desktopActiveItem
   const [eventView, setEventView] = useState<EventView>({ sub: 'list' })
   const [characterView, setCharacterView] = useState<CharacterView>({ sub: 'list' })
   const [countryView, setCountryView] = useState<CountryView>({ sub: 'list' })
@@ -67,7 +86,8 @@ const [worldSelectedEntryId, setWorldSelectedEntryId] = useState<number | null>(
   const handleSelectEvent = useCallback((id: number) => {
     setSource('eventList')
     setEventView({ sub: 'editor', eventId: id })
-  }, [setSource])
+    setEditing('event', id)
+  }, [setSource, setEditing])
 
   const handleCreateEvent = useCallback(() => {
     if (creating) return
@@ -80,11 +100,12 @@ const [worldSelectedEntryId, setWorldSelectedEntryId] = useState<number | null>(
       content: '',
     }).then((id) => {
       setEventView({ sub: 'editor', eventId: id })
+      setEditing('event', id)
       refresh()
     }).catch(() => {
       // error handled via hook
     })
-  }, [createEvent, creating, refresh])
+  }, [createEvent, creating, refresh, setEditing])
 
   const handleSaveEvent = useCallback(
     async (id: number, data: Partial<EventFormData>) => {
@@ -135,6 +156,7 @@ const [worldSelectedEntryId, setWorldSelectedEntryId] = useState<number | null>(
   }, [setActiveItem, setSource, clearSource])
 
   const handleBackToList = useCallback(() => {
+    clearEditing()
     if (restoreCrossBack()) return
     if (source === 'timeline') {
       setEventView({ sub: 'list' })
@@ -143,12 +165,13 @@ const [worldSelectedEntryId, setWorldSelectedEntryId] = useState<number | null>(
       setEventView({ sub: 'list' })
     }
     clearSource()
-  }, [source, setActiveItem, clearSource, restoreCrossBack])
+  }, [source, setActiveItem, clearSource, restoreCrossBack, clearEditing])
 
   const handleSelectCharacter = useCallback((id: number) => {
     setSource('characterList')
     setCharacterView({ sub: 'editor', characterId: id })
-  }, [setSource])
+    setEditing('character', id)
+  }, [setSource, setEditing])
 
   const handleCreateCharacter = useCallback(() => {
     if (creatingChar) return
@@ -169,18 +192,20 @@ const [worldSelectedEntryId, setWorldSelectedEntryId] = useState<number | null>(
       avatars: [],
     }).then((id) => {
       setCharacterView({ sub: 'editor', characterId: id })
+      setEditing('character', id)
       refreshCharacters()
     }).catch(() => {
       // error handled via hook
     })
-  }, [createCharacter, creatingChar, refreshCharacters])
+  }, [createCharacter, creatingChar, refreshCharacters, setEditing])
 
   const handleBackToCharacterList = useCallback(() => {
+    clearEditing()
     if (restoreCrossBack()) return
     setCharacterView({ sub: 'list' })
     refreshCharacters()
     clearSource()
-  }, [refreshCharacters, clearSource, restoreCrossBack])
+  }, [refreshCharacters, clearSource, restoreCrossBack, clearEditing])
 
   const handleDeleteCharacter = useCallback(
     (id: number) => {
@@ -205,10 +230,11 @@ const [worldSelectedEntryId, setWorldSelectedEntryId] = useState<number | null>(
       culture: '',
     }).then((id) => {
       setCountryView({ sub: 'editor', countryId: id })
+      setEditing('country', id)
     }).catch(() => {
       // error handled via hook
     })
-  }, [createCountry, creatingCountry])
+  }, [createCountry, creatingCountry, setEditing])
 
   const handleDeleteCountry = useCallback(
     (id: number) => {
@@ -223,21 +249,24 @@ const [worldSelectedEntryId, setWorldSelectedEntryId] = useState<number | null>(
   const handleSelectCountry = useCallback((id: number) => {
     setSource('countryList')
     setCountryView({ sub: 'editor', countryId: id })
-  }, [setSource])
+    setEditing('country', id)
+  }, [setSource, setEditing])
 
   const handleBackToCountryList = useCallback(() => {
+    clearEditing()
     if (restoreCrossBack()) return
     setCountryView({ sub: 'list' })
     clearSource()
-  }, [clearSource, restoreCrossBack])
+  }, [clearSource, restoreCrossBack, clearEditing])
 
   const handleTimelineSelectEvent = useCallback(
     (id: number) => {
       setSource('timeline')
       setEventView({ sub: 'editor', eventId: id })
       setActiveItem('事件')
+      setEditing('event', id)
     },
-    [setSource, setActiveItem],
+    [setSource, setActiveItem, setEditing],
   )
 
   const handleRelatedItemNavigate = useCallback((id: number, type?: string) => {
@@ -259,21 +288,24 @@ const [worldSelectedEntryId, setWorldSelectedEntryId] = useState<number | null>(
     if (type === 'character') {
       setCharacterView({ sub: 'editor', characterId: id })
       setActiveItem('角色')
+      setEditing('character', id)
       clearSource()
     } else if (type === 'event') {
       setEventView({ sub: 'editor', eventId: id })
       setActiveItem('事件')
+      setEditing('event', id)
       clearSource()
     } else if (type === 'country') {
       setCountryView({ sub: 'editor', countryId: id })
       setActiveItem('国家')
+      setEditing('country', id)
       clearSource()
     } else if (type === 'world') {
       setWorldSelectedEntryId(id)
       setActiveItem('世界观')
       clearSource()
     }
-  }, [eventView, characterView, countryView, activeItem, source, setActiveItem, clearSource])
+  }, [eventView, characterView, countryView, activeItem, source, setActiveItem, clearSource, setEditing])
 
   const handleMentionClick = useCallback((id: string, entityType?: string) => {
     const numId = Number(id)
@@ -292,9 +324,9 @@ const [worldSelectedEntryId, setWorldSelectedEntryId] = useState<number | null>(
   const showCountries = activeItem === '国家'
   const showWorld = activeItem === '世界观'
   const showTimeline = activeItem === '时间线'
-  const showTrash = activeItem === '回收站'
   const showRelations = activeItem === '关系图'
-  const showPlaceholder = activeItem !== null && !showEvents && !showCharacters && !showCountries && !showWorld && !showTimeline && !showTrash && !showRelations
+  const showAlbum = activeItem === '相册'
+  const showPlaceholder = activeItem !== null && !showEvents && !showCharacters && !showCountries && !showWorld && !showTimeline && !showRelations && !showAlbum
   const placeholderText = activeItem !== null
     ? (PLACEHOLDER_MAP[activeItem] ?? '功能开发中...')
     : null
@@ -467,10 +499,12 @@ const [worldSelectedEntryId, setWorldSelectedEntryId] = useState<number | null>(
       <div
         className="h-full"
         style={{
-          display: showTrash ? undefined : 'none',
+          display: showAlbum ? undefined : 'none',
         }}
       >
-        <TrashView />
+        <GlobalAlbum
+          onNavigate={(id, type) => handleRelatedItemNavigate(id, type)}
+        />
       </div>
 
       <div

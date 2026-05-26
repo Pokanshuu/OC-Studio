@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { Plus, Menu, ArrowLeft, ChevronLeft } from 'lucide-react'
+import { Plus, Menu, ChevronLeft } from 'lucide-react'
 import type { Editor } from '@tiptap/core'
 import { EditorCore } from '@/components/editor/EditorCore'
 import { useDevice } from '@/lib/use-device'
@@ -10,6 +10,7 @@ import { useEntryList, useEntry, useCreateEntry, useDeleteEntry } from '../hooks
 import { saveEntryContent, renameEntry, reorderEntries } from '../services'
 import type { WorldFormData } from '../types'
 import { WorldTree } from './WorldTree'
+import { useMobilePageHeader } from '@/components/layout/MobilePageHeaderContext'
 
 function parseEditorContent(content: string): object | string {
   if (!content) return ''
@@ -38,6 +39,20 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
   const { createEntry } = useCreateEntry()
   const { deleteEntry } = useDeleteEntry()
   const { isMobile } = useDevice()
+  const { setConfig } = useMobilePageHeader()
+
+  // Listen for mobile top bar toggle event
+  useEffect(() => {
+    const handler = () => setShowMobileTree(true)
+    window.addEventListener('oc:world-toggle', handler)
+    return () => window.removeEventListener('oc:world-toggle', handler)
+  }, [])
+
+  // Set page title
+  useEffect(() => {
+    if (isMobile) setConfig('世界观')
+    else setConfig(null)
+  }, [isMobile, setConfig])
 
   const editorRef = useRef<Editor | null>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -192,25 +207,25 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
 
    const treePanel = (
     <div className="flex h-full flex-col border-r border-line bg-paper-alt">
-      <div className="flex items-center justify-between border-b border-line px-6 py-3">
+      <div className="flex items-center justify-between border-b border-line px-3 py-3">
         <div className="flex items-center gap-2">
           {isMobile ? (
-            <button onClick={() => setShowMobileTree(false)} className="flex h-9 w-9 items-center justify-center text-ink-muted">
-              <ArrowLeft size={16} strokeWidth={2} />
+            <button onClick={() => setShowMobileTree(false)} className="flex h-9 w-9 items-center justify-center rounded text-ink-muted">
+              <ChevronLeft size={16} strokeWidth={2} />
             </button>
           ) : null}
-          <h2 className="text-lg text-ink">世界观</h2>
-        </div>
-        <div className="flex items-center gap-1">
           {!isMobile ? (
             <button
               onClick={() => setTreeCollapsed(!treeCollapsed)}
               className="flex h-9 w-9 items-center justify-center rounded text-ink-faint hover:text-ink transition-colors"
               title={treeCollapsed ? '展开目录' : '折叠目录'}
             >
-              <ChevronLeft size={16} strokeWidth={2} className={treeCollapsed ? 'rotate-180' : ''} />
+              {treeCollapsed ? <Menu size={16} strokeWidth={2} /> : <ChevronLeft size={16} strokeWidth={2} />}
             </button>
           ) : null}
+          <h2 className="text-lg text-ink font-serif font-bold">世界观</h2>
+        </div>
+        <div className="flex items-center gap-1">
           <button
             onClick={() => handleCreate(null, '新词条')}
             className="flex h-9 w-9 items-center justify-center rounded text-ink-muted transition-colors hover:text-ink hover:bg-paper-card"
@@ -250,22 +265,14 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
       <div className="flex flex-1 flex-col min-w-0">
         {selectedId !== null && currentEntry ? (
           <>
-      <div className="flex items-center justify-between sticky top-0 z-10 border-b border-line px-6 py-3 min-h-[60px] bg-paper/70 dark:bg-[#1C1B1A]/70 backdrop-blur-md">
+            <div className="flex-1 overflow-auto">
+      <div className="flex items-center justify-between sticky top-0 z-10 border-b border-line px-4 py-3 min-h-[60px] bg-paper/70 dark:bg-[#1C1B1A]/70 backdrop-blur-md">
               <div className="flex items-center gap-3 flex-1 min-w-0">
                 {treeCollapsed && !isMobile ? (
                   <button
                     onClick={() => setTreeCollapsed(false)}
                     className="flex h-9 w-9 items-center justify-center rounded text-ink-muted hover:text-ink transition-colors"
                     title="展开目录"
-                  >
-                    <ChevronLeft size={16} strokeWidth={2} className="rotate-180" />
-                  </button>
-                ) : null}
-                {isMobile ? (
-                  <button
-                    onClick={() => setShowMobileTree(true)}
-                    className="flex h-9 w-9 items-center justify-center rounded text-ink-muted hover:text-ink"
-                    title="目录"
                   >
                     <Menu size={16} strokeWidth={2} />
                   </button>
@@ -279,7 +286,7 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
                 />
               </div>
             </div>
-            <div className="flex-1 overflow-auto px-8 py-2">
+              <div className="px-4 py-2 md:px-8 md:pb-2">
               <EditorCore
                 plain
                 key={selectedId}
@@ -291,6 +298,7 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
                 onCharacterCount={onCharacterCount}
                 onWikiLinkClick={onWikiLinkClick}
               />
+            </div>
             </div>
           </>
         ) : loading ? (

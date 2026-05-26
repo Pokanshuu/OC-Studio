@@ -13,6 +13,14 @@ export function GlobalContextMenu({ children }: { children: ReactNode }) {
   const menuRef = useRef<HTMLDivElement>(null)
   const targetRef = useRef<HTMLElement | null>(null)
 
+  const openMenuAt = useCallback((target: HTMLElement, x: number, y: number) => {
+    targetRef.current = target
+    target.focus()
+    setPosition({ x, y })
+    setVisible(false)
+    setOpen(true)
+  }, [])
+
   const handleContextMenu = useCallback((e: MouseEvent) => {
     const target = e.target as HTMLElement
     if (target.closest?.('.ProseMirror')) return
@@ -27,12 +35,8 @@ export function GlobalContextMenu({ children }: { children: ReactNode }) {
     }
 
     e.preventDefault()
-    targetRef.current = target
-    target.focus()
-    setPosition({ x: e.clientX, y: e.clientY })
-    setVisible(false)
-    setOpen(true)
-  }, [])
+    openMenuAt(target, e.clientX, e.clientY)
+  }, [openMenuAt])
 
   useEffect(() => {
     if (!open || !menuRef.current) return
@@ -44,7 +48,9 @@ export function GlobalContextMenu({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     document.addEventListener('contextmenu', handleContextMenu)
-    return () => document.removeEventListener('contextmenu', handleContextMenu)
+    return () => {
+      document.removeEventListener('contextmenu', handleContextMenu)
+    }
   }, [handleContextMenu])
 
   useEffect(() => {
