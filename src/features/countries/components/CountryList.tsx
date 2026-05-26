@@ -186,7 +186,7 @@ export function CountryList({
 
   return (
     <div className="flex flex-col min-h-full">
-      <div className="max-md:hidden flex items-center justify-between sticky top-0 z-10 border-b border-line px-6 py-3 min-h-[60px] bg-paper/70 dark:bg-[#1C1B1A]/70 backdrop-blur-md">
+      <div className="max-md:hidden flex items-center justify-between sticky top-0 z-10 border-b border-line px-6 py-3 h-[60px] bg-paper/70 dark:bg-[#1C1B1A]/70 backdrop-blur-md">
         <div className="flex items-center gap-3">
           <h2 className="text-lg text-ink font-serif font-bold">国家</h2>
           <Separator orientation="vertical" className="max-md:hidden md:flex h-4 !self-center" />

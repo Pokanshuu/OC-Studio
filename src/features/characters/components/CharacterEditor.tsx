@@ -295,7 +295,7 @@ function CharacterEditorInner({
 
   return (
     <div className="flex flex-col min-h-full">
-      <div className="flex items-center justify-between max-md:fixed max-md:top-[var(--safe-top)] max-md:left-0 max-md:right-0 md:sticky md:top-0 z-10 border-b border-line px-4 py-3 min-h-[60px] bg-paper/70 dark:bg-[#1C1B1A]/70 backdrop-blur-md">
+      <div className="flex items-center justify-between max-md:fixed max-md:top-[var(--safe-top)] max-md:left-0 max-md:right-0 md:sticky md:top-0 z-10 border-b border-line px-4 py-3 h-[60px] bg-paper/70 dark:bg-[#1C1B1A]/70 backdrop-blur-md">
         <div className="flex items-center gap-3">
           <button
             data-mobile-back

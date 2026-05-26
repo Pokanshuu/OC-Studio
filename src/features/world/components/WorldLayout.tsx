@@ -268,7 +268,7 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
         {selectedId !== null && currentEntry ? (
           <>
             <div className="flex-1 overflow-auto">
-      <div className="flex items-center justify-between sticky top-0 z-10 border-b border-line px-4 py-3 min-h-[60px] bg-paper/70 dark:bg-[#1C1B1A]/70 backdrop-blur-md">
+      <div className="flex items-center justify-between sticky top-0 z-10 border-b border-line px-4 py-3 h-[60px] bg-paper/70 dark:bg-[#1C1B1A]/70 backdrop-blur-md">
               <div className="flex items-center gap-3 flex-1 min-w-0">
                 {treeCollapsed && !isMobile ? (
                   <button
