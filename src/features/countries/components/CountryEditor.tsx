@@ -196,7 +196,7 @@ function CountryEditorInner({
           >
             <ArrowLeft size={20} strokeWidth={2} />
           </button>
-          <h2 className="text-lg text-ink font-serif font-bold">编辑国家</h2>
+          <h2 className="text-lg text-ink">编辑国家</h2>
         </div>
         <button
           onClick={handleSave}

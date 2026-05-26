@@ -153,7 +153,7 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
           >
             <ArrowLeft size={20} strokeWidth={2} />
           </button>
-          <h2 className="text-lg text-ink font-serif font-bold">编辑事件</h2>
+          <h2 className="text-lg text-ink">编辑事件</h2>
         </div>
         <button
           onClick={handleSave}

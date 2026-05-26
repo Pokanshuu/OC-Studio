@@ -8,6 +8,7 @@ import { FullscreenViewer } from './FullscreenViewer'
 import { useAlbumData, type AlbumEntry } from './useAlbumData'
 import { useDevice } from '@/lib/use-device'
 import { useMobilePageHeader } from '@/components/layout/MobilePageHeaderContext'
+import { useMobileNavigation } from '@/components/layout/MobileNavigationContext'
 
 interface SubCategory {
   key: string
@@ -73,6 +74,7 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
   const [showMobileTree, setShowMobileTree] = useState(false)
   const { isMobile } = useDevice()
   const { setConfig } = useMobilePageHeader()
+  const { section } = useMobileNavigation()
 
   // Listen for mobile top bar toggle event
   useEffect(() => {
@@ -135,11 +137,11 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
     return '所有相册'
   }, [selectedKey])
 
-  // Set mobile top bar title
+  // Set mobile top bar title — only when this section is active
   useEffect(() => {
-    if (isMobile) setConfig(selectedLabel)
+    if (isMobile && section === 'album') setConfig(selectedLabel)
     else setConfig(null)
-  }, [isMobile, selectedLabel, setConfig])
+  }, [isMobile, section, selectedLabel, setConfig])
 
   function getEntryImageUrl(entry: AlbumEntry): string {
     const typeMap: Record<string, string> = {

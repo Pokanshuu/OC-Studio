@@ -11,6 +11,7 @@ import { saveEntryContent, renameEntry, reorderEntries } from '../services'
 import type { WorldFormData } from '../types'
 import { WorldTree } from './WorldTree'
 import { useMobilePageHeader } from '@/components/layout/MobilePageHeaderContext'
+import { useMobileNavigation } from '@/components/layout/MobileNavigationContext'
 
 function parseEditorContent(content: string): object | string {
   if (!content) return ''
@@ -40,19 +41,13 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
   const { deleteEntry } = useDeleteEntry()
   const { isMobile } = useDevice()
   const { setConfig } = useMobilePageHeader()
+  const { section } = useMobileNavigation()
 
-  // Listen for mobile top bar toggle event
+  // Set page title — only when this section is active
   useEffect(() => {
-    const handler = () => setShowMobileTree(true)
-    window.addEventListener('oc:world-toggle', handler)
-    return () => window.removeEventListener('oc:world-toggle', handler)
-  }, [])
-
-  // Set page title
-  useEffect(() => {
-    if (isMobile) setConfig('世界观')
+    if (isMobile && section === 'wiki') setConfig('世界观')
     else setConfig(null)
-  }, [isMobile, setConfig])
+  }, [isMobile, section, setConfig])
 
   const editorRef = useRef<Editor | null>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
