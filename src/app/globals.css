@@ -179,7 +179,7 @@ body {
   background: var(--color-paper) !important;
   color: var(--color-ink);
   font-family: var(--font-sans);
-  touch-action: manipulation;
+  touch-action: pan-x pan-y;
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
@@ -196,7 +196,7 @@ textarea,
 
 /* Prevent page zoom on double-tap / pinch */
 html {
-  touch-action: manipulation;
+  touch-action: pan-x pan-y;
   -ms-touch-action: manipulation;
 }
 
