@@ -59,7 +59,7 @@ export function PeriodDialog({ open, period, onSave, onClose }: PeriodDialogProp
       className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/15 dark:bg-black/40"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="w-[480px] rounded-lg border border-line bg-paper/70 dark:bg-paper/70 backdrop-blur-md ring-1 ring-black/5 p-6">
+      <div className="max-md:w-[calc(100%-2rem)] w-[480px] rounded-lg border border-line bg-paper/70 dark:bg-paper/70 backdrop-blur-md ring-1 ring-black/5 p-6">
         <h2 className="text-lg font-medium text-ink mb-5">
           {period ? '编辑时期' : '添加时期'}
         </h2>

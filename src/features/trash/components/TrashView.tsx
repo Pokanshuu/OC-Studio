@@ -116,8 +116,8 @@ export function TrashView({ onClose }: TrashViewProps) {
       className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="flex h-[80vh] w-[80vw] max-w-5xl flex-col overflow-auto rounded-lg border border-line bg-paper ring-1 ring-black/5">
-        <div className="flex items-center justify-between sticky top-0 z-10 border-b border-line px-5 py-3 bg-paper/70 dark:bg-[#1C1B1A]/70 backdrop-blur-md">
+      <div className="flex max-md:w-[calc(100%-2rem)] max-md:min-h-[40vh] max-md:max-h-[calc(100vh-4rem)] max-md:my-4 h-[80vh] w-[80vw] max-w-5xl flex-col overflow-auto rounded-lg border border-line bg-paper ring-1 ring-black/5">
+        <div className="flex items-center justify-between sticky top-0 z-10 border-b border-line max-md:px-3 max-md:py-2 px-5 py-3 bg-paper/70 dark:bg-[#1C1B1A]/70 backdrop-blur-md">
           <div className="flex items-center gap-3">
             <h2 className="text-base text-ink font-serif font-bold">回收站</h2>
             {items.length > 0 ? (
@@ -148,7 +148,7 @@ export function TrashView({ onClose }: TrashViewProps) {
             <p className="text-sm text-ink-muted">回收站为空</p>
           </div>
         ) : (
-          <div className="p-6">
+          <div className="max-md:p-4 p-6">
             <div className="flex flex-col gap-6">
               {Object.entries(grouped).map(([typeLabel, groupItems]) => (
                 <div key={typeLabel}>
@@ -159,7 +159,7 @@ export function TrashView({ onClose }: TrashViewProps) {
                   <div className="flex flex-col rounded-md border border-line overflow-hidden">
                     {groupItems.map((item, idx) => (
                       <div key={item.type + "-" + item.id}
-                        className={(idx > 0 ? "border-t border-line " : "") + "flex items-center gap-4 px-4 py-3"}
+                        className={(idx > 0 ? "border-t border-line " : "") + "flex items-center gap-4 max-md:px-3 max-md:py-2 px-4 py-3"}
                       >
                         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                           <span className="truncate text-sm text-ink">{item.name}</span>

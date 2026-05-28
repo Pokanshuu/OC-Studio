@@ -98,7 +98,7 @@ function CountryCard({
         className="flex w-full flex-col rounded-md border border-line bg-paper-card overflow-hidden text-left transition-shadow hover:shadow-[0_1px_3px_rgba(0,0,0,0.03)]"
       >
         {country.headerUrl ? (
-          <div className="relative w-full aspect-[3/1] bg-paper-card">
+          <div className="relative w-full aspect-[3/2] bg-paper-card">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={resolveImageUrl(country.headerUrl, 'header')}

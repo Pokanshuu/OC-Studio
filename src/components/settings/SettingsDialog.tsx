@@ -128,19 +128,19 @@ export function SettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg p-0 overflow-hidden" showCloseButton={false}>
+      <DialogContent className="max-w-lg max-md:max-w-[calc(100%-2rem)] p-0 overflow-hidden" showCloseButton={false}>
         <DialogHeader className="flex flex-row items-center gap-3 px-6 pt-6 pb-2">
           <DialogTitle>设置</DialogTitle>
         </DialogHeader>
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as string)}>
           <div className="px-6">
-            <TabsList className="w-full justify-start gap-0">
+            <TabsList className="grid w-full grid-cols-4">
               {TAB_ITEMS.map((item) => (
                 <TabsTrigger
                   key={item.value}
                   value={item.value}
-                  className="flex items-center gap-1.5"
+                  className="flex items-center justify-center gap-1.5"
                 >
                   <item.icon size={14} strokeWidth={2} />
                   <span className="hidden sm:inline">{item.label}</span>

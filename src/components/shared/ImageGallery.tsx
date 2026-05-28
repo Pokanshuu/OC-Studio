@@ -107,7 +107,7 @@ export function ImageGallery({
             {images.length > 1 ? (
               <button
                 onClick={prevImage}
-                className="absolute left-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-black/20 text-white/80 hover:bg-black/40 transition-colors"
+                className="absolute left-2 z-[5] flex h-8 w-8 items-center justify-center rounded-full bg-black/20 text-white/80 hover:bg-black/40 transition-colors"
               >
                 <ChevronLeft size={16} strokeWidth={2} />
               </button>
@@ -163,7 +163,7 @@ export function ImageGallery({
             {images.length > 1 ? (
               <button
                 onClick={nextImage}
-                className="absolute right-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-black/20 text-white/80 hover:bg-black/40 transition-colors"
+                className="absolute right-2 z-[5] flex h-8 w-8 items-center justify-center rounded-full bg-black/20 text-white/80 hover:bg-black/40 transition-colors"
               >
                 <ChevronRight size={16} strokeWidth={2} />
               </button>

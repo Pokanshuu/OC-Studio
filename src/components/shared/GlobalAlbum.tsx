@@ -293,7 +293,7 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
           {loading ? (
             <div className="flex flex-1 items-center justify-center"><span className="text-sm text-ink-muted">加载中...</span></div>
           ) : filtered.length === 0 ? (
-            <div className="flex flex-1 items-center justify-center"><span className="text-sm text-ink-faint">暂无图片</span></div>
+            <div className="flex flex-1 items-center justify-center min-h-[40vh]"><span className="text-sm text-ink-faint">暂无图片</span></div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
               {filtered.map((entry, idx) => (

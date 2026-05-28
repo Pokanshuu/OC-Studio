@@ -129,12 +129,17 @@ const [worldSelectedEntryId, setWorldSelectedEntryId] = useState<number | null>(
     [deleteEvent, deleting, refresh],
   )
 
+  const mobileSetSection = mobileNav.setSection
+  const mobileSetGallerySubTab = mobileNav.setGallerySubTab
+
   const crossBackRef = useRef<{
     activeItem: string | null
     eventView: EventView
     characterView: CharacterView
     countryView: CountryView
     source: ReturnType<typeof useNavigationSource>['source']
+    mobileSection?: import('@/components/layout/MobileNavigationContext').MobileSection
+    mobileGallerySubTab?: import('@/components/layout/MobileNavigationContext').GallerySubTab
   } | null>(null)
 
   const restoreCrossBack = useCallback(() => {
@@ -152,20 +157,35 @@ const [worldSelectedEntryId, setWorldSelectedEntryId] = useState<number | null>(
     } else {
       clearSource()
     }
+    if (saved.mobileSection) {
+      mobileSetSection(saved.mobileSection)
+    }
+    if (saved.mobileGallerySubTab) {
+      mobileSetGallerySubTab(saved.mobileGallerySubTab)
+    }
+    const restoredView = saved.eventView.sub === 'editor' || saved.characterView.sub === 'editor' || saved.countryView.sub === 'editor'
+    if (restoredView) {
+      if (saved.eventView.sub === 'editor') setEditing('event', saved.eventView.eventId)
+      else if (saved.characterView.sub === 'editor') setEditing('character', saved.characterView.characterId)
+      else if (saved.countryView.sub === 'editor') setEditing('country', saved.countryView.countryId)
+    }
     return true
-  }, [setActiveItem, setSource, clearSource])
+  }, [setActiveItem, setSource, clearSource, mobileSetSection, mobileSetGallerySubTab, setEditing])
 
   const handleBackToList = useCallback(() => {
-    clearEditing()
     if (restoreCrossBack()) return
+    clearEditing()
     if (source === 'timeline') {
       setEventView({ sub: 'list' })
       setActiveItem('时间线')
+      if (isMobile) {
+        mobileSetSection('timeline')
+      }
     } else {
       setEventView({ sub: 'list' })
     }
     clearSource()
-  }, [source, setActiveItem, clearSource, restoreCrossBack, clearEditing])
+  }, [source, setActiveItem, clearSource, restoreCrossBack, clearEditing, isMobile, mobileSetSection])
 
   const handleSelectCharacter = useCallback((id: number) => {
     setSource('characterList')
@@ -264,9 +284,13 @@ const [worldSelectedEntryId, setWorldSelectedEntryId] = useState<number | null>(
       setSource('timeline')
       setEventView({ sub: 'editor', eventId: id })
       setActiveItem('事件')
+      if (isMobile) {
+        mobileSetSection('gallery')
+        mobileSetGallerySubTab('events')
+      }
       setEditing('event', id)
     },
-    [setSource, setActiveItem, setEditing],
+    [setSource, setActiveItem, setEditing, isMobile, mobileSetSection, mobileSetGallerySubTab],
   )
 
   const handleRelatedItemNavigate = useCallback((id: number, type?: string) => {
@@ -282,30 +306,47 @@ const [worldSelectedEntryId, setWorldSelectedEntryId] = useState<number | null>(
         characterView,
         countryView,
         source,
+        mobileSection: mobileNav.section,
+        mobileGallerySubTab: mobileNav.gallerySubTab,
       }
     }
 
     if (type === 'character') {
       setCharacterView({ sub: 'editor', characterId: id })
       setActiveItem('角色')
+      if (isMobile) {
+        mobileSetSection('gallery')
+        mobileSetGallerySubTab('characters')
+      }
       setEditing('character', id)
       clearSource()
     } else if (type === 'event') {
       setEventView({ sub: 'editor', eventId: id })
       setActiveItem('事件')
+      if (isMobile) {
+        mobileSetSection('gallery')
+        mobileSetGallerySubTab('events')
+      }
       setEditing('event', id)
       clearSource()
     } else if (type === 'country') {
       setCountryView({ sub: 'editor', countryId: id })
       setActiveItem('国家')
+      if (isMobile) {
+        mobileSetSection('gallery')
+        mobileSetGallerySubTab('countries')
+      }
       setEditing('country', id)
       clearSource()
     } else if (type === 'world') {
       setWorldSelectedEntryId(id)
       setActiveItem('世界观')
+      if (isMobile) {
+        mobileSetSection('wiki')
+      }
       clearSource()
     }
-  }, [eventView, characterView, countryView, activeItem, source, setActiveItem, clearSource, setEditing])
+  }, [eventView, characterView, countryView, activeItem, source, setActiveItem, clearSource, setEditing, isMobile, mobileNav.section, mobileNav.gallerySubTab, mobileSetSection, mobileSetGallerySubTab])
 
   const handleMentionClick = useCallback((id: string, entityType?: string) => {
     const numId = Number(id)

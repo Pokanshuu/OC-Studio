@@ -41,7 +41,6 @@ export function ProfileBannerEditor({
     if (headerRawFileUrl) URL.revokeObjectURL(headerRawFileUrl)
     setHeaderRawFileUrl(URL.createObjectURL(file))
     setHeaderCropperOpen(true)
-    if (headerInputRef.current) headerInputRef.current.value = ''
   }
 
   async function handleHeaderCropComplete(blob: Blob) {
@@ -68,7 +67,6 @@ export function ProfileBannerEditor({
     if (avatarRawFileUrl) URL.revokeObjectURL(avatarRawFileUrl)
     setAvatarRawFileUrl(URL.createObjectURL(file))
     setAvatarCropperOpen(true)
-    if (avatarInputRef.current) avatarInputRef.current.value = ''
   }
 
   async function handleAvatarCropComplete(blob: Blob) {
@@ -93,7 +91,8 @@ export function ProfileBannerEditor({
     <div className="relative w-full">
       {/* Header — CSS intrinsic ratio */}
       <div
-        className="group/header relative w-full overflow-hidden rounded-lg bg-paper-card aspect-[3/1]"
+        className={`group/header relative w-full overflow-hidden rounded-lg bg-paper-card aspect-[3/2] ${onHeaderChange ? 'cursor-pointer' : ''}`}
+        onClick={onHeaderChange ? () => { if (headerInputRef.current) { headerInputRef.current.value = ''; headerInputRef.current.click() } } : undefined}
       >
         {headerSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -119,7 +118,7 @@ export function ProfileBannerEditor({
             />
             <div className="absolute inset-0 flex items-center justify-center bg-black/30 text-sm text-white opacity-0 transition-opacity group-hover/header:opacity-100 pointer-events-none">
               <button
-                onClick={() => headerInputRef.current?.click()}
+                onClick={() => { if (headerInputRef.current) { headerInputRef.current.value = ''; headerInputRef.current.click() } }}
                 className="pointer-events-auto flex items-center gap-1.5 bg-transparent hover:bg-transparent"
               >
                 <Camera size={18} strokeWidth={2} />
@@ -145,7 +144,7 @@ export function ProfileBannerEditor({
           <div className="group/avatar relative inline-block">
             <button
               type="button"
-              onClick={() => avatarInputRef.current?.click()}
+              onClick={() => { if (avatarInputRef.current) { avatarInputRef.current.value = ''; avatarInputRef.current.click() } }}
               className="relative block bg-transparent hover:bg-transparent"
             >
               <div className="overflow-hidden rounded-full border-[4px] border-paper dark:border-[#1C1B1A]">
@@ -180,7 +179,7 @@ export function ProfileBannerEditor({
         <ImageCropper
           open={headerCropperOpen}
           src={headerRawFileUrl}
-          aspect={3}
+          aspect={3/2}
           shape="rect"
           onComplete={handleHeaderCropComplete}
           onClose={handleHeaderCropperClose}

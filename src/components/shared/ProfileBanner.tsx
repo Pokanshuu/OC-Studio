@@ -16,7 +16,7 @@ export function ProfileBanner({ headerUrl, avatarUrl }: ProfileBannerProps) {
     <div className="relative w-full">
       {/* Header — CSS intrinsic ratio */}
       <div
-        className="relative w-full overflow-hidden rounded-lg bg-paper-card aspect-[3/1]"
+        className="relative w-full overflow-hidden rounded-lg bg-paper-card aspect-[3/2]"
       >
         {headerSrc ? (
           // eslint-disable-next-line @next/next/no-img-element

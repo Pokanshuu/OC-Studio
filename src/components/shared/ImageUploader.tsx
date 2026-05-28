@@ -9,7 +9,7 @@ export interface ImageUploaderProps {
   value?: string
   onChange: (path: string) => void
   onRemove?: () => void
-  aspectRatio?: '1:1' | '3:4' | '4:3' | '3:1'
+  aspectRatio?: '1:1' | '3:4' | '4:3' | '3:2'
   placeholderText?: string
   size?: 'sm' | 'md' | 'lg'
   enableCrop?: boolean
@@ -22,14 +22,14 @@ const ASPECT_CLASS: Record<string, string> = {
   '1:1': 'aspect-square',
   '3:4': 'aspect-[3/4]',
   '4:3': 'aspect-[4/3]',
-  '3:1': 'aspect-[3/1]',
+  '3:2': 'aspect-[3/2]',
 }
 
 const ASPECT_RATIO_MAP: Record<string, number> = {
   '1:1': 1,
   '3:4': 3 / 4,
   '4:3': 4 / 3,
-  '3:1': 3,
+  '3:2': 3 / 2,
 }
 
 const SIZE_CLASS: Record<string, string> = {
@@ -59,7 +59,7 @@ export function ImageUploader({
   const effectiveCropShape = cropShape ?? (effectiveCropAspect === 1 ? 'round' : 'rect')
 
   async function handleClick() {
-    inputRef.current?.click()
+    if (inputRef.current) { inputRef.current.value = ''; inputRef.current.click() }
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -75,7 +75,6 @@ export function ImageUploader({
       const url = await saveBlobToDisk(file, 'qavatar')
       onChange(url)
     }
-    if (inputRef.current) inputRef.current.value = ''
   }
 
   async function handleCropComplete(blob: Blob) {

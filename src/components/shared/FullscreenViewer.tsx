@@ -73,16 +73,24 @@ export function FullscreenViewer({ images, initialIndex, onClose }: FullscreenVi
     setDragging(false)
   }, [])
 
+  useEffect(() => {
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [])
+
   if (images.length === 0) return null
 
   return (
     <div
-      className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80"
+      className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 overflow-hidden pt-[var(--safe-top)] pb-[var(--safe-bottom)]"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       <button
         onClick={onClose}
-        className="absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white/80 transition-colors hover:bg-white/30"
+        className="absolute right-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white/80 transition-colors hover:bg-white/30"
+        style={{ top: `calc(1rem + var(--safe-top, 0px))` }}
       >
         <X size={20} strokeWidth={2} />
       </button>
@@ -92,16 +100,21 @@ export function FullscreenViewer({ images, initialIndex, onClose }: FullscreenVi
           <button
             onClick={goPrev}
             className="absolute left-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white/80 transition-colors hover:bg-white/30"
+            style={{ top: `calc(50% + var(--safe-top, 0px) / 2)` }}
           >
             <ChevronLeft size={20} strokeWidth={2} />
           </button>
           <button
             onClick={goNext}
             className="absolute right-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white/80 transition-colors hover:bg-white/30"
+            style={{ top: `calc(50% + var(--safe-top, 0px) / 2)` }}
           >
             <ChevronRight size={20} strokeWidth={2} />
           </button>
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded bg-black/50 px-3 py-1 text-sm text-white">
+          <div
+            className="absolute left-1/2 -translate-x-1/2 rounded bg-black/50 px-3 py-1 text-sm text-white"
+            style={{ bottom: `calc(1rem + var(--safe-bottom, 0px))` }}
+          >
             {index + 1} / {images.length}
           </div>
         </>

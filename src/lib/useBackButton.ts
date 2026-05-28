@@ -1,12 +1,17 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useEditor } from '@/components/layout/EditorContext'
 import { useNavigation } from '@/components/layout/NavigationContext'
 
 export function useBackButton() {
   const { isEditing } = useEditor()
   const { activeItem, setActiveItem } = useNavigation()
+
+  const isEditingRef = useRef(isEditing)
+  isEditingRef.current = isEditing
+  const activeItemRef = useRef(activeItem)
+  activeItemRef.current = activeItem
 
   useEffect(() => {
     let cleanup: (() => void) | undefined
@@ -15,7 +20,7 @@ export function useBackButton() {
       try {
         const { App } = await import('@capacitor/app')
         const handler = await App.addListener('backButton', () => {
-          if (isEditing) {
+          if (isEditingRef.current) {
             const backBtn = document.querySelector('[data-mobile-back]') as HTMLButtonElement | null
             if (backBtn) { backBtn.click(); return }
           }
@@ -24,7 +29,7 @@ export function useBackButton() {
             const cancelBtn = dialog.querySelector('button') as HTMLButtonElement | null
             if (cancelBtn) { cancelBtn.click(); return }
           }
-          if (activeItem !== null) {
+          if (activeItemRef.current !== null) {
             setActiveItem(null)
             return
           }
@@ -38,5 +43,5 @@ export function useBackButton() {
 
     void setup()
     return () => { cleanup?.() }
-  }, [isEditing, activeItem, setActiveItem])
+  }, [setActiveItem])
 }

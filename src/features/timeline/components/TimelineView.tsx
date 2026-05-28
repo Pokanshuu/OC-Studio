@@ -905,7 +905,6 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
               300,
               axisY +
                 MAX_LANES * LANE_HEIGHT +
-                (nodes.withoutTime.length > 0 ? 120 : 0) +
                 40,
             ),
           }}
@@ -1042,37 +1041,33 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
             </div>
           ) : null}
 
-          {/* Untimed events */}
-          {nodes.withoutTime.length > 0 ? (
-            <div
-              className="absolute left-0 right-0 border-t border-dashed border-line px-4 py-3"
-              style={{
-                top: axisY + 24 + MAX_LANES * LANE_HEIGHT + 16,
-              }}
-            >
-              <p className="mb-2 text-xs text-ink-faint">未标注时间的事件</p>
-              <div className="flex flex-wrap gap-2">
-                {nodes.withoutTime.map((e) => (
-                  <button
-                    key={e.id}
-                    onClick={() => onSelectEvent(e.id)}
-                    className="flex items-center gap-1.5 rounded border border-line bg-paper-card px-2 py-1 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
-                  >
-                    {e.isMajor ? (
-                      <Circle
-                        size={8}
-                        fill="var(--color-error)"
-                        className="shrink-0 text-error"
-                      />
-                    ) : null}
-                    {e.title}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : null}
         </div>
       </div>
+
+      {/* Untimed events */}
+      {nodes.withoutTime.length > 0 ? (
+        <div className="shrink-0 border-t border-dashed border-line pl-4 pr-4 py-3 bg-paper">
+          <p className="mb-2 text-xs text-ink-faint">未标注时间的事件</p>
+          <div className="flex flex-wrap gap-2">
+            {nodes.withoutTime.map((e) => (
+              <button
+                key={e.id}
+                onClick={() => onSelectEvent(e.id)}
+                className="flex items-center gap-1.5 rounded border border-line bg-paper-card px-2 py-1 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
+              >
+                {e.isMajor ? (
+                  <Circle
+                    size={8}
+                    fill="var(--color-error)"
+                    className="shrink-0 text-error"
+                  />
+                ) : null}
+                {e.title}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <PeriodDialog
         key={editingPeriod?.id ?? 'new'}

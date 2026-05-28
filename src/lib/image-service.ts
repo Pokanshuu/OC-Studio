@@ -20,9 +20,24 @@ function isTauri(): boolean {
   return typeof window !== 'undefined' && !!window.__TAURI_INTERNALS__
 }
 
+function isCapacitor(): boolean {
+  return typeof window !== 'undefined' && !!window.Capacitor && !isTauri()
+}
+
+let capacitorConvertFileSrc: ((path: string) => string) | null = null
+
+async function ensureCapacitorConvertFileSrc(): Promise<void> {
+  if (!capacitorConvertFileSrc && isCapacitor()) {
+    const { Capacitor } = await import('@capacitor/core')
+    capacitorConvertFileSrc = Capacitor.convertFileSrc
+  }
+}
+
 export async function initImageService(): Promise<void> {
   if (isTauri()) {
     await ensureTauriAppDataDir()
+  } else if (isCapacitor()) {
+    await ensureCapacitorConvertFileSrc()
   }
 }
 
@@ -52,6 +67,17 @@ export async function uploadImage(type: string): Promise<string> {
     }
   }
 
+  if (isCapacitor()) {
+    try {
+      const { CapacitorAdapter: CA } = await import('./adapters/capacitor-adapter')
+      const ca = new CA()
+      await ensureCapacitorConvertFileSrc()
+      return await ca.upload(type)
+    } catch (err) {
+      console.error('[uploadImage] CapacitorAdapter failed, falling back to BrowserAdapter:', err)
+    }
+  }
+
   return adapter.upload(type)
 }
 
@@ -66,6 +92,10 @@ export function resolveImageUrl(path: string | undefined, type: string = 'avatar
     return tauriConvertFileSrc(`${base}/${normalizedPath}`)
   }
 
+  if (isCapacitor() && capacitorConvertFileSrc && path.startsWith('file://')) {
+    return capacitorConvertFileSrc(path)
+  }
+
   return getDefaultImage(type)
 }
 
@@ -73,8 +103,35 @@ export function getImageUrl(path: string | undefined, type: string): string {
   return resolveImageUrl(path, type)
 }
 
+async function writeBlobToCapacitorFs(blob: Blob, fileName: string): Promise<string> {
+  const { Filesystem, Directory } = await import('@capacitor/filesystem')
+  const arrayBuffer = await blob.arrayBuffer()
+  const bytes = new Uint8Array(arrayBuffer)
+  const base64 = btoa(
+    bytes.reduce((data, byte) => data + String.fromCharCode(byte), '')
+  )
+  await Filesystem.writeFile({
+    path: `images/${fileName}`,
+    data: base64,
+    directory: Directory.Data,
+    recursive: true,
+  })
+  const { uri } = await Filesystem.getUri({
+    path: `images/${fileName}`,
+    directory: Directory.Data,
+  })
+  return uri
+}
+
 export async function saveBlobToDisk(blob: Blob, type: string): Promise<string> {
   try {
+    if (isCapacitor()) {
+      const timestamp = Date.now()
+      const fileName = `${type}-${timestamp}.png`
+      await ensureCapacitorConvertFileSrc()
+      return await writeBlobToCapacitorFs(blob, fileName)
+    }
+
     if (!isTauri()) {
       return URL.createObjectURL(blob)
     }

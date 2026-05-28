@@ -15,6 +15,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "OC Studio",
   description: "原创角色与世界观创作工作台",
+  icons: { icon: "/favicon.svg" },
 };
 
 export const viewport: Viewport = {
