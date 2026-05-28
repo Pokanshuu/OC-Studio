@@ -757,10 +757,10 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
     const handleTouchMove = (e: TouchEvent) => {
       if (!pinchRef.current.active || e.touches.length !== 2) return
       e.preventDefault()
+      const currentDistance = getTouchDistance(e.touches)
       if (pinchRafRef.current) return
       pinchRafRef.current = requestAnimationFrame(() => {
         pinchRafRef.current = 0
-        const currentDistance = getTouchDistance(e.touches)
         const scale = currentDistance / pinchRef.current.initialDistance
         const newRatio = Math.max(0.1, Math.min(5.0, pinchRef.current.initialZoomRatio * scale))
         setZoomRatio(newRatio)
