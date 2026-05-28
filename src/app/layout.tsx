@@ -33,24 +33,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-CN" className="h-full antialiased" suppressHydrationWarning>
-      <head>
-        <Script id="theme-init" strategy="beforeInteractive">{`
-          (function() {
-            try {
-              var s = JSON.parse(localStorage.getItem('oc-studio-settings') || '{}');
-              var t = s.theme || 'auto';
-              var d = t === 'auto' ? window.matchMedia('(prefers-color-scheme: dark)').matches : t === 'dark';
-              if (d) { document.documentElement.classList.add('dark'); document.documentElement.setAttribute('data-theme', 'dark'); }
-
-              if (window.__TAURI__ || window.__TAURI_INTERNALS__) {
-                document.documentElement.classList.add('tauri-mica');
-              }
-
-            } catch(e) {}
-          })()
-        `}</Script>
-      </head>
+      <head />
       <body className="flex flex-col min-h-dvh md:h-screen md:overflow-hidden">
+        <Script id="theme-init" src="/theme-init.js" strategy="beforeInteractive" />
         <Providers>
           <SeedData />
           <SettingsProvider>

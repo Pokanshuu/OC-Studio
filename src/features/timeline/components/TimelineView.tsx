@@ -416,6 +416,10 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
     initialZoomRatio: 0,
   })
   const pinchRafRef = useRef(0)
+  const latestPinchRef = useRef(0)
+  const dragRef = useRef({ lastX: 0, lastY: 0, moved: false, pendingDx: 0, pendingDy: 0 })
+  const scrollRafRef = useRef(0)
+  const initialZoomSetRef = useRef(false)
 
   useEffect(() => {
     const el = scrollRef.current
@@ -429,7 +433,7 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
     observer.observe(el)
     setContainerWidth(el.clientWidth)
     return () => observer.disconnect()
-  }, [])
+  }, [events])
 
   const toggleEditMode = useCallback(() => {
     setEditMode((prev) => !prev)
@@ -494,6 +498,24 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
       totalYears: maxYear - minYear + 1 + 1,
     }
   }, [filtered])
+
+  useEffect(() => {
+    if (initialZoomSetRef.current) return
+    if (!yearRange || containerWidth <= 0) return
+
+    const availableWidth = containerWidth - LEFT_PADDING - RIGHT_PADDING
+    if (availableWidth <= 0) return
+
+    const raw = availableWidth / yearRange.totalYears
+    const autoPx = Math.max(MIN_PX_PER_YEAR, Math.min(MAX_PX_PER_YEAR, raw))
+
+    if (autoPx < 60) {
+      const targetRatio = Math.min(Math.ceil(60 / autoPx), 5.0)
+      setZoomRatio(targetRatio)
+    }
+
+    initialZoomSetRef.current = true
+  }, [containerWidth, yearRange])
 
   const autoPxPerYear = useMemo(() => {
     if (!yearRange || yearRange.totalYears <= 0) return DEFAULT_PX_PER_YEAR
@@ -738,38 +760,92 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
       return Math.sqrt(dx * dx + dy * dy)
     }
 
+    const DEADZONE = 2
+
     const handleTouchStart = (e: TouchEvent) => {
-      if (e.touches.length !== 2) return
-      e.preventDefault()
-      pinchRef.current = {
-        active: true,
-        initialDistance: getTouchDistance(e.touches),
-        initialZoomRatio: zoomRatioRef.current,
+      if (scrollRafRef.current) {
+        cancelAnimationFrame(scrollRafRef.current)
+        scrollRafRef.current = 0
       }
-      const rect = el.getBoundingClientRect()
-      const origin = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left
-      zoomOriginRef.current = origin
-      zoomOffsetRef.current = el.scrollLeft + origin - LEFT_PADDING
-      oldScaleRef.current = displayPxRef.current
-      didZoomRef.current = true
+
+      if (e.touches.length === 2) {
+        e.preventDefault()
+        const dist = getTouchDistance(e.touches)
+        latestPinchRef.current = dist
+        pinchRef.current = {
+          active: true,
+          initialDistance: dist,
+          initialZoomRatio: zoomRatioRef.current,
+        }
+        const rect = el.getBoundingClientRect()
+        const origin = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left
+        zoomOriginRef.current = origin
+        zoomOffsetRef.current = el.scrollLeft + origin - LEFT_PADDING
+        oldScaleRef.current = displayPxRef.current
+        didZoomRef.current = true
+      } else if (e.touches.length === 1) {
+        pinchRef.current.active = false
+        const t = e.touches[0]
+        dragRef.current = {
+          lastX: t.clientX,
+          lastY: t.clientY,
+          moved: false,
+          pendingDx: 0,
+          pendingDy: 0,
+        }
+      }
     }
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (!pinchRef.current.active || e.touches.length !== 2) return
-      e.preventDefault()
-      const currentDistance = getTouchDistance(e.touches)
-      if (pinchRafRef.current) return
-      pinchRafRef.current = requestAnimationFrame(() => {
-        pinchRafRef.current = 0
-        const scale = currentDistance / pinchRef.current.initialDistance
-        const newRatio = Math.max(0.1, Math.min(5.0, pinchRef.current.initialZoomRatio * scale))
-        setZoomRatio(newRatio)
-      })
+      if (pinchRef.current.active && e.touches.length === 2) {
+        e.preventDefault()
+        latestPinchRef.current = getTouchDistance(e.touches)
+        if (pinchRafRef.current) return
+        pinchRafRef.current = requestAnimationFrame(() => {
+          pinchRafRef.current = 0
+          const scale = latestPinchRef.current / pinchRef.current.initialDistance
+          const newRatio = Math.max(0.1, Math.min(5.0, pinchRef.current.initialZoomRatio * scale))
+          setZoomRatio(newRatio)
+        })
+      } else if (e.touches.length === 1 && !pinchRef.current.active) {
+        const touch = e.touches[0]
+        const dx = dragRef.current.lastX - touch.clientX
+        const dy = dragRef.current.lastY - touch.clientY
+
+        if (dragRef.current.moved || Math.abs(dx) > DEADZONE || Math.abs(dy) > DEADZONE) {
+          dragRef.current.moved = true
+          e.preventDefault()
+          dragRef.current.pendingDx += dx
+          dragRef.current.pendingDy += dy
+          dragRef.current.lastX = touch.clientX
+          dragRef.current.lastY = touch.clientY
+
+          if (!scrollRafRef.current) {
+            scrollRafRef.current = requestAnimationFrame(() => {
+              scrollRafRef.current = 0
+              el.scrollLeft += dragRef.current.pendingDx
+              el.scrollTop += dragRef.current.pendingDy
+              dragRef.current.pendingDx = 0
+              dragRef.current.pendingDy = 0
+            })
+          }
+        }
+      }
     }
 
     const handleTouchEnd = (e: TouchEvent) => {
       if (e.touches.length < 2) {
         pinchRef.current.active = false
+      }
+      if (e.touches.length === 0) {
+        if (scrollRafRef.current) {
+          cancelAnimationFrame(scrollRafRef.current)
+          scrollRafRef.current = 0
+        }
+        el.scrollLeft += dragRef.current.pendingDx
+        el.scrollTop += dragRef.current.pendingDy
+        dragRef.current.pendingDx = 0
+        dragRef.current.pendingDy = 0
       }
     }
 
@@ -779,12 +855,20 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
     el.addEventListener('touchcancel', handleTouchEnd)
 
     return () => {
+      if (pinchRafRef.current) {
+        cancelAnimationFrame(pinchRafRef.current)
+        pinchRafRef.current = 0
+      }
+      if (scrollRafRef.current) {
+        cancelAnimationFrame(scrollRafRef.current)
+        scrollRafRef.current = 0
+      }
       el.removeEventListener('touchstart', handleTouchStart)
       el.removeEventListener('touchmove', handleTouchMove)
       el.removeEventListener('touchend', handleTouchEnd)
       el.removeEventListener('touchcancel', handleTouchEnd)
     }
-  }, [])
+  }, [events])
 
   useLayoutEffect(() => {
     const container = scrollRef.current
@@ -962,7 +1046,7 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
       />
       <div className="max-md:h-10 flex-shrink-0" />
 
-      <div ref={scrollRef} className="flex-1 overflow-x-auto">
+      <div ref={scrollRef} className="flex-1 overflow-x-auto" style={{ touchAction: 'none' }}>
         <div
           className="relative min-h-full"
           style={{
