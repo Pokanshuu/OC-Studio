@@ -209,7 +209,7 @@ function CountryEditorInner({
         </button>
       </div>
 
-      <div className="flex-1 max-md:pt-[calc(60px+var(--safe-top))]">
+      <div className="flex-1 min-h-0 max-md:pt-[calc(60px+var(--safe-top))]">
         <div className="mx-auto w-full px-4 py-6 space-y-6 md:max-w-3xl md:px-8 md:space-y-8">
           {/* Profile header */}
           <section>

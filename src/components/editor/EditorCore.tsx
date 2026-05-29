@@ -16,7 +16,7 @@ import Mention from '@tiptap/extension-mention'
 import { DragHandle } from '@tiptap/extension-drag-handle'
 import type { SuggestionProps, SuggestionKeyDownProps } from '@tiptap/suggestion'
 import type { Editor } from '@tiptap/core'
-import { Bold, Italic, Underline as UnderlineIcon, AtSign } from 'lucide-react'
+import { Bold, Italic, Underline as UnderlineIcon, AtSign, Pilcrow, Heading1, Heading2, Heading3, List, ListOrdered, ListTodo, Quote, Scissors, Image, Table as TableIcon, ChevronDown } from 'lucide-react'
 import React from 'react'
 import { ImageBlock } from './extensions/ImageBlock'
 
@@ -29,6 +29,7 @@ import type { ReferableEntity } from '@/lib/reference-registry'
 import { getImageUrl, getDefaultImage } from '@/lib/image-service'
 import { useDevice } from '@/lib/use-device'
 import { useActiveEditor } from '@/lib/editor-context'
+import { useKeyboard } from '@/lib/KeyboardContext'
 import { ContextMenu } from '@/components/shared/ContextMenu'
 import type { ContextMenuItem } from '@/components/shared/ContextMenu'
 
@@ -172,6 +173,9 @@ export function EditorCore({
   const [isTableActive, setIsTableActive] = useState(false)
   const { isMobile } = useDevice()
   const { setActiveEditor } = useActiveEditor()
+  const { visible: keyboardVisible, height: keyboardHeight } = useKeyboard()
+  const [mobileBlockMenuOpen, setMobileBlockMenuOpen] = useState(false)
+  const selectionRef = useRef<{ from: number; to: number } | null>(null)
 
   const handleBlockMenuEvent = useCallback((e: Event) => {
     const detail = (e as CustomEvent).detail
@@ -352,6 +356,31 @@ export function EditorCore({
     }
   }, [editor, setActiveEditor])
 
+  // 移动端：缓存最近一次文本选择，防止工具栏按钮点击时丢失选择
+  useEffect(() => {
+    if (!editor || !isMobile) return
+    const handle = () => {
+      const { from, to } = editor.state.selection
+      if (from !== to) selectionRef.current = { from, to }
+    }
+    editor.on('selectionUpdate', handle)
+    return () => { editor.off('selectionUpdate', handle) }
+  }, [editor, isMobile])
+
+  // 移动端工具栏按钮：先恢复选择再执行操作，禁止 ProseMirror 自动滚动
+  const handleToolbarAction = useCallback((action: () => void) => {
+    if (!editor) return
+    if (isMobile && selectionRef.current) {
+      const { from, to } = selectionRef.current
+      editor.chain().setTextSelection({ from, to }).run()
+    }
+    if (isMobile) {
+      editor.view.dispatch(editor.state.tr.setMeta('scrollIntoView', false))
+    }
+    editor.commands.focus()
+    action()
+  }, [isMobile, editor])
+
   const contextMenuItems = useMemo((): ContextMenuItem[] => [
     {
       label: '撤销',
@@ -531,23 +560,117 @@ export function EditorCore({
         }
       }}
     >
-      <BubbleMenu editor={editor} className="flex gap-0.5 rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-md p-1 shadow-none ring-1 ring-black/5">
-        <button onClick={() => editor.chain().focus().toggleBold().run()} className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${editor.isActive('bold') ? 'bg-black/10 dark:bg-white/10 text-ink' : 'text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-ink'}`}>
-          <Bold size={16} strokeWidth={2} />
-        </button>
-        <button onClick={() => editor.chain().focus().toggleItalic().run()} className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${editor.isActive('italic') ? 'bg-black/10 dark:bg-white/10 text-ink' : 'text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-ink'}`}>
-          <Italic size={16} strokeWidth={2} />
-        </button>
-        <button onClick={() => editor.chain().focus().toggleUnderline().run()} className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${editor.isActive('underline') ? 'bg-black/10 dark:bg-white/10 text-ink' : 'text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-ink'}`}>
-          <UnderlineIcon size={16} strokeWidth={2} />
-        </button>
-        <button onClick={() => { editor.chain().focus().insertContent('@').run() }} className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${editor.isActive('mention') ? 'bg-black/10 dark:bg-white/10 text-ink' : 'text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-ink'}`} title="@ 引用">
-          <AtSign size={16} strokeWidth={2} />
-        </button>
-      </BubbleMenu>
+      {!isMobile && (
+        <BubbleMenu editor={editor} className="flex gap-0.5 rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-md p-1 shadow-none ring-1 ring-black/5">
+          <button onClick={() => editor.chain().focus().toggleBold().run()} className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${editor.isActive('bold') ? 'bg-black/10 dark:bg-white/10 text-ink' : 'text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-ink'}`}>
+            <Bold size={16} strokeWidth={2} />
+          </button>
+          <button onClick={() => editor.chain().focus().toggleItalic().run()} className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${editor.isActive('italic') ? 'bg-black/10 dark:bg-white/10 text-ink' : 'text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-ink'}`}>
+            <Italic size={16} strokeWidth={2} />
+          </button>
+          <button onClick={() => editor.chain().focus().toggleUnderline().run()} className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${editor.isActive('underline') ? 'bg-black/10 dark:bg-white/10 text-ink' : 'text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-ink'}`}>
+            <UnderlineIcon size={16} strokeWidth={2} />
+          </button>
+          <button onClick={() => { editor.chain().focus().insertContent('@').run() }} className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${editor.isActive('mention') ? 'bg-black/10 dark:bg-white/10 text-ink' : 'text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-ink'}`} title="@ 引用">
+            <AtSign size={16} strokeWidth={2} />
+          </button>
+        </BubbleMenu>
+      )}
       <EditorContent editor={editor} />
-      <BlockTypeMenu editor={editor} position={blockMenuPosition} onClose={closeBlockMenu} blockPos={blockMenuPos} />
+      {!isMobile && (
+        <BlockTypeMenu editor={editor} position={blockMenuPosition} onClose={closeBlockMenu} blockPos={blockMenuPos} />
+      )}
     </div>
+
+    {/* 移动端键盘工具栏 */}
+    {isMobile && keyboardVisible && (
+      <>
+        {mobileBlockMenuOpen && (
+          <div
+            className="fixed inset-0 z-30"
+            onClick={() => setMobileBlockMenuOpen(false)}
+          />
+        )}
+        <div
+          className="fixed left-0 right-0 z-30 flex items-center gap-2 px-3 py-2 bg-paper/95 backdrop-blur-xl border-t border-line"
+          style={{ bottom: `${keyboardHeight}px` }}
+        >
+          <button
+            onClick={() => {
+              if (!editor) return
+              editor.chain().focus().run()
+              setMobileBlockMenuOpen(!mobileBlockMenuOpen)
+            }}
+            className="h-9 px-3 rounded flex items-center gap-1 bg-paper-card border border-line text-sm text-ink shrink-0"
+          >
+            <Pilcrow size={14} strokeWidth={2} />
+            <ChevronDown size={14} strokeWidth={2} />
+          </button>
+          <button
+            onTouchStart={(e) => { e.preventDefault(); handleToolbarAction(() => editor?.chain().focus().toggleBold().run()) }}
+            className={`h-9 w-9 flex items-center justify-center rounded border border-line shrink-0 ${editor?.isActive('bold') ? 'bg-black/5 dark:bg-white/5' : 'bg-paper-card'}`}
+          >
+            <Bold size={16} strokeWidth={2} />
+          </button>
+          <button
+            onTouchStart={(e) => { e.preventDefault(); handleToolbarAction(() => editor?.chain().focus().toggleItalic().run()) }}
+            className={`h-9 w-9 flex items-center justify-center rounded border border-line shrink-0 ${editor?.isActive('italic') ? 'bg-black/5 dark:bg-white/5' : 'bg-paper-card'}`}
+          >
+            <Italic size={16} strokeWidth={2} />
+          </button>
+          <button
+            onTouchStart={(e) => { e.preventDefault(); handleToolbarAction(() => editor?.chain().focus().toggleUnderline().run()) }}
+            className={`h-9 w-9 flex items-center justify-center rounded border border-line shrink-0 ${editor?.isActive('underline') ? 'bg-black/5 dark:bg-white/5' : 'bg-paper-card'}`}
+          >
+            <UnderlineIcon size={16} strokeWidth={2} />
+          </button>
+          <button
+            onTouchStart={(e) => { e.preventDefault(); handleToolbarAction(() => editor?.chain().focus().insertContent('@').run()) }}
+            className={`h-9 w-9 flex items-center justify-center rounded border border-line shrink-0 ${editor?.isActive('mention') ? 'bg-black/5 dark:bg-white/5' : 'bg-paper-card'}`}
+          >
+            <AtSign size={16} strokeWidth={2} />
+          </button>
+        </div>
+
+        {/* 移动端块类型选择面板 */}
+        {mobileBlockMenuOpen && (
+          <div
+            className="fixed left-0 right-0 z-40 p-3 bg-paper/95 backdrop-blur-xl border-t border-line"
+            style={{ bottom: `${keyboardHeight + 44}px` }}
+          >
+            <div className="flex flex-wrap gap-2">
+              {[
+                { label: '段落', icon: <Pilcrow size={16} strokeWidth={2} />, action: () => editor?.chain().focus().setParagraph().run(), active: () => editor?.isActive('paragraph') ?? false },
+                { label: 'H1', icon: <Heading1 size={16} strokeWidth={2} />, action: () => editor?.chain().focus().toggleHeading({ level: 1 }).run(), active: () => editor?.isActive('heading', { level: 1 }) },
+                { label: 'H2', icon: <Heading2 size={16} strokeWidth={2} />, action: () => editor?.chain().focus().toggleHeading({ level: 2 }).run(), active: () => editor?.isActive('heading', { level: 2 }) },
+                { label: 'H3', icon: <Heading3 size={16} strokeWidth={2} />, action: () => editor?.chain().focus().toggleHeading({ level: 3 }).run(), active: () => editor?.isActive('heading', { level: 3 }) },
+                { label: '无序列表', icon: <List size={16} strokeWidth={2} />, action: () => editor?.chain().focus().toggleBulletList().run(), active: () => editor?.isActive('bulletList') ?? false },
+                { label: '有序列表', icon: <ListOrdered size={16} strokeWidth={2} />, action: () => editor?.chain().focus().toggleOrderedList().run(), active: () => editor?.isActive('orderedList') ?? false },
+                { label: '任务列表', icon: <ListTodo size={16} strokeWidth={2} />, action: () => editor?.chain().focus().toggleTaskList().run(), active: () => editor?.isActive('taskList') ?? false },
+                { label: '引用', icon: <Quote size={16} strokeWidth={2} />, action: () => editor?.chain().focus().toggleBlockquote().run(), active: () => editor?.isActive('blockquote') ?? false },
+                { label: '分割线', icon: <Scissors size={16} strokeWidth={2} />, action: () => editor?.chain().focus().setHorizontalRule().run(), active: () => false },
+                { label: '图片', icon: <Image size={16} strokeWidth={2} />, action: () => editor?.chain().focus().insertContent({ type: 'imageBlock' }).run(), active: () => false },
+                { label: '表格', icon: <TableIcon size={16} strokeWidth={2} />, action: () => editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(), active: () => false },
+              ].map((item) => (
+                <button
+                  key={item.label}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onTouchStart={(e) => {
+                    e.preventDefault()
+                    handleToolbarAction(item.action)
+                    setMobileBlockMenuOpen(false)
+                  }}
+                  className={`flex items-center gap-1.5 rounded border border-line px-3 py-2 text-sm transition-colors ${item.active() ? 'bg-black/5 dark:bg-white/5 text-ink' : 'bg-paper-card text-ink-muted'}`}
+                >
+                  {item.icon}
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </>
+    )}
     </ContextMenu>
   )
 }

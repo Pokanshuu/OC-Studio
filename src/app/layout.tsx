@@ -9,6 +9,7 @@ import { ActiveEditorProvider } from "@/lib/editor-context";
 import { Providers } from "./providers";
 import { SeedData } from "@/components/shared/SeedData";
 import { OverlayRoot } from "@/components/layout/OverlayRoot";
+import { KeyboardProvider } from "@/lib/KeyboardContext";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -39,9 +40,10 @@ export default function RootLayout({
             }}
           />
         </head>
-        <body className="flex flex-col h-dvh overflow-hidden">
+        <body className="flex flex-col h-screen overflow-hidden">
         <Providers>
           <SeedData />
+          <KeyboardProvider>
           <SettingsProvider>
             <ActiveEditorProvider>
             <EntityNavigateProvider>
@@ -57,6 +59,7 @@ export default function RootLayout({
             </EntityNavigateProvider>
             </ActiveEditorProvider>
           </SettingsProvider>
+          </KeyboardProvider>
         </Providers>
       <OverlayRoot />
       </body>
