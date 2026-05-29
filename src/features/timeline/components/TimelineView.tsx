@@ -1041,7 +1041,7 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
   const hasContent = density === 'year' ? nodes.items.length > 0 : (buckets && (buckets.buckets.length > 0 || buckets.spanning.length > 0))
 
   return (
-    <div className="flex flex-col min-h-full md:pb-0">
+    <div className="flex flex-col h-full">
       <TimelineToolbar
         filterMajor={filterMajor}
         setFilterMajor={setFilterMajor}
@@ -1231,7 +1231,7 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
 
       {/* Untimed events */}
       {nodes.withoutTime.length > 0 ? (
-        <div className="shrink-0 border-t border-dashed border-line pl-4 pr-4 py-3 bg-paper">
+        <div className="shrink-0 border-t border-dashed border-line pl-4 pr-4 py-3 bg-paper md:static fixed bottom-[calc(60px+var(--safe-bottom))] left-0 right-0 z-10">
           <p className="mb-2 text-xs text-ink-faint">未标注时间的事件</p>
           <div className="flex flex-wrap gap-2">
             {nodes.withoutTime.map((e) => (

@@ -461,7 +461,7 @@ export default function Home() {
   return (
     <div className="section-stack">
       <div
-        className="h-full section-fade overflow-y-auto"
+        className="h-full section-fade overflow-y-auto max-md:pt-[var(--safe-top)] max-md:pb-[var(--safe-bottom)]"
         data-visible={(showEvents && eventView.sub === 'editor') ? "true" : "false"}
         data-animate={eventSlide === 'to-editor' ? 'slide-in-right' : eventSlide === 'to-list' ? 'slide-out-right' : undefined}
       >
@@ -479,7 +479,7 @@ export default function Home() {
       </div>
 
       <div
-        className="h-full section-fade overflow-y-auto"
+        className="h-full section-fade overflow-y-auto max-md:pt-[calc(60px+var(--safe-top))] max-md:pb-[calc(60px+var(--safe-bottom))]"
         data-visible={(showEvents && eventView.sub === 'list') ? "true" : "false"}
         data-animate={eventSlide === 'to-editor' ? 'slide-out-left' : eventSlide === 'to-list' ? 'slide-in-left' : undefined}
       >
@@ -494,7 +494,7 @@ export default function Home() {
       </div>
 
       <div
-        className="h-full section-fade overflow-y-auto"
+        className="h-full section-fade overflow-y-auto max-md:pt-[var(--safe-top)] max-md:pb-[var(--safe-bottom)]"
         data-visible={(showCharacters && characterView.sub === 'editor') ? "true" : "false"}
         data-animate={charSlide === 'to-editor' ? 'slide-in-right' : charSlide === 'to-list' ? 'slide-out-right' : undefined}
       >
@@ -512,7 +512,7 @@ export default function Home() {
       </div>
 
       <div
-        className="h-full section-fade overflow-y-auto"
+        className="h-full section-fade overflow-y-auto max-md:pt-[calc(60px+var(--safe-top))] max-md:pb-[calc(60px+var(--safe-bottom))]"
         data-visible={(showCharacters && characterView.sub === 'list') ? "true" : "false"}
         data-animate={charSlide === 'to-editor' ? 'slide-out-left' : charSlide === 'to-list' ? 'slide-in-left' : undefined}
       >
@@ -527,7 +527,7 @@ export default function Home() {
       </div>
 
       <div
-        className="h-full section-fade overflow-y-auto"
+        className="h-full section-fade overflow-y-auto max-md:pt-[var(--safe-top)] max-md:pb-[var(--safe-bottom)]"
         data-visible={(showCountries && countryView.sub === 'editor') ? "true" : "false"}
         data-animate={countrySlide === 'to-editor' ? 'slide-in-right' : countrySlide === 'to-list' ? 'slide-out-right' : undefined}
       >
@@ -545,7 +545,7 @@ export default function Home() {
       </div>
 
       <div
-        className="h-full section-fade overflow-y-auto"
+        className="h-full section-fade overflow-y-auto max-md:pt-[calc(60px+var(--safe-top))] max-md:pb-[calc(60px+var(--safe-bottom))]"
         data-visible={(showCountries && countryView.sub === 'list') ? "true" : "false"}
         data-animate={countrySlide === 'to-editor' ? 'slide-out-left' : countrySlide === 'to-list' ? 'slide-in-left' : undefined}
       >
@@ -557,21 +557,21 @@ export default function Home() {
       </div>
 
       <div
-        className="h-full section-fade overflow-y-auto"
+        className="h-full section-fade overflow-y-auto max-md:pt-[calc(60px+var(--safe-top))] max-md:pb-[calc(60px+var(--safe-bottom))]"
         data-visible={showWorld ? "true" : "false"}
       >
         <WorldLayout onMentionClick={handleMentionClick} onCharacterCount={handleWorldCharCount} selectedEntryId={worldSelectedEntryId} onWikiLinkClick={handleWikiLinkClick} />
       </div>
 
       <div
-        className="h-full section-fade overflow-y-auto"
+        className="h-full section-fade overflow-y-auto max-md:pt-[calc(60px+var(--safe-top))] max-md:pb-[calc(60px+var(--safe-bottom))]"
         data-visible={showTimeline ? "true" : "false"}
       >
         <TimelineView onSelectEvent={handleTimelineSelectEvent} />
       </div>
 
       <div
-        className="h-full section-fade overflow-y-auto"
+        className="h-full section-fade overflow-y-auto max-md:pt-[calc(60px+var(--safe-top))] max-md:pb-[calc(60px+var(--safe-bottom))]"
         data-visible={showAlbum ? "true" : "false"}
       >
         <GlobalAlbum
@@ -580,7 +580,7 @@ export default function Home() {
       </div>
 
       <div
-        className="h-full section-fade overflow-y-auto"
+        className="h-full section-fade overflow-y-auto max-md:pt-[calc(60px+var(--safe-top))] max-md:pb-[calc(60px+var(--safe-bottom))]"
         data-visible={showRelations ? "true" : "false"}
       >
         <RelationGraph
@@ -602,7 +602,7 @@ export default function Home() {
 
       <div
         data-visible={(showPlaceholder || activeItem === null) ? "true" : "false"}
-        className="h-full section-fade flex items-center justify-center"
+        className="h-full section-fade flex items-center justify-center max-md:pt-[calc(60px+var(--safe-top))] max-md:pb-[calc(60px+var(--safe-bottom))]"
       >
         <p className="text-ink-muted text-sm font-serif">
           {showPlaceholder ? placeholderText : '欢迎使用 OC Studio'}
