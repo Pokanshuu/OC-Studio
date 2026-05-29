@@ -1,6 +1,6 @@
 'use client'
 
-import { memo, useMemo, useCallback, useState, useRef, useEffect, useLayoutEffect } from 'react'
+import { memo, useMemo, useCallback, useState, useRef, useEffect, useLayoutEffect, startTransition } from 'react'
 import { createPortal } from 'react-dom'
 import {
   DndContext,
@@ -310,11 +310,14 @@ function BucketView({
   buckets,
   onSelectEvent,
   axisY,
+  spanningOffset = 0,
 }: {
   buckets: TimeBucket[]
   onSelectEvent: (id: number) => void
   axisY: number
+  spanningOffset?: number
 }) {
+  const bucketTop = axisY + 24 + spanningOffset
   return (
     <>
       {buckets.map((bucket) => (
@@ -323,7 +326,7 @@ function BucketView({
           className="absolute rounded-md border border-line bg-paper-card py-1.5 px-2"
           style={{
             left: bucket.x,
-            top: axisY + 24,
+            top: bucketTop,
             width: Math.max(bucket.width - 8, 120),
           }}
         >
@@ -417,8 +420,7 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
   })
   const pinchRafRef = useRef(0)
   const latestPinchRef = useRef(0)
-  const dragRef = useRef({ lastX: 0, lastY: 0, moved: false, pendingDx: 0, pendingDy: 0 })
-  const scrollRafRef = useRef(0)
+  const suppressScrollRef = useRef(false)
   const initialZoomSetRef = useRef(false)
 
   useEffect(() => {
@@ -509,8 +511,8 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
     const raw = availableWidth / yearRange.totalYears
     const autoPx = Math.max(MIN_PX_PER_YEAR, Math.min(MAX_PX_PER_YEAR, raw))
 
-    if (autoPx < 60) {
-      const targetRatio = Math.min(Math.ceil(60 / autoPx), 5.0)
+    if (autoPx < 40) {
+      const targetRatio = Math.min(Math.ceil(40 / autoPx), 5.0)
       setZoomRatio(targetRatio)
     }
 
@@ -545,6 +547,17 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
     oldScaleRef.current = displayPxPerYear
   }
 
+  const applyZoom = useCallback((newRatio: number, originX: number) => {
+    const container = scrollRef.current
+    if (container) {
+      zoomOriginRef.current = originX
+      zoomOffsetRef.current = container.scrollLeft + originX - LEFT_PADDING
+      oldScaleRef.current = displayPxRef.current
+      didZoomRef.current = true
+    }
+    startTransition(() => { setZoomRatio(Math.max(0.1, Math.min(5.0, newRatio))) })
+  }, [])
+
   const nodes = useMemo(() => {
     const withTime = filtered.filter((e) => !!e.time)
     const withoutTime = filtered.filter((e) => !e.time)
@@ -568,21 +581,6 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
 
     return { items: assigned, withoutTime }
   }, [filtered, yearRange, pxPerYear, density])
-
-  const visibleNodes = useMemo(() => {
-    if (density !== 'year' || nodes.items.length === 0) return nodes.items
-    if (containerWidth <= 0) return nodes.items
-    const buffer = containerWidth * 0.2
-    const startX = scrollLeft - buffer
-    const endX = scrollLeft + containerWidth + buffer
-    const filtered = nodes.items.filter(
-      (item) =>
-        item.x >= startX && item.x <= endX ||
-        item.event.id === dragId,
-    )
-    const result = filtered.length === 0 ? nodes.items : filtered
-    return result
-  }, [density, nodes.items, scrollLeft, containerWidth, dragId])
 
   const buckets = useMemo(() => {
     const withTime = filtered.filter((e) => !!e.time)
@@ -610,7 +608,7 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
 
   const totalWidth = useMemo(() => {
     if (!yearRange) return 0
-    const hasContent = density === 'year' ? nodes.items.length > 0 : (buckets && buckets.length > 0)
+    const hasContent = density === 'year' ? nodes.items.length > 0 : (buckets && (buckets.buckets.length > 0 || buckets.spanning.length > 0))
     if (!hasContent) return 0
     const effectivePx = density === 'year' ? pxPerYear : displayPxPerYear
     return LEFT_PADDING + yearRange.totalYears * effectivePx + RIGHT_PADDING
@@ -619,11 +617,17 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
   const navTargets = useMemo(() => {
     if (density === 'year') return nodes.items
     if (buckets) {
-      return buckets.map((b) => ({
+      const bucketTargets = buckets.buckets.map((b) => ({
         event: b.events[0],
         x: b.x,
         lane: 0,
       }))
+      const spanningTargets = buckets.spanning.map((s) => ({
+        event: s.event,
+        x: s.x,
+        lane: s.lane,
+      }))
+      return [...bucketTargets, ...spanningTargets].sort((a, b) => a.x - b.x)
     }
     return []
   }, [density, nodes.items, buckets])
@@ -643,6 +647,8 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
       const maxScroll = container.scrollWidth - container.clientWidth
       const prev = sl <= 1
       const next = sl >= maxScroll - 1
+
+      if (suppressScrollRef.current) return
 
       cancelAnimationFrame(raf)
       raf = requestAnimationFrame(() => {
@@ -694,17 +700,9 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
 
   const handleZoomChange = useCallback(
     (value: number) => {
-      const container = scrollRef.current
-      if (container) {
-        const origin = container.clientWidth / 2
-        zoomOriginRef.current = origin
-        zoomOffsetRef.current = container.scrollLeft + origin - LEFT_PADDING
-        oldScaleRef.current = displayPxPerYear
-        didZoomRef.current = true
-      }
-      setZoomRatio(value / 100)
+      applyZoom(value / 100, scrollRef.current?.clientWidth ? scrollRef.current.clientWidth / 2 : 0)
     },
-    [displayPxPerYear],
+    [applyZoom],
   )
 
   const handleZoomCommit = useCallback(
@@ -712,18 +710,9 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
       const px = autoPxPerYear * (value / 100)
       const snapped = Math.round(px / ZOOM_SNAP_STEP) * ZOOM_SNAP_STEP
       const snappedRatio = snapped / autoPxPerYear
-
-      const container = scrollRef.current
-      if (container) {
-        const origin = container.clientWidth / 2
-        zoomOriginRef.current = origin
-        zoomOffsetRef.current = container.scrollLeft + origin - LEFT_PADDING
-        oldScaleRef.current = displayPxPerYear
-        didZoomRef.current = true
-      }
-      setZoomRatio(snappedRatio)
+      applyZoom(snappedRatio, scrollRef.current?.clientWidth ? scrollRef.current.clientWidth / 2 : 0)
     },
-    [autoPxPerYear, displayPxPerYear],
+    [autoPxPerYear, applyZoom],
   )
 
   useEffect(() => {
@@ -735,11 +724,8 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
         e.preventDefault()
         const rect = el.getBoundingClientRect()
         const origin = e.clientX - rect.left
-        zoomOriginRef.current = origin
-        zoomOffsetRef.current = el.scrollLeft + origin - LEFT_PADDING
-        oldScaleRef.current = displayPxRef.current
-        didZoomRef.current = true
-        setZoomRatio((prev) => Math.max(0.1, Math.min(5.0, prev - e.deltaY * 0.005)))
+        const newRatio = zoomRatioRef.current - e.deltaY * 0.005
+        applyZoom(newRatio, origin)
       } else {
         e.preventDefault()
         el.scrollLeft += e.deltaX + e.deltaY
@@ -748,7 +734,7 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
 
     el.addEventListener('wheel', handleWheel, { passive: false })
     return () => el.removeEventListener('wheel', handleWheel)
-  }, [events])
+  }, [events.length > 0])
 
   useEffect(() => {
     const el = scrollRef.current
@@ -760,16 +746,10 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
       return Math.sqrt(dx * dx + dy * dy)
     }
 
-    const DEADZONE = 2
-
     const handleTouchStart = (e: TouchEvent) => {
-      if (scrollRafRef.current) {
-        cancelAnimationFrame(scrollRafRef.current)
-        scrollRafRef.current = 0
-      }
-
       if (e.touches.length === 2) {
         e.preventDefault()
+        el.style.touchAction = 'none'
         const dist = getTouchDistance(e.touches)
         latestPinchRef.current = dist
         pinchRef.current = {
@@ -783,69 +763,34 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
         zoomOffsetRef.current = el.scrollLeft + origin - LEFT_PADDING
         oldScaleRef.current = displayPxRef.current
         didZoomRef.current = true
-      } else if (e.touches.length === 1) {
-        pinchRef.current.active = false
-        const t = e.touches[0]
-        dragRef.current = {
-          lastX: t.clientX,
-          lastY: t.clientY,
-          moved: false,
-          pendingDx: 0,
-          pendingDy: 0,
-        }
       }
     }
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (pinchRef.current.active && e.touches.length === 2) {
-        e.preventDefault()
-        latestPinchRef.current = getTouchDistance(e.touches)
-        if (pinchRafRef.current) return
-        pinchRafRef.current = requestAnimationFrame(() => {
-          pinchRafRef.current = 0
-          const scale = latestPinchRef.current / pinchRef.current.initialDistance
-          const newRatio = Math.max(0.1, Math.min(5.0, pinchRef.current.initialZoomRatio * scale))
-          setZoomRatio(newRatio)
-        })
-      } else if (e.touches.length === 1 && !pinchRef.current.active) {
-        const touch = e.touches[0]
-        const dx = dragRef.current.lastX - touch.clientX
-        const dy = dragRef.current.lastY - touch.clientY
-
-        if (dragRef.current.moved || Math.abs(dx) > DEADZONE || Math.abs(dy) > DEADZONE) {
-          dragRef.current.moved = true
-          e.preventDefault()
-          dragRef.current.pendingDx += dx
-          dragRef.current.pendingDy += dy
-          dragRef.current.lastX = touch.clientX
-          dragRef.current.lastY = touch.clientY
-
-          if (!scrollRafRef.current) {
-            scrollRafRef.current = requestAnimationFrame(() => {
-              scrollRafRef.current = 0
-              el.scrollLeft += dragRef.current.pendingDx
-              el.scrollTop += dragRef.current.pendingDy
-              dragRef.current.pendingDx = 0
-              dragRef.current.pendingDy = 0
-            })
-          }
-        }
-      }
+      if (!pinchRef.current.active || e.touches.length !== 2) return
+      e.preventDefault()
+      latestPinchRef.current = getTouchDistance(e.touches)
+      const rect = el.getBoundingClientRect()
+      zoomOriginRef.current = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left
+      if (pinchRafRef.current) return
+      pinchRafRef.current = requestAnimationFrame(() => {
+        pinchRafRef.current = 0
+        const scale = latestPinchRef.current / pinchRef.current.initialDistance
+        const newRatio = pinchRef.current.initialZoomRatio * scale
+        applyZoom(newRatio, zoomOriginRef.current)
+      })
     }
 
     const handleTouchEnd = (e: TouchEvent) => {
       if (e.touches.length < 2) {
         pinchRef.current.active = false
+        el.style.touchAction = 'pan-x'
       }
       if (e.touches.length === 0) {
-        if (scrollRafRef.current) {
-          cancelAnimationFrame(scrollRafRef.current)
-          scrollRafRef.current = 0
-        }
-        el.scrollLeft += dragRef.current.pendingDx
-        el.scrollTop += dragRef.current.pendingDy
-        dragRef.current.pendingDx = 0
-        dragRef.current.pendingDy = 0
+        const sl = el.scrollLeft
+        const maxScroll = el.scrollWidth - el.clientWidth
+        setNavEdge({ prev: sl <= 1, next: sl >= maxScroll - 1 })
+        setScrollLeft(sl)
       }
     }
 
@@ -859,16 +804,13 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
         cancelAnimationFrame(pinchRafRef.current)
         pinchRafRef.current = 0
       }
-      if (scrollRafRef.current) {
-        cancelAnimationFrame(scrollRafRef.current)
-        scrollRafRef.current = 0
-      }
+      el.style.touchAction = ''
       el.removeEventListener('touchstart', handleTouchStart)
       el.removeEventListener('touchmove', handleTouchMove)
       el.removeEventListener('touchend', handleTouchEnd)
       el.removeEventListener('touchcancel', handleTouchEnd)
     }
-  }, [events])
+  }, [events.length > 0])
 
   useLayoutEffect(() => {
     const container = scrollRef.current
@@ -880,7 +822,9 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
     if (oldScale === displayPxPerYear) return
 
     const newScroll = LEFT_PADDING + zoomOffsetRef.current * (displayPxPerYear / oldScale) - zoomOriginRef.current
+    suppressScrollRef.current = true
     container.scrollLeft = newScroll
+    requestAnimationFrame(() => { suppressScrollRef.current = false })
   }, [displayPxPerYear])
 
   const handlePeriodSave = useCallback(async (data: { name: string; startTime: string; endTime: string; color: string }) => {
@@ -1017,7 +961,7 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
   const showNav = !isMobile && navTargets.length > 1
   const showZoom = !isMobile && events.length > 0
   const inAggregation = density !== 'year'
-  const hasContent = density === 'year' ? nodes.items.length > 0 : (buckets && buckets.length > 0)
+  const hasContent = density === 'year' ? nodes.items.length > 0 : (buckets && (buckets.buckets.length > 0 || buckets.spanning.length > 0))
 
   return (
     <div className="flex flex-col min-h-full md:pb-0">
@@ -1046,7 +990,7 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
       />
       <div className="max-md:h-10 flex-shrink-0" />
 
-      <div ref={scrollRef} className="flex-1 overflow-x-auto" style={{ touchAction: 'none' }}>
+      <div ref={scrollRef} className="flex-1 overflow-x-auto" style={{ touchAction: 'pan-x' }}>
         <div
           className="relative min-h-full"
           style={{
@@ -1150,7 +1094,7 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
                 }}
                 modifiers={[restrictToHorizontalAxis]}
               >
-                {visibleNodes.map((item) => (
+                {nodes.items.map((item) => (
                   <DraggableNode
                     key={item.event.id}
                     event={item.event}
@@ -1162,7 +1106,7 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
                 ))}
               </DndContext>
             ) : (
-              visibleNodes.map((item) => (
+              nodes.items.map((item) => (
                 <StaticNode
                   key={item.event.id}
                   event={item.event}
@@ -1176,9 +1120,32 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
           ) : null}
 
           {/* Time buckets (aggregation mode) */}
-          {inAggregation && buckets ? (
-            <BucketView buckets={buckets} onSelectEvent={onSelectEvent} axisY={axisY} />
-          ) : null}
+          {inAggregation && buckets ? (() => {
+            const { buckets: bucketList, spanning } = buckets
+            const spanningOffset = spanning.length > 0
+              ? (Math.max(...spanning.map(s => s.lane)) + 1) * LANE_HEIGHT
+              : 0
+            return (
+              <>
+                {spanning.map((s) => (
+                  <StaticNode
+                    key={s.event.id}
+                    event={s.event}
+                    x={s.x}
+                    y={axisY + 24 + s.lane * LANE_HEIGHT}
+                    width={s.width}
+                    onSelect={onSelectEvent}
+                  />
+                ))}
+                <BucketView
+                  buckets={bucketList}
+                  onSelectEvent={onSelectEvent}
+                  axisY={axisY}
+                  spanningOffset={spanningOffset}
+                />
+              </>
+            )
+          })() : null}
 
           {/* Mode indicator */}
           {editMode && !isMobile && inAggregation && hasContent ? (
@@ -1355,7 +1322,7 @@ function TimelineToolbar({
           {showZoom ? (
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] text-ink-faint">百年</span>
-              <input type="range" min={10} max={100} step={1}
+              <input type="range" min={10} max={500} step={1}
                 value={Math.round(zoomRatio * 100)}
                 onChange={(e) => onZoomChange(Number(e.target.value))}
                 onMouseUp={(e) => onZoomCommit(Number((e.target as HTMLInputElement).value))}

@@ -12,9 +12,9 @@ export interface TimeBucket {
 }
 
 export function computeDensity(pxPerYear: number): TimelineDensity {
-  if (pxPerYear >= 60) return 'year'
-  if (pxPerYear >= 30) return 'decade'
-  if (pxPerYear >= 15) return 'half-century'
+  if (pxPerYear >= 40) return 'year'
+  if (pxPerYear >= 20) return 'decade'
+  if (pxPerYear >= 10) return 'half-century'
   return 'century'
 }
 
@@ -38,9 +38,49 @@ export function buildBuckets(
   totalYears: number,
   pxPerYear: number,
   leftPadding: number,
-): TimeBucket[] {
+): BucketResult {
   const bucketSize = density === 'decade' ? 10 : density === 'half-century' ? 50 : 100
 
+  // Split: spanning (crosses bucket boundary) vs bucket-fitting
+  const spanningEvents: TimelineEvent[] = []
+  const bucketEvents: TimelineEvent[] = []
+
+  for (const e of timedEvents) {
+    const y = parseYear(e.time)
+    if (y === null) continue
+    const ey = parseYear(e.endTime || e.time) ?? y
+    if (Math.floor(y / bucketSize) !== Math.floor(ey / bucketSize)) {
+      spanningEvents.push(e)
+    } else {
+      bucketEvents.push(e)
+    }
+  }
+
+  // Compute spanning event positions + lane assignment
+  const spanning = spanningEvents
+    .map((e) => {
+      const y = parseYear(e.time) ?? 0
+      const ey = parseYear(e.endTime || e.time) ?? y
+      const x = leftPadding + (y - rangeStart) * pxPerYear
+      const endX = leftPadding + (ey - rangeStart) * pxPerYear
+      return { event: e, x, width: Math.max(endX - x, 8), lane: 0 }
+    })
+    .sort((a, b) => a.x - b.x)
+
+  const laneEnds: number[] = []
+  for (const item of spanning) {
+    let lane = 0
+    for (; lane < 8; lane++) {
+      if (!(lane in laneEnds) || laneEnds[lane] <= item.x) {
+        laneEnds[lane] = item.x + item.width
+        break
+      }
+    }
+    if (lane >= 8) laneEnds.push(item.x + item.width)
+    item.lane = lane
+  }
+
+  // Build buckets from non-spanning events only
   const bucketStart =
     Math.trunc(rangeStart / bucketSize) * bucketSize
 
@@ -54,13 +94,12 @@ export function buildBuckets(
     const startYear = bucketStart + i * bucketSize
     const endYear = startYear + bucketSize - 1
 
-      const bucketEvents = timedEvents
+    const events = bucketEvents
       .filter((e) => {
         const y = parseYear(e.time)
         if (y === null) return false
-        const endTime = e.endTime || e.time
-        const eventEndYear = parseYear(endTime) ?? y
-        return eventEndYear !== null && eventEndYear >= startYear && y <= endYear
+        const eventEndYear = parseYear(e.endTime || e.time) ?? y
+        return eventEndYear >= startYear && y <= endYear
       })
       .sort((a, b) => {
         const aY = parseYear(a.time) ?? 0
@@ -69,7 +108,7 @@ export function buildBuckets(
         return a.time.localeCompare(b.time)
       })
 
-    if (bucketEvents.length === 0) continue
+    if (events.length === 0) continue
 
     buckets.push({
       label:
@@ -78,13 +117,25 @@ export function buildBuckets(
           : `${startYear} - ${endYear}`,
       startYear,
       endYear,
-      events: bucketEvents,
+      events,
       x: leftPadding + (startYear - rangeStart) * pxPerYear,
       width: bucketSize * pxPerYear,
     })
   }
 
-  return buckets
+  return { buckets, spanning }
+}
+
+export interface SpanningEvent {
+  event: TimelineEvent
+  x: number
+  width: number
+  lane: number
+}
+
+export interface BucketResult {
+  buckets: TimeBucket[]
+  spanning: SpanningEvent[]
 }
 
 export interface YearTick {
