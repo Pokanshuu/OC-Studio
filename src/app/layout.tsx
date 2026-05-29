@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import Script from "next/script";
 import { AppShell } from "@/components/layout/AppShell";
 import { NavigationProvider } from "@/components/layout/NavigationContext";
 import { WordCountProvider } from "@/components/layout/WordCountContext";
@@ -33,9 +32,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-CN" className="h-full antialiased" suppressHydrationWarning>
-      <head />
-      <body className="flex flex-col min-h-dvh md:h-screen md:overflow-hidden">
-        <Script id="theme-init" src="/theme-init.js" strategy="beforeInteractive" />
+      <head>
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `(function(){try{var s=JSON.parse(localStorage.getItem('oc-studio-settings')||'{}');var t=s.theme||'auto';var d=t==='auto'?window.matchMedia('(prefers-color-scheme:dark)').matches:t==='dark';if(d){document.documentElement.classList.add('dark');document.documentElement.setAttribute('data-theme','dark')}if(window.__TAURI__||window.__TAURI_INTERNALS__){document.documentElement.classList.add('tauri-mica')}}catch(e){}})()`,
+            }}
+          />
+        </head>
+        <body className="flex flex-col min-h-dvh md:h-screen md:overflow-hidden">
         <Providers>
           <SeedData />
           <SettingsProvider>
