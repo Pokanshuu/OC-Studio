@@ -66,7 +66,7 @@ function CountryRow({
       tabIndex={0}
       onClick={() => onSelect(country.id as number)}
       onKeyDown={handleKeyDown}
-      className="flex w-full cursor-pointer items-center gap-3 rounded-md px-4 py-3 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+      className="group relative flex w-full cursor-pointer items-center gap-3 rounded-md px-4 py-3 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/5"
     >
       <Avatar src={getImageUrl(country.flagUrl, 'flag')} size="md" type="flag" />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -75,7 +75,9 @@ function CountryRow({
           <span className="text-xs text-ink-muted truncate">{preview}</span>
         ) : null}
       </div>
-      <DeleteButton onDelete={() => onDelete(country.id as number)} />
+      <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <DeleteButton onDelete={() => onDelete(country.id as number)} />
+      </div>
     </div>
   )
 }
@@ -92,7 +94,7 @@ function CountryCard({
   const preview = extractCountryPreview(country.document) ?? stripHtml(country.system ?? '')
 
   return (
-    <div className="relative">
+    <div className="relative group">
       <button
         onClick={() => onSelect(country.id as number)}
         className="flex w-full flex-col rounded-md border border-line bg-paper-card overflow-hidden text-left transition-shadow hover:shadow-[0_1px_3px_rgba(0,0,0,0.03)]"
@@ -118,7 +120,7 @@ function CountryCard({
         </div>
       </button>
 
-      <div className="absolute right-2 top-2">
+      <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
         <DeleteButton onDelete={() => onDelete(country.id as number)} />
       </div>
     </div>

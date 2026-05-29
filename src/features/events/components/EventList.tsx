@@ -61,7 +61,7 @@ function EventCard({
   onDelete: (id: number) => void
 }) {
   return (
-    <div className="relative">
+    <div className="relative group">
       <button
         onClick={() => onSelect(event.id as number)}
         className="flex w-full flex-col rounded-md border border-line bg-paper-card overflow-hidden text-left transition-shadow hover:shadow-[0_1px_3px_rgba(0,0,0,0.03)]"
@@ -100,7 +100,7 @@ function EventCard({
         </div>
       </button>
 
-      <div className="absolute right-3 top-3">
+      <div className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity">
         <DeleteButton onDelete={() => onDelete(event.id as number)} />
       </div>
     </div>
@@ -128,28 +128,26 @@ function EventRow({
       tabIndex={0}
       onClick={() => onSelect(event.id as number)}
       onKeyDown={handleKeyDown}
-      className="flex w-full cursor-pointer items-center gap-4 rounded-md px-4 py-3 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+      className="group relative flex w-full cursor-pointer items-center gap-4 rounded-md px-4 py-3 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/5"
     >
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           {event.isMajor ? (
             <Circle size={8} fill="var(--color-error)" className="shrink-0 text-error" />
           ) : null}
           <h3 className="truncate text-sm font-medium text-ink">{event.title}</h3>
-          {event.time ? (
-            <span className="shrink-0 text-xs text-ink-faint">{formatTimeDisplay(event)}</span>
-          ) : null}
         </div>
         <span className="text-xs text-ink-faint">
+          {event.time ? <span>{formatTimeDisplay(event)} · </span> : null}
           编辑于 {formatRelativeTime(event.updatedAt)}
         </span>
       </div>
       {event.summary ? (
         <p className="min-w-0 flex-1 truncate text-xs text-ink-muted">{event.summary}</p>
-      ) : (
-        <div className="flex-1" />
-      )}
-      <DeleteButton onDelete={() => onDelete(event.id as number)} />
+      ) : null}
+      <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <DeleteButton onDelete={() => onDelete(event.id as number)} />
+      </div>
     </div>
   )
 }

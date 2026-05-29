@@ -162,7 +162,7 @@ function CharacterCard({
   const aliasText = aliasesText(character.aliases)
 
   return (
-    <div className="relative">
+    <div className="relative group">
       <button
         onClick={() => onSelect(character.id as number)}
         className="flex w-full flex-col rounded-md border border-line bg-paper-card overflow-hidden text-left transition-shadow hover:shadow-[0_1px_3px_rgba(0,0,0,0.03)]"
@@ -177,7 +177,7 @@ function CharacterCard({
             />
           </div>
         ) : null}
-        <div className="flex items-start gap-3 p-3">
+        <div className={`flex gap-3 p-3 ${displayNationality ? 'items-start' : 'items-center'}`}>
           <Avatar src={character.avatarUrl} size="md" className="shrink-0" />
           <div className="flex flex-col min-w-0 gap-0.5">
             <div className="flex items-center gap-1 min-w-0">
@@ -193,7 +193,7 @@ function CharacterCard({
         </div>
       </button>
 
-      <div className="absolute right-2 top-2">
+      <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
         <DeleteButton onDelete={() => onDelete(character.id as number)} />
       </div>
     </div>
@@ -226,26 +226,25 @@ function CharacterRow({
       tabIndex={0}
       onClick={() => onSelect(character.id as number)}
       onKeyDown={handleKeyDown}
-      className="flex w-full cursor-pointer items-center gap-3 rounded-md px-4 py-3 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+      className="group relative flex w-full cursor-pointer items-center gap-3 rounded-md px-4 py-3 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/5"
     >
       <Avatar src={getImageUrl(character.avatarUrl, 'avatar')} size="md" />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <h3 className="truncate text-sm font-medium text-ink">{character.name}</h3>
           {aliasText ? (
             <span className="shrink-0 text-xs text-ink-muted">({aliasText})</span>
           ) : null}
         </div>
-        <div className="flex items-center gap-2">
-          {displayNationality ? (
-            <span className="text-xs text-ink-muted">{displayNationality}</span>
-          ) : null}
-          {character.race ? (
-            <span className="text-xs text-ink-muted">{character.race}</span>
-          ) : null}
+        <div className="truncate text-xs text-ink-muted">
+          {displayNationality ? <span>{displayNationality}</span> : null}
+          {displayNationality && character.race ? <span> · </span> : null}
+          {character.race ? <span>{character.race}</span> : null}
         </div>
       </div>
-      <DeleteButton onDelete={() => onDelete(character.id as number)} />
+      <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <DeleteButton onDelete={() => onDelete(character.id as number)} />
+      </div>
     </div>
   )
 }
