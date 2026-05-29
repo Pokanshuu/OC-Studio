@@ -344,7 +344,7 @@ export function SettingsDialog({
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-ink">版本</span>
                   <span className="text-sm text-ink-muted font-mono">
-                    v0.1.5-alpha
+                    v0.1.6-alpha
                   </span>
                 </div>
                 <button
