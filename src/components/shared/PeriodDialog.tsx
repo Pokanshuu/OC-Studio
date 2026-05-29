@@ -79,14 +79,18 @@ export function PeriodDialog({ open, period, onSave, onClose }: PeriodDialogProp
         {/* Start & End time */}
         <div className="mb-4">
           <label className="block text-sm text-ink-muted mb-1.5">开始 / 结束时间</label>
-          <div className="flex items-center gap-2">
-            <input type="text" value={startYear} onChange={(e) => setStartYear(e.target.value)} placeholder="年" className="h-9 w-16 rounded border border-line bg-paper-card px-2 text-sm text-ink placeholder:text-ink-faint focus:border-line-hover focus:outline-none" />
-            <input type="text" value={startMonth} onChange={(e) => setStartMonth(e.target.value)} placeholder="月" className="h-9 w-12 rounded border border-line bg-paper-card px-2 text-sm text-ink placeholder:text-ink-faint focus:border-line-hover focus:outline-none" />
-            <input type="text" value={startDay} onChange={(e) => setStartDay(e.target.value)} placeholder="日" className="h-9 w-12 rounded border border-line bg-paper-card px-2 text-sm text-ink placeholder:text-ink-faint focus:border-line-hover focus:outline-none" />
-            <span className="text-xs text-ink-faint">→</span>
-            <input type="text" value={endYear} onChange={(e) => setEndYear(e.target.value)} placeholder="年" className="h-9 w-16 rounded border border-line bg-paper-card px-2 text-sm text-ink placeholder:text-ink-faint focus:border-line-hover focus:outline-none" />
-            <input type="text" value={endMonth} onChange={(e) => setEndMonth(e.target.value)} placeholder="月" className="h-9 w-12 rounded border border-line bg-paper-card px-2 text-sm text-ink placeholder:text-ink-faint focus:border-line-hover focus:outline-none" />
-            <input type="text" value={endDay} onChange={(e) => setEndDay(e.target.value)} placeholder="日" className="h-9 w-12 rounded border border-line bg-paper-card px-2 text-sm text-ink placeholder:text-ink-faint focus:border-line-hover focus:outline-none" />
+          <div className="flex items-center gap-2 max-md:flex-col">
+            <div className="flex items-center gap-2">
+              <input type="text" value={startYear} onChange={(e) => setStartYear(e.target.value)} placeholder="年" className="h-9 w-16 rounded border border-line bg-paper-card px-2 text-sm text-ink placeholder:text-ink-faint focus:border-line-hover focus:outline-none" />
+              <input type="text" value={startMonth} onChange={(e) => setStartMonth(e.target.value)} placeholder="月" className="h-9 w-12 rounded border border-line bg-paper-card px-2 text-sm text-ink placeholder:text-ink-faint focus:border-line-hover focus:outline-none" />
+              <input type="text" value={startDay} onChange={(e) => setStartDay(e.target.value)} placeholder="日" className="h-9 w-12 rounded border border-line bg-paper-card px-2 text-sm text-ink placeholder:text-ink-faint focus:border-line-hover focus:outline-none" />
+              <span className="text-xs text-ink-faint">→</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <input type="text" value={endYear} onChange={(e) => setEndYear(e.target.value)} placeholder="年" className="h-9 w-16 rounded border border-line bg-paper-card px-2 text-sm text-ink placeholder:text-ink-faint focus:border-line-hover focus:outline-none" />
+              <input type="text" value={endMonth} onChange={(e) => setEndMonth(e.target.value)} placeholder="月" className="h-9 w-12 rounded border border-line bg-paper-card px-2 text-sm text-ink placeholder:text-ink-faint focus:border-line-hover focus:outline-none" />
+              <input type="text" value={endDay} onChange={(e) => setEndDay(e.target.value)} placeholder="日" className="h-9 w-12 rounded border border-line bg-paper-card px-2 text-sm text-ink placeholder:text-ink-faint focus:border-line-hover focus:outline-none" />
+            </div>
           </div>
         </div>
 
@@ -116,14 +120,14 @@ export function PeriodDialog({ open, period, onSave, onClose }: PeriodDialogProp
         <div className="flex items-center justify-end gap-2">
           <button
             onClick={onClose}
-            className="h-9 rounded border border-line bg-paper-card px-4 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
+            className="touch-feedback h-9 rounded border border-line bg-paper-card px-4 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
           >
             取消
           </button>
           <button
             onClick={handleSave}
             disabled={!canSave}
-            className="flex h-9 items-center gap-1.5 rounded bg-ink px-4 text-sm text-paper transition-colors hover:bg-ink/90 disabled:opacity-50"
+            className="touch-feedback flex h-9 items-center gap-1.5 rounded bg-ink px-4 text-sm text-paper transition-colors hover:bg-ink/90 disabled:opacity-50"
           >
             <Check size={16} strokeWidth={2} />
             <span>{saving ? '保存中...' : '确认'}</span>

@@ -372,7 +372,7 @@ export function SettingsDialog({
         <div className="flex justify-end border-t border-line px-6 py-4">
           <button
             onClick={() => onOpenChange(false)}
-            className="inline-flex items-center justify-center h-9 px-3 rounded text-sm border border-line bg-paper-alt text-ink transition-colors hover:border-line-hover hover:bg-paper-card"
+            className="touch-feedback inline-flex items-center justify-center h-9 px-3 rounded text-sm border border-line bg-paper-alt text-ink transition-colors hover:border-line-hover hover:bg-paper-card"
           >
             关闭
           </button>

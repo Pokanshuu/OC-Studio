@@ -124,7 +124,7 @@ export function TrashView({ onClose }: TrashViewProps) {
 
   return (
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 transition-opacity duration-150"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/15 dark:bg-black/40 transition-opacity duration-150"
       style={{ opacity: visible ? 1 : 0 }}
       onClick={(e) => { if (e.target === e.currentTarget) handleClose() }}
     >
