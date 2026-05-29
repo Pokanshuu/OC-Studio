@@ -340,7 +340,8 @@ export default function Home() {
       eventView.sub === 'editor' ||
       characterView.sub === 'editor' ||
       countryView.sub === 'editor' ||
-      activeItem === '关系图'
+      activeItem === '关系图' ||
+      activeItem === '相册'
     ) {
       crossBackRef.current = {
         activeItem,

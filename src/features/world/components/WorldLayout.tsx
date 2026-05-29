@@ -12,6 +12,7 @@ import type { WorldFormData } from '../types'
 import { WorldTree } from './WorldTree'
 import { useMobilePageHeader } from '@/components/layout/MobilePageHeaderContext'
 import { useMobileNavigation } from '@/components/layout/MobileNavigationContext'
+import { useEditor } from '@/components/layout/EditorContext'
 
 function parseEditorContent(content: string): object | string {
   if (!content) return ''
@@ -42,6 +43,9 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
   const { isMobile } = useDevice()
   const { setConfig } = useMobilePageHeader()
   const { section } = useMobileNavigation()
+  const { setEditing, clearEditing } = useEditor()
+
+  const editorContainerRef = useRef<HTMLDivElement>(null)
 
   // Set page title — only when this section is active
   useEffect(() => {
@@ -264,7 +268,15 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
         </div>
       ) : null}
 
-      <div className="flex flex-1 flex-col min-w-0">
+      <div
+        className="flex flex-1 flex-col min-w-0"
+        ref={editorContainerRef}
+        onFocus={() => { if (isMobile && selectedId !== null) setEditing('world', selectedId) }}
+        onBlur={(e) => {
+          if (editorContainerRef.current?.contains(e.relatedTarget as Node)) return
+          clearEditing()
+        }}
+      >
         {selectedId !== null && currentEntry ? (
           <>
             <div className="flex-1 overflow-auto">

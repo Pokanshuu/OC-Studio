@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useCallback, useEffect } from 'react'
-import { Search, RefreshCw, ChevronRight, ChevronLeft, Menu } from 'lucide-react'
+import { Search, RefreshCw, ChevronRight, ChevronLeft, Menu, ExternalLink } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { resolveImageUrl, getDefaultImage } from '@/lib/image-service'
 import { FullscreenViewer } from './FullscreenViewer'
@@ -9,6 +9,8 @@ import { useAlbumData, type AlbumEntry } from './useAlbumData'
 import { useDevice } from '@/lib/use-device'
 import { useMobilePageHeader } from '@/components/layout/MobilePageHeaderContext'
 import { useMobileNavigation } from '@/components/layout/MobileNavigationContext'
+import { useLongPress } from '@/lib/useLongPress'
+import { MobileActionSheet, type ActionItem } from '@/components/shared/MobileActionSheet'
 
 interface SubCategory {
   key: string
@@ -64,6 +66,59 @@ interface GlobalAlbumProps {
   onNavigate?: (id: number, type: string) => void
 }
 
+function getEntryImageUrl(entry: AlbumEntry): string {
+  const typeMap: Record<string, string> = {
+    avatar: 'avatar', qAvatar: 'avatar', fullbody: 'avatar',
+    header: 'avatar', gallery: 'avatar', flag: 'flag',
+  }
+  const url = resolveImageUrl(entry.url)
+  if (url.includes('/defaults/')) return url
+  return url || getDefaultImage(typeMap[entry.category] || 'avatar')
+}
+
+function AlbumCard({
+  entry,
+  isMobile,
+  onNavigate,
+  onLongPress,
+  onViewImage,
+}: {
+  entry: AlbumEntry
+  isMobile: boolean
+  onNavigate?: (id: number, type: string) => void
+  onLongPress?: () => void
+  onViewImage: () => void
+}) {
+  const longPress = useLongPress({
+    onLongPress: onLongPress ?? (() => {}),
+    enabled: isMobile,
+  })
+
+  return (
+    <div className="group relative" {...longPress}>
+      <img
+        src={getEntryImageUrl(entry)}
+        alt={entry.sourceName}
+        className="touch-feedback aspect-square w-full cursor-pointer rounded-md border border-line object-cover transition-shadow hover:shadow-[0_1px_3px_rgba(0,0,0,0.03)]"
+        onClick={onViewImage}
+      />
+      <div className="mt-1 truncate text-xs text-ink-faint">
+        {entry.sourceName}
+        {onNavigate && !isMobile ? (
+          <span className="opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={(e) => { e.stopPropagation(); onNavigate(entry.sourceId, entry.sourceType) }}
+              className="ml-1 text-ink-muted hover:text-ink active:bg-black/8 dark:active:bg-white/8 rounded"
+            >
+              跳转
+            </button>
+          </span>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
 export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
   const [search, setSearch] = useState('')
   const [selectedKey, setSelectedKey] = useState('all')
@@ -72,6 +127,9 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
   const [refreshing, setRefreshing] = useState(false)
   const [treeCollapsed, setTreeCollapsed] = useState(false)
   const [showMobileTree, setShowMobileTree] = useState(false)
+  const [actionSheet, setActionSheet] = useState<{ open: boolean; title: string; actions: ActionItem[] }>({
+    open: false, title: '', actions: [],
+  })
   const { isMobile } = useDevice()
   const { setConfig } = useMobilePageHeader()
   const { section } = useMobileNavigation()
@@ -97,6 +155,16 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
       return next
     })
   }, [])
+
+  const openActionSheet = useCallback((entry: AlbumEntry) => {
+    setActionSheet({
+      open: true,
+      title: entry.sourceName,
+      actions: [
+        { id: 'navigate', label: '跳转', icon: <ExternalLink size={20} strokeWidth={2} />, onPress: () => onNavigate?.(entry.sourceId, entry.sourceType) },
+      ],
+    })
+  }, [onNavigate])
 
   const filtered = useMemo(() => {
     let result = entries
@@ -142,16 +210,6 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
     if (isMobile && section === 'album') setConfig(selectedLabel)
     else setConfig(null)
   }, [isMobile, section, selectedLabel, setConfig])
-
-  function getEntryImageUrl(entry: AlbumEntry): string {
-    const typeMap: Record<string, string> = {
-      avatar: 'avatar', qAvatar: 'avatar', fullbody: 'avatar',
-      header: 'avatar', gallery: 'avatar', flag: 'flag',
-    }
-    const url = resolveImageUrl(entry.url)
-    if (url.includes('/defaults/')) return url
-    return url || getDefaultImage(typeMap[entry.category] || 'avatar')
-  }
 
   const treePanel = (
     <div className="flex h-full flex-col border-r border-line bg-paper-alt pt-[var(--safe-top)]">
@@ -297,19 +355,14 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
               {filtered.map((entry, idx) => (
-                <div key={idx} className="group relative">
-                  <img
-                    src={getEntryImageUrl(entry)} alt={entry.sourceName}
-                    className="touch-feedback aspect-square w-full cursor-pointer rounded-md border border-line object-cover transition-shadow hover:shadow-[0_1px_3px_rgba(0,0,0,0.03)]"
-                    onClick={() => setViewerIndex(idx)}
-                  />
-                  <div className="mt-1 truncate text-xs text-ink-faint">
-                    {entry.sourceName}
-                    {onNavigate ? (
-                      <button onClick={() => onNavigate(entry.sourceId, entry.sourceType)} className="ml-1 text-ink-muted hover:text-ink active:bg-black/8 dark:active:bg-white/8 rounded">跳转</button>
-                    ) : null}
-                  </div>
-                </div>
+                <AlbumCard
+                  key={idx}
+                  entry={entry}
+                  isMobile={isMobile}
+                  onNavigate={onNavigate}
+                  onLongPress={onNavigate ? () => openActionSheet(entry) : undefined}
+                  onViewImage={() => setViewerIndex(idx)}
+                />
               ))}
             </div>
           )}
@@ -320,6 +373,13 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
       {viewerIndex !== null ? (
         <FullscreenViewer images={allUrls} initialIndex={viewerIndex} onClose={() => setViewerIndex(null)} />
       ) : null}
+
+      <MobileActionSheet
+        open={actionSheet.open}
+        onClose={() => setActionSheet((prev) => ({ ...prev, open: false }))}
+        title={actionSheet.title}
+        actions={actionSheet.actions}
+      />
     </div>
   )
 }
