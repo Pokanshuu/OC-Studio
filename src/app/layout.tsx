@@ -39,7 +39,7 @@ export default function RootLayout({
             }}
           />
         </head>
-        <body className="flex flex-col min-h-dvh md:h-screen md:overflow-hidden">
+        <body className="flex flex-col h-dvh overflow-hidden">
         <Providers>
           <SeedData />
           <SettingsProvider>

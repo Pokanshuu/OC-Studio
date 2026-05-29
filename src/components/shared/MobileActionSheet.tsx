@@ -49,7 +49,7 @@ export function MobileActionSheet({ open, onClose, title, actions }: MobileActio
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 transition-opacity duration-150"
+      className="fixed inset-0 z-50 touch-none overscroll-none transition-opacity duration-150"
       style={{ opacity: visible ? 1 : 0, pointerEvents: open ? 'auto' : 'none' }}
     >
       <div className="absolute inset-0 bg-black/15" onClick={onClose} />
