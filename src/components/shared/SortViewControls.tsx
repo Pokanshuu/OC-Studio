@@ -65,7 +65,7 @@ export function SortSelect({
       <button
         ref={triggerRef}
         onClick={() => setOpen(!open)}
-        className="flex md:h-9 h-7 items-center gap-1 rounded border border-line bg-paper-card/60 md:px-3 px-2 md:text-sm text-[11px] text-ink transition-colors hover:border-line-hover"
+        className="touch-feedback flex md:h-9 h-7 items-center gap-1 rounded border border-line bg-paper-card/60 md:px-3 px-2 md:text-sm text-[11px] text-ink transition-colors hover:border-line-hover"
       >
         <span>{getSortLabel(options, sortKey)}</span>
         <ChevronDown size={16} strokeWidth={2} />
@@ -88,7 +88,7 @@ export function SortSelect({
                   className={`rounded-sm px-3 py-1.5 text-left text-sm transition-colors ${
                     sortKey === opt.value
                       ? 'bg-paper-card text-ink'
-                      : 'text-ink hover:bg-black/5 dark:hover:bg-white/5'
+                      : 'text-ink hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8'
                   }`}
                 >
                   {opt.label}
@@ -123,7 +123,7 @@ export function SortViewControls({
       <button
         onClick={() => onViewModeChange('grid')}
         className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${
-          viewMode === 'grid' ? 'text-ink bg-black/5 dark:bg-white/5' : 'text-ink-muted hover:text-ink hover:bg-black/5 dark:hover:bg-white/5'
+          viewMode === 'grid' ? 'text-ink bg-black/5 dark:bg-white/5' : 'text-ink-muted hover:text-ink hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8'
         }`}
         title="网格视图"
       >
@@ -132,7 +132,7 @@ export function SortViewControls({
       <button
         onClick={() => onViewModeChange('list')}
         className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${
-          viewMode === 'list' ? 'text-ink bg-black/5 dark:bg-white/5' : 'text-ink-muted hover:text-ink hover:bg-black/5 dark:hover:bg-white/5'
+          viewMode === 'list' ? 'text-ink bg-black/5 dark:bg-white/5' : 'text-ink-muted hover:text-ink hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8'
         }`}
         title="列表视图"
       >

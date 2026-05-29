@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
-import { Plus, ChevronRight, ChevronDown, FileText, GripVertical } from 'lucide-react'
+import { Plus, ChevronRight, ChevronDown, FileText, GripVertical, Pencil, Trash2 } from 'lucide-react'
 import {
   DndContext,
   closestCenter,
@@ -19,6 +19,18 @@ import { CSS } from '@dnd-kit/utilities'
 import { DeleteButton } from '@/components/shared/DeleteButton'
 import { ContextMenu } from '@/components/shared/ContextMenu'
 import type { ContextMenuItem } from '@/components/shared/ContextMenu'
+import { useLongPress } from '@/lib/useLongPress'
+import { MobileActionSheet, type ActionItem } from '@/components/shared/MobileActionSheet'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import type { WorldEntry } from '@/types'
 
 interface TreeNode {
@@ -168,6 +180,7 @@ function SortableTreeItem({
   expandedIds,
   setExpandedIds,
   isMobile,
+  onLongPress,
 }: {
   node: TreeNode
   depth: number
@@ -180,6 +193,7 @@ function SortableTreeItem({
   expandedIds: Set<number>
   setExpandedIds: React.Dispatch<React.SetStateAction<Set<number>>>
   isMobile: boolean
+  onLongPress?: () => void
 }) {
   const entryId = node.entry.id as number
   const isSelected = selectedId === entryId
@@ -190,6 +204,11 @@ function SortableTreeItem({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: entryId,
     disabled: isEditing || isMobile,
+  })
+
+  const longPress = useLongPress({
+    onLongPress: onLongPress ?? (() => {}),
+    enabled: isMobile,
   })
 
   const style = {
@@ -243,11 +262,12 @@ function SortableTreeItem({
       <div
         className={`group flex items-center gap-1 rounded-md py-1 transition-colors cursor-pointer ${
           isSelected
-            ? 'bg-paper-card text-ink'
-            : 'text-ink-muted hover:bg-paper-card hover:text-ink'
+            ? 'bg-paper-card text-ink active:bg-black/8 dark:active:bg-white/8'
+            : 'text-ink-muted hover:bg-paper-card hover:text-ink active:bg-black/8 dark:active:bg-white/8'
         }`}
         style={{ paddingLeft: `${depth * 16 + 8}px` }}
         onClick={handleRowClick}
+        {...longPress}
       >
         {!isMobile ? (
           <span
@@ -317,6 +337,7 @@ function SortableTreeItem({
               expandedIds={expandedIds}
               setExpandedIds={setExpandedIds}
               isMobile={isMobile}
+              onLongPress={onLongPress}
             />
           ))}
         </SortableContext>
@@ -337,6 +358,23 @@ export function WorldTree({
 }: WorldTreeProps) {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [expandedIds, setExpandedIds] = useState<Set<number>>(() => loadExpanded())
+  const [actionSheet, setActionSheet] = useState<{ open: boolean; title: string; actions: ActionItem[] }>({
+    open: false, title: '', actions: [],
+  })
+  const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
+
+  const handleLongPress = useCallback((entryId: number, title: string) => {
+    const entry = entries.find((e) => e.id === entryId)
+    setActionSheet({
+      open: true,
+      title,
+      actions: [
+        { id: 'edit', label: '编辑', icon: <Pencil size={20} strokeWidth={2} />, onPress: () => { if (entry) onSelect(entryId, entry) } },
+        { id: 'rename', label: '重命名', icon: <FileText size={20} strokeWidth={2} />, onPress: () => setEditingId(entryId) },
+        { id: 'delete', label: '删除', icon: <Trash2 size={20} strokeWidth={2} />, destructive: true, onPress: () => setDeleteTarget(entryId) },
+      ],
+    })
+  }, [entries, onSelect, onDelete, setEditingId])
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -387,7 +425,7 @@ export function WorldTree({
             <p className="text-xs text-ink-faint mb-2">暂无词条</p>
             <button
               onClick={() => onCreate(null, '新词条')}
-              className="flex items-center gap-1 mx-auto rounded border border-line bg-paper-card px-3 py-1.5 text-sm text-ink-muted hover:text-ink hover:border-line-hover transition-colors"
+              className="touch-feedback flex items-center gap-1 mx-auto rounded border border-line bg-paper-card px-3 py-1.5 text-sm text-ink-muted hover:text-ink hover:border-line-hover transition-colors"
             >
               <Plus size={14} strokeWidth={2} />
               <span>创建词条</span>
@@ -415,12 +453,40 @@ export function WorldTree({
                   expandedIds={expandedIds}
                   setExpandedIds={setExpandedIds}
                   isMobile={isMobile}
+                  onLongPress={() => handleLongPress(node.entry.id as number, node.entry.title)}
                 />
               ))}
             </div>
           </SortableContext>
         </DndContext>
       )}
+
+      <MobileActionSheet
+        open={actionSheet.open}
+        onClose={() => setActionSheet((prev) => ({ ...prev, open: false }))}
+        title={actionSheet.title}
+        actions={actionSheet.actions}
+      />
+
+      <AlertDialog open={deleteTarget !== null} onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除</AlertDialogTitle>
+            <AlertDialogDescription>
+              删除后将移至回收站，可在 30 天内恢复。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              if (deleteTarget !== null) {
+                onDelete(deleteTarget)
+                setDeleteTarget(null)
+              }
+            }}>删除</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

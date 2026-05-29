@@ -157,11 +157,11 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
     <div className="flex h-full flex-col border-r border-line bg-paper-alt pt-[var(--safe-top)]">
       {isMobile ? (
         <div className="flex items-center justify-between border-b border-line px-3 py-3">
-          <button onClick={() => setShowMobileTree(false)} className="flex h-9 w-9 items-center justify-center rounded text-ink-muted">
+          <button onClick={() => setShowMobileTree(false)} className="flex h-9 w-9 items-center justify-center rounded text-ink-muted transition-colors hover:text-ink active:bg-black/8 dark:active:bg-white/8">
             <ChevronLeft size={16} strokeWidth={2} />
           </button>
           <button onClick={handleRefresh} disabled={refreshing}
-            className={`flex h-9 w-9 items-center justify-center rounded text-ink-muted transition-colors hover:bg-black/5 dark:hover:bg-white/5 ${refreshing ? 'animate-spin' : ''}`}
+            className={`flex h-9 w-9 items-center justify-center rounded text-ink-muted transition-colors hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8 ${refreshing ? 'animate-spin' : ''}`}
             title="刷新"
           >
             <RefreshCw size={16} strokeWidth={2} />
@@ -172,7 +172,7 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setTreeCollapsed(true)}
-              className="flex h-9 w-9 items-center justify-center rounded text-ink-muted transition-colors hover:text-ink"
+              className="flex h-9 w-9 items-center justify-center rounded text-ink-muted transition-colors hover:text-ink active:bg-black/8 dark:active:bg-white/8"
               title="折叠目录"
             >
               <ChevronLeft size={16} strokeWidth={2} />
@@ -186,7 +186,7 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
           <button
             onClick={() => { setSelectedKey('all'); if (isMobile) setShowMobileTree(false) }}
             className={`flex w-full items-center rounded px-3 py-1.5 text-left text-sm transition-colors ${
-              selectedKey === 'all' ? 'bg-paper-card text-ink' : 'text-ink-muted hover:bg-black/5 dark:hover:bg-white/5'
+              selectedKey === 'all' ? 'bg-paper-card text-ink' : 'text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8'
             }`}
           >
             <span className="flex-1">全部</span>
@@ -201,7 +201,7 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
                 <button
                   onClick={() => { toggleExpand(top.key); setSelectedKey(top.key) }}
                   className={`flex w-full items-center gap-1 rounded px-3 py-1.5 text-left text-sm transition-colors ${
-                    isTopSelected ? 'bg-paper-card text-ink' : 'text-ink-muted hover:bg-black/5 dark:hover:bg-white/5'
+                    isTopSelected ? 'bg-paper-card text-ink' : 'text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8'
                   }`}
                 >
                   <ChevronRight size={14} strokeWidth={2} className={`shrink-0 text-ink-muted transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
@@ -217,7 +217,7 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
                         <button key={sub.key}
                           onClick={() => { setSelectedKey(sub.key); if (isMobile) setShowMobileTree(false) }}
                           className={`flex w-full items-center rounded pl-7 pr-3 py-1 text-left text-xs transition-colors ${
-                            isSubSelected ? 'bg-paper-card text-ink' : 'text-ink-muted hover:bg-black/5 dark:hover:bg-white/5'
+                            isSubSelected ? 'bg-paper-card text-ink' : 'text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8'
                           }`}
                         >
                           <span className="flex-1">{sub.label}</span>
@@ -261,7 +261,7 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
                 <>
                   <button
                     onClick={() => setTreeCollapsed(false)}
-                    className="flex h-9 w-9 items-center justify-center rounded text-ink-muted transition-colors hover:text-ink"
+                    className="flex h-9 w-9 items-center justify-center rounded text-ink-muted transition-colors hover:text-ink active:bg-black/8 dark:active:bg-white/8"
                     title="展开目录"
                   >
                     <Menu size={16} strokeWidth={2} />
@@ -280,7 +280,7 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
               </div>
               <Separator orientation="vertical" className="h-4 !self-center" />
               <button onClick={handleRefresh} disabled={refreshing}
-                className={`flex h-9 w-9 items-center justify-center rounded text-ink-muted transition-colors hover:bg-black/5 dark:hover:bg-white/5 ${refreshing ? 'animate-spin' : ''}`}
+                className={`flex h-9 w-9 items-center justify-center rounded text-ink-muted transition-colors hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8 ${refreshing ? 'animate-spin' : ''}`}
                 title="刷新"
               >
                 <RefreshCw size={16} strokeWidth={2} />
@@ -300,13 +300,13 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
                 <div key={idx} className="group relative">
                   <img
                     src={getEntryImageUrl(entry)} alt={entry.sourceName}
-                    className="aspect-square w-full cursor-pointer rounded-md border border-line object-cover transition-shadow hover:shadow-[0_1px_3px_rgba(0,0,0,0.03)]"
+                    className="touch-feedback aspect-square w-full cursor-pointer rounded-md border border-line object-cover transition-shadow hover:shadow-[0_1px_3px_rgba(0,0,0,0.03)]"
                     onClick={() => setViewerIndex(idx)}
                   />
                   <div className="mt-1 truncate text-xs text-ink-faint">
                     {entry.sourceName}
                     {onNavigate ? (
-                      <button onClick={() => onNavigate(entry.sourceId, entry.sourceType)} className="ml-1 text-ink-muted hover:text-ink">跳转</button>
+                      <button onClick={() => onNavigate(entry.sourceId, entry.sourceType)} className="ml-1 text-ink-muted hover:text-ink active:bg-black/8 dark:active:bg-white/8 rounded">跳转</button>
                     ) : null}
                   </div>
                 </div>

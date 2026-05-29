@@ -117,7 +117,7 @@ function AlertDialogAction({
     <AlertDialogPrimitive.Action
       data-slot="alert-dialog-action"
       className={cn(
-        "inline-flex h-9 items-center justify-center rounded px-3 text-sm font-normal transition-colors border border-error bg-transparent text-error hover:bg-error-light dark:hover:bg-red-950/30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
+        "touch-feedback inline-flex h-9 items-center justify-center rounded px-3 text-sm font-normal transition-colors border border-error bg-transparent text-error hover:bg-error-light dark:hover:bg-red-950/30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
         className,
       )}
       {...props}
@@ -133,7 +133,7 @@ function AlertDialogCancel({
     <AlertDialogPrimitive.Cancel
       data-slot="alert-dialog-cancel"
       className={cn(
-        "inline-flex h-9 items-center justify-center rounded px-3 text-sm font-normal transition-colors bg-paper-alt border border-line text-ink-muted hover:text-ink hover:bg-[#F0EBE3] dark:hover:bg-white/5 hover:border-line-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+        "touch-feedback inline-flex h-9 items-center justify-center rounded px-3 text-sm font-normal transition-colors bg-paper-alt border border-line text-ink-muted hover:text-ink hover:bg-[#F0EBE3] dark:hover:bg-white/5 hover:border-line-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
         className,
       )}
       {...props}

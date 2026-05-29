@@ -58,6 +58,12 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - `src/components/shared/ProfileBannerEditor.tsx` — 头图+头像编辑
 - `src/components/shared/FullscreenViewer.tsx` — 全屏查看
 
+### 移动端交互
+- `src/components/shared/MobileActionSheet.tsx` — iOS 风格底部弹出菜单（长按触发）
+- `src/components/shared/DeleteButton.tsx` — 桌面端删除按钮（含 AlertDialog 二次确认）
+- `src/lib/useLongPress.ts` — 长按 hook（320ms 阈值，8px 移动容差）
+- `src/lib/haptics.ts` — Capacitor 触觉反馈封装
+
 ### 配置
 - `opencode.json` — OpenCode 核心配置
 - `.opencode/skills/` — 6 个技能文件（guide, coding, design, codebase, prd, sync）
@@ -87,6 +93,10 @@ npx tauri build   # Tauri 打包 (.exe/.msi)
 7. **图标规则**：返回/关闭=ArrowLeft，折叠=ChevronLeft，展开=Menu，统一 `strokeWidth={2}`
 8. **模糊效果**：`backdrop-blur` 的 header 必须放在滚动容器内部（非平级兄弟），否则内容永远无法经过 header 背后导致模糊无效
 9. **安全区域**：所有移动端固定定位元素使用 `h-[calc(60px+var(--safe-top))] pt-[var(--safe-top))]` 模式（精确高度，非 min-h）。CSS 变量定义在 `globals.css`，Java 层在 `MainActivity.java`
+10. **移动端触控反馈**：所有移动端可交互控件必须提供按压反馈，分两层规则：
+   - **有边框**（`border border-line`）→ `touch-feedback` class，提供 120ms `scale(0.96)` 缩放反馈
+   - **无边框** → `active:bg-black/8 dark:active:bg-white/8 rounded-lg`，背景高亮反馈
+   CSS 定义在 `globals.css` 的 `.touch-feedback` 规则中。例外：MobileTabBar 和 GlobalAlbum 分类切换按钮保持简洁无感
 
 ## 已知差异（技术债，待后续修复）
 - `lib/ai/context-builder.ts` 在规范中引用但尚未实现

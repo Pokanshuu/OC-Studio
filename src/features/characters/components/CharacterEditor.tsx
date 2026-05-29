@@ -300,7 +300,7 @@ function CharacterEditorInner({
           <button
             data-mobile-back
             onClick={onBack}
-            className="flex h-9 w-9 items-center justify-center rounded text-ink-muted transition-colors hover:text-ink"
+            className="flex h-9 w-9 items-center justify-center rounded text-ink-muted transition-colors hover:text-ink active:bg-black/8 dark:active:bg-white/8"
           >
             <ArrowLeft size={20} strokeWidth={2} />
           </button>
@@ -310,7 +310,7 @@ function CharacterEditorInner({
           onClick={handleSave}
           disabled={saving || !name.trim()}
           data-save-button
-          className="flex h-9 items-center gap-1.5 rounded border border-line bg-paper-card/60 px-3 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink disabled:opacity-50"
+          className="touch-feedback flex h-9 items-center gap-1.5 rounded border border-line bg-paper-card/60 px-3 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink disabled:opacity-50"
         >
           <Save size={16} strokeWidth={2} />
           <span>{saving ? '保存中...' : '保存'}</span>

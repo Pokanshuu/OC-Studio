@@ -44,7 +44,7 @@ export function MobileTopBar() {
               if (section === 'wiki') window.dispatchEvent(new Event('worldToggle'))
               else if (section === 'album') window.dispatchEvent(new Event('albumToggle'))
             }}
-            className="flex h-10 w-10 items-center justify-center rounded -ml-1 text-ink-muted transition-colors hover:text-ink"
+            className="flex h-10 w-10 items-center justify-center rounded -ml-1 text-ink-muted transition-colors hover:text-ink active:bg-black/8 dark:active:bg-white/8"
             aria-label="目录"
           >
             <Menu size={20} strokeWidth={2} />
@@ -80,21 +80,21 @@ export function MobileTopBar() {
           onClick={() => {
             document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))
           }}
-          className="flex h-10 w-10 items-center justify-center rounded text-ink-muted transition-colors hover:text-ink"
+          className="flex h-10 w-10 items-center justify-center rounded text-ink-muted transition-colors hover:text-ink active:bg-black/8 dark:active:bg-white/8"
           aria-label="搜索"
         >
           <Search size={20} strokeWidth={2} />
         </button>
         <button
           onClick={openTrash}
-          className="flex h-10 w-10 items-center justify-center rounded text-ink-muted transition-colors hover:text-ink"
+          className="flex h-10 w-10 items-center justify-center rounded text-ink-muted transition-colors hover:text-ink active:bg-black/8 dark:active:bg-white/8"
           aria-label="回收站"
         >
           <Trash2 size={20} strokeWidth={2} />
         </button>
         <button
           onClick={() => openSettings()}
-          className="flex h-10 w-10 items-center justify-center rounded text-ink-muted transition-colors hover:text-ink"
+          className="flex h-10 w-10 items-center justify-center rounded text-ink-muted transition-colors hover:text-ink active:bg-black/8 dark:active:bg-white/8"
           aria-label="设置"
         >
           <Settings size={20} strokeWidth={2} />

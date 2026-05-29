@@ -17,6 +17,8 @@ import {
   ChevronDown,
   Plus,
   X,
+  Pencil,
+  Trash2,
 } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -30,6 +32,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { useDevice } from '@/lib/use-device'
+import { useLongPress } from '@/lib/useLongPress'
+import { MobileActionSheet, type ActionItem } from '@/components/shared/MobileActionSheet'
 import { useTimelineEvents } from '../hooks/useTimelineEvents'
 import { useCharacterList } from '@/features/characters/hooks/useCharacters'
 import { useCountryList } from '@/features/countries/hooks/useCountries'
@@ -134,7 +138,7 @@ const DraggableNode = memo(function DraggableNode({
   return (
     <div
       ref={bodyDrag.setNodeRef}
-      className={`absolute flex items-center gap-1.5 rounded-md border border-line bg-paper-card px-2 py-1 text-sm text-ink transition-colors hover:border-line-hover ${isRange ? 'bg-ink-muted/10' : ''}`}
+      className={`touch-feedback absolute flex items-center gap-1.5 rounded-md border border-line bg-paper-card px-2 py-1 text-sm text-ink transition-colors hover:border-line-hover ${isRange ? 'bg-ink-muted/10' : ''}`}
       style={{
         left: x + dragDelta,
         top: y,
@@ -189,7 +193,7 @@ const StaticNode = memo(function StaticNode({
   const isRange = !!event.endTime
   return (
     <div
-      className={`absolute flex items-center gap-1.5 rounded-md border border-line bg-paper-card px-2 py-1 text-sm text-ink transition-colors hover:border-line-hover ${isRange ? 'bg-ink-muted/10' : ''}`}
+      className={`touch-feedback absolute flex items-center gap-1.5 rounded-md border border-line bg-paper-card px-2 py-1 text-sm text-ink transition-colors hover:border-line-hover ${isRange ? 'bg-ink-muted/10' : ''}`}
       style={{
         left: x,
         top: y,
@@ -206,6 +210,65 @@ const StaticNode = memo(function StaticNode({
     </div>
   )
 })
+
+function PeriodBar({
+  period,
+  left,
+  width,
+  isDark,
+  hex,
+  hexDark,
+  row,
+  isMobile,
+  onEdit,
+  onDelete,
+  onLongPress,
+}: {
+  period: import('@/types').Period
+  left: number
+  width: number
+  isDark: boolean
+  hex: string
+  hexDark: string
+  row: number
+  isMobile: boolean
+  onEdit: () => void
+  onDelete: () => void
+  onLongPress?: () => void
+}) {
+  const longPress = useLongPress({
+    onLongPress: onLongPress ?? (() => {}),
+    enabled: isMobile,
+  })
+
+  return (
+    <div
+      className="touch-feedback absolute group flex items-center rounded"
+      style={{
+        left,
+        top: row * 28,
+        width,
+        height: 24,
+        backgroundColor: isDark ? hexDark : hex,
+      }}
+      onClick={onEdit}
+      title={period.name}
+      {...longPress}
+    >
+      <span className="truncate sticky left-2 px-2 text-xs text-ink font-medium leading-4">
+        {period.name}
+      </span>
+      {!isMobile ? (
+        <button
+          onClick={(e) => { e.stopPropagation(); onDelete() }}
+          className="absolute -top-1 -right-1 hidden h-4 w-4 items-center justify-center rounded-full bg-paper-card border border-line text-ink-muted group-hover:flex hover:text-error"
+        >
+          <X size={10} strokeWidth={2} />
+        </button>
+      ) : null}
+    </div>
+  )
+}
 
 function EmptyTimeline() {
   return (
@@ -269,7 +332,7 @@ function FilterSelect({
       <button
         ref={triggerRef}
         onClick={() => setOpen(!open)}
-        className="flex md:h-9 h-7 items-center gap-1 rounded border border-line bg-paper-card/60 md:px-3 px-2 md:text-sm text-[11px] text-ink transition-colors hover:border-line-hover"
+        className="touch-feedback flex md:h-9 h-7 items-center gap-1 rounded border border-line bg-paper-card/60 md:px-3 px-2 md:text-sm text-[11px] text-ink transition-colors hover:border-line-hover"
       >
         <span className="max-w-[120px] truncate">{selectedLabel}</span>
         <ChevronDown size={16} strokeWidth={2} />
@@ -337,7 +400,7 @@ function BucketView({
             <button
               key={event.id}
               onClick={() => onSelectEvent(event.id)}
-              className="flex h-6 w-full items-center gap-1 rounded px-1 text-xs text-ink-muted transition-colors hover:text-ink hover:bg-black/5 dark:hover:bg-white/5 truncate"
+              className="flex h-6 w-full items-center gap-1 rounded px-1 text-xs text-ink-muted transition-colors hover:text-ink hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8 truncate"
               title={event.summary || event.title}
             >
               {event.isMajor ? (
@@ -402,6 +465,9 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
   const [periodDialogOpen, setPeriodDialogOpen] = useState(false)
   const [editingPeriod, setEditingPeriod] = useState<import('@/types').Period | undefined>(undefined)
   const [deleteTarget, setDeleteTarget] = useState<import('@/types').Period | null>(null)
+  const [actionSheet, setActionSheet] = useState<{ open: boolean; title: string; actions: ActionItem[] }>({
+    open: false, title: '', actions: [],
+  })
   const scrollRef = useRef<HTMLDivElement>(null)
   const [containerWidth, setContainerWidth] = useState(0)
   const [navEdge, setNavEdge] = useState({ prev: true, next: false })
@@ -842,6 +908,17 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
     setDeleteTarget(null)
   }, [deleteTarget, removePeriod])
 
+  const openPeriodActionSheet = useCallback((period: import('@/types').Period) => {
+    setActionSheet({
+      open: true,
+      title: period.name,
+      actions: [
+        { id: 'edit', label: '编辑', icon: <Pencil size={20} strokeWidth={2} />, onPress: () => { setEditingPeriod(period); setPeriodDialogOpen(true) } },
+        { id: 'delete', label: '删除', icon: <Trash2 size={20} strokeWidth={2} />, destructive: true, onPress: () => setDeleteTarget(period) },
+      ],
+    })
+  }, [])
+
   const periodLanes = useMemo(() => {
     if (periods.length === 0) return { rows: [] as { period: import('@/types').Period; row: number }[], maxRows: 0 }
     const sorted = [...periods].sort((a, b) => {
@@ -1018,29 +1095,20 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
                 const hex = PERIOD_COLORS.find(c => c.value === period.color)?.hex ?? '#F3EFE9'
                 const hexDark = PERIOD_COLORS.find(c => c.value === period.color)?.hexDark ?? hex
                 return (
-                  <div
+                  <PeriodBar
                     key={period.id}
-                    className="absolute group flex items-center rounded"
-                    style={{
-                      left,
-                      top: row * 28,
-                      width: w,
-                      height: 24,
-                      backgroundColor: isDark ? hexDark : hex,
-                    }}
-                    onClick={() => { setEditingPeriod(period); setPeriodDialogOpen(true) }}
-                    title={period.name}
-                  >
-                    <span className="truncate sticky left-2 px-2 text-xs text-ink font-medium leading-4">
-                      {period.name}
-                    </span>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setDeleteTarget(period) }}
-                      className="absolute -top-1 -right-1 hidden h-4 w-4 items-center justify-center rounded-full bg-paper-card border border-line text-ink-muted group-hover:flex hover:text-error"
-                    >
-                      <X size={10} strokeWidth={2} />
-                    </button>
-                  </div>
+                    period={period}
+                    left={left}
+                    width={w}
+                    isDark={isDark}
+                    hex={hex}
+                    hexDark={hexDark}
+                    row={row}
+                    isMobile={isMobile}
+                    onEdit={() => { setEditingPeriod(period); setPeriodDialogOpen(true) }}
+                    onDelete={() => setDeleteTarget(period)}
+                    onLongPress={() => openPeriodActionSheet(period)}
+                  />
                 )
               })}
             </div>
@@ -1170,7 +1238,7 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
               <button
                 key={e.id}
                 onClick={() => onSelectEvent(e.id)}
-                className="flex items-center gap-1.5 rounded border border-line bg-paper-card px-2 py-1 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
+                className="touch-feedback flex items-center gap-1.5 rounded border border-line bg-paper-card px-2 py-1 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
               >
                 {e.isMajor ? (
                   <Circle
@@ -1210,6 +1278,13 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <MobileActionSheet
+        open={actionSheet.open}
+        onClose={() => setActionSheet((prev) => ({ ...prev, open: false }))}
+        title={actionSheet.title}
+        actions={actionSheet.actions}
+      />
     </div>
   )
 }
@@ -1353,13 +1428,13 @@ function TimelineToolbar({
         <div className="flex items-center gap-1.5">
           <button
             onClick={() => setFilterMajor(true)}
-            className={`h-7 rounded border px-1.5 text-[11px] transition-colors ${filterMajor ? 'border-line-hover bg-paper-card/60 text-ink' : 'border-line text-ink-muted hover:text-ink'}`}
+            className={`touch-feedback h-7 rounded border px-1.5 text-[11px] transition-colors ${filterMajor ? 'border-line-hover bg-paper-card/60 text-ink' : 'border-line text-ink-muted hover:text-ink'}`}
           >
             大事表
           </button>
           <button
             onClick={() => setFilterMajor(false)}
-            className={`h-7 rounded border px-1.5 text-[11px] transition-colors ${!filterMajor ? 'border-line-hover bg-paper-card/60 text-ink' : 'border-line text-ink-muted hover:text-ink'}`}
+            className={`touch-feedback h-7 rounded border px-1.5 text-[11px] transition-colors ${!filterMajor ? 'border-line-hover bg-paper-card/60 text-ink' : 'border-line text-ink-muted hover:text-ink'}`}
           >
             全部事件
           </button>
@@ -1368,7 +1443,7 @@ function TimelineToolbar({
         </div>
         {onAddPeriod ? (
           <button onClick={onAddPeriod}
-            className="flex h-7 w-7 items-center justify-center rounded text-ink-muted transition-colors hover:text-ink"
+            className="flex h-7 w-7 items-center justify-center rounded text-ink-muted transition-colors hover:text-ink active:bg-black/8 dark:active:bg-white/8"
             title="添加时期"
           >
             <Plus size={14} strokeWidth={2} />

@@ -212,14 +212,14 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
       <div className="flex items-center justify-between border-b border-line px-3 py-3">
         <div className="flex items-center gap-2">
           {isMobile ? (
-            <button onClick={() => setShowMobileTree(false)} className="flex h-9 w-9 items-center justify-center rounded text-ink-muted">
+            <button onClick={() => setShowMobileTree(false)} className="flex h-9 w-9 items-center justify-center rounded text-ink-muted transition-colors hover:text-ink active:bg-black/8 dark:active:bg-white/8">
               <ChevronLeft size={16} strokeWidth={2} />
             </button>
           ) : null}
           {!isMobile ? (
             <button
               onClick={() => setTreeCollapsed(!treeCollapsed)}
-              className="flex h-9 w-9 items-center justify-center rounded text-ink-faint hover:text-ink transition-colors"
+              className="flex h-9 w-9 items-center justify-center rounded text-ink-faint hover:text-ink transition-colors active:bg-black/8 dark:active:bg-white/8"
               title={treeCollapsed ? '展开目录' : '折叠目录'}
             >
               {treeCollapsed ? <Menu size={16} strokeWidth={2} /> : <ChevronLeft size={16} strokeWidth={2} />}
@@ -230,7 +230,7 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
         <div className="flex items-center gap-1">
           <button
             onClick={() => handleCreate(null, '新词条')}
-            className="flex h-9 w-9 items-center justify-center rounded text-ink-muted transition-colors hover:text-ink hover:bg-paper-card"
+            className="flex h-9 w-9 items-center justify-center rounded text-ink-muted transition-colors hover:text-ink hover:bg-paper-card active:bg-black/8 dark:active:bg-white/8"
           >
             <Plus size={16} strokeWidth={2} />
           </button>
@@ -273,7 +273,7 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
                 {treeCollapsed && !isMobile ? (
                   <button
                     onClick={() => setTreeCollapsed(false)}
-                    className="flex h-9 w-9 items-center justify-center rounded text-ink-muted hover:text-ink transition-colors"
+                    className="flex h-9 w-9 items-center justify-center rounded text-ink-muted hover:text-ink transition-colors active:bg-black/8 dark:active:bg-white/8"
                     title="展开目录"
                   >
                     <Menu size={16} strokeWidth={2} />
@@ -317,14 +317,14 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
               {isMobile ? (
                 <button
                   onClick={() => setShowMobileTree(true)}
-                  className="mb-4 flex h-8 w-8 mx-auto items-center justify-center rounded text-ink-muted hover:text-ink"
+                  className="mb-4 flex h-8 w-8 mx-auto items-center justify-center rounded text-ink-muted hover:text-ink active:bg-black/8 dark:active:bg-white/8"
                 >
                   <Menu size={20} strokeWidth={2} />
                 </button>
               ) : treeCollapsed ? (
                 <button
                   onClick={() => setTreeCollapsed(false)}
-                  className="mb-4 flex h-8 w-8 mx-auto items-center justify-center rounded text-ink-muted hover:text-ink"
+                  className="mb-4 flex h-8 w-8 mx-auto items-center justify-center rounded text-ink-muted hover:text-ink active:bg-black/8 dark:active:bg-white/8"
                 >
                   <Menu size={20} strokeWidth={2} />
                 </button>

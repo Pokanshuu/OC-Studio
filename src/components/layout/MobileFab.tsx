@@ -11,12 +11,19 @@ interface MobileFabProps {
 export function MobileFab({ viewMode, onViewModeChange }: MobileFabProps) {
   return (
     <div className="md:hidden fixed bottom-[calc(5rem+var(--safe-bottom))] right-4 z-40 flex flex-col gap-1 rounded-full border border-line bg-paper/80 p-1 shadow-sm backdrop-blur-md">
+      {/* Sliding pill indicator */}
+      <div
+        className={`absolute left-1 w-10 h-10 rounded-full bg-black/5 dark:bg-white/5 transition-[top] duration-300 ease-out ${
+          viewMode === 'grid' ? 'top-1' : 'top-12'
+        }`}
+      />
+
       <button
         onClick={() => onViewModeChange('grid')}
-        className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors ${
+        className={`relative z-10 flex h-10 w-10 items-center justify-center rounded-full transition-colors ${
           viewMode === 'grid'
-            ? 'bg-black/5 text-ink dark:bg-white/5'
-            : 'text-ink-faint'
+            ? 'text-ink'
+            : 'text-ink-faint active:bg-black/8 dark:active:bg-white/8'
         }`}
         aria-label="卡片视图"
       >
@@ -24,10 +31,10 @@ export function MobileFab({ viewMode, onViewModeChange }: MobileFabProps) {
       </button>
       <button
         onClick={() => onViewModeChange('list')}
-        className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors ${
+        className={`relative z-10 flex h-10 w-10 items-center justify-center rounded-full transition-colors ${
           viewMode === 'list'
-            ? 'bg-black/5 text-ink dark:bg-white/5'
-            : 'text-ink-faint'
+            ? 'text-ink'
+            : 'text-ink-faint active:bg-black/8 dark:active:bg-white/8'
         }`}
         aria-label="列表视图"
       >

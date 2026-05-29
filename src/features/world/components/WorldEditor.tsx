@@ -22,13 +22,13 @@ export function WorldEditor({ editEntryId, onBack }: WorldEditorProps) {
   if (error) return (
     <div className="flex h-full flex-col items-center justify-center gap-3">
       <span className="text-sm text-error">{error}</span>
-      <button onClick={onBack} className="flex h-9 items-center rounded border border-line px-3 text-sm text-ink-muted transition-colors hover:text-ink">返回</button>
+      <button onClick={onBack} className="touch-feedback flex h-9 items-center rounded border border-line px-3 text-sm text-ink-muted transition-colors hover:text-ink">返回</button>
     </div>
   )
   if (!entry) return (
     <div className="flex h-full flex-col items-center justify-center gap-3">
       <span className="text-sm text-ink-muted">词条不存在</span>
-      <button onClick={onBack} className="flex h-9 items-center rounded border border-line px-3 text-sm text-ink-muted transition-colors hover:text-ink">返回</button>
+      <button onClick={onBack} className="touch-feedback flex h-9 items-center rounded border border-line px-3 text-sm text-ink-muted transition-colors hover:text-ink">返回</button>
     </div>
   )
 
@@ -56,12 +56,12 @@ function WorldEditorInner({
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-line px-6 py-3">
         <div className="flex items-center gap-3">
-          <button onClick={onBack} className="flex items-center gap-1 text-sm text-ink-muted transition-colors hover:text-ink">
+          <button onClick={onBack} className="flex items-center gap-1 text-sm text-ink-muted transition-colors hover:text-ink active:bg-black/8 dark:active:bg-white/8 rounded">
             <ArrowLeft size={16} strokeWidth={2} /><span>返回</span>
           </button>
           <h2 className="text-lg text-ink font-serif font-bold">编辑词条</h2>
         </div>
-        <button onClick={handleSave} disabled={saving || !title.trim()} className="flex h-9 items-center gap-1.5 rounded border border-line bg-paper-alt px-3 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink disabled:opacity-50">
+        <button onClick={handleSave} disabled={saving || !title.trim()} className="touch-feedback flex h-9 items-center gap-1.5 rounded border border-line bg-paper-alt px-3 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink disabled:opacity-50">
           <Save size={16} strokeWidth={2} /><span>{saving ? '保存中...' : '保存'}</span>
         </button>
       </div>
