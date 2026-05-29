@@ -498,3 +498,87 @@ html.tauri-mica [data-statusbar] {
   scrollbar-color: var(--oc-line-hover) transparent;
 }
 
+/* Touch feedback */
+.touch-feedback {
+  transition: transform 120ms ease-out;
+}
+.touch-feedback:active {
+  transform: scale(0.96);
+}
+
+/* Section stacking — CSS Grid so all sections occupy the same cell.
+   Combined with display:none + allow-discrete, hidden sections don't
+   affect the grid. During transitions both sections overlap for crossfade. */
+.section-stack {
+  display: grid;
+  grid-template: 1fr / 1fr;
+  height: 100%;
+}
+.section-stack > * {
+  grid-area: 1 / 1;
+  min-height: 0;
+}
+
+/* Section fade transitions.
+   transition-behavior: allow-discrete lets us transition display:none —
+   display stays block during the opacity fade (150ms), then flips to none. */
+.section-fade {
+  transition: opacity 150ms ease-out, display 150ms ease-out;
+  transition-behavior: allow-discrete;
+}
+.section-fade[data-visible="false"] {
+  display: none;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Starting state for entrance transitions — when an element goes from
+   display:none → display:block, this provides the initial opacity:0
+   so the browser can transition to opacity:1. */
+@starting-style {
+  .section-fade:not([data-visible="false"]) {
+    opacity: 0;
+  }
+}
+
+/* Slide-in/out keyframes for editor transitions */
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes slide-out-right {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(16px); }
+}
+@keyframes slide-in-left {
+  from { opacity: 0; transform: translateX(-16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes slide-out-left {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(-16px); }
+}
+
+.section-fade[data-animate="slide-in-right"] {
+  animation: slide-in-right 150ms ease-out;
+}
+.section-fade[data-animate="slide-out-right"] {
+  animation: slide-out-right 150ms ease-out forwards;
+}
+.section-fade[data-animate="slide-in-left"] {
+  animation: slide-in-left 150ms ease-out;
+}
+.section-fade[data-animate="slide-out-left"] {
+  animation: slide-out-left 150ms ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .section-fade,
+  .section-fade[data-visible="false"] {
+    transition: none;
+  }
+  .section-fade[data-animate] {
+    animation: none;
+  }
+}
+

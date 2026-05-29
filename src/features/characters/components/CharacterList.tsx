@@ -2,10 +2,13 @@
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { withTouchFeedback } from '@/lib/animation'
 import {
   Plus,
   Search,
   ChevronDown,
+  Pencil,
+  Trash2,
 } from 'lucide-react'
 import type { Character } from '@/types'
 import { Avatar } from '@/components/shared/Avatar'
@@ -16,6 +19,18 @@ import { useCountryList } from '@/features/countries/hooks/useCountries'
 import { SortViewControls, SortSelect } from '@/components/shared/SortViewControls'
 import type { SortOption, ViewMode } from '@/components/shared/SortViewControls'
 import { useDevice } from '@/lib/use-device'
+import { useLongPress } from '@/lib/useLongPress'
+import { MobileActionSheet, type ActionItem } from '@/components/shared/MobileActionSheet'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { MobileFilterBar } from '@/components/layout/MobileFilterBar'
 import { MobileFab } from '@/components/layout/MobileFab'
 
@@ -88,7 +103,7 @@ function CountryFilterSelect({
       <button
         ref={triggerRef}
         onClick={() => setOpen(!open)}
-        className="flex md:h-9 h-7 items-center gap-1 rounded border border-line bg-paper-card/60 md:px-3 px-2 md:text-sm text-[11px] text-ink transition-colors hover:border-line-hover"
+        className="touch-feedback flex md:h-9 h-7 items-center gap-1 rounded border border-line bg-paper-card/60 md:px-3 px-2 md:text-sm text-[11px] text-ink transition-colors hover:border-line-hover"
       >
         <span>{selectedLabel}</span>
         <ChevronDown size={16} strokeWidth={2} />
@@ -111,7 +126,7 @@ function CountryFilterSelect({
               className={`whitespace-nowrap rounded-sm px-3 py-1.5 text-left text-sm transition-colors ${
                 value === opt.value
                   ? 'bg-paper-card text-ink'
-                  : 'text-ink hover:bg-black/5 dark:hover:bg-white/5'
+                  : 'text-ink hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8'
               }`}
             >
               {opt.label}
@@ -151,18 +166,27 @@ function CharacterCard({
   character,
   onSelect,
   onDelete,
+  onLongPress,
   countryName,
+  isMobile,
 }: {
   character: Character
   onSelect: (id: number) => void
   onDelete: (id: number) => void
+  onLongPress?: () => void
   countryName?: string
+  isMobile: boolean
 }) {
   const displayNationality = countryName || character.nationalityLegacy
   const aliasText = aliasesText(character.aliases)
 
+  const longPress = useLongPress({
+    onLongPress: onLongPress ?? (() => {}),
+    enabled: isMobile,
+  })
+
   return (
-    <div className="relative group">
+    <div className="relative group touch-feedback" {...longPress}>
       <button
         onClick={() => onSelect(character.id as number)}
         className="flex w-full flex-col rounded-md border border-line bg-paper-card overflow-hidden text-left transition-shadow hover:shadow-[0_1px_3px_rgba(0,0,0,0.03)]"
@@ -193,9 +217,11 @@ function CharacterCard({
         </div>
       </button>
 
-      <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
-        <DeleteButton onDelete={() => onDelete(character.id as number)} />
-      </div>
+      {!isMobile ? (
+        <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <DeleteButton onDelete={() => onDelete(character.id as number)} />
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -204,15 +230,24 @@ function CharacterRow({
   character,
   onSelect,
   onDelete,
+  onLongPress,
   countryName,
+  isMobile,
 }: {
   character: Character
   onSelect: (id: number) => void
   onDelete: (id: number) => void
+  onLongPress?: () => void
   countryName?: string
+  isMobile: boolean
 }) {
   const displayNationality = countryName || character.nationalityLegacy
   const aliasText = aliasesText(character.aliases)
+
+  const longPress = useLongPress({
+    onLongPress: onLongPress ?? (() => {}),
+    enabled: isMobile,
+  })
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -226,7 +261,8 @@ function CharacterRow({
       tabIndex={0}
       onClick={() => onSelect(character.id as number)}
       onKeyDown={handleKeyDown}
-      className="group relative flex w-full cursor-pointer items-center gap-3 rounded-md px-4 py-3 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+      className="group relative flex w-full cursor-pointer items-center gap-3 rounded-md px-4 py-3 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8"
+      {...longPress}
     >
       <Avatar src={getImageUrl(character.avatarUrl, 'avatar')} size="md" />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -242,9 +278,11 @@ function CharacterRow({
           {character.race ? <span>{character.race}</span> : null}
         </div>
       </div>
-      <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
-        <DeleteButton onDelete={() => onDelete(character.id as number)} />
-      </div>
+      {!isMobile ? (
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <DeleteButton onDelete={() => onDelete(character.id as number)} />
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -267,11 +305,27 @@ export function CharacterList({
   onDeleteCharacter,
 }: CharacterListProps) {
   const { isMobile } = useDevice()
+  const handleSelect = useMemo(() => withTouchFeedback(onSelectCharacter), [onSelectCharacter])
   const [sortKey, setSortKey] = useState<SortKey>('updatedAt')
   const [viewMode, setViewMode] = useState<ViewMode>(readViewPreference)
   const [search, setSearch] = useState('')
   const [countryFilter, setCountryFilter] = useState<number | 'all'>('all')
   const { countries } = useCountryList()
+  const [actionSheet, setActionSheet] = useState<{ open: boolean; title: string; actions: ActionItem[] }>({
+    open: false, title: '', actions: [],
+  })
+  const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
+
+  const openActionSheet = useCallback((char: Character) => {
+    setActionSheet({
+      open: true,
+      title: char.name,
+      actions: [
+        { id: 'edit', label: '编辑', icon: <Pencil size={20} strokeWidth={2} />, onPress: () => onSelectCharacter(char.id as number) },
+        { id: 'delete', label: '删除', icon: <Trash2 size={20} strokeWidth={2} />, destructive: true, onPress: () => setDeleteTarget(char.id as number) },
+      ],
+    })
+  }, [onSelectCharacter, onDeleteCharacter])
 
   const countryMap = useMemo(() => {
     const map: Record<number, string> = {}
@@ -384,7 +438,7 @@ export function CharacterList({
         </div>
         <button
           onClick={onCreateCharacter}
-          className="flex h-9 items-center gap-1.5 rounded border border-line bg-paper-card/60 px-3 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
+          className="touch-feedback flex h-9 items-center gap-1.5 rounded border border-line bg-paper-card/60 px-3 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
         >
           <Plus size={16} strokeWidth={2} />
           <span>新建角色</span>
@@ -406,7 +460,7 @@ export function CharacterList({
         </div>
         <button
           onClick={onCreateCharacter}
-          className="flex h-7 items-center gap-1 rounded border border-line bg-paper-card/60 px-2.5 text-[11px] text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
+          className="touch-feedback flex h-7 items-center gap-1 rounded border border-line bg-paper-card/60 px-2.5 text-[11px] text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
         >
           <Plus size={14} strokeWidth={2} />
           <span>新建</span>
@@ -431,9 +485,11 @@ export function CharacterList({
               <CharacterCard
                 key={character.id}
                 character={character}
-                onSelect={onSelectCharacter}
+                onSelect={handleSelect}
                 onDelete={onDeleteCharacter}
+                onLongPress={() => openActionSheet(character)}
                 countryName={getCountryName(character)}
+                isMobile={isMobile}
               />
             ))}
           </div>
@@ -443,15 +499,44 @@ export function CharacterList({
               <CharacterRow
                 key={character.id}
                 character={character}
-                onSelect={onSelectCharacter}
+                onSelect={handleSelect}
                 onDelete={onDeleteCharacter}
+                onLongPress={() => openActionSheet(character)}
                 countryName={getCountryName(character)}
+                isMobile={isMobile}
               />
             ))}
           </div>
         )}
         <MobileFab viewMode={viewMode} onViewModeChange={handleViewChange} />
       </div>
+
+      <MobileActionSheet
+        open={actionSheet.open}
+        onClose={() => setActionSheet((prev) => ({ ...prev, open: false }))}
+        title={actionSheet.title}
+        actions={actionSheet.actions}
+      />
+
+      <AlertDialog open={deleteTarget !== null} onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除</AlertDialogTitle>
+            <AlertDialogDescription>
+              删除后将移至回收站，可在 30 天内恢复。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              if (deleteTarget !== null) {
+                onDeleteCharacter(deleteTarget)
+                setDeleteTarget(null)
+              }
+            }}>删除</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

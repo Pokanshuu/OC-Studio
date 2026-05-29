@@ -15,9 +15,15 @@ export function FullscreenViewer({ images, initialIndex, onClose }: FullscreenVi
   const [scale, setScale] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [dragging, setDragging] = useState(false)
+  const [visible, setVisible] = useState(false)
   const dragStart = useRef({ x: 0, y: 0 })
   const panStart = useRef({ x: 0, y: 0 })
   const imgRef = useRef<HTMLImageElement>(null)
+
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setVisible(true))
+    return () => cancelAnimationFrame(raf)
+  }, [])
 
   const currentSrc = images[index] ? resolveImageUrl(images[index]) : ''
 
@@ -33,15 +39,20 @@ export function FullscreenViewer({ images, initialIndex, onClose }: FullscreenVi
     setPan({ x: 0, y: 0 })
   }, [images.length])
 
+  const handleClose = useCallback(() => {
+    setVisible(false)
+    setTimeout(() => onClose(), 150)
+  }, [onClose])
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') handleClose()
       if (e.key === 'ArrowLeft') goPrev()
       if (e.key === 'ArrowRight') goNext()
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [onClose, goPrev, goNext])
+  }, [handleClose, goPrev, goNext])
 
   useEffect(() => {
     const handler = (e: WheelEvent) => {
@@ -84,11 +95,12 @@ export function FullscreenViewer({ images, initialIndex, onClose }: FullscreenVi
 
   return (
     <div
-      className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 overflow-hidden pt-[var(--safe-top)] pb-[var(--safe-bottom)]"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+      className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 overflow-hidden pt-[var(--safe-top)] pb-[var(--safe-bottom)] transition-opacity duration-150"
+      style={{ opacity: visible ? 1 : 0 }}
+      onClick={(e) => { if (e.target === e.currentTarget) handleClose() }}
     >
       <button
-        onClick={onClose}
+        onClick={handleClose}
         className="absolute right-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white/80 transition-colors hover:bg-white/30"
         style={{ top: `calc(1rem + var(--safe-top, 0px))` }}
       >

@@ -35,7 +35,7 @@ function AppShellChrome({ settings, children }: { settings: ReturnType<typeof us
       {!hideMobileShell && <MobileTopBar />}
       <div className="flex flex-1 overflow-hidden">
         {settings.sidebarVisible ? <Sidebar /> : null}
-        <main className={`flex-1 overflow-y-auto overflow-x-auto main-scroll bg-paper dark:bg-[#1C1B1A] pb-[calc(60px+var(--safe-bottom))] md:pb-0 ${hideMobileShell ? '' : 'max-md:pt-[calc(60px+var(--safe-top))]'}`}>
+        <main className={`flex-1 overflow-x-auto main-scroll bg-paper dark:bg-[#1C1B1A] pb-[calc(60px+var(--safe-bottom))] md:pb-0 ${hideMobileShell ? '' : 'max-md:pt-[calc(60px+var(--safe-top))]'}`}>
           <GlobalContextMenu>{children}</GlobalContextMenu>
         </main>
       </div>

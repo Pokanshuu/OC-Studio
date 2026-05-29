@@ -1,16 +1,31 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
+import { withTouchFeedback } from '@/lib/animation'
 import {
   Plus,
   Circle,
   Search,
+  Pencil,
+  Trash2,
 } from 'lucide-react'
 import type { Event } from '@/types'
 import { formatEventTime, formatRelativeTime, sortEvents } from '../utils'
 import type { SortKey } from '../utils'
 import { resolveImageUrl } from '@/lib/image-service'
 import { DeleteButton } from '@/components/shared/DeleteButton'
+import { useLongPress } from '@/lib/useLongPress'
+import { MobileActionSheet, type ActionItem } from '@/components/shared/MobileActionSheet'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 function formatTimeDisplay(event: Event): string {
   const start = formatEventTime(event.time)
@@ -55,13 +70,22 @@ function EventCard({
   event,
   onSelect,
   onDelete,
+  onLongPress,
+  isMobile,
 }: {
   event: Event
   onSelect: (id: number) => void
   onDelete: (id: number) => void
+  onLongPress?: () => void
+  isMobile: boolean
 }) {
+  const longPress = useLongPress({
+    onLongPress: onLongPress ?? (() => {}),
+    enabled: isMobile,
+  })
+
   return (
-    <div className="relative group">
+    <div className="relative group touch-feedback" {...longPress}>
       <button
         onClick={() => onSelect(event.id as number)}
         className="flex w-full flex-col rounded-md border border-line bg-paper-card overflow-hidden text-left transition-shadow hover:shadow-[0_1px_3px_rgba(0,0,0,0.03)]"
@@ -100,9 +124,11 @@ function EventCard({
         </div>
       </button>
 
-      <div className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity">
-        <DeleteButton onDelete={() => onDelete(event.id as number)} />
-      </div>
+      {!isMobile ? (
+        <div className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity">
+          <DeleteButton onDelete={() => onDelete(event.id as number)} />
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -111,11 +137,20 @@ function EventRow({
   event,
   onSelect,
   onDelete,
+  onLongPress,
+  isMobile,
 }: {
   event: Event
   onSelect: (id: number) => void
   onDelete: (id: number) => void
+  onLongPress?: () => void
+  isMobile: boolean
 }) {
+  const longPress = useLongPress({
+    onLongPress: onLongPress ?? (() => {}),
+    enabled: isMobile,
+  })
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       onSelect(event.id as number)
@@ -128,7 +163,8 @@ function EventRow({
       tabIndex={0}
       onClick={() => onSelect(event.id as number)}
       onKeyDown={handleKeyDown}
-      className="group relative flex w-full cursor-pointer items-center gap-4 rounded-md px-4 py-3 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+      className="group relative flex w-full cursor-pointer items-center gap-4 rounded-md px-4 py-3 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8"
+      {...longPress}
     >
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <div className="flex items-center gap-2 min-w-0">
@@ -145,9 +181,11 @@ function EventRow({
       {event.summary ? (
         <p className="min-w-0 flex-1 truncate text-xs text-ink-muted">{event.summary}</p>
       ) : null}
-      <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
-        <DeleteButton onDelete={() => onDelete(event.id as number)} />
-      </div>
+      {!isMobile ? (
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <DeleteButton onDelete={() => onDelete(event.id as number)} />
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -161,9 +199,25 @@ export function EventList({
   onDeleteEvent,
 }: EventListProps) {
   const { isMobile } = useDevice()
+  const handleSelect = useMemo(() => withTouchFeedback(onSelectEvent), [onSelectEvent])
   const [sortKey, setSortKey] = useState<SortKey>('updatedAt')
   const [viewMode, setViewMode] = useState<ViewMode>(readViewPreference)
   const [search, setSearch] = useState('')
+  const [actionSheet, setActionSheet] = useState<{ open: boolean; title: string; actions: ActionItem[] }>({
+    open: false, title: '', actions: [],
+  })
+  const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
+
+  const openActionSheet = useCallback((ev: Event) => {
+    setActionSheet({
+      open: true,
+      title: ev.title,
+      actions: [
+        { id: 'edit', label: '编辑', icon: <Pencil size={20} strokeWidth={2} />, onPress: () => onSelectEvent(ev.id as number) },
+        { id: 'delete', label: '删除', icon: <Trash2 size={20} strokeWidth={2} />, destructive: true, onPress: () => setDeleteTarget(ev.id as number) },
+      ],
+    })
+  }, [onSelectEvent, onDeleteEvent])
 
   const filteredEvents = useMemo(() => {
     let result = events
@@ -237,7 +291,7 @@ export function EventList({
         </div>
         <button
           onClick={onCreateEvent}
-          className="flex h-9 items-center gap-1.5 rounded border border-line bg-paper-card/60 px-3 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
+          className="touch-feedback flex h-9 items-center gap-1.5 rounded border border-line bg-paper-card/60 px-3 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
         >
           <Plus size={16} strokeWidth={2} />
           <span>新建事件</span>
@@ -252,7 +306,7 @@ export function EventList({
         />
         <button
           onClick={onCreateEvent}
-          className="flex h-7 items-center gap-1 rounded border border-line bg-paper-card/60 px-2.5 text-[11px] text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
+          className="touch-feedback flex h-7 items-center gap-1 rounded border border-line bg-paper-card/60 px-2.5 text-[11px] text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
         >
           <Plus size={14} strokeWidth={2} />
           <span>新建</span>
@@ -277,8 +331,10 @@ export function EventList({
               <EventCard
                 key={event.id}
                 event={event}
-                onSelect={onSelectEvent}
+                onSelect={handleSelect}
                 onDelete={onDeleteEvent}
+                onLongPress={() => openActionSheet(event)}
+                isMobile={isMobile}
               />
             ))}
           </div>
@@ -288,14 +344,43 @@ export function EventList({
               <EventRow
                 key={event.id}
                 event={event}
-                onSelect={onSelectEvent}
+                onSelect={handleSelect}
                 onDelete={onDeleteEvent}
+                onLongPress={() => openActionSheet(event)}
+                isMobile={isMobile}
               />
             ))}
           </div>
         )}
         <MobileFab viewMode={viewMode} onViewModeChange={handleViewChange} />
       </div>
+
+      <MobileActionSheet
+        open={actionSheet.open}
+        onClose={() => setActionSheet((prev) => ({ ...prev, open: false }))}
+        title={actionSheet.title}
+        actions={actionSheet.actions}
+      />
+
+      <AlertDialog open={deleteTarget !== null} onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除</AlertDialogTitle>
+            <AlertDialogDescription>
+              删除后将移至回收站，可在 30 天内恢复。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              if (deleteTarget !== null) {
+                onDeleteEvent(deleteTarget)
+                setDeleteTarget(null)
+              }
+            }}>删除</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

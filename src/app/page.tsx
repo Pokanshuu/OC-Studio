@@ -51,7 +51,49 @@ export default function Home() {
   const [eventView, setEventView] = useState<EventView>({ sub: 'list' })
   const [characterView, setCharacterView] = useState<CharacterView>({ sub: 'list' })
   const [countryView, setCountryView] = useState<CountryView>({ sub: 'list' })
-const [worldSelectedEntryId, setWorldSelectedEntryId] = useState<number | null>(null)
+  const [worldSelectedEntryId, setWorldSelectedEntryId] = useState<number | null>(null)
+
+  // Slide animation tracking for editor↔list transitions
+  const prevEventSub = useRef(eventView.sub)
+  const prevCharSub = useRef(characterView.sub)
+  const prevCountrySub = useRef(countryView.sub)
+  type SlideAnim = 'to-editor' | 'to-list' | null
+  const [eventSlide, setEventSlide] = useState<SlideAnim>(null)
+  const [charSlide, setCharSlide] = useState<SlideAnim>(null)
+  const [countrySlide, setCountrySlide] = useState<SlideAnim>(null)
+
+  useEffect(() => {
+    const prev = prevEventSub.current
+    const curr = eventView.sub
+    if (prev !== curr) {
+      setEventSlide(curr === 'editor' ? 'to-editor' : 'to-list')
+      const t = setTimeout(() => setEventSlide(null), 150)
+      prevEventSub.current = curr
+      return () => clearTimeout(t)
+    }
+  }, [eventView.sub])
+
+  useEffect(() => {
+    const prev = prevCharSub.current
+    const curr = characterView.sub
+    if (prev !== curr) {
+      setCharSlide(curr === 'editor' ? 'to-editor' : 'to-list')
+      const t = setTimeout(() => setCharSlide(null), 150)
+      prevCharSub.current = curr
+      return () => clearTimeout(t)
+    }
+  }, [characterView.sub])
+
+  useEffect(() => {
+    const prev = prevCountrySub.current
+    const curr = countryView.sub
+    if (prev !== curr) {
+      setCountrySlide(curr === 'editor' ? 'to-editor' : 'to-list')
+      const t = setTimeout(() => setCountrySlide(null), 150)
+      prevCountrySub.current = curr
+      return () => clearTimeout(t)
+    }
+  }, [countryView.sub])
 
   const {
     events,
@@ -173,8 +215,8 @@ const [worldSelectedEntryId, setWorldSelectedEntryId] = useState<number | null>(
   }, [setActiveItem, setSource, clearSource, mobileSetSection, mobileSetGallerySubTab, setEditing])
 
   const handleBackToList = useCallback(() => {
-    if (restoreCrossBack()) return
     clearEditing()
+    if (restoreCrossBack()) return
     if (source === 'timeline') {
       setEventView({ sub: 'list' })
       setActiveItem('时间线')
@@ -416,12 +458,11 @@ const [worldSelectedEntryId, setWorldSelectedEntryId] = useState<number | null>(
   }, [setNavigateHandler, handleRelatedItemNavigate])
 
   return (
-    <>
+    <div className="section-stack">
       <div
-        className="h-full"
-        style={{
-          display: showEvents && eventView.sub === 'editor' ? undefined : 'none',
-        }}
+        className="h-full section-fade overflow-y-auto"
+        data-visible={(showEvents && eventView.sub === 'editor') ? "true" : "false"}
+        data-animate={eventSlide === 'to-editor' ? 'slide-in-right' : eventSlide === 'to-list' ? 'slide-out-right' : undefined}
       >
         {selectedEvent ? (
           <EventEditor
@@ -437,10 +478,9 @@ const [worldSelectedEntryId, setWorldSelectedEntryId] = useState<number | null>(
       </div>
 
       <div
-        className="h-full"
-        style={{
-          display: showEvents && eventView.sub === 'list' ? undefined : 'none',
-        }}
+        className="h-full section-fade overflow-y-auto"
+        data-visible={(showEvents && eventView.sub === 'list') ? "true" : "false"}
+        data-animate={eventSlide === 'to-editor' ? 'slide-out-left' : eventSlide === 'to-list' ? 'slide-in-left' : undefined}
       >
         <EventList
           events={events}
@@ -453,10 +493,9 @@ const [worldSelectedEntryId, setWorldSelectedEntryId] = useState<number | null>(
       </div>
 
       <div
-        className="h-full"
-        style={{
-          display: showCharacters && characterView.sub === 'editor' ? undefined : 'none',
-        }}
+        className="h-full section-fade overflow-y-auto"
+        data-visible={(showCharacters && characterView.sub === 'editor') ? "true" : "false"}
+        data-animate={charSlide === 'to-editor' ? 'slide-in-right' : charSlide === 'to-list' ? 'slide-out-right' : undefined}
       >
         {characterView.sub === 'editor' ? (
           <CharacterEditor
@@ -472,10 +511,9 @@ const [worldSelectedEntryId, setWorldSelectedEntryId] = useState<number | null>(
       </div>
 
       <div
-        className="h-full"
-        style={{
-          display: showCharacters && characterView.sub === 'list' ? undefined : 'none',
-        }}
+        className="h-full section-fade overflow-y-auto"
+        data-visible={(showCharacters && characterView.sub === 'list') ? "true" : "false"}
+        data-animate={charSlide === 'to-editor' ? 'slide-out-left' : charSlide === 'to-list' ? 'slide-in-left' : undefined}
       >
         <CharacterList
           characters={characters}
@@ -488,10 +526,9 @@ const [worldSelectedEntryId, setWorldSelectedEntryId] = useState<number | null>(
       </div>
 
       <div
-        className="h-full"
-        style={{
-          display: showCountries && countryView.sub === 'editor' ? undefined : 'none',
-        }}
+        className="h-full section-fade overflow-y-auto"
+        data-visible={(showCountries && countryView.sub === 'editor') ? "true" : "false"}
+        data-animate={countrySlide === 'to-editor' ? 'slide-in-right' : countrySlide === 'to-list' ? 'slide-out-right' : undefined}
       >
         {countryView.sub === 'editor' ? (
           <CountryEditor
@@ -507,10 +544,9 @@ const [worldSelectedEntryId, setWorldSelectedEntryId] = useState<number | null>(
       </div>
 
       <div
-        className="h-full"
-        style={{
-          display: showCountries && countryView.sub === 'list' ? undefined : 'none',
-        }}
+        className="h-full section-fade overflow-y-auto"
+        data-visible={(showCountries && countryView.sub === 'list') ? "true" : "false"}
+        data-animate={countrySlide === 'to-editor' ? 'slide-out-left' : countrySlide === 'to-list' ? 'slide-in-left' : undefined}
       >
         <CountryList
           onSelectCountry={handleSelectCountry}
@@ -520,28 +556,22 @@ const [worldSelectedEntryId, setWorldSelectedEntryId] = useState<number | null>(
       </div>
 
       <div
-        className="h-full"
-        style={{
-          display: showWorld ? undefined : 'none',
-        }}
+        className="h-full section-fade overflow-y-auto"
+        data-visible={showWorld ? "true" : "false"}
       >
         <WorldLayout onMentionClick={handleMentionClick} onCharacterCount={handleWorldCharCount} selectedEntryId={worldSelectedEntryId} onWikiLinkClick={handleWikiLinkClick} />
       </div>
 
       <div
-        className="h-full"
-        style={{
-          display: showTimeline ? undefined : 'none',
-        }}
+        className="h-full section-fade overflow-y-auto"
+        data-visible={showTimeline ? "true" : "false"}
       >
         <TimelineView onSelectEvent={handleTimelineSelectEvent} />
       </div>
 
       <div
-        className="h-full"
-        style={{
-          display: showAlbum ? undefined : 'none',
-        }}
+        className="h-full section-fade overflow-y-auto"
+        data-visible={showAlbum ? "true" : "false"}
       >
         <GlobalAlbum
           onNavigate={(id, type) => handleRelatedItemNavigate(id, type)}
@@ -549,10 +579,8 @@ const [worldSelectedEntryId, setWorldSelectedEntryId] = useState<number | null>(
       </div>
 
       <div
-        className="h-full"
-        style={{
-          display: showRelations ? undefined : 'none',
-        }}
+        className="h-full section-fade overflow-y-auto"
+        data-visible={showRelations ? "true" : "false"}
       >
         <RelationGraph
           visible={showRelations}
@@ -572,15 +600,13 @@ const [worldSelectedEntryId, setWorldSelectedEntryId] = useState<number | null>(
       </div>
 
       <div
-        style={{
-          display: showPlaceholder || activeItem === null ? undefined : 'none',
-        }}
-        className="flex h-full items-center justify-center"
+        data-visible={(showPlaceholder || activeItem === null) ? "true" : "false"}
+        className="h-full section-fade flex items-center justify-center"
       >
         <p className="text-ink-muted text-sm font-serif">
           {showPlaceholder ? placeholderText : '欢迎使用 OC Studio'}
         </p>
       </div>
-    </>
+    </div>
   )
 }

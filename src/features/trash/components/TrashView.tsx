@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useMemo } from "react"
+import { useState, useCallback, useMemo, useEffect } from "react"
 import { Trash2, Undo2, XCircle, X } from "lucide-react"
 import { toast } from "sonner"
 import {
@@ -66,6 +66,17 @@ export function TrashView({ onClose }: TrashViewProps) {
   const { items, loading, error, refresh } = useTrash()
   const [confirmTarget, setConfirmTarget] = useState<{ type: TrashItemType; id: number } | null>(null)
   const [restoring, setRestoring] = useState<string | null>(null)
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setVisible(true))
+    return () => cancelAnimationFrame(raf)
+  }, [])
+
+  const handleClose = useCallback(() => {
+    setVisible(false)
+    setTimeout(() => onClose(), 150)
+  }, [onClose])
 
   const handleRestore = useCallback(
     async (type: TrashItemType, id: number) => {
@@ -113,10 +124,14 @@ export function TrashView({ onClose }: TrashViewProps) {
 
   return (
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 transition-opacity duration-150"
+      style={{ opacity: visible ? 1 : 0 }}
+      onClick={(e) => { if (e.target === e.currentTarget) handleClose() }}
     >
-      <div className="flex max-md:w-[calc(100%-2rem)] max-md:min-h-[40vh] max-md:max-h-[calc(100vh-4rem)] max-md:my-4 h-[80vh] w-[80vw] max-w-5xl flex-col overflow-auto rounded-lg border border-line bg-paper ring-1 ring-black/5">
+      <div
+        className="flex max-md:w-[calc(100%-2rem)] max-md:min-h-[40vh] max-md:max-h-[calc(100vh-4rem)] max-md:my-4 h-[80vh] w-[80vw] max-w-5xl flex-col overflow-auto rounded-lg border border-line bg-paper ring-1 ring-black/5 transition-opacity duration-150"
+        style={{ opacity: visible ? 1 : 0 }}
+      >
         <div className="flex items-center justify-between sticky top-0 z-10 border-b border-line max-md:px-3 max-md:py-2 px-5 py-3 bg-paper/70 dark:bg-[#1C1B1A]/70 backdrop-blur-md">
           <div className="flex items-center gap-3">
             <h2 className="text-base text-ink font-serif font-bold">回收站</h2>
@@ -127,8 +142,8 @@ export function TrashView({ onClose }: TrashViewProps) {
             ) : null}
           </div>
           <button
-            onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded text-ink-muted hover:bg-black/5 dark:hover:bg-white/5"
+            onClick={handleClose}
+            className="flex h-8 w-8 items-center justify-center rounded text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8"
           >
             <X size={16} strokeWidth={2} />
           </button>
@@ -169,14 +184,14 @@ export function TrashView({ onClose }: TrashViewProps) {
                           <button
                             onClick={() => handleRestore(item.type, item.id)}
                             disabled={restoring === item.type + "-" + String(item.id)}
-                            className="flex h-8 items-center gap-1 rounded border border-line px-2.5 text-xs text-ink-muted transition-colors hover:border-line-hover hover:text-ink disabled:opacity-50"
+                            className="touch-feedback flex h-8 items-center gap-1 rounded border border-line px-2.5 text-xs text-ink-muted transition-colors hover:border-line-hover hover:text-ink disabled:opacity-50"
                           >
                             <Undo2 size={14} strokeWidth={2} />
                             <span>恢复</span>
                           </button>
                           <button
                             onClick={() => setConfirmTarget({ type: item.type, id: item.id })}
-                            className="flex h-8 items-center gap-1 rounded border border-line px-2.5 text-xs text-ink-muted transition-colors hover:border-error hover:text-error"
+                            className="touch-feedback flex h-8 items-center gap-1 rounded border border-line px-2.5 text-xs text-ink-muted transition-colors hover:border-error hover:text-error"
                           >
                             <XCircle size={14} strokeWidth={2} />
                             <span>永久删除</span>

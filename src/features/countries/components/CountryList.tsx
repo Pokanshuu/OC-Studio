@@ -1,11 +1,24 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { Plus, Search } from 'lucide-react'
+import { useState, useMemo, useCallback } from 'react'
+import { withTouchFeedback } from '@/lib/animation'
+import { Plus, Search, Pencil, Trash2 } from 'lucide-react'
 import type { Country } from '@/types'
 import { stripHtml } from '@/lib/utils'
 import { extractCountryPreview } from '@/lib/document-utils'
 import { DeleteButton } from '@/components/shared/DeleteButton'
+import { useLongPress } from '@/lib/useLongPress'
+import { MobileActionSheet, type ActionItem } from '@/components/shared/MobileActionSheet'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Avatar } from '@/components/shared/Avatar'
 import { getImageUrl, resolveImageUrl } from '@/lib/image-service'
 import { Separator } from '@/components/ui/separator'
@@ -47,12 +60,21 @@ function CountryRow({
   country,
   onSelect,
   onDelete,
+  onLongPress,
+  isMobile,
 }: {
   country: Country
   onSelect: (id: number) => void
   onDelete: (id: number) => void
+  onLongPress?: () => void
+  isMobile: boolean
 }) {
   const preview = extractCountryPreview(country.document) ?? stripHtml(country.system ?? '')
+
+  const longPress = useLongPress({
+    onLongPress: onLongPress ?? (() => {}),
+    enabled: isMobile,
+  })
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -66,7 +88,8 @@ function CountryRow({
       tabIndex={0}
       onClick={() => onSelect(country.id as number)}
       onKeyDown={handleKeyDown}
-      className="group relative flex w-full cursor-pointer items-center gap-3 rounded-md px-4 py-3 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+      className="group relative flex w-full cursor-pointer items-center gap-3 rounded-md px-4 py-3 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8"
+      {...longPress}
     >
       <Avatar src={getImageUrl(country.flagUrl, 'flag')} size="md" type="flag" />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -75,9 +98,11 @@ function CountryRow({
           <span className="text-xs text-ink-muted truncate">{preview}</span>
         ) : null}
       </div>
-      <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
-        <DeleteButton onDelete={() => onDelete(country.id as number)} />
-      </div>
+      {!isMobile ? (
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <DeleteButton onDelete={() => onDelete(country.id as number)} />
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -86,15 +111,24 @@ function CountryCard({
   country,
   onSelect,
   onDelete,
+  onLongPress,
+  isMobile,
 }: {
   country: Country
   onSelect: (id: number) => void
   onDelete: (id: number) => void
+  onLongPress?: () => void
+  isMobile: boolean
 }) {
   const preview = extractCountryPreview(country.document) ?? stripHtml(country.system ?? '')
 
+  const longPress = useLongPress({
+    onLongPress: onLongPress ?? (() => {}),
+    enabled: isMobile,
+  })
+
   return (
-    <div className="relative group">
+    <div className="relative group touch-feedback" {...longPress}>
       <button
         onClick={() => onSelect(country.id as number)}
         className="flex w-full flex-col rounded-md border border-line bg-paper-card overflow-hidden text-left transition-shadow hover:shadow-[0_1px_3px_rgba(0,0,0,0.03)]"
@@ -120,9 +154,11 @@ function CountryCard({
         </div>
       </button>
 
-      <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
-        <DeleteButton onDelete={() => onDelete(country.id as number)} />
-      </div>
+      {!isMobile ? (
+        <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <DeleteButton onDelete={() => onDelete(country.id as number)} />
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -139,10 +175,26 @@ export function CountryList({
   onDeleteCountry,
 }: CountryListProps) {
   const { isMobile } = useDevice()
+  const handleSelect = useMemo(() => withTouchFeedback(onSelectCountry), [onSelectCountry])
   const { countries, loading, error } = useCountryList()
   const [search, setSearch] = useState('')
   const [sortKey, setSortKey] = useState<CountrySortKey>('updatedAt')
   const [viewMode, setViewMode] = useState<ViewMode>(readViewPreference)
+  const [actionSheet, setActionSheet] = useState<{ open: boolean; title: string; actions: ActionItem[] }>({
+    open: false, title: '', actions: [],
+  })
+  const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
+
+  const openActionSheet = useCallback((c: Country) => {
+    setActionSheet({
+      open: true,
+      title: c.name,
+      actions: [
+        { id: 'edit', label: '编辑', icon: <Pencil size={20} strokeWidth={2} />, onPress: () => onSelectCountry(c.id as number) },
+        { id: 'delete', label: '删除', icon: <Trash2 size={20} strokeWidth={2} />, destructive: true, onPress: () => setDeleteTarget(c.id as number) },
+      ],
+    })
+  }, [onSelectCountry, onDeleteCountry])
 
   const filtered = useMemo(() => {
     let result = countries
@@ -217,7 +269,7 @@ export function CountryList({
         </div>
         <button
           onClick={onCreateCountry}
-          className="flex h-9 items-center gap-1.5 rounded border border-line bg-paper-card/60 px-3 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
+          className="touch-feedback flex h-9 items-center gap-1.5 rounded border border-line bg-paper-card/60 px-3 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
         >
           <Plus size={16} strokeWidth={2} />
           <span>新建国家</span>
@@ -232,7 +284,7 @@ export function CountryList({
         />
         <button
           onClick={onCreateCountry}
-          className="flex h-7 items-center gap-1 rounded border border-line bg-paper-card/60 px-2.5 text-[11px] text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
+          className="touch-feedback flex h-7 items-center gap-1 rounded border border-line bg-paper-card/60 px-2.5 text-[11px] text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
         >
           <Plus size={14} strokeWidth={2} />
           <span>新建</span>
@@ -257,8 +309,10 @@ export function CountryList({
               <CountryCard
                 key={country.id}
                 country={country}
-                onSelect={onSelectCountry}
+                onSelect={handleSelect}
                 onDelete={onDeleteCountry}
+                onLongPress={() => openActionSheet(country)}
+                isMobile={isMobile}
               />
             ))}
           </div>
@@ -268,14 +322,43 @@ export function CountryList({
               <CountryRow
                 key={country.id}
                 country={country}
-                onSelect={onSelectCountry}
+                onSelect={handleSelect}
                 onDelete={onDeleteCountry}
+                onLongPress={() => openActionSheet(country)}
+                isMobile={isMobile}
               />
             ))}
           </div>
         )}
         <MobileFab viewMode={viewMode} onViewModeChange={handleViewChange} />
       </div>
+
+      <MobileActionSheet
+        open={actionSheet.open}
+        onClose={() => setActionSheet((prev) => ({ ...prev, open: false }))}
+        title={actionSheet.title}
+        actions={actionSheet.actions}
+      />
+
+      <AlertDialog open={deleteTarget !== null} onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除</AlertDialogTitle>
+            <AlertDialogDescription>
+              删除后将移至回收站，可在 30 天内恢复。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              if (deleteTarget !== null) {
+                onDeleteCountry(deleteTarget)
+                setDeleteTarget(null)
+              }
+            }}>删除</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
