@@ -42,6 +42,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - `src/components/layout/MobileNavigationContext.tsx` — 移动端两层导航（section + gallerySubTab）
 - `src/components/layout/MobilePageHeaderContext.tsx` — 移动端页面顶栏标题注册
 - `src/components/layout/TrashOverlayContext.tsx` — TrashOverlayProvider（回收站浮层开关）
+- `src/lib/KeyboardContext.tsx` — KeyboardProvider + useKeyboard()（Capacitor 键盘状态，visualViewport 计算高度）
 - `src/lib/useBackButton.ts` — Capacitor 系统返回键处理
 - `src/lib/reference-registry.ts` — @ 引用和 [[ 内链数据源注册
 - `src/lib/settings.tsx` — 主题/同步/AI 设置

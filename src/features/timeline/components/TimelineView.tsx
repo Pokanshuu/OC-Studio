@@ -800,7 +800,7 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
 
     el.addEventListener('wheel', handleWheel, { passive: false })
     return () => el.removeEventListener('wheel', handleWheel)
-  }, [events.length > 0])
+  }, [events.length > 0, applyZoom])
 
   useEffect(() => {
     const el = scrollRef.current
@@ -876,7 +876,7 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
       el.removeEventListener('touchend', handleTouchEnd)
       el.removeEventListener('touchcancel', handleTouchEnd)
     }
-  }, [events.length > 0])
+  }, [events.length > 0, applyZoom])
 
   useLayoutEffect(() => {
     const container = scrollRef.current

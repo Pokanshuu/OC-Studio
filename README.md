@@ -22,7 +22,7 @@
 - **回收站**：软删除条目管理，支持恢复和永久删除
 - **数据导入/导出**：JSON 格式（`.ocbak`），4 种合并策略
 - **桌面应用**：Tauri v2 打包，无边框窗口，Mica/亚克力效果
-- **移动端应用**：Capacitor v8 Android 原生应用，底部 5-Tab 导航，MobileTopBar（动态标题+搜索/回收站/设置），MobileFilterBar（筛选+新建），MobileFab（网格/列表切换，滑动色块动画），编辑页自动隐藏壳层，系统返回键处理，禁止文字选择+页面缩放，粗体衬线体标题，全局触控按压反馈（双层规范：有边框 scale 缩放 + 无边框背景高亮），长按弹出 ActionSheet 操作菜单
+- **移动端应用**：Capacitor v8 Android 原生应用，底部 5-Tab 导航，MobileTopBar（动态标题+搜索/回收站/设置），MobileFilterBar（筛选+新建），MobileFab（网格/列表切换，滑动色块动画），编辑页自动隐藏壳层，系统返回键处理，禁止文字选择+页面缩放，粗体衬线体标题，全局触控按压反馈（双层规范：有边框 scale 缩放 + 无边框背景高亮），长按弹出 ActionSheet 操作菜单，编辑器键盘工具栏（格式按钮 + 块类型面板，精确贴合输入法）
 - **全局快捷键**：`Ctrl+S` 保存，`Ctrl+K` 搜索
 - **AI 开发助手**：6 个 OpenCode skill（guide, coding, codebase, design, prd, sync），覆盖总纲、规范、代码地图、设计、产品、文档同步
 

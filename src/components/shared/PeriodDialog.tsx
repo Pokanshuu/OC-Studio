@@ -79,7 +79,7 @@ export function PeriodDialog({ open, period, onSave, onClose }: PeriodDialogProp
         {/* Start & End time */}
         <div className="mb-4">
           <label className="block text-sm text-ink-muted mb-1.5">开始 / 结束时间</label>
-          <div className="flex items-center gap-2 max-md:flex-col">
+          <div className="flex items-center gap-2 max-md:flex-col max-md:items-start">
             <div className="flex items-center gap-2">
               <input type="text" value={startYear} onChange={(e) => setStartYear(e.target.value)} placeholder="年" className="h-9 w-16 rounded border border-line bg-paper-card px-2 text-sm text-ink placeholder:text-ink-faint focus:border-line-hover focus:outline-none" />
               <input type="text" value={startMonth} onChange={(e) => setStartMonth(e.target.value)} placeholder="月" className="h-9 w-12 rounded border border-line bg-paper-card px-2 text-sm text-ink placeholder:text-ink-faint focus:border-line-hover focus:outline-none" />

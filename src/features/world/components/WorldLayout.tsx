@@ -12,7 +12,6 @@ import type { WorldFormData } from '../types'
 import { WorldTree } from './WorldTree'
 import { useMobilePageHeader } from '@/components/layout/MobilePageHeaderContext'
 import { useMobileNavigation } from '@/components/layout/MobileNavigationContext'
-import { useEditor } from '@/components/layout/EditorContext'
 
 function parseEditorContent(content: string): object | string {
   if (!content) return ''
@@ -43,7 +42,6 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
   const { isMobile } = useDevice()
   const { setConfig } = useMobilePageHeader()
   const { section } = useMobileNavigation()
-  const { setEditing, clearEditing } = useEditor()
 
   const editorContainerRef = useRef<HTMLDivElement>(null)
 
@@ -257,29 +255,28 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
 
   return (
     <div className="flex h-full">
-      {!treeCollapsed && !isMobile ? (
-        <div className="w-[200px] shrink-0 overflow-auto">{treePanel}</div>
+      {!isMobile ? (
+        <div className={`shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out ${treeCollapsed ? 'w-0' : 'w-[200px]'}`}>
+          {treePanel}
+        </div>
       ) : null}
 
-      {showMobileTree && isMobile ? (
-        <div className="fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-black/20" onClick={() => setShowMobileTree(false)} />
-          <div className="absolute top-0 bottom-0 left-0 w-[280px]">{treePanel}</div>
+      {isMobile ? (
+        <div className={`fixed inset-0 z-50 transition-all duration-300 ${showMobileTree ? 'pointer-events-auto' : 'pointer-events-none'}`}>
+          <div className={`absolute inset-0 bg-black/20 transition-opacity duration-300 ${showMobileTree ? 'opacity-100' : 'opacity-0'}`} onClick={() => setShowMobileTree(false)} />
+          <div className={`absolute top-0 bottom-0 left-0 w-[280px] transition-transform duration-300 ease-out ${showMobileTree ? 'translate-x-0' : '-translate-x-full'}`}>
+            {treePanel}
+          </div>
         </div>
       ) : null}
 
       <div
         className="flex flex-1 flex-col min-w-0"
         ref={editorContainerRef}
-        onFocus={() => { if (isMobile && selectedId !== null) setEditing('world', selectedId) }}
-        onBlur={(e) => {
-          if (editorContainerRef.current?.contains(e.relatedTarget as Node)) return
-          clearEditing()
-        }}
       >
         {selectedId !== null && currentEntry ? (
           <>
-            <div className="flex-1 overflow-auto">
+            <div className="flex-1">
       <div className="flex items-center justify-between sticky top-0 z-10 border-b border-line px-4 py-3 h-[60px] bg-paper/70 dark:bg-[#1C1B1A]/70 backdrop-blur-md">
               <div className="flex items-center gap-3 flex-1 min-w-0">
                 {treeCollapsed && !isMobile ? (
@@ -300,7 +297,7 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
                 />
               </div>
             </div>
-              <div className="px-4 py-2 md:px-8 md:pb-2">
+              <div className="px-4 py-2 md:px-8 md:pb-2 pb-24 md:pb-2">
               <EditorCore
                 plain
                 key={selectedId}

@@ -141,20 +141,64 @@ function SubMenu({ item, onCloseParent }: { item: ContextMenuItem; onCloseParent
   )
 }
 
+interface SelectionSnapshot {
+  startContainer: Node | null
+  startOffset: number
+  endContainer: Node | null
+  endOffset: number
+}
+
 export function ContextMenu({ children, items }: ContextMenuProps) {
   const [open, setOpen] = useState(false)
   const [position, setPosition] = useState({ x: 0, y: 0 })
   const [adjPosition, setAdjPosition] = useState({ x: 0, y: 0 })
   const [visible, setVisible] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const initialSelRef = useRef<SelectionSnapshot | null>(null)
+  const openedAtRef = useRef(0)
+  const cooldownUntilRef = useRef(0)
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+
+  const close = useCallback(() => {
+    setVisible(false)
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+    closeTimerRef.current = setTimeout(() => setOpen(false), 150)
+  }, [])
+  const closeImmediate = useCallback(() => {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+    setOpen(false)
+    setVisible(false)
+  }, [])
+
+  useEffect(() => {
+    return () => { if (closeTimerRef.current) clearTimeout(closeTimerRef.current) }
+  }, [])
 
   const handleContextMenu = useCallback(
     (e: React.MouseEvent) => {
+      if (Date.now() < cooldownUntilRef.current) {
+        e.preventDefault()
+        return
+      }
       e.preventDefault()
       e.stopPropagation()
       setPosition({ x: e.clientX, y: e.clientY })
       setVisible(false)
       setOpen(true)
+
+      const sel = window.getSelection()
+      if (sel && sel.rangeCount > 0) {
+        const r = sel.getRangeAt(0)
+        initialSelRef.current = {
+          startContainer: r.startContainer,
+          startOffset: r.startOffset,
+          endContainer: r.endContainer,
+          endOffset: r.endOffset,
+        }
+      } else {
+        initialSelRef.current = null
+      }
+      openedAtRef.current = Date.now()
     },
     [],
   )
@@ -167,22 +211,46 @@ export function ContextMenu({ children, items }: ContextMenuProps) {
     setVisible(true)
   }, [open, position])
 
-  const handleClickOutside = useCallback((e: MouseEvent) => {
+  const handleClickOutside = useCallback((e: PointerEvent) => {
     const target = e.target as Node
     const overlay = document.getElementById('overlay-root')
     if (menuRef.current && !menuRef.current.contains(target)) {
       if (overlay && overlay.contains(target)) return
-      setOpen(false)
-      setVisible(false)
+      close()
     }
-  }, [])
+  }, [close])
 
   useEffect(() => {
     if (open) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
+      document.addEventListener('pointerdown', handleClickOutside, true)
+      return () => document.removeEventListener('pointerdown', handleClickOutside, true)
     }
   }, [open, handleClickOutside])
+
+  useEffect(() => {
+    if (!open) return
+    const handler = () => {
+      if (Date.now() - openedAtRef.current < 100) return
+      const sel = window.getSelection()
+      if (!sel || sel.isCollapsed) return
+      if (sel.rangeCount === 0 || !initialSelRef.current) return
+      const r = sel.getRangeAt(0)
+      const init = initialSelRef.current
+      if (
+        r.startContainer !== init.startContainer ||
+        r.startOffset !== init.startOffset ||
+        r.endContainer !== init.endContainer ||
+        r.endOffset !== init.endOffset
+      ) {
+        if (cooldownUntilRef.current < Date.now()) {
+          cooldownUntilRef.current = Date.now() + 300
+        }
+        closeImmediate()
+      }
+    }
+    document.addEventListener('selectionchange', handler)
+    return () => document.removeEventListener('selectionchange', handler)
+  }, [open, closeImmediate])
 
   return (
     <div onContextMenu={handleContextMenu}>
@@ -192,11 +260,10 @@ export function ContextMenu({ children, items }: ContextMenuProps) {
         <div className="pointer-events-none fixed inset-0 z-50">
           <div
             ref={menuRef}
-            className="pointer-events-auto absolute flex flex-col rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-md p-1 shadow-none ring-1 ring-black/5"
+            className={`pointer-events-auto absolute flex flex-col rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-md p-1 shadow-none ring-1 ring-black/5 context-menu-fade ${visible ? 'context-menu-visible' : ''}`}
             style={{
               left: adjPosition.x,
               top: adjPosition.y,
-              visibility: visible ? 'visible' : 'hidden',
             }}
           >
             {items.map((item, i) => {
@@ -207,7 +274,7 @@ export function ContextMenu({ children, items }: ContextMenuProps) {
               }
 
               if (item.children && item.children.length > 0) {
-                return <SubMenu key={i} item={item} onCloseParent={() => { setOpen(false); setVisible(false) }} />
+                return <SubMenu key={i} item={item} onCloseParent={close} />
               }
 
               return (
@@ -215,8 +282,7 @@ export function ContextMenu({ children, items }: ContextMenuProps) {
                   key={i}
                   onClick={() => {
                     item.onClick?.()
-                    setOpen(false)
-                    setVisible(false)
+                    close()
                   }}
                   disabled={item.disabled}
                   className={`flex items-center gap-4 rounded-sm px-3 py-1.5 text-left text-sm transition-colors ${

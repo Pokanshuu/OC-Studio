@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { db } from '@/lib/db'
+import { syncReferenceLabels } from '@/lib/reference-sync'
 
 type EntityType = 'character' | 'event' | 'country' | 'worldEntry'
 
@@ -37,7 +38,13 @@ export function useDocument(entityId: number, entityType: EntityType) {
           setError('记录不存在')
           return
         }
-        setDocument((record.document as Record<string, unknown>) ?? null)
+        const doc = record.document as Record<string, unknown> | undefined
+        if (doc && typeof doc === 'object' && !Array.isArray(doc)) {
+          const synced = await syncReferenceLabels(doc)
+          if (!cancelled) setDocument(synced)
+        } else {
+          if (!cancelled) setDocument(doc ?? null)
+        }
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : '加载失败')

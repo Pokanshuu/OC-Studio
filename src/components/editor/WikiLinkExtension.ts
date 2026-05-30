@@ -11,11 +11,14 @@ const isComposing = (editor: Editor): boolean => {
 
 function createWikiLinkRender() {
   let popup: HTMLElement | null = null
+  let ac: AbortController | null = null
 
   return () => ({
     onStart: (props: SuggestionProps<ReferableEntity>) => {
       if (!props.clientRect || props.items.length === 0) return
       if (isComposing(props.editor)) return
+      ac?.abort()
+      ac = new AbortController()
       popup = document.createElement('div')
       popup.className = 'absolute z-50 max-h-56 overflow-auto rounded-md border border-line bg-paper p-1 shadow-none ring-1 ring-black/5 min-w-[180px]'
       const rect = props.clientRect()
@@ -25,6 +28,13 @@ function createWikiLinkRender() {
       }
       renderWikiItems(popup, props.items, props.command)
       document.body.appendChild(popup)
+      document.addEventListener('pointerdown', (e) => {
+        if (popup && !popup.contains(e.target as Node)) {
+          popup.remove()
+          popup = null
+          ac?.abort()
+        }
+      }, { signal: ac.signal, capture: true })
       if (rect) {
         requestAnimationFrame(() => {
           if (!popup) return
@@ -36,7 +46,7 @@ function createWikiLinkRender() {
     },
     onUpdate: (props: SuggestionProps<ReferableEntity>) => {
       if (isComposing(props.editor)) return
-      if (!popup || props.items.length === 0) { popup?.remove(); popup = null; return }
+      if (!popup || props.items.length === 0) { popup?.remove(); popup = null; ac?.abort(); return }
       const rect = props.clientRect?.()
       if (rect) {
         popup.style.left = `${rect.left}px`
@@ -52,11 +62,13 @@ function createWikiLinkRender() {
     },
     onExit: (props: SuggestionProps<ReferableEntity>) => {
       if (isComposing(props.editor)) return
+      ac?.abort()
+      ac = null
       popup?.remove()
       popup = null
     },
     onKeyDown: (props: SuggestionKeyDownProps) => {
-      if (props.event.key === 'Escape') { popup?.remove(); popup = null; return true }
+      if (props.event.key === 'Escape') { popup?.remove(); popup = null; ac?.abort(); return true }
       return false
     },
   })

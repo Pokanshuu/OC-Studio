@@ -167,7 +167,7 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
       </div>
 
       <div className="flex-1 min-h-0 max-md:pt-[calc(60px+var(--safe-top))]">
-        <div className="mx-auto w-full px-4 py-6 md:max-w-3xl md:px-8">
+        <div className="mx-auto w-full px-4 py-3 md:py-6 md:max-w-3xl md:px-8 pb-24 md:pb-0">
           {/* Profile header */}
           <section>
             <ProfileBannerEditor

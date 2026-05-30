@@ -1,7 +1,7 @@
 import { Node, mergeAttributes } from '@tiptap/core'
 import { ReactNodeViewRenderer, NodeViewWrapper } from '@tiptap/react'
 import type { ReactNodeViewProps } from '@tiptap/react'
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { ImageIcon, Crop } from 'lucide-react'
 import { uploadImage, getImageUrl } from '@/lib/image-service'
 import { InlineCrop } from '@/components/shared/InlineCrop'
@@ -46,6 +46,17 @@ export const ImageBlock = Node.create({
 function ImageBlockView({ node, updateAttributes, deleteNode }: ReactNodeViewProps) {
   const src = node.attrs.src as string | null
   const [cropping, setCropping] = useState(false)
+  const dragRef = useRef<{ move: (ev: MouseEvent) => void; up: () => void } | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (dragRef.current) {
+        document.removeEventListener('mousemove', dragRef.current.move)
+        document.removeEventListener('mouseup', dragRef.current.up)
+        dragRef.current = null
+      }
+    }
+  }, [])
 
   async function handleUpload() {
     const path = await uploadImage('avatar')
@@ -126,16 +137,18 @@ function ImageBlockView({ node, updateAttributes, deleteNode }: ReactNodeViewPro
             e.preventDefault()
             const startX = e.clientX
             const startWidth = width || 300
-            function onMouseMove(ev: MouseEvent) {
+            const move = (ev: MouseEvent) => {
               const diff = ev.clientX - startX
               updateAttributes({ width: Math.max(50, startWidth + diff) })
             }
-            function onMouseUp() {
-              document.removeEventListener('mousemove', onMouseMove)
-              document.removeEventListener('mouseup', onMouseUp)
+            const up = () => {
+              document.removeEventListener('mousemove', move)
+              document.removeEventListener('mouseup', up)
+              dragRef.current = null
             }
-            document.addEventListener('mousemove', onMouseMove)
-            document.addEventListener('mouseup', onMouseUp)
+            dragRef.current = { move, up }
+            document.addEventListener('mousemove', move)
+            document.addEventListener('mouseup', up)
           }}
         />
       </div>

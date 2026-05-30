@@ -16,6 +16,7 @@ import { TrashOverlayProvider, useTrashOverlay } from "@/components/layout/Trash
 import { MobilePageHeaderProvider } from "@/components/layout/MobilePageHeaderContext"
 import { TrashView } from "@/features/trash/components/TrashView"
 import { useSettings } from "@/lib/settings"
+import { useKeyboard } from "@/lib/KeyboardContext"
 import { useBackButton } from "@/lib/useBackButton"
 
 function TrashOverlayRenderer() {
@@ -27,7 +28,9 @@ function TrashOverlayRenderer() {
 function AppShellChrome({ settings, children }: { settings: ReturnType<typeof useSettings>['settings'], children: ReactNode }) {
   useBackButton()
   const { isEditing } = useEditor()
+  const { visible: keyboardVisible } = useKeyboard()
   const hideMobileShell = isEditing
+  const hideTabBar = isEditing || keyboardVisible
 
   return (
     <>
@@ -40,7 +43,7 @@ function AppShellChrome({ settings, children }: { settings: ReturnType<typeof us
         </main>
       </div>
       <StatusBar />
-      {!hideMobileShell && <MobileTabBar />}
+      {!hideTabBar && <MobileTabBar />}
     </>
   )
 }

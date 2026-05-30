@@ -43,12 +43,14 @@ const edgeTypes = {
 function FitViewOnLoad({ ready }: { ready: boolean }) {
   const { fitView } = useReactFlow()
   const called = useRef(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   useEffect(() => {
     if (ready && !called.current) {
-      setTimeout(() => fitView({ padding: 0.3 }), 100)
+      timerRef.current = setTimeout(() => fitView({ padding: 0.3 }), 100)
       called.current = true
     }
+    return () => { if (timerRef.current) clearTimeout(timerRef.current) }
   }, [ready, fitView])
 
   return null

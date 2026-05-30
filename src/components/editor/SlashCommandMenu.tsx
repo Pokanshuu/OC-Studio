@@ -111,6 +111,7 @@ export const SlashCommand = Extension.create({
     let selectedIndex = 0
     let currentItems: SlashCommandItem[] = []
     let currentCommand: ((item: SlashCommandItem) => void) | null = null
+    let ac: AbortController | null = null
 
     return [
       Suggestion<SlashCommandItem>({
@@ -129,6 +130,9 @@ export const SlashCommand = Extension.create({
             currentItems = props.items
             currentCommand = props.command
 
+            ac?.abort()
+            ac = new AbortController()
+
             popup = document.createElement('div')
             popup.className =
               'absolute z-50 max-h-[60vh] overflow-auto rounded-md border border-line bg-paper/70 backdrop-blur-md p-1 shadow-none ring-1 ring-black/5 min-w-[180px]'
@@ -142,6 +146,13 @@ export const SlashCommand = Extension.create({
             selectedIndex = 0
             renderItems(popup, currentItems, selectedIndex, props.command)
             document.body.appendChild(popup)
+            document.addEventListener('pointerdown', (e) => {
+              if (popup && !popup.contains(e.target as Node)) {
+                popup.remove()
+                popup = null
+                ac?.abort()
+              }
+            }, { signal: ac.signal, capture: true })
             if (rect) {
               requestAnimationFrame(() => {
                 if (!popup) return
@@ -158,6 +169,7 @@ export const SlashCommand = Extension.create({
             if (!popup || currentItems.length === 0) {
               popup?.remove()
               popup = null
+              ac?.abort()
               return
             }
 
@@ -178,6 +190,8 @@ export const SlashCommand = Extension.create({
           },
 
           onExit: () => {
+            ac?.abort()
+            ac = null
             popup?.remove()
             popup = null
           },
@@ -208,6 +222,8 @@ export const SlashCommand = Extension.create({
             }
 
             if (props.event.key === 'Escape') {
+              ac?.abort()
+              ac = null
               popup?.remove()
               popup = null
               return true

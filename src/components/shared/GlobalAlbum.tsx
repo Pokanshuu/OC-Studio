@@ -296,22 +296,26 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
   return (
     <div className="flex h-full">
       {/* Desktop sidebar */}
-      {!treeCollapsed && !isMobile ? (
-        <div className="w-[200px] shrink-0 overflow-auto">{treePanel}</div>
+      {!isMobile ? (
+        <div className={`shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out ${treeCollapsed ? 'w-0' : 'w-[200px]'}`}>
+          {treePanel}
+        </div>
       ) : null}
 
       {/* Mobile overlay */}
-      {showMobileTree && isMobile ? (
-        <div className="fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-black/20" onClick={() => setShowMobileTree(false)} />
-          <div className="absolute top-0 bottom-0 left-0 w-[280px]">{treePanel}</div>
+      {isMobile ? (
+        <div className={`fixed inset-0 z-50 transition-all duration-300 ${showMobileTree ? 'pointer-events-auto' : 'pointer-events-none'}`}>
+          <div className={`absolute inset-0 bg-black/20 transition-opacity duration-300 ${showMobileTree ? 'opacity-100' : 'opacity-0'}`} onClick={() => setShowMobileTree(false)} />
+          <div className={`absolute top-0 bottom-0 left-0 w-[280px] transition-transform duration-300 ease-out ${showMobileTree ? 'translate-x-0' : '-translate-x-full'}`}>
+            {treePanel}
+          </div>
         </div>
       ) : null}
 
       {/* Right column */}
       <div className="flex flex-1 flex-col min-w-0">
         {/* Grid — scroll container, header inside for blur */}
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1">
           {/* Desktop header */}
           <div className="max-md:hidden sticky top-0 z-10 border-b border-line px-4 py-3 h-[60px] bg-paper/70 dark:bg-[#1C1B1A]/70 backdrop-blur-md">
             <div className="flex items-center gap-3">
@@ -347,7 +351,7 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
           </div>
 
           {/* Grid content */}
-          <div className="flex flex-1 flex-col p-4">
+          <div className="flex flex-1 flex-col px-4 pt-4 pb-24 md:pb-4">
           {loading ? (
             <div className="flex flex-1 items-center justify-center"><span className="text-sm text-ink-muted">加载中...</span></div>
           ) : filtered.length === 0 ? (

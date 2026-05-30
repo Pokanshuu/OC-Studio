@@ -1,7 +1,6 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
-import { Keyboard } from '@capacitor/keyboard'
 
 interface KeyboardState {
   visible: boolean
@@ -15,27 +14,30 @@ export function KeyboardProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    const isCapacitor = typeof (window as unknown as { Capacitor?: unknown }).Capacitor !== 'undefined'
-    if (!isCapacitor) return
+    const c = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor
+    if (!c?.isNativePlatform?.()) return
 
-    const willShowHandler = () => {
-      setState(prev => ({ visible: true, height: prev.height }))
-    }
-    const didShowHandler = () => {
-      const vvH = window.visualViewport?.height ?? window.innerHeight
-      setState({ visible: true, height: window.innerHeight - vvH })
-    }
-    const hideHandler = () => {
-      setState({ visible: false, height: 0 })
-    }
+    let cancelled = false
+    import('@capacitor/keyboard').then(({ Keyboard }) => {
+      if (cancelled) return
 
-    void Keyboard.addListener('keyboardWillShow', willShowHandler)
-    void Keyboard.addListener('keyboardDidShow', didShowHandler)
-    void Keyboard.addListener('keyboardWillHide', hideHandler)
+      const willShowHandler = () => {
+        setState(prev => ({ visible: true, height: prev.height }))
+      }
+      const didShowHandler = () => {
+        const vvH = window.visualViewport?.height ?? window.innerHeight
+        setState({ visible: true, height: window.innerHeight - vvH })
+      }
+      const hideHandler = () => {
+        setState({ visible: false, height: 0 })
+      }
 
-    return () => {
-      void Keyboard.removeAllListeners()
-    }
+      void Keyboard.addListener('keyboardWillShow', willShowHandler)
+      void Keyboard.addListener('keyboardDidShow', didShowHandler)
+      void Keyboard.addListener('keyboardWillHide', hideHandler)
+    }).catch(() => { /* not available on web */ })
+
+    return () => { cancelled = true }
   }, [])
 
   return (

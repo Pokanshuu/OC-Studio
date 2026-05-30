@@ -47,6 +47,7 @@ const ENTITY_TYPE_LABELS: Record<string, string> = {
 
 function createMentionRender() {
   let popup: HTMLElement | null = null
+  let ac: AbortController | null = null
 
   const isComposing = (editor: Editor): boolean => {
     return (editor as unknown as { view: { composing: boolean } }).view?.composing ?? false
@@ -56,6 +57,8 @@ function createMentionRender() {
     onStart: (props: SuggestionProps<ReferableEntity>) => {
       if (!props.clientRect || props.items.length === 0) return
       if (isComposing(props.editor)) return
+      ac?.abort()
+      ac = new AbortController()
       popup = document.createElement('div')
       popup.className = 'absolute z-50 max-h-56 overflow-auto rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-md p-1 shadow-none ring-1 ring-black/5 min-w-[200px]'
       const rect = props.clientRect()
@@ -65,6 +68,13 @@ function createMentionRender() {
       }
       renderMentionGroups(popup, props.items, props.command)
       document.body.appendChild(popup)
+      document.addEventListener('pointerdown', (e) => {
+        if (popup && !popup.contains(e.target as Node)) {
+          popup.remove()
+          popup = null
+          ac?.abort()
+        }
+      }, { signal: ac.signal, capture: true })
       if (rect) {
         requestAnimationFrame(() => {
           if (!popup) return
@@ -76,7 +86,7 @@ function createMentionRender() {
     },
     onUpdate: (props: SuggestionProps<ReferableEntity>) => {
       if (isComposing(props.editor)) return
-      if (!popup || props.items.length === 0) { popup?.remove(); popup = null; return }
+      if (!popup || props.items.length === 0) { popup?.remove(); popup = null; ac?.abort(); return }
       const rect = props.clientRect?.()
       if (rect) {
         popup.style.left = `${rect.left}px`
@@ -92,11 +102,13 @@ function createMentionRender() {
     },
     onExit: (props: SuggestionProps<ReferableEntity>) => {
       if (isComposing(props.editor)) return
+      ac?.abort()
+      ac = null
       popup?.remove()
       popup = null
     },
     onKeyDown: (props: SuggestionKeyDownProps) => {
-      if (props.event.key === 'Escape') { popup?.remove(); popup = null; return true }
+      if (props.event.key === 'Escape') { popup?.remove(); popup = null; ac?.abort(); return true }
       return false
     },
   })
@@ -381,6 +393,13 @@ export function EditorCore({
     action()
   }, [isMobile, editor])
 
+  // 移动端工具栏统一 onPointerDown 入口：preventDefault + stopPropagation + 执行命令
+  const handleToolbarPointerDown = useCallback((e: React.PointerEvent, action: () => void) => {
+    e.preventDefault()
+    e.stopPropagation()
+    handleToolbarAction(action)
+  }, [handleToolbarAction])
+
   const contextMenuItems = useMemo((): ContextMenuItem[] => [
     {
       label: '撤销',
@@ -583,12 +602,12 @@ export function EditorCore({
     </div>
 
     {/* 移动端键盘工具栏 */}
-    {isMobile && keyboardVisible && (
+    {isMobile && keyboardVisible && editor?.isFocused && (
       <>
         {mobileBlockMenuOpen && (
           <div
             className="fixed inset-0 z-30"
-            onClick={() => setMobileBlockMenuOpen(false)}
+            onPointerDown={() => setMobileBlockMenuOpen(false)}
           />
         )}
         <div
@@ -596,37 +615,42 @@ export function EditorCore({
           style={{ bottom: `${keyboardHeight}px` }}
         >
           <button
-            onClick={() => {
+            type="button"
+            onPointerDown={(e) => handleToolbarPointerDown(e, () => {
               if (!editor) return
               editor.chain().focus().run()
               setMobileBlockMenuOpen(!mobileBlockMenuOpen)
-            }}
-            className="h-9 px-3 rounded flex items-center gap-1 bg-paper-card border border-line text-sm text-ink shrink-0"
+            })}
+            className="touch-feedback h-9 px-3 rounded flex items-center gap-1 bg-paper-card border border-line text-sm text-ink shrink-0"
           >
             <Pilcrow size={14} strokeWidth={2} />
             <ChevronDown size={14} strokeWidth={2} />
           </button>
           <button
-            onTouchStart={(e) => { e.preventDefault(); handleToolbarAction(() => editor?.chain().focus().toggleBold().run()) }}
-            className={`h-9 w-9 flex items-center justify-center rounded border border-line shrink-0 ${editor?.isActive('bold') ? 'bg-black/5 dark:bg-white/5' : 'bg-paper-card'}`}
+            type="button"
+            onPointerDown={(e) => handleToolbarPointerDown(e, () => editor?.chain().focus().toggleBold().run())}
+            className={`touch-feedback h-9 w-9 flex items-center justify-center rounded border border-line shrink-0 ${editor?.isActive('bold') ? 'bg-black/5 dark:bg-white/5' : 'bg-paper-card'}`}
           >
             <Bold size={16} strokeWidth={2} />
           </button>
           <button
-            onTouchStart={(e) => { e.preventDefault(); handleToolbarAction(() => editor?.chain().focus().toggleItalic().run()) }}
-            className={`h-9 w-9 flex items-center justify-center rounded border border-line shrink-0 ${editor?.isActive('italic') ? 'bg-black/5 dark:bg-white/5' : 'bg-paper-card'}`}
+            type="button"
+            onPointerDown={(e) => handleToolbarPointerDown(e, () => editor?.chain().focus().toggleItalic().run())}
+            className={`touch-feedback h-9 w-9 flex items-center justify-center rounded border border-line shrink-0 ${editor?.isActive('italic') ? 'bg-black/5 dark:bg-white/5' : 'bg-paper-card'}`}
           >
             <Italic size={16} strokeWidth={2} />
           </button>
           <button
-            onTouchStart={(e) => { e.preventDefault(); handleToolbarAction(() => editor?.chain().focus().toggleUnderline().run()) }}
-            className={`h-9 w-9 flex items-center justify-center rounded border border-line shrink-0 ${editor?.isActive('underline') ? 'bg-black/5 dark:bg-white/5' : 'bg-paper-card'}`}
+            type="button"
+            onPointerDown={(e) => handleToolbarPointerDown(e, () => editor?.chain().focus().toggleUnderline().run())}
+            className={`touch-feedback h-9 w-9 flex items-center justify-center rounded border border-line shrink-0 ${editor?.isActive('underline') ? 'bg-black/5 dark:bg-white/5' : 'bg-paper-card'}`}
           >
             <UnderlineIcon size={16} strokeWidth={2} />
           </button>
           <button
-            onTouchStart={(e) => { e.preventDefault(); handleToolbarAction(() => editor?.chain().focus().insertContent('@').run()) }}
-            className={`h-9 w-9 flex items-center justify-center rounded border border-line shrink-0 ${editor?.isActive('mention') ? 'bg-black/5 dark:bg-white/5' : 'bg-paper-card'}`}
+            type="button"
+            onPointerDown={(e) => handleToolbarPointerDown(e, () => editor?.chain().focus().insertContent('@').run())}
+            className={`touch-feedback h-9 w-9 flex items-center justify-center rounded border border-line shrink-0 ${editor?.isActive('mention') ? 'bg-black/5 dark:bg-white/5' : 'bg-paper-card'}`}
           >
             <AtSign size={16} strokeWidth={2} />
           </button>
@@ -654,13 +678,9 @@ export function EditorCore({
               ].map((item) => (
                 <button
                   key={item.label}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onTouchStart={(e) => {
-                    e.preventDefault()
-                    handleToolbarAction(item.action)
-                    setMobileBlockMenuOpen(false)
-                  }}
-                  className={`flex items-center gap-1.5 rounded border border-line px-3 py-2 text-sm transition-colors ${item.active() ? 'bg-black/5 dark:bg-white/5 text-ink' : 'bg-paper-card text-ink-muted'}`}
+                  type="button"
+                  onPointerDown={(e) => handleToolbarPointerDown(e, () => { handleToolbarAction(item.action); setMobileBlockMenuOpen(false) })}
+                  className={`touch-feedback flex items-center gap-1.5 rounded border border-line px-3 py-2 text-sm transition-colors ${item.active() ? 'bg-black/5 dark:bg-white/5 text-ink' : 'bg-paper-card text-ink-muted'}`}
                 >
                   {item.icon}
                   {item.label}

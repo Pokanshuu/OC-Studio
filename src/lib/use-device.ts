@@ -8,12 +8,12 @@ interface UseDeviceResult {
 
 function isCapacitor(): boolean {
   if (typeof window === 'undefined') return false
-  return (
-    typeof (window as any).Capacitor !== 'undefined' ||
-    navigator.userAgent.includes('Android') ||
-    navigator.userAgent.includes('iPhone') ||
-    navigator.userAgent.includes('iPad')
-  )
+  const c = (window as any).Capacitor
+  // isNativePlatform() returns true only in a real native Capacitor app,
+  // not when @capacitor/core is loaded as a web library in the browser.
+  if (c != null && c.isNativePlatform?.() === true) return true
+  const ua = navigator.userAgent
+  return ua.includes('Android') || ua.includes('iPhone') || ua.includes('iPad')
 }
 
 function isNarrowScreen(): boolean {
