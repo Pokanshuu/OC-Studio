@@ -16,7 +16,7 @@ import Mention from '@tiptap/extension-mention'
 import { DragHandle } from '@tiptap/extension-drag-handle'
 import type { SuggestionProps, SuggestionKeyDownProps } from '@tiptap/suggestion'
 import type { Editor } from '@tiptap/core'
-import { Bold, Italic, Underline as UnderlineIcon, AtSign, Pilcrow, Heading1, Heading2, Heading3, List, ListOrdered, ListTodo, Quote, Scissors, Image, Table as TableIcon, ChevronDown, Link2 } from 'lucide-react'
+import { Bold, Italic, Underline as UnderlineIcon, AtSign, Pilcrow, Heading1, Heading2, Heading3, List, ListOrdered, ListTodo, Quote, Scissors, Image, Table as TableIcon, ChevronDown, Link2, Undo2, Redo2 } from 'lucide-react'
 import React from 'react'
 import { ImageBlock } from './extensions/ImageBlock'
 
@@ -66,7 +66,7 @@ function createMentionRender() {
       currentCommand = props.command
       selectedIndex = 0
       popup = document.createElement('div')
-      popup.className = 'absolute z-50 max-h-56 overflow-auto rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 min-w-[200px]'
+      popup.className = 'absolute z-50 max-h-56 overflow-auto rounded-md border border-line bg-paper/85 dark:bg-paper/85 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 min-w-[200px]'
       const rect = props.clientRect()
       if (rect) {
         popup.style.left = `${rect.left}px`
@@ -226,6 +226,8 @@ export function EditorCore({
   const [mobileBlockMenuOpen, setMobileBlockMenuOpen] = useState(false)
   const selectionRef = useRef<{ from: number; to: number } | null>(null)
   const isPointerDownRef = useRef(false)
+  const keyboardVisibleRef = useRef(keyboardVisible)
+  keyboardVisibleRef.current = keyboardVisible
 
   useEffect(() => {
     const down = (e: PointerEvent) => {
@@ -380,6 +382,24 @@ export function EditorCore({
       }),
     ],
     editorProps: {
+      handleScrollToSelection: () => {
+        if (!isMobile) return false
+        const ed = editorRef.current
+        if (!ed) return false
+        const { selection } = ed.state
+        if (selection.empty) {
+          const coords = ed.view.coordsAtPos(selection.head)
+          const toolbarH = keyboardVisibleRef.current ? 44 : 0
+          const margin = 16
+          const vvBottom = window.visualViewport?.height ?? window.innerHeight
+          const overflow = coords.bottom + toolbarH + margin - vvBottom
+          if (overflow > 0) {
+            const scroller = ed.view.dom.closest('.section-fade') as HTMLElement | null
+            if (scroller) scroller.scrollTop += overflow
+          }
+        }
+        return true
+      },
       attributes: {
         class: plain
           ? 'tiptap max-w-none pl-0 pr-0 py-0 text-[15px] leading-relaxed focus:outline-none min-h-[2em]'
@@ -437,15 +457,32 @@ export function EditorCore({
     return () => { editor.off('selectionUpdate', handle) }
   }, [editor, isMobile])
 
-  // 移动端工具栏按钮：先恢复选择再执行操作，禁止 ProseMirror 自动滚动
+  // 移动端键盘弹出时，主动将光标滚到可见区域
+  useEffect(() => {
+    if (!isMobile || !keyboardVisible) return
+    const ed = editorRef.current
+    if (!ed || !ed.isFocused) return
+    const raf = requestAnimationFrame(() => {
+      if (!editorRef.current) return
+      const coords = editorRef.current.view.coordsAtPos(editorRef.current.state.selection.head)
+      const toolbarH = 44
+      const margin = 16
+      const vvBottom = window.visualViewport?.height ?? window.innerHeight
+      const overflow = coords.bottom + toolbarH + margin - vvBottom
+      if (overflow > 0) {
+        const scroller = editorRef.current.view.dom.closest('.section-fade') as HTMLElement | null
+        if (scroller) scroller.scrollTop += overflow
+      }
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [isMobile, keyboardVisible])
+
+  // 移动端工具栏按钮：先恢复选择再执行操作
   const handleToolbarAction = useCallback((action: () => void) => {
     if (!editor) return
     if (isMobile && selectionRef.current) {
       const { from, to } = selectionRef.current
       editor.chain().setTextSelection({ from, to }).run()
-    }
-    if (isMobile) {
-      editor.view.dispatch(editor.state.tr.setMeta('scrollIntoView', false))
     }
     editor.commands.focus()
     action()
@@ -646,7 +683,7 @@ export function EditorCore({
             if (isPointerDownRef.current) return false
             return true
           }}
-          className="flex gap-0.5 rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 context-menu-fade context-menu-visible"
+          className="flex gap-0.5 rounded-md border border-line bg-paper/85 dark:bg-paper/85 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 context-menu-fade context-menu-visible"
         >
           <button onClick={() => editor.chain().focus().toggleBold().run()} className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${editor.isActive('bold') ? 'bg-black/10 dark:bg-white/10 text-ink' : 'text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-ink'}`}>
             <Bold size={16} strokeWidth={2} />
@@ -681,7 +718,7 @@ export function EditorCore({
           />
         )}
         <div
-          className="fixed left-0 right-0 z-30 flex items-center gap-2 px-3 py-2 bg-paper/95 backdrop-blur-lg border-t border-line"
+          className="fixed left-0 right-0 z-30 flex items-center gap-2 px-3 py-2 bg-paper/85 backdrop-blur-lg border-t border-line"
           style={{ bottom: `${keyboardHeight}px` }}
           data-tick={toolbarTick}
         >
@@ -732,12 +769,28 @@ export function EditorCore({
           >
             <Link2 size={16} strokeWidth={2} />
           </button>
+          <button
+            type="button"
+            onPointerDown={(e) => handleToolbarPointerDown(e, () => editor?.chain().focus().undo().run())}
+            disabled={!editor?.can().undo()}
+            className="h-9 w-9 flex items-center justify-center rounded shrink-0 ml-auto text-ink-muted active:bg-black/8 dark:active:bg-white/8 disabled:opacity-30"
+          >
+            <Undo2 size={16} strokeWidth={2} />
+          </button>
+          <button
+            type="button"
+            onPointerDown={(e) => handleToolbarPointerDown(e, () => editor?.chain().focus().redo().run())}
+            disabled={!editor?.can().redo()}
+            className="h-9 w-9 flex items-center justify-center rounded shrink-0 text-ink-muted active:bg-black/8 dark:active:bg-white/8 disabled:opacity-30"
+          >
+            <Redo2 size={16} strokeWidth={2} />
+          </button>
         </div>
 
         {/* 移动端块类型选择面板 */}
         {mobileBlockMenuOpen && (
           <div
-            className="fixed left-0 right-0 z-40 p-3 bg-paper/95 backdrop-blur-lg border-t border-line"
+            className="fixed left-0 right-0 z-40 p-3 bg-paper/85 backdrop-blur-lg border-t border-line"
             style={{ bottom: `${keyboardHeight + 44}px` }}
           >
             <div className="flex flex-wrap gap-2">

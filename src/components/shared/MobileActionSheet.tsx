@@ -55,7 +55,7 @@ export function MobileActionSheet({ open, onClose, title, actions }: MobileActio
       <div className="absolute inset-0 bg-black/15" onClick={onClose} />
       <div
         ref={panelRef}
-        className="absolute bottom-0 left-0 right-0 bg-paper/70 backdrop-blur-lg rounded-t-xl transition-transform duration-250 ease-out"
+        className="absolute bottom-0 left-0 right-0 bg-paper/85 backdrop-blur-lg rounded-t-xl transition-transform duration-250 ease-out"
         style={{
           transform: visible ? 'translateY(0)' : 'translateY(100%)',
           paddingBottom: 'var(--safe-bottom, 0px)',

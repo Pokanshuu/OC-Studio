@@ -10,7 +10,7 @@ interface MobileFabProps {
 
 export function MobileFab({ viewMode, onViewModeChange }: MobileFabProps) {
   return (
-    <div className="md:hidden fixed bottom-[calc(5rem+var(--safe-bottom))] right-4 z-40 flex flex-col gap-1 rounded-full border border-line bg-paper/80 p-1 shadow-sm backdrop-blur-lg">
+    <div className="md:hidden fixed bottom-[calc(5rem+var(--safe-bottom))] right-4 z-40 flex flex-col gap-1 rounded-full border border-line bg-paper/85 p-1 shadow-sm backdrop-blur-lg">
       {/* Sliding pill indicator */}
       <div
         className={`absolute left-1 w-10 h-10 rounded-full bg-black/5 dark:bg-white/5 transition-[top] duration-300 ease-out ${

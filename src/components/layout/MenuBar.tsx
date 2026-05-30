@@ -386,7 +386,7 @@ export function MenuBar() {
             ? createPortal(
                 <div
                   ref={panelRef}
-                  className="fixed rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-lg shadow-none ring-1 ring-black/5 max-h-[320px] overflow-auto pointer-events-auto"
+                  className="fixed rounded-md border border-line bg-paper/85 dark:bg-paper/85 backdrop-blur-lg shadow-none ring-1 ring-black/5 max-h-[320px] overflow-auto pointer-events-auto"
                   style={{
                     left: panelPos.x,
                     top: panelPos.y,

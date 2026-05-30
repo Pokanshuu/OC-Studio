@@ -10,6 +10,11 @@ const config: CapacitorConfig = {
   ios: {
     scheme: 'capacitor',
   },
+  plugins: {
+    Keyboard: {
+      resizeOnFullScreen: true,
+    },
+  },
 }
 
 export default config

@@ -173,7 +173,7 @@ export function GlobalContextMenu({ children }: { children: ReactNode }) {
     <div className="pointer-events-none fixed inset-0 z-50">
       <div
         ref={menuRef}
-        className={`pointer-events-auto absolute flex flex-col rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 context-menu-fade ${visible ? 'context-menu-visible' : ''}`}
+        className={`pointer-events-auto absolute flex flex-col rounded-md border border-line bg-paper/85 dark:bg-paper/85 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 context-menu-fade ${visible ? 'context-menu-visible' : ''}`}
         style={{
           left: adjPosition.x,
           top: adjPosition.y,

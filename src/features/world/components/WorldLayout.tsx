@@ -281,7 +281,7 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
         {selectedId !== null && currentEntry ? (
           <>
             <div className="flex-1">
-      <div className="flex items-center justify-between sticky top-0 max-md:top-[calc(60px+var(--safe-top))] z-10 border-b border-line px-4 py-3 h-[60px] bg-paper/70 dark:bg-[#1C1B1A]/70 backdrop-blur-lg">
+      <div className="flex items-center justify-between sticky top-0 max-md:top-[calc(60px+var(--safe-top))] z-10 border-b border-line px-4 py-3 h-[60px] bg-paper/85 dark:bg-[#1C1B1A]/85 backdrop-blur-lg">
               <div className="flex items-center gap-3 flex-1 min-w-0">
                 {treeCollapsed && !isMobile ? (
                   <button

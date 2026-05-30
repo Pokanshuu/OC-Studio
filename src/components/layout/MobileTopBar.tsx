@@ -36,7 +36,7 @@ export function MobileTopBar() {
   const displayTitle = pageTitle ?? (SECTION_TITLES[section] ?? 'OC Studio')
 
   return (
-    <div className="md:hidden fixed top-0 left-0 right-0 z-20 flex h-[calc(60px+var(--safe-top))] items-center justify-between border-b border-line bg-paper/80 px-4 pt-[var(--safe-top)] backdrop-blur-lg dark:bg-[#1C1B1A]/80">
+    <div className="md:hidden fixed top-0 left-0 right-0 z-20 flex h-[calc(60px+var(--safe-top))] items-center justify-between border-b border-line bg-paper/85 px-4 pt-[var(--safe-top)] backdrop-blur-lg dark:bg-[#1C1B1A]/85">
       {/* Left: action button + text tabs (gallery) or section title */}
       <div className="flex items-center gap-2">
         {!isGallery && needsMenu ? (

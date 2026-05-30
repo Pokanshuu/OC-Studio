@@ -191,7 +191,7 @@ export function BlockTypeMenu({ editor, position, onClose, blockPos }: BlockType
         top: position.y - 4,
         zIndex: 100,
       }}
-      className={`flex gap-0.5 rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 context-menu-fade ${visible ? 'context-menu-visible' : ''}`}
+      className={`flex gap-0.5 rounded-md border border-line bg-paper/85 dark:bg-paper/85 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 context-menu-fade ${visible ? 'context-menu-visible' : ''}`}
     >
       {buttons.map((btn) => (
         <button

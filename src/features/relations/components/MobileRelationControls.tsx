@@ -95,7 +95,7 @@ function ZoomSlider({ zoom, onZoomChange }: { zoom: number; onZoomChange: (value
 
 export function MobileRelationControls(props: RelationControlsProps) {
   return (
-    <div className="md:hidden fixed top-[calc(60px+var(--safe-top))] left-0 right-0 z-30 flex h-10 items-center justify-between border-b border-line/50 bg-paper-alt/80 px-4 backdrop-blur-lg">
+    <div className="md:hidden fixed top-[calc(60px+var(--safe-top))] left-0 right-0 z-30 flex h-10 items-center justify-between border-b border-line/50 bg-paper-alt/85 px-4 backdrop-blur-lg">
       <RelationFilterButtons {...props} />
       <ZoomSlider zoom={props.zoom} onZoomChange={props.onZoomChange} />
     </div>
@@ -104,7 +104,7 @@ export function MobileRelationControls(props: RelationControlsProps) {
 
 export function DesktopRelationPanel(props: RelationControlsProps) {
   return (
-    <Panel position="top-left" className="max-md:hidden flex items-center gap-4 bg-paper/70 backdrop-blur-lg border border-line rounded-md px-3 py-2 m-3">
+    <Panel position="top-left" className="max-md:hidden flex items-center gap-4 bg-paper/85 backdrop-blur-lg border border-line rounded-md px-3 py-2 m-3">
       <RelationFilterButtons {...props} />
       <ZoomSlider zoom={props.zoom} onZoomChange={props.onZoomChange} />
     </Panel>

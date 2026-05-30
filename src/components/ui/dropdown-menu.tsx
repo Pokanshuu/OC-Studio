@@ -34,7 +34,7 @@ function DropdownMenuContent({
       <Menu.Positioner sideOffset={4} align="start" positionMethod="fixed">
         <Menu.Popup
           className={cn(
-            "z-[99999] min-w-[160px] rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 pointer-events-none",
+            "z-[99999] min-w-[160px] rounded-md border border-line bg-paper/85 dark:bg-paper/85 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 pointer-events-none",
             className
           )}
           {...props}
@@ -183,7 +183,7 @@ function DropdownMenuSubContent({
       <Menu.Positioner sideOffset={4} alignOffset={-4} align="start" positionMethod="fixed">
         <Menu.Popup
           className={cn(
-            "z-[99999] min-w-[160px] rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 pointer-events-none",
+            "z-[99999] min-w-[160px] rounded-md border border-line bg-paper/85 dark:bg-paper/85 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 pointer-events-none",
             className
           )}
           {...props}

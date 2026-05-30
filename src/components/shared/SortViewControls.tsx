@@ -75,7 +75,7 @@ export function SortSelect({
         ? createPortal(
             <div
               ref={panelRef}
-              className="fixed z-30 mt-1 flex flex-col rounded-md border border-line bg-paper/70 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 pointer-events-auto"
+              className="fixed z-30 mt-1 flex flex-col rounded-md border border-line bg-paper/85 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 pointer-events-auto"
               style={{ left: pos.x, top: pos.y }}
             >
               {options.map((opt) => (

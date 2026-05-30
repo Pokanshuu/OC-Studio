@@ -132,7 +132,7 @@ export function TrashView({ onClose }: TrashViewProps) {
         className="flex max-md:w-[calc(100%-2rem)] max-md:min-h-[40vh] max-md:max-h-[calc(100vh-4rem)] max-md:my-4 h-[80vh] w-[80vw] max-w-5xl flex-col overflow-auto rounded-lg border border-line bg-paper ring-1 ring-black/5 transition-opacity duration-150"
         style={{ opacity: visible ? 1 : 0 }}
       >
-        <div className="flex items-center justify-between sticky top-0 z-10 border-b border-line max-md:px-3 max-md:py-2 px-5 py-3 bg-paper/70 dark:bg-[#1C1B1A]/70 backdrop-blur-lg">
+        <div className="flex items-center justify-between sticky top-0 z-10 border-b border-line max-md:px-3 max-md:py-2 px-5 py-3 bg-paper/85 dark:bg-[#1C1B1A]/85 backdrop-blur-lg">
           <div className="flex items-center gap-3">
             <h2 className="text-base text-ink font-serif font-bold">回收站</h2>
             {items.length > 0 ? (

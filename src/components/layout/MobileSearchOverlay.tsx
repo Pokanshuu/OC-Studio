@@ -94,7 +94,7 @@ export function MobileSearchOverlay({ open, onClose }: { open: boolean; onClose:
           <div className="mx-auto w-full max-w-lg">
             {results.length === 0 ? (
               <div className="flex items-center justify-center py-16 text-sm text-ink-faint">
-                {query.trim() ? '无匹配结果' : '输入关键词搜索...'}
+                {query.trim() ? '无匹配结果' : ''}
               </div>
             ) : (
               <div className="space-y-4">
@@ -137,7 +137,7 @@ export function MobileSearchOverlay({ open, onClose }: { open: boolean; onClose:
 
       {/* Input bar — separate fixed element, always above keyboard */}
       <div
-        className="fixed left-0 right-0 z-50 flex items-center gap-3 px-4 py-3 bg-paper/95 backdrop-blur-lg border-t border-line pointer-events-auto"
+        className="fixed left-0 right-0 z-50 flex items-center gap-3 px-4 py-3 bg-paper/85 backdrop-blur-lg border-t border-line pointer-events-auto"
         style={{
           bottom: `${keyboardHeight}px`,
           paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))',

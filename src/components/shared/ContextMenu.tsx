@@ -104,7 +104,7 @@ function SubMenu({ item, onCloseParent }: { item: ContextMenuItem; onCloseParent
               ref={subRef}
               onMouseEnter={handleMouseEnter}
               onMouseLeave={handleMouseLeave}
-              className="fixed z-50 ml-1 flex min-w-[140px] flex-col rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 pointer-events-auto"
+              className="fixed z-50 ml-1 flex min-w-[140px] flex-col rounded-md border border-line bg-paper/85 dark:bg-paper/85 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 pointer-events-auto"
               style={subStyle}
             >
           {children.map((child, i) => {
@@ -260,7 +260,7 @@ export function ContextMenu({ children, items }: ContextMenuProps) {
         <div className="pointer-events-none fixed inset-0 z-50">
           <div
             ref={menuRef}
-            className={`pointer-events-auto absolute flex flex-col rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 context-menu-fade ${visible ? 'context-menu-visible' : ''}`}
+            className={`pointer-events-auto absolute flex flex-col rounded-md border border-line bg-paper/85 dark:bg-paper/85 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 context-menu-fade ${visible ? 'context-menu-visible' : ''}`}
             style={{
               left: adjPosition.x,
               top: adjPosition.y,
