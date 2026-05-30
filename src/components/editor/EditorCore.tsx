@@ -384,15 +384,15 @@ export function EditorCore({
     editorProps: {
       handleScrollToSelection: () => {
         if (!isMobile) return false
+        if (!keyboardVisibleRef.current) return true
         const ed = editorRef.current
-        if (!ed) return false
+        if (!ed) return true
         const { selection } = ed.state
         if (selection.empty) {
           const coords = ed.view.coordsAtPos(selection.head)
-          const toolbarH = keyboardVisibleRef.current ? 44 : 0
-          const margin = 16
+          const toolbarH = 44
           const vvBottom = window.visualViewport?.height ?? window.innerHeight
-          const overflow = coords.bottom + toolbarH + margin - vvBottom
+          const overflow = coords.bottom + toolbarH - vvBottom
           if (overflow > 0) {
             const scroller = ed.view.dom.closest('.section-fade') as HTMLElement | null
             if (scroller) scroller.scrollTop += overflow
@@ -404,6 +404,7 @@ export function EditorCore({
         class: plain
           ? 'tiptap max-w-none pl-0 pr-0 py-0 text-[15px] leading-relaxed focus:outline-none min-h-[2em]'
           : 'tiptap max-w-none pl-8 pr-4 py-2 text-[15px] leading-relaxed focus:outline-none min-h-[2em]',
+        ...(isMobile ? { virtualkeyboardpolicy: 'manual' } : {}),
       },
     },
     content: content ?? '',
@@ -442,6 +443,77 @@ export function EditorCore({
     }
   }, [editor, setActiveEditor])
 
+  // 移动端：virtualkeyboardpolicy="manual" 阻止键盘自动弹出，改为 tap 时手动弹出
+  useEffect(() => {
+    if (!isMobile || !editor) return
+    const dom = editor.view.dom
+    let timer: ReturnType<typeof setTimeout> | null = null
+    let startPos: { x: number; y: number } | null = null
+    let wasLongPress = false
+    let wasScroll = false
+
+    const onTouchStart = (e: TouchEvent) => {
+      const touch = e.touches[0]
+      startPos = { x: touch.clientX, y: touch.clientY }
+      wasLongPress = false
+      wasScroll = false
+      timer = setTimeout(() => {
+        wasLongPress = true
+        dom.blur()
+      }, 320)
+    }
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (!startPos) return
+      const touch = e.touches[0]
+      if (Math.abs(touch.clientX - startPos.x) > 8 || Math.abs(touch.clientY - startPos.y) > 8) {
+        if (timer) { clearTimeout(timer); timer = null }
+        wasScroll = true
+      }
+    }
+
+    const onTouchEnd = () => {
+      if (timer) { clearTimeout(timer); timer = null }
+      if (wasScroll || wasLongPress) {
+        startPos = null
+        return
+      }
+      // tap：手动弹出键盘（滚动由 keyboardHeight effect 在键盘完全弹起后处理）
+      ;(navigator as unknown as { virtualKeyboard?: { show: () => void } }).virtualKeyboard?.show()
+      startPos = null
+    }
+
+    dom.addEventListener('touchstart', onTouchStart, { passive: true })
+    dom.addEventListener('touchmove', onTouchMove, { passive: true })
+    dom.addEventListener('touchend', onTouchEnd)
+    dom.addEventListener('touchcancel', onTouchEnd)
+    return () => {
+      dom.removeEventListener('touchstart', onTouchStart)
+      dom.removeEventListener('touchmove', onTouchMove)
+      dom.removeEventListener('touchend', onTouchEnd)
+      dom.removeEventListener('touchcancel', onTouchEnd)
+    }
+  }, [isMobile, editor])
+
+  // 移动端键盘弹出后，检查光标是否被遮挡并滚动到位
+  useEffect(() => {
+    if (!isMobile || !keyboardVisible) return
+    const ed = editorRef.current
+    if (!ed || !ed.isFocused) return
+    const id = setTimeout(() => {
+      if (!editorRef.current) return
+      const coords = editorRef.current.view.coordsAtPos(editorRef.current.state.selection.head)
+      const toolbarH = 44
+      const vvBottom = window.visualViewport?.height ?? window.innerHeight
+      const overflow = coords.bottom + toolbarH - vvBottom
+      if (overflow > 0) {
+        const scroller = editorRef.current.view.dom.closest('.section-fade') as HTMLElement | null
+        if (scroller) scroller.scrollTop += overflow
+      }
+    }, 300)
+    return () => clearTimeout(id)
+  }, [isMobile, keyboardVisible])
+
   // 移动端：缓存最近一次文本选择，防止工具栏按钮点击时丢失选择
   useEffect(() => {
     if (!editor || !isMobile) return
@@ -456,26 +528,6 @@ export function EditorCore({
     editor.on('selectionUpdate', handle)
     return () => { editor.off('selectionUpdate', handle) }
   }, [editor, isMobile])
-
-  // 移动端键盘弹出时，主动将光标滚到可见区域
-  useEffect(() => {
-    if (!isMobile || !keyboardVisible) return
-    const ed = editorRef.current
-    if (!ed || !ed.isFocused) return
-    const raf = requestAnimationFrame(() => {
-      if (!editorRef.current) return
-      const coords = editorRef.current.view.coordsAtPos(editorRef.current.state.selection.head)
-      const toolbarH = 44
-      const margin = 16
-      const vvBottom = window.visualViewport?.height ?? window.innerHeight
-      const overflow = coords.bottom + toolbarH + margin - vvBottom
-      if (overflow > 0) {
-        const scroller = editorRef.current.view.dom.closest('.section-fade') as HTMLElement | null
-        if (scroller) scroller.scrollTop += overflow
-      }
-    })
-    return () => cancelAnimationFrame(raf)
-  }, [isMobile, keyboardVisible])
 
   // 移动端工具栏按钮：先恢复选择再执行操作
   const handleToolbarAction = useCallback((action: () => void) => {

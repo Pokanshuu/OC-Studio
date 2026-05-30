@@ -12,12 +12,11 @@ const KeyboardContext = createContext<KeyboardState>({ visible: false, height: 0
 function scrollElementIntoView(el: HTMLElement) {
   const vvH = window.visualViewport?.height ?? window.innerHeight
   const rect = el.getBoundingClientRect()
-  const margin = 60
-  if (rect.bottom <= vvH - margin) return
+  if (rect.bottom <= vvH) return
 
   const scroller = el.closest('.section-fade') as HTMLElement | null
   if (scroller) {
-    scroller.scrollTop += rect.bottom - vvH + margin
+    scroller.scrollTop += rect.bottom - vvH + 8
   }
 }
 
