@@ -1,12 +1,11 @@
-import { Extension } from '@tiptap/core'
+import { Extension, type Editor } from '@tiptap/core'
 import Suggestion from '@tiptap/suggestion'
 import type { SuggestionProps, SuggestionKeyDownProps } from '@tiptap/suggestion'
 import { adjustSuggestionPosition } from '@/lib/menu-utils'
 
 interface SlashCommandItem {
   title: string
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  command: (props: { editor: any; range: { from: number; to: number } }) => void
+  command: (props: { editor: Editor; range: { from: number; to: number } }) => void
 }
 
 const slashCommands: SlashCommandItem[] = [

@@ -13,6 +13,7 @@ import {
   type Node,
   type Edge,
   type ReactFlowInstance,
+  type OnMove,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 
@@ -85,7 +86,7 @@ export function RelationGraph({
     rfRef.current = rf
   }, [])
 
-  const handleMove = useCallback((_event: any, viewport: { zoom: number }) => {
+  const handleMove = useCallback<OnMove>((_event, viewport) => {
     setZoom(viewport.zoom)
   }, [])
 
