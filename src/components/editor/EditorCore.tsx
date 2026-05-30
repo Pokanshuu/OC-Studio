@@ -427,7 +427,11 @@ export function EditorCore({
     if (!editor || !isMobile) return
     const handle = () => {
       const { from, to } = editor.state.selection
-      if (from !== to) selectionRef.current = { from, to }
+      if (from !== to) {
+        selectionRef.current = { from, to }
+      } else {
+        selectionRef.current = null
+      }
     }
     editor.on('selectionUpdate', handle)
     return () => { editor.off('selectionUpdate', handle) }
@@ -653,10 +657,10 @@ export function EditorCore({
           <button onClick={() => editor.chain().focus().toggleUnderline().run()} className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${editor.isActive('underline') ? 'bg-black/10 dark:bg-white/10 text-ink' : 'text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-ink'}`}>
             <UnderlineIcon size={16} strokeWidth={2} />
           </button>
-          <button onClick={() => { editor.chain().focus().insertContent('@').run() }} className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${editor.isActive('mention') ? 'bg-black/10 dark:bg-white/10 text-ink' : 'text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-ink'}`} title="@ 引用">
+          <button onClick={() => { editor.chain().focus().insertContent(' @').run() }} className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${editor.isActive('mention') ? 'bg-black/10 dark:bg-white/10 text-ink' : 'text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-ink'}`} title="@ 引用">
             <AtSign size={16} strokeWidth={2} />
           </button>
-          <button onClick={() => { editor.chain().focus().insertContent('[[').run() }} className="flex h-8 w-8 items-center justify-center rounded transition-colors text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-ink" title="[[ 内链">
+          <button onClick={() => { editor.chain().focus().insertContent(' [[').run() }} className="flex h-8 w-8 items-center justify-center rounded transition-colors text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-ink" title="[[ 内链">
             <Link2 size={16} strokeWidth={2} />
           </button>
         </BubbleMenu>
@@ -716,14 +720,14 @@ export function EditorCore({
           </button>
           <button
             type="button"
-            onPointerDown={(e) => handleToolbarPointerDown(e, () => editor?.chain().focus().insertContent('@').run())}
+            onPointerDown={(e) => handleToolbarPointerDown(e, () => editor?.chain().focus().insertContent(' @').run())}
             className={`touch-feedback h-9 w-9 flex items-center justify-center rounded border border-line shrink-0 ${editor?.isActive('mention') ? 'bg-black/15 dark:bg-white/30' : 'bg-black/5 dark:bg-white/5'}`}
           >
             <AtSign size={16} strokeWidth={2} />
           </button>
           <button
             type="button"
-            onPointerDown={(e) => handleToolbarPointerDown(e, () => editor?.chain().focus().insertContent('[[').run())}
+            onPointerDown={(e) => handleToolbarPointerDown(e, () => editor?.chain().focus().insertContent(' [[').run())}
             className="touch-feedback h-9 w-9 flex items-center justify-center rounded border border-line shrink-0 bg-black/5 dark:bg-white/5"
           >
             <Link2 size={16} strokeWidth={2} />
@@ -753,7 +757,7 @@ export function EditorCore({
                 <button
                   key={item.label}
                   type="button"
-                  onPointerDown={(e) => handleToolbarPointerDown(e, () => { handleToolbarAction(item.action); setMobileBlockMenuOpen(false) })}
+                  onPointerDown={(e) => handleToolbarPointerDown(e, () => { item.action(); setMobileBlockMenuOpen(false) })}
                   className={`touch-feedback flex items-center gap-1.5 rounded border border-line px-3 py-2 text-sm transition-colors ${item.active() ? 'bg-black/15 dark:bg-white/30 text-ink' : 'bg-black/5 dark:bg-white/5 text-ink-muted'}`}
                 >
                   {item.icon}
