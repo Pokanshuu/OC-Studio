@@ -8,6 +8,7 @@ import { MobileTopBar } from "@/components/layout/MobileTopBar"
 import { MobileTabBar } from "@/components/layout/MobileTabBar"
 import { Toaster } from "@/components/shared/toaster"
 import { GlobalContextMenu } from "@/components/shared/GlobalContextMenu"
+import { MobileTextSelectionBar } from "@/components/shared/MobileTextSelectionBar"
 import { SettingsDialog } from "@/components/settings/SettingsDialog"
 import { SettingsTriggerContext } from "@/components/layout/SettingsTriggerContext"
 import { EditorProvider, useEditor } from "@/components/layout/EditorContext"
@@ -40,6 +41,7 @@ function AppShellChrome({ settings, children }: { settings: ReturnType<typeof us
         {settings.sidebarVisible ? <Sidebar /> : null}
         <main className="flex-1 overflow-x-auto main-scroll bg-paper dark:bg-[#1C1B1A]">
           <GlobalContextMenu>{children}</GlobalContextMenu>
+          <MobileTextSelectionBar />
         </main>
       </div>
       <StatusBar />

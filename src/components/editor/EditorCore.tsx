@@ -16,7 +16,7 @@ import Mention from '@tiptap/extension-mention'
 import { DragHandle } from '@tiptap/extension-drag-handle'
 import type { SuggestionProps, SuggestionKeyDownProps } from '@tiptap/suggestion'
 import type { Editor } from '@tiptap/core'
-import { Bold, Italic, Underline as UnderlineIcon, AtSign, Pilcrow, Heading1, Heading2, Heading3, List, ListOrdered, ListTodo, Quote, Scissors, Image, Table as TableIcon, ChevronDown, Link2 } from 'lucide-react'
+import { Bold, Italic, Underline as UnderlineIcon, AtSign, Pilcrow, Heading1, Heading2, Heading3, List, ListOrdered, ListTodo, Quote, Scissors, Image, Table as TableIcon, ChevronDown, Link2, Undo2, Redo2 } from 'lucide-react'
 import React from 'react'
 import { ImageBlock } from './extensions/ImageBlock'
 
@@ -66,7 +66,7 @@ function createMentionRender() {
       currentCommand = props.command
       selectedIndex = 0
       popup = document.createElement('div')
-      popup.className = 'absolute z-50 max-h-56 overflow-auto rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 min-w-[200px]'
+      popup.className = 'absolute z-50 max-h-56 overflow-auto rounded-md border border-line bg-paper/85 dark:bg-paper/85 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 min-w-[200px]'
       const rect = props.clientRect()
       if (rect) {
         popup.style.left = `${rect.left}px`
@@ -222,10 +222,12 @@ export function EditorCore({
   const [toolbarTick, setToolbarTick] = useState(0)
   const { isMobile } = useDevice()
   const { setActiveEditor } = useActiveEditor()
-  const { visible: keyboardVisible, height: keyboardHeight } = useKeyboard()
+  const { visible: keyboardVisible, viewportHeight: keyboardHeight } = useKeyboard()
   const [mobileBlockMenuOpen, setMobileBlockMenuOpen] = useState(false)
   const selectionRef = useRef<{ from: number; to: number } | null>(null)
   const isPointerDownRef = useRef(false)
+  const keyboardVisibleRef = useRef(keyboardVisible)
+  keyboardVisibleRef.current = keyboardVisible
 
   useEffect(() => {
     const down = (e: PointerEvent) => {
@@ -380,10 +382,29 @@ export function EditorCore({
       }),
     ],
     editorProps: {
+      handleScrollToSelection: () => {
+        if (!isMobile) return false
+        if (!keyboardVisibleRef.current) return true
+        const ed = editorRef.current
+        if (!ed) return true
+        const { selection } = ed.state
+        if (selection.empty) {
+          const coords = ed.view.coordsAtPos(selection.head)
+          const toolbarH = 56
+          const vvBottom = document.documentElement.clientHeight
+          const overflow = coords.bottom + toolbarH - vvBottom
+          if (overflow > 0) {
+            const scroller = ed.view.dom.closest('.section-fade') as HTMLElement | null
+            if (scroller) scroller.scrollTop += overflow
+          }
+        }
+        return true
+      },
       attributes: {
         class: plain
           ? 'tiptap max-w-none pl-0 pr-0 py-0 text-[15px] leading-relaxed focus:outline-none min-h-[2em]'
           : 'tiptap max-w-none pl-8 pr-4 py-2 text-[15px] leading-relaxed focus:outline-none min-h-[2em]',
+        ...(isMobile ? { /* virtualkeyboardpolicy removed — system handles keyboard natively */ } : {}),
       },
     },
     content: content ?? '',
@@ -417,10 +438,104 @@ export function EditorCore({
     if (!editor) return
     const handleFocus = () => setActiveEditor(editor)
     editor.on('focus', handleFocus)
-    return () => {
-      editor.off('focus', handleFocus)
-    }
+    return () => { editor.off('focus', handleFocus) }
   }, [editor, setActiveEditor])
+
+  useEffect(() => {
+    if (!isMobile || !editor) return
+    const dom = editor.view.dom
+    let timer: ReturnType<typeof setTimeout> | null = null
+    let startPos: { x: number; y: number } | null = null
+    let wasLongPress = false
+    let wasScroll = false
+
+    const onTouchStart = (e: TouchEvent) => {
+      const touch = e.touches[0]
+      startPos = { x: touch.clientX, y: touch.clientY }
+      wasLongPress = false
+      wasScroll = false
+      timer = setTimeout(() => {
+        wasLongPress = true
+      }, 320)
+    }
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (!startPos) return
+      const touch = e.touches[0]
+      if (Math.abs(touch.clientX - startPos.x) > 8 || Math.abs(touch.clientY - startPos.y) > 8) {
+        if (timer) { clearTimeout(timer); timer = null }
+        wasScroll = true
+      }
+    }
+
+    const onTouchEnd = () => {
+      if (timer) { clearTimeout(timer); timer = null }
+      if (wasScroll || wasLongPress) {
+        startPos = null
+        return
+      }
+      editor.commands.focus()
+      startPos = null
+    }
+
+    dom.addEventListener('touchstart', onTouchStart, { passive: true })
+    dom.addEventListener('touchmove', onTouchMove, { passive: true })
+    dom.addEventListener('touchend', onTouchEnd)
+    dom.addEventListener('touchcancel', onTouchEnd)
+    return () => {
+      dom.removeEventListener('touchstart', onTouchStart)
+      dom.removeEventListener('touchmove', onTouchMove)
+      dom.removeEventListener('touchend', onTouchEnd)
+      dom.removeEventListener('touchcancel', onTouchEnd)
+    }
+  }, [isMobile, editor])
+
+  // 移动端工具栏自定义事件（MobileTextSelectionBar → EditorCore）
+  useEffect(() => {
+    if (!isMobile || !editor) return
+    const dom = editor.view.dom
+    const handlers: Record<string, () => void> = {
+      'mobile:insert-image': () => editor.chain().focus().insertContent({ type: 'imageBlock' }).run(),
+      'mobile:insert-table': () => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
+      'mobile:insert-link': () => editor.chain().focus().toggleLink({ href: '' }).run(),
+      'mobile:insert-code': () => editor.chain().focus().toggleCodeBlock().run(),
+      'mobile:insert-divider': () => editor.chain().focus().setHorizontalRule().run(),
+      'mobile:table-add-row-before': () => editor.chain().focus().addRowBefore().run(),
+      'mobile:table-add-row-after': () => editor.chain().focus().addRowAfter().run(),
+      'mobile:table-add-col-before': () => editor.chain().focus().addColumnBefore().run(),
+      'mobile:table-add-col-after': () => editor.chain().focus().addColumnAfter().run(),
+      'mobile:table-delete': () => editor.chain().focus().deleteTable().run(),
+      'mobile:table-delete-row': () => editor.chain().focus().deleteRow().run(),
+      'mobile:table-delete-col': () => editor.chain().focus().deleteColumn().run(),
+    }
+    for (const [name, fn] of Object.entries(handlers)) {
+      dom.addEventListener(name, fn)
+    }
+    return () => {
+      for (const [name, fn] of Object.entries(handlers)) {
+        dom.removeEventListener(name, fn)
+      }
+    }
+  }, [isMobile, editor])
+
+  // 移动端键盘弹出后检查光标是否被遮挡并滚动到位
+  useEffect(() => {
+    if (!isMobile || !keyboardVisible) return
+    const ed = editorRef.current
+    if (!ed || !ed.isFocused) return
+    const id = setTimeout(() => {
+      if (!editorRef.current) return
+      const coords = editorRef.current.view.coordsAtPos(editorRef.current.state.selection.head)
+      const toolbarH = 56
+      const vvBottom = document.documentElement.clientHeight
+      const overflow = coords.bottom + toolbarH - vvBottom
+      if (overflow > 0) {
+        const scroller = editorRef.current.view.dom.closest('.section-fade') as HTMLElement | null
+        if (scroller) scroller.scrollTop += overflow
+      }
+    }, 30)
+    return () => clearTimeout(id)
+  }, [isMobile, keyboardVisible])
 
   // 移动端：缓存最近一次文本选择，防止工具栏按钮点击时丢失选择
   useEffect(() => {
@@ -437,15 +552,12 @@ export function EditorCore({
     return () => { editor.off('selectionUpdate', handle) }
   }, [editor, isMobile])
 
-  // 移动端工具栏按钮：先恢复选择再执行操作，禁止 ProseMirror 自动滚动
+  // 移动端工具栏按钮：先恢复选择再执行操作
   const handleToolbarAction = useCallback((action: () => void) => {
     if (!editor) return
     if (isMobile && selectionRef.current) {
       const { from, to } = selectionRef.current
       editor.chain().setTextSelection({ from, to }).run()
-    }
-    if (isMobile) {
-      editor.view.dispatch(editor.state.tr.setMeta('scrollIntoView', false))
     }
     editor.commands.focus()
     action()
@@ -646,7 +758,7 @@ export function EditorCore({
             if (isPointerDownRef.current) return false
             return true
           }}
-          className="flex gap-0.5 rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 context-menu-fade context-menu-visible"
+          className="flex gap-0.5 rounded-md border border-line bg-paper/85 dark:bg-paper/85 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 context-menu-fade context-menu-visible"
         >
           <button onClick={() => editor.chain().focus().toggleBold().run()} className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${editor.isActive('bold') ? 'bg-black/10 dark:bg-white/10 text-ink' : 'text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-ink'}`}>
             <Bold size={16} strokeWidth={2} />
@@ -681,7 +793,7 @@ export function EditorCore({
           />
         )}
         <div
-          className="fixed left-0 right-0 z-30 flex items-center gap-2 px-3 py-2 bg-paper/95 backdrop-blur-lg border-t border-line"
+          className="fixed left-0 right-0 z-30 flex items-center gap-2 px-3 py-2 bg-paper/85 backdrop-blur-lg border-t border-line"
           style={{ bottom: `${keyboardHeight}px` }}
           data-tick={toolbarTick}
         >
@@ -732,12 +844,28 @@ export function EditorCore({
           >
             <Link2 size={16} strokeWidth={2} />
           </button>
+          <button
+            type="button"
+            onPointerDown={(e) => handleToolbarPointerDown(e, () => editor?.chain().focus().undo().run())}
+            disabled={!editor?.can().undo()}
+            className="h-9 w-9 flex items-center justify-center rounded shrink-0 ml-auto text-ink-muted active:bg-black/8 dark:active:bg-white/8 disabled:opacity-30"
+          >
+            <Undo2 size={16} strokeWidth={2} />
+          </button>
+          <button
+            type="button"
+            onPointerDown={(e) => handleToolbarPointerDown(e, () => editor?.chain().focus().redo().run())}
+            disabled={!editor?.can().redo()}
+            className="h-9 w-9 flex items-center justify-center rounded shrink-0 text-ink-muted active:bg-black/8 dark:active:bg-white/8 disabled:opacity-30"
+          >
+            <Redo2 size={16} strokeWidth={2} />
+          </button>
         </div>
 
         {/* 移动端块类型选择面板 */}
         {mobileBlockMenuOpen && (
           <div
-            className="fixed left-0 right-0 z-40 p-3 bg-paper/95 backdrop-blur-lg border-t border-line"
+            className="fixed left-0 right-0 z-40 p-3 bg-paper/85 backdrop-blur-lg border-t border-line"
             style={{ bottom: `${keyboardHeight + 44}px` }}
           >
             <div className="flex flex-wrap gap-2">
