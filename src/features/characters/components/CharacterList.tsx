@@ -113,7 +113,7 @@ function CountryFilterSelect({
         ? createPortal(
             <div
               ref={panelRef}
-              className="fixed z-30 mt-1 flex max-h-64 flex-col overflow-auto rounded-md border border-line bg-paper/70 backdrop-blur-md p-1 shadow-none ring-1 ring-black/5 pointer-events-auto"
+              className="fixed z-30 mt-1 flex max-h-64 flex-col overflow-auto rounded-md border border-line bg-paper/70 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 pointer-events-auto"
               style={{ left: pos.x, top: pos.y }}
             >
           {options.map((opt) => (
@@ -125,7 +125,7 @@ function CountryFilterSelect({
               }}
               className={`whitespace-nowrap rounded-sm px-3 py-1.5 text-left text-sm transition-colors ${
                 value === opt.value
-                  ? 'bg-paper-card text-ink'
+                  ? 'bg-black/5 dark:bg-white/5 text-ink'
                   : 'text-ink hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8'
               }`}
             >
@@ -403,7 +403,7 @@ export function CharacterList({
 
   return (
     <div className="flex flex-col min-h-full">
-      <div className="max-md:hidden flex items-center justify-between sticky top-0 z-10 border-b border-line px-6 py-3 h-[60px] bg-paper/70 dark:bg-[#1C1B1A]/70 backdrop-blur-md">
+      <div className="max-md:hidden flex items-center justify-between sticky top-0 z-10 border-b border-line px-6 py-3 h-[60px] bg-paper/70 dark:bg-[#1C1B1A]/70 backdrop-blur-lg">
         <div className="flex items-center gap-3">
           <h2 className="text-lg text-ink font-serif font-bold">角色</h2>
           <Separator orientation="vertical" className="max-md:hidden md:flex h-4 !self-center" />

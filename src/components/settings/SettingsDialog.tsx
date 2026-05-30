@@ -49,7 +49,7 @@ function ThemeRadio({
           <div
             className={`relative flex items-center justify-center rounded-full border h-4 w-4 shrink-0 ${
               value === opt.value ? "border-line-hover" : "border-line"
-            } bg-paper-card`}
+            } bg-black/5 dark:bg-white/5`}
           >
             {value === opt.value && (
               <div className="h-2 w-2 rounded-full bg-ink-muted" />
@@ -73,7 +73,7 @@ function ThemeRadio({
 const SWITCH_CLASSES = {
   base: "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border transition-colors",
   on: "border-line-hover bg-ink-muted",
-  off: "border-line bg-paper-card",
+  off: "border-line bg-black/5 dark:bg-white/5",
 }
 
 const SWITCH_DOT =
@@ -140,9 +140,9 @@ export function SettingsDialog({
                 <TabsTrigger
                   key={item.value}
                   value={item.value}
-                  className="flex items-center justify-center gap-1.5"
+                  className="flex items-center justify-center gap-1.5 text-xs sm:text-sm"
                 >
-                  <item.icon size={14} strokeWidth={2} />
+                  <item.icon size={14} strokeWidth={2} className="shrink-0 sm:hidden" />
                   <span className="hidden sm:inline">{item.label}</span>
                 </TabsTrigger>
               ))}
@@ -197,7 +197,7 @@ export function SettingsDialog({
                         启用窗口模糊效果
                       </span>
                       <span className="text-xs text-ink-faint">
-                        将在桌面环境下生效
+                        仅在桌面环境下生效
                       </span>
                     </div>
                     <button
@@ -231,19 +231,19 @@ export function SettingsDialog({
                 <div className="flex flex-col gap-3">
                   <button
                     onClick={handleImportClick}
-                    className="inline-flex items-center justify-center h-9 px-4 rounded text-sm border border-line bg-paper-card text-ink transition-colors hover:border-line-hover hover:bg-paper-alt"
+                    className="touch-feedback inline-flex items-center justify-center h-9 px-4 rounded text-sm border border-line bg-white/60 dark:bg-white/[0.06] text-ink transition-colors hover:border-line-hover hover:bg-white/40 dark:hover:bg-white/[0.10]"
                   >
                     导入数据...
                   </button>
                   <button
                     onClick={handleExport}
-                    className="inline-flex items-center justify-center h-9 px-4 rounded text-sm border border-line bg-paper-card text-ink transition-colors hover:border-line-hover hover:bg-paper-alt"
+                    className="touch-feedback inline-flex items-center justify-center h-9 px-4 rounded text-sm border border-line bg-white/60 dark:bg-white/[0.06] text-ink transition-colors hover:border-line-hover hover:bg-white/40 dark:hover:bg-white/[0.10]"
                   >
                     导出所有数据 (JSON)
                   </button>
                   <button
                     disabled
-                    className="inline-flex items-center justify-center h-9 px-4 rounded text-sm border border-line bg-paper-card text-ink-muted cursor-not-allowed"
+                    className="inline-flex items-center justify-center h-9 px-4 rounded text-sm border border-line bg-black/5 dark:bg-white/5 text-ink-muted cursor-not-allowed"
                   >
                     发布为静态网站...
                   </button>
@@ -292,7 +292,7 @@ export function SettingsDialog({
                     value={settings.apiKey}
                     onChange={(e) => updateSetting("apiKey", e.target.value)}
                     placeholder="sk-..."
-                    className="h-9 w-full rounded border border-line bg-paper-card px-3 text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
+                    className="h-9 w-full rounded border border-line bg-black/5 dark:bg-white/5 px-3 text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
                   />
                   <span className="text-xs text-ink-faint">
                     密钥仅存储在本地，不会上传到任何服务器
@@ -306,7 +306,7 @@ export function SettingsDialog({
                     value={settings.aiModel}
                     onChange={(e) => updateSetting("aiModel", e.target.value)}
                     placeholder="gpt-4o"
-                    className="h-9 w-full rounded border border-line bg-paper-card px-3 text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
+                    className="h-9 w-full rounded border border-line bg-black/5 dark:bg-white/5 px-3 text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
                   />
                 </div>
 
@@ -319,7 +319,7 @@ export function SettingsDialog({
                       updateSetting("aiBaseUrl", e.target.value)
                     }
                     placeholder="https://api.openai.com/v1"
-                    className="h-9 w-full rounded border border-line bg-paper-card px-3 text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
+                    className="h-9 w-full rounded border border-line bg-black/5 dark:bg-white/5 px-3 text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
                   />
                 </div>
 
@@ -332,7 +332,7 @@ export function SettingsDialog({
                       updateSetting("syncServerUrl", e.target.value)
                     }
                     placeholder="https://your-sync-server.com"
-                    className="h-9 w-full rounded border border-line bg-paper-card px-3 text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
+                    className="h-9 w-full rounded border border-line bg-black/5 dark:bg-white/5 px-3 text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
                   />
                 </div>
               </div>
@@ -349,7 +349,7 @@ export function SettingsDialog({
                 </div>
                 <button
                   disabled
-                  className="inline-flex items-center justify-center h-9 px-4 rounded text-sm border border-line bg-paper-card text-ink-muted cursor-not-allowed"
+                  className="inline-flex items-center justify-center h-9 px-4 rounded text-sm border border-line bg-black/5 dark:bg-white/5 text-ink-muted cursor-not-allowed"
                 >
                   检查更新
                 </button>
@@ -357,7 +357,7 @@ export function SettingsDialog({
                   href="https://github.com/Pokanshuu/OC-Studio"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center h-9 px-4 rounded text-sm border border-line bg-paper-card text-ink transition-colors hover:border-line-hover hover:bg-paper-alt"
+                  className="touch-feedback inline-flex items-center justify-center h-9 px-4 rounded text-sm border border-line bg-white/60 dark:bg-white/[0.06] text-ink transition-colors hover:border-line-hover hover:bg-white/40 dark:hover:bg-white/[0.10]"
                 >
                   访问 GitHub 项目
                 </a>
@@ -372,7 +372,7 @@ export function SettingsDialog({
         <div className="flex justify-end border-t border-line px-6 py-4">
           <button
             onClick={() => onOpenChange(false)}
-            className="touch-feedback inline-flex items-center justify-center h-9 px-3 rounded text-sm border border-line bg-paper-alt text-ink transition-colors hover:border-line-hover hover:bg-paper-card"
+            className="touch-feedback inline-flex items-center justify-center h-9 px-3 rounded text-sm border border-line bg-white/60 dark:bg-white/[0.06] text-ink transition-colors hover:border-line-hover hover:bg-white/40 dark:hover:bg-white/[0.10]"
           >
             关闭
           </button>

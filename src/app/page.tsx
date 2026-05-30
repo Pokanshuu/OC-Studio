@@ -341,7 +341,8 @@ export default function Home() {
       characterView.sub === 'editor' ||
       countryView.sub === 'editor' ||
       activeItem === '关系图' ||
-      activeItem === '相册'
+      activeItem === '相册' ||
+      activeItem === '世界观'
     ) {
       crossBackRef.current = {
         activeItem,
@@ -557,7 +558,7 @@ export default function Home() {
       </div>
 
       <div
-        className="h-full section-fade overflow-y-auto max-md:pt-[calc(60px+var(--safe-top))] max-md:pb-[calc(60px+var(--safe-bottom))]"
+        className="h-full section-fade overflow-y-auto section-fade-no-gutter"
         data-visible={showWorld ? "true" : "false"}
       >
         <WorldLayout onMentionClick={handleMentionClick} onCharacterCount={handleWorldCharCount} selectedEntryId={worldSelectedEntryId} onWikiLinkClick={handleWikiLinkClick} />
@@ -571,7 +572,7 @@ export default function Home() {
       </div>
 
       <div
-        className="h-full section-fade overflow-y-auto max-md:pt-[calc(60px+var(--safe-top))] max-md:pb-[calc(60px+var(--safe-bottom))]"
+        className="h-full section-fade overflow-y-auto section-fade-no-gutter"
         data-visible={showAlbum ? "true" : "false"}
       >
         <GlobalAlbum

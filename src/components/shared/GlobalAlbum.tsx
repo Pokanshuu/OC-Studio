@@ -313,11 +313,12 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
       ) : null}
 
       {/* Right column */}
-      <div className="flex flex-1 flex-col min-w-0">
+      <div className="flex flex-1 flex-col min-w-0 overflow-auto max-md:overflow-visible">
+        <div className="md:hidden h-[calc(60px+var(--safe-top))] flex-shrink-0" />
         {/* Grid — scroll container, header inside for blur */}
         <div className="flex-1">
           {/* Desktop header */}
-          <div className="max-md:hidden sticky top-0 z-10 border-b border-line px-4 py-3 h-[60px] bg-paper/70 dark:bg-[#1C1B1A]/70 backdrop-blur-md">
+          <div className="max-md:hidden sticky top-0 z-10 border-b border-line px-4 py-3 h-[60px] bg-paper/70 dark:bg-[#1C1B1A]/70 backdrop-blur-lg">
             <div className="flex items-center gap-3">
               {treeCollapsed ? (
                 <>

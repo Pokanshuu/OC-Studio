@@ -386,7 +386,7 @@ export function MenuBar() {
             ? createPortal(
                 <div
                   ref={panelRef}
-                  className="fixed rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-md shadow-none ring-1 ring-black/5 max-h-[320px] overflow-auto pointer-events-auto"
+                  className="fixed rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-lg shadow-none ring-1 ring-black/5 max-h-[320px] overflow-auto pointer-events-auto"
                   style={{
                     left: panelPos.x,
                     top: panelPos.y,
@@ -416,7 +416,7 @@ export function MenuBar() {
                             data-selected={globalIdx === selectedIndex}
                             className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors ${
                               globalIdx === selectedIndex
-                                ? 'bg-paper-card text-ink'
+                                ? 'bg-black/5 dark:bg-white/5 text-ink'
                                 : 'text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-ink'
                             }`}
                             onMouseDown={(e) => e.preventDefault()}
@@ -459,7 +459,7 @@ export function MenuBar() {
           {isMaximized ? <Minimize2 size={14} strokeWidth={2} /> : <Maximize2 size={14} strokeWidth={2} />}
         </button>
         <button
-          className="h-7 w-7 flex items-center justify-center rounded text-ink-muted hover:text-error hover:bg-red-100 dark:hover:bg-red-900 transition-colors"
+          className="h-7 w-7 flex items-center justify-center rounded text-ink-muted hover:text-error hover:bg-red-500/15 dark:hover:bg-red-500/20 transition-colors"
           onClick={() => { import('@tauri-apps/api/window').then(({ getCurrentWindow }) => getCurrentWindow().close()).catch(() => {}) }}
           aria-label="关闭"
         >

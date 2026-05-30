@@ -142,7 +142,7 @@ export function RelatedItemsSelector({
             className="h-8 w-full rounded border border-line bg-paper-card px-3 text-sm text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none"
           />
           {open && filtered.length > 0 ? (
-            <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-md border border-line bg-paper/70 backdrop-blur-md p-1 shadow-none ring-1 ring-black/5 max-h-48 overflow-auto">
+            <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-md border border-line bg-paper/70 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 max-h-48 overflow-auto">
               {filtered.map((item) => (
                 <button
                   key={item.id}
@@ -150,7 +150,7 @@ export function RelatedItemsSelector({
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => addItem(item.id)}
                   className={`flex w-full items-center rounded-sm px-3 py-1.5 text-sm transition-colors hover:bg-black/5 dark:hover:bg-white/5 ${
-                    selectedIds.includes(item.id) ? 'bg-paper-card text-ink' : 'text-ink'
+                    selectedIds.includes(item.id) ? 'bg-black/5 dark:bg-white/5 text-ink' : 'text-ink'
                   }`}
                 >
                   <span>{item.name}</span>

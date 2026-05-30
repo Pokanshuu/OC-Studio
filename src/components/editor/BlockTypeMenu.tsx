@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import type { Editor } from '@tiptap/core'
 import {
   Pilcrow,
@@ -33,12 +33,24 @@ interface BlockTypeMenuProps {
 
 export function BlockTypeMenu({ editor, position, onClose, blockPos }: BlockTypeMenuProps) {
   const ref = useRef<HTMLDivElement>(null)
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    if (position) {
+      requestAnimationFrame(() => setVisible(true))
+    }
+  }, [position])
+
+  const handleClose = useCallback(() => {
+    setVisible(false)
+    setTimeout(() => onClose(), 150)
+  }, [onClose])
 
   useEffect(() => {
     if (!position) return
     function handleClick(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) {
-        onClose()
+        handleClose()
       }
     }
     const id = setTimeout(() => {
@@ -48,16 +60,16 @@ export function BlockTypeMenu({ editor, position, onClose, blockPos }: BlockType
       clearTimeout(id)
       document.removeEventListener('click', handleClick)
     }
-  }, [position, onClose])
+  }, [position, handleClose])
 
   useEffect(() => {
     if (!position) return
     function handleEscape(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') handleClose()
     }
     document.addEventListener('keydown', handleEscape)
     return () => document.removeEventListener('keydown', handleEscape)
-  }, [position, onClose])
+  }, [position, handleClose])
 
   if (!position) return null
 
@@ -74,7 +86,7 @@ export function BlockTypeMenu({ editor, position, onClose, blockPos }: BlockType
       icon: <Pilcrow size={14} strokeWidth={2} />,
       action: () => {
         chain().setParagraph().run()
-        onClose()
+        handleClose()
       },
       isActive: () => editor.isActive('paragraph'),
     },
@@ -83,7 +95,7 @@ export function BlockTypeMenu({ editor, position, onClose, blockPos }: BlockType
       icon: <Heading1 size={14} strokeWidth={2} />,
       action: () => {
         chain().toggleHeading({ level: 1 }).run()
-        onClose()
+        handleClose()
       },
       isActive: () => editor.isActive('heading', { level: 1 }),
     },
@@ -92,7 +104,7 @@ export function BlockTypeMenu({ editor, position, onClose, blockPos }: BlockType
       icon: <Heading2 size={14} strokeWidth={2} />,
       action: () => {
         chain().toggleHeading({ level: 2 }).run()
-        onClose()
+        handleClose()
       },
       isActive: () => editor.isActive('heading', { level: 2 }),
     },
@@ -101,7 +113,7 @@ export function BlockTypeMenu({ editor, position, onClose, blockPos }: BlockType
       icon: <Heading3 size={14} strokeWidth={2} />,
       action: () => {
         chain().toggleHeading({ level: 3 }).run()
-        onClose()
+        handleClose()
       },
       isActive: () => editor.isActive('heading', { level: 3 }),
     },
@@ -110,7 +122,7 @@ export function BlockTypeMenu({ editor, position, onClose, blockPos }: BlockType
       icon: <List size={14} strokeWidth={2} />,
       action: () => {
         chain().toggleBulletList().run()
-        onClose()
+        handleClose()
       },
       isActive: () => editor.isActive('bulletList'),
     },
@@ -119,7 +131,7 @@ export function BlockTypeMenu({ editor, position, onClose, blockPos }: BlockType
       icon: <ListOrdered size={14} strokeWidth={2} />,
       action: () => {
         chain().toggleOrderedList().run()
-        onClose()
+        handleClose()
       },
       isActive: () => editor.isActive('orderedList'),
     },
@@ -128,7 +140,7 @@ export function BlockTypeMenu({ editor, position, onClose, blockPos }: BlockType
       icon: <ListTodo size={14} strokeWidth={2} />,
       action: () => {
         chain().toggleTaskList().run()
-        onClose()
+        handleClose()
       },
       isActive: () => editor.isActive('taskList'),
     },
@@ -137,7 +149,7 @@ export function BlockTypeMenu({ editor, position, onClose, blockPos }: BlockType
       icon: <Quote size={14} strokeWidth={2} />,
       action: () => {
         chain().toggleBlockquote().run()
-        onClose()
+        handleClose()
       },
       isActive: () => editor.isActive('blockquote'),
     },
@@ -146,7 +158,7 @@ export function BlockTypeMenu({ editor, position, onClose, blockPos }: BlockType
       icon: <Scissors size={14} strokeWidth={2} />,
       action: () => {
         chain().setHorizontalRule().run()
-        onClose()
+        handleClose()
       },
       isActive: () => false,
     },
@@ -155,7 +167,7 @@ export function BlockTypeMenu({ editor, position, onClose, blockPos }: BlockType
       icon: <ImageIcon size={14} strokeWidth={2} />,
       action: () => {
          chain().insertContent({ type: 'imageBlock' }).run()
-        onClose()
+        handleClose()
       },
       isActive: () => editor.isActive('imageBlock'),
     },
@@ -164,7 +176,7 @@ export function BlockTypeMenu({ editor, position, onClose, blockPos }: BlockType
       icon: <TableIcon size={14} strokeWidth={2} />,
       action: () => {
         chain().insertTable({ rows: 3, cols: 3 }).run()
-        onClose()
+        handleClose()
       },
       isActive: () => false,
     },
@@ -179,7 +191,7 @@ export function BlockTypeMenu({ editor, position, onClose, blockPos }: BlockType
         top: position.y - 4,
         zIndex: 100,
       }}
-      className="flex gap-0.5 rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-md p-1 shadow-none ring-1 ring-black/5"
+      className={`flex gap-0.5 rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 context-menu-fade ${visible ? 'context-menu-visible' : ''}`}
     >
       {buttons.map((btn) => (
         <button
@@ -189,7 +201,7 @@ export function BlockTypeMenu({ editor, position, onClose, blockPos }: BlockType
           onMouseDown={(e) => e.preventDefault()}
           className={`flex h-7 w-7 items-center justify-center rounded transition-colors ${
             btn.isActive()
-              ? 'text-ink bg-paper-alt'
+              ? 'text-ink bg-black/5 dark:bg-white/5'
               : 'text-ink-muted hover:text-ink hover:bg-black/5 dark:hover:bg-white/5'
           }`}
         >

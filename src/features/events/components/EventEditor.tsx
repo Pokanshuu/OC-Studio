@@ -144,7 +144,7 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
 
   return (
     <div className="flex flex-col min-h-full">
-      <div className="flex items-center justify-between max-md:fixed max-md:top-0 max-md:left-0 max-md:right-0 md:sticky md:top-0 z-10 border-b border-line px-4 max-md:h-[calc(60px+var(--safe-top))] md:h-[60px] max-md:pt-[var(--safe-top)] bg-paper/70 dark:bg-[#1C1B1A]/70 backdrop-blur-md">
+      <div className="flex items-center justify-between max-md:fixed max-md:top-0 max-md:left-0 max-md:right-0 md:sticky md:top-0 z-10 border-b border-line px-4 max-md:h-[calc(60px+var(--safe-top))] md:h-[60px] max-md:pt-[var(--safe-top)] bg-paper/70 dark:bg-[#1C1B1A]/70 backdrop-blur-lg">
         <div className="flex items-center gap-3">
           <button
             data-mobile-back

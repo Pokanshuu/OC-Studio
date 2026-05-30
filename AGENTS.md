@@ -92,7 +92,7 @@ npx tauri build   # Tauri 打包 (.exe/.msi)
 5. **代码风格**：TypeScript strict，禁止 `any`，`export function` 导出
 6. **移动端布局**：CSS-first 方案（`max-md:hidden`/`md:hidden`），不依赖 `useDevice()` 做壳切换
 7. **图标规则**：返回/关闭=ArrowLeft，折叠=ChevronLeft，展开=Menu，统一 `strokeWidth={2}`
-8. **模糊效果**：`backdrop-blur` 的 header 必须放在滚动容器内部（非平级兄弟），否则内容永远无法经过 header 背后导致模糊无效
+8. **模糊效果**：`backdrop-blur` 的 header 必须放在滚动容器内部（非平级兄弟）。同时滚动容器**不得**有 `padding-top`/`padding-bottom`，padding 不参与滚动，内容无法到达 fixed bar 背后。必须用内容内部的透明 spacer div 替代（顶部 `<div className="md:hidden h-[calc(60px+var(--safe-top))]">`，底部 `pb-24`）。
 9. **安全区域**：所有移动端固定定位元素使用 `h-[calc(60px+var(--safe-top))] pt-[var(--safe-top))]` 模式（精确高度，非 min-h）。CSS 变量定义在 `globals.css`，Java 层在 `MainActivity.java`
 10. **移动端触控反馈**：所有移动端可交互控件必须提供按压反馈，分两层规则：
    - **有边框**（`border border-line`）→ `touch-feedback` class，提供 120ms `scale(0.96)` 缩放反馈

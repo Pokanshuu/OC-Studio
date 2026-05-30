@@ -8,6 +8,7 @@ import { useDevice } from '@/lib/use-device'
 import type { WorldEntry } from '@/types'
 import { useEntryList, useEntry, useCreateEntry, useDeleteEntry } from '../hooks/useWorldEntries'
 import { saveEntryContent, renameEntry, reorderEntries } from '../services'
+import { syncReferenceLabels } from '@/lib/reference-sync'
 import type { WorldFormData } from '../types'
 import { WorldTree } from './WorldTree'
 import { useMobilePageHeader } from '@/components/layout/MobilePageHeaderContext'
@@ -78,7 +79,9 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
     }
     const { title: t, content: c } = pendingSaveRef.current
     try {
-      await saveEntryContent(selectedIdRef.current, t, c)
+      const doc = JSON.parse(c) as Record<string, unknown>
+      const synced = await syncReferenceLabels(doc)
+      await saveEntryContent(selectedIdRef.current, t, JSON.stringify(synced))
       pendingSaveRef.current = null
       refresh()
     } catch (err) {
@@ -232,7 +235,7 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
         <div className="flex items-center gap-1">
           <button
             onClick={() => handleCreate(null, '新词条')}
-            className="flex h-9 w-9 items-center justify-center rounded text-ink-muted transition-colors hover:text-ink hover:bg-paper-card active:bg-black/8 dark:active:bg-white/8"
+            className="flex h-9 w-9 items-center justify-center rounded text-ink-muted transition-colors hover:text-ink hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8"
           >
             <Plus size={16} strokeWidth={2} />
           </button>
@@ -271,13 +274,14 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
       ) : null}
 
       <div
-        className="flex flex-1 flex-col min-w-0"
+        className="flex flex-1 flex-col min-w-0 overflow-auto max-md:overflow-visible"
         ref={editorContainerRef}
       >
+        <div className="md:hidden h-[calc(60px+var(--safe-top))] flex-shrink-0" />
         {selectedId !== null && currentEntry ? (
           <>
             <div className="flex-1">
-      <div className="flex items-center justify-between sticky top-0 z-10 border-b border-line px-4 py-3 h-[60px] bg-paper/70 dark:bg-[#1C1B1A]/70 backdrop-blur-md">
+      <div className="flex items-center justify-between sticky top-0 max-md:top-[calc(60px+var(--safe-top))] z-10 border-b border-line px-4 py-3 h-[60px] bg-paper/70 dark:bg-[#1C1B1A]/70 backdrop-blur-lg">
               <div className="flex items-center gap-3 flex-1 min-w-0">
                 {treeCollapsed && !isMobile ? (
                   <button
@@ -313,15 +317,15 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
             </div>
           </>
         ) : loading ? (
-          <div className="flex h-full items-center justify-center">
+          <div className="flex flex-1 items-center justify-center">
             <span className="text-sm text-ink-muted">加载中...</span>
           </div>
         ) : error ? (
-          <div className="flex h-full items-center justify-center">
+          <div className="flex flex-1 items-center justify-center">
             <span className="text-sm text-error">{error}</span>
           </div>
         ) : (
-          <div className="flex h-full items-center justify-center">
+          <div className="flex flex-1 items-center justify-center">
             <div className="text-center">
               {isMobile ? (
                 <button

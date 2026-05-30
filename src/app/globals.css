@@ -528,6 +528,9 @@ html.tauri-mica [data-statusbar] {
   transition-behavior: allow-discrete;
   scrollbar-gutter: stable;
 }
+.section-fade-no-gutter {
+  scrollbar-gutter: auto;
+}
 .section-fade[data-visible="false"] {
   display: none;
   opacity: 0;

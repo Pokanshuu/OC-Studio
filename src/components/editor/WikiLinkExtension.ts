@@ -12,6 +12,9 @@ const isComposing = (editor: Editor): boolean => {
 function createWikiLinkRender() {
   let popup: HTMLElement | null = null
   let ac: AbortController | null = null
+  let selectedIndex = 0
+  let currentItems: ReferableEntity[] = []
+  let currentCommand: ((item: ReferableEntity) => void) | null = null
 
   return () => ({
     onStart: (props: SuggestionProps<ReferableEntity>) => {
@@ -19,6 +22,9 @@ function createWikiLinkRender() {
       if (isComposing(props.editor)) return
       ac?.abort()
       ac = new AbortController()
+      currentItems = props.items
+      currentCommand = props.command
+      selectedIndex = 0
       popup = document.createElement('div')
       popup.className = 'absolute z-50 max-h-56 overflow-auto rounded-md border border-line bg-paper p-1 shadow-none ring-1 ring-black/5 min-w-[180px]'
       const rect = props.clientRect()
@@ -26,7 +32,7 @@ function createWikiLinkRender() {
         popup.style.left = `${rect.left}px`
         popup.style.top = `${rect.bottom + 4}px`
       }
-      renderWikiItems(popup, props.items, props.command)
+      renderWikiItems(popup, props.items, props.command, 0)
       document.body.appendChild(popup)
       document.addEventListener('pointerdown', (e) => {
         if (popup && !popup.contains(e.target as Node)) {
@@ -47,13 +53,16 @@ function createWikiLinkRender() {
     onUpdate: (props: SuggestionProps<ReferableEntity>) => {
       if (isComposing(props.editor)) return
       if (!popup || props.items.length === 0) { popup?.remove(); popup = null; ac?.abort(); return }
+      currentItems = props.items
+      currentCommand = props.command
+      selectedIndex = Math.min(selectedIndex, props.items.length - 1)
       const rect = props.clientRect?.()
       if (rect) {
         popup.style.left = `${rect.left}px`
         popup.style.top = `${rect.bottom + 4}px`
       }
       popup.innerHTML = ''
-      renderWikiItems(popup, props.items, props.command)
+      renderWikiItems(popup, props.items, props.command, selectedIndex)
       if (rect) {
         const adjusted = adjustSuggestionPosition(rect, popup.offsetWidth, popup.offsetHeight)
         popup.style.left = `${adjusted.x}px`
@@ -69,6 +78,29 @@ function createWikiLinkRender() {
     },
     onKeyDown: (props: SuggestionKeyDownProps) => {
       if (props.event.key === 'Escape') { popup?.remove(); popup = null; ac?.abort(); return true }
+      if (props.event.key === 'ArrowDown') {
+        selectedIndex = Math.min(selectedIndex + 1, currentItems.length - 1)
+        if (popup) {
+          popup.innerHTML = ''
+          renderWikiItems(popup, currentItems, currentCommand!, selectedIndex)
+        }
+        return true
+      }
+      if (props.event.key === 'ArrowUp') {
+        selectedIndex = Math.max(selectedIndex - 1, 0)
+        if (popup) {
+          popup.innerHTML = ''
+          renderWikiItems(popup, currentItems, currentCommand!, selectedIndex)
+        }
+        return true
+      }
+      if (props.event.key === 'Enter') {
+        const item = currentItems[selectedIndex]
+        if (item && currentCommand) {
+          currentCommand(item)
+          return true
+        }
+      }
       return false
     },
   })
@@ -78,16 +110,18 @@ function renderWikiItems(
   container: HTMLElement,
   items: ReferableEntity[],
   command: (item: ReferableEntity) => void,
+  selectedIndex = -1,
 ) {
-  for (const item of items) {
+  items.forEach((item, index) => {
+    const isSelected = index === selectedIndex
     const btn = document.createElement('button')
     btn.type = 'button'
-    btn.className = 'flex w-full items-center gap-2 rounded-sm px-3 py-1.5 text-left text-sm text-ink transition-colors hover:bg-paper-alt'
+    btn.className = `flex w-full items-center gap-2 rounded-sm px-3 py-1.5 text-left text-sm transition-colors hover:bg-black/5 dark:hover:bg-white/5 ${isSelected ? 'bg-black/5 dark:bg-white/5 text-ink' : 'text-ink'}`
     btn.innerHTML = `<span>${item.name}</span><span class="ml-auto text-xs text-ink-faint">词条</span>`
     btn.addEventListener('click', () => command(item))
     btn.addEventListener('mousedown', (e) => e.preventDefault())
     container.appendChild(btn)
-  }
+  })
 }
 
 export const WikiLinkExtension = Mention.extend({

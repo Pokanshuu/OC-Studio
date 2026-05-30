@@ -16,7 +16,7 @@ import Mention from '@tiptap/extension-mention'
 import { DragHandle } from '@tiptap/extension-drag-handle'
 import type { SuggestionProps, SuggestionKeyDownProps } from '@tiptap/suggestion'
 import type { Editor } from '@tiptap/core'
-import { Bold, Italic, Underline as UnderlineIcon, AtSign, Pilcrow, Heading1, Heading2, Heading3, List, ListOrdered, ListTodo, Quote, Scissors, Image, Table as TableIcon, ChevronDown } from 'lucide-react'
+import { Bold, Italic, Underline as UnderlineIcon, AtSign, Pilcrow, Heading1, Heading2, Heading3, List, ListOrdered, ListTodo, Quote, Scissors, Image, Table as TableIcon, ChevronDown, Link2 } from 'lucide-react'
 import React from 'react'
 import { ImageBlock } from './extensions/ImageBlock'
 
@@ -48,6 +48,9 @@ const ENTITY_TYPE_LABELS: Record<string, string> = {
 function createMentionRender() {
   let popup: HTMLElement | null = null
   let ac: AbortController | null = null
+  let selectedIndex = 0
+  let currentItems: ReferableEntity[] = []
+  let currentCommand: ((item: ReferableEntity) => void) | null = null
 
   const isComposing = (editor: Editor): boolean => {
     return (editor as unknown as { view: { composing: boolean } }).view?.composing ?? false
@@ -59,14 +62,17 @@ function createMentionRender() {
       if (isComposing(props.editor)) return
       ac?.abort()
       ac = new AbortController()
+      currentItems = props.items
+      currentCommand = props.command
+      selectedIndex = 0
       popup = document.createElement('div')
-      popup.className = 'absolute z-50 max-h-56 overflow-auto rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-md p-1 shadow-none ring-1 ring-black/5 min-w-[200px]'
+      popup.className = 'absolute z-50 max-h-56 overflow-auto rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 min-w-[200px]'
       const rect = props.clientRect()
       if (rect) {
         popup.style.left = `${rect.left}px`
         popup.style.top = `${rect.bottom + 4}px`
       }
-      renderMentionGroups(popup, props.items, props.command)
+      renderMentionGroups(popup, props.items, props.command, 0)
       document.body.appendChild(popup)
       document.addEventListener('pointerdown', (e) => {
         if (popup && !popup.contains(e.target as Node)) {
@@ -87,13 +93,16 @@ function createMentionRender() {
     onUpdate: (props: SuggestionProps<ReferableEntity>) => {
       if (isComposing(props.editor)) return
       if (!popup || props.items.length === 0) { popup?.remove(); popup = null; ac?.abort(); return }
+      currentItems = props.items
+      currentCommand = props.command
+      selectedIndex = Math.min(selectedIndex, props.items.length - 1)
       const rect = props.clientRect?.()
       if (rect) {
         popup.style.left = `${rect.left}px`
         popup.style.top = `${rect.bottom + 4}px`
       }
       popup.innerHTML = ''
-      renderMentionGroups(popup, props.items, props.command)
+      renderMentionGroups(popup, props.items, props.command, selectedIndex)
       if (rect) {
         const adjusted = adjustSuggestionPosition(rect, popup.offsetWidth, popup.offsetHeight)
         popup.style.left = `${adjusted.x}px`
@@ -109,6 +118,29 @@ function createMentionRender() {
     },
     onKeyDown: (props: SuggestionKeyDownProps) => {
       if (props.event.key === 'Escape') { popup?.remove(); popup = null; ac?.abort(); return true }
+      if (props.event.key === 'ArrowDown') {
+        selectedIndex = Math.min(selectedIndex + 1, currentItems.length - 1)
+        if (popup) {
+          popup.innerHTML = ''
+          renderMentionGroups(popup, currentItems, currentCommand!, selectedIndex)
+        }
+        return true
+      }
+      if (props.event.key === 'ArrowUp') {
+        selectedIndex = Math.max(selectedIndex - 1, 0)
+        if (popup) {
+          popup.innerHTML = ''
+          renderMentionGroups(popup, currentItems, currentCommand!, selectedIndex)
+        }
+        return true
+      }
+      if (props.event.key === 'Enter') {
+        const item = currentItems[selectedIndex]
+        if (item && currentCommand) {
+          currentCommand(item)
+          return true
+        }
+      }
       return false
     },
   })
@@ -118,7 +150,9 @@ function renderMentionGroups(
   container: HTMLElement,
   items: ReferableEntity[],
   command: (item: ReferableEntity) => void,
+  selectedIndex = -1,
 ) {
+  let globalIdx = 0
   const groups: Record<string, ReferableEntity[]> = {}
   for (const item of items) {
     if (!groups[item.type]) groups[item.type] = []
@@ -133,9 +167,11 @@ function renderMentionGroups(
       container.appendChild(hdr)
     }
     for (const item of groups[type]) {
+      const isSelected = globalIdx === selectedIndex
+      globalIdx++
       const btn = document.createElement('button')
       btn.type = 'button'
-      btn.className = 'flex w-full items-center gap-2 rounded-sm px-3 py-1.5 text-left text-sm text-ink transition-colors hover:bg-black/5 dark:hover:bg-white/5'
+      btn.className = `flex w-full items-center gap-2 rounded-sm px-3 py-1.5 text-left text-sm transition-colors hover:bg-black/5 dark:hover:bg-white/5 ${isSelected ? 'bg-black/5 dark:bg-white/5 text-ink' : 'text-ink'}`
 
       if (item.type === 'character' || item.type === 'country') {
         const avatarType = item.type === 'country' ? 'flag' : 'avatar'
@@ -183,11 +219,29 @@ export function EditorCore({
   const [blockMenuPos, setBlockMenuPos] = useState<number | undefined>(undefined)
   const editorRef = useRef<Editor | null>(null)
   const [isTableActive, setIsTableActive] = useState(false)
+  const [toolbarTick, setToolbarTick] = useState(0)
   const { isMobile } = useDevice()
   const { setActiveEditor } = useActiveEditor()
   const { visible: keyboardVisible, height: keyboardHeight } = useKeyboard()
   const [mobileBlockMenuOpen, setMobileBlockMenuOpen] = useState(false)
   const selectionRef = useRef<{ from: number; to: number } | null>(null)
+  const isPointerDownRef = useRef(false)
+
+  useEffect(() => {
+    const down = (e: PointerEvent) => {
+      const el = editorRef.current?.view.dom
+      if (el && el.contains(e.target as Node)) {
+        isPointerDownRef.current = true
+      }
+    }
+    const up = () => { isPointerDownRef.current = false }
+    document.addEventListener('pointerdown', down)
+    document.addEventListener('pointerup', up)
+    return () => {
+      document.removeEventListener('pointerdown', down)
+      document.removeEventListener('pointerup', up)
+    }
+  }, [])
 
   const handleBlockMenuEvent = useCallback((e: Event) => {
     const detail = (e as CustomEvent).detail
@@ -391,6 +445,7 @@ export function EditorCore({
     }
     editor.commands.focus()
     action()
+    setToolbarTick(v => v + 1)
   }, [isMobile, editor])
 
   // 移动端工具栏统一 onPointerDown 入口：preventDefault + stopPropagation + 执行命令
@@ -580,7 +635,15 @@ export function EditorCore({
       }}
     >
       {!isMobile && (
-        <BubbleMenu editor={editor} className="flex gap-0.5 rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-md p-1 shadow-none ring-1 ring-black/5">
+        <BubbleMenu
+          editor={editor}
+          shouldShow={({ editor }) => {
+            if (!editor.isFocused) return false
+            if (isPointerDownRef.current) return false
+            return true
+          }}
+          className="flex gap-0.5 rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 context-menu-fade context-menu-visible"
+        >
           <button onClick={() => editor.chain().focus().toggleBold().run()} className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${editor.isActive('bold') ? 'bg-black/10 dark:bg-white/10 text-ink' : 'text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-ink'}`}>
             <Bold size={16} strokeWidth={2} />
           </button>
@@ -592,6 +655,9 @@ export function EditorCore({
           </button>
           <button onClick={() => { editor.chain().focus().insertContent('@').run() }} className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${editor.isActive('mention') ? 'bg-black/10 dark:bg-white/10 text-ink' : 'text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-ink'}`} title="@ 引用">
             <AtSign size={16} strokeWidth={2} />
+          </button>
+          <button onClick={() => { editor.chain().focus().insertContent('[[').run() }} className="flex h-8 w-8 items-center justify-center rounded transition-colors text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-ink" title="[[ 内链">
+            <Link2 size={16} strokeWidth={2} />
           </button>
         </BubbleMenu>
       )}
@@ -611,8 +677,9 @@ export function EditorCore({
           />
         )}
         <div
-          className="fixed left-0 right-0 z-30 flex items-center gap-2 px-3 py-2 bg-paper/95 backdrop-blur-xl border-t border-line"
+          className="fixed left-0 right-0 z-30 flex items-center gap-2 px-3 py-2 bg-paper/95 backdrop-blur-lg border-t border-line"
           style={{ bottom: `${keyboardHeight}px` }}
+          data-tick={toolbarTick}
         >
           <button
             type="button"
@@ -621,7 +688,7 @@ export function EditorCore({
               editor.chain().focus().run()
               setMobileBlockMenuOpen(!mobileBlockMenuOpen)
             })}
-            className="touch-feedback h-9 px-3 rounded flex items-center gap-1 bg-paper-card border border-line text-sm text-ink shrink-0"
+            className="touch-feedback h-9 px-3 rounded flex items-center gap-1 bg-black/5 dark:bg-white/5 border border-line text-sm text-ink shrink-0"
           >
             <Pilcrow size={14} strokeWidth={2} />
             <ChevronDown size={14} strokeWidth={2} />
@@ -629,37 +696,44 @@ export function EditorCore({
           <button
             type="button"
             onPointerDown={(e) => handleToolbarPointerDown(e, () => editor?.chain().focus().toggleBold().run())}
-            className={`touch-feedback h-9 w-9 flex items-center justify-center rounded border border-line shrink-0 ${editor?.isActive('bold') ? 'bg-black/5 dark:bg-white/5' : 'bg-paper-card'}`}
+            className={`touch-feedback h-9 w-9 flex items-center justify-center rounded border border-line shrink-0 ${editor?.isActive('bold') ? 'bg-black/15 dark:bg-white/30' : 'bg-black/5 dark:bg-white/5'}`}
           >
             <Bold size={16} strokeWidth={2} />
           </button>
           <button
             type="button"
             onPointerDown={(e) => handleToolbarPointerDown(e, () => editor?.chain().focus().toggleItalic().run())}
-            className={`touch-feedback h-9 w-9 flex items-center justify-center rounded border border-line shrink-0 ${editor?.isActive('italic') ? 'bg-black/5 dark:bg-white/5' : 'bg-paper-card'}`}
+            className={`touch-feedback h-9 w-9 flex items-center justify-center rounded border border-line shrink-0 ${editor?.isActive('italic') ? 'bg-black/15 dark:bg-white/30' : 'bg-black/5 dark:bg-white/5'}`}
           >
             <Italic size={16} strokeWidth={2} />
           </button>
           <button
             type="button"
             onPointerDown={(e) => handleToolbarPointerDown(e, () => editor?.chain().focus().toggleUnderline().run())}
-            className={`touch-feedback h-9 w-9 flex items-center justify-center rounded border border-line shrink-0 ${editor?.isActive('underline') ? 'bg-black/5 dark:bg-white/5' : 'bg-paper-card'}`}
+            className={`touch-feedback h-9 w-9 flex items-center justify-center rounded border border-line shrink-0 ${editor?.isActive('underline') ? 'bg-black/15 dark:bg-white/30' : 'bg-black/5 dark:bg-white/5'}`}
           >
             <UnderlineIcon size={16} strokeWidth={2} />
           </button>
           <button
             type="button"
             onPointerDown={(e) => handleToolbarPointerDown(e, () => editor?.chain().focus().insertContent('@').run())}
-            className={`touch-feedback h-9 w-9 flex items-center justify-center rounded border border-line shrink-0 ${editor?.isActive('mention') ? 'bg-black/5 dark:bg-white/5' : 'bg-paper-card'}`}
+            className={`touch-feedback h-9 w-9 flex items-center justify-center rounded border border-line shrink-0 ${editor?.isActive('mention') ? 'bg-black/15 dark:bg-white/30' : 'bg-black/5 dark:bg-white/5'}`}
           >
             <AtSign size={16} strokeWidth={2} />
+          </button>
+          <button
+            type="button"
+            onPointerDown={(e) => handleToolbarPointerDown(e, () => editor?.chain().focus().insertContent('[[').run())}
+            className="touch-feedback h-9 w-9 flex items-center justify-center rounded border border-line shrink-0 bg-black/5 dark:bg-white/5"
+          >
+            <Link2 size={16} strokeWidth={2} />
           </button>
         </div>
 
         {/* 移动端块类型选择面板 */}
         {mobileBlockMenuOpen && (
           <div
-            className="fixed left-0 right-0 z-40 p-3 bg-paper/95 backdrop-blur-xl border-t border-line"
+            className="fixed left-0 right-0 z-40 p-3 bg-paper/95 backdrop-blur-lg border-t border-line"
             style={{ bottom: `${keyboardHeight + 44}px` }}
           >
             <div className="flex flex-wrap gap-2">
@@ -680,7 +754,7 @@ export function EditorCore({
                   key={item.label}
                   type="button"
                   onPointerDown={(e) => handleToolbarPointerDown(e, () => { handleToolbarAction(item.action); setMobileBlockMenuOpen(false) })}
-                  className={`touch-feedback flex items-center gap-1.5 rounded border border-line px-3 py-2 text-sm transition-colors ${item.active() ? 'bg-black/5 dark:bg-white/5 text-ink' : 'bg-paper-card text-ink-muted'}`}
+                  className={`touch-feedback flex items-center gap-1.5 rounded border border-line px-3 py-2 text-sm transition-colors ${item.active() ? 'bg-black/15 dark:bg-white/30 text-ink' : 'bg-black/5 dark:bg-white/5 text-ink-muted'}`}
                 >
                   {item.icon}
                   {item.label}

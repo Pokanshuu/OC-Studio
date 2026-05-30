@@ -1,111 +1,77 @@
 # OC Studio
 
-一个本地优先的原创角色（OC）与世界观创作工作台。让创作更高效，工具退后，内容向前。
+本地优先的原创角色（OC）与世界观创作工作台。所有数据存储在本地设备，无需网络、不经过任何服务器。
 
-当前版本：**v0.1.6-alpha**（早期测试版，功能不完整，可能有 Bug）
-
----
-
-## 主要功能
-
-- **角色模块**：完整的角色信息卡（基本信息、人物简介/生平、立绘）、相关人物关联（含关系标注）、国籍关联国家、按国家筛选
-- **事件模块**：创建、编辑、排序事件，支持时间段（开始/结束时间）、负数年份，时间、地点、相关角色/国家，AI 概括摘要
-- **国家模块**：国家/地区信息管理（政治制度、地理环境、人文风貌），关联角色与事件
-- **世界观百科**：树状词条结构，一体化编辑器，支持 `[[` 词条内链和 `@` 引用
-- **时间线**：年/十年/五十年/百年聚合视图，事件时间段矩形条可拖拽/拉伸，时期条渲染，固定中心缩放，滚轮横向滚动
-- **时期功能**：时间轴上彩色时期段标记，支持添加/编辑/删除，6 色选色盘
-- **关系图谱**：角色/事件/国家可视化网络，6 种关系类型，节点点击跳转编辑，类型筛选 + 缩放控制
-- **全局相册**：两级可折叠分类树（角色/事件/国家子分类），搜索过滤
-- **编辑器**：富文本编辑，支持 Markdown 快捷输入、斜杠命令、块拖拽排序、表格、待办列表
-- **暗黑模式**：白天/夜间/跟随系统，完整设计令牌覆盖，无纯黑纯白
-- **全局搜索**：`Ctrl+K` / `Cmd+K` 唤起，跨模块搜索
-- **回收站**：软删除条目管理，支持恢复和永久删除
-- **数据导入/导出**：JSON 格式（`.ocbak`），4 种合并策略
-- **桌面应用**：Tauri v2 打包，无边框窗口，Mica/亚克力效果
-- **移动端应用**：Capacitor v8 Android 原生应用，底部 5-Tab 导航，MobileTopBar（动态标题+搜索/回收站/设置），MobileFilterBar（筛选+新建），MobileFab（网格/列表切换，滑动色块动画），编辑页自动隐藏壳层，系统返回键处理，禁止文字选择+页面缩放，粗体衬线体标题，全局触控按压反馈（双层规范：有边框 scale 缩放 + 无边框背景高亮），长按弹出 ActionSheet 操作菜单，编辑器键盘工具栏（格式按钮 + 块类型面板，精确贴合输入法）
-- **全局快捷键**：`Ctrl+S` 保存，`Ctrl+K` 搜索
-- **AI 开发助手**：6 个 OpenCode skill（guide, coding, codebase, design, prd, sync），覆盖总纲、规范、代码地图、设计、产品、文档同步
+当前版本：**v0.1.6-alpha**
 
 ---
 
-## 技术栈
+## 功能
 
-- **前端**：Next.js 16 (App Router) + TypeScript + Tailwind CSS v4 + shadcn/ui
-- **编辑器**：Tiptap (ProseMirror)
-- **本地数据库**：Dexie.js (IndexedDB)
-- **图谱**：@xyflow/react
-- **桌面打包**：Tauri v2
-- **移动端打包**：Capacitor v8
-- **图标**：lucide-react
+**角色 / 事件 / 国家**
+完整的角色信息卡（简介、生平、立绘），事件支持时间段和负数年份，国家可关联角色与事件。
+
+**世界观百科**
+树状词条编辑器，支持 `[[` 内链和 `@` 引用，跨条目串联设定。
+
+**时间线**
+年/十年/五十年/百年聚合视图，事件以矩形条展示，支持拖拽调整时间。时期条标记历史阶段，6 色可选。
+
+**关系图谱**
+角色、事件、国家之间的可视化网络，6 种关系类型，点击节点跳转编辑。
+
+**编辑器**
+斜杠命令、Markdown 快捷输入、表格、待办列表、块拖拽排序。全局复用同一内核。
+
+**全局相册**
+所有图片按角色/事件/国家自动聚合，两级分类树，支持搜索过滤。
+
+**暗黑模式**
+白天 / 夜间 / 跟随系统，完整设计令牌覆盖。
+
+**全局搜索**
+`Ctrl+K` 跨模块模糊搜索，`Ctrl+S` 保存。
+
+**回收站**
+软删除，支持恢复和永久删除，30 天自动清理。
+
+**数据导入/导出**
+`.ocbak` JSON 格式，4 种合并策略（跳过/覆盖/保留两者/清空导入）。
+
+---
+
+## 平台
+
+| 平台 | 说明 |
+|------|------|
+| Web | 浏览器开发模式，`npm run dev` |
+| Windows 桌面 | Tauri v2 打包，原生 Mica 半透明窗口效果 |
+| Android | Capacitor v8 封装，底部 Tab 导航，编辑器键盘适配 |
 
 ---
 
 ## 快速开始
-
-### 在线 Web 版（开发模式）
 
 ```bash
 npm install
 npm run dev
 ```
 
-打开 `http://localhost:3000`
-
-### 桌面应用
+打开 `http://localhost:3000`。
 
 ```bash
-npm run build
-npx tauri build
+npm run build && npx tauri build   # Windows 桌面打包
+npm run build && npx cap sync && npx cap open android  # Android 打包
 ```
-
-生成的 `.exe` / `.msi` 在 `src-tauri/target/release/bundle/` 目录下。
-
-### 移动端应用（Android）
-
-```bash
-npm run build
-npx cap add android        # 首次初始化
-npx cap sync               # 同步构建产物
-npx cap open android       # 在 Android Studio 中打开
-```
-
-> **注意**：`capacitor.config.ts` 中的 `server.url` 仅在开发热更新时使用。生产构建必须移除 `server.url`，否则 Capacitor WebView 的 HMR WebSocket 失败会导致 React runtime 异常。
 
 ---
 
-## 开发状态
+## 技术栈
 
-- [x] 事件模块
-- [x] 角色模块
-- [x] 国家模块
-- [x] 世界观百科
-- [x] 时间线
-- [x] 编辑器核心重构
-- [x] 统一 DocumentEditor
-- [x] 关系图谱
-- [x] 暗黑模式
-- [x] 全局搜索
-- [x] 自定义右键菜单
-- [x] 设置页面
-- [x] JSON 导入/导出
-- [x] Tauri 桌面打包
-- [x] 回收站
-- [x] 原生窗口效果（Mica/Acrylic）
-- [x] 浮层系统统管（Portal）
-- [x] 全局 Ctrl+S 保存
-- [x] 事件时间段
-- [x] 时期（Period）功能
-- [x] 时间线五十年聚合视图
-- [x] 负数年份支持
-- [x] 全局相册重构
-- [x] 移动端适配（Capacitor Phase 1）
-- [x] 移动端触控反馈系统（Phase 1b：双层规范全模块覆盖 + MobileActionSheet + MobileFab 滑动色块动画）
-- [x] 移动端删除二次确认（ActionSheet → AlertDialog）
-- [ ] 模板系统
-- [ ] 云存储/同步
+Next.js 16 · TypeScript · Tailwind CSS v4 · Tiptap · Dexie.js (IndexedDB) · @xyflow/react · Tauri v2 · Capacitor v8
 
 ---
 
 ## 许可
 
-MIT License
+MIT

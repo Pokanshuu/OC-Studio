@@ -1,4 +1,5 @@
 import { db } from '@/lib/db'
+import type { Character, Event, Country, WorldEntry } from '@/types'
 
 type DocNode = {
   type?: string
@@ -126,4 +127,83 @@ export async function syncReferenceLabels(doc: Record<string, unknown>): Promise
 
   const result = walkAndUpdate(doc as DocNode, nameMap)
   return result as Record<string, unknown>
+}
+
+function hasDocRef(doc: unknown, entityId: string, entityType: string): boolean {
+  if (!doc || typeof doc !== 'object' || Array.isArray(doc)) return false
+  return collectRefs(doc as DocNode).some(r => r.id === entityId && r.entityType === entityType)
+}
+
+function updateDocLabels(doc: unknown, entityId: string, newName: string): Record<string, unknown> | null {
+  if (!doc || typeof doc !== 'object' || Array.isArray(doc)) return null
+  const nameMap = new Map([[entityId, newName]])
+  const updated = walkAndUpdate(doc as DocNode, nameMap)
+  if (updated === doc) return null
+  return updated as Record<string, unknown>
+}
+
+export async function updateReferencesAfterRename(
+  entityType: string,
+  entityId: number,
+  newName: string,
+): Promise<void> {
+  const entityIdStr = String(entityId)
+  const writes: Promise<void>[] = []
+
+  const allChars = await db.characters.toArray()
+  for (const c of allChars) {
+    if (c.deleted || !c.id) continue
+    if (!hasDocRef(c.document, entityIdStr, entityType)) continue
+    const updated = updateDocLabels(c.document, entityIdStr, newName)
+    if (updated) {
+      writes.push(db.characters.update(c.id, { document: updated } as Partial<Character>).then(() => {}))
+    }
+  }
+
+  const allEvents = await db.events.toArray()
+  for (const e of allEvents) {
+    if (e.deleted || !e.id) continue
+    if (!hasDocRef(e.document, entityIdStr, entityType)) continue
+    const updated = updateDocLabels(e.document, entityIdStr, newName)
+    if (updated) {
+      writes.push(db.events.update(e.id, { document: updated } as Partial<Event>).then(() => {}))
+    }
+  }
+
+  const allCountries = await db.countries.toArray()
+  for (const c of allCountries) {
+    if (c.deleted || !c.id) continue
+    if (!hasDocRef(c.document, entityIdStr, entityType)) continue
+    const updated = updateDocLabels(c.document, entityIdStr, newName)
+    if (updated) {
+      writes.push(db.countries.update(c.id, { document: updated } as Partial<Country>).then(() => {}))
+    }
+  }
+
+  const allEntries = await db.worldEntries.toArray()
+  for (const e of allEntries) {
+    if (e.deleted || !e.id) continue
+    if (hasDocRef(e.document, entityIdStr, entityType)) {
+      const updated = updateDocLabels(e.document, entityIdStr, newName)
+      if (updated) {
+        writes.push(db.worldEntries.update(e.id, { document: updated } as Partial<WorldEntry>).then(() => {}))
+      }
+    }
+    // World entries store TipTap JSON in the content field as a string
+    if (e.content && typeof e.content === 'string') {
+      try {
+        const parsed = JSON.parse(e.content) as unknown
+        if (hasDocRef(parsed, entityIdStr, entityType)) {
+          const updated = updateDocLabels(parsed, entityIdStr, newName)
+          if (updated) {
+            writes.push(db.worldEntries.update(e.id, { content: JSON.stringify(updated) } as Partial<WorldEntry>).then(() => {}))
+          }
+        }
+      } catch {
+        // content is plain text, not JSON
+      }
+    }
+  }
+
+  if (writes.length > 0) await Promise.all(writes)
 }

@@ -75,7 +75,7 @@ export function SortSelect({
         ? createPortal(
             <div
               ref={panelRef}
-              className="fixed z-30 mt-1 flex flex-col rounded-md border border-line bg-paper/70 backdrop-blur-md p-1 shadow-none ring-1 ring-black/5 pointer-events-auto"
+              className="fixed z-30 mt-1 flex flex-col rounded-md border border-line bg-paper/70 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 pointer-events-auto"
               style={{ left: pos.x, top: pos.y }}
             >
               {options.map((opt) => (
@@ -87,7 +87,7 @@ export function SortSelect({
                   }}
                   className={`rounded-sm px-3 py-1.5 text-left text-sm transition-colors ${
                     sortKey === opt.value
-                      ? 'bg-paper-card text-ink'
+                      ? 'bg-black/5 dark:bg-white/5 text-ink'
                       : 'text-ink hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8'
                   }`}
                 >

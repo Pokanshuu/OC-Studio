@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 import { logOperation } from '@/lib/sync'
+import { updateReferencesAfterRename, syncReferenceLabels } from '@/lib/reference-sync'
 import type { Country } from '@/types'
 import type { CountryFormData } from './types'
 
@@ -82,10 +83,15 @@ export async function updateCountry(id: number, data: Partial<CountryFormData>):
   }
 
   if (data.document !== undefined) {
-    ;(updates as Record<string, unknown>).document = data.document
+    const synced = await syncReferenceLabels(data.document as Record<string, unknown>)
+    ;(updates as Record<string, unknown>).document = synced
   }
 
   await db.countries.update(id, updates)
+
+  if (data.name !== undefined) {
+    updateReferencesAfterRename('country', id, data.name).catch(() => {})
+  }
 }
 
 export async function saveDocument(id: number, document: unknown): Promise<void> {

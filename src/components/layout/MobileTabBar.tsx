@@ -17,7 +17,7 @@ export function MobileTabBar() {
   const { setActiveItem } = useNavigation()
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 h-[calc(60px+var(--safe-bottom))] border-t border-line bg-paper/80 dark:bg-[#1C1B1A]/80 pb-[var(--safe-bottom)] backdrop-blur-md">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 h-[calc(60px+var(--safe-bottom))] border-t border-line bg-paper/80 dark:bg-[#1C1B1A]/80 pb-[var(--safe-bottom)] backdrop-blur-lg">
       <div className="flex h-full items-center">
         {tabs.map((tab) => {
           const isActive = section === tab.section
@@ -28,7 +28,7 @@ export function MobileTabBar() {
                 setActiveItem(null)
                 setSection(tab.section)
               }}
-              className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 h-full py-2 transition-colors"
+              className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 h-full py-2 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
             >
               <tab.icon
                 size={20}

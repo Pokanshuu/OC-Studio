@@ -23,7 +23,7 @@ function RelationFilterButtons({
       <button
         onClick={onToggleCharacters}
         className={`flex items-center gap-1 md:px-2 px-1.5 md:py-0.5 py-0 rounded text-[11px] md:text-xs transition-colors h-7 md:h-auto ${
-          showCharacters ? 'bg-paper-card border border-line-hover text-ink' : 'text-ink-faint hover:text-ink-muted'
+          showCharacters ? 'bg-black/5 dark:bg-white/5 border border-line-hover text-ink' : 'text-ink-faint hover:text-ink-muted'
         }`}
       >
         <Users size={14} strokeWidth={2} />
@@ -32,7 +32,7 @@ function RelationFilterButtons({
       <button
         onClick={onToggleEvents}
         className={`flex items-center gap-1 md:px-2 px-1.5 md:py-0.5 py-0 rounded text-[11px] md:text-xs transition-colors h-7 md:h-auto ${
-          showEvents ? 'bg-paper-card border border-line-hover text-ink' : 'text-ink-faint hover:text-ink-muted'
+          showEvents ? 'bg-black/5 dark:bg-white/5 border border-line-hover text-ink' : 'text-ink-faint hover:text-ink-muted'
         }`}
       >
         <Calendar size={14} strokeWidth={2} />
@@ -41,7 +41,7 @@ function RelationFilterButtons({
       <button
         onClick={onToggleCountries}
         className={`flex items-center gap-1 md:px-2 px-1.5 md:py-0.5 py-0 rounded text-[11px] md:text-xs transition-colors h-7 md:h-auto ${
-          showCountries ? 'bg-paper-card border border-line-hover text-ink' : 'text-ink-faint hover:text-ink-muted'
+          showCountries ? 'bg-black/5 dark:bg-white/5 border border-line-hover text-ink' : 'text-ink-faint hover:text-ink-muted'
         }`}
       >
         <Flag size={14} strokeWidth={2} />
@@ -95,7 +95,7 @@ function ZoomSlider({ zoom, onZoomChange }: { zoom: number; onZoomChange: (value
 
 export function MobileRelationControls(props: RelationControlsProps) {
   return (
-    <div className="md:hidden fixed top-[calc(60px+var(--safe-top))] left-0 right-0 z-30 flex h-10 items-center justify-between border-b border-line/50 bg-paper-alt/80 px-4 backdrop-blur-md">
+    <div className="md:hidden fixed top-[calc(60px+var(--safe-top))] left-0 right-0 z-30 flex h-10 items-center justify-between border-b border-line/50 bg-paper-alt/80 px-4 backdrop-blur-lg">
       <RelationFilterButtons {...props} />
       <ZoomSlider zoom={props.zoom} onZoomChange={props.onZoomChange} />
     </div>
@@ -104,7 +104,7 @@ export function MobileRelationControls(props: RelationControlsProps) {
 
 export function DesktopRelationPanel(props: RelationControlsProps) {
   return (
-    <Panel position="top-left" className="max-md:hidden flex items-center gap-4 bg-paper/70 backdrop-blur-md border border-line rounded-md px-3 py-2 m-3">
+    <Panel position="top-left" className="max-md:hidden flex items-center gap-4 bg-paper/70 backdrop-blur-lg border border-line rounded-md px-3 py-2 m-3">
       <RelationFilterButtons {...props} />
       <ZoomSlider zoom={props.zoom} onZoomChange={props.onZoomChange} />
     </Panel>

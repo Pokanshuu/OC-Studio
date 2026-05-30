@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 import { logOperation } from '@/lib/sync'
+import { updateReferencesAfterRename, syncReferenceLabels } from '@/lib/reference-sync'
 import type { WorldEntry } from '@/types'
 import type { WorldFormData } from './types'
 
@@ -58,10 +59,15 @@ export async function updateEntry(id: number, data: Partial<WorldFormData>): Pro
   }
 
   if (data.document !== undefined) {
-    ;(updates as Record<string, unknown>).document = data.document
+    const synced = await syncReferenceLabels(data.document as Record<string, unknown>)
+    ;(updates as Record<string, unknown>).document = synced
   }
 
   await db.worldEntries.update(id, updates)
+
+  if (data.title !== undefined) {
+    updateReferencesAfterRename('world', id, data.title).catch(() => {})
+  }
 }
 
 export async function deleteEntry(id: number): Promise<void> {
@@ -123,5 +129,7 @@ export async function renameEntry(id: number, title: string): Promise<void> {
     _syncStatus: 'pending',
     _lastModified: now,
   })
+
+  updateReferencesAfterRename('world', id, title).catch(() => {})
   await logOperation(TABLE, id, 'title', '', title)
 }

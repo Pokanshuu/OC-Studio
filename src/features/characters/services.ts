@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 import { logOperation } from '@/lib/sync'
+import { updateReferencesAfterRename, syncReferenceLabels } from '@/lib/reference-sync'
 import type { Character } from '@/types'
 import type { CharacterFormData } from './types'
 
@@ -142,10 +143,15 @@ export async function updateCharacter(
   }
 
   if (data.document !== undefined) {
-    ;(updates as Record<string, unknown>).document = data.document
+    const synced = await syncReferenceLabels(data.document as Record<string, unknown>)
+    ;(updates as Record<string, unknown>).document = synced
   }
 
   await db.characters.update(id, updates)
+
+  if (data.name !== undefined) {
+    updateReferencesAfterRename('character', id, data.name).catch(() => {})
+  }
 }
 
 export async function saveDocument(id: number, document: unknown): Promise<void> {

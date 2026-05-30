@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 import { logOperation } from '@/lib/sync'
+import { updateReferencesAfterRename, syncReferenceLabels } from '@/lib/reference-sync'
 import type { Event } from '@/types'
 import type { EventFormData } from './types'
 
@@ -103,10 +104,15 @@ export async function updateEvent(id: number, data: Partial<EventFormData>): Pro
   }
 
   if (data.document !== undefined) {
-    ;(updates as Record<string, unknown>).document = data.document
+    const synced = await syncReferenceLabels(data.document as Record<string, unknown>)
+    ;(updates as Record<string, unknown>).document = synced
   }
 
   await db.events.update(id, updates)
+
+  if (data.title !== undefined) {
+    updateReferencesAfterRename('event', id, data.title).catch(() => {})
+  }
 }
 
 export async function saveDocument(id: number, document: unknown): Promise<void> {
