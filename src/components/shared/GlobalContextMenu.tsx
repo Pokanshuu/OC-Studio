@@ -1,10 +1,20 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
+import { useState, useEffect, useCallback, useRef, createContext, useContext, type ReactNode } from 'react'
 import { tauriReadClipboard } from '@/lib/tauri-clipboard'
 import { createPortal } from 'react-dom'
 import { Separator } from '@/components/ui/separator'
 import { adjustContextMenuPosition } from '@/lib/menu-utils'
+
+interface InputMenuContextValue {
+  openMenuAt: (target: HTMLElement, x: number, y: number) => void
+}
+
+const InputMenuContext = createContext<InputMenuContextValue | null>(null)
+
+export function useInputMenuContext() {
+  return useContext(InputMenuContext)
+}
 
 interface SelectionSnapshot {
   startContainer: Node | null
@@ -208,10 +218,12 @@ export function GlobalContextMenu({ children }: { children: ReactNode }) {
     </div>
   ) : null
 
+  const contextValue: InputMenuContextValue = { openMenuAt }
+
   return (
-    <>
+    <InputMenuContext.Provider value={contextValue}>
       {children}
       {open ? createPortal(menuEl, document.getElementById('overlay-root')!) : null}
-    </>
+    </InputMenuContext.Provider>
   )
 }

@@ -6,6 +6,7 @@ import { Search, Users, Calendar, Flag, BookOpen, X } from 'lucide-react'
 import { searchAllEntitiesFlat } from '@/lib/reference-registry'
 import { useEntityNavigate } from '@/components/layout/EntityNavigateContext'
 import { useKeyboard } from '@/lib/KeyboardContext'
+import { useInputContextMenu } from '@/lib/use-input-context-menu'
 import type { ReferableEntity } from '@/lib/reference-registry'
 import { Avatar } from '@/components/shared/Avatar'
 import { getImageUrl } from '@/lib/image-service'
@@ -35,11 +36,16 @@ export function MobileSearchOverlay({ open, onClose }: { open: boolean; onClose:
   const { viewportHeight: keyboardHeight } = useKeyboard()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<GroupedResults[]>([])
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputMenuRef = useInputContextMenu()
+  const inputElRef = useRef<HTMLInputElement | null>(null)
+  const inputRef = useCallback((el: HTMLInputElement | null) => {
+    inputMenuRef(el)
+    inputElRef.current = el
+  }, [inputMenuRef])
 
   // Focus input on mount (autoFocus alone is unreliable in portals)
   useEffect(() => {
-    setTimeout(() => inputRef.current?.focus(), 100)
+    setTimeout(() => inputElRef.current?.focus(), 100)
   }, [])
 
   useEffect(() => {

@@ -12,6 +12,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { useSettings } from "@/lib/settings"
 import { useImportExport } from "@/components/shared/ImportExportUI"
+import { useInputContextMenu } from "@/lib/use-input-context-menu"
 
 interface SettingsDialogProps {
   open: boolean
@@ -101,6 +102,11 @@ export function SettingsDialog({
     ("__TAURI_INTERNALS__" in window || "__TAURI__" in window)
 
   const toggleDisabled = !isTauri || !blurSupported
+
+  const apiKeyRef = useInputContextMenu()
+  const aiModelRef = useInputContextMenu()
+  const aiBaseUrlRef = useInputContextMenu()
+  const syncServerUrlRef = useInputContextMenu()
 
   useEffect(() => {
     if (!isTauri) return
@@ -319,6 +325,7 @@ export function SettingsDialog({
                     <div className="flex flex-col gap-1.5">
                       <label className="text-sm text-ink">API Key</label>
                       <input
+                        ref={apiKeyRef}
                         type="password"
                         value={settings.apiKey}
                         onChange={(e) => updateSetting("apiKey", e.target.value)}
@@ -333,6 +340,7 @@ export function SettingsDialog({
                     <div className="flex flex-col gap-1.5">
                       <label className="text-sm text-ink">AI 模型</label>
                       <input
+                        ref={aiModelRef}
                         type="text"
                         value={settings.aiModel}
                         onChange={(e) => updateSetting("aiModel", e.target.value)}
@@ -344,6 +352,7 @@ export function SettingsDialog({
                     <div className="flex flex-col gap-1.5">
                       <label className="text-sm text-ink">Base URL</label>
                       <input
+                        ref={aiBaseUrlRef}
                         type="text"
                         value={settings.aiBaseUrl}
                         onChange={(e) =>
@@ -359,6 +368,7 @@ export function SettingsDialog({
                 <div className="flex flex-col gap-1.5">
                   <label className="text-sm text-ink">同步服务端地址</label>
                   <input
+                    ref={syncServerUrlRef}
                     type="text"
                     value={settings.syncServerUrl}
                     onChange={(e) =>

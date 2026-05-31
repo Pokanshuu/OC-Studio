@@ -62,6 +62,9 @@ This version has breaking changes — APIs, conventions, and file structure may 
 ### 移动端交互
 - `src/components/shared/MobileActionSheet.tsx` — iOS 风格底部弹出菜单（长按触发）
 - `src/components/shared/MobileTextSelectionBar.tsx` — 移动端选词工具栏（复制/剪切/粘贴/全选），事件驱动状态机，@capacitor/clipboard 原生剪贴板
+- `src/components/shared/GlobalContextMenu.tsx` — 全局 input/textarea 右键菜单，通过 `InputMenuContext` 暴露 `openMenuAt`
+- `src/lib/use-input-context-menu.ts` — 移动端 input 组件级长按菜单 hook，在元素自身绑定事件，不监听 document
+- `src/lib/tauri-clipboard.ts` — Tauri 剪贴板管理器封装（`tauriReadClipboard`）
 - `src/components/shared/DeleteButton.tsx` — 桌面端删除按钮（含 AlertDialog 二次确认）
 - `src/lib/useLongPress.ts` — 长按 hook（320ms 阈值，8px 移动容差）
 - `src/lib/haptics.ts` — Capacitor 触觉反馈封装
