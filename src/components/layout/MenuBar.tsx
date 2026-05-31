@@ -8,6 +8,8 @@ import { useEntityNavigate } from '@/components/layout/EntityNavigateContext'
 import { useSettingsTrigger } from '@/components/layout/SettingsTriggerContext'
 import { useSettings } from '@/lib/settings'
 import { useImportExport } from '@/components/shared/ImportExportUI'
+import { downloadMarkdown, downloadTxt } from '@/lib/export'
+import { toast } from 'sonner'
 import { useActiveEditor } from '@/lib/editor-context'
 import {
   DropdownMenu,
@@ -260,10 +262,24 @@ export function MenuBar() {
                   <DropdownMenuItem onClick={handleExport}>
                     JSON
                   </DropdownMenuItem>
-                  <DropdownMenuItem disabled onClick={() => {}}>
+                  <DropdownMenuItem onClick={async () => {
+                    try {
+                      await downloadMarkdown()
+                      toast.success('Markdown 导出成功')
+                    } catch {
+                      toast.error('导出失败')
+                    }
+                  }}>
                     Markdown
                   </DropdownMenuItem>
-                  <DropdownMenuItem disabled onClick={() => {}}>
+                  <DropdownMenuItem onClick={async () => {
+                    try {
+                      await downloadTxt()
+                      toast.success('TXT 导出成功')
+                    } catch {
+                      toast.error('导出失败')
+                    }
+                  }}>
                     TXT
                   </DropdownMenuItem>
                 </DropdownMenuSubContent>

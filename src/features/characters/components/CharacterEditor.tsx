@@ -8,6 +8,7 @@ import type { Character, RelatedCharacter } from '@/types'
 import type { CharacterFormData } from '../types'
 import { useCharacter, useUpdateCharacter } from '../hooks/useCharacters'
 import { useCharacterList } from '../hooks/useCharacters'
+import { TagPicker } from '@/features/tags'
 import { useCountryList } from '@/features/countries/hooks/useCountries'
 import { RelatedItemsSelector } from '@/components/shared/RelatedItemsSelector'
 import type { RelatedItem } from '@/components/shared/RelatedItemsSelector'
@@ -123,6 +124,7 @@ function CharacterEditorInner({
   const [avatarUrl, setAvatarUrl] = useState(character.avatarUrl)
   const [qAvatarUrl, setQAvatarUrl] = useState(character.qAvatarUrl ?? '')
   const [headerUrl, setHeaderUrl] = useState(character.headerUrl ?? '')
+  const [tags, setTags] = useState<number[]>(character.tags ?? [])
   const [avatarUrls, setAvatarUrls] = useState<string[]>(
     (Array.isArray(character.avatars) ? character.avatars : []).map((a) => (typeof a === 'string' ? a : a.url)),
   )
@@ -258,6 +260,7 @@ function CharacterEditorInner({
         relatedCharacters,
         gallery: galleryUrls.map((url) => ({ url, caption: '' })),
         avatars: avatarUrls.map((url) => ({ url, type: 'portrait' as const })),
+        tags,
       })
     } finally {
       setSaving(false)
@@ -281,6 +284,7 @@ function CharacterEditorInner({
     height,
     birthday,
     relatedCharacters,
+    tags,
     onSave,
   ])
 
@@ -509,6 +513,14 @@ function CharacterEditorInner({
                 ))}
               </div>
             ) : null}
+          </section>
+
+          <div className="border-t border-line" />
+
+          {/* Tags */}
+          <section>
+            <h3 className="text-base text-ink mb-3">标签</h3>
+            <TagPicker selectedIds={tags} onChange={setTags} />
           </section>
 
           <div className="border-t border-line" />

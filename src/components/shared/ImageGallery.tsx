@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback } from 'react'
-import { Plus, ChevronLeft, ChevronRight, Trash2, ImageIcon } from 'lucide-react'
+import { Plus, ChevronLeft, ChevronRight, Trash2, ImageIcon, Loader2 } from 'lucide-react'
 import { resolveImageUrl, saveBlobToDisk } from '@/lib/image-service'
 import { FullscreenViewer } from './FullscreenViewer'
 import { ImageCropper } from './ImageCropper'
@@ -28,8 +28,11 @@ export function ImageGallery({
   const [sliderIndex, setSliderIndex] = useState(0)
   const [rawFileUrl, setRawFileUrl] = useState<string | null>(null)
   const [cropperOpen, setCropperOpen] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const touchStartRef = useRef<number>(0)
   const touchSwipingRef = useRef(false)
+  const mouseStartRef = useRef<{ x: number; y: number } | null>(null)
+  const mouseDraggingRef = useRef(false)
 
   async function triggerFileUpload() {
     if (!onAdd) return
@@ -45,20 +48,30 @@ export function ImageGallery({
         setRawFileUrl(URL.createObjectURL(file))
         setCropperOpen(true)
       } else {
-        const url = await saveBlobToDisk(file, 'gallery')
-        onAdd(url)
+        setUploading(true)
+        try {
+          const url = await saveBlobToDisk(file, 'gallery')
+          onAdd(url)
+        } finally {
+          setUploading(false)
+        }
       }
     }
     input.click()
   }
 
   async function handleCropComplete(blob: Blob) {
-    const url = await saveBlobToDisk(blob, 'portrait')
-    onAdd?.(url)
-    setCropperOpen(false)
-    if (rawFileUrl) {
-      URL.revokeObjectURL(rawFileUrl)
-      setRawFileUrl(null)
+    setUploading(true)
+    try {
+      const url = await saveBlobToDisk(blob, 'portrait')
+      onAdd?.(url)
+      setCropperOpen(false)
+      if (rawFileUrl) {
+        URL.revokeObjectURL(rawFileUrl)
+        setRawFileUrl(null)
+      }
+    } finally {
+      setUploading(false)
     }
   }
 
@@ -91,6 +104,50 @@ export function ImageGallery({
     [images.length],
   )
 
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    mouseStartRef.current = { x: e.clientX, y: e.clientY }
+    mouseDraggingRef.current = false
+  }, [])
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!mouseStartRef.current || images.length < 2) return
+    const dx = Math.abs(e.clientX - mouseStartRef.current.x)
+    const dy = Math.abs(e.clientY - mouseStartRef.current.y)
+    if (dx > 5 || dy > 5) {
+      mouseDraggingRef.current = true
+    }
+  }, [images.length])
+
+  const handleMouseUp = useCallback(
+    (e: React.MouseEvent) => {
+      if (!mouseStartRef.current || images.length < 2) {
+        mouseStartRef.current = null
+        return
+      }
+      const diff = mouseStartRef.current.x - e.clientX
+      mouseStartRef.current = null
+      if (Math.abs(diff) > 40) {
+        if (diff > 0) {
+          setSliderIndex((i) => (i < images.length - 1 ? i + 1 : 0))
+        } else {
+          setSliderIndex((i) => (i > 0 ? i - 1 : images.length - 1))
+        }
+      }
+    },
+    [images.length],
+  )
+
+  const handleClickCapture = useCallback(
+    (e: React.MouseEvent) => {
+      if (mouseDraggingRef.current) {
+        e.stopPropagation()
+        e.preventDefault()
+        mouseDraggingRef.current = false
+      }
+    },
+    [],
+  )
+
   const prevImage = useCallback(() => {
     setSliderIndex((i) => (i > 0 ? i - 1 : images.length - 1))
   }, [images.length])
@@ -113,9 +170,14 @@ export function ImageGallery({
               </button>
             ) : null}
             <div
-              className="group relative h-full w-full overflow-hidden rounded-md"
+              className="group relative h-full w-full overflow-hidden rounded-md select-none"
               onTouchStart={handleTouchStart}
               onTouchEnd={handleTouchEnd}
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={() => { mouseStartRef.current = null }}
+              onClickCapture={handleClickCapture}
             >
               <div
                 className="flex h-full transition-transform duration-300 ease-out"
@@ -152,10 +214,15 @@ export function ImageGallery({
                 {onAdd ? (
                   <button
                     onClick={triggerFileUpload}
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-black/40 text-white/80 hover:bg-black/60 transition-colors"
+                    disabled={uploading}
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-black/40 text-white/80 hover:bg-black/60 transition-colors disabled:opacity-50"
                     title="添加"
                   >
-                    <Plus size={16} strokeWidth={2} />
+                    {uploading ? (
+                      <Loader2 size={16} strokeWidth={2} className="animate-spin" />
+                    ) : (
+                      <Plus size={16} strokeWidth={2} />
+                    )}
                   </button>
                 ) : null}
               </div>

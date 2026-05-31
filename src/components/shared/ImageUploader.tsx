@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { ImageIcon, Trash2 } from 'lucide-react'
+import { ImageIcon, Trash2, Loader2 } from 'lucide-react'
 import { resolveImageUrl, saveBlobToDisk } from '@/lib/image-service'
 import { ImageCropper } from './ImageCropper'
 
@@ -52,6 +52,7 @@ export function ImageUploader({
 }: ImageUploaderProps) {
   const [rawFileUrl, setRawFileUrl] = useState<string | null>(null)
   const [cropperOpen, setCropperOpen] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const currentSrc = value ? resolveImageUrl(value) : undefined
@@ -71,19 +72,28 @@ export function ImageUploader({
       setRawFileUrl(URL.createObjectURL(file))
       setCropperOpen(true)
     } else {
-      // 当前 Q 版头像始终走裁剪分支（enableCrop），此分支作为 fallback 保留
-      const url = await saveBlobToDisk(file, 'qavatar')
-      onChange(url)
+      setUploading(true)
+      try {
+        const url = await saveBlobToDisk(file, 'qavatar')
+        onChange(url)
+      } finally {
+        setUploading(false)
+      }
     }
   }
 
   async function handleCropComplete(blob: Blob) {
-    const url = await saveBlobToDisk(blob, 'qavatar')
-    onChange(url)
-    setCropperOpen(false)
-    if (rawFileUrl) {
-      URL.revokeObjectURL(rawFileUrl)
-      setRawFileUrl(null)
+    setUploading(true)
+    try {
+      const url = await saveBlobToDisk(blob, 'qavatar')
+      onChange(url)
+      setCropperOpen(false)
+      if (rawFileUrl) {
+        URL.revokeObjectURL(rawFileUrl)
+        setRawFileUrl(null)
+      }
+    } finally {
+      setUploading(false)
     }
   }
 
@@ -108,7 +118,11 @@ export function ImageUploader({
           onChange={handleFileChange}
         />
 
-        {currentSrc ? (
+        {uploading ? (
+          <div className={`flex h-full w-full items-center justify-center border border-dashed border-line bg-paper-card ${shape === 'circle' ? 'rounded-full' : 'rounded-md'}`}>
+            <Loader2 size={20} strokeWidth={2} className="animate-spin text-ink-muted" />
+          </div>
+        ) : currentSrc ? (
           <div className={`group/image relative h-full w-full overflow-hidden ${shape === 'circle' ? 'rounded-full' : 'rounded-md'}`}>
             <button
               type="button"

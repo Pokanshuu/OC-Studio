@@ -19,4 +19,5 @@ export interface CharacterFormData {
   relatedCharacters: RelatedCharacter[]
   gallery: GalleryImage[]
   avatars: AvatarImage[]
+  tags: number[]
 }

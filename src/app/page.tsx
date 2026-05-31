@@ -140,6 +140,7 @@ export default function Home() {
       summary: '',
       isMajor: false,
       content: '',
+      tags: [],
     }).then((id) => {
       setEventView({ sub: 'editor', eventId: id })
       setEditing('event', id)
@@ -252,6 +253,7 @@ export default function Home() {
       relatedCharacters: [],
       gallery: [],
       avatars: [],
+      tags: [],
     }).then((id) => {
       setCharacterView({ sub: 'editor', characterId: id })
       setEditing('character', id)
@@ -290,6 +292,7 @@ export default function Home() {
       system: '',
       geography: '',
       culture: '',
+      tags: [],
     }).then((id) => {
       setCountryView({ sub: 'editor', countryId: id })
       setEditing('country', id)

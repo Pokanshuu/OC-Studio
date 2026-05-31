@@ -133,6 +133,7 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
       parentId,
       order: 0,
       isConcept: false,
+      tags: [],
     }
     const newId = await createEntry(data)
     setSelectedId(newId)

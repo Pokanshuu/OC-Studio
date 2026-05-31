@@ -5,6 +5,7 @@ import {
   ReactFlow,
   Background,
   Controls,
+  ControlButton,
   MiniMap,
   useNodesState,
   useEdgesState,
@@ -16,6 +17,7 @@ import {
   type OnMove,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
+import { Plus, Minus, Maximize } from 'lucide-react'
 
 import { useGraphData } from '../hooks/useGraphData'
 import { CharacterNode } from './CharacterNode'
@@ -23,6 +25,21 @@ import { EventNode } from './EventNode'
 import { CountryNode } from './CountryNode'
 import { RelationEdge } from './RelationEdge'
 import { MobileRelationControls, DesktopRelationPanel } from './MobileRelationControls'
+
+const NODE_POSITIONS_KEY = 'oc-relation-node-positions'
+
+function loadNodePositions(): Record<string, { x: number; y: number }> {
+  try {
+    const raw = localStorage.getItem(NODE_POSITIONS_KEY)
+    return raw ? JSON.parse(raw) : {}
+  } catch { return {} }
+}
+
+function saveNodePositions(positions: Record<string, { x: number; y: number }>) {
+  try {
+    localStorage.setItem(NODE_POSITIONS_KEY, JSON.stringify(positions))
+  } catch { /* quota exceeded, ignore */ }
+}
 
 interface RelationGraphProps {
   onNavigateToCharacter?: (id: number) => void
@@ -55,6 +72,23 @@ function FitViewOnLoad({ ready }: { ready: boolean }) {
   }, [ready, fitView])
 
   return null
+}
+
+function ZoomControls() {
+  const { zoomIn, zoomOut, fitView } = useReactFlow()
+  return (
+    <Controls className="!border !border-line !rounded-md !bg-paper !shadow-none" position="bottom-right">
+      <ControlButton onClick={() => zoomIn({ duration: 200 })}>
+        <Plus size={14} strokeWidth={2} />
+      </ControlButton>
+      <ControlButton onClick={() => zoomOut({ duration: 200 })}>
+        <Minus size={14} strokeWidth={2} />
+      </ControlButton>
+      <ControlButton onClick={() => fitView({ padding: 0.2, duration: 200 })}>
+        <Maximize size={14} strokeWidth={2} />
+      </ControlButton>
+    </Controls>
+  )
 }
 
 function ZoomReader({ onInstance }: { onInstance: (rf: ReactFlowInstance) => void }) {
@@ -114,7 +148,15 @@ export function RelationGraph({
   }, [rawNodes, showCharacters, showEvents, showCountries])
 
   const layoutedNodes = useMemo(() => {
+    const savedPositions = loadNodePositions()
     return filteredNodes.map((node, index) => {
+      // use saved position if available
+      const savedKey = node.data?.entityType && node.data?.entityId
+        ? `${node.data.entityType}-${node.data.entityId}`
+        : node.id
+      if (savedPositions[savedKey]) {
+        return { ...node, position: savedPositions[savedKey] }
+      }
       if (node.position.x !== 0 || node.position.y !== 0) return node
       const angle = (index / filteredNodes.length) * 2 * Math.PI
       const radius = Math.max(400, filteredNodes.length * 24)
@@ -138,6 +180,22 @@ export function RelationGraph({
   useEffect(() => {
     setEdges(rawEdges)
   }, [rawEdges, setEdges])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const positions: Record<string, { x: number; y: number }> = {}
+      for (const node of nodes) {
+        const key = node.data?.entityType && node.data?.entityId
+          ? `${node.data.entityType}-${node.data.entityId}`
+          : String(node.id)
+        positions[key] = { x: node.position.x, y: node.position.y }
+      }
+      if (Object.keys(positions).length > 0) {
+        saveNodePositions(positions)
+      }
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [nodes])
 
   const handleNodeClick = useCallback(
     (_event: React.MouseEvent, node: Node) => {
@@ -204,7 +262,7 @@ export function RelationGraph({
       >
         <ZoomReader onInstance={handleInstance} />
         <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#E7E3DC" />
-        <Controls className="!border !border-line !rounded-md !bg-paper !shadow-none" position="bottom-right" />
+        <ZoomControls />
 
         <DesktopRelationPanel
           showCharacters={showCharacters}

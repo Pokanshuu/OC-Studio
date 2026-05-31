@@ -151,10 +151,16 @@ export function GlobalContextMenu({ children }: { children: ReactNode }) {
     close()
   }, [])
 
-  const handlePaste = useCallback(() => {
+  const handlePaste = useCallback(async () => {
     const el = targetRef.current
     if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
       el.focus()
+      try {
+        const text = await navigator.clipboard.readText()
+        const start = el.selectionStart ?? 0
+        const end = el.selectionEnd ?? 0
+        el.setRangeText(text, start, end, 'end')
+      } catch { /* clipboard unavailable */ }
     }
     close()
   }, [])

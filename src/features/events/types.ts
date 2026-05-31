@@ -14,4 +14,5 @@ export interface EventFormData {
   headerUrl?: string
   characters?: number[]
   countries?: number[]
+  tags: number[]
 }

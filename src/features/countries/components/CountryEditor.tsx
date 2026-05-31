@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { Save, ArrowLeft } from 'lucide-react'
+import { TagPicker } from '@/features/tags'
 import type { Editor } from '@tiptap/core'
 import { DocumentEditor } from '@/components/editor/DocumentEditor'
 import type { Country, Character, Event } from '@/types'
@@ -125,6 +126,7 @@ function CountryEditorInner({
   const [saving, setSaving] = useState(false)
   const [editableCharIds, setEditableCharIds] = useState<number[]>(country.characters)
   const [editableEventIds, setEditableEventIds] = useState<number[]>(country.events)
+  const [tags, setTags] = useState<number[]>(country.tags ?? [])
 
   const docEditorRef = useRef<Editor | null>(null)
 
@@ -149,11 +151,12 @@ function CountryEditorInner({
         headerUrl,
         characters: editableCharIds,
         events: editableEventIds,
+        tags,
       })
     } finally {
       setSaving(false)
     }
-  }, [country.id, country.parentId, country.system, country.geography, country.culture, name, flagUrl, headerUrl, editableCharIds, editableEventIds, onSave])
+  }, [country.id, country.parentId, country.system, country.geography, country.culture, name, flagUrl, headerUrl, editableCharIds, editableEventIds, tags, onSave])
 
   const relatedCharacterItems: RelatedItem[] = useMemo(
     () =>
@@ -279,6 +282,14 @@ function CountryEditorInner({
               placeholder="搜索相关事件..."
               onNavigateItem={onNavigateToEvent}
             />
+          </section>
+
+          <Separator />
+
+          {/* Tags */}
+          <section>
+            <h3 className="text-base text-ink mb-3">标签</h3>
+            <TagPicker selectedIds={tags} onChange={setTags} />
           </section>
         </div>
       </div>
