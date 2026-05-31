@@ -326,16 +326,17 @@ export function EventList({
             </button>
           </div>
         ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+          <div className="columns-2 sm:columns-3 xl:columns-4 2xl:columns-5 gap-4">
             {filteredEvents.map((event) => (
-              <EventCard
-                key={event.id}
-                event={event}
-                onSelect={handleSelect}
-                onDelete={onDeleteEvent}
-                onLongPress={() => openActionSheet(event)}
-                isMobile={isMobile}
-              />
+              <div key={event.id} className="[break-inside:avoid] mb-4">
+                <EventCard
+                  event={event}
+                  onSelect={handleSelect}
+                  onDelete={onDeleteEvent}
+                  onLongPress={() => openActionSheet(event)}
+                  isMobile={isMobile}
+                />
+              </div>
             ))}
           </div>
         ) : (

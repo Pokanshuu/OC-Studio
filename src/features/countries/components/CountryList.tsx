@@ -304,16 +304,17 @@ export function CountryList({
             </button>
           </div>
         ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+          <div className="columns-2 sm:columns-3 xl:columns-4 2xl:columns-5 gap-4">
             {filtered.map((country) => (
-              <CountryCard
-                key={country.id}
-                country={country}
-                onSelect={handleSelect}
-                onDelete={onDeleteCountry}
-                onLongPress={() => openActionSheet(country)}
-                isMobile={isMobile}
-              />
+              <div key={country.id} className="[break-inside:avoid] mb-4">
+                <CountryCard
+                  country={country}
+                  onSelect={handleSelect}
+                  onDelete={onDeleteCountry}
+                  onLongPress={() => openActionSheet(country)}
+                  isMobile={isMobile}
+                />
+              </div>
             ))}
           </div>
         ) : (

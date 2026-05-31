@@ -480,17 +480,18 @@ export function CharacterList({
             </button>
           </div>
         ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+          <div className="columns-2 sm:columns-3 xl:columns-4 2xl:columns-5 gap-4">
             {filtered.map((character) => (
-              <CharacterCard
-                key={character.id}
-                character={character}
-                onSelect={handleSelect}
-                onDelete={onDeleteCharacter}
-                onLongPress={() => openActionSheet(character)}
-                countryName={getCountryName(character)}
-                isMobile={isMobile}
-              />
+              <div key={character.id} className="[break-inside:avoid] mb-4">
+                <CharacterCard
+                  character={character}
+                  onSelect={handleSelect}
+                  onDelete={onDeleteCharacter}
+                  onLongPress={() => openActionSheet(character)}
+                  countryName={getCountryName(character)}
+                  isMobile={isMobile}
+                />
+              </div>
             ))}
           </div>
         ) : (
