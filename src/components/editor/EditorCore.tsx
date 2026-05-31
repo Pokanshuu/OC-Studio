@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback, useId, useRef, useMemo } from 'react'
-import { useEditor, EditorContent } from '@tiptap/react'
+import { tauriReadClipboard } from '@/lib/tauri-clipboard'
+import { useEditor, useEditorState, EditorContent } from '@tiptap/react'
 import { BubbleMenu } from '@tiptap/react/menus'
 import StarterKit from '@tiptap/starter-kit'
 import Paragraph from '@tiptap/extension-paragraph'
@@ -211,6 +212,42 @@ interface EditorCoreProps {
   plain?: boolean
 }
 
+function BubbleMenuButtons({ editor }: { editor: Editor }) {
+  const state = useEditorState({
+    editor,
+    selector: ({ editor: e }) => ({
+      bold: e.isActive('bold'),
+      italic: e.isActive('italic'),
+      underline: e.isActive('underline'),
+      mention: e.isActive('mention'),
+    }),
+  })
+
+  const base = 'flex h-8 w-8 items-center justify-center rounded transition-colors'
+  const active = 'bg-black/10 dark:bg-white/10 text-ink'
+  const inactive = 'text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-ink'
+
+  return (
+    <>
+      <button onPointerDown={(e) => { e.preventDefault(); editor.chain().focus().toggleBold().run() }} className={`${base} ${state.bold ? active : inactive}`}>
+        <Bold size={16} strokeWidth={2} />
+      </button>
+      <button onPointerDown={(e) => { e.preventDefault(); editor.chain().focus().toggleItalic().run() }} className={`${base} ${state.italic ? active : inactive}`}>
+        <Italic size={16} strokeWidth={2} />
+      </button>
+      <button onPointerDown={(e) => { e.preventDefault(); editor.chain().focus().toggleUnderline().run() }} className={`${base} ${state.underline ? active : inactive}`}>
+        <UnderlineIcon size={16} strokeWidth={2} />
+      </button>
+      <button onPointerDown={(e) => { e.preventDefault(); editor.chain().focus().insertContent(' @').run() }} className={`${base} ${state.mention ? active : inactive}`} title="@ 引用">
+        <AtSign size={16} strokeWidth={2} />
+      </button>
+      <button onPointerDown={(e) => { e.preventDefault(); editor.chain().focus().insertContent(' [[').run() }} className={`${base} ${inactive}`} title="[[ 内链">
+        <Link2 size={16} strokeWidth={2} />
+      </button>
+    </>
+  )
+}
+
 export function EditorCore({
   onReady, onCharacterCount, onContentChange, content, placeholder, onMentionClick, onWikiLinkClick, plain,
 }: EditorCoreProps) {
@@ -226,8 +263,11 @@ export function EditorCore({
   const [mobileBlockMenuOpen, setMobileBlockMenuOpen] = useState(false)
   const selectionRef = useRef<{ from: number; to: number } | null>(null)
   const isPointerDownRef = useRef(false)
+  const isTypingRef = useRef(false)
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout>>(null)
   const keyboardVisibleRef = useRef(keyboardVisible)
   keyboardVisibleRef.current = keyboardVisible
+  const lastClickRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
 
   useEffect(() => {
     const down = (e: PointerEvent) => {
@@ -236,7 +276,16 @@ export function EditorCore({
         isPointerDownRef.current = true
       }
     }
-    const up = () => { isPointerDownRef.current = false }
+    const up = () => {
+      const wasDown = isPointerDownRef.current
+      isPointerDownRef.current = false
+      if (wasDown) {
+        const ed = editorRef.current
+        if (ed && !ed.isDestroyed) {
+          ed.view.dispatch(ed.view.state.tr.setMeta('bubbleMenu', 'show'))
+        }
+      }
+    }
     document.addEventListener('pointerdown', down)
     document.addEventListener('pointerup', up)
     return () => {
@@ -441,6 +490,53 @@ export function EditorCore({
     return () => { editor.off('focus', handleFocus) }
   }, [editor, setActiveEditor])
 
+  // 桌面端 BubbleMenu：聚焦/失焦时主动触发显示/隐藏
+  useEffect(() => {
+    if (!editor || isMobile) return
+    const onFocus = () => {
+      requestAnimationFrame(() => {
+        const ed = editorRef.current
+        if (ed && !ed.isDestroyed && ed.isFocused) {
+          ed.view.dispatch(ed.view.state.tr.setMeta('bubbleMenu', 'show'))
+        }
+      })
+    }
+    const onBlur = () => {
+      const ed = editorRef.current
+      if (ed && !ed.isDestroyed) {
+        ed.view.dispatch(ed.view.state.tr.setMeta('bubbleMenu', 'hide'))
+      }
+    }
+    editor.on('focus', onFocus)
+    editor.on('blur', onBlur)
+    return () => {
+      editor.off('focus', onFocus)
+      editor.off('blur', onBlur)
+    }
+  }, [editor, isMobile])
+
+  // 桌面端 BubbleMenu：输入时隐藏，停止输入 200ms 后显示
+  useEffect(() => {
+    if (!editor) return
+    const dom = editor.view.dom
+    const onKeyDown = () => {
+      isTypingRef.current = true
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
+      typingTimerRef.current = setTimeout(() => {
+        isTypingRef.current = false
+        const ed = editorRef.current
+        if (ed && !ed.isDestroyed && ed.isFocused) {
+          ed.view.dispatch(ed.view.state.tr.setMeta('bubbleMenu', 'show'))
+        }
+      }, 200)
+    }
+    dom.addEventListener('keydown', onKeyDown)
+    return () => {
+      dom.removeEventListener('keydown', onKeyDown)
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
+    }
+  }, [editor])
+
   useEffect(() => {
     if (!isMobile || !editor) return
     const dom = editor.view.dom
@@ -605,7 +701,7 @@ export function EditorCore({
       onClick: () => {
         if (!editor) return
         editor.view.focus()
-        navigator.clipboard.readText()
+        tauriReadClipboard()
           .then((text) => { editor.chain().focus().insertContent(text).run() })
           .catch(() => {})
       },
@@ -728,6 +824,9 @@ export function EditorCore({
         ? 'relative'
         : 'relative rounded-md border border-transparent bg-paper transition-colors hover:border-line focus-within:border-line-hover'
       }
+      onMouseDown={(e) => {
+        lastClickRef.current = { x: e.clientX, y: e.clientY }
+      }}
       onClick={(e) => {
         const target = e.target as HTMLElement
         const mentionEl = target.closest?.('[data-type="mention"]') as HTMLElement | null
@@ -753,28 +852,40 @@ export function EditorCore({
       {!isMobile && (
         <BubbleMenu
           editor={editor}
+          updateDelay={0}
           shouldShow={({ editor }) => {
-            if (!editor.isFocused) return false
-            if (isPointerDownRef.current) return false
-            return true
+            return editor.isFocused && !isTypingRef.current
           }}
-          className="flex gap-0.5 rounded-md border border-line bg-paper/85 dark:bg-paper/85 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 context-menu-fade context-menu-visible"
+          getReferencedVirtualElement={() => {
+            const { selection } = editor.state
+            if (!selection.empty) {
+              const domSel = window.getSelection()
+              if (domSel && domSel.rangeCount > 0) {
+                const rect = domSel.getRangeAt(0).getBoundingClientRect()
+                if (rect.width > 0 || rect.height > 0) return { getBoundingClientRect: () => rect }
+              }
+              return null
+            }
+            const { x: clickX, y: clickY } = lastClickRef.current
+            const domSel = window.getSelection()
+            const el = domSel?.focusNode instanceof Text
+              ? domSel.focusNode.parentElement
+              : domSel?.focusNode as HTMLElement | null
+            const lineHeight = el
+              ? parseFloat(getComputedStyle(el).lineHeight) || 24
+              : 24
+            return {
+              getBoundingClientRect: () => new DOMRect(
+                clickX,
+                clickY - lineHeight / 2,
+                1,
+                lineHeight,
+              ),
+            }
+          }}
+          className="flex gap-0.5 rounded-md border border-line bg-paper/85 dark:bg-paper/85 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 z-20 context-menu-fade context-menu-visible"
         >
-          <button onClick={() => editor.chain().focus().toggleBold().run()} className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${editor.isActive('bold') ? 'bg-black/10 dark:bg-white/10 text-ink' : 'text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-ink'}`}>
-            <Bold size={16} strokeWidth={2} />
-          </button>
-          <button onClick={() => editor.chain().focus().toggleItalic().run()} className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${editor.isActive('italic') ? 'bg-black/10 dark:bg-white/10 text-ink' : 'text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-ink'}`}>
-            <Italic size={16} strokeWidth={2} />
-          </button>
-          <button onClick={() => editor.chain().focus().toggleUnderline().run()} className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${editor.isActive('underline') ? 'bg-black/10 dark:bg-white/10 text-ink' : 'text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-ink'}`}>
-            <UnderlineIcon size={16} strokeWidth={2} />
-          </button>
-          <button onClick={() => { editor.chain().focus().insertContent(' @').run() }} className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${editor.isActive('mention') ? 'bg-black/10 dark:bg-white/10 text-ink' : 'text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-ink'}`} title="@ 引用">
-            <AtSign size={16} strokeWidth={2} />
-          </button>
-          <button onClick={() => { editor.chain().focus().insertContent(' [[').run() }} className="flex h-8 w-8 items-center justify-center rounded transition-colors text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-ink" title="[[ 内链">
-            <Link2 size={16} strokeWidth={2} />
-          </button>
+          <BubbleMenuButtons editor={editor} />
         </BubbleMenu>
       )}
       <EditorContent editor={editor} />
