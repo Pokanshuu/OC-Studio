@@ -28,7 +28,7 @@ function buildDefaultCharacter(
     relatedCharacters: data.relatedCharacters,
     gallery: data.gallery,
     avatars: data.avatars,
-    tags: [],
+    tags: data.tags ?? [],
     createdAt: now,
     updatedAt: now,
     deleted: false,
@@ -139,6 +139,17 @@ export async function updateCharacter(
       'countryId',
       String(existing.countryId ?? ''),
       String(data.countryId ?? ''),
+    )
+  }
+
+  if (data.tags !== undefined) {
+    ;(updates as Record<string, unknown>).tags = data.tags
+    await logOperation(
+      TABLE,
+      id,
+      'tags',
+      JSON.stringify(existing.tags ?? []),
+      JSON.stringify(data.tags),
     )
   }
 

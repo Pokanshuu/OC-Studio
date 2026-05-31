@@ -4,8 +4,6 @@ import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import {
   ReactFlow,
   Background,
-  Controls,
-  ControlButton,
   MiniMap,
   useNodesState,
   useEdgesState,
@@ -17,7 +15,6 @@ import {
   type OnMove,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { Plus, Minus, Maximize } from 'lucide-react'
 
 import { useGraphData } from '../hooks/useGraphData'
 import { CharacterNode } from './CharacterNode'
@@ -72,23 +69,6 @@ function FitViewOnLoad({ ready }: { ready: boolean }) {
   }, [ready, fitView])
 
   return null
-}
-
-function ZoomControls() {
-  const { zoomIn, zoomOut, fitView } = useReactFlow()
-  return (
-    <Controls className="!border !border-line !rounded-md !bg-paper !shadow-none" position="bottom-right">
-      <ControlButton onClick={() => zoomIn({ duration: 200 })}>
-        <Plus size={14} strokeWidth={2} />
-      </ControlButton>
-      <ControlButton onClick={() => zoomOut({ duration: 200 })}>
-        <Minus size={14} strokeWidth={2} />
-      </ControlButton>
-      <ControlButton onClick={() => fitView({ padding: 0.2, duration: 200 })}>
-        <Maximize size={14} strokeWidth={2} />
-      </ControlButton>
-    </Controls>
-  )
 }
 
 function ZoomReader({ onInstance }: { onInstance: (rf: ReactFlowInstance) => void }) {
@@ -262,7 +242,6 @@ export function RelationGraph({
       >
         <ZoomReader onInstance={handleInstance} />
         <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#E7E3DC" />
-        <ZoomControls />
 
         <DesktopRelationPanel
           showCharacters={showCharacters}

@@ -10,6 +10,7 @@ export function useTags(): {
   loading: boolean
   error: string | null
   refresh: () => void
+  optimisticAdd: (tag: Tag) => void
 } {
   const [tags, setTags] = useState<Tag[]>([])
   const [loading, setLoading] = useState(true)
@@ -17,6 +18,13 @@ export function useTags(): {
   const [refreshKey, setRefreshKey] = useState(0)
 
   const refresh = useCallback(() => setRefreshKey((k) => k + 1), [])
+
+  const optimisticAdd = useCallback((tag: Tag) => {
+    setTags((prev) => {
+      if (prev.some((t) => t.id === tag.id)) return prev
+      return [tag, ...prev]
+    })
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -36,7 +44,7 @@ export function useTags(): {
     return () => { cancelled = true }
   }, [refreshKey])
 
-  return { tags, loading, error, refresh }
+  return { tags, loading, error, refresh, optimisticAdd }
 }
 
 export function useTagMutations(): {

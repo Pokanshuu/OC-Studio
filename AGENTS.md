@@ -61,6 +61,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ### 移动端交互
 - `src/components/shared/MobileActionSheet.tsx` — iOS 风格底部弹出菜单（长按触发）
+- `src/components/shared/MobileTextSelectionBar.tsx` — 移动端选词工具栏（复制/剪切/粘贴/全选），事件驱动状态机，@capacitor/clipboard 原生剪贴板
 - `src/components/shared/DeleteButton.tsx` — 桌面端删除按钮（含 AlertDialog 二次确认）
 - `src/lib/useLongPress.ts` — 长按 hook（320ms 阈值，8px 移动容差）
 - `src/lib/haptics.ts` — Capacitor 触觉反馈封装

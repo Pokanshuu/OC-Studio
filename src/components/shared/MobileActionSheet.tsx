@@ -49,18 +49,21 @@ export function MobileActionSheet({ open, onClose, title, actions }: MobileActio
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 touch-none overscroll-none transition-opacity duration-150"
+      className="fixed inset-0 z-60 touch-none overscroll-none transition-opacity duration-150"
       style={{ opacity: visible ? 1 : 0, pointerEvents: open ? 'auto' : 'none' }}
       onContextMenu={(e) => { e.preventDefault() }}
+      onPointerDown={onClose}
     >
-      <div className="absolute inset-0 bg-black/15" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/15" />
       <div
         ref={panelRef}
+        data-action-sheet-panel
         className="absolute bottom-0 left-0 right-0 z-10 bg-paper/85 backdrop-blur-lg rounded-t-xl transition-transform duration-250 ease-out"
         style={{
           transform: visible ? 'translateY(0)' : 'translateY(100%)',
           paddingBottom: 'var(--safe-bottom, 0px)',
         }}
+        onPointerDown={(e) => e.stopPropagation()}
       >
         {title ? (
           <h3 className="text-sm font-medium text-ink text-center pt-4 pb-2 px-4 truncate">

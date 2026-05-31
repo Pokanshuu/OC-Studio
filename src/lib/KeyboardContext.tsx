@@ -16,7 +16,7 @@ function scrollElementIntoView(el: HTMLElement) {
 
   const scroller = el.closest('.section-fade') as HTMLElement | null
   if (scroller) {
-    scroller.scrollTop += rect.bottom - vvH + 8
+    scroller.scrollTop += rect.bottom - vvH + 48
   }
 }
 
@@ -57,10 +57,14 @@ export function KeyboardProvider({ children }: { children: ReactNode }) {
 
     const handleViewportResize = () => {
       if (isNative) return
-      const el = document.activeElement as HTMLElement | null
-      if (!el || !isInput(el)) return
       if (window.visualViewport) {
-        scrollElementIntoView(el)
+        const kbHeight = Math.max(0, window.innerHeight - window.visualViewport.height)
+        setState(prev => {
+          if (prev.viewportHeight === kbHeight) return prev
+          return { visible: kbHeight > 0, viewportHeight: kbHeight }
+        })
+        const el = document.activeElement as HTMLElement | null
+        if (el && isInput(el)) scrollElementIntoView(el)
       }
     }
 

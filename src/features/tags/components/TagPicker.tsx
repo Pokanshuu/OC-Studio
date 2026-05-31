@@ -1,11 +1,66 @@
 'use client'
 
-import { useState, useRef, useEffect, useMemo } from 'react'
-import { Plus, X } from 'lucide-react'
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
+import { Plus, X, Trash2 } from 'lucide-react'
 import { useTags, useTagMutations } from '../hooks/useTags'
 import { TagBadge } from './TagBadge'
+import { useDevice } from '@/lib/use-device'
+import { useKeyboard } from '@/lib/KeyboardContext'
+import { useLongPress } from '@/lib/useLongPress'
+import { MobileActionSheet } from '@/components/shared/MobileActionSheet'
+import type { Tag } from '@/types'
 
 const DEFAULT_COLORS = ['#4ECDC4', '#45B7D1', '#FF6B6B', '#96CEB4', '#DDA0DD', '#F7DC6F', '#BB8FCE', '#85C1E9']
+
+function TagRow({ tag, onAdd, onDelete, onLongPress, isMobile }: {
+  tag: Tag
+  onAdd: (id: number) => void
+  onDelete: () => void
+  onLongPress: () => void
+  isMobile: boolean
+}) {
+  const didLongPress = useRef(false)
+
+  const longPress = useLongPress({
+    onLongPress: () => {
+      didLongPress.current = true
+      onLongPress()
+    },
+    enabled: isMobile,
+  })
+
+  function handleClick() {
+    if (didLongPress.current) {
+      didLongPress.current = false
+      return
+    }
+    if (tag.id != null) onAdd(tag.id)
+  }
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={handleClick}
+      onKeyDown={(e) => { if (e.key === 'Enter' && tag.id != null) onAdd(tag.id) }}
+      className="flex w-full items-center gap-2 rounded-sm px-3 py-1.5 text-left text-sm text-ink hover:bg-black/5 dark:hover:bg-white/5 transition-colors group cursor-pointer"
+      {...longPress}
+    >
+      <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: tag.color || '#999' }} />
+      <span className="flex-1">{tag.name}</span>
+      {!isMobile ? (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onDelete() }}
+          className="rounded-full p-0.5 transition-colors hover:text-error opacity-0 group-hover:opacity-100"
+        >
+          <X size={12} strokeWidth={2} />
+        </button>
+      ) : null}
+    </div>
+  )
+}
 
 interface TagPickerProps {
   selectedIds: number[]
@@ -13,13 +68,16 @@ interface TagPickerProps {
 }
 
 export function TagPicker({ selectedIds, onChange }: TagPickerProps) {
-  const { tags, loading, refresh } = useTags()
+  const { tags, loading, refresh, optimisticAdd } = useTags()
   const { createTag, deleteTag } = useTagMutations()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [creating, setCreating] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const { isMobile } = useDevice()
+  const { viewportHeight: keyboardHeight } = useKeyboard()
+  const [actionSheet, setActionSheet] = useState<{ open: boolean; tagId: number | null }>({ open: false, tagId: null })
 
   useEffect(() => {
     if (!open) {
@@ -27,6 +85,8 @@ export function TagPicker({ selectedIds, onChange }: TagPickerProps) {
       return
     }
     function handler(e: MouseEvent) {
+      const overlayRoot = document.getElementById('overlay-root')
+      if (overlayRoot && overlayRoot.contains(e.target as Node)) return
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false)
       }
@@ -75,8 +135,13 @@ export function TagPicker({ selectedIds, onChange }: TagPickerProps) {
     if (selectedIds.includes(id)) {
       onChange(selectedIds.filter((i) => i !== id))
     }
+    setActionSheet({ open: false, tagId: null })
     refresh()
   }
+
+  const handleLongPress = useCallback((tagId: number) => {
+    setActionSheet({ open: true, tagId })
+  }, [])
 
   async function handleCreate() {
     const name = query.trim()
@@ -85,6 +150,7 @@ export function TagPicker({ selectedIds, onChange }: TagPickerProps) {
     try {
       const color = DEFAULT_COLORS[Math.floor(Math.random() * DEFAULT_COLORS.length)]
       const id = await createTag({ name, category: '', color })
+      optimisticAdd({ id, name, category: '', color })
       onChange([...selectedIds, id])
       setOpen(false)
       refresh()
@@ -130,30 +196,19 @@ export function TagPicker({ selectedIds, onChange }: TagPickerProps) {
               <Plus size={14} strokeWidth={2} />
             </button>
           </div>
-          <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 max-h-48 overflow-auto">
+          <div className={`absolute left-0 z-50 w-full rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 max-h-48 overflow-auto ${keyboardHeight > 0 ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
             {loading ? (
               <div className="px-3 py-2 text-sm text-ink-muted">加载中...</div>
             ) : availableTags.length > 0 ? (
               availableTags.map((tag) => (
-                <div
+                <TagRow
                   key={tag.id}
-                  role="button"
-                  tabIndex={0}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => { if (tag.id != null) addTag(tag.id) }}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && tag.id != null) addTag(tag.id) }}
-                  className="flex w-full items-center gap-2 rounded-sm px-3 py-1.5 text-left text-sm text-ink hover:bg-black/5 dark:hover:bg-white/5 transition-colors group cursor-pointer"
-                >
-                  <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: tag.color || '#999' }} />
-                  <span className="flex-1">{tag.name}</span>
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); if (tag.id != null) handleDeleteTag(tag.id) }}
-                    className="rounded-full p-0.5 transition-colors hover:text-error opacity-0 group-hover:opacity-100"
-                  >
-                    <X size={12} strokeWidth={2} />
-                  </button>
-                </div>
+                  tag={tag}
+                  onAdd={addTag}
+                  onDelete={() => { if (tag.id != null) handleDeleteTag(tag.id) }}
+                  onLongPress={() => { if (tag.id != null) handleLongPress(tag.id) }}
+                  isMobile={isMobile}
+                />
               ))
             ) : query.trim() ? (
               <div className="px-3 py-2 text-sm text-ink-faint">按 Enter 或点 + 新建</div>
@@ -172,6 +227,23 @@ export function TagPicker({ selectedIds, onChange }: TagPickerProps) {
           <span>添加</span>
         </button>
       )}
+
+      <MobileActionSheet
+        open={actionSheet.open}
+        onClose={() => setActionSheet({ open: false, tagId: null })}
+        title="标签操作"
+        actions={[
+          {
+            id: 'delete',
+            label: '删除标签',
+            icon: <Trash2 size={18} strokeWidth={2} />,
+            destructive: true,
+            onPress: () => {
+              if (actionSheet.tagId != null) handleDeleteTag(actionSheet.tagId)
+            },
+          },
+        ]}
+      />
     </div>
   )
 }
