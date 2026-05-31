@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useMemo } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, X } from 'lucide-react'
 import { useTags, useTagMutations } from '../hooks/useTags'
 import { TagBadge } from './TagBadge'
 
@@ -14,7 +14,7 @@ interface TagPickerProps {
 
 export function TagPicker({ selectedIds, onChange }: TagPickerProps) {
   const { tags, loading, refresh } = useTags()
-  const { createTag } = useTagMutations()
+  const { createTag, deleteTag } = useTagMutations()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [creating, setCreating] = useState(false)
@@ -68,6 +68,14 @@ export function TagPicker({ selectedIds, onChange }: TagPickerProps) {
 
   function handleAddClick() {
     setOpen(true)
+  }
+
+  async function handleDeleteTag(id: number) {
+    await deleteTag(id)
+    if (selectedIds.includes(id)) {
+      onChange(selectedIds.filter((i) => i !== id))
+    }
+    refresh()
   }
 
   async function handleCreate() {
@@ -132,10 +140,17 @@ export function TagPicker({ selectedIds, onChange }: TagPickerProps) {
                   type="button"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => { if (tag.id != null) addTag(tag.id) }}
-                  className="flex w-full items-center gap-2 rounded-sm px-3 py-1.5 text-left text-sm text-ink hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                  className="flex w-full items-center gap-2 rounded-sm px-3 py-1.5 text-left text-sm text-ink hover:bg-black/5 dark:hover:bg-white/5 transition-colors group"
                 >
                   <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: tag.color || '#999' }} />
                   <span className="flex-1">{tag.name}</span>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); if (tag.id != null) handleDeleteTag(tag.id) }}
+                    className="rounded-full p-0.5 transition-colors hover:text-error opacity-0 group-hover:opacity-100"
+                  >
+                    <X size={12} strokeWidth={2} />
+                  </button>
                 </button>
               ))
             ) : query.trim() ? (
