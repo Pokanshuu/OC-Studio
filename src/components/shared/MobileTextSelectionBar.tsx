@@ -424,8 +424,20 @@ export function MobileTextSelectionBar() {
     goIdle()
   }, [focusEditable, goIdle])
 
-  const handlePaste = useCallback(() => {
+  const handlePaste = useCallback(async () => {
     suppressNextFocusRef.current = true
+    const el = editableRef.current
+    if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+      el.focus()
+      try {
+        const text = await navigator.clipboard.readText()
+        const start = el.selectionStart ?? 0
+        const end = el.selectionEnd ?? 0
+        el.setRangeText(text, start, end, 'end')
+      } catch { /* clipboard unavailable */ }
+      goIdle()
+      return
+    }
     focusEditable()
     try { document.execCommand('paste') } catch { /* */ }
     goIdle()
