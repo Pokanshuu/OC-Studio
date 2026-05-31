@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
+import { tauriReadClipboard } from '@/lib/tauri-clipboard'
 import { createPortal } from 'react-dom'
 import { Separator } from '@/components/ui/separator'
 import { adjustContextMenuPosition } from '@/lib/menu-utils'
@@ -156,10 +157,11 @@ export function GlobalContextMenu({ children }: { children: ReactNode }) {
     if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
       el.focus()
       try {
-        const text = await navigator.clipboard.readText()
+        const text = await tauriReadClipboard()
         const start = el.selectionStart ?? 0
         const end = el.selectionEnd ?? 0
         el.setRangeText(text, start, end, 'end')
+        el.dispatchEvent(new Event('input', { bubbles: true }))
       } catch { /* clipboard unavailable */ }
     }
     close()

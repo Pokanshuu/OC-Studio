@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import { tauriReadClipboard } from '@/lib/tauri-clipboard'
 import { createPortal } from 'react-dom'
 import { Search, Users, Calendar, Flag, BookOpen, Minus, Maximize2, Minimize2, X, Check } from 'lucide-react'
 import { searchAllEntitiesFlat } from '@/lib/reference-registry'
@@ -76,7 +77,7 @@ export function MenuBar() {
   const handlePaste = useCallback(() => {
     if (!activeEditor) return
     activeEditor.view.focus()
-    navigator.clipboard.readText()
+    tauriReadClipboard()
       .then((text) => { activeEditor.chain().focus().insertContent(text).run() })
       .catch(() => {})
   }, [activeEditor])

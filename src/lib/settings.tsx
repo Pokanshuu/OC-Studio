@@ -74,6 +74,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<Settings>(() => loadSettings())
 
   useEffect(() => {
+    saveSettings(settings)
+  }, [settings])
+
+  useEffect(() => {
     const root = document.documentElement
     const applyTheme = () => {
       const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
@@ -105,11 +109,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   const updateSetting = useCallback(
     <K extends keyof Settings>(key: K, value: Settings[K]) => {
-      setSettings((prev) => {
-        const next = { ...prev, [key]: value }
-        saveSettings(next)
-        return next
-      })
+      setSettings((prev) => ({ ...prev, [key]: value }))
     },
     [],
   )

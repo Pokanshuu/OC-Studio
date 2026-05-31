@@ -617,6 +617,7 @@ export function MobileTextSelectionBar() {
           const start = el.selectionStart ?? 0
           const end = el.selectionEnd ?? 0
           el.setRangeText(text, start, end, 'end')
+          el.dispatchEvent(new Event('input', { bubbles: true }))
         }
       } catch { /* */ }
     } else {
