@@ -20,6 +20,9 @@ export function useBackButton() {
       try {
         const { App } = await import('@capacitor/app')
         const handler = await App.addListener('backButton', () => {
+          // 全屏看图优先——点返回退出浏览，不回到上一级
+          const fullscreenClose = document.querySelector<HTMLButtonElement>('[data-fullscreen-close]')
+          if (fullscreenClose) { fullscreenClose.click(); return }
           if (isEditingRef.current) {
             const backBtn = document.querySelector('[data-mobile-back]') as HTMLButtonElement | null
             if (backBtn) { backBtn.click(); return }

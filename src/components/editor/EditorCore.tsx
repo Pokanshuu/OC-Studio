@@ -261,6 +261,8 @@ export function EditorCore({
   const { setActiveEditor } = useActiveEditor()
   const { visible: keyboardVisible, viewportHeight: keyboardHeight } = useKeyboard()
   const [mobileBlockMenuOpen, setMobileBlockMenuOpen] = useState(false)
+  const mobileToolbarRef = useRef<HTMLDivElement>(null)
+  const mobileBlockMenuRef = useRef<HTMLDivElement>(null)
   const selectionRef = useRef<{ from: number; to: number } | null>(null)
   const isPointerDownRef = useRef(false)
   const isTypingRef = useRef(false)
@@ -620,7 +622,7 @@ export function EditorCore({
     const ed = editorRef.current
     if (!ed || !ed.isFocused) return
     const id = setTimeout(() => {
-      if (!editorRef.current) return
+      if (!editorRef.current || editorRef.current.isDestroyed) return
       const coords = editorRef.current.view.coordsAtPos(editorRef.current.state.selection.head)
       const toolbarH = 56
       const vvBottom = document.documentElement.clientHeight
@@ -659,6 +661,20 @@ export function EditorCore({
     action()
     setToolbarTick(v => v + 1)
   }, [isMobile, editor])
+
+  // 移动端工具栏禁止长按弹出右键菜单（原生 DOM 监听，capture 阶段拦截，比 React 合成事件更可靠）
+  useEffect(() => {
+    if (!isMobile) return
+    const preventCtx = (e: Event) => { e.preventDefault(); e.stopPropagation() }
+    const toolbar = mobileToolbarRef.current
+    const blockMenu = mobileBlockMenuRef.current
+    toolbar?.addEventListener('contextmenu', preventCtx, true)
+    blockMenu?.addEventListener('contextmenu', preventCtx, true)
+    return () => {
+      toolbar?.removeEventListener('contextmenu', preventCtx, true)
+      blockMenu?.removeEventListener('contextmenu', preventCtx, true)
+    }
+  }, [isMobile, keyboardVisible, mobileBlockMenuOpen])
 
   // 移动端工具栏统一 onPointerDown 入口：preventDefault + stopPropagation + 执行命令
   const handleToolbarPointerDown = useCallback((e: React.PointerEvent, action: () => void) => {
@@ -904,6 +920,7 @@ export function EditorCore({
           />
         )}
         <div
+          ref={mobileToolbarRef}
           className="fixed left-0 right-0 z-30 flex items-center gap-2 px-3 py-2 bg-paper/85 backdrop-blur-lg border-t border-line"
           style={{ bottom: `${keyboardHeight}px` }}
           data-tick={toolbarTick}
@@ -976,6 +993,7 @@ export function EditorCore({
         {/* 移动端块类型选择面板 */}
         {mobileBlockMenuOpen && (
           <div
+            ref={mobileBlockMenuRef}
             className="fixed left-0 right-0 z-40 p-3 bg-paper/85 backdrop-blur-lg border-t border-line"
             style={{ bottom: `${keyboardHeight + 44}px` }}
           >

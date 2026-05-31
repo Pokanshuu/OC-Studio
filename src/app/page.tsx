@@ -216,18 +216,25 @@ export default function Home() {
   }, [setActiveItem, setSource, clearSource, mobileSetSection, mobileSetGallerySubTab, setEditing])
 
   const handleBackToList = useCallback(() => {
-    clearEditing()
-    if (restoreCrossBack()) return
-    if (source === 'timeline') {
-      setEventView({ sub: 'list' })
-      setActiveItem('时间线')
-      if (isMobile) {
-        mobileSetSection('timeline')
+    const el = document.activeElement as HTMLElement | null
+    el?.blur()
+    // 延迟导航，让 blur 和键盘收起动画先完成，避免 editor display:none 与 TipTap blur 清理冲突
+    const doNav = () => {
+      clearEditing()
+      if (restoreCrossBack()) return
+      if (source === 'timeline') {
+        setEventView({ sub: 'list' })
+        setActiveItem('时间线')
+        if (isMobile) {
+          mobileSetSection('timeline')
+        }
+      } else {
+        setEventView({ sub: 'list' })
       }
-    } else {
-      setEventView({ sub: 'list' })
+      clearSource()
     }
-    clearSource()
+    // 使用 setTimeout 而非 rAF：键盘收起是异步动画，rAF 太早
+    setTimeout(doNav, 50)
   }, [source, setActiveItem, clearSource, restoreCrossBack, clearEditing, isMobile, mobileSetSection])
 
   const handleSelectCharacter = useCallback((id: number) => {
@@ -264,6 +271,7 @@ export default function Home() {
   }, [createCharacter, creatingChar, refreshCharacters, setEditing])
 
   const handleBackToCharacterList = useCallback(() => {
+    (document.activeElement as HTMLElement | null)?.blur()
     clearEditing()
     if (restoreCrossBack()) return
     setCharacterView({ sub: 'list' })
@@ -318,6 +326,7 @@ export default function Home() {
   }, [setSource, setEditing])
 
   const handleBackToCountryList = useCallback(() => {
+    (document.activeElement as HTMLElement | null)?.blur()
     clearEditing()
     if (restoreCrossBack()) return
     setCountryView({ sub: 'list' })

@@ -193,6 +193,15 @@ async function readClipboardText(): Promise<string | null> {
   return null
 }
 
+function safeGetEditorDom(editor: { view?: { dom?: HTMLElement } | null; isDestroyed?: boolean } | null): HTMLElement | undefined {
+  if (!editor) return undefined
+  try {
+    return editor.view?.dom ?? undefined
+  } catch {
+    return undefined
+  }
+}
+
 // ═══════════════════════════════════════════
 // Component
 // ═══════════════════════════════════════════
@@ -222,29 +231,9 @@ export function MobileTextSelectionBar() {
   const suppressNextFocusRef = useRef(false)
   const selectionConsumeLockRef = useRef(false)
   const rafRef = useRef(0)
+  const recalcPositionRef = useRef<(() => void) | null>(null)
 
   // ── helpers ──
-
-  const recalcPosition = useCallback(() => {
-    const el = editableRef.current
-    if (!el) { console.log('[TSB] recalcPosition: no editable, skip'); return }
-    const anchor = getAnchorRect(el)
-    if (!anchor) { console.log('[TSB] recalcPosition: no anchor, skip'); return }
-    const vw = window.visualViewport?.width ?? window.innerWidth
-    const vh = document.documentElement.clientHeight
-    const visualTop = window.visualViewport?.offsetTop ?? 0
-    const topY = anchor.y + visualTop - TOOLBAR_H - GAP
-    const bottomY = anchor.y + anchor.h + visualTop + GAP
-    const topOverflow = anchor.y + visualTop < FLIP_ZONE
-    const bottomOverflow = anchor.y + anchor.h + visualTop + TOOLBAR_H + GAP > vh
-    const flip = topOverflow && !bottomOverflow
-    const y = flip ? bottomY : topY
-    const barW = barRef.current?.offsetWidth ?? 150
-    const halfBar = barW / 2
-    const x = clamp(anchor.x, halfBar + 8, vw - halfBar - 8)
-    console.log(`[TSB] recalcPosition: x=${x.toFixed(0)} y=${y.toFixed(0)} flip=${flip} anchor=(${anchor.x.toFixed(0)},${anchor.y.toFixed(0)})`)
-    setPosition({ x, y, flip })
-  }, [])
 
   const setModeBoth = useCallback((next: State) => {
     console.log(`[TSB] setModeBoth: ${modeRef.current} → ${next}`)
@@ -253,8 +242,12 @@ export function MobileTextSelectionBar() {
   }, [])
 
   const show = useCallback((el: HTMLElement, st: State) => {
-    console.log(`[TSB] show: el=${el.tagName.toLowerCase()}${el.id ? '#'+el.id : ''} state=${st}`)
-    const editorDom = activeEditor?.view?.dom
+    // 拒绝跟踪已脱离文档或在 display:none 区域的元素
+    if (!el.isConnected) return
+    const elRect = el.getBoundingClientRect()
+    if (elRect.width === 0 && elRect.height === 0) return
+
+    const editorDom = safeGetEditorDom(activeEditor)
     const isPM = isEditorDom(el, editorDom)
     if (isPM && activeEditor && !activeEditor.isDestroyed) {
       setInTable(
@@ -268,20 +261,19 @@ export function MobileTextSelectionBar() {
     editableRef.current = el
     suppressNextFocusRef.current = false
     if (dismissTimerRef.current) { clearTimeout(dismissTimerRef.current); dismissTimerRef.current = null }
-    recalcPosition()
+    recalcPositionRef.current?.()
     setMounted(true)
     setModeBoth(st)
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         setBarVisible(true)
-        recalcPosition()
-        setTimeout(() => recalcPosition(), 200)
+        recalcPositionRef.current?.()
+        setTimeout(() => recalcPositionRef.current?.(), 200)
       })
     })
-  }, [activeEditor, recalcPosition, setModeBoth])
+  }, [activeEditor, setModeBoth])
 
   const dismiss = useCallback(() => {
-    console.log(`[TSB] dismiss: epoch ${epochRef.current} → ${epochRef.current + 1}`)
     epochRef.current++
     setBarVisible(false)
     if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current)
@@ -298,10 +290,46 @@ export function MobileTextSelectionBar() {
     setModeBoth('idle')
   }, [dismiss, setModeBoth])
 
+  const recalcPosition = useCallback(() => {
+    const el = editableRef.current
+    if (!el) return
+
+    // 元素已脱离文档或被 display:none 隐藏 → 立即 detach
+    if (!el.isConnected) {
+      editableRef.current = null
+      dismiss()
+      setModeBoth('idle')
+      return
+    }
+    const elRect = el.getBoundingClientRect()
+    if (elRect.width === 0 && elRect.height === 0) {
+      editableRef.current = null
+      dismiss()
+      setModeBoth('idle')
+      return
+    }
+
+    const anchor = getAnchorRect(el)
+    if (!anchor) return
+    const vw = window.visualViewport?.width ?? window.innerWidth
+    const vh = document.documentElement.clientHeight
+    const visualTop = window.visualViewport?.offsetTop ?? 0
+    const topY = anchor.y + visualTop - TOOLBAR_H - GAP
+    const bottomY = anchor.y + anchor.h + visualTop + GAP
+    const topOverflow = anchor.y + visualTop < FLIP_ZONE
+    const bottomOverflow = anchor.y + anchor.h + visualTop + TOOLBAR_H + GAP > vh
+    const flip = topOverflow && !bottomOverflow
+    const y = flip ? bottomY : topY
+    const barW = barRef.current?.offsetWidth ?? 150
+    const halfBar = barW / 2
+    const x = clamp(anchor.x, halfBar + 8, vw - halfBar - 8)
+    setPosition({ x, y, flip })
+  }, [dismiss, setModeBoth])
+  recalcPositionRef.current = recalcPosition
+
   // ── state machine ──
 
   const dispatch = useCallback((event: EditorEvent) => {
-    console.log(`[TSB] dispatch: ${event.type} mode=${modeRef.current} epoch=${epochRef.current}`)
     const epoch = epochRef.current
 
     // DISMISS resets everything — no further processing
@@ -315,15 +343,13 @@ export function MobileTextSelectionBar() {
 
     switch (event.type) {
       case 'FOCUS_IN': {
-        console.log(`[TSB]   FOCUS_IN: collapsed=${event.collapsed}`)
         const el = resolveEditable()
-        if (!el) { console.log('[TSB]   FOCUS_IN: no editable, skip'); break }
+        if (!el) break
         show(el, event.collapsed ? 'caret' : 'selection')
         break
       }
 
       case 'FOCUS_OUT': {
-        console.log('[TSB]   FOCUS_OUT: locking focus')
         focusLockRef.current = true
         setTimeout(() => { focusLockRef.current = false }, FOCUS_LOCK_MS)
         goIdle()
@@ -331,7 +357,6 @@ export function MobileTextSelectionBar() {
       }
 
       case 'SEL_CHANGE': {
-        console.log(`[TSB]   SEL_CHANGE: mode=${modeRef.current}`)
         const el = resolveEditable()
         if (!el) {
           if (modeRef.current !== 'idle') goIdle()
@@ -359,8 +384,7 @@ export function MobileTextSelectionBar() {
       }
 
       case 'LONG_PRESS': {
-        console.log(`[TSB]   LONG_PRESS: collapsed=${event.collapsed}`)
-        const editorDom = activeEditor?.view?.dom
+        const editorDom = safeGetEditorDom(activeEditor)
         const targetEl = findEditableFromSelection() ?? getActiveEditable()
         if (!targetEl) break
         const el = isEditorDom(targetEl, editorDom) && editorDom ? editorDom : targetEl
@@ -369,7 +393,6 @@ export function MobileTextSelectionBar() {
       }
 
       case 'ACTION_OPEN':
-        console.log('[TSB]   ACTION_OPEN: blurring, showing action sheet')
         editableRef.current?.blur()
         setModeBoth('action-sheet')
         setBarVisible(false)
@@ -377,7 +400,6 @@ export function MobileTextSelectionBar() {
 
       case 'ACTION_CLOSE':
         queueMicrotask(() => {
-          console.log(`[TSB]   ACTION_CLOSE: actionTaken=${actionTakenRef.current}`)
           if (actionTakenRef.current) {
             actionTakenRef.current = false
             suppressNextFocusRef.current = true
@@ -398,7 +420,6 @@ export function MobileTextSelectionBar() {
     if (!isMobile) return
     const handler = () => {
       setTimeout(() => {
-        console.log(`[TSB] focusin: lock=${focusLockRef.current} suppress=${suppressNextFocusRef.current} selLock=${selectionConsumeLockRef.current} mode=${modeRef.current}`)
         if (selectionConsumeLockRef.current) return
         if (focusLockRef.current) return
         if (suppressNextFocusRef.current) { suppressNextFocusRef.current = false; return }
@@ -416,7 +437,6 @@ export function MobileTextSelectionBar() {
   useEffect(() => {
     if (!isMobile) return
     const handler = (e: FocusEvent) => {
-      console.log(`[TSB] focusout: mode=${modeRef.current} action-sheet=${modeRef.current === 'action-sheet'}`)
       if (modeRef.current === 'action-sheet') return
       const target = e.target as HTMLElement
       if (!isEditable(target)) return
@@ -432,7 +452,6 @@ export function MobileTextSelectionBar() {
   useEffect(() => {
     if (!isMobile) return
     const handler = () => {
-      console.log(`[TSB] selectionchange: mode=${modeRef.current} selLock=${selectionConsumeLockRef.current}`)
       if (selectionConsumeLockRef.current) return
       // Noise gate
       const now = performance.now()
@@ -464,7 +483,6 @@ export function MobileTextSelectionBar() {
   useEffect(() => {
     if (!isMobile) return
     const handler = (e: MouseEvent) => {
-      console.log(`[TSB] contextmenu: mode=${modeRef.current}`)
       if (modeRef.current === 'action-sheet') return
       const target = e.target as HTMLElement
       if (!isEditable(target)) return
@@ -482,7 +500,9 @@ export function MobileTextSelectionBar() {
     if (!activeEditor || !isMobile) return
     const update = () => {
       if (activeEditor.isDestroyed) return
-      if (editableRef.current !== activeEditor.view.dom) return
+      const editorDom = safeGetEditorDom(activeEditor)
+      if (!editorDom) return
+      if (editableRef.current !== editorDom) return
       setInTable(
         activeEditor.isActive('table') ||
         activeEditor.isActive('tableCell') ||
@@ -501,7 +521,6 @@ export function MobileTextSelectionBar() {
   useEffect(() => {
     if (!mounted) return
     const handler = (e: PointerEvent) => {
-      console.log(`[TSB] pointerdown outside: mode=${modeRef.current}`)
       if (modeRef.current === 'action-sheet') return
       if (modeRef.current === 'idle') return
       if (barRef.current && !barRef.current.contains(e.target as Node)) {
@@ -536,7 +555,6 @@ export function MobileTextSelectionBar() {
 
   // keyboard show/hide
   useEffect(() => {
-    console.log(`[TSB] keyboard.visible=${keyboard.visible} mode=${mode}`)
     if (mode === 'idle') return
     requestAnimationFrame(recalcPosition)
   }, [keyboard.visible, recalcPosition, mode])
@@ -557,16 +575,15 @@ export function MobileTextSelectionBar() {
   }, [])
 
   const dispatchEditorEvent = useCallback((name: string) => {
-    console.log(`[TSB] dispatchEditorEvent: ${name}`)
     if (activeEditor?.isDestroyed) return
-    const dom = editableRef.current === activeEditor?.view?.dom
-      ? activeEditor.view.dom
+    const editorDom = safeGetEditorDom(activeEditor)
+    const dom = editableRef.current === editorDom
+      ? editorDom
       : editableRef.current
     dom?.dispatchEvent(new CustomEvent(name, { bubbles: true }))
   }, [activeEditor])
 
   const handleCut = useCallback(() => {
-    console.log('[TSB] handleCut')
     suppressNextFocusRef.current = true
     selectionConsumeLockRef.current = true
     setTimeout(() => { selectionConsumeLockRef.current = false }, 200)
@@ -585,7 +602,6 @@ export function MobileTextSelectionBar() {
   }, [focusEditable, dispatch, activeEditor])
 
   const handleCopy = useCallback(() => {
-    console.log('[TSB] handleCopy')
     suppressNextFocusRef.current = true
     selectionConsumeLockRef.current = true
     setTimeout(() => { selectionConsumeLockRef.current = false }, 200)
@@ -604,7 +620,6 @@ export function MobileTextSelectionBar() {
   }, [focusEditable, dispatch, activeEditor])
 
   const handlePaste = useCallback(async () => {
-    console.log('[TSB] handlePaste')
     suppressNextFocusRef.current = true
     const el = editableRef.current
     if (!el) return
@@ -634,7 +649,6 @@ export function MobileTextSelectionBar() {
   }, [focusEditable, dispatch, activeEditor])
 
   const handleSelectAll = useCallback(() => {
-    console.log('[TSB] handleSelectAll')
     suppressNextFocusRef.current = true
     focusEditable()
     const el = editableRef.current
@@ -716,7 +730,7 @@ export function MobileTextSelectionBar() {
             <button onClick={handleSelectAll} className="whitespace-nowrap rounded-full px-3 py-1.5 text-sm text-ink active:bg-black/8 dark:active:bg-white/8 transition-colors">
               全选
             </button>
-            {editableRef.current === activeEditor?.view?.dom && (
+            {editableRef.current === safeGetEditorDom(activeEditor) && (
               <>
                 <span className="w-px h-4 bg-line mx-0.5" />
                 <button

@@ -25,6 +25,7 @@ export function MobileTabBar() {
             <button
               key={tab.section}
               onClick={() => {
+                (document.activeElement as HTMLElement | null)?.blur()
                 setActiveItem(null)
                 setSection(tab.section)
               }}

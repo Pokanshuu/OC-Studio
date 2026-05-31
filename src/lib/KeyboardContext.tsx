@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from 'react'
 
 interface KeyboardState {
   visible: boolean
@@ -34,7 +34,8 @@ export function KeyboardProvider({ children }: { children: ReactNode }) {
       })
       Keyboard.addListener('keyboardDidShow', () => {
         const vvH = window.visualViewport?.height ?? window.innerHeight
-        setState({ visible: true, viewportHeight: Math.max(0, window.innerHeight - vvH) })
+        const kbH = Math.max(0, window.innerHeight - vvH)
+        setState({ visible: true, viewportHeight: kbH })
       })
       Keyboard.addListener('keyboardWillHide', () => {
         setState({ visible: false, viewportHeight: 0 })
@@ -55,17 +56,22 @@ export function KeyboardProvider({ children }: { children: ReactNode }) {
 
     const isInput = (el: Element | null) => el && ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)
 
+    let rafId = 0
     const handleViewportResize = () => {
       if (isNative) return
-      if (window.visualViewport) {
-        const kbHeight = Math.max(0, window.innerHeight - window.visualViewport.height)
-        setState(prev => {
-          if (prev.viewportHeight === kbHeight) return prev
-          return { visible: kbHeight > 0, viewportHeight: kbHeight }
-        })
-        const el = document.activeElement as HTMLElement | null
-        if (el && isInput(el)) scrollElementIntoView(el)
-      }
+      if (rafId) return
+      rafId = requestAnimationFrame(() => {
+        rafId = 0
+        if (window.visualViewport) {
+          const kbHeight = Math.max(0, window.innerHeight - window.visualViewport.height)
+          setState(prev => {
+            if (prev.viewportHeight === kbHeight) return prev
+            return { visible: kbHeight > 0, viewportHeight: kbHeight }
+          })
+          const el = document.activeElement as HTMLElement | null
+          if (el && isInput(el)) scrollElementIntoView(el)
+        }
+      })
     }
 
     const handleFocusIn = () => {

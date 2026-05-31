@@ -100,6 +100,7 @@ export function FullscreenViewer({ images, initialIndex, onClose }: FullscreenVi
       onClick={(e) => { if (e.target === e.currentTarget) handleClose() }}
     >
       <button
+        data-fullscreen-close
         onClick={handleClose}
         className="absolute right-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white/80 transition-colors hover:bg-white/30"
         style={{ top: `calc(1rem + var(--safe-top, 0px))` }}
