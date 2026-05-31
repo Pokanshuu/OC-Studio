@@ -285,43 +285,76 @@ export function SettingsDialog({
             {/* ---- ai ---- */}
             <TabsContent value="ai">
               <div className="flex flex-col gap-5">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-sm text-ink">API Key</label>
-                  <input
-                    type="password"
-                    value={settings.apiKey}
-                    onChange={(e) => updateSetting("apiKey", e.target.value)}
-                    placeholder="sk-..."
-                    className="h-9 w-full rounded border border-line bg-black/5 dark:bg-white/5 px-3 text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
-                  />
-                  <span className="text-xs text-ink-faint">
-                    密钥仅存储在本地，不会上传到任何服务器
-                  </span>
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-sm text-ink">AI 模型</label>
-                  <input
-                    type="text"
-                    value={settings.aiModel}
-                    onChange={(e) => updateSetting("aiModel", e.target.value)}
-                    placeholder="gpt-4o"
-                    className="h-9 w-full rounded border border-line bg-black/5 dark:bg-white/5 px-3 text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-sm text-ink">Base URL</label>
-                  <input
-                    type="text"
-                    value={settings.aiBaseUrl}
-                    onChange={(e) =>
-                      updateSetting("aiBaseUrl", e.target.value)
+                <label className="flex items-center justify-between">
+                  <div className="flex flex-col">
+                    <span className="text-sm text-ink">
+                      启用AI概括功能
+                    </span>
+                    <span className="text-xs text-ink-faint">
+                      实验性功能，开启后可配置 AI 接口并在事件编辑中使用 AI 概括
+                    </span>
+                  </div>
+                  <button
+                    role="switch"
+                    aria-checked={settings.aiEnabled}
+                    onClick={() =>
+                      updateSetting("aiEnabled", !settings.aiEnabled)
                     }
-                    placeholder="https://api.openai.com/v1"
-                    className="h-9 w-full rounded border border-line bg-black/5 dark:bg-white/5 px-3 text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
-                  />
-                </div>
+                    className={`${SWITCH_CLASSES.base} ${
+                      settings.aiEnabled ? SWITCH_CLASSES.on : SWITCH_CLASSES.off
+                    }`}
+                  >
+                    <span
+                      className={`${SWITCH_DOT} ${
+                        settings.aiEnabled
+                          ? "translate-x-[18px] bg-paper"
+                          : "translate-x-[2px]"
+                      }`}
+                    />
+                  </button>
+                </label>
+
+                {settings.aiEnabled ? (
+                  <>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-sm text-ink">API Key</label>
+                      <input
+                        type="password"
+                        value={settings.apiKey}
+                        onChange={(e) => updateSetting("apiKey", e.target.value)}
+                        placeholder="sk-..."
+                        className="h-9 w-full rounded border border-line bg-black/5 dark:bg-white/5 px-3 text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
+                      />
+                      <span className="text-xs text-ink-faint">
+                        密钥仅存储在本地，不会上传到任何服务器
+                      </span>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-sm text-ink">AI 模型</label>
+                      <input
+                        type="text"
+                        value={settings.aiModel}
+                        onChange={(e) => updateSetting("aiModel", e.target.value)}
+                        placeholder="gpt-4o"
+                        className="h-9 w-full rounded border border-line bg-black/5 dark:bg-white/5 px-3 text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-sm text-ink">Base URL</label>
+                      <input
+                        type="text"
+                        value={settings.aiBaseUrl}
+                        onChange={(e) =>
+                          updateSetting("aiBaseUrl", e.target.value)
+                        }
+                        placeholder="https://api.openai.com/v1"
+                        className="h-9 w-full rounded border border-line bg-black/5 dark:bg-white/5 px-3 text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
+                      />
+                    </div>
+                  </>
+                ) : null}
 
                 <div className="flex flex-col gap-1.5">
                   <label className="text-sm text-ink">同步服务端地址</label>

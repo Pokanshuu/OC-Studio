@@ -291,16 +291,18 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
             </div>
           ) : null}
 
-          <div className="mt-4 flex items-center gap-2 border-b border-line pb-3">
-            <button
-              onClick={handleAISummarize}
-              disabled={aiLoading}
-              className="flex items-center gap-1.5 rounded border border-warning px-2.5 py-1.5 text-xs text-warning transition-colors hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-50"
-            >
-              <Sparkles size={14} strokeWidth={2} />
-              <span>{aiLoading ? '生成中...' : 'AI 概括'}</span>
-            </button>
-          </div>
+          {settings.aiEnabled ? (
+            <div className="mt-4 flex items-center gap-2 border-b border-line pb-3">
+              <button
+                onClick={handleAISummarize}
+                disabled={aiLoading}
+                className="flex items-center gap-1.5 rounded border border-warning px-2.5 py-1.5 text-xs text-warning transition-colors hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-50"
+              >
+                <Sparkles size={14} strokeWidth={2} />
+                <span>{aiLoading ? '生成中...' : 'AI 概括'}</span>
+              </button>
+            </div>
+          ) : null}
 
           <div className="mt-4">
             <DocumentEditor
