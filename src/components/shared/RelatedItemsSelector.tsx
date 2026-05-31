@@ -114,7 +114,7 @@ export function RelatedItemsSelector({
               <button
                 type="button"
                 onClick={() => removeItem(item.id)}
-                className="ml-0.5 flex cursor-pointer items-center justify-center transition-colors hover:text-error"
+                className="ml-0.5 rounded-full p-0.5 transition-colors hover:text-error"
               >
                 <X size={12} strokeWidth={2} />
               </button>

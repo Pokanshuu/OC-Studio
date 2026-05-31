@@ -33,13 +33,14 @@ export function TagBadge({ tag, onRemove }: TagBadgeProps) {
       {tag.name}
       {onRemove ? (
         <button
+          type="button"
           onClick={(e) => {
             e.stopPropagation()
             onRemove()
           }}
-          className="ml-0.5 rounded-full p-0.5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+          className="ml-0.5 rounded-full p-0.5 transition-colors hover:text-error"
         >
-          <X size={10} strokeWidth={2} />
+          <X size={12} strokeWidth={2} />
         </button>
       ) : null}
     </span>
