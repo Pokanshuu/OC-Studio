@@ -57,6 +57,9 @@ node_modules/
 # Tauri 构建产物
 src-tauri/target/
 
+# Android 构建产物
+android/app/release/
+
 # 环境变量
 .env
 .env.local
