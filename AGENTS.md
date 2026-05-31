@@ -6,7 +6,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 # OC Studio
 
-**v0.1.6-alpha** — 本地优先的原创角色（OC）与世界观创作工作台。
+**v0.1.7-alpha** — 本地优先的原创角色（OC）与世界观创作工作台。
 
 ## 项目身份
 - Next.js 16 (App Router) + TypeScript strict + Tailwind CSS v4 + shadcn/ui
