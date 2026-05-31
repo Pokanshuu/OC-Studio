@@ -101,7 +101,7 @@ export function RelatedItemsSelector({
           {selectedItems.map((item) => (
             <span
               key={item.id}
-              className="inline-flex items-center gap-1 rounded border border-line px-1.5 py-0.5 text-xs text-ink-muted"
+              className="inline-flex items-center gap-1 rounded border border-line px-1.5 py-1 text-xs text-ink-muted"
             >
               <button
                 type="button"
