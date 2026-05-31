@@ -1,0 +1,745 @@
+'use client'
+
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
+import { Scissors, Copy, ClipboardPaste, CheckSquare, Image, Table, Link2, Code2, Minus, Plus, Trash2 } from 'lucide-react'
+import { Clipboard as CapacitorClipboard } from '@capacitor/clipboard'
+import { useDevice } from '@/lib/use-device'
+import { useActiveEditor } from '@/lib/editor-context'
+import { useKeyboard } from '@/lib/KeyboardContext'
+import { MobileActionSheet } from './MobileActionSheet'
+import type { ActionItem } from './MobileActionSheet'
+
+const TOOLBAR_H = 40
+const GAP = 12
+const FLIP_ZONE = 100
+const SEL_NOISE_GATE = 40
+const SEL_DEBOUNCE = 120
+const FOCUS_LOCK_MS = 250
+
+type State = 'idle' | 'caret' | 'selection' | 'dragging' | 'action-sheet'
+
+type EditorEvent =
+  | { type: 'FOCUS_IN'; collapsed: boolean }
+  | { type: 'FOCUS_OUT' }
+  | { type: 'SEL_CHANGE' }
+  | { type: 'LONG_PRESS'; collapsed: boolean }
+  | { type: 'ACTION_OPEN' }
+  | { type: 'ACTION_CLOSE' }
+  | { type: 'DISMISS' }
+
+// ── helpers ──
+
+function isEditable(el: HTMLElement): boolean {
+  return el instanceof HTMLInputElement
+    || el instanceof HTMLTextAreaElement
+    || el.isContentEditable
+}
+
+function isNativeInput(el: HTMLElement): el is HTMLInputElement | HTMLTextAreaElement {
+  return el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement
+}
+
+function clamp(v: number, min: number, max: number) { return Math.min(Math.max(v, min), max) }
+
+type AnchorRect = { x: number; y: number; h: number }
+
+function inputAnchorRect(el: HTMLInputElement): AnchorRect {
+  const r = el.getBoundingClientRect()
+  return { x: r.left + r.width / 2, y: r.top, h: r.height }
+}
+
+function textareaAnchorRect(el: HTMLTextAreaElement): AnchorRect | null {
+  const pos = el.selectionStart
+  if (pos === null) return null
+  const cs = getComputedStyle(el)
+  const rect = el.getBoundingClientRect()
+  const mirror = document.createElement('div')
+  const s = mirror.style
+  s.position = 'fixed'
+  s.top = `${rect.top}px`
+  s.left = `${rect.left}px`
+  s.width = `${rect.width}px`
+  s.font = cs.font
+  s.lineHeight = cs.lineHeight
+  s.letterSpacing = cs.letterSpacing
+  s.whiteSpace = 'pre-wrap'
+  s.overflowWrap = 'break-word'
+  s.paddingTop = cs.paddingTop
+  s.paddingLeft = cs.paddingLeft
+  s.paddingRight = cs.paddingRight
+  s.borderTopWidth = cs.borderTopWidth
+  s.borderLeftWidth = cs.borderLeftWidth
+  s.visibility = 'hidden'
+  s.pointerEvents = 'none'
+  mirror.textContent = el.value.substring(0, pos)
+  const marker = document.createElement('span')
+  marker.textContent = '|'
+  mirror.appendChild(marker)
+  document.body.appendChild(mirror)
+  const markerRect = marker.getBoundingClientRect()
+  const lineH = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.2
+  document.body.removeChild(mirror)
+  return { x: markerRect.left + markerRect.width / 2, y: markerRect.top - el.scrollTop, h: lineH }
+}
+
+function proseMirrorAnchorRect(): AnchorRect | null {
+  const sel = window.getSelection()
+  if (!sel || sel.rangeCount === 0) return null
+  if (sel.isCollapsed) {
+    try {
+      // Insert a temporary zero-width span to measure caret position
+      if (sel.focusNode instanceof Text) {
+        const span = document.createElement('span')
+        span.textContent = '​'
+        const range = new Range()
+        range.setStart(sel.focusNode, sel.focusOffset)
+        range.insertNode(span)
+        const rect = span.getBoundingClientRect()
+        const lineH = rect.height || parseFloat(getComputedStyle(span).fontSize) * 1.2 || 16
+        span.parentNode?.removeChild(span)
+        sel.focusNode.parentNode?.normalize()
+        if (rect.width === 0 && rect.height === 0) return null
+        return { x: rect.left + rect.width / 2, y: rect.top, h: lineH }
+      }
+      // focusNode is an Element (e.g., empty paragraph <p><br></p>)
+      if (sel.focusNode instanceof HTMLElement) {
+        const span = document.createElement('span')
+        span.textContent = '​'
+        const range = new Range()
+        range.setStart(sel.focusNode, sel.focusOffset)
+        range.collapse(true)
+        range.insertNode(span)
+        const rect = span.getBoundingClientRect()
+        const lineH = rect.height || parseFloat(getComputedStyle(span).fontSize) * 1.2 || 16
+        span.parentNode?.removeChild(span)
+        sel.focusNode.normalize()
+        if (rect.width === 0 && rect.height === 0) return null
+        return { x: rect.left + rect.width / 2, y: rect.top, h: lineH }
+      }
+    } catch { return null }
+  }
+  const range = sel.getRangeAt(0)
+  const rect = range.getBoundingClientRect()
+  if (rect.width === 0 && rect.height === 0) {
+    // Fallback: use getClientRects for multi-line selections
+    const rects = range.getClientRects()
+    if (rects.length > 0) {
+      const first = rects[0]
+      return { x: first.left + first.width / 2, y: first.top, h: first.height }
+    }
+    return null
+  }
+  return { x: rect.left + rect.width / 2, y: rect.top, h: rect.height }
+}
+
+function getAnchorRect(el: HTMLElement): AnchorRect | null {
+  if (el instanceof HTMLInputElement) return inputAnchorRect(el)
+  if (el instanceof HTMLTextAreaElement) return textareaAnchorRect(el)
+  if (el.isContentEditable) return proseMirrorAnchorRect()
+  return null
+}
+
+function getActiveEditable(): HTMLElement | null {
+  const el = document.activeElement as HTMLElement | null
+  if (!el || !isEditable(el)) return null
+  return el
+}
+
+function findEditableFromSelection(): HTMLElement | null {
+  const sel = window.getSelection()
+  if (!sel || sel.rangeCount === 0) return null
+  let node: Node | null = sel.anchorNode
+  while (node) {
+    if (node instanceof HTMLElement && isEditable(node)) return node
+    node = node.parentElement
+  }
+  return null
+}
+
+function resolveEditable(): HTMLElement | null {
+  return getActiveEditable() ?? findEditableFromSelection()
+}
+
+function isCollapsed(el: HTMLElement | null): boolean {
+  if (!el) return true
+  if (isNativeInput(el)) return (el as HTMLInputElement).selectionStart === (el as HTMLInputElement).selectionEnd
+  const sel = window.getSelection()
+  return !sel || sel.isCollapsed
+}
+
+function isEditorDom(el: HTMLElement | null, editorDom: HTMLElement | undefined): boolean {
+  if (!el || !editorDom) return false
+  return el === editorDom || editorDom.contains(el)
+}
+
+// ── paste ──
+
+async function readClipboardText(): Promise<string | null> {
+  // 1. Capacitor native clipboard (Android/iOS)
+  if (window.Capacitor?.isNativePlatform?.()) {
+    try {
+      const { value } = await CapacitorClipboard.read()
+      if (value) return value
+    } catch { /* */ }
+  }
+  // 2. Standard Web API
+  try { return await navigator.clipboard.readText() } catch { /* */ }
+  // 3. window.prompt last resort
+  try {
+    const text = window.prompt('Paste text here')
+    if (text != null) return text
+  } catch { /* */ }
+  return null
+}
+
+// ═══════════════════════════════════════════
+// Component
+// ═══════════════════════════════════════════
+
+export function MobileTextSelectionBar() {
+  const { isMobile } = useDevice()
+  const { activeEditor } = useActiveEditor()
+  const keyboard = useKeyboard()
+
+  // ── state ──
+  const [mode, setMode] = useState<State>('idle')
+  const [position, setPosition] = useState({ x: 0, y: 0, flip: false })
+  const [mounted, setMounted] = useState(false)
+  const [barVisible, setBarVisible] = useState(false)
+  const [inTable, setInTable] = useState(false)
+
+  // ── refs ──
+  const modeRef = useRef<State>('idle')
+  const barRef = useRef<HTMLDivElement>(null)
+  const editableRef = useRef<HTMLElement | null>(null)
+  const epochRef = useRef(0)
+  const focusLockRef = useRef(false)
+  const selLastTimeRef = useRef(0)
+  const selDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const actionTakenRef = useRef(false)
+  const suppressNextFocusRef = useRef(false)
+  const selectionConsumeLockRef = useRef(false)
+  const rafRef = useRef(0)
+
+  // ── helpers ──
+
+  const recalcPosition = useCallback(() => {
+    const el = editableRef.current
+    if (!el) { console.log('[TSB] recalcPosition: no editable, skip'); return }
+    const anchor = getAnchorRect(el)
+    if (!anchor) { console.log('[TSB] recalcPosition: no anchor, skip'); return }
+    const vw = window.visualViewport?.width ?? window.innerWidth
+    const vh = document.documentElement.clientHeight
+    const visualTop = window.visualViewport?.offsetTop ?? 0
+    const topY = anchor.y + visualTop - TOOLBAR_H - GAP
+    const bottomY = anchor.y + anchor.h + visualTop + GAP
+    const topOverflow = anchor.y + visualTop < FLIP_ZONE
+    const bottomOverflow = anchor.y + anchor.h + visualTop + TOOLBAR_H + GAP > vh
+    const flip = topOverflow && !bottomOverflow
+    const y = flip ? bottomY : topY
+    const barW = barRef.current?.offsetWidth ?? 150
+    const halfBar = barW / 2
+    const x = clamp(anchor.x, halfBar + 8, vw - halfBar - 8)
+    console.log(`[TSB] recalcPosition: x=${x.toFixed(0)} y=${y.toFixed(0)} flip=${flip} anchor=(${anchor.x.toFixed(0)},${anchor.y.toFixed(0)})`)
+    setPosition({ x, y, flip })
+  }, [])
+
+  const setModeBoth = useCallback((next: State) => {
+    console.log(`[TSB] setModeBoth: ${modeRef.current} → ${next}`)
+    modeRef.current = next
+    setMode(next)
+  }, [])
+
+  const show = useCallback((el: HTMLElement, st: State) => {
+    console.log(`[TSB] show: el=${el.tagName.toLowerCase()}${el.id ? '#'+el.id : ''} state=${st}`)
+    const editorDom = activeEditor?.view?.dom
+    const isPM = isEditorDom(el, editorDom)
+    if (isPM && activeEditor && !activeEditor.isDestroyed) {
+      setInTable(
+        activeEditor.isActive('table') ||
+        activeEditor.isActive('tableCell') ||
+        activeEditor.isActive('tableHeader')
+      )
+    } else {
+      setInTable(false)
+    }
+    editableRef.current = el
+    suppressNextFocusRef.current = false
+    if (dismissTimerRef.current) { clearTimeout(dismissTimerRef.current); dismissTimerRef.current = null }
+    recalcPosition()
+    setMounted(true)
+    setModeBoth(st)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setBarVisible(true)
+        recalcPosition()
+        setTimeout(() => recalcPosition(), 200)
+      })
+    })
+  }, [activeEditor, recalcPosition, setModeBoth])
+
+  const dismiss = useCallback(() => {
+    console.log(`[TSB] dismiss: epoch ${epochRef.current} → ${epochRef.current + 1}`)
+    epochRef.current++
+    setBarVisible(false)
+    if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current)
+    dismissTimerRef.current = setTimeout(() => {
+      dismissTimerRef.current = null
+      setMounted(false)
+      editableRef.current = null
+      actionTakenRef.current = false
+    }, 200)
+  }, [])
+
+  const goIdle = useCallback(() => {
+    dismiss()
+    setModeBoth('idle')
+  }, [dismiss, setModeBoth])
+
+  // ── state machine ──
+
+  const dispatch = useCallback((event: EditorEvent) => {
+    console.log(`[TSB] dispatch: ${event.type} mode=${modeRef.current} epoch=${epochRef.current}`)
+    const epoch = epochRef.current
+
+    // DISMISS resets everything — no further processing
+    if (event.type === 'DISMISS') {
+      goIdle()
+      return
+    }
+
+    // All other events are gated by epoch
+    if (epoch !== epochRef.current) return
+
+    switch (event.type) {
+      case 'FOCUS_IN': {
+        console.log(`[TSB]   FOCUS_IN: collapsed=${event.collapsed}`)
+        const el = resolveEditable()
+        if (!el) { console.log('[TSB]   FOCUS_IN: no editable, skip'); break }
+        show(el, event.collapsed ? 'caret' : 'selection')
+        break
+      }
+
+      case 'FOCUS_OUT': {
+        console.log('[TSB]   FOCUS_OUT: locking focus')
+        focusLockRef.current = true
+        setTimeout(() => { focusLockRef.current = false }, FOCUS_LOCK_MS)
+        goIdle()
+        break
+      }
+
+      case 'SEL_CHANGE': {
+        console.log(`[TSB]   SEL_CHANGE: mode=${modeRef.current}`)
+        const el = resolveEditable()
+        if (!el) {
+          if (modeRef.current !== 'idle') goIdle()
+          break
+        }
+        const collapsed = isCollapsed(el)
+        if (collapsed) {
+          if (modeRef.current === 'selection') {
+            show(el, 'caret')
+          } else if (modeRef.current === 'caret') {
+            recalcPosition()
+          } else if (modeRef.current !== 'idle') {
+            show(el, 'caret')
+          }
+        } else {
+          if (modeRef.current === 'caret' || modeRef.current === 'idle') {
+            show(el, 'selection')
+          } else if (modeRef.current === 'dragging') {
+            setModeBoth('selection')
+            setBarVisible(true)
+          }
+          recalcPosition()
+        }
+        break
+      }
+
+      case 'LONG_PRESS': {
+        console.log(`[TSB]   LONG_PRESS: collapsed=${event.collapsed}`)
+        const editorDom = activeEditor?.view?.dom
+        const targetEl = findEditableFromSelection() ?? getActiveEditable()
+        if (!targetEl) break
+        const el = isEditorDom(targetEl, editorDom) && editorDom ? editorDom : targetEl
+        show(el, event.collapsed ? 'caret' : 'selection')
+        break
+      }
+
+      case 'ACTION_OPEN':
+        console.log('[TSB]   ACTION_OPEN: blurring, showing action sheet')
+        editableRef.current?.blur()
+        setModeBoth('action-sheet')
+        setBarVisible(false)
+        break
+
+      case 'ACTION_CLOSE':
+        queueMicrotask(() => {
+          console.log(`[TSB]   ACTION_CLOSE: actionTaken=${actionTakenRef.current}`)
+          if (actionTakenRef.current) {
+            actionTakenRef.current = false
+            suppressNextFocusRef.current = true
+          } else {
+            suppressNextFocusRef.current = true
+          }
+          dismiss()
+          setModeBoth('idle')
+        })
+        break
+    }
+  }, [show, goIdle, setModeBoth, recalcPosition, activeEditor])
+
+  // ── event normalizers ──
+
+  // focusin
+  useEffect(() => {
+    if (!isMobile) return
+    const handler = () => {
+      setTimeout(() => {
+        console.log(`[TSB] focusin: lock=${focusLockRef.current} suppress=${suppressNextFocusRef.current} selLock=${selectionConsumeLockRef.current} mode=${modeRef.current}`)
+        if (selectionConsumeLockRef.current) return
+        if (focusLockRef.current) return
+        if (suppressNextFocusRef.current) { suppressNextFocusRef.current = false; return }
+        const el = resolveEditable()
+        if (!el) return
+        if (modeRef.current !== 'idle') return
+        dispatch({ type: 'FOCUS_IN', collapsed: isCollapsed(el) })
+      }, 150)
+    }
+    document.addEventListener('focusin', handler)
+    return () => document.removeEventListener('focusin', handler)
+  }, [isMobile, dispatch])
+
+  // focusout
+  useEffect(() => {
+    if (!isMobile) return
+    const handler = (e: FocusEvent) => {
+      console.log(`[TSB] focusout: mode=${modeRef.current} action-sheet=${modeRef.current === 'action-sheet'}`)
+      if (modeRef.current === 'action-sheet') return
+      const target = e.target as HTMLElement
+      if (!isEditable(target)) return
+      const related = e.relatedTarget as HTMLElement | null
+      if (related && barRef.current?.contains(related)) return
+      dispatch({ type: 'FOCUS_OUT' })
+    }
+    document.addEventListener('focusout', handler)
+    return () => document.removeEventListener('focusout', handler)
+  }, [isMobile, dispatch])
+
+  // selectionchange
+  useEffect(() => {
+    if (!isMobile) return
+    const handler = () => {
+      console.log(`[TSB] selectionchange: mode=${modeRef.current} selLock=${selectionConsumeLockRef.current}`)
+      if (selectionConsumeLockRef.current) return
+      // Noise gate
+      const now = performance.now()
+      if (now - selLastTimeRef.current < SEL_NOISE_GATE) return
+      selLastTimeRef.current = now
+
+      // Dragging detection
+      if (modeRef.current === 'selection') {
+        setBarVisible(false)
+        setModeBoth('dragging')
+      }
+
+      // Debounce — capture epoch snapshot for stale-gate
+      const epochSnap = epochRef.current
+      if (selDebounceRef.current) clearTimeout(selDebounceRef.current)
+      selDebounceRef.current = setTimeout(() => {
+        if (epochSnap !== epochRef.current) return
+        dispatch({ type: 'SEL_CHANGE' })
+      }, SEL_DEBOUNCE)
+    }
+    document.addEventListener('selectionchange', handler)
+    return () => {
+      document.removeEventListener('selectionchange', handler)
+      if (selDebounceRef.current) clearTimeout(selDebounceRef.current)
+    }
+  }, [isMobile, dispatch, setModeBoth])
+
+  // contextmenu (long press)
+  useEffect(() => {
+    if (!isMobile) return
+    const handler = (e: MouseEvent) => {
+      console.log(`[TSB] contextmenu: mode=${modeRef.current}`)
+      if (modeRef.current === 'action-sheet') return
+      const target = e.target as HTMLElement
+      if (!isEditable(target)) return
+      e.preventDefault()
+      e.stopPropagation()
+      e.stopImmediatePropagation()
+      dispatch({ type: 'LONG_PRESS', collapsed: isCollapsed(target) })
+    }
+    window.addEventListener('contextmenu', handler, true)
+    return () => window.removeEventListener('contextmenu', handler, true)
+  }, [isMobile, dispatch])
+
+  // table detection follows editor selection
+  useEffect(() => {
+    if (!activeEditor || !isMobile) return
+    const update = () => {
+      if (activeEditor.isDestroyed) return
+      if (editableRef.current !== activeEditor.view.dom) return
+      setInTable(
+        activeEditor.isActive('table') ||
+        activeEditor.isActive('tableCell') ||
+        activeEditor.isActive('tableHeader')
+      )
+    }
+    activeEditor.on('selectionUpdate', update)
+    activeEditor.on('transaction', update)
+    return () => {
+      activeEditor.off('selectionUpdate', update)
+      activeEditor.off('transaction', update)
+    }
+  }, [activeEditor, isMobile])
+
+  // tap outside dismiss
+  useEffect(() => {
+    if (!mounted) return
+    const handler = (e: PointerEvent) => {
+      console.log(`[TSB] pointerdown outside: mode=${modeRef.current}`)
+      if (modeRef.current === 'action-sheet') return
+      if (modeRef.current === 'idle') return
+      if (barRef.current && !barRef.current.contains(e.target as Node)) {
+        dispatch({ type: 'DISMISS' })
+      }
+    }
+    document.addEventListener('pointerdown', handler, true)
+    return () => document.removeEventListener('pointerdown', handler, true)
+  }, [mounted, dispatch])
+
+  // scroll / resize / visualViewport → recalcPosition
+  useEffect(() => {
+    if (!isMobile) return
+    const update = () => {
+      if (modeRef.current === 'idle') return
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = requestAnimationFrame(recalcPosition)
+    }
+    const scroller = document.querySelector('.section-fade')
+    scroller?.addEventListener('scroll', update, { passive: true })
+    window.addEventListener('resize', update)
+    window.visualViewport?.addEventListener('resize', update)
+    window.visualViewport?.addEventListener('scroll', update)
+    return () => {
+      cancelAnimationFrame(rafRef.current)
+      scroller?.removeEventListener('scroll', update)
+      window.removeEventListener('resize', update)
+      window.visualViewport?.removeEventListener('resize', update)
+      window.visualViewport?.removeEventListener('scroll', update)
+    }
+  }, [isMobile, recalcPosition])
+
+  // keyboard show/hide
+  useEffect(() => {
+    console.log(`[TSB] keyboard.visible=${keyboard.visible} mode=${mode}`)
+    if (mode === 'idle') return
+    requestAnimationFrame(recalcPosition)
+  }, [keyboard.visible, recalcPosition, mode])
+
+  // cleanup
+  useEffect(() => {
+    return () => {
+      cancelAnimationFrame(rafRef.current)
+      if (selDebounceRef.current) clearTimeout(selDebounceRef.current)
+      if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current)
+    }
+  }, [])
+
+  // ── actions ──
+
+  const focusEditable = useCallback(() => {
+    editableRef.current?.focus()
+  }, [])
+
+  const dispatchEditorEvent = useCallback((name: string) => {
+    console.log(`[TSB] dispatchEditorEvent: ${name}`)
+    if (activeEditor?.isDestroyed) return
+    const dom = editableRef.current === activeEditor?.view?.dom
+      ? activeEditor.view.dom
+      : editableRef.current
+    dom?.dispatchEvent(new CustomEvent(name, { bubbles: true }))
+  }, [activeEditor])
+
+  const handleCut = useCallback(() => {
+    console.log('[TSB] handleCut')
+    suppressNextFocusRef.current = true
+    selectionConsumeLockRef.current = true
+    setTimeout(() => { selectionConsumeLockRef.current = false }, 200)
+    focusEditable()
+    try { document.execCommand('cut') } catch { /* */ }
+    // Collapse selection to prevent selectionchange from re-showing the bar
+    const el = editableRef.current
+    if (el && isNativeInput(el)) {
+      const pos = el.selectionEnd ?? 0
+      el.setSelectionRange(pos, pos)
+    } else if (activeEditor && !activeEditor.isDestroyed) {
+      const { to } = activeEditor.state.selection
+      activeEditor.commands.setTextSelection(to)
+    }
+    dispatch({ type: 'DISMISS' })
+  }, [focusEditable, dispatch, activeEditor])
+
+  const handleCopy = useCallback(() => {
+    console.log('[TSB] handleCopy')
+    suppressNextFocusRef.current = true
+    selectionConsumeLockRef.current = true
+    setTimeout(() => { selectionConsumeLockRef.current = false }, 200)
+    focusEditable()
+    try { document.execCommand('copy') } catch { /* */ }
+    // Collapse selection to prevent selectionchange from re-showing the bar
+    const el = editableRef.current
+    if (el && isNativeInput(el)) {
+      const pos = el.selectionEnd ?? 0
+      el.setSelectionRange(pos, pos)
+    } else if (activeEditor && !activeEditor.isDestroyed) {
+      const { to } = activeEditor.state.selection
+      activeEditor.commands.setTextSelection(to)
+    }
+    dispatch({ type: 'DISMISS' })
+  }, [focusEditable, dispatch, activeEditor])
+
+  const handlePaste = useCallback(async () => {
+    console.log('[TSB] handlePaste')
+    suppressNextFocusRef.current = true
+    const el = editableRef.current
+    if (!el) return
+
+    if (isNativeInput(el)) {
+      el.focus()
+      try {
+        const text = await readClipboardText()
+        if (text != null) {
+          const start = el.selectionStart ?? 0
+          const end = el.selectionEnd ?? 0
+          el.setRangeText(text, start, end, 'end')
+        }
+      } catch { /* */ }
+    } else {
+      focusEditable()
+      const editor = activeEditor
+      try {
+        const text = await readClipboardText()
+        if (text != null && editor && !editor.isDestroyed) {
+          editor.commands.insertContent(text)
+        }
+      } catch { /* */ }
+    }
+    dispatch({ type: 'DISMISS' })
+  }, [focusEditable, dispatch, activeEditor])
+
+  const handleSelectAll = useCallback(() => {
+    console.log('[TSB] handleSelectAll')
+    suppressNextFocusRef.current = true
+    focusEditable()
+    const el = editableRef.current
+    if (el && isNativeInput(el)) {
+      el.select()
+    } else {
+      activeEditor?.chain().focus().selectAll().run()
+    }
+  }, [focusEditable, activeEditor])
+
+  // ── action items ──
+
+  const clipboardActions: ActionItem[] = [
+    { id: 'cut', label: '剪切', icon: <Scissors size={20} strokeWidth={2} />, onPress: () => { actionTakenRef.current = true; handleCut() } },
+    { id: 'copy', label: '复制', icon: <Copy size={20} strokeWidth={2} />, onPress: () => { actionTakenRef.current = true; handleCopy() } },
+    { id: 'paste', label: '粘贴', icon: <ClipboardPaste size={20} strokeWidth={2} />, onPress: () => { actionTakenRef.current = true; handlePaste() } },
+    { id: 'selectAll', label: '全选', icon: <CheckSquare size={20} strokeWidth={2} />, onPress: () => { actionTakenRef.current = true; handleSelectAll() } },
+  ]
+
+  const insertActions: ActionItem[] = [
+    { id: 'insertImage', label: '插入图片', icon: <Image size={20} strokeWidth={2} />, onPress: () => { actionTakenRef.current = true; dispatchEditorEvent('mobile:insert-image') } },
+    { id: 'insertTable', label: '插入表格', icon: <Table size={20} strokeWidth={2} />, onPress: () => { actionTakenRef.current = true; dispatchEditorEvent('mobile:insert-table') } },
+    { id: 'insertLink', label: '插入链接', icon: <Link2 size={20} strokeWidth={2} />, onPress: () => { actionTakenRef.current = true; dispatchEditorEvent('mobile:insert-link') } },
+    { id: 'insertCode', label: '插入代码块', icon: <Code2 size={20} strokeWidth={2} />, onPress: () => { actionTakenRef.current = true; dispatchEditorEvent('mobile:insert-code') } },
+    { id: 'insertDivider', label: '分割线', icon: <Minus size={20} strokeWidth={2} />, onPress: () => { actionTakenRef.current = true; dispatchEditorEvent('mobile:insert-divider') } },
+  ]
+
+  const tableActions: ActionItem[] = [
+    { id: 'addRowBefore', label: '在上方插入行', icon: <Plus size={20} strokeWidth={2} />, onPress: () => { actionTakenRef.current = true; dispatchEditorEvent('mobile:table-add-row-before') } },
+    { id: 'addRowAfter', label: '在下方插入行', icon: <Plus size={20} strokeWidth={2} />, onPress: () => { actionTakenRef.current = true; dispatchEditorEvent('mobile:table-add-row-after') } },
+    { id: 'addColBefore', label: '在左侧插入列', icon: <Plus size={20} strokeWidth={2} />, onPress: () => { actionTakenRef.current = true; dispatchEditorEvent('mobile:table-add-col-before') } },
+    { id: 'addColAfter', label: '在右侧插入列', icon: <Plus size={20} strokeWidth={2} />, onPress: () => { actionTakenRef.current = true; dispatchEditorEvent('mobile:table-add-col-after') } },
+    { id: 'deleteRow', label: '删除当前行', icon: <Trash2 size={20} strokeWidth={2} />, destructive: true, onPress: () => { actionTakenRef.current = true; dispatchEditorEvent('mobile:table-delete-row') } },
+    { id: 'deleteCol', label: '删除当前列', icon: <Trash2 size={20} strokeWidth={2} />, destructive: true, onPress: () => { actionTakenRef.current = true; dispatchEditorEvent('mobile:table-delete-col') } },
+    { id: 'deleteTable', label: '删除整个表格', icon: <Trash2 size={20} strokeWidth={2} />, destructive: true, onPress: () => { actionTakenRef.current = true; dispatchEditorEvent('mobile:table-delete') } },
+  ]
+
+  const hasSelection = mode === 'selection' || mode === 'dragging'
+
+  const moreActions: ActionItem[] = inTable
+    ? (hasSelection ? [...clipboardActions, ...tableActions] : tableActions)
+    : (hasSelection ? clipboardActions : insertActions)
+
+  if (!isMobile || !mounted) return null
+
+  return createPortal(
+    <>
+      <div
+        ref={barRef}
+        className="pointer-events-auto fixed z-50 flex items-center rounded-full border border-line bg-paper/85 backdrop-blur-lg shadow-sm px-1.5 py-1 gap-0.5 cursor-default"
+        style={{
+          left: position.x,
+          top: position.y,
+          transform: `translate(-50%, ${barVisible ? 0 : 8}px)`,
+          opacity: barVisible ? 1 : 0,
+          transition: 'opacity 200ms, transform 200ms',
+        }}
+      >
+        {hasSelection ? (
+          <>
+            <button onClick={handleCut} className="whitespace-nowrap rounded-full px-3 py-1.5 text-sm text-ink active:bg-black/8 dark:active:bg-white/8 transition-colors">
+              剪切
+            </button>
+            <button onClick={handleCopy} className="whitespace-nowrap rounded-full px-3 py-1.5 text-sm text-ink active:bg-black/8 dark:active:bg-white/8 transition-colors">
+              复制
+            </button>
+            <button onClick={handlePaste} className="whitespace-nowrap rounded-full px-3 py-1.5 text-sm text-ink active:bg-black/8 dark:active:bg-white/8 transition-colors">
+              粘贴
+            </button>
+            <button onClick={handleSelectAll} className="whitespace-nowrap rounded-full px-3 py-1.5 text-sm text-ink active:bg-black/8 dark:active:bg-white/8 transition-colors">
+              全选
+            </button>
+          </>
+        ) : (
+          <>
+            <button onClick={handlePaste} className="whitespace-nowrap rounded-full px-3 py-1.5 text-sm text-ink active:bg-black/8 dark:active:bg-white/8 transition-colors">
+              粘贴
+            </button>
+            <button onClick={handleSelectAll} className="whitespace-nowrap rounded-full px-3 py-1.5 text-sm text-ink active:bg-black/8 dark:active:bg-white/8 transition-colors">
+              全选
+            </button>
+            {editableRef.current === activeEditor?.view?.dom && (
+              <>
+                <span className="w-px h-4 bg-line mx-0.5" />
+                <button
+                  onClick={() => dispatch({ type: 'ACTION_OPEN' })}
+                  className="flex items-center justify-center w-8 h-8 rounded-full active:bg-black/8 dark:active:bg-white/8 transition-colors"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" className="text-ink">
+                    <circle cx="4" cy="8" r="1.5" />
+                    <circle cx="8" cy="8" r="1.5" />
+                    <circle cx="12" cy="8" r="1.5" />
+                  </svg>
+                </button>
+              </>
+            )}
+          </>
+        )}
+      </div>
+
+      <MobileActionSheet
+        open={mode === 'action-sheet'}
+        onClose={() => dispatch({ type: 'ACTION_CLOSE' })}
+        actions={moreActions}
+      />
+    </>,
+    document.getElementById('overlay-root')!,
+  )
+}

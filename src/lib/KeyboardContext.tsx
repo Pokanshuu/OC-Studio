@@ -1,29 +1,27 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
 
 interface KeyboardState {
   visible: boolean
-  height: number
+  viewportHeight: number
 }
 
-const KeyboardContext = createContext<KeyboardState>({ visible: false, height: 0 })
+const KeyboardContext = createContext<KeyboardState>({ visible: false, viewportHeight: 0 })
 
 function scrollElementIntoView(el: HTMLElement) {
-  const vvH = window.visualViewport?.height ?? window.innerHeight
+  const vvH = document.documentElement.clientHeight
   const rect = el.getBoundingClientRect()
   if (rect.bottom <= vvH) return
 
   const scroller = el.closest('.section-fade') as HTMLElement | null
   if (scroller) {
-    scroller.scrollTop += rect.bottom - vvH + 8
+    scroller.scrollTop += rect.bottom - vvH + 48
   }
 }
 
 export function KeyboardProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<KeyboardState>({ visible: false, height: 0 })
-  const stateRef = useRef(state)
-  stateRef.current = state
+  const [state, setState] = useState<KeyboardState>({ visible: false, viewportHeight: 0 })
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -32,14 +30,14 @@ export function KeyboardProvider({ children }: { children: ReactNode }) {
 
     import('@capacitor/keyboard').then(({ Keyboard }) => {
       Keyboard.addListener('keyboardWillShow', () => {
-        setState(prev => ({ visible: true, height: prev.height }))
+        setState(prev => ({ visible: true, viewportHeight: prev.viewportHeight }))
       })
       Keyboard.addListener('keyboardDidShow', () => {
         const vvH = window.visualViewport?.height ?? window.innerHeight
-        setState({ visible: true, height: Math.max(0, window.innerHeight - vvH) })
+        setState({ visible: true, viewportHeight: Math.max(0, window.innerHeight - vvH) })
       })
       Keyboard.addListener('keyboardWillHide', () => {
-        setState({ visible: false, height: 0 })
+        setState({ visible: false, viewportHeight: 0 })
       })
     }).catch(() => { /* not available on web */ })
 
@@ -53,20 +51,28 @@ export function KeyboardProvider({ children }: { children: ReactNode }) {
   // 移动端 input/textarea 键盘跟随滚动（原生 + 网页均覆盖）
   useEffect(() => {
     if (typeof window === 'undefined') return
+    const isNative = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.()
+
+    const isInput = (el: Element | null) => el && ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)
 
     const handleViewportResize = () => {
-      const el = document.activeElement as HTMLElement | null
-      if (!el || !['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return
-      // 用 ref 覆盖 Capacitor 原生场景，visualViewport 覆盖网页场景
-      if (stateRef.current.visible || window.visualViewport) {
-        scrollElementIntoView(el)
+      if (isNative) return
+      if (window.visualViewport) {
+        const kbHeight = Math.max(0, window.innerHeight - window.visualViewport.height)
+        setState(prev => {
+          if (prev.viewportHeight === kbHeight) return prev
+          return { visible: kbHeight > 0, viewportHeight: kbHeight }
+        })
+        const el = document.activeElement as HTMLElement | null
+        if (el && isInput(el)) scrollElementIntoView(el)
       }
     }
 
     const handleFocusIn = () => {
+      if (isNative) return
       setTimeout(() => {
         const el = document.activeElement as HTMLElement | null
-        if (!el || !['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return
+        if (!el || !isInput(el)) return
         scrollElementIntoView(el)
       }, 180)
     }
@@ -78,6 +84,17 @@ export function KeyboardProvider({ children }: { children: ReactNode }) {
       document.removeEventListener('focusin', handleFocusIn)
     }
   }, [])
+
+  // 原生端键盘弹出后，滚动活跃的 input/textarea/select 到可见区域
+  useEffect(() => {
+    if (!state.visible) return
+    const id = setTimeout(() => {
+      const el = document.activeElement as HTMLElement | null
+      if (!el || !['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return
+      scrollElementIntoView(el)
+    }, 30)
+    return () => clearTimeout(id)
+  }, [state.visible])
 
   return (
     <KeyboardContext.Provider value={state}>

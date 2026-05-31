@@ -32,7 +32,7 @@ interface GroupedResults {
 
 export function MobileSearchOverlay({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { navigateToEntity } = useEntityNavigate()
-  const { height: keyboardHeight } = useKeyboard()
+  const { viewportHeight: keyboardHeight } = useKeyboard()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<GroupedResults[]>([])
   const inputRef = useRef<HTMLInputElement>(null)

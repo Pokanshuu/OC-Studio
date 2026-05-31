@@ -1,9 +1,12 @@
 'use client'
 
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react'
-import { Save, ArrowLeft, Sparkles } from 'lucide-react'
+import { Save, ArrowLeft, Sparkles, Loader2 } from 'lucide-react'
 import type { Editor } from '@tiptap/core'
 import { DocumentEditor } from '@/components/editor/DocumentEditor'
+import { chatCompletion, getAIConfig } from '@/lib/ai'
+import { useSettings } from '@/lib/settings'
+import { TagPicker } from '@/features/tags'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Separator } from '@/components/ui/separator'
@@ -47,6 +50,8 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
   )
   const [saving, setSaving] = useState(false)
   const [aiLoading, setAiLoading] = useState(false)
+  const [tags, setTags] = useState<number[]>(event.tags ?? [])
+  const { settings } = useSettings()
   const editorRef = useRef<Editor | null>(null)
   const { isMobile } = useDevice()
 
@@ -91,14 +96,37 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
     const text = editorRef.current?.getText()
     if (!text || text.trim().length === 0) return
 
+    const aiConfig = getAIConfig(settings)
+    if (!aiConfig.available) {
+      setSummary('请先在设置中配置 AI API Key')
+      return
+    }
+
     setAiLoading(true)
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500))
-      setSummary('AI 概括功能开发中...')
+      const result = await chatCompletion([
+        {
+          role: 'system',
+          content: '你是一个小说创作助手。请用简洁中文概括以下事件内容，保留关键人物、地点和时间信息，不超过 200 字。只输出概括文本，不要加任何前缀或引号。',
+        },
+        {
+          role: 'user',
+          content: text,
+        },
+      ], {
+        model: aiConfig.model!,
+        baseUrl: aiConfig.baseUrl!,
+        apiKey: aiConfig.apiKey!,
+        temperature: 0.3,
+      })
+      setSummary(result || 'AI 未能生成概括')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'AI 请求失败'
+      setSummary(message)
     } finally {
       setAiLoading(false)
     }
-  }, [])
+  }, [settings])
 
   const handleSave = useCallback(async () => {
     if (!editorRef.current) return
@@ -119,6 +147,7 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
         headerUrl,
         characters: selectedCharacterIds,
         countries: selectedCountryIds,
+        tags,
       })
     } finally {
       setSaving(false)
@@ -139,6 +168,7 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
     isMajor,
     selectedCharacterIds,
     selectedCountryIds,
+    tags,
     onSave,
   ])
 
@@ -250,22 +280,29 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
             </div>
           </div>
 
+          <div className="mt-4 flex flex-col gap-1.5">
+            <p className="text-sm text-ink-muted font-medium">标签</p>
+            <TagPicker selectedIds={tags} onChange={setTags} />
+          </div>
+
           {summary ? (
             <div className="mt-3 rounded border border-line bg-paper-card px-3 py-2 text-sm text-ink-muted">
               {summary}
             </div>
           ) : null}
 
-          <div className="mt-4 flex items-center gap-2 border-b border-line pb-3">
-            <button
-              onClick={handleAISummarize}
-              disabled={aiLoading}
-              className="flex items-center gap-1.5 rounded border border-warning px-2.5 py-1.5 text-xs text-warning transition-colors hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-50"
-            >
-              <Sparkles size={14} strokeWidth={2} />
-              <span>{aiLoading ? '生成中...' : 'AI 概括'}</span>
-            </button>
-          </div>
+          {settings.aiEnabled ? (
+            <div className="mt-4 flex items-center gap-2 border-b border-line pb-3">
+              <button
+                onClick={handleAISummarize}
+                disabled={aiLoading}
+                className="flex items-center gap-1.5 rounded border border-warning px-2.5 py-1.5 text-xs text-warning transition-colors hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-50"
+              >
+                <Sparkles size={14} strokeWidth={2} />
+                <span>{aiLoading ? '生成中...' : 'AI 概括'}</span>
+              </button>
+            </div>
+          ) : null}
 
           <div className="mt-4">
             <DocumentEditor

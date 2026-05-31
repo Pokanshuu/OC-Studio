@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import ReactCrop, { type Crop } from 'react-image-crop'
 import { Check, X } from 'lucide-react'
 import { getCroppedDataUrl } from '@/lib/image-crop'
@@ -21,7 +21,28 @@ export function InlineCrop({
 }: InlineCropProps) {
   const [crop, setCrop] = useState<Crop>()
   const [completedCrop, setCompletedCrop] = useState<Crop | null>(null)
+  const [safeSrc, setSafeSrc] = useState<string>(src)
   const imgRef = useRef<HTMLImageElement>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    let blobUrl: string | null = null
+    fetch(src)
+      .then((r) => r.blob())
+      .then((blob) => {
+        if (!cancelled) {
+          blobUrl = URL.createObjectURL(blob)
+          setSafeSrc(blobUrl)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setSafeSrc(src)
+      })
+    return () => {
+      cancelled = true
+      if (blobUrl) URL.revokeObjectURL(blobUrl)
+    }
+  }, [src])
 
   function handleConfirm() {
     if (!completedCrop || !imgRef.current) {
@@ -53,7 +74,7 @@ export function InlineCrop({
         minHeight={20}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img ref={imgRef} src={src} alt="" className="max-w-full" draggable={false} />
+        <img ref={imgRef} src={safeSrc} alt="" className="max-w-full" draggable={false} />
       </ReactCrop>
 
       <div className="flex items-center justify-end gap-2 border-t border-line px-3 py-2">

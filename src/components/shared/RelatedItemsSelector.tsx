@@ -101,7 +101,7 @@ export function RelatedItemsSelector({
           {selectedItems.map((item) => (
             <span
               key={item.id}
-              className="inline-flex items-center gap-1 rounded border border-line px-1.5 py-0.5 text-xs text-ink-muted"
+              className="inline-flex items-center gap-1 rounded border border-line px-2 py-1 text-xs text-ink-muted"
             >
               <button
                 type="button"
@@ -114,7 +114,7 @@ export function RelatedItemsSelector({
               <button
                 type="button"
                 onClick={() => removeItem(item.id)}
-                className="ml-0.5 flex cursor-pointer items-center justify-center transition-colors hover:text-error"
+                className="ml-0.5 rounded-full p-0.5 transition-colors hover:text-error"
               >
                 <X size={12} strokeWidth={2} />
               </button>

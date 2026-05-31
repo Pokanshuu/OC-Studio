@@ -222,7 +222,7 @@ export function EditorCore({
   const [toolbarTick, setToolbarTick] = useState(0)
   const { isMobile } = useDevice()
   const { setActiveEditor } = useActiveEditor()
-  const { visible: keyboardVisible, height: keyboardHeight } = useKeyboard()
+  const { visible: keyboardVisible, viewportHeight: keyboardHeight } = useKeyboard()
   const [mobileBlockMenuOpen, setMobileBlockMenuOpen] = useState(false)
   const selectionRef = useRef<{ from: number; to: number } | null>(null)
   const isPointerDownRef = useRef(false)
@@ -390,8 +390,8 @@ export function EditorCore({
         const { selection } = ed.state
         if (selection.empty) {
           const coords = ed.view.coordsAtPos(selection.head)
-          const toolbarH = 44
-          const vvBottom = window.visualViewport?.height ?? window.innerHeight
+          const toolbarH = 56
+          const vvBottom = document.documentElement.clientHeight
           const overflow = coords.bottom + toolbarH - vvBottom
           if (overflow > 0) {
             const scroller = ed.view.dom.closest('.section-fade') as HTMLElement | null
@@ -404,7 +404,7 @@ export function EditorCore({
         class: plain
           ? 'tiptap max-w-none pl-0 pr-0 py-0 text-[15px] leading-relaxed focus:outline-none min-h-[2em]'
           : 'tiptap max-w-none pl-8 pr-4 py-2 text-[15px] leading-relaxed focus:outline-none min-h-[2em]',
-        ...(isMobile ? { virtualkeyboardpolicy: 'manual' } : {}),
+        ...(isMobile ? { /* virtualkeyboardpolicy removed — system handles keyboard natively */ } : {}),
       },
     },
     content: content ?? '',
@@ -438,12 +438,9 @@ export function EditorCore({
     if (!editor) return
     const handleFocus = () => setActiveEditor(editor)
     editor.on('focus', handleFocus)
-    return () => {
-      editor.off('focus', handleFocus)
-    }
+    return () => { editor.off('focus', handleFocus) }
   }, [editor, setActiveEditor])
 
-  // 移动端：virtualkeyboardpolicy="manual" 阻止键盘自动弹出，改为 tap 时手动弹出
   useEffect(() => {
     if (!isMobile || !editor) return
     const dom = editor.view.dom
@@ -459,7 +456,6 @@ export function EditorCore({
       wasScroll = false
       timer = setTimeout(() => {
         wasLongPress = true
-        dom.blur()
       }, 320)
     }
 
@@ -478,8 +474,7 @@ export function EditorCore({
         startPos = null
         return
       }
-      // tap：手动弹出键盘（滚动由 keyboardHeight effect 在键盘完全弹起后处理）
-      ;(navigator as unknown as { virtualKeyboard?: { show: () => void } }).virtualKeyboard?.show()
+      editor.commands.focus()
       startPos = null
     }
 
@@ -495,7 +490,35 @@ export function EditorCore({
     }
   }, [isMobile, editor])
 
-  // 移动端键盘弹出后，检查光标是否被遮挡并滚动到位
+  // 移动端工具栏自定义事件（MobileTextSelectionBar → EditorCore）
+  useEffect(() => {
+    if (!isMobile || !editor) return
+    const dom = editor.view.dom
+    const handlers: Record<string, () => void> = {
+      'mobile:insert-image': () => editor.chain().focus().insertContent({ type: 'imageBlock' }).run(),
+      'mobile:insert-table': () => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
+      'mobile:insert-link': () => editor.chain().focus().toggleLink({ href: '' }).run(),
+      'mobile:insert-code': () => editor.chain().focus().toggleCodeBlock().run(),
+      'mobile:insert-divider': () => editor.chain().focus().setHorizontalRule().run(),
+      'mobile:table-add-row-before': () => editor.chain().focus().addRowBefore().run(),
+      'mobile:table-add-row-after': () => editor.chain().focus().addRowAfter().run(),
+      'mobile:table-add-col-before': () => editor.chain().focus().addColumnBefore().run(),
+      'mobile:table-add-col-after': () => editor.chain().focus().addColumnAfter().run(),
+      'mobile:table-delete': () => editor.chain().focus().deleteTable().run(),
+      'mobile:table-delete-row': () => editor.chain().focus().deleteRow().run(),
+      'mobile:table-delete-col': () => editor.chain().focus().deleteColumn().run(),
+    }
+    for (const [name, fn] of Object.entries(handlers)) {
+      dom.addEventListener(name, fn)
+    }
+    return () => {
+      for (const [name, fn] of Object.entries(handlers)) {
+        dom.removeEventListener(name, fn)
+      }
+    }
+  }, [isMobile, editor])
+
+  // 移动端键盘弹出后检查光标是否被遮挡并滚动到位
   useEffect(() => {
     if (!isMobile || !keyboardVisible) return
     const ed = editorRef.current
@@ -503,14 +526,14 @@ export function EditorCore({
     const id = setTimeout(() => {
       if (!editorRef.current) return
       const coords = editorRef.current.view.coordsAtPos(editorRef.current.state.selection.head)
-      const toolbarH = 44
-      const vvBottom = window.visualViewport?.height ?? window.innerHeight
+      const toolbarH = 56
+      const vvBottom = document.documentElement.clientHeight
       const overflow = coords.bottom + toolbarH - vvBottom
       if (overflow > 0) {
         const scroller = editorRef.current.view.dom.closest('.section-fade') as HTMLElement | null
         if (scroller) scroller.scrollTop += overflow
       }
-    }, 300)
+    }, 30)
     return () => clearTimeout(id)
   }, [isMobile, keyboardVisible])
 

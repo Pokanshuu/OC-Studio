@@ -8,6 +8,7 @@ import { Separator } from '@/components/ui/separator'
 import type { WorldEntry } from '@/types'
 import type { WorldFormData } from '../types'
 import { useEntry, useUpdateEntry } from '../hooks/useWorldEntries'
+import { TagPicker } from '@/features/tags'
 
 interface WorldEditorProps {
   editEntryId: number
@@ -39,6 +40,7 @@ function WorldEditorInner({
   entry, onBack, onSave,
 }: { entry: WorldEntry; onBack: () => void; onSave: (id: number, data: Partial<WorldFormData>) => Promise<void> }) {
   const [title, setTitle] = useState(entry.title)
+  const [tags, setTags] = useState<number[]>(entry.tags ?? [])
   const [saving, setSaving] = useState(false)
   const editorRef = useRef<Editor | null>(null)
 
@@ -48,9 +50,9 @@ function WorldEditorInner({
     setSaving(true)
     try {
       const content = editorRef.current?.getHTML() ?? entry.content
-      await onSave(entry.id as number, { title, content, category: entry.category, parentId: entry.parentId, order: entry.order, isConcept: entry.isConcept })
+      await onSave(entry.id as number, { title, content, category: entry.category, parentId: entry.parentId, order: entry.order, isConcept: entry.isConcept, tags })
     } finally { setSaving(false) }
-  }, [entry, title, onSave])
+  }, [entry, title, tags, onSave])
 
   return (
     <div className="flex h-full flex-col">
@@ -70,6 +72,11 @@ function WorldEditorInner({
           <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="词条标题" className="w-full bg-transparent text-xl text-ink placeholder:text-ink-faint focus:outline-none" />
           <Separator />
           <EditorCore onReady={handleReady} content={entry.content} placeholder="编写词条内容... 输入 @ 引用角色/事件/国家，输入 / 插入块" />
+          <Separator />
+          <div className="flex flex-col gap-1.5">
+            <h3 className="text-sm text-ink-muted font-medium">标签</h3>
+            <TagPicker selectedIds={tags} onChange={setTags} />
+          </div>
         </div>
       </div>
     </div>

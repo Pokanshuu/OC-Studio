@@ -20,7 +20,7 @@ function buildDefaultEvent(data: EventFormData, overrides: Partial<Event> = {}):
     countries: data.countries ?? [],
     parentEventId: null,
     relations: [],
-    tags: [],
+    tags: data.tags ?? [],
     images: [],
     createdAt: now,
     updatedAt: now,
@@ -100,6 +100,17 @@ export async function updateEvent(id: number, data: Partial<EventFormData>): Pro
       'countries',
       JSON.stringify(existing.countries ?? []),
       JSON.stringify(data.countries),
+    )
+  }
+
+  if (data.tags !== undefined) {
+    ;(updates as Record<string, unknown>).tags = data.tags
+    await logOperation(
+      TABLE,
+      id,
+      'tags',
+      JSON.stringify(existing.tags ?? []),
+      JSON.stringify(data.tags),
     )
   }
 

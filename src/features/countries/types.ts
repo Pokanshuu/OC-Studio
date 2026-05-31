@@ -10,4 +10,5 @@ export interface CountryFormData {
   headerUrl?: string
   characters?: number[]
   events?: number[]
+  tags: number[]
 }

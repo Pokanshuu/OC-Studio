@@ -10,4 +10,5 @@ export interface WorldFormData {
   parentId: number | null
   order: number
   isConcept: boolean
+  tags: number[]
 }

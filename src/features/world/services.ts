@@ -16,7 +16,7 @@ function buildDefaultEntry(data: WorldFormData, overrides: Partial<WorldEntry> =
     order: data.order,
     isConcept: data.isConcept,
     references: [],
-    tags: [],
+    tags: data.tags ?? [],
     createdAt: now,
     updatedAt: now,
     deleted: false,
@@ -56,6 +56,17 @@ export async function updateEntry(id: number, data: Partial<WorldFormData>): Pro
       ;(updates as Record<string, unknown>)[field] = newValue
       await logOperation(TABLE, id, field, String(oldValue), String(newValue ?? ''))
     }
+  }
+
+  if (data.tags !== undefined) {
+    ;(updates as Record<string, unknown>).tags = data.tags
+    await logOperation(
+      TABLE,
+      id,
+      'tags',
+      JSON.stringify(existing.tags ?? []),
+      JSON.stringify(data.tags),
+    )
   }
 
   if (data.document !== undefined) {

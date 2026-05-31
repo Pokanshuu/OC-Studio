@@ -17,7 +17,7 @@ function buildDefaultCountry(data: CountryFormData, overrides: Partial<Country> 
     culture: data.culture,
     characters: data.characters ?? [],
     events: data.events ?? [],
-    tags: [],
+    tags: data.tags ?? [],
     createdAt: now,
     updatedAt: now,
     deleted: false,
@@ -80,6 +80,17 @@ export async function updateCountry(id: number, data: Partial<CountryFormData>):
   if (data.events !== undefined) {
     ;(updates as Record<string, unknown>).events = data.events
     await logOperation(TABLE, id, 'events', JSON.stringify(existing.events), JSON.stringify(data.events))
+  }
+
+  if (data.tags !== undefined) {
+    ;(updates as Record<string, unknown>).tags = data.tags
+    await logOperation(
+      TABLE,
+      id,
+      'tags',
+      JSON.stringify(existing.tags ?? []),
+      JSON.stringify(data.tags),
+    )
   }
 
   if (data.document !== undefined) {
