@@ -135,12 +135,14 @@ export function TagPicker({ selectedIds, onChange }: TagPickerProps) {
               <div className="px-3 py-2 text-sm text-ink-muted">加载中...</div>
             ) : availableTags.length > 0 ? (
               availableTags.map((tag) => (
-                <button
+                <div
                   key={tag.id}
-                  type="button"
+                  role="button"
+                  tabIndex={0}
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => { if (tag.id != null) addTag(tag.id) }}
-                  className="flex w-full items-center gap-2 rounded-sm px-3 py-1.5 text-left text-sm text-ink hover:bg-black/5 dark:hover:bg-white/5 transition-colors group"
+                  onKeyDown={(e) => { if (e.key === 'Enter' && tag.id != null) addTag(tag.id) }}
+                  className="flex w-full items-center gap-2 rounded-sm px-3 py-1.5 text-left text-sm text-ink hover:bg-black/5 dark:hover:bg-white/5 transition-colors group cursor-pointer"
                 >
                   <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: tag.color || '#999' }} />
                   <span className="flex-1">{tag.name}</span>
@@ -151,7 +153,7 @@ export function TagPicker({ selectedIds, onChange }: TagPickerProps) {
                   >
                     <X size={12} strokeWidth={2} />
                   </button>
-                </button>
+                </div>
               ))
             ) : query.trim() ? (
               <div className="px-3 py-2 text-sm text-ink-faint">按 Enter 或点 + 新建</div>
