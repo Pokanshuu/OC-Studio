@@ -16,16 +16,14 @@ export function TagPicker({ selectedIds, onChange }: TagPickerProps) {
   const { tags, loading, refresh } = useTags()
   const { createTag } = useTagMutations()
   const [open, setOpen] = useState(false)
-  const [search, setSearch] = useState('')
-  const [newName, setNewName] = useState('')
+  const [query, setQuery] = useState('')
   const [creating, setCreating] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!open) {
-      setSearch('')
-      setNewName('')
+      setQuery('')
       return
     }
     function handler(e: MouseEvent) {
@@ -52,10 +50,10 @@ export function TagPicker({ selectedIds, onChange }: TagPickerProps) {
 
   const availableTags = useMemo(() => {
     const unselected = tags.filter((t) => !selectedIds.includes(t.id!))
-    if (!search.trim()) return unselected
-    const q = search.trim().toLowerCase()
+    if (!query.trim()) return unselected
+    const q = query.trim().toLowerCase()
     return unselected.filter((t) => t.name.toLowerCase().includes(q))
-  }, [tags, selectedIds, search])
+  }, [tags, selectedIds, query])
 
   function addTag(id: number) {
     if (!selectedIds.includes(id)) {
@@ -69,19 +67,17 @@ export function TagPicker({ selectedIds, onChange }: TagPickerProps) {
   }
 
   function handleAddClick() {
-    setSearch('')
     setOpen(true)
   }
 
   async function handleCreate() {
-    const name = newName.trim()
+    const name = query.trim()
     if (!name) return
     setCreating(true)
     try {
       const color = DEFAULT_COLORS[Math.floor(Math.random() * DEFAULT_COLORS.length)]
       const id = await createTag({ name, category: '', color })
       onChange([...selectedIds, id])
-      setNewName('')
       setOpen(false)
       refresh()
     } finally {
@@ -105,19 +101,27 @@ export function TagPicker({ selectedIds, onChange }: TagPickerProps) {
 
       {open ? (
         <div className="relative">
-          <input
-            ref={searchInputRef}
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') {
-                setOpen(false)
-              }
-            }}
-            placeholder="搜索标签..."
-            className="h-8 w-full rounded border border-line bg-paper-card px-3 text-sm text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none"
-          />
+          <div className="flex items-center gap-1 h-8 rounded border border-line bg-paper-card px-3 focus-within:border-line-hover transition-colors">
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); handleCreate() }
+                if (e.key === 'Escape') { setOpen(false) }
+              }}
+              placeholder="搜索或新建标签..."
+              className="flex-1 bg-transparent text-sm text-ink placeholder:text-ink-faint outline-none"
+            />
+            <button
+              onClick={handleCreate}
+              disabled={creating || !query.trim()}
+              className="flex items-center justify-center h-6 w-6 shrink-0 rounded text-ink-muted hover:text-ink disabled:opacity-30 transition-colors"
+            >
+              <Plus size={14} strokeWidth={2} />
+            </button>
+          </div>
           <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 max-h-48 overflow-auto">
             {loading ? (
               <div className="px-3 py-2 text-sm text-ink-muted">加载中...</div>
@@ -134,28 +138,11 @@ export function TagPicker({ selectedIds, onChange }: TagPickerProps) {
                   <span className="flex-1">{tag.name}</span>
                 </button>
               ))
-            ) : search.trim() ? (
-              <div className="px-3 py-2 text-sm text-ink-faint">未找到匹配标签</div>
+            ) : query.trim() ? (
+              <div className="px-3 py-2 text-sm text-ink-faint">按 Enter 或点 + 新建</div>
             ) : (
               <div className="px-3 py-2 text-sm text-ink-faint">没有更多标签</div>
             )}
-
-            <div className="border-t border-line px-2 py-1.5 flex items-center gap-1">
-              <input
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreate() } }}
-                placeholder="新建标签..."
-                className="flex-1 bg-transparent text-sm text-ink placeholder:text-ink-faint outline-none px-1"
-              />
-              <button
-                onClick={handleCreate}
-                disabled={creating || !newName.trim()}
-                className="flex items-center justify-center h-6 w-6 rounded text-ink-muted hover:text-ink disabled:opacity-30 transition-colors"
-              >
-                <Plus size={14} strokeWidth={2} />
-              </button>
-            </div>
           </div>
         </div>
       ) : (
