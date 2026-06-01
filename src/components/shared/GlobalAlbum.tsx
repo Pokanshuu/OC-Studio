@@ -212,7 +212,7 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
   }, [isMobile, section, selectedLabel, setConfig])
 
   const treePanel = (
-    <div className="flex h-full flex-col border-r border-line bg-paper-alt pt-[var(--safe-top)]">
+    <div className="flex h-full flex-col border-r border-line bg-paper-alt max-md:pt-[var(--safe-top)]">
       {isMobile ? (
         <div className="flex items-center justify-between border-b border-line px-3 py-3">
           <button onClick={() => setShowMobileTree(false)} className="flex h-9 w-9 items-center justify-center rounded text-ink-muted transition-colors hover:text-ink active:bg-black/8 dark:active:bg-white/8">

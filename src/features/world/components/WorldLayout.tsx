@@ -214,7 +214,7 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
   }, [currentEntry, selectedId])
 
    const treePanel = (
-    <div className="flex h-full flex-col border-r border-line bg-paper-alt pt-[var(--safe-top)]">
+    <div className="flex h-full flex-col border-r border-line bg-paper-alt max-md:pt-[var(--safe-top)]">
       <div className="flex items-center justify-between border-b border-line px-3 py-3">
         <div className="flex items-center gap-2">
           {isMobile ? (
