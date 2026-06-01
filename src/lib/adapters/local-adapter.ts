@@ -22,7 +22,7 @@ export class LocalAdapter {
 
     const selected = await open({
       multiple: false,
-      filters: [{ name: '图片', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp'] }],
+      filters: [{ name: '图片', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'heic', 'heif'] }],
     })
 
     if (!selected) return ''

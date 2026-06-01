@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react'
 import { ImageIcon, Trash2, Loader2 } from 'lucide-react'
 import { resolveImageUrl, saveBlobToDisk } from '@/lib/image-service'
+import { convertHeifToJpeg } from '@/lib/image-heif'
 import { ImageCropper } from './ImageCropper'
 
 export interface ImageUploaderProps {
@@ -53,6 +54,7 @@ export function ImageUploader({
   const [rawFileUrl, setRawFileUrl] = useState<string | null>(null)
   const [cropperOpen, setCropperOpen] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [converting, setConverting] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const currentSrc = value ? resolveImageUrl(value) : undefined
@@ -69,8 +71,20 @@ export function ImageUploader({
 
     if (enableCrop) {
       if (rawFileUrl) URL.revokeObjectURL(rawFileUrl)
-      setRawFileUrl(URL.createObjectURL(file))
+      // 立即打开裁剪器，不等待 HEIF 转换（避免大图等待 10 秒+黑屏）
+      const initialUrl = URL.createObjectURL(file)
+      setRawFileUrl(initialUrl)
       setCropperOpen(true)
+      // 后台异步转换 HEIF → JPEG，完成后更新裁剪器画面
+      setConverting(true)
+      convertHeifToJpeg(file).then((converted) => {
+        URL.revokeObjectURL(initialUrl)
+        setRawFileUrl(URL.createObjectURL(converted))
+        setConverting(false)
+      }).catch((err) => {
+        console.warn('[ImageUploader] HEIF conversion failed:', err)
+        setConverting(false)
+      })
     } else {
       setUploading(true)
       try {
@@ -99,6 +113,7 @@ export function ImageUploader({
 
   function handleCropperClose() {
     setCropperOpen(false)
+    setConverting(false)
     if (rawFileUrl) {
       URL.revokeObjectURL(rawFileUrl)
       setRawFileUrl(null)
@@ -167,6 +182,7 @@ export function ImageUploader({
           src={rawFileUrl}
           aspect={effectiveCropAspect}
           shape={effectiveCropShape}
+          loading={converting}
           onComplete={handleCropComplete}
           onClose={handleCropperClose}
         />
