@@ -546,6 +546,47 @@ html.tauri-mica [data-statusbar] {
   }
 }
 
+/* M114 fallback: transition-behavior not supported — use visibility instead of display */
+@supports not (transition-behavior: allow-discrete) {
+  .section-fade {
+    transition: opacity 150ms ease-out;
+  }
+  .section-fade[data-visible="false"] {
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+    display: block;
+  }
+  .section-fade[data-visible="true"] {
+    visibility: visible;
+    opacity: 1;
+  }
+}
+
+/* M114 fallback: @starting-style not supported — set initial opacity for hidden elements */
+@supports not (at-rule: starting-style) {
+  .section-fade:not([data-visible]) {
+    opacity: 0;
+  }
+}
+
+/* backdrop-filter fallback for old WebView */
+@supports not (backdrop-filter: blur(8px)) {
+  .backdrop-blur-lg {
+    background-color: rgba(254, 252, 248, 0.92);
+  }
+  .dark .backdrop-blur-lg,
+  [data-theme="dark"] .backdrop-blur-lg {
+    background-color: rgba(28, 27, 26, 0.92);
+  }
+}
+
+/* HarmonyOS safe-area fallback: 当 ArkWeb env() 返回 0 时使用 JS 注入的估算值 */
+[data-safe-area-fallback="true"] {
+  --safe-top: var(--safe-top-estimated, 24px);
+  --safe-bottom: var(--safe-bottom-estimated, 16px);
+}
+
 /* Slide-in/out keyframes for editor transitions */
 @keyframes slide-in-right {
   from { opacity: 0; transform: translateX(16px); }

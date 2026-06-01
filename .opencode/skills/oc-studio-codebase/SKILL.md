@@ -165,33 +165,32 @@ page.tsx 用 `display:none` 切换页面 → 组件生命周期不停 → useEff
 --safe-bottom: env(safe-area-inset-bottom, 0px);
 ```
 
-**顶部固定栏标准模式**（MobileTopBar、编辑器 header）：
+**降级变量**（当 `env()` 返回 0 或不准确时，由 JS 注入）：
 
-```
-fixed top-0 h-[calc(60px+var(--safe-top))] pt-[var(--safe-top)]
+```css
+--safe-top-estimated  /* 由 estimateSafeAreaInsets() 计算 */
+--safe-bottom-estimated
 ```
 
-- `top-0`：从视口顶部开始，覆盖状态栏
-- `h-[calc(60px+var(--safe-top))]`：精确总高 = 状态栏 + 60px
-- `pt-[var(--safe-top)]`：内容推到状态栏下方
-- 高度**精确**，不随内容变化
+`[data-safe-area-fallback="true"]` 时 `--safe-top`/`--safe-bottom` 指向 estimated 值。
 
-**底部固定栏标准模式**（MobileTabBar）：
+**检测逻辑**（`src/lib/browser-compat.ts`）：
+- `isSafeAreaEnvAvailable()`：创建临时元素检测 `env()` 是否返回非零值
+- `estimateSafeAreaInsets()`：三方案降级 —— CSS 变量读取 → `screen` 差值估算 → 默认值 `{ top: 24, bottom: 16 }`
+- `getSafeAreaBottomCorrection()`：模拟器检测 —— `env()` 返回 bottom 值与 `screen` 差值估算偏差 ≥16px 时返回修正值
+- 兼容路径放弃大导航栏估算，统一使用手势条高度 16dp
 
-```
-fixed bottom-0 h-[calc(60px+var(--safe-bottom))] pb-[var(--safe-bottom)]
-```
+**AppShell.tsx 初始化流程**：
+1. 仅移动端 Capacitor 环境执行
+2. 100ms/500ms/1s 三次检测 `isSafeAreaEnvAvailable()`
+3. `env()` 返回 0 → 完整 fallback（top + bottom 估算）
+4. `env()` 返回非零但异常 → 仅 bottom 修正（`getSafeAreaBottomCorrection()`）
+5. 现代设备（`env()` 正确）→ 不做任何事
+6. fallback/修正激活后 → 添加 `resize` 监听，导航模式切换自动更新
 
 Java 层（`MainActivity.java`）：
-
-```java
-WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
-getWindow().setNavigationBarColor(android.graphics.Color.TRANSPARENT);
-getWindow().addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
-getWindow().addFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION);
-```
-
-**其他依赖 safe-area 的组件**：`AppShell` 的 main padding、`MobileFilterBar` 的 top、`MobileRelationControls` 的 top、编辑器 content padding——全部使用 `var(--safe-*)` 参与计算，统一管理，改一处全局生效。
+- `FLAG_TRANSLUCENT_NAVIGATION` 仅在 `Build.MANUFACTURER == "Xiaomi"` 时添加
+- 所有设备：`FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS` + 透明状态栏/导航栏
 
 ### 4.10 BubbleMenu 在软换行边界的定位陷阱
 

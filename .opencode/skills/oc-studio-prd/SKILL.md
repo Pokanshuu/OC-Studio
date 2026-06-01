@@ -228,6 +228,16 @@ description: >
 - 未标注时间事件从滚动容器移出，始终可见
 - useBackButton 单次注册优化（useRef 闭环）
 
+### 已完成（Phase 1c，2025-06）
+- 浏览器兼容性检测模块（`src/lib/browser-compat.ts`）：Chromium 版本检测（`getChromiumVersion`）、HarmonyOS/ArkWeb UA 检测（`isHarmonyOS`/`getHarmonyOSVersion`/`isHarmonyOS4`/`isHarmonyOSNext`）、CSS 特性检测（`supportsTransitionBehavior`/`supportsStartingStyle`/`needsAnimationFallback`）
+- CSS M114 fallback：`transition-behavior: allow-discrete` 和 `@starting-style` 降级方案（`globals.css` `@supports not` 规则）
+- 安全区域降级系统：HarmonyOS/模拟器 `env()` 返回 0 或不准确时自动估算（`estimateSafeAreaInsets` + `isSafeAreaEnvAvailable` + `getSafeAreaBottomCorrection`），resize 监听导航模式切换自动更新底栏高度
+- 移动端安全区域 CSS 变量体系：`--safe-top`/`--safe-bottom`（`env()`）+ `--safe-top-estimated`/`--safe-bottom-estimated`（JS 降级），`data-safe-area-fallback` 属性切换
+- Xiaomi/MIUI 设备检测：`MainActivity.java` 条件化 `FLAG_TRANSLUCENT_NAVIGATION`（`Build.MANUFACTURER` 检测），非小米设备不再设置此 flag
+- 世界观编辑器移动端首次点击光标修复：`EditorCore.tsx` touchend handler 改用 `setTimeout` + `!editor.isFocused` guard + `editor.view.dom.focus()`，避免 `editor.commands.focus()` 覆盖浏览器原生触控光标定位
+- Radio 按钮误触发移动端文字菜单修复：`MobileTextSelectionBar.tsx`/`GlobalContextMenu.tsx` 的 `isEditable()` 排除 radio/checkbox/button/file 等非文本 input 类型
+- 旧内核键盘高度检测修复：`KeyboardContext.tsx` 通过 `isBelowTargetVersion()` 分支，旧内核改用 Capacitor 插件原生 `keyboardHeight`（扣 safe-bottom + 微调），现代内核路径不变；`EditorCore.tsx` 工具栏/块菜单加 `paddingBottom: var(--safe-bottom)` 与搜索框一致
+
 ### 待处理
 - [ ] 关系图谱节点位置持久化（localStorage）
 - [ ] 模板系统（模板切换/保存）
