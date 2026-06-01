@@ -570,15 +570,14 @@ html.tauri-mica [data-statusbar] {
   }
 }
 
-/* backdrop-filter fallback for old WebView */
-@supports not (backdrop-filter: blur(8px)) {
-  .backdrop-blur-lg {
-    background-color: rgba(254, 252, 248, 0.92);
-  }
-  .dark .backdrop-blur-lg,
-  [data-theme="dark"] .backdrop-blur-lg {
-    background-color: rgba(28, 27, 26, 0.92);
-  }
+/* 旧内核 backdrop-blur 降级：半透明 → 不透明 */
+[data-below-target-version] .backdrop-blur-lg {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background-color: #FEFCF8;
+}
+[data-below-target-version] .dark .backdrop-blur-lg {
+  background-color: #1C1B1A;
 }
 
 /* HarmonyOS safe-area fallback: 当 ArkWeb env() 返回 0 时使用 JS 注入的估算值 */

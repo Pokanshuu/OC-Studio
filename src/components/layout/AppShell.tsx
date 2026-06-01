@@ -19,7 +19,7 @@ import { TrashView } from "@/features/trash/components/TrashView"
 import { useSettings } from "@/lib/settings"
 import { useKeyboard } from "@/lib/KeyboardContext"
 import { useBackButton } from "@/lib/useBackButton"
-import { getChromiumVersion, isHarmonyOS, getHarmonyOSVersion, isSafeAreaEnvAvailable, estimateSafeAreaInsets, getSafeAreaBottomCorrection, isMobilePlatform } from "@/lib/browser-compat"
+import { getChromiumVersion, isBelowTargetVersion, isHarmonyOS, getHarmonyOSVersion, isSafeAreaEnvAvailable, estimateSafeAreaInsets, getSafeAreaBottomCorrection, isMobilePlatform } from "@/lib/browser-compat"
 
 function TrashOverlayRenderer() {
   const { trashOpen, closeTrash } = useTrashOverlay()
@@ -82,6 +82,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     const v = getChromiumVersion()
     if (v) document.documentElement.dataset.chromiumVersion = String(v)
+    if (isBelowTargetVersion()) document.documentElement.dataset.belowTargetVersion = 'true'
   }, [])
 
   // 移动端：HarmonyOS 检测 + 安全区域 polyfill

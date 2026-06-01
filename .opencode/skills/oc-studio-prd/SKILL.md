@@ -236,7 +236,8 @@ description: >
 - Xiaomi/MIUI 设备检测：`MainActivity.java` 条件化 `FLAG_TRANSLUCENT_NAVIGATION`（`Build.MANUFACTURER` 检测），非小米设备不再设置此 flag
 - 世界观编辑器移动端首次点击光标修复：`EditorCore.tsx` touchend handler 改用 `setTimeout` + `!editor.isFocused` guard + `editor.view.dom.focus()`，避免 `editor.commands.focus()` 覆盖浏览器原生触控光标定位
 - Radio 按钮误触发移动端文字菜单修复：`MobileTextSelectionBar.tsx`/`GlobalContextMenu.tsx` 的 `isEditable()` 排除 radio/checkbox/button/file 等非文本 input 类型
-- 旧内核键盘高度检测修复：`KeyboardContext.tsx` 通过 `isBelowTargetVersion()` 分支，旧内核改用 Capacitor 插件原生 `keyboardHeight`（扣 safe-bottom + 微调），现代内核路径不变；`EditorCore.tsx` 工具栏/块菜单加 `paddingBottom: var(--safe-bottom)` 与搜索框一致
+- 旧内核键盘高度检测修复：`KeyboardContext.tsx` 通过 `isBelowTargetVersion()` 分支，旧内核改用 Capacitor 插件原生 `keyboardHeight`（扣 safe-bottom + 微调），现代内核路径不变；`EditorCore.tsx` 工具栏/块菜单 safe-bottom 补偿仅旧内核生效
+- 旧内核 backdrop-blur 降级：`AppShell.tsx` 设 `data-below-target-version` 属性，`globals.css` 用 `[data-below-target-version] .backdrop-blur-lg` 统一禁用模糊 + 半透明改不透明（亮 `#FEFCF8` / 暗 `#1C1B1A`），39 处组件零改动
 
 ### 待处理
 - [ ] 关系图谱节点位置持久化（localStorage）
