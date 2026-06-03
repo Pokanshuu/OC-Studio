@@ -41,8 +41,8 @@ export function useImportExport() {
     setExporting(true)
     try {
       const data = await exportAllData()
-      downloadJson(data)
-      toast.success('导出成功')
+      const name = downloadJson(data)
+      toast.success(`导出成功：${name}`)
     } catch {
       toast.error('导出失败')
     } finally {

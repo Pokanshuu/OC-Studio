@@ -178,7 +178,6 @@ function CharacterCard({
   isMobile: boolean
 }) {
   const displayNationality = countryName || character.nationalityLegacy
-  const aliasText = aliasesText(character.aliases)
 
   const longPress = useLongPress({
     onLongPress: onLongPress ?? (() => {}),
@@ -206,9 +205,6 @@ function CharacterCard({
           <div className="flex flex-col min-w-0 gap-0.5">
             <div className="flex items-center gap-1 min-w-0">
               <h3 className="text-sm font-medium text-ink truncate">{character.name}</h3>
-              {aliasText ? (
-                <span className="shrink-0 text-xs text-ink-muted">({aliasText})</span>
-              ) : null}
             </div>
             {displayNationality ? (
               <span className="text-xs text-ink-faint">{displayNationality}</span>
