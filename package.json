@@ -1,6 +1,6 @@
 {
   "name": "oc-studio",
-  "version": "0.1.7-alpha",
+  "version": "0.18.0-alpha",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -49,6 +49,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "dexie": "^4.4.2",
+    "heic-to": "^1.5.2",
     "lucide-react": "^1.11.0",
     "next": "16.2.4",
     "react": "19.2.4",

@@ -30,10 +30,13 @@ type EditorEvent =
 
 // ── helpers ──
 
+const NON_TEXT_INPUT_TYPES = ['radio', 'checkbox', 'button', 'submit', 'reset', 'file', 'image', 'range', 'color']
+
 function isEditable(el: HTMLElement): boolean {
-  return el instanceof HTMLInputElement
-    || el instanceof HTMLTextAreaElement
-    || el.isContentEditable
+  if (el instanceof HTMLInputElement) {
+    return !NON_TEXT_INPUT_TYPES.includes(el.type)
+  }
+  return el instanceof HTMLTextAreaElement || el.isContentEditable
 }
 
 function isNativeInput(el: HTMLElement): el is HTMLInputElement | HTMLTextAreaElement {

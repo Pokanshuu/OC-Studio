@@ -44,12 +44,16 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - `src/components/layout/TrashOverlayContext.tsx` — TrashOverlayProvider（回收站浮层开关）
 - `src/lib/KeyboardContext.tsx` — KeyboardProvider + useKeyboard()（Capacitor 键盘状态，visualViewport 计算高度）
 - `src/lib/useBackButton.ts` — Capacitor 系统返回键处理
+- `src/lib/browser-compat.ts` — 浏览器兼容性检测：Chromium 版本、HarmonyOS/ArkWeb、安全区域降级估算与修正
 - `src/lib/reference-registry.ts` — @ 引用和 [[ 内链数据源注册
 - `src/lib/settings.tsx` — 主题/同步/AI 设置
 - `src/lib/use-device.ts` — useDevice() (isMobile)
 - `src/lib/image-service.ts` — 图片全流程（含 Tauri/Capacitor/Browser 三环境适配）
+- `src/lib/image-crop.ts` — Canvas 裁剪引擎（getCroppedBlob 支持 Blob 入参 + HEIF 自动转换）
+- `src/lib/image-heif.ts` — HEIF/HEIC 格式检测与转换（isHeif / convertHeifToJpeg，heic-to 封装）
 - `src/lib/adapters/capacitor-adapter.ts` — Capacitor 图片持久化适配器
 - `src/lib/adapters/local-adapter.ts` — Tauri 本地文件系统适配器
+- `src/lib/adapters/browser-adapter.ts` — 浏览器环境图片适配器
 
 ### 图片系统组件
 - `src/components/shared/ImageUploader.tsx` — 通用上传（支持裁剪流水线）

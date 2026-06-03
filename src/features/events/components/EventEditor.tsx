@@ -285,7 +285,7 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
             <TagPicker selectedIds={tags} onChange={setTags} />
           </div>
 
-          {summary ? (
+          {summary && settings.aiEnabled ? (
             <div className="mt-3 rounded border border-line bg-paper-card px-3 py-2 text-sm text-ink-muted">
               {summary}
             </div>

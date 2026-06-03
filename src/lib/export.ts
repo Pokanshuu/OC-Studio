@@ -41,14 +41,14 @@ function isCapacitor(): boolean {
     && !!window.Capacitor.isNativePlatform?.()
 }
 
-export function downloadJson(data: unknown, filename?: string): void {
+export function downloadJson(data: unknown, filename?: string): string {
   const json = JSON.stringify(data, null, 2)
   const date = new Date().toISOString().slice(0, 10)
   const name = filename ?? `oc-backup-${date}.ocbak`
 
   if (isCapacitor()) {
     downloadJsonCapacitor(json, name)
-    return
+    return name
   }
 
   const blob = new Blob([json], { type: 'application/json' })
@@ -61,6 +61,7 @@ export function downloadJson(data: unknown, filename?: string): void {
   a.click()
   document.body.removeChild(a)
   URL.revokeObjectURL(url)
+  return name
 }
 
 async function downloadJsonCapacitor(json: string, filename: string): Promise<void> {

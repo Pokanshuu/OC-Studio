@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { useSettings } from "@/lib/settings"
+import { useDevice } from "@/lib/use-device"
 import { useImportExport } from "@/components/shared/ImportExportUI"
 import { useInputContextMenu } from "@/lib/use-input-context-menu"
 
@@ -86,6 +87,7 @@ export function SettingsDialog({
   defaultTab = "general",
 }: SettingsDialogProps) {
   const { settings, updateSetting } = useSettings()
+  const { isMobile } = useDevice()
   const { handleExport, handleImportClick, dialog: importExportDialog } =
     useImportExport()
   const [tab, setTab] = useState(defaultTab)
@@ -163,18 +165,19 @@ export function SettingsDialog({
                   <div className="flex flex-col">
                     <span className="text-sm text-ink">开机自启动</span>
                     <span className="text-xs text-ink-faint">
-                      应用程序将在系统启动时自动运行
+                      {isMobile ? '桌面端支持开机自启动' : '应用程序将在系统启动时自动运行'}
                     </span>
                   </div>
                   <button
                     role="switch"
                     aria-checked={settings.autoStart}
+                    disabled={isMobile}
                     onClick={() =>
                       updateSetting("autoStart", !settings.autoStart)
                     }
                     className={`${SWITCH_CLASSES.base} ${
                       settings.autoStart ? SWITCH_CLASSES.on : SWITCH_CLASSES.off
-                    }`}
+                    } ${isMobile ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     <span
                       className={`${SWITCH_DOT} ${
@@ -253,6 +256,7 @@ export function SettingsDialog({
                   >
                     发布为静态网站...
                   </button>
+                  <p className="text-xs text-ink-faint mt-1">注：导出不含图片文件，仅包含文本数据</p>
                 </div>
                 <div className="flex items-center justify-between pt-2 border-t border-line">
                   <div className="flex flex-col">
@@ -329,7 +333,7 @@ export function SettingsDialog({
                         type="password"
                         value={settings.apiKey}
                         onChange={(e) => updateSetting("apiKey", e.target.value)}
-                        placeholder="sk-..."
+                        placeholder="sk-...（从 platform.deepseek.com 获取）"
                         className="h-9 w-full rounded border border-line bg-black/5 dark:bg-white/5 px-3 text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
                       />
                       <span className="text-xs text-ink-faint">
@@ -344,7 +348,7 @@ export function SettingsDialog({
                         type="text"
                         value={settings.aiModel}
                         onChange={(e) => updateSetting("aiModel", e.target.value)}
-                        placeholder="gpt-4o"
+                        placeholder="deepseek-v4-flash"
                         className="h-9 w-full rounded border border-line bg-black/5 dark:bg-white/5 px-3 text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
                       />
                     </div>
@@ -358,7 +362,7 @@ export function SettingsDialog({
                         onChange={(e) =>
                           updateSetting("aiBaseUrl", e.target.value)
                         }
-                        placeholder="https://api.openai.com/v1"
+                        placeholder="https://api.deepseek.com"
                         className="h-9 w-full rounded border border-line bg-black/5 dark:bg-white/5 px-3 text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
                       />
                     </div>
@@ -366,7 +370,7 @@ export function SettingsDialog({
                 ) : null}
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-sm text-ink">同步服务端地址</label>
+                  <label className="text-sm text-ink">同步服务端地址（开发中...）</label>
                   <input
                     ref={syncServerUrlRef}
                     type="text"
@@ -387,7 +391,7 @@ export function SettingsDialog({
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-ink">版本</span>
                   <span className="text-sm text-ink-muted font-mono">
-                    v0.1.7-alpha
+                    v0.18.0-alpha
                   </span>
                 </div>
                 <button

@@ -1,4 +1,5 @@
 import { Filesystem, Directory } from '@capacitor/filesystem'
+import { convertHeifToJpeg } from '../image-heif'
 
 function generateFileName(type: string): string {
   const timestamp = Date.now()
@@ -18,7 +19,9 @@ export class CapacitorAdapter {
           return
         }
         try {
-          const arrayBuffer = await file.arrayBuffer()
+          // HEIF → JPEG 转换，确保写入磁盘的是浏览器可解码的格式
+          const converted = await convertHeifToJpeg(file)
+          const arrayBuffer = await converted.arrayBuffer()
           const base64 = btoa(
             new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
           )

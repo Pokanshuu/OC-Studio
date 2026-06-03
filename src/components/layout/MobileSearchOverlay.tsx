@@ -146,7 +146,7 @@ export function MobileSearchOverlay({ open, onClose }: { open: boolean; onClose:
         className="fixed left-0 right-0 z-50 flex items-center gap-3 px-4 py-3 bg-paper/85 backdrop-blur-lg border-t border-line pointer-events-auto"
         style={{
           bottom: `${keyboardHeight}px`,
-          paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))',
+          paddingBottom: 'calc(12px + var(--safe-bottom, 0px))',
         }}
         onClick={(e) => e.stopPropagation()}
       >

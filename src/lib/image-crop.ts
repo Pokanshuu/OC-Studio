@@ -1,3 +1,5 @@
+import { convertHeifToJpeg } from './image-heif'
+
 export interface PixelCrop {
   x: number
   y: number
@@ -16,52 +18,69 @@ function createImage(url: string): Promise<HTMLImageElement> {
 }
 
 export async function getCroppedBlob(
-  imageSrc: string,
+  imageSrc: string | Blob,
   pixelCrop: PixelCrop,
   rotation: number = 0,
 ): Promise<Blob> {
-  const image = await createImage(imageSrc)
-  const canvas = document.createElement('canvas')
-  const ctx = canvas.getContext('2d')
-  if (!ctx) throw new Error('Canvas context not available')
+  // 支持直接传入 Blob（含 HEIF 自动转换），同时兼容旧 URL 调用
+  let url: string
+  let revokeNeeded = false
 
-  const maxSize = Math.max(image.width, image.height)
-  const safeArea = 2 * ((maxSize / 2) * Math.sqrt(2))
+  if (imageSrc instanceof Blob) {
+    const converted = await convertHeifToJpeg(imageSrc)
+    url = URL.createObjectURL(converted)
+    revokeNeeded = true
+  } else {
+    url = imageSrc
+  }
 
-  canvas.width = safeArea
-  canvas.height = safeArea
+  const image = await createImage(url)
 
-  ctx.translate(safeArea / 2, safeArea / 2)
-  ctx.rotate((rotation * Math.PI) / 180)
-  ctx.translate(-safeArea / 2, -safeArea / 2)
+  try {
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('Canvas context not available')
 
-  ctx.drawImage(
-    image,
-    safeArea / 2 - image.width * 0.5,
-    safeArea / 2 - image.height * 0.5,
-  )
+    const maxSize = Math.max(image.width, image.height)
+    const safeArea = 2 * ((maxSize / 2) * Math.sqrt(2))
 
-  const data = ctx.getImageData(0, 0, safeArea, safeArea)
+    canvas.width = safeArea
+    canvas.height = safeArea
 
-  canvas.width = pixelCrop.width
-  canvas.height = pixelCrop.height
+    ctx.translate(safeArea / 2, safeArea / 2)
+    ctx.rotate((rotation * Math.PI) / 180)
+    ctx.translate(-safeArea / 2, -safeArea / 2)
 
-  ctx.putImageData(
-    data,
-    Math.round(0 - safeArea / 2 + image.width * 0.5 - pixelCrop.x),
-    Math.round(0 - safeArea / 2 + image.height * 0.5 - pixelCrop.y),
-  )
-
-  return new Promise((resolve, reject) => {
-    canvas.toBlob(
-      (blob) => {
-        if (blob) resolve(blob)
-        else reject(new Error('Canvas toBlob failed'))
-      },
-      'image/jpeg',
-      0.92,
+    ctx.drawImage(
+      image,
+      safeArea / 2 - image.width * 0.5,
+      safeArea / 2 - image.height * 0.5,
     )
-  })
+
+    const data = ctx.getImageData(0, 0, safeArea, safeArea)
+
+    canvas.width = pixelCrop.width
+    canvas.height = pixelCrop.height
+
+    ctx.putImageData(
+      data,
+      Math.round(0 - safeArea / 2 + image.width * 0.5 - pixelCrop.x),
+      Math.round(0 - safeArea / 2 + image.height * 0.5 - pixelCrop.y),
+    )
+
+    return new Promise((resolve, reject) => {
+      canvas.toBlob(
+        (blob) => {
+          if (blob) resolve(blob)
+          else reject(new Error('Canvas toBlob failed'))
+        },
+        'image/jpeg',
+        0.92,
+      )
+    })
+  } finally {
+    if (revokeNeeded) URL.revokeObjectURL(url)
+  }
 }
 
 export function getCroppedDataUrl(

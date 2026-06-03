@@ -65,11 +65,11 @@ export function GlobalContextMenu({ children }: { children: ReactNode }) {
     const target = e.target as HTMLElement
     if (target.closest?.('.ProseMirror')) return
 
-    const isEditable = target instanceof HTMLInputElement
-      || target instanceof HTMLTextAreaElement
-      || target.isContentEditable
+    const isEditableEl = target instanceof HTMLInputElement
+      ? !['radio', 'checkbox', 'button', 'submit', 'reset', 'file', 'image', 'range', 'color'].includes(target.type)
+      : target instanceof HTMLTextAreaElement || target.isContentEditable
 
-    if (!isEditable) {
+    if (!isEditableEl) {
       e.preventDefault()
       return
     }

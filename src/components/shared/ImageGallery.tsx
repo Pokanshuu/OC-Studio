@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback } from 'react'
 import { Plus, ChevronLeft, ChevronRight, Trash2, ImageIcon, Loader2 } from 'lucide-react'
 import { resolveImageUrl, saveBlobToDisk } from '@/lib/image-service'
+import { convertHeifToJpeg } from '@/lib/image-heif'
 import { FullscreenViewer } from './FullscreenViewer'
 import { ImageCropper } from './ImageCropper'
 
@@ -29,6 +30,7 @@ export function ImageGallery({
   const [rawFileUrl, setRawFileUrl] = useState<string | null>(null)
   const [cropperOpen, setCropperOpen] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [converting, setConverting] = useState(false)
   const touchStartRef = useRef<number>(0)
   const touchSwipingRef = useRef(false)
   const mouseStartRef = useRef<{ x: number; y: number } | null>(null)
@@ -45,8 +47,20 @@ export function ImageGallery({
 
       if (enableCrop) {
         if (rawFileUrl) URL.revokeObjectURL(rawFileUrl)
-        setRawFileUrl(URL.createObjectURL(file))
+        // 立即打开裁剪器，不等待 HEIF 转换
+        const initialUrl = URL.createObjectURL(file)
+        setRawFileUrl(initialUrl)
         setCropperOpen(true)
+        // 后台异步转换 HEIF → JPEG
+        setConverting(true)
+        convertHeifToJpeg(file).then((converted) => {
+          URL.revokeObjectURL(initialUrl)
+          setRawFileUrl(URL.createObjectURL(converted))
+          setConverting(false)
+        }).catch((err) => {
+          console.warn('[ImageGallery] HEIF conversion failed:', err)
+          setConverting(false)
+        })
       } else {
         setUploading(true)
         try {
@@ -77,6 +91,7 @@ export function ImageGallery({
 
   function handleCropperClose() {
     setCropperOpen(false)
+    setConverting(false)
     if (rawFileUrl) {
       URL.revokeObjectURL(rawFileUrl)
       setRawFileUrl(null)
@@ -274,6 +289,7 @@ export function ImageGallery({
             src={rawFileUrl}
             aspect={cropAspect ?? 9 / 16}
             shape="rect"
+            loading={converting}
             onComplete={handleCropComplete}
             onClose={handleCropperClose}
           />

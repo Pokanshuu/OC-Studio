@@ -1,5 +1,6 @@
 import { BrowserAdapter } from './adapters/browser-adapter'
 import type { LocalAdapter } from './adapters/local-adapter'
+import { convertHeifToJpeg } from './image-heif'
 
 let adapter: BrowserAdapter | LocalAdapter = new BrowserAdapter()
 let tauriAppDataDir = ''
@@ -125,15 +126,18 @@ async function writeBlobToCapacitorFs(blob: Blob, fileName: string): Promise<str
 
 export async function saveBlobToDisk(blob: Blob, type: string): Promise<string> {
   try {
+    // HEIF → JPEG 转换（覆盖非裁剪直接上传路径）
+    const converted = await convertHeifToJpeg(blob)
+
     if (isCapacitor()) {
       const timestamp = Date.now()
       const fileName = `${type}-${timestamp}.png`
       await ensureCapacitorConvertFileSrc()
-      return await writeBlobToCapacitorFs(blob, fileName)
+      return await writeBlobToCapacitorFs(converted, fileName)
     }
 
     if (!isTauri()) {
-      return URL.createObjectURL(blob)
+      return URL.createObjectURL(converted)
     }
 
     const basePath = (await ensureTauriAppDataDir()).replace(/\/+$/, '')

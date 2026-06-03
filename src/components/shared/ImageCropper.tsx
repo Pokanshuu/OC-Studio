@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Cropper from 'react-easy-crop'
 import type { Area, Point } from 'react-easy-crop'
-import { RotateCcw, RotateCw, Check, X, ZoomOut, ZoomIn } from 'lucide-react'
+import { RotateCcw, RotateCw, Check, X, ZoomOut, ZoomIn, Loader2 } from 'lucide-react'
 import { getCroppedBlob } from '@/lib/image-crop'
 import 'react-easy-crop/react-easy-crop.css'
 
@@ -12,6 +12,7 @@ interface ImageCropperProps {
   src: string
   aspect: number
   shape?: 'rect' | 'round'
+  loading?: boolean
   onComplete: (blob: Blob) => void
   onClose: () => void
 }
@@ -21,6 +22,7 @@ export function ImageCropper({
   src,
   aspect,
   shape = 'rect',
+  loading = false,
   onComplete,
   onClose,
 }: ImageCropperProps) {
@@ -92,6 +94,13 @@ export function ImageCropper({
             setCroppedAreaPixels(areaPixels)
           }}
         />
+        {/* HEIF 转换中覆盖层 */}
+        {loading ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60">
+            <Loader2 size={28} strokeWidth={2} className="animate-spin text-white/80 mb-2" />
+            <span className="text-sm text-white/70">图片转换中…</span>
+          </div>
+        ) : null}
       </div>
 
       {/* Bottom toolbar — desktop */}

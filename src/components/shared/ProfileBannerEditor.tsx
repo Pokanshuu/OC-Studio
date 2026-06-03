@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react'
 import { ImageIcon, Camera, Trash2 } from 'lucide-react'
 import { resolveImageUrl, saveBlobToDisk } from '@/lib/image-service'
+import { convertHeifToJpeg } from '@/lib/image-heif'
 import { Avatar } from './Avatar'
 import { ImageCropper } from './ImageCropper'
 
@@ -30,8 +31,10 @@ export function ProfileBannerEditor({
 
   const [headerRawFileUrl, setHeaderRawFileUrl] = useState<string | null>(null)
   const [headerCropperOpen, setHeaderCropperOpen] = useState(false)
+  const [headerConverting, setHeaderConverting] = useState(false)
   const [avatarRawFileUrl, setAvatarRawFileUrl] = useState<string | null>(null)
   const [avatarCropperOpen, setAvatarCropperOpen] = useState(false)
+  const [avatarConverting, setAvatarConverting] = useState(false)
 
   const headerSrc = headerUrl ? resolveImageUrl(headerUrl) : undefined
 
@@ -39,8 +42,19 @@ export function ProfileBannerEditor({
     const file = e.target.files?.[0]
     if (!file || !onHeaderChange) return
     if (headerRawFileUrl) URL.revokeObjectURL(headerRawFileUrl)
-    setHeaderRawFileUrl(URL.createObjectURL(file))
+    // 立即打开裁剪器，后台异步转换 HEIF
+    const initialUrl = URL.createObjectURL(file)
+    setHeaderRawFileUrl(initialUrl)
     setHeaderCropperOpen(true)
+    setHeaderConverting(true)
+    convertHeifToJpeg(file).then((converted) => {
+      URL.revokeObjectURL(initialUrl)
+      setHeaderRawFileUrl(URL.createObjectURL(converted))
+      setHeaderConverting(false)
+    }).catch((err) => {
+      console.warn('[ProfileBannerEditor] header HEIF conversion failed:', err)
+      setHeaderConverting(false)
+    })
   }
 
   async function handleHeaderCropComplete(blob: Blob) {
@@ -55,6 +69,7 @@ export function ProfileBannerEditor({
 
   function handleHeaderCropperClose() {
     setHeaderCropperOpen(false)
+    setHeaderConverting(false)
     if (headerRawFileUrl) {
       URL.revokeObjectURL(headerRawFileUrl)
       setHeaderRawFileUrl(null)
@@ -65,8 +80,19 @@ export function ProfileBannerEditor({
     const file = e.target.files?.[0]
     if (!file || !onAvatarChange) return
     if (avatarRawFileUrl) URL.revokeObjectURL(avatarRawFileUrl)
-    setAvatarRawFileUrl(URL.createObjectURL(file))
+    // 立即打开裁剪器，后台异步转换 HEIF
+    const initialUrl = URL.createObjectURL(file)
+    setAvatarRawFileUrl(initialUrl)
     setAvatarCropperOpen(true)
+    setAvatarConverting(true)
+    convertHeifToJpeg(file).then((converted) => {
+      URL.revokeObjectURL(initialUrl)
+      setAvatarRawFileUrl(URL.createObjectURL(converted))
+      setAvatarConverting(false)
+    }).catch((err) => {
+      console.warn('[ProfileBannerEditor] avatar HEIF conversion failed:', err)
+      setAvatarConverting(false)
+    })
   }
 
   async function handleAvatarCropComplete(blob: Blob) {
@@ -81,6 +107,7 @@ export function ProfileBannerEditor({
 
   function handleAvatarCropperClose() {
     setAvatarCropperOpen(false)
+    setAvatarConverting(false)
     if (avatarRawFileUrl) {
       URL.revokeObjectURL(avatarRawFileUrl)
       setAvatarRawFileUrl(null)
@@ -181,6 +208,7 @@ export function ProfileBannerEditor({
           src={headerRawFileUrl}
           aspect={3/2}
           shape="rect"
+          loading={headerConverting}
           onComplete={handleHeaderCropComplete}
           onClose={handleHeaderCropperClose}
         />
@@ -192,6 +220,7 @@ export function ProfileBannerEditor({
           src={avatarRawFileUrl}
           aspect={1}
           shape="round"
+          loading={avatarConverting}
           onComplete={handleAvatarCropComplete}
           onClose={handleAvatarCropperClose}
         />

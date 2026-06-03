@@ -32,7 +32,6 @@ export async function chatCompletion(
       messages,
       max_tokens: maxTokens,
       temperature,
-      thinking: { type: 'disabled' },
     }),
   })
 
@@ -47,8 +46,8 @@ export async function chatCompletion(
 
 export function getAIConfig(settings: Settings): { available: boolean } & Partial<ChatCompletionOptions> {
   const apiKey = settings.apiKey.trim()
-  const baseUrl = settings.aiBaseUrl.trim() || 'https://api.openai.com/v1'
-  const model = settings.aiModel.trim() || 'gpt-4o'
+  const baseUrl = settings.aiBaseUrl.trim() || 'https://api.deepseek.com'
+  const model = settings.aiModel.trim() || 'deepseek-v4-flash'
 
   return {
     available: !!apiKey,

@@ -31,6 +31,7 @@ import { getImageUrl, getDefaultImage } from '@/lib/image-service'
 import { useDevice } from '@/lib/use-device'
 import { useActiveEditor } from '@/lib/editor-context'
 import { useKeyboard } from '@/lib/KeyboardContext'
+import { isBelowTargetVersion } from '@/lib/browser-compat'
 import { ContextMenu } from '@/components/shared/ContextMenu'
 import type { ContextMenuItem } from '@/components/shared/ContextMenu'
 
@@ -572,7 +573,13 @@ export function EditorCore({
         startPos = null
         return
       }
-      editor.commands.focus()
+      // 延迟聚焦：让浏览器原生的 touch→click 管线先完成光标定位，
+      // 仅在编辑器确实没聚焦时才补救（例如点击在 padding 区域）
+      setTimeout(() => {
+        if (!editor.isFocused) {
+          editor.view.dom.focus()
+        }
+      })
       startPos = null
     }
 
@@ -922,7 +929,7 @@ export function EditorCore({
         <div
           ref={mobileToolbarRef}
           className="fixed left-0 right-0 z-30 flex items-center gap-2 px-3 py-2 bg-paper/85 backdrop-blur-lg border-t border-line"
-          style={{ bottom: `${keyboardHeight}px` }}
+          style={{ bottom: `${keyboardHeight}px`, ...(isBelowTargetVersion() ? { paddingBottom: 'var(--safe-bottom, 0px)' } : {}) }}
           data-tick={toolbarTick}
         >
           <button
@@ -995,7 +1002,7 @@ export function EditorCore({
           <div
             ref={mobileBlockMenuRef}
             className="fixed left-0 right-0 z-40 p-3 bg-paper/85 backdrop-blur-lg border-t border-line"
-            style={{ bottom: `${keyboardHeight + 44}px` }}
+            style={{ bottom: `${isBelowTargetVersion() ? keyboardHeight + 52 : keyboardHeight + 44}px`, ...(isBelowTargetVersion() ? { paddingBottom: 'var(--safe-bottom, 0px)' } : {}) }}
           >
             <div className="flex flex-wrap gap-2">
               {[

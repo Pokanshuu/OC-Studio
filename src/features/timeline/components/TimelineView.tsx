@@ -88,17 +88,25 @@ interface ComputedEvent {
 
 function assignLanes(sortedByX: ComputedEvent[]): ComputedEvent[] {
   const laneEnds: number[] = []
+  const laneLastYear: number[] = []
   return sortedByX.map((item) => {
     const nodeStart = item.x
     const nodeEnd = item.x + item.width
+    const startYear = parseYear(item.event.time) ?? 0
     let lane = 0
     for (; lane < MAX_LANES; lane++) {
-      if (!(lane in laneEnds) || laneEnds[lane] <= nodeStart) {
+      const canFit = !(lane in laneEnds) || (
+        laneEnds[lane] <= nodeStart &&
+        Math.abs(startYear - (laneLastYear[lane] ?? Infinity)) >= 4
+      )
+      if (canFit) {
         laneEnds[lane] = nodeEnd
+        laneLastYear[lane] = startYear
         return { ...item, lane }
       }
     }
     laneEnds.push(nodeEnd)
+    laneLastYear.push(startYear)
     return { ...item, lane }
   })
 }

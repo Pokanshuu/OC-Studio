@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from 'react'
+import { isBelowTargetVersion } from '@/lib/browser-compat'
 
 interface KeyboardState {
   visible: boolean
@@ -32,11 +33,23 @@ export function KeyboardProvider({ children }: { children: ReactNode }) {
       Keyboard.addListener('keyboardWillShow', () => {
         setState(prev => ({ visible: true, viewportHeight: prev.viewportHeight }))
       })
-      Keyboard.addListener('keyboardDidShow', () => {
-        const vvH = window.visualViewport?.height ?? window.innerHeight
-        const kbH = Math.max(0, window.innerHeight - vvH)
-        setState({ visible: true, viewportHeight: kbH })
-      })
+      if (isBelowTargetVersion()) {
+        // 旧内核：visualViewport 不可靠，用插件原生高度
+        Keyboard.addListener('keyboardDidShow', (info) => {
+          const safeBottom = parseFloat(
+            getComputedStyle(document.documentElement).getPropertyValue('--safe-bottom').trim()
+          ) || 0
+          // 扣掉导航栏 + 微调偏移，避免工具栏被键盘遮挡
+          setState({ visible: true, viewportHeight: Math.max(0, info.keyboardHeight - safeBottom + 6) })
+        })
+      } else {
+        // 现代内核：原有逻辑
+        Keyboard.addListener('keyboardDidShow', () => {
+          const vvH = window.visualViewport?.height ?? window.innerHeight
+          const kbH = Math.max(0, window.innerHeight - vvH)
+          setState({ visible: true, viewportHeight: kbH })
+        })
+      }
       Keyboard.addListener('keyboardWillHide', () => {
         setState({ visible: false, viewportHeight: 0 })
       })
