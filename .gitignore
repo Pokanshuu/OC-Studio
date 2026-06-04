@@ -76,6 +76,19 @@ Thumbs.db
 
 # 编辑器配置
 .vscode/
+.vs/
 .opencode/
 opencode.json
 .claude/
+
+# Android IDE
+android/.idea/
+
+# 应用图标源文件（生成产物在 src-tauri/icons/ 中）
+app-icon.png
+
+# MSIX 打包产物
+*.msix
+*.msixupload
+*.appx
+MSIX_Package/
