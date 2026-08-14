@@ -5,6 +5,7 @@ import { tauriReadClipboard } from '@/lib/tauri-clipboard'
 import { createPortal } from 'react-dom'
 import { Separator } from '@/components/ui/separator'
 import { adjustContextMenuPosition } from '@/lib/menu-utils'
+import { useDevice } from '@/lib/use-device'
 
 interface InputMenuContextValue {
   openMenuAt: (target: HTMLElement, x: number, y: number) => void
@@ -24,6 +25,7 @@ interface SelectionSnapshot {
 }
 
 export function GlobalContextMenu({ children }: { children: ReactNode }) {
+  const { isMobile } = useDevice()
   const [open, setOpen] = useState(false)
   const [position, setPosition] = useState({ x: 0, y: 0 })
   const [adjPosition, setAdjPosition] = useState({ x: 0, y: 0 })
@@ -70,13 +72,15 @@ export function GlobalContextMenu({ children }: { children: ReactNode }) {
       : target instanceof HTMLTextAreaElement || target.isContentEditable
 
     if (!isEditableEl) {
+      // 桌面端放行原生右键菜单，仅移动端抑制长按弹出的原生菜单
+      if (!isMobile) return
       e.preventDefault()
       return
     }
 
     e.preventDefault()
     openMenuAt(target, e.clientX, e.clientY)
-  }, [openMenuAt])
+  }, [openMenuAt, isMobile])
 
   useEffect(() => {
     if (!open || !menuRef.current) return

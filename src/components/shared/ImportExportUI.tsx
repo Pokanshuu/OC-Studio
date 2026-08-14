@@ -12,12 +12,12 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogCancel,
-  AlertDialogAction,
 } from '@/components/ui/alert-dialog'
 
 import { exportAllData, downloadJson } from '@/lib/export'
 import { validateImportData, importData } from '@/lib/import'
 import type { ImportSummary, MergeStrategy } from '@/lib/import'
+import { notifyDataUpdated } from '@/lib/data-events'
 
 const MERGE_OPTIONS: { value: MergeStrategy; label: string; description: string }[] = [
   { value: 'skip', label: '跳过重复', description: '仅添加不重名的数据，已有记录保持不变' },
@@ -41,7 +41,7 @@ export function useImportExport() {
     setExporting(true)
     try {
       const data = await exportAllData()
-      const name = downloadJson(data)
+      const name = await downloadJson(data)
       toast.success(`导出成功：${name}`)
     } catch {
       toast.error('导出失败')
@@ -84,7 +84,7 @@ export function useImportExport() {
     setImporting(true)
     try {
       const result = await importData(pendingJson, strategy, queryClient)
-      window.dispatchEvent(new CustomEvent('data-updated'))
+      notifyDataUpdated()
 
       const parts: string[] = []
       if (result.added > 0) parts.push(`新增 ${result.added} 条`)
@@ -109,7 +109,7 @@ export function useImportExport() {
   }, [])
 
   const summaryText = summary
-    ? `角色 ${summary.characters} 条，事件 ${summary.events} 条，国家 ${summary.countries} 条，词条 ${summary.worldEntries} 条，标签 ${summary.tags} 条`
+    ? `角色 ${summary.characters} 条，事件 ${summary.events} 条，国家 ${summary.countries} 条，词条 ${summary.worldEntries} 条，标签 ${summary.tags} 条，时期 ${summary.periods} 条`
     : ''
 
   const dialog = (
@@ -166,12 +166,14 @@ export function useImportExport() {
 
           <AlertDialogFooter>
             <AlertDialogCancel onClick={handleCancel}>取消</AlertDialogCancel>
-            <AlertDialogAction
+            <button
+              type="button"
               onClick={handleConfirmImport}
               disabled={importing}
+              className="touch-feedback inline-flex h-9 items-center justify-center rounded px-3 text-sm font-normal transition-colors border border-error bg-transparent text-error hover:bg-error/10 dark:hover:bg-red-950/30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
             >
               {importing ? '导入中...' : '确认导入'}
-            </AlertDialogAction>
+            </button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 import { logOperation } from '@/lib/sync'
+import { notifyDataUpdated } from '@/lib/data-events'
 import type { Event } from '@/types'
 import type { TimelineEvent } from './types'
 import { pickTimelineFields } from './types'
@@ -69,5 +70,5 @@ export async function updateEventTime(
   } as Partial<Event>)
 
   await logOperation('events', id, 'time', oldTime, newTime)
-  window.dispatchEvent(new CustomEvent('data-updated'))
+  notifyDataUpdated()
 }

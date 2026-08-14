@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
+import { useState, useCallback, useRef, useMemo } from 'react'
 import { Save, ArrowLeft } from 'lucide-react'
 import { TagPicker } from '@/features/tags'
 import type { Editor } from '@tiptap/core'
@@ -34,14 +34,10 @@ export function CountryEditor({
   onCharacterCount,
   onWikiLinkClick,
 }: CountryEditorProps) {
-  const { country, loading, error, refresh } = useCountry(editCountryId)
+  const { country, loading, error } = useCountry(editCountryId)
   const { updateCountry } = useUpdateCountry()
   const { characters: allCharacters } = useCharacterList()
   const { events: allEvents } = useEventList()
-
-  useEffect(() => {
-    refresh()
-  }, [editCountryId, refresh])
 
   if (loading) {
     return (

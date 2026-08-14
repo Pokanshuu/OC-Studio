@@ -4,11 +4,10 @@ import { useState, useEffect, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import type { WorldEntry } from '@/types'
 import type { WorldFormData } from '../types'
-import { registerEntityType } from '@/lib/reference-registry'
 import * as service from '../services'
+import { DATA_UPDATED_EVENT } from '@/lib/data-events'
 
 const LIST_KEY = ['worldEntries']
-let worldRegistered = false
 
 export function useEntryList() {
   const [entries, setEntries] = useState<WorldEntry[]>([])
@@ -26,22 +25,6 @@ export function useEntryList() {
         const data = await service.getEntries()
         if (!cancelled) {
           setEntries(data)
-          if (!worldRegistered) {
-            worldRegistered = true
-            registerEntityType({
-              type: 'world',
-              label: '词条',
-              fetch: async () => {
-                const entries = await service.getEntries()
-                return entries.map((e) => ({
-                  type: 'world' as const,
-                  id: String(e.id),
-                  name: e.title,
-                  keywords: [e.category].filter(Boolean) as string[],
-                }))
-              },
-            })
-          }
         }
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : '加载失败')
@@ -55,8 +38,8 @@ export function useEntryList() {
 
   useEffect(() => {
     const handler = () => refresh()
-    window.addEventListener('data-updated', handler)
-    return () => window.removeEventListener('data-updated', handler)
+    window.addEventListener(DATA_UPDATED_EVENT, handler)
+    return () => window.removeEventListener(DATA_UPDATED_EVENT, handler)
   }, [refresh])
 
   return { entries, loading, error, refresh }

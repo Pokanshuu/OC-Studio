@@ -7,7 +7,6 @@ const STORAGE_KEY = "oc-studio-settings"
 
 export interface Settings {
   theme: "light" | "dark" | "auto"
-  autoDarkMode: boolean
   aiEnabled: boolean
   apiKey: string
   aiModel: string
@@ -21,7 +20,6 @@ export interface Settings {
 
 const DEFAULT_SETTINGS: Settings = {
   theme: "auto",
-  autoDarkMode: false,
   aiEnabled: false,
   apiKey: "",
   aiModel: "deepseek-v4-flash",

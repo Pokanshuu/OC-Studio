@@ -117,7 +117,17 @@ function renderWikiItems(
     const btn = document.createElement('button')
     btn.type = 'button'
     btn.className = `flex w-full items-center gap-2 rounded-sm px-3 py-1.5 text-left text-sm transition-colors hover:bg-black/5 dark:hover:bg-white/5 ${isSelected ? 'bg-black/5 dark:bg-white/5 text-ink' : 'text-ink'}`
-    btn.innerHTML = `<span>${item.name}</span><span class="ml-auto text-xs text-ink-faint">词条</span>`
+
+    const nameSpan = document.createElement('span')
+    nameSpan.className = 'truncate'
+    nameSpan.textContent = item.name
+    btn.appendChild(nameSpan)
+
+    const typeSpan = document.createElement('span')
+    typeSpan.className = 'ml-auto shrink-0 text-xs text-ink-faint'
+    typeSpan.textContent = '词条'
+    btn.appendChild(typeSpan)
+
     btn.addEventListener('click', () => command(item))
     btn.addEventListener('mousedown', (e) => e.preventDefault())
     container.appendChild(btn)

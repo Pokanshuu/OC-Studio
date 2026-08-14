@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { Period } from '@/types'
 import * as service from '../services'
+import { DATA_UPDATED_EVENT, notifyDataUpdated } from '@/lib/data-events'
 
 export function usePeriods() {
   const [periods, setPeriods] = useState<Period[]>([])
@@ -28,23 +29,23 @@ export function usePeriods() {
 
   useEffect(() => {
     const handler = () => { void load() }
-    window.addEventListener('data-updated', handler)
-    return () => window.removeEventListener('data-updated', handler)
+    window.addEventListener(DATA_UPDATED_EVENT, handler)
+    return () => window.removeEventListener(DATA_UPDATED_EVENT, handler)
   }, [load])
 
   const addPeriod = useCallback(async (data: { name: string; startTime: string; endTime: string; color: string }) => {
     await service.createPeriod(data)
-    window.dispatchEvent(new CustomEvent('data-updated'))
+    notifyDataUpdated()
   }, [])
 
   const updatePeriod = useCallback(async (id: number, data: Partial<{ name: string; startTime: string; endTime: string; color: string }>) => {
     await service.updatePeriod(id, data)
-    window.dispatchEvent(new CustomEvent('data-updated'))
+    notifyDataUpdated()
   }, [])
 
   const removePeriod = useCallback(async (id: number) => {
     await service.deletePeriod(id)
-    window.dispatchEvent(new CustomEvent('data-updated'))
+    notifyDataUpdated()
   }, [])
 
   return { periods, loading, error, refresh: load, addPeriod, updatePeriod, removePeriod }

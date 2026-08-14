@@ -1,10 +1,11 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useEffect } from 'react'
+import { useEffect, useCallback } from 'react'
 import type { Country } from '@/types'
 import type { CountryFormData } from '../types'
 import * as countryService from '../services'
+import { DATA_UPDATED_EVENT } from '@/lib/data-events'
 
 const LIST_KEY = ['countries']
 
@@ -24,19 +25,21 @@ export function useCountryList(): {
     staleTime: 30_000,
   })
 
+  const refresh = useCallback(() => {
+    void refetch()
+  }, [refetch])
+
   useEffect(() => {
     const handler = () => { void refetch() }
-    window.addEventListener('data-updated', handler)
-    return () => window.removeEventListener('data-updated', handler)
+    window.addEventListener(DATA_UPDATED_EVENT, handler)
+    return () => window.removeEventListener(DATA_UPDATED_EVENT, handler)
   }, [refetch])
 
   return {
     countries: data ?? [],
     loading: isLoading,
     error: error instanceof Error ? error.message : null,
-    refresh: () => {
-      void refetch()
-    },
+    refresh,
   }
 }
 
@@ -53,13 +56,15 @@ export function useCountry(id: number | null): {
     staleTime: 30_000,
   })
 
+  const refresh = useCallback(() => {
+    void refetch()
+  }, [refetch])
+
   return {
     country: id === null ? undefined : data?.id === id ? data : undefined,
     loading: id === null ? false : isLoading,
     error: error instanceof Error ? error.message : null,
-    refresh: () => {
-      void refetch()
-    },
+    refresh,
   }
 }
 

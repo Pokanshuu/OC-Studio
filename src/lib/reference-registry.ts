@@ -115,3 +115,19 @@ registerEntityType({
       }))
   },
 })
+
+registerEntityType({
+  type: 'world',
+  label: '词条',
+  fetch: async () => {
+    const all = await db.worldEntries.orderBy('title').toArray()
+    return all
+      .filter((w) => !w.deleted)
+      .map((w) => ({
+        type: 'world',
+        id: String(w.id),
+        name: w.title,
+        keywords: [w.category].filter(Boolean),
+      }))
+  },
+})

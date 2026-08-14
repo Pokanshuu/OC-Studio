@@ -41,7 +41,7 @@ function AppShellChrome({ settings, children }: { settings: ReturnType<typeof us
       <div className="flex flex-1 overflow-hidden">
         {settings.sidebarVisible ? <Sidebar /> : null}
         <main className="flex-1 overflow-x-auto main-scroll bg-paper dark:bg-[#1C1B1A]">
-          <GlobalContextMenu>{children}</GlobalContextMenu>
+          {children}
           <MobileTextSelectionBar />
         </main>
       </div>
@@ -180,25 +180,27 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <SettingsTriggerContext.Provider value={{ openSettings, closeSettings }}>
-      <TrashOverlayProvider>
-        <EditorProvider>
-          <MobileNavigationProvider>
-            <MobilePageHeaderProvider>
-              <AppShellChrome settings={settings}>
-                {children}
-              </AppShellChrome>
-              <TrashOverlayRenderer />
-            </MobilePageHeaderProvider>
-          </MobileNavigationProvider>
-        </EditorProvider>
-      </TrashOverlayProvider>
-      <Toaster />
-      <SettingsDialog
-        open={settingsOpen}
-        onOpenChange={setSettingsOpen}
-        defaultTab={settingsTab}
-      />
-    </SettingsTriggerContext.Provider>
+    <GlobalContextMenu>
+      <SettingsTriggerContext.Provider value={{ openSettings, closeSettings }}>
+        <TrashOverlayProvider>
+          <EditorProvider>
+            <MobileNavigationProvider>
+              <MobilePageHeaderProvider>
+                <AppShellChrome settings={settings}>
+                  {children}
+                </AppShellChrome>
+                <TrashOverlayRenderer />
+              </MobilePageHeaderProvider>
+            </MobileNavigationProvider>
+          </EditorProvider>
+        </TrashOverlayProvider>
+        <Toaster />
+        <SettingsDialog
+          open={settingsOpen}
+          onOpenChange={setSettingsOpen}
+          defaultTab={settingsTab}
+        />
+      </SettingsTriggerContext.Provider>
+    </GlobalContextMenu>
   )
 }

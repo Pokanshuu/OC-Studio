@@ -1,4 +1,5 @@
 import { db } from '@/lib/db'
+import type { Table } from 'dexie'
 import type { Tag } from '@/types'
 
 export async function getAllTags(): Promise<Tag[]> {
@@ -25,6 +26,39 @@ export async function updateTag(id: number, data: Partial<{ name: string; catego
   await db.tags.update(id, updates)
 }
 
+interface TaggableRow {
+  id?: number
+  tags: number[]
+}
+
+async function removeTagReferences(
+  table: Table<TaggableRow, number>,
+  tagId: number,
+): Promise<void> {
+  const rows = await table.toArray()
+  const writes: Promise<unknown>[] = []
+  for (const row of rows) {
+    if (Array.isArray(row.tags) && row.tags.includes(tagId)) {
+      writes.push(
+        table.update(row.id as number, {
+          tags: row.tags.filter((t) => t !== tagId),
+        }),
+      )
+    }
+  }
+  await Promise.all(writes)
+}
+
 export async function deleteTag(id: number): Promise<void> {
-  await db.tags.delete(id)
+  await db.transaction(
+    'rw',
+    [db.characters, db.events, db.countries, db.worldEntries, db.tags],
+    async () => {
+      await removeTagReferences(db.characters as unknown as Table<TaggableRow, number>, id)
+      await removeTagReferences(db.events as unknown as Table<TaggableRow, number>, id)
+      await removeTagReferences(db.countries as unknown as Table<TaggableRow, number>, id)
+      await removeTagReferences(db.worldEntries as unknown as Table<TaggableRow, number>, id)
+      await db.tags.delete(id)
+    },
+  )
 }

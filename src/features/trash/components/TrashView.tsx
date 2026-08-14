@@ -17,6 +17,7 @@ import { Separator } from "@/components/ui/separator"
 import { useTrash } from "../hooks/useTrash"
 import * as trashService from "../services"
 import type { TrashItem, TrashItemType } from "../types"
+import { notifyDataUpdated } from '@/lib/data-events'
 
 function formatDeleteTime(timestamp: number): string {
   const d = new Date(timestamp)
@@ -86,7 +87,7 @@ export function TrashView({ onClose }: TrashViewProps) {
         await trashService.restoreItem(type, id)
         toast("已恢复")
         refresh()
-        window.dispatchEvent(new CustomEvent('data-updated'))
+        notifyDataUpdated()
       } catch {
         toast.error("恢复失败")
       } finally {
@@ -103,7 +104,7 @@ export function TrashView({ onClose }: TrashViewProps) {
         toast("已永久删除")
         setConfirmTarget(null)
         refresh()
-        window.dispatchEvent(new CustomEvent('data-updated'))
+        notifyDataUpdated()
       } catch {
         toast.error("删除失败")
       }

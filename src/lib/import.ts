@@ -11,6 +11,7 @@ interface ImportPayload {
     countries: unknown[]
     worldEntries: unknown[]
     tags: unknown[]
+    periods?: unknown[]
   }
 }
 
@@ -20,6 +21,7 @@ export interface ImportSummary {
   countries: number
   worldEntries: number
   tags: number
+  periods: number
 }
 
 export type MergeStrategy = 'skip' | 'overwrite' | 'keep-both' | 'replace'
@@ -40,6 +42,7 @@ const TABLE_CONFIG: Array<{
   { key: 'countries', table: db.countries as unknown as Table<Record<string, unknown>, number>, nameField: 'name' },
   { key: 'worldEntries', table: db.worldEntries as unknown as Table<Record<string, unknown>, number>, nameField: 'title' },
   { key: 'tags', table: db.tags as unknown as Table<Record<string, unknown>, number>, nameField: 'name' },
+  { key: 'periods', table: db.periods as unknown as Table<Record<string, unknown>, number>, nameField: 'name' },
 ]
 
 export function validateImportData(json: unknown): ImportSummary {
@@ -66,12 +69,16 @@ export function validateImportData(json: unknown): ImportSummary {
     }
   }
 
+  // periods 为 v1 后期新增字段，旧备份可能缺失，向后兼容按 0 处理
+  const periods = Array.isArray(data.periods) ? (data.periods as unknown[]) : []
+
   return {
     characters: (data.characters as unknown[]).length,
     events: (data.events as unknown[]).length,
     countries: (data.countries as unknown[]).length,
     worldEntries: (data.worldEntries as unknown[]).length,
     tags: (data.tags as unknown[]).length,
+    periods: periods.length,
   }
 }
 
@@ -155,50 +162,64 @@ export async function importData(
 ): Promise<ImportResult> {
   const payload = json as ImportPayload
   const records = payload.data
+  // 旧备份可能不含 periods，向后兼容按空数组处理
+  const periods = records.periods ?? []
+  records.periods = periods
 
-  if (strategy === 'replace') {
-    await db.characters.clear()
-    await db.events.clear()
-    await db.countries.clear()
-    await db.worldEntries.clear()
-    await db.tags.clear()
+  const result = await db.transaction(
+    'rw',
+    [db.characters, db.events, db.countries, db.worldEntries, db.tags, db.periods],
+    async () => {
+      if (strategy === 'replace') {
+        await db.characters.clear()
+        await db.events.clear()
+        await db.countries.clear()
+        await db.worldEntries.clear()
+        await db.tags.clear()
+        await db.periods.clear()
 
-    await Promise.all([
-      records.characters.length > 0
-        ? db.characters.bulkAdd(records.characters as never[])
-        : Promise.resolve(),
-      records.events.length > 0
-        ? db.events.bulkAdd(records.events as never[])
-        : Promise.resolve(),
-      records.countries.length > 0
-        ? db.countries.bulkAdd(records.countries as never[])
-        : Promise.resolve(),
-      records.worldEntries.length > 0
-        ? db.worldEntries.bulkAdd(records.worldEntries as never[])
-        : Promise.resolve(),
-      records.tags.length > 0
-        ? db.tags.bulkAdd(records.tags as never[])
-        : Promise.resolve(),
-    ])
+        await Promise.all([
+          records.characters.length > 0
+            ? db.characters.bulkAdd(records.characters as never[])
+            : Promise.resolve(),
+          records.events.length > 0
+            ? db.events.bulkAdd(records.events as never[])
+            : Promise.resolve(),
+          records.countries.length > 0
+            ? db.countries.bulkAdd(records.countries as never[])
+            : Promise.resolve(),
+          records.worldEntries.length > 0
+            ? db.worldEntries.bulkAdd(records.worldEntries as never[])
+            : Promise.resolve(),
+          records.tags.length > 0
+            ? db.tags.bulkAdd(records.tags as never[])
+            : Promise.resolve(),
+          periods.length > 0
+            ? db.periods.bulkAdd(periods as never[])
+            : Promise.resolve(),
+        ])
 
-    const total = records.characters.length + records.events.length + records.countries.length + records.worldEntries.length + records.tags.length
-    queryClient?.invalidateQueries()
-    return { added: total, skipped: 0, overwritten: 0 }
-  }
+        const total = records.characters.length + records.events.length + records.countries.length + records.worldEntries.length + records.tags.length + periods.length
+        return { added: total, skipped: 0, overwritten: 0 }
+      }
 
-  let totalAdded = 0
-  let totalSkipped = 0
-  let totalOverwritten = 0
+      let totalAdded = 0
+      let totalSkipped = 0
+      let totalOverwritten = 0
 
-  for (const config of TABLE_CONFIG) {
-    const items = records[config.key] as unknown[]
-    const result = await processTableMerge(config.table, items, strategy, config.nameField)
-    totalAdded += result.added
-    totalSkipped += result.skipped
-    totalOverwritten += result.overwritten
-  }
+      for (const config of TABLE_CONFIG) {
+        const items = records[config.key] as unknown[]
+        const result = await processTableMerge(config.table, items, strategy, config.nameField)
+        totalAdded += result.added
+        totalSkipped += result.skipped
+        totalOverwritten += result.overwritten
+      }
+
+      return { added: totalAdded, skipped: totalSkipped, overwritten: totalOverwritten }
+    },
+  )
 
   queryClient?.invalidateQueries()
 
-  return { added: totalAdded, skipped: totalSkipped, overwritten: totalOverwritten }
+  return result
 }

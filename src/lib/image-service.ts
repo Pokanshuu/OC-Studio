@@ -164,7 +164,7 @@ export async function saveBlobToDisk(blob: Blob, type: string): Promise<string> 
       // directory may already exist
     }
 
-    const arrayBuffer = await blob.arrayBuffer()
+    const arrayBuffer = await converted.arrayBuffer()
     const bytes = new Uint8Array(arrayBuffer)
     await writeFile(destPath, bytes)
 

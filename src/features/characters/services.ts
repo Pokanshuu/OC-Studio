@@ -18,7 +18,7 @@ function buildDefaultCharacter(
     element: data.element,
     occupation: data.occupation,
     nationalityLegacy: data.nationalityLegacy,
-    countryId: undefined,
+    countryId: data.countryId,
     height: data.height,
     birthday: data.birthday,
     avatarUrl: data.avatarUrl,

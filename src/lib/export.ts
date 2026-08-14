@@ -9,16 +9,18 @@ interface ExportPayload {
     countries: unknown[]
     worldEntries: unknown[]
     tags: unknown[]
+    periods: unknown[]
   }
 }
 
 export async function exportAllData(): Promise<ExportPayload> {
-  const [characters, events, countries, worldEntries, tags] = await Promise.all([
+  const [characters, events, countries, worldEntries, tags, periods] = await Promise.all([
     db.characters.filter((c) => !c.deleted).toArray(),
     db.events.filter((e) => !e.deleted).toArray(),
     db.countries.filter((c) => !c.deleted).toArray(),
     db.worldEntries.filter((w) => !w.deleted).toArray(),
     db.tags.toArray(),
+    db.periods.filter((p) => !p.deleted).toArray(),
   ])
 
   return {
@@ -30,6 +32,7 @@ export async function exportAllData(): Promise<ExportPayload> {
       countries,
       worldEntries,
       tags,
+      periods,
     },
   }
 }
@@ -41,13 +44,13 @@ function isCapacitor(): boolean {
     && !!window.Capacitor.isNativePlatform?.()
 }
 
-export function downloadJson(data: unknown, filename?: string): string {
+export async function downloadJson(data: unknown, filename?: string): Promise<string> {
   const json = JSON.stringify(data, null, 2)
   const date = new Date().toISOString().slice(0, 10)
   const name = filename ?? `oc-backup-${date}.ocbak`
 
   if (isCapacitor()) {
-    downloadJsonCapacitor(json, name)
+    await downloadJsonCapacitor(json, name)
     return name
   }
 
@@ -227,9 +230,9 @@ export async function exportToTxt(): Promise<string> {
   return lines.join('\n')
 }
 
-function downloadText(content: string, filename: string, mimeType: string): void {
+async function downloadText(content: string, filename: string, mimeType: string): Promise<void> {
   if (isCapacitor()) {
-    downloadTextCapacitor(content, filename)
+    await downloadTextCapacitor(content, filename)
     return
   }
 
@@ -269,11 +272,11 @@ async function downloadTextCapacitor(content: string, filename: string): Promise
 export async function downloadMarkdown(): Promise<void> {
   const md = await exportToMarkdown()
   const date = new Date().toISOString().slice(0, 10)
-  downloadText(md, `oc-export-${date}.md`, 'text/markdown')
+  await downloadText(md, `oc-export-${date}.md`, 'text/markdown')
 }
 
 export async function downloadTxt(): Promise<void> {
   const txt = await exportToTxt()
   const date = new Date().toISOString().slice(0, 10)
-  downloadText(txt, `oc-export-${date}.txt`, 'text/plain')
+  await downloadText(txt, `oc-export-${date}.txt`, 'text/plain')
 }

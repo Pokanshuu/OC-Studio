@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import type { Character } from '@/types'
 import type { CharacterFormData } from '../types'
 import * as characterService from '../services'
+import { DATA_UPDATED_EVENT } from '@/lib/data-events'
 
 const LIST_KEY = ['characters']
 
@@ -58,8 +59,8 @@ export function useCharacterList(): {
 
   useEffect(() => {
     const handler = () => refresh()
-    window.addEventListener('data-updated', handler)
-    return () => window.removeEventListener('data-updated', handler)
+    window.addEventListener(DATA_UPDATED_EVENT, handler)
+    return () => window.removeEventListener(DATA_UPDATED_EVENT, handler)
   }, [refresh])
 
   return { characters, loading, error, refresh }

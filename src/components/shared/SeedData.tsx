@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { notifyDataUpdated } from '@/lib/data-events'
 
 function svgUrl(svg: string): string {
   return 'data:image/svg+xml,' + encodeURIComponent(svg.trim())
@@ -401,7 +402,7 @@ export function SeedData() {
         _lastModified: Date.now(),
       })
 
-      window.dispatchEvent(new CustomEvent('data-updated'))
+      notifyDataUpdated()
     }
 
     seed().catch(console.error)

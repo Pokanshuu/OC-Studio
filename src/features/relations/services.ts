@@ -15,6 +15,7 @@ export async function buildGraphData(): Promise<{ nodes: GraphNode[]; edges: Gra
   const nodes: GraphNode[] = []
   const edges: GraphEdge[] = []
   const nodeIds = new Set<string>()
+  const edgeKeys = new Set<string>()
 
   function addNode(id: string, label: string, type: 'character' | 'event' | 'country', entityId: number, subtitle?: string) {
     if (nodeIds.has(id)) return
@@ -28,10 +29,13 @@ export async function buildGraphData(): Promise<{ nodes: GraphNode[]; edges: Gra
   }
 
   function addEdge(source: string, target: string, relation: string) {
-    const edgeId = `${source}->${target}`
-    if (edges.find((e) => e.id === edgeId)) return
+    // 按无序节点对去重：同一对节点只保留一条边，避免「属于/所属」「发生于/发生地」等
+    // 在数据模型两侧同时表达时被重复绘制成两条反向边。
+    const key = [source, target].sort().join('||')
+    if (edgeKeys.has(key)) return
+    edgeKeys.add(key)
     edges.push({
-      id: edgeId,
+      id: `${source}->${target}`,
       source,
       target,
       type: 'relationEdge',
