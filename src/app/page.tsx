@@ -334,6 +334,18 @@ export default function Home() {
     })
   }, [createCountry, creatingCountry, setEditing])
 
+  // 命令面板「快速新建」事件监听
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const type = (e as CustomEvent).detail?.type
+      if (type === 'character') handleCreateCharacter()
+      else if (type === 'event') handleCreateEvent()
+      else if (type === 'country') handleCreateCountry()
+    }
+    window.addEventListener('oc:create-entity', handler)
+    return () => window.removeEventListener('oc:create-entity', handler)
+  }, [handleCreateCharacter, handleCreateEvent, handleCreateCountry])
+
   const handleDeleteCountry = useCallback(
     (id: number) => {
       if (deletingCountry) return

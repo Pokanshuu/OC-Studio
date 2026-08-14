@@ -3,9 +3,10 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { tauriReadClipboard } from '@/lib/tauri-clipboard'
 import { createPortal } from 'react-dom'
-import { Search, Users, Calendar, Flag, BookOpen, Minus, Maximize2, Minimize2, X, Check } from 'lucide-react'
+import { Search, Users, Calendar, Flag, BookOpen, Minus, Maximize2, Minimize2, X, Check, Clock, GitBranch, Images } from 'lucide-react'
 import { searchAllEntitiesFlat } from '@/lib/reference-registry'
 import { useEntityNavigate } from '@/components/layout/EntityNavigateContext'
+import { useNavigation } from '@/components/layout/NavigationContext'
 import { useSettingsTrigger } from '@/components/layout/SettingsTriggerContext'
 import { useSettings } from '@/lib/settings'
 import { useImportExport } from '@/components/shared/ImportExportUI'
@@ -47,8 +48,25 @@ const TYPE_LABEL_MAP: Record<string, string> = {
   world: '词条',
 }
 
+const SECTION_COMMANDS: { label: string; icon: typeof Users }[] = [
+  { label: '角色', icon: Users },
+  { label: '事件', icon: Calendar },
+  { label: '国家', icon: Flag },
+  { label: '世界观', icon: BookOpen },
+  { label: '时间线', icon: Clock },
+  { label: '关系图', icon: GitBranch },
+  { label: '相册', icon: Images },
+]
+
+const CREATE_COMMANDS: { label: string; type: 'character' | 'event' | 'country'; icon: typeof Users }[] = [
+  { label: '新建角色', type: 'character', icon: Users },
+  { label: '新建事件', type: 'event', icon: Calendar },
+  { label: '新建国家', type: 'country', icon: Flag },
+]
+
 export function MenuBar() {
   const { navigateToEntity } = useEntityNavigate()
+  const { setActiveItem } = useNavigation()
   const { settings, updateSetting } = useSettings()
   const { openSettings } = useSettingsTrigger()
   const { handleExport, handleImportClick, dialog: importExportDialog } = useImportExport()
@@ -199,6 +217,20 @@ export function MenuBar() {
     setQuery('')
     inputRef.current?.blur()
   }, [navigateToEntity])
+
+  const handleSectionSelect = useCallback((label: string) => {
+    setActiveItem(label)
+    setIsOpen(false)
+    setQuery('')
+    inputRef.current?.blur()
+  }, [setActiveItem])
+
+  const handleCreateSelect = useCallback((type: 'character' | 'event' | 'country') => {
+    window.dispatchEvent(new CustomEvent('oc:create-entity', { detail: { type } }))
+    setIsOpen(false)
+    setQuery('')
+    inputRef.current?.blur()
+  }, [])
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
@@ -410,9 +442,42 @@ export function MenuBar() {
                     width: panelPos.width,
                   }}
                 >
-              {results.length === 0 ? (
+              {query.trim() === '' ? (
+                <div>
+                  <div className="px-3 py-1 text-xs font-medium text-ink-faint">快速新建</div>
+                  {CREATE_COMMANDS.map((cmd) => {
+                    const Icon = cmd.icon
+                    return (
+                      <button
+                        key={cmd.label}
+                        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-ink-muted transition-colors hover:bg-black/5 dark:hover:bg-white/5 hover:text-ink"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => handleCreateSelect(cmd.type)}
+                      >
+                        <Icon size={14} strokeWidth={2} className="shrink-0 text-ink-faint" />
+                        <span>{cmd.label}</span>
+                      </button>
+                    )
+                  })}
+                  <div className="mt-1 px-3 py-1 text-xs font-medium text-ink-faint">切换板块</div>
+                  {SECTION_COMMANDS.map((cmd) => {
+                    const Icon = cmd.icon
+                    return (
+                      <button
+                        key={cmd.label}
+                        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-ink-muted transition-colors hover:bg-black/5 dark:hover:bg-white/5 hover:text-ink"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => handleSectionSelect(cmd.label)}
+                      >
+                        <Icon size={14} strokeWidth={2} className="shrink-0 text-ink-faint" />
+                        <span>{cmd.label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : results.length === 0 ? (
                 <div className="px-3 py-4 text-center text-sm text-ink-faint">
-                  {query.trim() ? '无匹配结果' : '开始输入搜索...'}
+                  无匹配结果
                 </div>
               ) : (
                 results.map((group) => {
