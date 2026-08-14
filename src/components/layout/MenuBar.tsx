@@ -10,7 +10,7 @@ import { useNavigation } from '@/components/layout/NavigationContext'
 import { useSettingsTrigger } from '@/components/layout/SettingsTriggerContext'
 import { useSettings } from '@/lib/settings'
 import { useImportExport } from '@/components/shared/ImportExportUI'
-import { downloadMarkdown, downloadTxt } from '@/lib/export'
+import { downloadMarkdown, downloadTxt, downloadFullBackup } from '@/lib/export'
 import { toast } from 'sonner'
 import { useActiveEditor } from '@/lib/editor-context'
 import {
@@ -292,8 +292,18 @@ export function MenuBar() {
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>导出为</DropdownMenuSubTrigger>
                 <DropdownMenuSubContent>
+                  <DropdownMenuItem onClick={async () => {
+                    try {
+                      const name = await downloadFullBackup()
+                      toast.success(`完整备份导出成功：${name}`)
+                    } catch {
+                      toast.error('完整备份导出失败')
+                    }
+                  }}>
+                    完整备份（含图片）
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={handleExport}>
-                    JSON
+                    JSON（不含图片）
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={async () => {
                     try {
