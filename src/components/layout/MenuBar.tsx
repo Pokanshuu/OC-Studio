@@ -434,7 +434,7 @@ export function MenuBar() {
             type="text"
             value={query}
             onChange={(e) => { setQuery(e.target.value); setIsOpen(true); setSelectedIndex(0) }}
-            onFocus={() => { if (results.length > 0) setIsOpen(true) }}
+            onFocus={() => setIsOpen(true)}
             onBlur={() => { setTimeout(() => setIsOpen(false), 150) }}
             onKeyDown={handleKeyDown}
             placeholder="搜索..."
