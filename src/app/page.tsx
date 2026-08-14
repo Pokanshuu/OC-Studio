@@ -9,6 +9,7 @@ import { useDevice } from '@/lib/use-device'
 import { useMobileNavigation } from '@/components/layout/MobileNavigationContext'
 import { useWordCount } from '@/components/layout/WordCountContext'
 import { useEntityNavigate } from '@/components/layout/EntityNavigateContext'
+import { useSaveStatus } from '@/components/layout/SaveStatusContext'
 import { EventList } from '@/features/events/components/EventList'
 import { EventEditor } from '@/features/events/components/EventEditor'
 import { useEventList, useEvent, useCreateEvent, useUpdateEvent, useDeleteEvent } from '@/features/events/hooks/useEvents'
@@ -52,6 +53,28 @@ export default function Home() {
   const [characterView, setCharacterView] = useState<CharacterView>({ sub: 'list' })
   const [countryView, setCountryView] = useState<CountryView>({ sub: 'list' })
   const [worldSelectedEntryId, setWorldSelectedEntryId] = useState<number | null>(null)
+
+  const { setActiveEntity, status: saveStatus } = useSaveStatus()
+  useEffect(() => {
+    setActiveEntity(
+      activeItem === '事件' ? 'event'
+      : activeItem === '角色' ? 'character'
+      : activeItem === '国家' ? 'country'
+      : activeItem === '世界观' ? 'world'
+      : null,
+    )
+  }, [activeItem, setActiveEntity])
+
+  const saveStatusRef = useRef(saveStatus)
+  saveStatusRef.current = saveStatus
+  const confirmLeave = useCallback(() => {
+    if (saveStatusRef.current !== 'dirty') return true
+    try {
+      return window.confirm('有未保存的更改，确定要离开吗？')
+    } catch {
+      return true
+    }
+  }, [])
 
   // Slide animation tracking for editor↔list transitions
   const prevEventSub = useRef(eventView.sub)
@@ -216,6 +239,7 @@ export default function Home() {
   }, [setActiveItem, setSource, clearSource, mobileSetSection, mobileSetGallerySubTab, setEditing])
 
   const handleBackToList = useCallback(() => {
+    if (!confirmLeave()) return
     const el = document.activeElement as HTMLElement | null
     el?.blur()
     // 延迟导航，让 blur 和键盘收起动画先完成，避免 editor display:none 与 TipTap blur 清理冲突
@@ -235,7 +259,7 @@ export default function Home() {
     }
     // 使用 setTimeout 而非 rAF：键盘收起是异步动画，rAF 太早
     setTimeout(doNav, 50)
-  }, [source, setActiveItem, clearSource, restoreCrossBack, clearEditing, isMobile, mobileSetSection])
+  }, [source, setActiveItem, clearSource, restoreCrossBack, clearEditing, isMobile, mobileSetSection, confirmLeave])
 
   const handleSelectCharacter = useCallback((id: number) => {
     setSource('characterList')
@@ -271,13 +295,14 @@ export default function Home() {
   }, [createCharacter, creatingChar, refreshCharacters, setEditing])
 
   const handleBackToCharacterList = useCallback(() => {
+    if (!confirmLeave()) return
     (document.activeElement as HTMLElement | null)?.blur()
     clearEditing()
     if (restoreCrossBack()) return
     setCharacterView({ sub: 'list' })
     refreshCharacters()
     clearSource()
-  }, [refreshCharacters, clearSource, restoreCrossBack, clearEditing])
+  }, [refreshCharacters, clearSource, restoreCrossBack, clearEditing, confirmLeave])
 
   const handleDeleteCharacter = useCallback(
     (id: number) => {
@@ -326,12 +351,13 @@ export default function Home() {
   }, [setSource, setEditing])
 
   const handleBackToCountryList = useCallback(() => {
+    if (!confirmLeave()) return
     (document.activeElement as HTMLElement | null)?.blur()
     clearEditing()
     if (restoreCrossBack()) return
     setCountryView({ sub: 'list' })
     clearSource()
-  }, [clearSource, restoreCrossBack, clearEditing])
+  }, [clearSource, restoreCrossBack, clearEditing, confirmLeave])
 
   const handleTimelineSelectEvent = useCallback(
     (id: number) => {
@@ -348,6 +374,13 @@ export default function Home() {
   )
 
   const handleRelatedItemNavigate = useCallback((id: number, type?: string) => {
+    // 同类型实体间跳转会因 key 变化重挂编辑器 → 未保存改动会丢失，需确认
+    const willRemount =
+      (type === 'character' && characterView.sub === 'editor') ||
+      (type === 'event' && eventView.sub === 'editor') ||
+      (type === 'country' && countryView.sub === 'editor')
+    if (willRemount && !confirmLeave()) return
+
     if (
       eventView.sub === 'editor' ||
       characterView.sub === 'editor' ||
@@ -402,7 +435,7 @@ export default function Home() {
       }
       clearSource()
     }
-  }, [eventView, characterView, countryView, activeItem, source, setActiveItem, clearSource, setEditing, isMobile, mobileNav.section, mobileNav.gallerySubTab, mobileSetSection, mobileSetGallerySubTab])
+  }, [eventView, characterView, countryView, activeItem, source, setActiveItem, clearSource, setEditing, isMobile, mobileNav.section, mobileNav.gallerySubTab, mobileSetSection, mobileSetGallerySubTab, confirmLeave])
 
   const handleMentionClick = useCallback((id: string, entityType?: string) => {
     const numId = Number(id)

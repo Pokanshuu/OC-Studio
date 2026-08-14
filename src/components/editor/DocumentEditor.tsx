@@ -12,6 +12,7 @@ interface DocumentEditorProps {
   onCharacterCount?: (count: number) => void
   onMentionClick?: (id: string, entityType?: string) => void
   onWikiLinkClick?: (id: string) => void
+  onDocChange?: () => void
   placeholder?: string
 }
 
@@ -23,6 +24,7 @@ export function DocumentEditor({
   onCharacterCount,
   onMentionClick,
   onWikiLinkClick,
+  onDocChange,
   placeholder,
 }: DocumentEditorProps) {
   const { document, loading, error } = useDocument(entityId, entityType)
@@ -53,6 +55,7 @@ export function DocumentEditor({
       onCharacterCount={onCharacterCount}
       onMentionClick={onMentionClick}
       onWikiLinkClick={onWikiLinkClick}
+      onContentChange={onDocChange ? () => onDocChange() : undefined}
       placeholder={placeholder}
     />
   )

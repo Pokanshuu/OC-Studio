@@ -19,6 +19,7 @@ import type { EventFormData } from '../types'
 import { useCharacterList } from '@/features/characters/hooks/useCharacters'
 import { useCountryList } from '@/features/countries/hooks/useCountries'
 import { parseTime, assembleTime } from '../utils'
+import { useSaveStatus } from '@/components/layout/SaveStatusContext'
 
 interface EventEditorProps {
   event: Event
@@ -54,6 +55,9 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
   const { settings } = useSettings()
   const editorRef = useRef<Editor | null>(null)
   const { isMobile } = useDevice()
+  const { markDirty, markSaving, markSaved, registerSaveHandler } = useSaveStatus()
+  const isFirstRenderRef = useRef(true)
+  const suppressDirtyRef = useRef(false)
 
   useEffect(() => {
     const t = parseTime(event.time)
@@ -65,6 +69,16 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
     setEndMonth(et.month)
     setEndDay(et.day)
   }, [event.time, event.endTime])
+
+  // 任一字段变化即标记未保存（跳过首帧与保存后的程序化同步）
+  useEffect(() => {
+    if (isFirstRenderRef.current) {
+      isFirstRenderRef.current = false
+      return
+    }
+    if (suppressDirtyRef.current) return
+    markDirty()
+  }, [title, headerUrl, year, month, day, endYear, endMonth, endDay, location, summary, isMajor, selectedCharacterIds, selectedCountryIds, tags, markDirty])
 
   const { characters } = useCharacterList()
   const { countries } = useCountryList()
@@ -130,6 +144,7 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
 
   const handleSave = useCallback(async () => {
     if (!editorRef.current) return
+    markSaving()
     setSaving(true)
     try {
       const time = assembleTime(year, month, day)
@@ -149,6 +164,9 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
         countries: selectedCountryIds,
         tags,
       })
+      markSaved()
+      suppressDirtyRef.current = true
+      setTimeout(() => { suppressDirtyRef.current = false }, 0)
     } finally {
       setSaving(false)
     }
@@ -170,7 +188,14 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
     selectedCountryIds,
     tags,
     onSave,
+    markSaving,
+    markSaved,
   ])
+
+  useEffect(() => {
+    registerSaveHandler('event', handleSave)
+    return () => registerSaveHandler('event', null)
+  }, [handleSave, registerSaveHandler])
 
   return (
     <div className="flex flex-col min-h-full">
@@ -314,6 +339,7 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
               onMentionClick={onMentionClick}
               onCharacterCount={onCharacterCount}
               onWikiLinkClick={onWikiLinkClick}
+              onDocChange={markDirty}
             />
           </div>
         </div>

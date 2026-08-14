@@ -15,6 +15,7 @@ import type { RelatedItem } from '@/components/shared/RelatedItemsSelector'
 import { ImageUploader } from '@/components/shared/ImageUploader'
 import { ImageGallery } from '@/components/shared/ImageGallery'
 import { ProfileBannerEditor } from '@/components/shared/ProfileBannerEditor'
+import { useSaveStatus } from '@/components/layout/SaveStatusContext'
 
 interface CharacterEditorProps {
   editCharacterId: number
@@ -136,6 +137,7 @@ function CharacterEditorInner({
   )
 
   const [saving, setSaving] = useState(false)
+  const { markDirty, markSaving, markSaved, registerSaveHandler } = useSaveStatus()
   const docEditorRef = useRef<Editor | null>(null)
   const prevUpdatedAtRef = useRef(character.updatedAt)
 
@@ -237,6 +239,7 @@ function CharacterEditorInner({
   }
 
   const handleSave = useCallback(async () => {
+    markSaving()
     setSaving(true)
     try {
       const document = docEditorRef.current?.getJSON()
@@ -262,6 +265,7 @@ function CharacterEditorInner({
         avatars: avatarUrls.map((url) => ({ url, type: 'portrait' as const })),
         tags,
       })
+      markSaved()
     } finally {
       setSaving(false)
     }
@@ -286,7 +290,14 @@ function CharacterEditorInner({
     relatedCharacters,
     tags,
     onSave,
+    markSaving,
+    markSaved,
   ])
+
+  useEffect(() => {
+    registerSaveHandler('character', handleSave)
+    return () => registerSaveHandler('character', null)
+  }, [handleSave, registerSaveHandler])
 
   const infoRows: [string, string][] = [
     ['别名', aliasesStr],
@@ -328,10 +339,10 @@ function CharacterEditorInner({
             <ProfileBannerEditor
               headerUrl={headerUrl}
               avatarUrl={qAvatarUrl}
-              onHeaderChange={setHeaderUrl}
-              onAvatarChange={(path) => setQAvatarUrl(path)}
-              onHeaderRemove={() => setHeaderUrl('')}
-              onAvatarRemove={() => setQAvatarUrl('')}
+              onHeaderChange={(path) => { setHeaderUrl(path); markDirty() }}
+              onAvatarChange={(path) => { setQAvatarUrl(path); markDirty() }}
+              onHeaderRemove={() => { setHeaderUrl(''); markDirty() }}
+              onAvatarRemove={() => { setQAvatarUrl(''); markDirty() }}
             />
           </section>
 
@@ -340,7 +351,7 @@ function CharacterEditorInner({
             <input
               type="text"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => { setName(e.target.value); markDirty() }}
               placeholder="角色名称"
               className="w-full bg-transparent text-xl text-ink placeholder:text-ink-faint focus:outline-none"
             />
@@ -385,7 +396,7 @@ function CharacterEditorInner({
                       <input
                         type="text"
                         value={value}
-                        onChange={(e) => onChange(e.target.value)}
+                        onChange={(e) => { onChange(e.target.value); markDirty() }}
                         placeholder={label}
                         className="flex-1 bg-transparent text-sm text-ink placeholder:text-ink-faint focus:outline-none"
                       />
@@ -410,7 +421,7 @@ function CharacterEditorInner({
                       <input
                         type="text"
                         value={nationalityLegacy}
-                        onChange={(e) => setNationalityLegacy(e.target.value)}
+                        onChange={(e) => { setNationalityLegacy(e.target.value); markDirty() }}
                         placeholder="国籍"
                         className="w-full bg-transparent text-sm text-ink placeholder:text-ink-faint focus:outline-none"
                       />
@@ -424,8 +435,8 @@ function CharacterEditorInner({
                 <h4 className="text-xs text-ink-muted mb-2">头像</h4>
                 <ImageUploader
                   value={avatarUrl}
-                  onChange={setAvatarUrl}
-                  onRemove={() => setAvatarUrl('')}
+                  onChange={(path) => { setAvatarUrl(path); markDirty() }}
+                  onRemove={() => { setAvatarUrl(''); markDirty() }}
                   aspectRatio="1:1"
                   size="md"
                   enableCrop
@@ -444,8 +455,8 @@ function CharacterEditorInner({
                     images={avatarUrls}
                     enableCrop
                     cropAspect={9 / 16}
-                    onAdd={(path) => setAvatarUrls((prev) => [...prev, path])}
-                    onRemove={(index) => setAvatarUrls((prev) => prev.filter((_, i) => i !== index))}
+                    onAdd={(path) => { setAvatarUrls((prev) => [...prev, path]); markDirty() }}
+                    onRemove={(index) => { setAvatarUrls((prev) => prev.filter((_, i) => i !== index)); markDirty() }}
                   />
                 </div>
               </div>
@@ -466,6 +477,7 @@ function CharacterEditorInner({
               onMentionClick={onMentionClick}
               onCharacterCount={onCharacterCount}
               onWikiLinkClick={onWikiLinkClick}
+              onDocChange={markDirty}
             />
           </section>
 
@@ -495,6 +507,7 @@ function CharacterEditorInner({
                         const next = [...relatedCharacters]
                         next[idx] = { ...next[idx], relation: e.target.value }
                         setRelatedCharacters(next)
+                        markDirty()
                       }}
                       placeholder="挚友、师徒..."
                       className="flex-1 h-9 rounded border border-line bg-paper-card px-3 text-sm text-ink placeholder:text-ink-faint focus:border-line-hover focus:outline-none"
@@ -520,7 +533,7 @@ function CharacterEditorInner({
           {/* Tags */}
           <section>
             <h3 className="text-base text-ink mb-3">标签</h3>
-            <TagPicker selectedIds={tags} onChange={setTags} />
+            <TagPicker selectedIds={tags} onChange={(ids) => { setTags(ids); markDirty() }} />
           </section>
 
           <div className="border-t border-line" />
@@ -531,8 +544,8 @@ function CharacterEditorInner({
             <ImageGallery
               mode="grid"
               images={galleryUrls}
-              onAdd={(path) => setGalleryUrls((prev) => [...prev, path])}
-              onRemove={(index) => setGalleryUrls((prev) => prev.filter((_, i) => i !== index))}
+              onAdd={(path) => { setGalleryUrls((prev) => [...prev, path]); markDirty() }}
+              onRemove={(index) => { setGalleryUrls((prev) => prev.filter((_, i) => i !== index)); markDirty() }}
             />
           </section>
         </div>

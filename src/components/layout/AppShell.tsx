@@ -15,6 +15,7 @@ import { EditorProvider, useEditor } from "@/components/layout/EditorContext"
 import { MobileNavigationProvider } from "@/components/layout/MobileNavigationContext"
 import { TrashOverlayProvider, useTrashOverlay } from "@/components/layout/TrashOverlayContext"
 import { MobilePageHeaderProvider } from "@/components/layout/MobilePageHeaderContext"
+import { SaveStatusProvider, useSaveStatus } from "@/components/layout/SaveStatusContext"
 import { TrashView } from "@/features/trash/components/TrashView"
 import { useSettings } from "@/lib/settings"
 import { useKeyboard } from "@/lib/KeyboardContext"
@@ -31,8 +32,32 @@ function AppShellChrome({ settings, children }: { settings: ReturnType<typeof us
   useBackButton()
   const { isEditing } = useEditor()
   const { visible: keyboardVisible } = useKeyboard()
+  const { requestSave, status } = useSaveStatus()
   const hideMobileShell = isEditing
   const hideTabBar = isEditing || keyboardVisible
+
+  // Ctrl/Cmd+S：显式保存命令，替代 document.querySelector('[data-save-button]') 的 DOM hack
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault()
+        requestSave()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [requestSave])
+
+  // 未保存时关闭标签页/刷新浏览器 → 原生确认
+  useEffect(() => {
+    if (status !== 'dirty') return
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [status])
 
   return (
     <>
@@ -63,20 +88,6 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const closeSettings = useCallback(() => {
     setSettingsOpen(false)
-  }, [])
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-        e.preventDefault()
-        const saveButton = document.querySelector('[data-save-button]') as HTMLButtonElement | null
-        if (saveButton && !saveButton.disabled) {
-          saveButton.click()
-        }
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
   useEffect(() => {
@@ -184,14 +195,16 @@ export function AppShell({ children }: { children: ReactNode }) {
       <SettingsTriggerContext.Provider value={{ openSettings, closeSettings }}>
         <TrashOverlayProvider>
           <EditorProvider>
-            <MobileNavigationProvider>
-              <MobilePageHeaderProvider>
-                <AppShellChrome settings={settings}>
-                  {children}
-                </AppShellChrome>
-                <TrashOverlayRenderer />
-              </MobilePageHeaderProvider>
-            </MobileNavigationProvider>
+            <SaveStatusProvider>
+              <MobileNavigationProvider>
+                <MobilePageHeaderProvider>
+                  <AppShellChrome settings={settings}>
+                    {children}
+                  </AppShellChrome>
+                  <TrashOverlayRenderer />
+                </MobilePageHeaderProvider>
+              </MobileNavigationProvider>
+            </SaveStatusProvider>
           </EditorProvider>
         </TrashOverlayProvider>
         <Toaster />

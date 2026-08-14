@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef, useMemo } from 'react'
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react'
 import { Save, ArrowLeft } from 'lucide-react'
 import { TagPicker } from '@/features/tags'
 import type { Editor } from '@tiptap/core'
@@ -14,6 +14,7 @@ import { Separator } from '@/components/ui/separator'
 import { RelatedItemsSelector } from '@/components/shared/RelatedItemsSelector'
 import type { RelatedItem } from '@/components/shared/RelatedItemsSelector'
 import { ProfileBannerEditor } from '@/components/shared/ProfileBannerEditor'
+import { useSaveStatus } from '@/components/layout/SaveStatusContext'
 
 interface CountryEditorProps {
   editCountryId: number
@@ -124,13 +125,28 @@ function CountryEditorInner({
   const [editableEventIds, setEditableEventIds] = useState<number[]>(country.events)
   const [tags, setTags] = useState<number[]>(country.tags ?? [])
 
+  const { markDirty, markSaving, markSaved, registerSaveHandler } = useSaveStatus()
+  const isFirstRenderRef = useRef(true)
+  const suppressDirtyRef = useRef(false)
+
   const docEditorRef = useRef<Editor | null>(null)
+
+  // 任一字段变化即标记未保存（跳过首帧与保存后的程序化同步）
+  useEffect(() => {
+    if (isFirstRenderRef.current) {
+      isFirstRenderRef.current = false
+      return
+    }
+    if (suppressDirtyRef.current) return
+    markDirty()
+  }, [name, flagUrl, headerUrl, editableCharIds, editableEventIds, tags, markDirty])
 
   const handleDocReady = useCallback((editor: Editor) => {
     docEditorRef.current = editor
   }, [])
 
   const handleSave = useCallback(async () => {
+    markSaving()
     setSaving(true)
     try {
       const document = docEditorRef.current?.getJSON()
@@ -149,10 +165,18 @@ function CountryEditorInner({
         events: editableEventIds,
         tags,
       })
+      markSaved()
+      suppressDirtyRef.current = true
+      setTimeout(() => { suppressDirtyRef.current = false }, 0)
     } finally {
       setSaving(false)
     }
-  }, [country.id, country.parentId, country.system, country.geography, country.culture, name, flagUrl, headerUrl, editableCharIds, editableEventIds, tags, onSave])
+  }, [country.id, country.parentId, country.system, country.geography, country.culture, name, flagUrl, headerUrl, editableCharIds, editableEventIds, tags, onSave, markSaving, markSaved])
+
+  useEffect(() => {
+    registerSaveHandler('country', handleSave)
+    return () => registerSaveHandler('country', null)
+  }, [handleSave, registerSaveHandler])
 
   const relatedCharacterItems: RelatedItem[] = useMemo(
     () =>
@@ -248,6 +272,7 @@ function CountryEditorInner({
               onMentionClick={onMentionClick}
               onCharacterCount={onCharacterCount}
               onWikiLinkClick={onWikiLinkClick}
+              onDocChange={markDirty}
             />
           </section>
 
