@@ -6,7 +6,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 # OC Studio
 
-**v0.1.7-alpha** — 本地优先的原创角色（OC）与世界观创作工作台。
+**v0.18.0-alpha** — 本地优先的原创角色（OC）与世界观创作工作台。
 
 ## 项目身份
 - Next.js 16 (App Router) + TypeScript strict + Tailwind CSS v4 + shadcn/ui
@@ -17,7 +17,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 ## 关键文件路径
 
 ### 数据库
-- `src/lib/db.ts` — Dexie v5，7 张表（characters, events, countries, worldEntries, tags, operationLog, periods）
+- `src/lib/db.ts` — Dexie v4，7 张表（characters, events, countries, worldEntries, tags, operationLog, periods）
 - `src/types/index.ts` — 全局类型定义（含 Period 接口 + PERIOD_COLORS）
 - `src/lib/sync.ts` — 操作日志 (`logOperation`) + 同步状态
 
@@ -108,5 +108,8 @@ npx tauri build   # Tauri 打包 (.exe/.msi)
    CSS 定义在 `globals.css` 的 `.touch-feedback` 规则中。例外：MobileTabBar 和 GlobalAlbum 分类切换按钮保持简洁无感
 
 ## 已知差异（技术债，待后续修复）
-- `lib/ai/context-builder.ts` 在规范中引用但尚未实现
+- `lib/ai/context-builder.ts` 已实现（`buildEntityContext` / `buildProjectContext`），但尚未接线到业务调用（仅 `EventEditor` 直接调 `chatCompletion`）
 - 桌面端与移动端折叠/展开图标统一规则需同步到 RelationGraph 的 Controls 组件（当前使用 @xyflow/react 默认图标）
+
+## 待办与改进清单
+- 详见 `todo.md`（界面交互设计建议 / 技术重构 / 已知技术债，按 P0–P3 优先级维护）
