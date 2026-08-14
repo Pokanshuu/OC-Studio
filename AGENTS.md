@@ -75,7 +75,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ### 配置
 - `opencode.json` — OpenCode 核心配置
-- `.opencode/skills/` — 6 个技能文件（guide, coding, design, codebase, prd, sync）
+- `.opencode/skills/` — 5 个技能文件（guide, coding, design, prd, sync）
 - `package.json` — 依赖和脚本
 - `next.config.ts` — Next.js 配置
 - `tsconfig.json` — TypeScript 配置
