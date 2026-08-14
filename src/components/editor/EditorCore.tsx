@@ -465,7 +465,7 @@ export function EditorCore({
       setActiveEditor(readyEditor as Editor)
       onReady(readyEditor as Editor)
       onCharacterCount?.(readyEditor.getText().length)
-      onContentChange?.(readyEditor.getHTML())
+      // 注意：不在 onCreate 调用 onContentChange——否则编辑器一挂载就触发"未保存"误报
     },
     onUpdate({ editor: updatedEditor }) {
       onCharacterCount?.(updatedEditor.getText().length)

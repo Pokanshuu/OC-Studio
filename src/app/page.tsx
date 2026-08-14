@@ -10,6 +10,16 @@ import { useMobileNavigation } from '@/components/layout/MobileNavigationContext
 import { useWordCount } from '@/components/layout/WordCountContext'
 import { useEntityNavigate } from '@/components/layout/EntityNavigateContext'
 import { useSaveStatus } from '@/components/layout/SaveStatusContext'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { EventList } from '@/features/events/components/EventList'
 import { EventEditor } from '@/features/events/components/EventEditor'
 import { useEventList, useEvent, useCreateEvent, useUpdateEvent, useDeleteEvent } from '@/features/events/hooks/useEvents'
@@ -67,12 +77,17 @@ export default function Home() {
 
   const saveStatusRef = useRef(saveStatus)
   saveStatusRef.current = saveStatus
-  const confirmLeave = useCallback(() => {
-    if (saveStatusRef.current !== 'dirty') return true
-    try {
-      return window.confirm('有未保存的更改，确定要离开吗？')
-    } catch {
-      return true
+  const [leaveConfirm, setLeaveConfirm] = useState<{ open: boolean; onConfirm: (() => void) | null }>({
+    open: false,
+    onConfirm: null,
+  })
+
+  // 有未保存改动时先弹 AlertDialog 确认，确认后执行 action
+  const confirmLeave = useCallback((action: () => void) => {
+    if (saveStatusRef.current !== 'dirty') {
+      action()
+    } else {
+      setLeaveConfirm({ open: true, onConfirm: action })
     }
   }, [])
 
@@ -239,26 +254,27 @@ export default function Home() {
   }, [setActiveItem, setSource, clearSource, mobileSetSection, mobileSetGallerySubTab, setEditing])
 
   const handleBackToList = useCallback(() => {
-    if (!confirmLeave()) return
-    const el = document.activeElement as HTMLElement | null
-    el?.blur()
-    // 延迟导航，让 blur 和键盘收起动画先完成，避免 editor display:none 与 TipTap blur 清理冲突
-    const doNav = () => {
-      clearEditing()
-      if (restoreCrossBack()) return
-      if (source === 'timeline') {
-        setEventView({ sub: 'list' })
-        setActiveItem('时间线')
-        if (isMobile) {
-          mobileSetSection('timeline')
+    confirmLeave(() => {
+      const el = document.activeElement as HTMLElement | null
+      el?.blur()
+      // 延迟导航，让 blur 和键盘收起动画先完成，避免 editor display:none 与 TipTap blur 清理冲突
+      const doNav = () => {
+        clearEditing()
+        if (restoreCrossBack()) return
+        if (source === 'timeline') {
+          setEventView({ sub: 'list' })
+          setActiveItem('时间线')
+          if (isMobile) {
+            mobileSetSection('timeline')
+          }
+        } else {
+          setEventView({ sub: 'list' })
         }
-      } else {
-        setEventView({ sub: 'list' })
+        clearSource()
       }
-      clearSource()
-    }
-    // 使用 setTimeout 而非 rAF：键盘收起是异步动画，rAF 太早
-    setTimeout(doNav, 50)
+      // 使用 setTimeout 而非 rAF：键盘收起是异步动画，rAF 太早
+      setTimeout(doNav, 50)
+    })
   }, [source, setActiveItem, clearSource, restoreCrossBack, clearEditing, isMobile, mobileSetSection, confirmLeave])
 
   const handleSelectCharacter = useCallback((id: number) => {
@@ -295,13 +311,14 @@ export default function Home() {
   }, [createCharacter, creatingChar, refreshCharacters, setEditing])
 
   const handleBackToCharacterList = useCallback(() => {
-    if (!confirmLeave()) return
-    (document.activeElement as HTMLElement | null)?.blur()
-    clearEditing()
-    if (restoreCrossBack()) return
-    setCharacterView({ sub: 'list' })
-    refreshCharacters()
-    clearSource()
+    confirmLeave(() => {
+      (document.activeElement as HTMLElement | null)?.blur()
+      clearEditing()
+      if (restoreCrossBack()) return
+      setCharacterView({ sub: 'list' })
+      refreshCharacters()
+      clearSource()
+    })
   }, [refreshCharacters, clearSource, restoreCrossBack, clearEditing, confirmLeave])
 
   const handleDeleteCharacter = useCallback(
@@ -363,12 +380,13 @@ export default function Home() {
   }, [setSource, setEditing])
 
   const handleBackToCountryList = useCallback(() => {
-    if (!confirmLeave()) return
-    (document.activeElement as HTMLElement | null)?.blur()
-    clearEditing()
-    if (restoreCrossBack()) return
-    setCountryView({ sub: 'list' })
-    clearSource()
+    confirmLeave(() => {
+      (document.activeElement as HTMLElement | null)?.blur()
+      clearEditing()
+      if (restoreCrossBack()) return
+      setCountryView({ sub: 'list' })
+      clearSource()
+    })
   }, [clearSource, restoreCrossBack, clearEditing, confirmLeave])
 
   const handleTimelineSelectEvent = useCallback(
@@ -391,62 +409,66 @@ export default function Home() {
       (type === 'character' && characterView.sub === 'editor') ||
       (type === 'event' && eventView.sub === 'editor') ||
       (type === 'country' && countryView.sub === 'editor')
-    if (willRemount && !confirmLeave()) return
 
-    if (
-      eventView.sub === 'editor' ||
-      characterView.sub === 'editor' ||
-      countryView.sub === 'editor' ||
-      activeItem === '关系图' ||
-      activeItem === '相册' ||
-      activeItem === '世界观'
-    ) {
-      crossBackRef.current = {
-        activeItem,
-        eventView,
-        characterView,
-        countryView,
-        source,
-        mobileSection: mobileNav.section,
-        mobileGallerySubTab: mobileNav.gallerySubTab,
+    const doNavigate = () => {
+      if (
+        eventView.sub === 'editor' ||
+        characterView.sub === 'editor' ||
+        countryView.sub === 'editor' ||
+        activeItem === '关系图' ||
+        activeItem === '相册' ||
+        activeItem === '世界观'
+      ) {
+        crossBackRef.current = {
+          activeItem,
+          eventView,
+          characterView,
+          countryView,
+          source,
+          mobileSection: mobileNav.section,
+          mobileGallerySubTab: mobileNav.gallerySubTab,
+        }
+      }
+
+      if (type === 'character') {
+        setCharacterView({ sub: 'editor', characterId: id })
+        setActiveItem('角色')
+        if (isMobile) {
+          mobileSetSection('gallery')
+          mobileSetGallerySubTab('characters')
+        }
+        setEditing('character', id)
+        clearSource()
+      } else if (type === 'event') {
+        setEventView({ sub: 'editor', eventId: id })
+        setActiveItem('事件')
+        if (isMobile) {
+          mobileSetSection('gallery')
+          mobileSetGallerySubTab('events')
+        }
+        setEditing('event', id)
+        clearSource()
+      } else if (type === 'country') {
+        setCountryView({ sub: 'editor', countryId: id })
+        setActiveItem('国家')
+        if (isMobile) {
+          mobileSetSection('gallery')
+          mobileSetGallerySubTab('countries')
+        }
+        setEditing('country', id)
+        clearSource()
+      } else if (type === 'world') {
+        setWorldSelectedEntryId(id)
+        setActiveItem('世界观')
+        if (isMobile) {
+          mobileSetSection('wiki')
+        }
+        clearSource()
       }
     }
 
-    if (type === 'character') {
-      setCharacterView({ sub: 'editor', characterId: id })
-      setActiveItem('角色')
-      if (isMobile) {
-        mobileSetSection('gallery')
-        mobileSetGallerySubTab('characters')
-      }
-      setEditing('character', id)
-      clearSource()
-    } else if (type === 'event') {
-      setEventView({ sub: 'editor', eventId: id })
-      setActiveItem('事件')
-      if (isMobile) {
-        mobileSetSection('gallery')
-        mobileSetGallerySubTab('events')
-      }
-      setEditing('event', id)
-      clearSource()
-    } else if (type === 'country') {
-      setCountryView({ sub: 'editor', countryId: id })
-      setActiveItem('国家')
-      if (isMobile) {
-        mobileSetSection('gallery')
-        mobileSetGallerySubTab('countries')
-      }
-      setEditing('country', id)
-      clearSource()
-    } else if (type === 'world') {
-      setWorldSelectedEntryId(id)
-      setActiveItem('世界观')
-      if (isMobile) {
-        mobileSetSection('wiki')
-      }
-      clearSource()
-    }
+    if (willRemount) confirmLeave(doNavigate)
+    else doNavigate()
   }, [eventView, characterView, countryView, activeItem, source, setActiveItem, clearSource, setEditing, isMobile, mobileNav.section, mobileNav.gallerySubTab, mobileSetSection, mobileSetGallerySubTab, confirmLeave])
 
   const handleMentionClick = useCallback((id: string, entityType?: string) => {
@@ -666,6 +688,33 @@ export default function Home() {
           {showPlaceholder ? placeholderText : '欢迎使用 OC Studio'}
         </p>
       </div>
+
+      <AlertDialog
+        open={leaveConfirm.open}
+        onOpenChange={(open) => {
+          if (!open) setLeaveConfirm({ open: false, onConfirm: null })
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>有未保存的更改</AlertDialogTitle>
+            <AlertDialogDescription>
+              当前编辑器有未保存的更改，离开后这些改动将会丢失。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>继续编辑</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                leaveConfirm.onConfirm?.()
+                setLeaveConfirm({ open: false, onConfirm: null })
+              }}
+            >
+              放弃并离开
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

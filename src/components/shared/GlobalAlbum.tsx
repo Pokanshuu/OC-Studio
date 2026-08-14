@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useMemo, useCallback, useEffect } from 'react'
-import { Search, RefreshCw, ChevronRight, ChevronLeft, Menu, ExternalLink, Clock } from 'lucide-react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
+import { Search, RefreshCw, ChevronRight, ChevronLeft, Menu, ExternalLink, Clock, ChevronDown } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { resolveImageUrl, getDefaultImage } from '@/lib/image-service'
 import { FullscreenViewer } from './FullscreenViewer'
@@ -116,6 +117,93 @@ function AlbumCard({
           </span>
         ) : null}
       </div>
+    </div>
+  )
+}
+
+interface TagOption {
+  value: number | 'all'
+  label: string
+}
+
+function TagFilterSelect({
+  value,
+  onChange,
+  options,
+}: {
+  value: number | 'all'
+  onChange: (val: number | 'all') => void
+  options: TagOption[]
+}) {
+  const [open, setOpen] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState({ x: 0, y: 0 })
+
+  useEffect(() => {
+    if (open && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect()
+      setPos({ x: rect.left, y: rect.bottom + 4 })
+    }
+  }, [open])
+
+  const handleClickOutside = useCallback((e: MouseEvent) => {
+    const target = e.target as Node
+    const overlay = document.getElementById('overlay-root')
+    if (triggerRef.current && !triggerRef.current.contains(target)) {
+      if (panelRef.current && !panelRef.current.contains(target)) {
+        if (overlay && overlay.contains(target)) return
+        setOpen(false)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!open) return
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [open, handleClickOutside])
+
+  const selectedLabel = options.find((o) => o.value === value)?.label ?? '全部标签'
+
+  return (
+    <div>
+      <button
+        ref={triggerRef}
+        onClick={() => setOpen(!open)}
+        className="touch-feedback flex h-9 items-center gap-1 rounded border border-line bg-paper-card/60 px-3 text-sm text-ink transition-colors hover:border-line-hover"
+      >
+        <span>{selectedLabel}</span>
+        <ChevronDown size={16} strokeWidth={2} />
+      </button>
+
+      {open
+        ? createPortal(
+            <div
+              ref={panelRef}
+              className="fixed z-30 mt-1 flex max-h-64 flex-col overflow-auto rounded-md border border-line bg-paper/85 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 pointer-events-auto"
+              style={{ left: pos.x, top: pos.y }}
+            >
+              {options.map((opt) => (
+                <button
+                  key={String(opt.value)}
+                  onClick={() => {
+                    onChange(opt.value)
+                    setOpen(false)
+                  }}
+                  className={`whitespace-nowrap rounded-sm px-3 py-1.5 text-left text-sm transition-colors ${
+                    value === opt.value
+                      ? 'bg-black/5 dark:bg-white/5 text-ink'
+                      : 'text-ink hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>,
+            document.getElementById('overlay-root')!,
+          )
+        : null}
     </div>
   )
 }
@@ -352,16 +440,16 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
                 />
               </div>
               <Separator orientation="vertical" className="h-4 !self-center" />
-              <select
+              <TagFilterSelect
                 value={tagFilter}
-                onChange={(e) => setTagFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-                className="h-9 rounded border border-line bg-paper-card/60 px-2 text-sm text-ink transition-colors focus:border-line-hover focus:outline-none"
-              >
-                <option value="all">全部标签</option>
-                {tags.map((t) => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
-                ))}
-              </select>
+                onChange={setTagFilter}
+                options={[
+                  { value: 'all', label: '全部标签' },
+                  ...tags
+                    .filter((t) => t.id !== undefined)
+                    .map((t) => ({ value: t.id as number, label: t.name })),
+                ]}
+              />
               <button
                 onClick={() => setSortByTime(!sortByTime)}
                 className={`touch-feedback flex h-9 items-center gap-1 rounded border px-3 text-sm transition-colors ${sortByTime ? 'border-line-hover bg-paper-card text-ink' : 'border-line bg-paper-card/60 text-ink-muted hover:border-line-hover hover:text-ink'}`}
