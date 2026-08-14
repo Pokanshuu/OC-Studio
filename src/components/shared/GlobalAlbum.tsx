@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { Search, RefreshCw, ChevronRight, ChevronLeft, Menu, ExternalLink, Clock, ChevronDown } from 'lucide-react'
+import { Search, RefreshCw, ChevronRight, ChevronLeft, Menu, ExternalLink, ChevronDown } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { resolveImageUrl, getDefaultImage } from '@/lib/image-service'
 import { FullscreenViewer } from './FullscreenViewer'
@@ -13,6 +13,7 @@ import { useMobileNavigation } from '@/components/layout/MobileNavigationContext
 import { useLongPress } from '@/lib/useLongPress'
 import { MobileActionSheet, type ActionItem } from '@/components/shared/MobileActionSheet'
 import { useTags } from '@/features/tags'
+import { SortSelect } from '@/components/shared/SortViewControls'
 
 interface SubCategory {
   key: string
@@ -450,13 +451,14 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
                     .map((t) => ({ value: t.id as number, label: t.name })),
                 ]}
               />
-              <button
-                onClick={() => setSortByTime(!sortByTime)}
-                className={`touch-feedback flex h-9 items-center gap-1 rounded border px-3 text-sm transition-colors ${sortByTime ? 'border-line-hover bg-paper-card text-ink' : 'border-line bg-paper-card/60 text-ink-muted hover:border-line-hover hover:text-ink'}`}
-              >
-                <Clock size={14} strokeWidth={2} />
-                <span>最近更新</span>
-              </button>
+              <SortSelect
+                sortKey={sortByTime ? 'time' : 'default'}
+                onChange={(key) => setSortByTime(key === 'time')}
+                options={[
+                  { label: '默认顺序', value: 'default' },
+                  { label: '最近更新', value: 'time' },
+                ]}
+              />
               <Separator orientation="vertical" className="h-4 !self-center" />
               <button onClick={handleRefresh} disabled={refreshing}
                 className={`flex h-9 w-9 items-center justify-center rounded text-ink-muted transition-colors hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8 ${refreshing ? 'animate-spin' : ''}`}
