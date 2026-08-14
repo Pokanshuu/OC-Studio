@@ -5,6 +5,7 @@ import {
   ReactFlow,
   Background,
   MiniMap,
+  Panel,
   useNodesState,
   useEdgesState,
   useReactFlow,
@@ -90,6 +91,7 @@ export function RelationGraph({
   const [showEvents, setShowEvents] = useState(true)
   const [showCountries, setShowCountries] = useState(true)
   const [zoom, setZoom] = useState(1)
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
   const rfRef = useRef<ReactFlowInstance | null>(null)
 
   const handleZoomChange = useCallback((value: number) => {
@@ -161,6 +163,41 @@ export function RelationGraph({
     setEdges(rawEdges)
   }, [rawEdges, setEdges])
 
+  // 悬停聚焦：高亮该节点及其邻居，其余淡化
+  const { neighborNodeIds, connectedEdgeIds } = useMemo(() => {
+    const nIds = new Set<string>()
+    const eIds = new Set<string>()
+    if (hoveredNodeId) {
+      for (const e of rawEdges) {
+        if (e.source === hoveredNodeId || e.target === hoveredNodeId) {
+          nIds.add(e.source)
+          nIds.add(e.target)
+          eIds.add(e.id)
+        }
+      }
+    }
+    return { neighborNodeIds: nIds, connectedEdgeIds: eIds }
+  }, [hoveredNodeId, rawEdges])
+
+  const displayNodes = useMemo(() => {
+    if (!hoveredNodeId) return nodes
+    return nodes.map((n) => ({
+      ...n,
+      style: {
+        ...(n.style as Record<string, unknown>),
+        opacity: n.id === hoveredNodeId || neighborNodeIds.has(n.id) ? 1 : 0.2,
+      },
+    }))
+  }, [nodes, hoveredNodeId, neighborNodeIds])
+
+  const displayEdges = useMemo(() => {
+    if (!hoveredNodeId) return edges
+    return edges.map((e) => ({
+      ...e,
+      style: { ...(e.style as Record<string, unknown>), opacity: connectedEdgeIds.has(e.id) ? 1 : 0.1 },
+    }))
+  }, [edges, hoveredNodeId, connectedEdgeIds])
+
   useEffect(() => {
     const timer = setTimeout(() => {
       const positions: Record<string, { x: number; y: number }> = {}
@@ -226,11 +263,13 @@ export function RelationGraph({
   return (
     <div className="h-full w-full">
       <ReactFlow
-        nodes={nodes}
-        edges={edges}
+        nodes={displayNodes}
+        edges={displayEdges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onNodeClick={handleNodeClick}
+        onNodeMouseEnter={(_event, node) => setHoveredNodeId(node.id)}
+        onNodeMouseLeave={() => setHoveredNodeId(null)}
         onMove={handleMove}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
@@ -253,6 +292,13 @@ export function RelationGraph({
           zoom={zoom}
           onZoomChange={handleZoomChange}
         />
+
+        <Panel position="bottom-left" className="max-md:hidden flex flex-col gap-1 bg-paper/85 backdrop-blur-lg border border-line rounded-md px-3 py-2 m-3 text-[11px] text-ink-muted">
+          <span className="font-medium text-ink-faint">图例</span>
+          <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full border border-line-hover bg-paper-card" />角色</span>
+          <span className="flex items-center gap-1.5"><span className="h-2.5 w-4 rounded-sm border border-line bg-paper-card" />事件</span>
+          <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-[3px] border border-line bg-paper-card" />国家</span>
+        </Panel>
 
         <FitViewOnLoad key={filteredNodes.length} ready={filteredNodes.length > 0 && !loading} />
         <MiniMap
