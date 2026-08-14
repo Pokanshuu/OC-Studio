@@ -6,26 +6,30 @@
 
 ## 一、界面交互设计建议（为需求服务）
 
-### P1 — 创作效率与数据安全感（优先做）
-- [ ] **未保存更改保护**：离开编辑器 / 切换板块时若有未保存改动，弹提示或自动存草稿；当前可能静默丢字。
-- [ ] **保存状态可见**：StatusBar 显示「未保存 / 保存中 / 已保存」。
-- [ ] **保存快捷键去 hack**：`Ctrl+S` 从 `document.querySelector('[data-save-button]')` 改为显式保存命令/事件。
-- [ ] **命令面板（Ctrl/Cmd+K）**：统一全局跳转（任意角色/事件/国家/词条）、快速新建、切换板块；合并 MenuBar 搜索与移动端搜索。
-- [ ] **编辑/浏览模式落地**：当前「浏览模式」是死开关——实现真正的只读锁（防误触 + 明显「编辑」入口），或移除菜单项。
-- [ ] **词条编辑体验统一**：World `content` 统一为 TipTap JSON，让词条也能用 `@` 提及与 `[[` 内链。
+> 已在 `stability-update` 分支实现的标 [x]；用户确认跳过的标 ~~删除线~~；待用户拍板的标 [ ]。
 
-### P2 — 关系 / 时间线 / 标签
-- [ ] **关系图增强**：图例 + 按实体类型筛选 + 节点头像缩略图 + 聚焦节点高亮邻居 + 移动端双指缩放。
-- [ ] **时间线移动端可编辑**：现在 `canDrag = editMode && !isMobile`，手机端改不了事件时间；加「编辑模式」开关 + 拖拽把手，或点击事件弹时间编辑表单。
-- [ ] **标签交互**：TagPicker 回车从「误建标签」改为「确认当前选中项」，新建需显式点击「+ 新建」；标签删除加二次确认 + 提示级联影响。
+### 已完成（stability-update）
+- [x] **未保存更改保护**：`beforeunload` 防刷新/关标签 + 返回键与同类型跨实体跳转弹确认。
+- [x] **保存状态可见**：StatusBar 显示「未保存 / 保存中 / 已保存」。
+- [x] **保存快捷键去 hack**：`Ctrl/Cmd+S` 改为 `requestSave()` 显式命令。
+- [x] **命令面板（Ctrl/Cmd+K）**：快速新建（角色/事件/国家）+ 切换板块（7 个板块）；实体搜索跳转原本已有。
+- [x] **词条编辑体验统一**：删除死代码 WorldEditor（HTML 路径），World 内容统一为 TipTap JSON。
+- [x] **关系图增强**：悬停聚焦高亮邻居 + 图例；类型筛选/节点头像/双指缩放原本已有。
+- [x] **相册素材库（部分）**：类型过滤（已有）+ 标签过滤 + 按更新时间排序。
+- [x] **完整备份（含图片）**：图片内联为 data URI，换机可移植；「不含图片」提示已有。
+- [x] **空状态引导**：全站已有（角色/事件/国家/词条/图谱/时间线/相册），无需改。
 
-### P2 — 素材与数据
-- [ ] **相册升级为全局素材库**：按实体类型/标签过滤、时间排序、批量操作；理顺移动端底栏「相册」与「角色/事件/国家」的层级关系（gallery 子 tab 命名易混淆）。
-- [ ] **完整备份**：导出前明确提示「不含图片二进制」，提供「完整备份（含图片 zip）」选项，解决换机图片失效。
+### 已跳过（用户确认不做）
+- ~~编辑/浏览模式落地~~（交互未定，搁置）
+- ~~时间线移动端可编辑~~（点击时间已进编辑，且移动端交互不便）
+- ~~标签交互~~（没必要）
+- ~~快捷键可发现性提示~~（没必要）
 
-### P3 — 打磨
-- [ ] **空状态引导**：列表/图谱/时间线为空的统一引导 + 快捷创建按钮。
-- [ ] **快捷键可发现性**：`/`（斜杠命令）、`@`、`[[` 首次进入编辑器引导提示。
+### 待定（需用户拍板交互）
+- [ ] **相册批量操作**：需明确语义（批量删除 / 批量移动到画廊 / 批量下载？）。
+- [ ] **命令面板合并移动端搜索**：MenuBar 搜索与 MobileSearchOverlay 合并为统一组件。
+
+### 其他打磨（P3）
 - [ ] 移动端断点缺口（640–768px：菜单 `hidden sm:flex` 与侧栏 `max-md:hidden` 不一致）。
 - [ ] 移动端选词栏滚动跟随非首段（`MobileTextSelectionBar` 只取第一个 `.section-fade`）。
 
@@ -36,7 +40,7 @@
 ### P2 — 数据层
 - [ ] **统一到 React Query**：characters / events / world 仍是手写 `useState + refreshKey + data-updated` 事件；countries 已用 React Query。统一后删除事件总线与 `refreshKey`。
 - [ ] **泛型 CRUD 仓储**：消除 characters / events / countries / world 4 份 services + 5 份 hooks 的复制。
-- [ ] **World `content` 单格式迁移**：JSON 字符串 / HTML 字符串 / `document` 对象三形态收敛（需数据迁移 + 兼容读取）。
+- [ ] **World `content` 单格式迁移**：HTML 路径已删（WorldEditor），现为 JSON 字符串（active）+ `document` 对象（unused）两形态，可进一步收敛到 `document`。
 
 ### P2 — 组件拆分（God 组件）
 - [ ] `src/features/timeline/components/TimelineView.tsx`（1353 行）
@@ -46,7 +50,8 @@
 ### P3 — 死代码清理
 - [ ] `saveDocument` ×4（characters/events/countries/world）
 - [ ] `sync.ts` 的 `markAsPending` / `markAsSynced` / `getPendingItems`（同步 stub）
-- [ ] `WorldEditor.tsx`、`EditorToolbar.tsx`、`AlbumTriggerContext.tsx`（零引用）
+- [x] `WorldEditor.tsx`（已删除）
+- [ ] `EditorToolbar.tsx`、`AlbumTriggerContext.tsx`（零引用）
 - [ ] `Character.relationships` 字段（实际用 `relatedCharacters`）
 - [ ] `db.ts` v3→v4 无操作迁移
 - [ ] `adapter.getUrl()`（local-adapter / capacitor-adapter）
