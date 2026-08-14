@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useCallback, useEffect } from 'react'
-import { Search, RefreshCw, ChevronRight, ChevronLeft, Menu, ExternalLink } from 'lucide-react'
+import { Search, RefreshCw, ChevronRight, ChevronLeft, Menu, ExternalLink, Clock } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { resolveImageUrl, getDefaultImage } from '@/lib/image-service'
 import { FullscreenViewer } from './FullscreenViewer'
@@ -11,6 +11,7 @@ import { useMobilePageHeader } from '@/components/layout/MobilePageHeaderContext
 import { useMobileNavigation } from '@/components/layout/MobileNavigationContext'
 import { useLongPress } from '@/lib/useLongPress'
 import { MobileActionSheet, type ActionItem } from '@/components/shared/MobileActionSheet'
+import { useTags } from '@/features/tags'
 
 interface SubCategory {
   key: string
@@ -127,6 +128,9 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
   const [refreshing, setRefreshing] = useState(false)
   const [treeCollapsed, setTreeCollapsed] = useState(false)
   const [showMobileTree, setShowMobileTree] = useState(false)
+  const [tagFilter, setTagFilter] = useState<number | 'all'>('all')
+  const [sortByTime, setSortByTime] = useState(false)
+  const { tags } = useTags()
   const [actionSheet, setActionSheet] = useState<{ open: boolean; title: string; actions: ActionItem[] }>({
     open: false, title: '', actions: [],
   })
@@ -190,8 +194,14 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
         e.sourceName.toLowerCase().includes(q) || e.category.toLowerCase().includes(q)
       )
     }
+    if (tagFilter !== 'all') {
+      result = result.filter((e) => e.tags.includes(tagFilter))
+    }
+    if (sortByTime) {
+      result = [...result].sort((a, b) => b.updatedAt - a.updatedAt)
+    }
     return result
-  }, [entries, selectedKey, search])
+  }, [entries, selectedKey, search, tagFilter, sortByTime])
 
   const allUrls = useMemo(() => filtered.map((e) => e.url), [filtered])
 
@@ -341,6 +351,24 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
                   className="h-9 w-48 rounded border border-line bg-paper-card/60 pl-9 pr-3 text-sm text-ink placeholder:text-ink-faint focus:border-line-hover focus:outline-none focus:bg-paper-card/80"
                 />
               </div>
+              <Separator orientation="vertical" className="h-4 !self-center" />
+              <select
+                value={tagFilter}
+                onChange={(e) => setTagFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                className="h-9 rounded border border-line bg-paper-card/60 px-2 text-sm text-ink transition-colors focus:border-line-hover focus:outline-none"
+              >
+                <option value="all">全部标签</option>
+                {tags.map((t) => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+              <button
+                onClick={() => setSortByTime(!sortByTime)}
+                className={`touch-feedback flex h-9 items-center gap-1 rounded border px-3 text-sm transition-colors ${sortByTime ? 'border-line-hover bg-paper-card text-ink' : 'border-line bg-paper-card/60 text-ink-muted hover:border-line-hover hover:text-ink'}`}
+              >
+                <Clock size={14} strokeWidth={2} />
+                <span>最近更新</span>
+              </button>
               <Separator orientation="vertical" className="h-4 !self-center" />
               <button onClick={handleRefresh} disabled={refreshing}
                 className={`flex h-9 w-9 items-center justify-center rounded text-ink-muted transition-colors hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8 ${refreshing ? 'animate-spin' : ''}`}
