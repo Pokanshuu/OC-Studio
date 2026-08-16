@@ -1,5 +1,5 @@
 import { db } from '@/lib/db'
-import { logOperation } from '@/lib/sync'
+import { logOperation, pendingStamp } from '@/lib/sync'
 import { updateReferencesAfterRename, syncReferenceLabels } from '@/lib/reference-sync'
 import type { WorldEntry } from '@/types'
 import type { WorldFormData } from './types'
@@ -20,8 +20,7 @@ function buildDefaultEntry(data: WorldFormData, overrides: Partial<WorldEntry> =
     createdAt: now,
     updatedAt: now,
     deleted: false,
-    _syncStatus: 'pending',
-    _lastModified: now,
+    ...pendingStamp(now),
     ...overrides,
   }
 }
@@ -46,7 +45,7 @@ export async function updateEntry(id: number, data: Partial<WorldFormData>): Pro
   const existing = await db.worldEntries.get(id)
   if (!existing) throw new Error(`WorldEntry not found: ${id}`)
   const now = Date.now()
-  const updates: Partial<WorldEntry> = { updatedAt: now, _syncStatus: 'pending', _lastModified: now }
+  const updates: Partial<WorldEntry> = { updatedAt: now, ...pendingStamp(now) }
   type FieldKey = keyof WorldFormData
   const fields: FieldKey[] = ['title', 'content', 'category', 'parentId', 'order', 'isConcept']
   for (const field of fields) {
@@ -83,7 +82,7 @@ export async function updateEntry(id: number, data: Partial<WorldFormData>): Pro
 
 export async function deleteEntry(id: number): Promise<void> {
   const now = Date.now()
-  await db.worldEntries.update(id, { deleted: true, _syncStatus: 'pending', _lastModified: now })
+  await db.worldEntries.update(id, { deleted: true, ...pendingStamp(now) })
   await logOperation(TABLE, id, 'deleted', 'false', 'true')
 }
 
@@ -98,8 +97,7 @@ export async function saveEntryContent(
       title,
       content,
       updatedAt: now,
-      _syncStatus: 'pending',
-      _lastModified: now,
+      ...pendingStamp(now),
     })
   } catch (err) {
     console.error(`[saveEntryContent] 自动保存失败 id=${id}:`, err)
@@ -116,8 +114,7 @@ export async function reorderEntries(
       parentId: u.parentId,
       order: u.order,
       updatedAt: now,
-      _syncStatus: 'pending',
-      _lastModified: now,
+      ...pendingStamp(now),
     })
   }
 }
@@ -127,8 +124,7 @@ export async function renameEntry(id: number, title: string): Promise<void> {
   await db.worldEntries.update(id, {
     title,
     updatedAt: now,
-    _syncStatus: 'pending',
-    _lastModified: now,
+    ...pendingStamp(now),
   })
 
   updateReferencesAfterRename('world', id, title).catch(() => {})

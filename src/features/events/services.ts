@@ -1,5 +1,5 @@
 import { db } from '@/lib/db'
-import { logOperation } from '@/lib/sync'
+import { logOperation, pendingStamp } from '@/lib/sync'
 import { updateReferencesAfterRename, syncReferenceLabels } from '@/lib/reference-sync'
 import type { Event } from '@/types'
 import type { EventFormData } from './types'
@@ -25,8 +25,7 @@ function buildDefaultEvent(data: EventFormData, overrides: Partial<Event> = {}):
     createdAt: now,
     updatedAt: now,
     deleted: false,
-    _syncStatus: 'pending',
-    _lastModified: now,
+    ...pendingStamp(now),
     ...overrides,
   }
 }
@@ -65,8 +64,7 @@ export async function updateEvent(id: number, data: Partial<EventFormData>): Pro
   const now = Date.now()
   const updates: Partial<Event> = {
     updatedAt: now,
-    _syncStatus: 'pending',
-    _lastModified: now,
+    ...pendingStamp(now),
   }
 
   type FieldKey = keyof EventFormData
@@ -130,8 +128,7 @@ export async function deleteEvent(id: number): Promise<void> {
   const now = Date.now()
   await db.events.update(id, {
     deleted: true,
-    _syncStatus: 'pending',
-    _lastModified: now,
+    ...pendingStamp(now),
   })
 
   await logOperation(TABLE, id, 'deleted', 'false', 'true')

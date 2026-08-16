@@ -1,5 +1,5 @@
 import { db } from '@/lib/db'
-import { logOperation } from '@/lib/sync'
+import { logOperation, pendingStamp } from '@/lib/sync'
 import { updateReferencesAfterRename, syncReferenceLabels } from '@/lib/reference-sync'
 import type { Country } from '@/types'
 import type { CountryFormData } from './types'
@@ -21,8 +21,7 @@ function buildDefaultCountry(data: CountryFormData, overrides: Partial<Country> 
     createdAt: now,
     updatedAt: now,
     deleted: false,
-    _syncStatus: 'pending',
-    _lastModified: now,
+    ...pendingStamp(now),
     ...overrides,
   }
 }
@@ -57,8 +56,7 @@ export async function updateCountry(id: number, data: Partial<CountryFormData>):
   const now = Date.now()
   const updates: Partial<Country> = {
     updatedAt: now,
-    _syncStatus: 'pending',
-    _lastModified: now,
+    ...pendingStamp(now),
   }
 
   type FieldKey = keyof CountryFormData
@@ -109,8 +107,7 @@ export async function deleteCountry(id: number): Promise<void> {
   const now = Date.now()
   await db.countries.update(id, {
     deleted: true,
-    _syncStatus: 'pending',
-    _lastModified: now,
+    ...pendingStamp(now),
   })
 
   await logOperation(TABLE, id, 'deleted', 'false', 'true')

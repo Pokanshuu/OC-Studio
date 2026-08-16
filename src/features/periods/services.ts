@@ -1,5 +1,5 @@
 import { db } from '@/lib/db'
-import { logOperation } from '@/lib/sync'
+import { logOperation, pendingStamp } from '@/lib/sync'
 import type { Period } from '@/types'
 
 const TABLE = 'periods'
@@ -26,8 +26,7 @@ export async function createPeriod(data: {
     endTime: data.endTime,
     color: data.color,
     deleted: false,
-    _syncStatus: 'pending',
-    _lastModified: now,
+    ...pendingStamp(now),
   })
   await logOperation(TABLE, id, 'name', '', data.name)
   return id
@@ -40,7 +39,7 @@ export async function updatePeriod(
   const existing = await db.periods.get(id)
   if (!existing) throw new Error(`Period not found: ${id}`)
   const now = Date.now()
-  const updates: Partial<Period> = { _syncStatus: 'pending', _lastModified: now }
+  const updates: Partial<Period> = { ...pendingStamp(now) }
   if (data.name !== undefined) { updates.name = data.name; await logOperation(TABLE, id, 'name', existing.name, data.name) }
   if (data.startTime !== undefined) { updates.startTime = data.startTime }
   if (data.endTime !== undefined) { updates.endTime = data.endTime }
@@ -50,6 +49,6 @@ export async function updatePeriod(
 
 export async function deletePeriod(id: number): Promise<void> {
   const now = Date.now()
-  await db.periods.update(id, { deleted: true, _syncStatus: 'pending', _lastModified: now })
+  await db.periods.update(id, { deleted: true, ...pendingStamp(now) })
   await logOperation(TABLE, id, 'deleted', 'false', 'true')
 }

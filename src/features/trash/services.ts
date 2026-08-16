@@ -1,5 +1,5 @@
 import { db } from '@/lib/db'
-import { logOperation } from '@/lib/sync'
+import { logOperation, pendingStamp } from '@/lib/sync'
 import type { TrashItem, TrashItemType } from './types'
 
 const TYPE_LABELS: Record<TrashItemType, string> = {
@@ -88,8 +88,7 @@ export async function restoreItem(type: TrashItemType, id: number): Promise<void
   await table.update(id, {
     deleted: false,
     updatedAt: now,
-    _syncStatus: 'pending',
-    _lastModified: now,
+    ...pendingStamp(now),
   })
 
   await logOperation(tableName, id, 'deleted', 'true', 'false')

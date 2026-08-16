@@ -1,5 +1,5 @@
 import { db } from '@/lib/db'
-import { logOperation } from '@/lib/sync'
+import { logOperation, pendingStamp } from '@/lib/sync'
 import { updateReferencesAfterRename, syncReferenceLabels } from '@/lib/reference-sync'
 import type { Character } from '@/types'
 import type { CharacterFormData } from './types'
@@ -31,8 +31,7 @@ function buildDefaultCharacter(
     createdAt: now,
     updatedAt: now,
     deleted: false,
-    _syncStatus: 'pending',
-    _lastModified: now,
+    ...pendingStamp(now),
     ...overrides,
   }
 }
@@ -67,8 +66,7 @@ export async function updateCharacter(
   const now = Date.now()
   const updates: Partial<Character> = {
     updatedAt: now,
-    _syncStatus: 'pending',
-    _lastModified: now,
+    ...pendingStamp(now),
   }
 
   type FieldKey = keyof CharacterFormData
@@ -168,8 +166,7 @@ export async function deleteCharacter(id: number): Promise<void> {
   const now = Date.now()
   await db.characters.update(id, {
     deleted: true,
-    _syncStatus: 'pending',
-    _lastModified: now,
+    ...pendingStamp(now),
   })
 
   await logOperation(TABLE, id, 'deleted', 'false', 'true')
