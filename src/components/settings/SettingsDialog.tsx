@@ -13,6 +13,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { useSettings } from "@/lib/settings"
 import { useDevice } from "@/lib/use-device"
 import { isTauri as isTauriEnv } from "@/lib/env"
+import { APP_VERSION } from "@/lib/version"
 import { useImportExport } from "@/components/shared/ImportExportUI"
 import { useInputContextMenu } from "@/lib/use-input-context-menu"
 
@@ -390,7 +391,7 @@ export function SettingsDialog({
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-ink">版本</span>
                   <span className="text-sm text-ink-muted font-mono">
-                    v0.18.0-alpha
+                    v{APP_VERSION}
                   </span>
                 </div>
                 <button
