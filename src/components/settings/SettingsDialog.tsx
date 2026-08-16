@@ -12,6 +12,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { useSettings } from "@/lib/settings"
 import { useDevice } from "@/lib/use-device"
+import { isTauri as isTauriEnv } from "@/lib/env"
 import { useImportExport } from "@/components/shared/ImportExportUI"
 import { useInputContextMenu } from "@/lib/use-input-context-menu"
 
@@ -99,9 +100,7 @@ export function SettingsDialog({
 
   const [blurSupported, setBlurSupported] = useState(false)
 
-  const isTauri =
-    typeof window !== "undefined" &&
-    ("__TAURI_INTERNALS__" in window || "__TAURI__" in window)
+  const isTauri = isTauriEnv()
 
   const toggleDisabled = !isTauri || !blurSupported
 

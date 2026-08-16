@@ -1,6 +1,7 @@
 import { BrowserAdapter } from './adapters/browser-adapter'
 import type { LocalAdapter } from './adapters/local-adapter'
 import { convertHeifToJpeg } from './image-heif'
+import { isTauri, isCapacitor } from './env'
 
 let adapter: BrowserAdapter | LocalAdapter = new BrowserAdapter()
 let tauriAppDataDir = ''
@@ -15,14 +16,6 @@ const DEFAULT_IMAGES: Record<string, string> = {
 
 export function getDefaultImage(type: string): string {
   return DEFAULT_IMAGES[type] || DEFAULT_IMAGES.avatar
-}
-
-function isTauri(): boolean {
-  return typeof window !== 'undefined' && !!window.__TAURI_INTERNALS__
-}
-
-function isCapacitor(): boolean {
-  return typeof window !== 'undefined' && !!window.Capacitor && !isTauri()
 }
 
 let capacitorConvertFileSrc: ((path: string) => string) | null = null

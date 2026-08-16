@@ -1,15 +1,5 @@
-// 运行环境检测
-export function isCapacitor(): boolean {
-  return typeof window !== 'undefined' && !!window.Capacitor
-}
-
-export function isTauri(): boolean {
-  return typeof window !== 'undefined' && !!window.__TAURI_INTERNALS__
-}
-
-export function isMobilePlatform(): boolean {
-  return isCapacitor() && !isTauri()
-}
+// 运行环境检测（实现已收敛到 lib/env.ts，此处保留再导出以兼容既有导入）
+export { isCapacitor, isTauri, isMobilePlatform, isNativePlatform } from './env'
 
 // WebView 内核版本检测（Chromium 版本号）
 export function getChromiumVersion(): number | null {

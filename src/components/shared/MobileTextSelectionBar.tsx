@@ -7,6 +7,7 @@ import { Clipboard as CapacitorClipboard } from '@capacitor/clipboard'
 import { useDevice } from '@/lib/use-device'
 import { useActiveEditor } from '@/lib/editor-context'
 import { useKeyboard } from '@/lib/KeyboardContext'
+import { isNativePlatform } from '@/lib/env'
 import { MobileActionSheet } from './MobileActionSheet'
 import type { ActionItem } from './MobileActionSheet'
 
@@ -180,7 +181,7 @@ function isEditorDom(el: HTMLElement | null, editorDom: HTMLElement | undefined)
 
 async function readClipboardText(): Promise<string | null> {
   // 1. Capacitor native clipboard (Android/iOS)
-  if (window.Capacitor?.isNativePlatform?.()) {
+  if (isNativePlatform()) {
     try {
       const { value } = await CapacitorClipboard.read()
       if (value) return value

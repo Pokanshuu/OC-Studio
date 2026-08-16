@@ -1,18 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { isNativePlatform } from './env'
 
 interface UseDeviceResult {
   isMobile: boolean
-}
-
-function isCapacitor(): boolean {
-  if (typeof window === 'undefined') return false
-  // isNativePlatform() returns true only in a real native Capacitor app,
-  // not when @capacitor/core is loaded as a web library in the browser.
-  if (window.Capacitor?.isNativePlatform?.() === true) return true
-  const ua = navigator.userAgent
-  return ua.includes('Android') || ua.includes('iPhone') || ua.includes('iPad')
 }
 
 function isNarrowScreen(): boolean {
@@ -30,7 +22,7 @@ export function useDevice(): UseDeviceResult {
 
   useEffect(() => {
     const check = (): void => {
-      setIsMobile(isCapacitor() || isNarrowScreen() || isMobileAgent())
+      setIsMobile(isNativePlatform() || isNarrowScreen() || isMobileAgent())
     }
 
     check()

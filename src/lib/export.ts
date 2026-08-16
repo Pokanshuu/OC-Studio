@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 import { resolveImageUrl } from './image-service'
+import { isNativePlatform } from './env'
 
 interface ExportPayload {
   version: 1
@@ -136,19 +137,12 @@ export async function downloadFullBackup(): Promise<string> {
   return downloadJson(payload, `oc-full-backup-${date}.ocbak`)
 }
 
-function isCapacitor(): boolean {
-  return typeof window !== 'undefined'
-    && !!window.Capacitor
-    && !window.__TAURI_INTERNALS__
-    && !!window.Capacitor.isNativePlatform?.()
-}
-
 export async function downloadJson(data: unknown, filename?: string): Promise<string> {
   const json = JSON.stringify(data, null, 2)
   const date = new Date().toISOString().slice(0, 10)
   const name = filename ?? `oc-backup-${date}.ocbak`
 
-  if (isCapacitor()) {
+  if (isNativePlatform()) {
     await downloadJsonCapacitor(json, name)
     return name
   }
@@ -330,7 +324,7 @@ export async function exportToTxt(): Promise<string> {
 }
 
 async function downloadText(content: string, filename: string, mimeType: string): Promise<void> {
-  if (isCapacitor()) {
+  if (isNativePlatform()) {
     await downloadTextCapacitor(content, filename)
     return
   }

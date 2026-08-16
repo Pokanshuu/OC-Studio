@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react"
 import { invoke } from "@tauri-apps/api/core"
+import { isTauri } from "./env"
 
 const STORAGE_KEY = "oc-studio-settings"
 
@@ -84,7 +85,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       root.classList.toggle("dark", isDark)
       root.setAttribute("data-theme", isDark ? "dark" : "light")
 
-      if (typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window)) {
+      if (isTauri()) {
         try {
           const enabled = window.localStorage.getItem("blur-effect-enabled") === "true"
           invoke<boolean>("update_blur_effect", { enabled, isDark })
