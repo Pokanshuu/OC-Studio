@@ -40,7 +40,7 @@
 ## 二、技术重构（独立 PR，风险较高）
 
 ### P2 — 数据层
-- [ ] **统一到 React Query**：characters / events / world 仍是手写 `useState + refreshKey + data-updated` 事件；countries 已用 React Query。统一后删除事件总线与 `refreshKey`。
+- [x] **统一到 React Query**：characters / events / world 已改为 useQuery/useMutation（与 countries 同构）；列表 30s staleTime + data-updated 事件刷新，详情 staleTime 0 防跨模块写入读到旧值。`refreshKey` 已删除；`data-updated` 事件总线保留（trash/import/periods/timeline 等跨模块刷新依赖）。
 - [ ] **泛型 CRUD 仓储**：消除 characters / events / countries / world 4 份 services + 5 份 hooks 的复制。
 - [ ] **World `content` 单格式迁移**：HTML 路径已删（WorldEditor），现为 JSON 字符串（active）+ `document` 对象（unused）两形态，可进一步收敛到 `document`。
 
@@ -50,23 +50,23 @@
 - [ ] `src/app/page.tsx`（570 行，视图路由/返回栈/滑动动画抽 hook）
 
 ### P3 — 死代码清理
-- [ ] `saveDocument` ×4（characters/events/countries/world）
-- [ ] `sync.ts` 的 `markAsPending` / `markAsSynced` / `getPendingItems`（同步 stub）
+- [x] `saveDocument` ×4（characters/events/countries/world）
+- [x] `sync.ts` 的 `markAsPending` / `markAsSynced` / `getPendingItems`（同步 stub）
 - [x] `WorldEditor.tsx`（已删除）
-- [ ] `EditorToolbar.tsx`、`AlbumTriggerContext.tsx`（零引用）
-- [ ] `Character.relationships` 字段（实际用 `relatedCharacters`）
-- [ ] `db.ts` v3→v4 无操作迁移
-- [ ] `adapter.getUrl()`（local-adapter / capacitor-adapter）
+- [x] `EditorToolbar.tsx`、`AlbumTriggerContext.tsx`（零引用）
+- [x] `Character.relationships` 字段（实际用 `relatedCharacters`）
+- [x] `db.ts` v3→v4 无操作迁移
+- [x] `adapter.getUrl()`（local-adapter / capacitor-adapter）
 - [ ] 未接线的 AI `buildEntityContext` / `buildProjectContext`
 
 ### P3 — 一致性
-- [ ] 环境检测抽 `lib/env.ts`（`isTauri` / `isCapacitor` 5+ 处不一致副本）
-- [ ] 版本号单源（package.json / SettingsDialog 硬编码 / AGENTS.md 三处漂移）
-- [ ] 浮层 Portal 统一到 `#overlay-root`（`dialog.tsx` / `alert-dialog.tsx` / `FullscreenViewer` / `ImageCropper` / 三处编辑器弹层）
+- [x] 环境检测抽 `lib/env.ts`（`isTauri` / `isCapacitor` / `isNativePlatform` 单一权威实现，browser-compat 再导出兼容）
+- [x] 版本号单源（package.json → `lib/version.ts` → SettingsDialog；文档随发布同步）
+- [x] 浮层 Portal 统一到 `#overlay-root`（`dialog.tsx` / `alert-dialog.tsx` / `FullscreenViewer` / `ImageCropper` / 编辑器弹层 ×4：mention 弹层、slash 弹层、移动端键盘工具栏+块面板、BlockTypeMenu）
 - [ ] `id?: number` → 精确类型，去掉系统性 `as number` / `as never`
 
 ---
 
 ## 三、已知技术债（继承自 AGENTS.md）
-- [ ] 桌面/移动端折叠展开图标规则同步到 RelationGraph 的 Controls（当前用 @xyflow/react 默认图标）
-- [ ] `_syncStatus` 写入逻辑各 service 手写，应统一
+- [x] 桌面/移动端折叠展开图标规则同步到 RelationGraph 的 Controls（核查后确认 RelationGraph 未用 @xyflow/react 默认 Controls，已自定义 lucide 控件，此项已过时）
+- [x] `_syncStatus` 写入逻辑各 service 手写，已统一为 `pendingStamp()` helper
