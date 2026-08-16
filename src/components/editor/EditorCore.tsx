@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useId, useRef, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { tauriReadClipboard } from '@/lib/tauri-clipboard'
 import { useEditor, useEditorState, EditorContent } from '@tiptap/react'
 import { BubbleMenu } from '@tiptap/react/menus'
@@ -68,14 +69,14 @@ function createMentionRender() {
       currentCommand = props.command
       selectedIndex = 0
       popup = document.createElement('div')
-      popup.className = 'absolute z-50 max-h-56 overflow-auto rounded-md border border-line bg-paper/85 dark:bg-paper/85 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 min-w-[200px]'
+      popup.className = 'pointer-events-auto fixed z-50 max-h-56 overflow-auto rounded-md border border-line bg-paper/85 dark:bg-paper/85 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 min-w-[200px]'
       const rect = props.clientRect()
       if (rect) {
         popup.style.left = `${rect.left}px`
         popup.style.top = `${rect.bottom + 4}px`
       }
       renderMentionGroups(popup, props.items, props.command, 0)
-      document.body.appendChild(popup)
+      ;(document.getElementById('overlay-root') ?? document.body).appendChild(popup)
       document.addEventListener('pointerdown', (e) => {
         if (popup && !popup.contains(e.target as Node)) {
           popup.remove()
@@ -918,17 +919,18 @@ export function EditorCore({
     </div>
 
     {/* 移动端键盘工具栏 */}
-    {isMobile && keyboardVisible && editor?.isFocused && (
-      <>
+    {isMobile && keyboardVisible && editor?.isFocused && typeof document !== 'undefined' &&
+      createPortal(
+        <>
         {mobileBlockMenuOpen && (
           <div
-            className="fixed inset-0 z-30"
+            className="pointer-events-auto fixed inset-0 z-30"
             onPointerDown={() => setMobileBlockMenuOpen(false)}
           />
         )}
         <div
           ref={mobileToolbarRef}
-          className="fixed left-0 right-0 z-30 flex items-center gap-2 px-3 py-2 bg-paper/85 backdrop-blur-lg border-t border-line"
+          className="pointer-events-auto fixed left-0 right-0 z-30 flex items-center gap-2 px-3 py-2 bg-paper/85 backdrop-blur-lg border-t border-line"
           style={{ bottom: `${keyboardHeight}px`, ...(isBelowTargetVersion() ? { paddingBottom: 'var(--safe-bottom, 0px)' } : {}) }}
           data-tick={toolbarTick}
         >
@@ -1001,7 +1003,7 @@ export function EditorCore({
         {mobileBlockMenuOpen && (
           <div
             ref={mobileBlockMenuRef}
-            className="fixed left-0 right-0 z-40 p-3 bg-paper/85 backdrop-blur-lg border-t border-line"
+            className="pointer-events-auto fixed left-0 right-0 z-40 p-3 bg-paper/85 backdrop-blur-lg border-t border-line"
             style={{ bottom: `${isBelowTargetVersion() ? keyboardHeight + 52 : keyboardHeight + 44}px`, ...(isBelowTargetVersion() ? { paddingBottom: 'var(--safe-bottom, 0px)' } : {}) }}
           >
             <div className="flex flex-wrap gap-2">
@@ -1031,8 +1033,9 @@ export function EditorCore({
             </div>
           </div>
         )}
-      </>
-    )}
+        </>,
+        document.getElementById('overlay-root') ?? document.body,
+      )}
     </ContextMenu>
   )
 }

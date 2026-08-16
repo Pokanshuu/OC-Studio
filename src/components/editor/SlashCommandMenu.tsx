@@ -134,7 +134,7 @@ export const SlashCommand = Extension.create({
 
             popup = document.createElement('div')
             popup.className =
-              'absolute z-50 max-h-[60vh] overflow-auto rounded-md border border-line bg-paper/85 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 min-w-[180px]'
+              'pointer-events-auto fixed z-50 max-h-[60vh] overflow-auto rounded-md border border-line bg-paper/85 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 min-w-[180px]'
 
             const rect = props.clientRect?.()
             if (rect) {
@@ -144,7 +144,7 @@ export const SlashCommand = Extension.create({
 
             selectedIndex = 0
             renderItems(popup, currentItems, selectedIndex, props.command)
-            document.body.appendChild(popup)
+            ;(document.getElementById('overlay-root') ?? document.body).appendChild(popup)
             document.addEventListener('pointerdown', (e) => {
               if (popup && !popup.contains(e.target as Node)) {
                 popup.remove()

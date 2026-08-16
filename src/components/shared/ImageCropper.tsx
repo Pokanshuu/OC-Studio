@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import Cropper from 'react-easy-crop'
 import type { Area, Point } from 'react-easy-crop'
 import { RotateCcw, RotateCw, Check, X, ZoomOut, ZoomIn, Loader2 } from 'lucide-react'
@@ -48,6 +49,8 @@ export function ImageCropper({
 
   if (!open) return null
 
+  if (typeof document === 'undefined') return null
+
   const handleConfirm = async () => {
     if (!croppedAreaPixels) return
     try {
@@ -64,8 +67,8 @@ export function ImageCropper({
     setRotation(0)
   }
 
-  return (
-    <div className="fixed inset-0 z-[99999] flex flex-col bg-paper pt-[var(--safe-top)] pb-[var(--safe-bottom)]">
+  return createPortal(
+    <div className="pointer-events-auto fixed inset-0 z-[99999] flex flex-col bg-paper pt-[var(--safe-top)] pb-[var(--safe-bottom)]">
       {/* Header bar */}
       <div className="flex shrink-0 items-center justify-between border-b border-line px-4 py-3">
         <h2 className="text-base font-medium text-ink">裁剪图片</h2>
@@ -259,6 +262,7 @@ export function ImageCropper({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.getElementById('overlay-root') ?? document.body,
   )
 }

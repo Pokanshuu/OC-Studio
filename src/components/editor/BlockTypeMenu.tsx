@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import type { Editor } from '@tiptap/core'
 import {
   Pilcrow,
@@ -182,7 +183,7 @@ export function BlockTypeMenu({ editor, position, onClose, blockPos }: BlockType
     },
   ]
 
-  return (
+  return createPortal(
     <div
       ref={ref}
       style={{
@@ -191,7 +192,7 @@ export function BlockTypeMenu({ editor, position, onClose, blockPos }: BlockType
         top: position.y - 4,
         zIndex: 100,
       }}
-      className={`flex gap-0.5 rounded-md border border-line bg-paper/85 dark:bg-paper/85 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 context-menu-fade ${visible ? 'context-menu-visible' : ''}`}
+      className={`pointer-events-auto flex gap-0.5 rounded-md border border-line bg-paper/85 dark:bg-paper/85 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 context-menu-fade ${visible ? 'context-menu-visible' : ''}`}
     >
       {buttons.map((btn) => (
         <button
@@ -208,6 +209,7 @@ export function BlockTypeMenu({ editor, position, onClose, blockPos }: BlockType
           {btn.icon}
         </button>
       ))}
-    </div>
+    </div>,
+    document.getElementById('overlay-root') ?? document.body,
   )
 }
