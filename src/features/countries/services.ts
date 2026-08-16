@@ -105,16 +105,6 @@ export async function updateCountry(id: number, data: Partial<CountryFormData>):
   }
 }
 
-export async function saveDocument(id: number, document: unknown): Promise<void> {
-  const now = Date.now()
-  await db.countries.update(id, {
-    document,
-    updatedAt: now,
-    _syncStatus: 'pending',
-    _lastModified: now,
-  })
-}
-
 export async function deleteCountry(id: number): Promise<void> {
   const now = Date.now()
   await db.countries.update(id, {

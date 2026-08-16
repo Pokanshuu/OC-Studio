@@ -31,7 +31,6 @@ export interface Character {
   bio: string
   lifeStory: string
   document?: unknown
-  relationships: Relationship[]
   relatedCharacters: RelatedCharacter[]
   gallery: GalleryImage[]
   avatars: AvatarImage[]
@@ -41,12 +40,6 @@ export interface Character {
   deleted: boolean
   _syncStatus: string
   _lastModified: number
-}
-
-export interface Relationship {
-  targetId: number
-  targetType: string
-  relation: string
 }
 
 export interface Event {

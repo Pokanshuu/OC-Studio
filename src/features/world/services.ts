@@ -87,16 +87,6 @@ export async function deleteEntry(id: number): Promise<void> {
   await logOperation(TABLE, id, 'deleted', 'false', 'true')
 }
 
-export async function saveDocument(id: number, document: unknown): Promise<void> {
-  const now = Date.now()
-  await db.worldEntries.update(id, {
-    document,
-    updatedAt: now,
-    _syncStatus: 'pending',
-    _lastModified: now,
-  })
-}
-
 export async function saveEntryContent(
   id: number,
   title: string,

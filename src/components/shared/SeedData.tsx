@@ -153,7 +153,6 @@ export function SeedData() {
         headerUrl: CHAR_A_HEADER,
         bio: SAMPLE_HTML,
         lifeStory: SAMPLE_HTML,
-        relationships: [],
         relatedCharacters: [],
         tags: [],
         createdAt: Date.now(),
@@ -183,7 +182,6 @@ export function SeedData() {
         headerUrl: CHAR_B_HEADER,
         bio: SAMPLE_HTML,
         lifeStory: SAMPLE_HTML,
-        relationships: [],
         relatedCharacters: [
           { characterId: charAId, name: '示例角色A', relation: '挚友' },
         ],
@@ -215,7 +213,6 @@ export function SeedData() {
         headerUrl: CHAR_C_HEADER,
         bio: SAMPLE_HTML,
         lifeStory: SAMPLE_HTML,
-        relationships: [],
         relatedCharacters: [
           { characterId: charAId, name: '示例角色A', relation: '旧识' },
           { characterId: charBId, name: '示例角色B', relation: '师徒' },

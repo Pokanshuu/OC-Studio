@@ -46,12 +46,4 @@ export class CapacitorAdapter {
       input.click()
     })
   }
-
-  async getUrl(path: string): Promise<string> {
-    const { uri } = await Filesystem.getUri({
-      path,
-      directory: Directory.Data,
-    })
-    return uri
-  }
 }

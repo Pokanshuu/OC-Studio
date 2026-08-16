@@ -24,7 +24,6 @@ function buildDefaultCharacter(
     avatarUrl: data.avatarUrl,
     bio: data.bio,
     lifeStory: data.lifeStory,
-    relationships: [],
     relatedCharacters: data.relatedCharacters,
     gallery: data.gallery,
     avatars: data.avatars,
@@ -163,16 +162,6 @@ export async function updateCharacter(
   if (data.name !== undefined) {
     updateReferencesAfterRename('character', id, data.name).catch(() => {})
   }
-}
-
-export async function saveDocument(id: number, document: unknown): Promise<void> {
-  const now = Date.now()
-  await db.characters.update(id, {
-    document,
-    updatedAt: now,
-    _syncStatus: 'pending',
-    _lastModified: now,
-  })
 }
 
 export async function deleteCharacter(id: number): Promise<void> {
