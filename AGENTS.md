@@ -19,7 +19,10 @@ This version has breaking changes — APIs, conventions, and file structure may 
 ### 数据库
 - `src/lib/db.ts` — Dexie v4，7 张表（characters, events, countries, worldEntries, tags, operationLog, periods）
 - `src/types/index.ts` — 全局类型定义（含 Period 接口 + PERIOD_COLORS）
-- `src/lib/sync.ts` — 操作日志 (`logOperation`) + 同步状态
+- `src/lib/sync.ts` — 操作日志 (`logOperation`) + 待同步时间戳 (`pendingStamp`)
+- `src/lib/repository.ts` — 泛型 CRUD 仓储原语（listActive / getById / softDelete）
+- `src/lib/env.ts` — 环境检测唯一权威（isTauri / isCapacitor / isNativePlatform）
+- `src/lib/version.ts` — 版本号单源（读 package.json）
 
 ### 编辑器（全局唯一内核）
 - `src/components/editor/EditorCore.tsx` — 统一 Tiptap 实例
