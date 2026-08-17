@@ -47,7 +47,7 @@ const PLACEHOLDER_MAP: Record<string, string> = {}
 export default function Home() {
   const { activeItem: desktopActiveItem, setActiveItem } = useNavigation()
   const { source, setSource, clearSource } = useNavigationSource()
-  const { setEditing, clearEditing } = useEditor()
+  const { setEditing, clearEditing, entityType, entityId } = useEditor()
   const { isMobile } = useDevice()
   const mobileNav = useMobileNavigation()
   const activeItem = isMobile
@@ -59,12 +59,46 @@ export default function Home() {
         : mobileNav.section === 'album' ? '相册'
         : desktopActiveItem)
     : desktopActiveItem
+  const mobileSetSection = mobileNav.setSection
+  const mobileSetGallerySubTab = mobileNav.setGallerySubTab
   const [eventView, setEventView] = useState<EventView>({ sub: 'list' })
   const [characterView, setCharacterView] = useState<CharacterView>({ sub: 'list' })
   const [countryView, setCountryView] = useState<CountryView>({ sub: 'list' })
   const [worldSelectedEntryId, setWorldSelectedEntryId] = useState<number | null>(null)
 
-  const { setActiveEntity, status: saveStatus } = useSaveStatus()
+  const crossBackRef = useRef<{
+    activeItem: string | null
+    eventView: EventView
+    characterView: CharacterView
+    countryView: CountryView
+    source: ReturnType<typeof useNavigationSource>['source']
+    mobileSection?: import('@/components/layout/MobileNavigationContext').MobileSection
+    mobileGallerySubTab?: import('@/components/layout/MobileNavigationContext').GallerySubTab
+  } | null>(null)
+
+  // 从编辑器/图谱/相册/世界观跳走前记录返回现场（返回时恢复）
+  const rememberCrossBack = useCallback(() => {
+    if (
+      eventView.sub === 'editor' ||
+      characterView.sub === 'editor' ||
+      countryView.sub === 'editor' ||
+      activeItem === '关系图' ||
+      activeItem === '相册' ||
+      activeItem === '世界观'
+    ) {
+      crossBackRef.current = {
+        activeItem,
+        eventView,
+        characterView,
+        countryView,
+        source,
+        mobileSection: mobileNav.section,
+        mobileGallerySubTab: mobileNav.gallerySubTab,
+      }
+    }
+  }, [eventView, characterView, countryView, activeItem, source, mobileNav.section, mobileNav.gallerySubTab])
+
+  const { setActiveEntity, status: saveStatus, resetStatus } = useSaveStatus()
   useEffect(() => {
     setActiveEntity(
       activeItem === '事件' ? 'event'
@@ -74,6 +108,13 @@ export default function Home() {
       : null,
     )
   }, [activeItem, setActiveEntity])
+
+  // 编辑器实体切换（进入/离开/跨实体跳转）时重置全局保存状态，
+  // 防止上一个编辑器的 dirty 残留导致新编辑器出现「未保存」误报。
+  // 注意：父级 effect 在子编辑器挂载 effect 之后运行，可顺带清掉挂载期噪声。
+  useEffect(() => {
+    resetStatus()
+  }, [entityType, entityId, resetStatus])
 
   const saveStatusRef = useRef(saveStatus)
   saveStatusRef.current = saveStatus
@@ -171,22 +212,32 @@ export default function Home() {
 
   const handleCreateEvent = useCallback(() => {
     if (creating) return
-    createEvent({
-      title: '新事件',
-      time: '',
-      location: '',
-      summary: '',
-      isMajor: false,
-      content: '',
-      tags: [],
-    }).then((id) => {
-      setEventView({ sub: 'editor', eventId: id })
-      setEditing('event', id)
-      refresh()
-    }).catch(() => {
-      // error handled via hook
-    })
-  }, [createEvent, creating, refresh, setEditing])
+    const doCreate = () => {
+      createEvent({
+        title: '新事件',
+        time: '',
+        location: '',
+        summary: '',
+        isMajor: false,
+        content: '',
+        tags: [],
+      }).then((id) => {
+        rememberCrossBack()
+        setEventView({ sub: 'editor', eventId: id })
+        setActiveItem('事件')
+        if (isMobile) {
+          mobileSetSection('gallery')
+          mobileSetGallerySubTab('events')
+        }
+        setEditing('event', id)
+        clearSource()
+        refresh()
+      }).catch(() => {
+        // error handled via hook
+      })
+    }
+    confirmLeave(doCreate)
+  }, [createEvent, creating, refresh, setEditing, confirmLeave, rememberCrossBack, setActiveItem, isMobile, mobileSetSection, mobileSetGallerySubTab, clearSource])
 
   const handleSaveEvent = useCallback(
     async (id: number, data: Partial<EventFormData>) => {
@@ -209,19 +260,6 @@ export default function Home() {
     },
     [deleteEvent, deleting, refresh],
   )
-
-  const mobileSetSection = mobileNav.setSection
-  const mobileSetGallerySubTab = mobileNav.setGallerySubTab
-
-  const crossBackRef = useRef<{
-    activeItem: string | null
-    eventView: EventView
-    characterView: CharacterView
-    countryView: CountryView
-    source: ReturnType<typeof useNavigationSource>['source']
-    mobileSection?: import('@/components/layout/MobileNavigationContext').MobileSection
-    mobileGallerySubTab?: import('@/components/layout/MobileNavigationContext').GallerySubTab
-  } | null>(null)
 
   const restoreCrossBack = useCallback(() => {
     const saved = crossBackRef.current
@@ -285,30 +323,40 @@ export default function Home() {
 
   const handleCreateCharacter = useCallback(() => {
     if (creatingChar) return
-    createCharacter({
-      name: '新角色',
-      aliases: [],
-      race: '',
-      element: '',
-      occupation: '',
-      nationalityLegacy: '',
-      height: '',
-      birthday: '',
-      avatarUrl: '',
-      bio: '',
-      lifeStory: '',
-      relatedCharacters: [],
-      gallery: [],
-      avatars: [],
-      tags: [],
-    }).then((id) => {
-      setCharacterView({ sub: 'editor', characterId: id })
-      setEditing('character', id)
-      refreshCharacters()
-    }).catch(() => {
-      // error handled via hook
-    })
-  }, [createCharacter, creatingChar, refreshCharacters, setEditing])
+    const doCreate = () => {
+      createCharacter({
+        name: '新角色',
+        aliases: [],
+        race: '',
+        element: '',
+        occupation: '',
+        nationalityLegacy: '',
+        height: '',
+        birthday: '',
+        avatarUrl: '',
+        bio: '',
+        lifeStory: '',
+        relatedCharacters: [],
+        gallery: [],
+        avatars: [],
+        tags: [],
+      }).then((id) => {
+        rememberCrossBack()
+        setCharacterView({ sub: 'editor', characterId: id })
+        setActiveItem('角色')
+        if (isMobile) {
+          mobileSetSection('gallery')
+          mobileSetGallerySubTab('characters')
+        }
+        setEditing('character', id)
+        clearSource()
+        refreshCharacters()
+      }).catch(() => {
+        // error handled via hook
+      })
+    }
+    confirmLeave(doCreate)
+  }, [createCharacter, creatingChar, refreshCharacters, setEditing, confirmLeave, rememberCrossBack, setActiveItem, isMobile, mobileSetSection, mobileSetGallerySubTab, clearSource])
 
   const handleBackToCharacterList = useCallback(() => {
     confirmLeave(() => {
@@ -335,21 +383,31 @@ export default function Home() {
 
   const handleCreateCountry = useCallback(() => {
     if (creatingCountry) return
-    createCountry({
-      name: '新国家',
-      parentId: null,
-      description: '',
-      system: '',
-      geography: '',
-      culture: '',
-      tags: [],
-    }).then((id) => {
-      setCountryView({ sub: 'editor', countryId: id })
-      setEditing('country', id)
-    }).catch(() => {
-      // error handled via hook
-    })
-  }, [createCountry, creatingCountry, setEditing])
+    const doCreate = () => {
+      createCountry({
+        name: '新国家',
+        parentId: null,
+        description: '',
+        system: '',
+        geography: '',
+        culture: '',
+        tags: [],
+      }).then((id) => {
+        rememberCrossBack()
+        setCountryView({ sub: 'editor', countryId: id })
+        setActiveItem('国家')
+        if (isMobile) {
+          mobileSetSection('gallery')
+          mobileSetGallerySubTab('countries')
+        }
+        setEditing('country', id)
+        clearSource()
+      }).catch(() => {
+        // error handled via hook
+      })
+    }
+    confirmLeave(doCreate)
+  }, [createCountry, creatingCountry, setEditing, confirmLeave, rememberCrossBack, setActiveItem, isMobile, mobileSetSection, mobileSetGallerySubTab, clearSource])
 
   // 命令面板「快速新建」事件监听
   useEffect(() => {
@@ -411,24 +469,7 @@ export default function Home() {
       (type === 'country' && countryView.sub === 'editor')
 
     const doNavigate = () => {
-      if (
-        eventView.sub === 'editor' ||
-        characterView.sub === 'editor' ||
-        countryView.sub === 'editor' ||
-        activeItem === '关系图' ||
-        activeItem === '相册' ||
-        activeItem === '世界观'
-      ) {
-        crossBackRef.current = {
-          activeItem,
-          eventView,
-          characterView,
-          countryView,
-          source,
-          mobileSection: mobileNav.section,
-          mobileGallerySubTab: mobileNav.gallerySubTab,
-        }
-      }
+      rememberCrossBack()
 
       if (type === 'character') {
         setCharacterView({ sub: 'editor', characterId: id })
@@ -469,7 +510,7 @@ export default function Home() {
 
     if (willRemount) confirmLeave(doNavigate)
     else doNavigate()
-  }, [eventView, characterView, countryView, activeItem, source, setActiveItem, clearSource, setEditing, isMobile, mobileNav.section, mobileNav.gallerySubTab, mobileSetSection, mobileSetGallerySubTab, confirmLeave])
+  }, [eventView, characterView, countryView, setActiveItem, clearSource, setEditing, isMobile, mobileSetSection, mobileSetGallerySubTab, confirmLeave, rememberCrossBack])
 
   const handleMentionClick = useCallback((id: string, entityType?: string) => {
     const numId = Number(id)

@@ -10,6 +10,7 @@ interface SaveStatusContextValue {
   markDirty: () => void
   markSaving: () => void
   markSaved: () => void
+  resetStatus: () => void
   registerSaveHandler: (type: EditorEntityType, fn: (() => void) | null) => void
   setActiveEntity: (type: EditorEntityType | null) => void
   requestSave: () => void
@@ -20,6 +21,7 @@ const SaveStatusContext = createContext<SaveStatusContextValue>({
   markDirty: () => {},
   markSaving: () => {},
   markSaved: () => {},
+  resetStatus: () => {},
   registerSaveHandler: () => {},
   setActiveEntity: () => {},
   requestSave: () => {},
@@ -37,6 +39,7 @@ export function SaveStatusProvider({ children }: { children: ReactNode }) {
   const markDirty = useCallback(() => setStatus('dirty'), [])
   const markSaving = useCallback(() => setStatus('saving'), [])
   const markSaved = useCallback(() => setStatus('saved'), [])
+  const resetStatus = useCallback(() => setStatus('idle'), [])
 
   const registerSaveHandler = useCallback((type: EditorEntityType, fn: (() => void) | null) => {
     if (fn) {
@@ -57,7 +60,7 @@ export function SaveStatusProvider({ children }: { children: ReactNode }) {
 
   return (
     <SaveStatusContext.Provider
-      value={{ status, markDirty, markSaving, markSaved, registerSaveHandler, setActiveEntity, requestSave }}
+      value={{ status, markDirty, markSaving, markSaved, resetStatus, registerSaveHandler, setActiveEntity, requestSave }}
     >
       {children}
     </SaveStatusContext.Provider>
