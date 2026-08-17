@@ -41,7 +41,7 @@
 
 ### P2 — 数据层
 - [x] **统一到 React Query**：characters / events / world 已改为 useQuery/useMutation（与 countries 同构）；列表 30s staleTime + data-updated 事件刷新，详情 staleTime 0 防跨模块写入读到旧值。`refreshKey` 已删除；`data-updated` 事件总线保留（trash/import/periods/timeline 等跨模块刷新依赖）。
-- [ ] **泛型 CRUD 仓储**：消除 characters / events / countries / world 4 份 services + 5 份 hooks 的复制。
+- [~] **泛型 CRUD 仓储**（部分完成）：`src/lib/repository.ts` 已收敛 listActive/getById/softDelete 三件套到 5 个 service；剩余 create/update 因字段级日志与引用同步差异仍各自手写，可进一步抽取带配置的 update 模板。
 - [ ] **World `content` 单格式迁移**：HTML 路径已删（WorldEditor），现为 JSON 字符串（active）+ `document` 对象（unused）两形态，可进一步收敛到 `document`。
 
 ### P2 — 组件拆分（God 组件）
