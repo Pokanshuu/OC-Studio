@@ -1,16 +1,16 @@
 import { db } from '@/lib/db'
 import { logOperation, pendingStamp } from '@/lib/sync'
+import { listActive, getById, softDelete } from '@/lib/repository'
 import type { Period } from '@/types'
 
 const TABLE = 'periods'
 
 export async function getAllPeriods(): Promise<Period[]> {
-  const all = await db.periods.orderBy('startTime').toArray()
-  return all.filter((p) => !p.deleted)
+  return listActive(db.periods, 'startTime')
 }
 
 export async function getPeriod(id: number): Promise<Period | undefined> {
-  return db.periods.get(id)
+  return getById(db.periods, id)
 }
 
 export async function createPeriod(data: {
@@ -48,7 +48,5 @@ export async function updatePeriod(
 }
 
 export async function deletePeriod(id: number): Promise<void> {
-  const now = Date.now()
-  await db.periods.update(id, { deleted: true, ...pendingStamp(now) })
-  await logOperation(TABLE, id, 'deleted', 'false', 'true')
+  await softDelete(db.periods, id, TABLE)
 }

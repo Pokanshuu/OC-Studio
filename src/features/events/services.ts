@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 import { logOperation, pendingStamp } from '@/lib/sync'
+import { listActive, getById, softDelete } from '@/lib/repository'
 import { updateReferencesAfterRename, syncReferenceLabels } from '@/lib/reference-sync'
 import type { Event } from '@/types'
 import type { EventFormData } from './types'
@@ -31,12 +32,11 @@ function buildDefaultEvent(data: EventFormData, overrides: Partial<Event> = {}):
 }
 
 export async function getEvents(): Promise<Event[]> {
-  const all = await db.events.orderBy('time').toArray()
-  return all.filter((e) => !e.deleted)
+  return listActive(db.events, 'time')
 }
 
 export async function getEvent(id: number): Promise<Event | undefined> {
-  return db.events.get(id)
+  return getById(db.events, id)
 }
 
 export async function createEvent(data: EventFormData): Promise<number> {
@@ -125,11 +125,5 @@ export async function updateEvent(id: number, data: Partial<EventFormData>): Pro
 }
 
 export async function deleteEvent(id: number): Promise<void> {
-  const now = Date.now()
-  await db.events.update(id, {
-    deleted: true,
-    ...pendingStamp(now),
-  })
-
-  await logOperation(TABLE, id, 'deleted', 'false', 'true')
+  await softDelete(db.events, id, TABLE)
 }

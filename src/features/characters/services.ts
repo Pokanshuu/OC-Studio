@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 import { logOperation, pendingStamp } from '@/lib/sync'
+import { listActive, getById, softDelete } from '@/lib/repository'
 import { updateReferencesAfterRename, syncReferenceLabels } from '@/lib/reference-sync'
 import type { Character } from '@/types'
 import type { CharacterFormData } from './types'
@@ -37,12 +38,11 @@ function buildDefaultCharacter(
 }
 
 export async function getCharacters(): Promise<Character[]> {
-  const all = await db.characters.orderBy('name').toArray()
-  return all.filter((c) => !c.deleted)
+  return listActive(db.characters, 'name')
 }
 
 export async function getCharacter(id: number): Promise<Character | undefined> {
-  return db.characters.get(id)
+  return getById(db.characters, id)
 }
 
 export async function createCharacter(data: CharacterFormData): Promise<number> {
@@ -163,11 +163,5 @@ export async function updateCharacter(
 }
 
 export async function deleteCharacter(id: number): Promise<void> {
-  const now = Date.now()
-  await db.characters.update(id, {
-    deleted: true,
-    ...pendingStamp(now),
-  })
-
-  await logOperation(TABLE, id, 'deleted', 'false', 'true')
+  await softDelete(db.characters, id, TABLE)
 }

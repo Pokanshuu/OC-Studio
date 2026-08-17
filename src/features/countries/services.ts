@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 import { logOperation, pendingStamp } from '@/lib/sync'
+import { listActive, getById, softDelete } from '@/lib/repository'
 import { updateReferencesAfterRename, syncReferenceLabels } from '@/lib/reference-sync'
 import type { Country } from '@/types'
 import type { CountryFormData } from './types'
@@ -27,12 +28,11 @@ function buildDefaultCountry(data: CountryFormData, overrides: Partial<Country> 
 }
 
 export async function getCountries(): Promise<Country[]> {
-  const all = await db.countries.orderBy('name').toArray()
-  return all.filter((c) => !c.deleted)
+  return listActive(db.countries, 'name')
 }
 
 export async function getCountry(id: number): Promise<Country | undefined> {
-  return db.countries.get(id)
+  return getById(db.countries, id)
 }
 
 export async function createCountry(data: CountryFormData): Promise<number> {
@@ -104,11 +104,5 @@ export async function updateCountry(id: number, data: Partial<CountryFormData>):
 }
 
 export async function deleteCountry(id: number): Promise<void> {
-  const now = Date.now()
-  await db.countries.update(id, {
-    deleted: true,
-    ...pendingStamp(now),
-  })
-
-  await logOperation(TABLE, id, 'deleted', 'false', 'true')
+  await softDelete(db.countries, id, TABLE)
 }

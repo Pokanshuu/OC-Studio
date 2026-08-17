@@ -109,7 +109,8 @@ npx tauri build   # Tauri 打包 (.exe/.msi)
 
 ## 已知差异（技术债，待后续修复）
 - `lib/ai/context-builder.ts` 已实现（`buildEntityContext` / `buildProjectContext`），但尚未接线到业务调用（仅 `EventEditor` 直接调 `chatCompletion`）
-- 桌面端与移动端折叠/展开图标统一规则需同步到 RelationGraph 的 Controls 组件（当前使用 @xyflow/react 默认图标）
+- ~~RelationGraph Controls 图标~~：核查后 RelationGraph 已使用自定义 lucide 控件（非 @xyflow/react 默认 Controls），此项已过时
+- `Event.deleted` 类型为 `number` (0/1)，其他实体为 `boolean` — 待统一（见 todo.md `id?: number` 精确类型项）
 
 ## 待办与改进清单
 - 详见 `todo.md`（界面交互设计建议 / 技术重构 / 已知技术债，按 P0–P3 优先级维护）

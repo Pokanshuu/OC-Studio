@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 import { logOperation, pendingStamp } from '@/lib/sync'
+import { listActive, getById, softDelete } from '@/lib/repository'
 import { updateReferencesAfterRename, syncReferenceLabels } from '@/lib/reference-sync'
 import type { WorldEntry } from '@/types'
 import type { WorldFormData } from './types'
@@ -26,12 +27,11 @@ function buildDefaultEntry(data: WorldFormData, overrides: Partial<WorldEntry> =
 }
 
 export async function getEntries(): Promise<WorldEntry[]> {
-  const all = await db.worldEntries.orderBy('title').toArray()
-  return all.filter((e) => !e.deleted)
+  return listActive(db.worldEntries, 'title')
 }
 
 export async function getEntry(id: number): Promise<WorldEntry | undefined> {
-  return db.worldEntries.get(id)
+  return getById(db.worldEntries, id)
 }
 
 export async function createEntry(data: WorldFormData): Promise<number> {
@@ -81,9 +81,7 @@ export async function updateEntry(id: number, data: Partial<WorldFormData>): Pro
 }
 
 export async function deleteEntry(id: number): Promise<void> {
-  const now = Date.now()
-  await db.worldEntries.update(id, { deleted: true, ...pendingStamp(now) })
-  await logOperation(TABLE, id, 'deleted', 'false', 'true')
+  await softDelete(db.worldEntries, id, TABLE)
 }
 
 export async function saveEntryContent(
