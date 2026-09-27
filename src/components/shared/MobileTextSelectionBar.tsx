@@ -543,14 +543,16 @@ export function MobileTextSelectionBar() {
       cancelAnimationFrame(rafRef.current)
       rafRef.current = requestAnimationFrame(recalcPosition)
     }
-    const scroller = document.querySelector('.section-fade')
-    scroller?.addEventListener('scroll', update, { passive: true })
+    // 每个 section（角色/事件/国家/世界观…）各有一个独立的 .section-fade 滚动容器，
+    // 因此不能用 querySelector('.section-fade') 写死第一个（那样只有事件页会跟随滚动）。
+    // 滚动事件不冒泡，但在捕获阶段会经过 document —— 用捕获监听覆盖当前所有滚动容器。
+    document.addEventListener('scroll', update, { capture: true, passive: true })
     window.addEventListener('resize', update)
     window.visualViewport?.addEventListener('resize', update)
     window.visualViewport?.addEventListener('scroll', update)
     return () => {
       cancelAnimationFrame(rafRef.current)
-      scroller?.removeEventListener('scroll', update)
+      document.removeEventListener('scroll', update, { capture: true })
       window.removeEventListener('resize', update)
       window.visualViewport?.removeEventListener('resize', update)
       window.visualViewport?.removeEventListener('scroll', update)

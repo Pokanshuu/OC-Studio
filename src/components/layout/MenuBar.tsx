@@ -279,7 +279,7 @@ export function MenuBar() {
     >
       <div className="flex items-center gap-4">
         <span className="font-serif text-sm text-ink transparent-text">OC Studio</span>
-        <div className="hidden sm:flex sm:items-center sm:gap-1">
+        <div className="hidden md:flex md:items-center md:gap-1">
           <DropdownMenu open={openMenu === 'file'} onOpenChange={(o) => { if (o) setOpen('file'); else if (openMenuRef.current === 'file') setOpen(null) }}>
             <span data-menu-trigger="file">
               <DropdownMenuTrigger>文件</DropdownMenuTrigger>
