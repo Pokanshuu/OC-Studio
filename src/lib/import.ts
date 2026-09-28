@@ -12,6 +12,7 @@ interface ImportPayload {
     worldEntries: unknown[]
     tags: unknown[]
     periods?: unknown[]
+    meta?: unknown[]
   }
 }
 
@@ -165,10 +166,12 @@ export async function importData(
   // 旧备份可能不含 periods，向后兼容按空数组处理
   const periods = records.periods ?? []
   records.periods = periods
+  // 项目元信息为单例，旧备份同样可能缺失
+  const metaRecords = Array.isArray(records.meta) ? records.meta : []
 
   const result = await db.transaction(
     'rw',
-    [db.characters, db.events, db.countries, db.worldEntries, db.tags, db.periods],
+    [db.characters, db.events, db.countries, db.worldEntries, db.tags, db.periods, db.meta],
     async () => {
       if (strategy === 'replace') {
         await db.characters.clear()
@@ -177,6 +180,7 @@ export async function importData(
         await db.worldEntries.clear()
         await db.tags.clear()
         await db.periods.clear()
+        await db.meta.clear()
 
         await Promise.all([
           records.characters.length > 0
@@ -197,9 +201,12 @@ export async function importData(
           periods.length > 0
             ? db.periods.bulkAdd(periods as never[])
             : Promise.resolve(),
+          metaRecords.length > 0
+            ? db.meta.bulkAdd(metaRecords as never[])
+            : Promise.resolve(),
         ])
 
-        const total = records.characters.length + records.events.length + records.countries.length + records.worldEntries.length + records.tags.length + periods.length
+        const total = records.characters.length + records.events.length + records.countries.length + records.worldEntries.length + records.tags.length + periods.length + metaRecords.length
         return { added: total, skipped: 0, overwritten: 0 }
       }
 
@@ -213,6 +220,14 @@ export async function importData(
         totalAdded += result.added
         totalSkipped += result.skipped
         totalOverwritten += result.overwritten
+      }
+
+      // 项目元信息为单例：直接覆盖本地
+      if (metaRecords.length > 0) {
+        const hadMeta = (await db.meta.get(1)) !== undefined
+        await db.meta.put(metaRecords[0] as never)
+        if (hadMeta) totalOverwritten += 1
+        else totalAdded += 1
       }
 
       return { added: totalAdded, skipped: totalSkipped, overwritten: totalOverwritten }

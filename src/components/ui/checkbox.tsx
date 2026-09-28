@@ -18,7 +18,7 @@ export function Checkbox({ id, checked, onCheckedChange, className }: CheckboxPr
       aria-checked={checked}
       onClick={() => onCheckedChange(!checked)}
       className={cn(
-        'inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] border transition-colors',
+        'inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-none border transition-colors',
         checked ? 'border-line-hover bg-paper-card' : 'border-line bg-paper-card',
         className,
       )}

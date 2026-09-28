@@ -105,7 +105,7 @@ export function MobileSearchOverlay({ open, onClose }: { open: boolean; onClose:
             ) : (
               <div className="space-y-4">
                 {results.map((group) => (
-                  <div key={group.type} className="bg-paper-card dark:bg-[#2D2B28] border border-line rounded-md overflow-hidden">
+                  <div key={group.type} className="overflow-hidden border border-line bg-paper-card dark:bg-[#2D2B28]">
                     <div className="px-3 py-1.5 text-xs font-medium text-ink-faint border-b border-line">
                       {group.label}
                     </div>
@@ -119,7 +119,7 @@ export function MobileSearchOverlay({ open, onClose }: { open: boolean; onClose:
                               e.stopPropagation()
                               handleSelect(entity)
                             }}
-                            className="flex w-full items-center gap-3 px-3 py-3 text-left active:bg-black/8 dark:active:bg-white/8 transition-colors text-ink"
+                            className="flex w-full items-center gap-3 px-3 py-3 text-left text-ink transition-colors active:bg-[var(--oc-hover)]"
                           >
                             {entity.type === 'character' ? (
                               <Avatar src={getImageUrl(entity.avatarUrl, 'avatar')} size="sm" />
@@ -163,7 +163,7 @@ export function MobileSearchOverlay({ open, onClose }: { open: boolean; onClose:
         />
         <button
           onClick={() => setQuery('')}
-          className={`shrink-0 flex h-9 w-9 items-center justify-center rounded-lg hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8 text-ink-faint ${query ? '' : 'invisible'}`}
+          className={`flex h-8 w-8 shrink-0 items-center justify-center text-ink-faint hover:bg-[var(--oc-hover)] ${query ? '' : 'invisible'}`}
           aria-label="清除"
           tabIndex={query ? 0 : -1}
         >

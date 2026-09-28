@@ -211,7 +211,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         <SettingsDialog
           open={settingsOpen}
           onOpenChange={setSettingsOpen}
-          defaultTab={settingsTab}
+          tab={settingsTab}
+          onTabChange={setSettingsTab}
         />
       </SettingsTriggerContext.Provider>
     </GlobalContextMenu>

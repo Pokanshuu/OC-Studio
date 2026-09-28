@@ -30,6 +30,7 @@ import { CountryList } from '@/features/countries/components/CountryList'
 import { CountryEditor } from '@/features/countries/components/CountryEditor'
 import { useCreateCountry, useDeleteCountry } from '@/features/countries/hooks/useCountries'
 import { WorldLayout } from '@/features/world/components/WorldLayout'
+import { Dashboard } from '@/features/dashboard'
 import { TimelineView } from '@/features/timeline/components/TimelineView'
 import { GlobalAlbum } from '@/components/shared/GlobalAlbum'
 const RelationGraph = dynamic(
@@ -723,11 +724,18 @@ export default function Home() {
 
       <div
         data-visible={(showPlaceholder || activeItem === null) ? "true" : "false"}
-        className="h-full section-fade flex items-center justify-center max-md:pt-[calc(60px+var(--safe-top))] max-md:pb-[calc(60px+var(--safe-bottom))]"
+        className="h-full section-fade overflow-y-auto max-md:pt-[calc(60px+var(--safe-top))] max-md:pb-[calc(60px+var(--safe-bottom))]"
       >
-        <p className="text-ink-muted text-sm font-serif">
-          {showPlaceholder ? placeholderText : '欢迎使用 OC Studio'}
-        </p>
+        {showPlaceholder ? (
+          <div className="flex h-full items-center justify-center">
+            <p className="font-serif text-sm text-ink-faint">{placeholderText}</p>
+          </div>
+        ) : (
+          <Dashboard
+            onNavigate={handleRelatedItemNavigate}
+            onOpenSection={(item) => setActiveItem(item)}
+          />
+        )}
       </div>
 
       <AlertDialog
@@ -746,6 +754,7 @@ export default function Home() {
           <AlertDialogFooter>
             <AlertDialogCancel>继续编辑</AlertDialogCancel>
             <AlertDialogAction
+              className="bg-ink text-paper hover:bg-ink"
               onClick={() => {
                 leaveConfirm.onConfirm?.()
                 setLeaveConfirm({ open: false, onConfirm: null })

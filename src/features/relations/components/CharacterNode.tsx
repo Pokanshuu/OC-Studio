@@ -5,9 +5,7 @@ import { Avatar } from '@/components/shared/Avatar'
 import { getImageUrl } from '@/lib/image-service'
 
 export function CharacterNode({ data }: NodeProps) {
-  const qAvatarUrl = data.qAvatarUrl as string | undefined
-  const avatarUrl = data.avatarUrl as string | undefined
-  const src = qAvatarUrl || avatarUrl
+  const src = data.avatarUrl as string | undefined
 
   return (
     <>

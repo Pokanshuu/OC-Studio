@@ -115,14 +115,14 @@ function ImageBlockView({ node, updateAttributes, deleteNode }: ReactNodeViewPro
         <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
           <button
             onClick={() => setCropping(true)}
-            className="flex h-7 w-7 items-center justify-center rounded-full bg-black/40 text-white/80 hover:bg-black/60"
+            className="flex h-7 w-7 items-center justify-center bg-black/40 text-white/80 hover:bg-black/60"
             title="裁剪"
           >
             <Crop size={14} strokeWidth={2} />
           </button>
           <button
             onClick={() => deleteNode()}
-            className="flex h-7 w-7 items-center justify-center rounded-full bg-black/40 text-white/80 hover:bg-black/60"
+            className="flex h-7 w-7 items-center justify-center bg-black/40 text-white/80 hover:bg-black/60"
             title="删除"
           >
             <ImageIcon size={14} strokeWidth={2} />

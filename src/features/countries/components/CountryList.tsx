@@ -21,10 +21,10 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Avatar } from '@/components/shared/Avatar'
 import { getImageUrl, resolveImageUrl } from '@/lib/image-service'
-import { Separator } from '@/components/ui/separator'
 import { useCountryList } from '../hooks/useCountries'
 import { SortViewControls, SortSelect } from '@/components/shared/SortViewControls'
 import type { SortOption, ViewMode } from '@/components/shared/SortViewControls'
+import { PAGE_TITLE } from '@/lib/ui-tokens'
 import { useDevice } from '@/lib/use-device'
 import { MobileFilterBar } from '@/components/layout/MobileFilterBar'
 import { MobileFab } from '@/components/layout/MobileFab'
@@ -88,7 +88,7 @@ function CountryRow({
       tabIndex={0}
       onClick={() => onSelect(country.id as number)}
       onKeyDown={handleKeyDown}
-      className="group relative flex w-full cursor-pointer items-center gap-3 rounded-md px-4 py-3 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8"
+      className="group relative flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--oc-hover)] active:bg-[var(--oc-hover)]"
       {...longPress}
     >
       <Avatar src={getImageUrl(country.flagUrl, 'flag')} size="md" type="flag" />
@@ -131,19 +131,26 @@ function CountryCard({
     <div className="relative group touch-feedback" {...longPress}>
       <button
         onClick={() => onSelect(country.id as number)}
-        className="flex w-full flex-col rounded-md border border-line bg-paper-card overflow-hidden text-left transition-shadow hover:shadow-[0_1px_3px_rgba(0,0,0,0.03)]"
+        className="flex w-full flex-col overflow-hidden bg-paper-card text-left transition-colors hover:bg-line"
       >
-        {country.headerUrl ? (
-          <div className="relative w-full aspect-[3/2] bg-paper-card">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={resolveImageUrl(country.headerUrl, 'header')}
-              alt=""
-              className="absolute inset-0 w-full h-full object-cover"
-            />
-          </div>
-        ) : null}
-        <div className="flex items-start gap-3 p-3">
+        <div className="relative aspect-[3/2] w-full bg-paper-card">
+          {country.headerUrl ? (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={resolveImageUrl(country.headerUrl, 'header')}
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-paper-card to-transparent" />
+            </>
+          ) : (
+            <div className="absolute inset-0 grid place-items-center font-serif text-2xl text-ink-faint">
+              {country.name.slice(0, 1)}
+            </div>
+          )}
+        </div>
+        <div className="flex items-start gap-3 p-2.5">
           <Avatar src={country.flagUrl} size="md" type="flag" className="shrink-0" />
           <div className="flex flex-col min-w-0 gap-0.5">
             <h3 className="text-sm font-medium text-ink truncate">{country.name}</h3>
@@ -219,7 +226,7 @@ export function CountryList({
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <span className="text-sm text-ink-muted">加载中...</span>
+        <span className="text-[13px] text-ink-faint">加载中…</span>
       </div>
     )
   }
@@ -240,10 +247,9 @@ export function CountryList({
 
   return (
     <div className="flex flex-col min-h-full">
-      <div className="max-md:hidden flex items-center justify-between sticky top-0 z-10 border-b border-line px-6 py-3 h-[60px] bg-paper/85 dark:bg-[#1C1B1A]/85 backdrop-blur-lg">
-        <div className="flex items-center gap-3">
-          <h2 className="text-lg text-ink font-serif font-bold">国家</h2>
-          <Separator orientation="vertical" className="max-md:hidden md:flex h-4 !self-center" />
+      <div className="max-md:hidden flex items-center justify-between sticky top-0 z-10 h-12 border-b border-line px-6 bg-paper/85 dark:bg-[#1C1B1A]/85 backdrop-blur-lg">
+        <div className="flex items-center gap-4">
+          <h2 className={PAGE_TITLE}>国家</h2>
           <div className="relative max-md:hidden md:block">
             <Search
               size={16}
@@ -255,10 +261,9 @@ export function CountryList({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="搜索国家..."
-              className="h-9 w-48 rounded border border-line bg-paper-card/60 pl-9 pr-3 text-sm text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none focus:bg-paper-card/80"
+              className="h-8 w-44 border-b border-transparent bg-transparent pl-8 pr-2 text-[13px] text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none"
             />
           </div>
-          <Separator orientation="vertical" className="max-md:hidden md:flex h-4 !self-center" />
           <SortViewControls
             sortKey={sortKey}
             onSortChange={(key) => setSortKey(key as CountrySortKey)}
@@ -269,7 +274,7 @@ export function CountryList({
         </div>
         <button
           onClick={onCreateCountry}
-          className="touch-feedback flex h-9 items-center gap-1.5 rounded border border-line bg-paper-card/60 px-3 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
+          className="touch-feedback flex h-8 items-center gap-1.5 bg-ink px-3 text-[13px] text-paper transition-opacity hover:bg-ink hover:opacity-85"
         >
           <Plus size={16} strokeWidth={2} />
           <span>新建国家</span>
@@ -284,7 +289,7 @@ export function CountryList({
         />
         <button
           onClick={onCreateCountry}
-          className="touch-feedback flex h-7 items-center gap-1 rounded border border-line bg-paper-card/60 px-2.5 text-[11px] text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
+          className="touch-feedback flex items-center gap-1 bg-paper/85 px-2 py-1 text-[11px] text-ink-muted backdrop-blur transition-colors hover:text-ink"
         >
           <Plus size={14} strokeWidth={2} />
           <span>新建</span>
@@ -298,13 +303,13 @@ export function CountryList({
           <div className="flex-1 flex items-center justify-center">
             <button
               onClick={onCreateCountry}
-              className="text-sm text-ink-muted transition-colors hover:text-ink"
+              className="font-serif text-sm text-ink-faint transition-colors hover:text-ink"
             >
               暂无国家，点击创建第一个
             </button>
           </div>
         ) : viewMode === 'grid' ? (
-          <div className="columns-2 sm:columns-3 xl:columns-4 2xl:columns-5 gap-4">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
             {filtered.map((country) => (
               <div key={country.id} className="[break-inside:avoid] mb-4">
                 <CountryCard

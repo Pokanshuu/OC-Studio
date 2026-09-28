@@ -69,7 +69,7 @@ function createMentionRender() {
       currentCommand = props.command
       selectedIndex = 0
       popup = document.createElement('div')
-      popup.className = 'pointer-events-auto fixed z-50 max-h-56 overflow-auto rounded-md border border-line bg-paper/85 dark:bg-paper/85 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 min-w-[200px]'
+      popup.className = 'pointer-events-auto fixed z-50 max-h-56 overflow-auto border border-line bg-paper/85 p-1 shadow-none backdrop-blur-lg min-w-[200px] dark:bg-paper/85'
       const rect = props.clientRect()
       if (rect) {
         popup.style.left = `${rect.left}px`
@@ -174,7 +174,7 @@ function renderMentionGroups(
       globalIdx++
       const btn = document.createElement('button')
       btn.type = 'button'
-      btn.className = `flex w-full items-center gap-2 rounded-sm px-3 py-1.5 text-left text-sm transition-colors hover:bg-black/5 dark:hover:bg-white/5 ${isSelected ? 'bg-black/5 dark:bg-white/5 text-ink' : 'text-ink'}`
+      btn.className = `flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[13px] transition-colors hover:bg-[var(--oc-hover)] ${isSelected ? 'bg-[var(--oc-hover)] text-ink' : 'text-ink'}`
 
       if (item.type === 'character' || item.type === 'country') {
         const avatarType = item.type === 'country' ? 'flag' : 'avatar'
@@ -227,7 +227,7 @@ function BubbleMenuButtons({ editor }: { editor: Editor }) {
 
   const base = 'flex h-8 w-8 items-center justify-center rounded transition-colors'
   const active = 'bg-black/10 dark:bg-white/10 text-ink'
-  const inactive = 'text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-ink'
+  const inactive = 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
 
   return (
     <>
@@ -907,7 +907,7 @@ export function EditorCore({
               ),
             }
           }}
-          className="flex gap-0.5 rounded-md border border-line bg-paper/85 dark:bg-paper/85 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 z-20 context-menu-fade context-menu-visible"
+          className="flex gap-0.5 border border-line bg-paper/85 p-1 shadow-none backdrop-blur-lg z-20 context-menu-fade context-menu-visible dark:bg-paper/85"
         >
           <BubbleMenuButtons editor={editor} />
         </BubbleMenu>
@@ -941,7 +941,7 @@ export function EditorCore({
               editor.chain().focus().run()
               setMobileBlockMenuOpen(!mobileBlockMenuOpen)
             })}
-            className="touch-feedback h-9 px-3 rounded flex items-center gap-1 bg-black/5 dark:bg-white/5 border border-line text-sm text-ink shrink-0"
+            className="touch-feedback flex h-8 shrink-0 items-center gap-1 px-2.5 text-[13px] text-ink-muted"
           >
             <Pilcrow size={14} strokeWidth={2} />
             <ChevronDown size={14} strokeWidth={2} />
@@ -949,35 +949,35 @@ export function EditorCore({
           <button
             type="button"
             onPointerDown={(e) => handleToolbarPointerDown(e, () => editor?.chain().focus().toggleBold().run())}
-            className={`touch-feedback h-9 w-9 flex items-center justify-center rounded border border-line shrink-0 ${editor?.isActive('bold') ? 'bg-black/15 dark:bg-white/30' : 'bg-black/5 dark:bg-white/5'}`}
+            className={`touch-feedback flex h-8 w-8 shrink-0 items-center justify-center transition-colors ${editor?.isActive('bold') ? 'bg-ink text-paper' : 'text-ink-muted'}`}
           >
             <Bold size={16} strokeWidth={2} />
           </button>
           <button
             type="button"
             onPointerDown={(e) => handleToolbarPointerDown(e, () => editor?.chain().focus().toggleItalic().run())}
-            className={`touch-feedback h-9 w-9 flex items-center justify-center rounded border border-line shrink-0 ${editor?.isActive('italic') ? 'bg-black/15 dark:bg-white/30' : 'bg-black/5 dark:bg-white/5'}`}
+            className={`touch-feedback flex h-8 w-8 shrink-0 items-center justify-center transition-colors ${editor?.isActive('italic') ? 'bg-ink text-paper' : 'text-ink-muted'}`}
           >
             <Italic size={16} strokeWidth={2} />
           </button>
           <button
             type="button"
             onPointerDown={(e) => handleToolbarPointerDown(e, () => editor?.chain().focus().toggleUnderline().run())}
-            className={`touch-feedback h-9 w-9 flex items-center justify-center rounded border border-line shrink-0 ${editor?.isActive('underline') ? 'bg-black/15 dark:bg-white/30' : 'bg-black/5 dark:bg-white/5'}`}
+            className={`touch-feedback flex h-8 w-8 shrink-0 items-center justify-center transition-colors ${editor?.isActive('underline') ? 'bg-ink text-paper' : 'text-ink-muted'}`}
           >
             <UnderlineIcon size={16} strokeWidth={2} />
           </button>
           <button
             type="button"
             onPointerDown={(e) => handleToolbarPointerDown(e, () => editor?.chain().focus().insertContent(' @').run())}
-            className={`touch-feedback h-9 w-9 flex items-center justify-center rounded border border-line shrink-0 ${editor?.isActive('mention') ? 'bg-black/15 dark:bg-white/30' : 'bg-black/5 dark:bg-white/5'}`}
+            className={`touch-feedback flex h-8 w-8 shrink-0 items-center justify-center transition-colors ${editor?.isActive('mention') ? 'bg-ink text-paper' : 'text-ink-muted'}`}
           >
             <AtSign size={16} strokeWidth={2} />
           </button>
           <button
             type="button"
             onPointerDown={(e) => handleToolbarPointerDown(e, () => editor?.chain().focus().insertContent(' [[').run())}
-            className="touch-feedback h-9 w-9 flex items-center justify-center rounded border border-line shrink-0 bg-black/5 dark:bg-white/5"
+            className="touch-feedback flex h-8 w-8 shrink-0 items-center justify-center text-ink-muted transition-colors"
           >
             <Link2 size={16} strokeWidth={2} />
           </button>
@@ -985,7 +985,7 @@ export function EditorCore({
             type="button"
             onPointerDown={(e) => handleToolbarPointerDown(e, () => editor?.chain().focus().undo().run())}
             disabled={!editor?.can().undo()}
-            className="h-9 w-9 flex items-center justify-center rounded shrink-0 ml-auto text-ink-muted active:bg-black/8 dark:active:bg-white/8 disabled:opacity-30"
+            className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center text-ink-muted transition-colors active:bg-[var(--oc-hover)] disabled:opacity-30"
           >
             <Undo2 size={16} strokeWidth={2} />
           </button>
@@ -993,7 +993,7 @@ export function EditorCore({
             type="button"
             onPointerDown={(e) => handleToolbarPointerDown(e, () => editor?.chain().focus().redo().run())}
             disabled={!editor?.can().redo()}
-            className="h-9 w-9 flex items-center justify-center rounded shrink-0 text-ink-muted active:bg-black/8 dark:active:bg-white/8 disabled:opacity-30"
+            className="flex h-8 w-8 shrink-0 items-center justify-center text-ink-muted transition-colors active:bg-[var(--oc-hover)] disabled:opacity-30"
           >
             <Redo2 size={16} strokeWidth={2} />
           </button>
@@ -1024,7 +1024,7 @@ export function EditorCore({
                   key={item.label}
                   type="button"
                   onPointerDown={(e) => handleToolbarPointerDown(e, () => { item.action(); setMobileBlockMenuOpen(false) })}
-                  className={`touch-feedback flex items-center gap-1.5 rounded border border-line px-3 py-2 text-sm transition-colors ${item.active() ? 'bg-black/15 dark:bg-white/30 text-ink' : 'bg-black/5 dark:bg-white/5 text-ink-muted'}`}
+                  className={`touch-feedback flex items-center gap-1.5 px-2.5 py-1.5 text-[13px] transition-colors ${item.active() ? 'bg-ink text-paper' : 'text-ink-muted'}`}
                 >
                   {item.icon}
                   {item.label}

@@ -86,7 +86,7 @@ function renderItems(
   items.forEach((item, index) => {
     const btn = document.createElement('button')
     btn.type = 'button'
-    btn.className = `flex w-full items-center rounded-sm px-3 py-1.5 text-left text-sm transition-colors hover:bg-black/5 dark:hover:bg-white/5 ${
+    btn.className = `flex w-full items-center px-2.5 py-1.5 text-left text-[13px] transition-colors hover:bg-[var(--oc-hover)] ${
       index === selected ? 'bg-black/5 dark:bg-white/5 text-ink' : 'text-ink'
     }`
     btn.textContent = item.title
@@ -134,7 +134,7 @@ export const SlashCommand = Extension.create({
 
             popup = document.createElement('div')
             popup.className =
-              'pointer-events-auto fixed z-50 max-h-[60vh] overflow-auto rounded-md border border-line bg-paper/85 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 min-w-[180px]'
+              'pointer-events-auto fixed z-50 max-h-[60vh] overflow-auto border border-line bg-paper/85 p-1 shadow-none backdrop-blur-lg min-w-[180px]'
 
             const rect = props.clientRect?.()
             if (rect) {

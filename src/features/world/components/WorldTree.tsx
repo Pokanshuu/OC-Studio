@@ -162,7 +162,7 @@ function InlineEditInput({
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') onCancel() }}
         onBlur={commit}
-        className="flex-1 min-w-0 bg-paper-card border border-line text-sm text-ink rounded px-1.5 py-0.5 focus:outline-none focus:border-line-hover"
+        className="min-w-0 flex-1 border-b border-line bg-transparent px-0 py-0.5 text-[13px] text-ink focus:border-line-hover focus:outline-none"
       />
     </div>
   )
@@ -260,12 +260,12 @@ function SortableTreeItem({
     <div ref={setNodeRef} style={style}>
       <ContextMenu items={treeContextMenuItems}>
       <div
-        className={`group flex items-center gap-1 rounded-md py-1 transition-colors cursor-pointer ${
+        className={`group flex items-center gap-0.5 py-1 text-[13px] transition-colors cursor-pointer ${
           isSelected
-            ? 'bg-paper-card text-ink active:bg-black/8 dark:active:bg-white/8'
-            : 'text-ink-muted hover:bg-paper-card hover:text-ink active:bg-black/8 dark:active:bg-white/8'
+            ? 'bg-[var(--oc-hover)] text-ink'
+            : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
         }`}
-        style={{ paddingLeft: `${depth * 16 + 8}px` }}
+        style={{ paddingLeft: `${depth * 12 + 6}px` }}
         onClick={handleRowClick}
         {...longPress}
       >
@@ -273,21 +273,21 @@ function SortableTreeItem({
           <span
             {...attributes}
             {...listeners}
-            className="flex h-5 w-5 shrink-0 items-center justify-center cursor-grab text-ink-faint opacity-100 md:opacity-0 md:group-hover:opacity-100 md:transition-opacity"
+            className="flex h-4 w-4 shrink-0 items-center justify-center cursor-grab text-ink-faint opacity-100 md:opacity-0 md:group-hover:opacity-100 md:transition-opacity"
           >
-            <GripVertical size={12} strokeWidth={2} />
+            <GripVertical size={11} strokeWidth={2} />
           </span>
         ) : null}
 
         {hasChildren ? (
           <button
             onClick={(e) => { e.stopPropagation(); toggleExpand(entryId) }}
-            className="flex h-5 w-5 shrink-0 items-center justify-center text-ink-faint"
+            className="flex h-4 w-4 shrink-0 items-center justify-center text-ink-faint"
           >
-            {isExpanded ? <ChevronDown size={14} strokeWidth={2} /> : <ChevronRight size={14} strokeWidth={2} />}
+            {isExpanded ? <ChevronDown size={13} strokeWidth={2} /> : <ChevronRight size={13} strokeWidth={2} />}
           </button>
         ) : (
-          <span className="w-5 shrink-0" />
+          <span className="w-4 shrink-0" />
         )}
 
         {isEditing ? (
@@ -298,7 +298,7 @@ function SortableTreeItem({
           />
         ) : (
           <span
-            className="flex-1 truncate text-sm"
+            className="flex-1 truncate pl-0.5 text-[13px]"
             onDoubleClick={handleRenameClick}
             title="双击重命名"
           >
@@ -400,7 +400,7 @@ export function WorldTree({
       const draggedParent = parentMap.get(draggedId) ?? null
       const overParent = parentMap.get(overId) ?? null
 
-      const INDENT_THRESHOLD = 20
+      const INDENT_THRESHOLD = 16
       let newParentId: number | null = overParent
 
       if (delta.x > INDENT_THRESHOLD) {
@@ -418,14 +418,14 @@ export function WorldTree({
   )
 
   return (
-    <div className="flex h-full flex-col border-r border-line bg-paper-alt">
+    <div className="flex h-full flex-col">
       {tree.length === 0 ? (
         <div className="flex flex-1 items-center justify-center px-4">
           <div className="text-center">
             <p className="text-xs text-ink-faint mb-2">暂无词条</p>
             <button
               onClick={() => onCreate(null, '新词条')}
-              className="touch-feedback flex items-center gap-1 mx-auto rounded border border-line bg-paper-card px-3 py-1.5 text-sm text-ink-muted hover:text-ink hover:border-line-hover transition-colors"
+              className="touch-feedback mx-auto flex items-center gap-1 px-3 py-1.5 text-[13px] text-ink-muted transition-colors hover:text-ink"
             >
               <Plus size={14} strokeWidth={2} />
               <span>创建词条</span>

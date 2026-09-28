@@ -3,24 +3,29 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { Plus, X, Trash2 } from 'lucide-react'
 import { useTags, useTagMutations } from '../hooks/useTags'
-import { TagBadge } from './TagBadge'
 import { useDevice } from '@/lib/use-device'
 import { useKeyboard } from '@/lib/KeyboardContext'
 import { useLongPress } from '@/lib/useLongPress'
 import { MobileActionSheet } from '@/components/shared/MobileActionSheet'
+import { MENU } from '@/lib/ui-tokens'
 import type { Tag } from '@/types'
 
 const DEFAULT_COLORS = ['#4ECDC4', '#45B7D1', '#FF6B6B', '#96CEB4', '#DDA0DD', '#F7DC6F', '#BB8FCE', '#85C1E9']
 
-function TagRow({ tag, onAdd, onDelete, onLongPress, isMobile }: {
+/** 方形 chip，与 RelatedItemsSelector 的 chip 同一套尺寸（12px / py-[3px]） */
+const CHIP_BASE = 'px-2 py-[3px] text-[12px] transition-colors'
+const CHIP_ON = `${CHIP_BASE} bg-ink text-paper`
+const CHIP_OFF = `${CHIP_BASE} bg-paper-alt text-ink-muted hover:bg-paper-card hover:text-ink`
+
+/** 单个标签 chip：点击切换选中；移动端长按弹出删除 */
+function TagChip({ tag, selected, onToggle, onLongPress, isMobile }: {
   tag: Tag
-  onAdd: (id: number) => void
-  onDelete: () => void
+  selected: boolean
+  onToggle: () => void
   onLongPress: () => void
   isMobile: boolean
 }) {
   const didLongPress = useRef(false)
-
   const longPress = useLongPress({
     onLongPress: () => {
       didLongPress.current = true
@@ -29,36 +34,21 @@ function TagRow({ tag, onAdd, onDelete, onLongPress, isMobile }: {
     enabled: isMobile,
   })
 
-  function handleClick() {
-    if (didLongPress.current) {
-      didLongPress.current = false
-      return
-    }
-    if (tag.id != null) onAdd(tag.id)
-  }
-
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onMouseDown={(e) => e.preventDefault()}
-      onClick={handleClick}
-      onKeyDown={(e) => { if (e.key === 'Enter' && tag.id != null) onAdd(tag.id) }}
-      className="flex w-full items-center gap-2 rounded-sm px-3 py-1.5 text-left text-sm text-ink hover:bg-black/5 dark:hover:bg-white/5 transition-colors group cursor-pointer"
+    <button
+      type="button"
+      onClick={() => {
+        if (didLongPress.current) {
+          didLongPress.current = false
+          return
+        }
+        onToggle()
+      }}
+      className={`${selected ? CHIP_ON : CHIP_OFF}`}
       {...longPress}
     >
-      <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: tag.color || '#999' }} />
-      <span className="flex-1">{tag.name}</span>
-      {!isMobile ? (
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); onDelete() }}
-          className="rounded-full p-0.5 transition-colors hover:text-error opacity-0 group-hover:opacity-100"
-        >
-          <X size={12} strokeWidth={2} />
-        </button>
-      ) : null}
-    </div>
+      {tag.name}
+    </button>
   )
 }
 
@@ -68,9 +58,9 @@ interface TagPickerProps {
 }
 
 export function TagPicker({ selectedIds, onChange }: TagPickerProps) {
-  const { tags, loading, refresh, optimisticAdd } = useTags()
+  const { tags, refresh, optimisticAdd } = useTags()
   const { createTag, deleteTag } = useTagMutations()
-  const [open, setOpen] = useState(false)
+  const [panelOpen, setPanelOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [creating, setCreating] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -80,7 +70,7 @@ export function TagPicker({ selectedIds, onChange }: TagPickerProps) {
   const [actionSheet, setActionSheet] = useState<{ open: boolean; tagId: number | null }>({ open: false, tagId: null })
 
   useEffect(() => {
-    if (!open) {
+    if (!panelOpen) {
       setQuery('')
       return
     }
@@ -88,7 +78,7 @@ export function TagPicker({ selectedIds, onChange }: TagPickerProps) {
       const overlayRoot = document.getElementById('overlay-root')
       if (overlayRoot && overlayRoot.contains(e.target as Node)) return
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false)
+        setPanelOpen(false)
       }
     }
     const id = setTimeout(() => {
@@ -98,36 +88,28 @@ export function TagPicker({ selectedIds, onChange }: TagPickerProps) {
       clearTimeout(id)
       document.removeEventListener('click', handler)
     }
-  }, [open])
+  }, [panelOpen])
 
-  useEffect(() => {
-    if (open) {
-      setTimeout(() => searchInputRef.current?.focus(), 50)
-    }
-  }, [open])
-
-  const selectedTags = tags.filter((t) => selectedIds.includes(t.id!))
-
-  const availableTags = useMemo(() => {
+  const candidates = useMemo(() => {
     const unselected = tags.filter((t) => !selectedIds.includes(t.id!))
     if (!query.trim()) return unselected
     const q = query.trim().toLowerCase()
     return unselected.filter((t) => t.name.toLowerCase().includes(q))
   }, [tags, selectedIds, query])
 
+  const hasExactMatch = useMemo(
+    () => tags.some((t) => t.name.toLowerCase() === query.trim().toLowerCase()),
+    [tags, query],
+  )
+
   function addTag(id: number) {
     if (!selectedIds.includes(id)) {
       onChange([...selectedIds, id])
     }
-    setOpen(false)
   }
 
   function removeTag(id: number) {
     onChange(selectedIds.filter((i) => i !== id))
-  }
-
-  function handleAddClick() {
-    setOpen(true)
   }
 
   async function handleDeleteTag(id: number) {
@@ -152,7 +134,7 @@ export function TagPicker({ selectedIds, onChange }: TagPickerProps) {
       const id = await createTag({ name, category: '', color })
       optimisticAdd({ id, name, category: '', color })
       onChange([...selectedIds, id])
-      setOpen(false)
+      setQuery('')
       refresh()
     } finally {
       setCreating(false)
@@ -160,73 +142,93 @@ export function TagPicker({ selectedIds, onChange }: TagPickerProps) {
   }
 
   return (
-    <div ref={containerRef} className="space-y-2">
-      {selectedTags.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-1.5">
-          {selectedTags.map((tag) => (
-            <TagBadge
-              key={tag.id}
-              tag={tag}
-              onRemove={() => { if (tag.id != null) removeTag(tag.id) }}
-            />
-          ))}
+    <div ref={containerRef} className="relative">
+      <div className="flex flex-wrap items-center gap-1.5">
+        {/* 全部标签内联为方形 chip，选中的实心墨色 */}
+        {tags.map((tag) => (
+          <TagChip
+            key={tag.id}
+            tag={tag}
+            selected={tag.id != null && selectedIds.includes(tag.id)}
+            onToggle={() => {
+              if (tag.id == null) return
+              if (selectedIds.includes(tag.id)) removeTag(tag.id)
+              else addTag(tag.id)
+            }}
+            onLongPress={() => { if (tag.id != null) handleLongPress(tag.id) }}
+            isMobile={isMobile}
+          />
+        ))}
+
+        {/* 输入与「＋」合并为一个 chip */}
+        <div className="flex items-center gap-1 bg-paper-alt px-2 py-[3px] text-[12px] transition-colors focus-within:bg-paper-card">
+          <input
+            ref={searchInputRef}
+            type="text"
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value)
+              setPanelOpen(true)
+            }}
+            onFocus={() => setPanelOpen(true)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                void handleCreate()
+              }
+              if (e.key === 'Escape') {
+                setPanelOpen(false)
+                searchInputRef.current?.blur()
+              }
+            }}
+            placeholder="标签"
+            className="w-10 bg-transparent text-[12px] text-ink placeholder:text-ink-faint focus:outline-none"
+          />
+          <button
+            type="button"
+            onClick={handleCreate}
+            disabled={creating || !query.trim() || hasExactMatch}
+            title={hasExactMatch ? '已存在同名标签' : '新建标签'}
+            className="flex shrink-0 items-center text-ink-faint transition-colors hover:text-ink disabled:opacity-30"
+          >
+            <Plus size={12} strokeWidth={2} />
+          </button>
+        </div>
+      </div>
+
+      {panelOpen ? (
+        <div className={`absolute left-0 z-50 max-h-48 min-w-[180px] overflow-auto ${MENU} ${keyboardHeight > 0 ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
+          {candidates.length > 0 ? (
+            candidates.map((tag) => (
+              <div
+                key={tag.id}
+                role="button"
+                tabIndex={0}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => { if (tag.id != null) { addTag(tag.id); setQuery('') } }}
+                onKeyDown={(e) => { if (e.key === 'Enter' && tag.id != null) { addTag(tag.id); setQuery('') } }}
+                className="group flex w-full cursor-pointer items-center gap-2 px-2.5 py-1.5 text-left text-[13px] text-ink transition-colors hover:bg-[var(--oc-hover)]"
+              >
+                <span className="h-2.5 w-2.5 shrink-0" style={{ backgroundColor: tag.color || '#999' }} />
+                <span className="flex-1">{tag.name}</span>
+                {!isMobile ? (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); if (tag.id != null) void handleDeleteTag(tag.id) }}
+                    className="rounded-none p-0.5 opacity-0 transition-colors hover:text-error group-hover:opacity-100"
+                  >
+                    <X size={12} strokeWidth={2} />
+                  </button>
+                ) : null}
+              </div>
+            ))
+          ) : query.trim() ? (
+            <div className="px-2.5 py-2 text-[13px] text-ink-faint">按 Enter 新建「{query.trim()}」</div>
+          ) : (
+            <div className="px-2.5 py-2 text-[13px] text-ink-faint">没有更多标签</div>
+          )}
         </div>
       ) : null}
-
-      {open ? (
-        <div className="relative">
-          <div className="flex items-center gap-1 h-8 rounded border border-line bg-paper-card px-3 focus-within:border-line-hover transition-colors">
-            <input
-              ref={searchInputRef}
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') { e.preventDefault(); handleCreate() }
-                if (e.key === 'Escape') { setOpen(false) }
-              }}
-              placeholder="搜索或新建标签..."
-              className="flex-1 bg-transparent text-sm text-ink placeholder:text-ink-faint outline-none"
-            />
-            <button
-              onClick={handleCreate}
-              disabled={creating || !query.trim()}
-              className="flex items-center justify-center h-6 w-6 shrink-0 rounded text-ink-muted hover:text-ink disabled:opacity-30 transition-colors"
-            >
-              <Plus size={14} strokeWidth={2} />
-            </button>
-          </div>
-          <div className={`absolute left-0 z-50 w-full rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 max-h-48 overflow-auto ${keyboardHeight > 0 ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
-            {loading ? (
-              <div className="px-3 py-2 text-sm text-ink-muted">加载中...</div>
-            ) : availableTags.length > 0 ? (
-              availableTags.map((tag) => (
-                <TagRow
-                  key={tag.id}
-                  tag={tag}
-                  onAdd={addTag}
-                  onDelete={() => { if (tag.id != null) handleDeleteTag(tag.id) }}
-                  onLongPress={() => { if (tag.id != null) handleLongPress(tag.id) }}
-                  isMobile={isMobile}
-                />
-              ))
-            ) : query.trim() ? (
-              <div className="px-3 py-2 text-sm text-ink-faint">按 Enter 或点 + 新建</div>
-            ) : (
-              <div className="px-3 py-2 text-sm text-ink-faint">没有更多标签</div>
-            )}
-          </div>
-        </div>
-      ) : (
-        <button
-          type="button"
-          onClick={handleAddClick}
-          className="flex h-8 items-center gap-1 text-sm text-ink-muted transition-colors hover:text-ink"
-        >
-          <Plus size={16} strokeWidth={2} />
-          <span>添加</span>
-        </button>
-      )}
 
       <MobileActionSheet
         open={actionSheet.open}
@@ -239,7 +241,7 @@ export function TagPicker({ selectedIds, onChange }: TagPickerProps) {
             icon: <Trash2 size={18} strokeWidth={2} />,
             destructive: true,
             onPress: () => {
-              if (actionSheet.tagId != null) handleDeleteTag(actionSheet.tagId)
+              if (actionSheet.tagId != null) void handleDeleteTag(actionSheet.tagId)
             },
           },
         ]}

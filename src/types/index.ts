@@ -26,7 +26,6 @@ export interface Character {
   height: string
   birthday: string
   avatarUrl: string
-  qAvatarUrl?: string
   headerUrl?: string
   bio: string
   lifeStory: string
@@ -35,6 +34,8 @@ export interface Character {
   gallery: GalleryImage[]
   avatars: AvatarImage[]
   tags: number[]
+  /** 主要角色标记（用于概览与导出首页精选） */
+  isMajor?: boolean
   createdAt: number
   updatedAt: number
   deleted: boolean
@@ -146,6 +147,17 @@ export interface Period {
   _syncStatus?: string
   _lastModified?: number
   deleted?: boolean
+}
+
+/** 项目级元信息（单例记录，id 固定为 1）。用于应用标题与导出站点的标题/简介/封面。 */
+export interface ProjectMeta {
+  id?: number
+  worldName: string
+  tagline: string
+  coverUrl: string
+  updatedAt: number
+  _syncStatus?: string
+  _lastModified?: number
 }
 
 export const PERIOD_COLORS = [

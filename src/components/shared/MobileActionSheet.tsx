@@ -59,7 +59,7 @@ export function MobileActionSheet({ open, onClose, title, actions }: MobileActio
       <div
         ref={panelRef}
         data-action-sheet-panel
-        className="absolute bottom-0 left-0 right-0 z-10 bg-paper/85 backdrop-blur-lg rounded-t-xl transition-transform duration-250 ease-out"
+        className="absolute bottom-0 left-0 right-0 z-10 bg-paper/85 backdrop-blur-lg rounded-t-xl transition-transform duration-200 ease-out"
         style={{
           transform: visible ? 'translateY(0)' : 'translateY(100%)',
           paddingBottom: 'var(--safe-bottom, 0px)',
@@ -79,7 +79,7 @@ export function MobileActionSheet({ open, onClose, title, actions }: MobileActio
               onClose()
               item.onPress()
             }}
-            className={`touch-feedback flex w-full items-center gap-3 px-5 py-3 text-left rounded-lg hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/5 dark:active:bg-white/5 ${
+            className={`touch-feedback flex w-full items-center gap-3 px-5 py-3 text-left hover:bg-[var(--oc-hover)] ${
               item.destructive ? 'text-error' : 'text-ink'
             }`}
           >
@@ -92,7 +92,7 @@ export function MobileActionSheet({ open, onClose, title, actions }: MobileActio
 
         <button
           onClick={onClose}
-          className="touch-feedback w-full py-3 text-center text-sm font-medium text-ink-muted rounded-lg hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/5 dark:active:bg-white/5"
+          className="touch-feedback w-full py-3 text-center text-sm font-medium text-ink-muted hover:bg-[var(--oc-hover)]"
         >
           取消
         </button>

@@ -24,10 +24,6 @@ function makeAvatar(color: string): string {
   return svgUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><circle cx="100" cy="100" r="100" fill="${color}"/><circle cx="100" cy="76" r="30" fill="white" opacity="0.9"/><ellipse cx="100" cy="152" rx="50" ry="38" fill="white" opacity="0.9"/></svg>`)
 }
 
-function makeQAvatar(color: string): string {
-  return svgUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><circle cx="100" cy="100" r="96" fill="${color}" stroke="white" stroke-width="8"/><circle cx="100" cy="80" r="26" fill="white" opacity="0.85"/><path d="M60 118L140 118L148 180L52 180Z" fill="white" opacity="0.85"/></svg>`)
-}
-
 function makePortrait(color: string): string {
   return svgUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="120" height="240"><rect width="120" height="240" rx="6" fill="#F5F2ED"/><circle cx="60" cy="48" r="22" fill="${color}"/><path d="M36 78L84 78L90 148L30 148Z" fill="${color}"/><line x1="38" y1="148" x2="26" y2="210" stroke="${color}" stroke-width="5" stroke-linecap="round"/><line x1="82" y1="148" x2="94" y2="210" stroke="${color}" stroke-width="5" stroke-linecap="round"/></svg>`)
 }
@@ -54,7 +50,6 @@ function makeFlag(color: string): string {
 const COLOR_A = '#E8744B'
 
 const CHAR_A_AVATAR = makeAvatar(COLOR_A)
-const CHAR_A_QAVATAR = makeQAvatar(COLOR_A)
 const CHAR_A_PORTRAIT1 = makePortrait(COLOR_A)
 const CHAR_A_PORTRAIT2 = makePortrait('#C0603A')
 const CHAR_A_HEADER = makeHeader(COLOR_A, '#F0A880')
@@ -71,7 +66,6 @@ const CHAR_A_GALLERY = [
 const COLOR_B = '#6C5CE7'
 
 const CHAR_B_AVATAR = makeAvatar(COLOR_B)
-const CHAR_B_QAVATAR = makeQAvatar(COLOR_B)
 const CHAR_B_PORTRAIT1 = makePortrait(COLOR_B)
 const CHAR_B_PORTRAIT2 = makePortrait('#5849C2')
 const CHAR_B_HEADER = makeHeader(COLOR_B, '#A29BFE')
@@ -88,7 +82,6 @@ const CHAR_B_GALLERY = [
 const COLOR_C = '#00B894'
 
 const CHAR_C_AVATAR = makeAvatar(COLOR_C)
-const CHAR_C_QAVATAR = makeQAvatar(COLOR_C)
 const CHAR_C_PORTRAIT1 = makePortrait(COLOR_C)
 const CHAR_C_PORTRAIT2 = makePortrait('#00A381')
 const CHAR_C_HEADER = makeHeader(COLOR_C, '#55EFC4')
@@ -144,7 +137,6 @@ export function SeedData() {
         height: '175cm',
         birthday: '',
         avatarUrl: CHAR_A_AVATAR,
-        qAvatarUrl: CHAR_A_QAVATAR,
         avatars: [
           { url: CHAR_A_PORTRAIT1, type: 'portrait' },
           { url: CHAR_A_PORTRAIT2, type: 'portrait' },
@@ -173,7 +165,6 @@ export function SeedData() {
         height: '168cm',
         birthday: '',
         avatarUrl: CHAR_B_AVATAR,
-        qAvatarUrl: CHAR_B_QAVATAR,
         avatars: [
           { url: CHAR_B_PORTRAIT1, type: 'portrait' },
           { url: CHAR_B_PORTRAIT2, type: 'portrait' },
@@ -204,7 +195,6 @@ export function SeedData() {
         height: '180cm',
         birthday: '',
         avatarUrl: CHAR_C_AVATAR,
-        qAvatarUrl: CHAR_C_QAVATAR,
         avatars: [
           { url: CHAR_C_PORTRAIT1, type: 'portrait' },
           { url: CHAR_C_PORTRAIT2, type: 'portrait' },

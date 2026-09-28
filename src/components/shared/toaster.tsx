@@ -11,8 +11,8 @@ export function Toaster() {
           background: "var(--color-paper-card)",
           border: "1px solid var(--color-line)",
           color: "var(--color-ink)",
-          fontSize: "14px",
-          borderRadius: "6px",
+          fontSize: "12px",
+          borderRadius: "0px",
           boxShadow: "none",
         },
       }}

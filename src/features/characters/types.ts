@@ -11,7 +11,6 @@ export interface CharacterFormData {
   height: string
   birthday: string
   avatarUrl: string
-  qAvatarUrl?: string
   headerUrl?: string
   bio: string
   lifeStory: string
@@ -20,4 +19,5 @@ export interface CharacterFormData {
   gallery: GalleryImage[]
   avatars: AvatarImage[]
   tags: number[]
+  isMajor?: boolean
 }

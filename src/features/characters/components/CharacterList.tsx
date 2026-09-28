@@ -9,15 +9,16 @@ import {
   ChevronDown,
   Pencil,
   Trash2,
+  Circle,
 } from 'lucide-react'
 import type { Character } from '@/types'
 import { Avatar } from '@/components/shared/Avatar'
 import { DeleteButton } from '@/components/shared/DeleteButton'
 import { getImageUrl, resolveImageUrl } from '@/lib/image-service'
-import { Separator } from '@/components/ui/separator'
 import { useCountryList } from '@/features/countries/hooks/useCountries'
 import { SortViewControls, SortSelect } from '@/components/shared/SortViewControls'
 import type { SortOption, ViewMode } from '@/components/shared/SortViewControls'
+import { PAGE_TITLE } from '@/lib/ui-tokens'
 import { useDevice } from '@/lib/use-device'
 import { useLongPress } from '@/lib/useLongPress'
 import { MobileActionSheet, type ActionItem } from '@/components/shared/MobileActionSheet'
@@ -103,7 +104,7 @@ function CountryFilterSelect({
       <button
         ref={triggerRef}
         onClick={() => setOpen(!open)}
-        className="touch-feedback flex md:h-9 h-7 items-center gap-1 rounded border border-line bg-paper-card/60 md:px-3 px-2 md:text-sm text-[11px] text-ink transition-colors hover:border-line-hover"
+        className="touch-feedback flex md:h-9 h-7 items-center gap-1 px-2 text-[11px] text-ink transition-colors hover:bg-[var(--oc-hover)] md:px-3 md:text-[13px]"
       >
         <span>{selectedLabel}</span>
         <ChevronDown size={16} strokeWidth={2} />
@@ -113,7 +114,7 @@ function CountryFilterSelect({
         ? createPortal(
             <div
               ref={panelRef}
-              className="fixed z-30 mt-1 flex max-h-64 flex-col overflow-auto rounded-md border border-line bg-paper/85 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 pointer-events-auto"
+              className="fixed z-30 mt-1 flex max-h-64 flex-col overflow-auto border border-line bg-paper/85 backdrop-blur-lg p-1 shadow-none pointer-events-auto"
               style={{ left: pos.x, top: pos.y }}
             >
           {options.map((opt) => (
@@ -126,7 +127,7 @@ function CountryFilterSelect({
               className={`whitespace-nowrap rounded-sm px-3 py-1.5 text-left text-sm transition-colors ${
                 value === opt.value
                   ? 'bg-black/5 dark:bg-white/5 text-ink'
-                  : 'text-ink hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8'
+                  : 'text-ink hover:bg-[var(--oc-hover)] active:bg-[var(--oc-hover)]'
               }`}
             >
               {opt.label}
@@ -188,22 +189,35 @@ function CharacterCard({
     <div className="relative group touch-feedback" {...longPress}>
       <button
         onClick={() => onSelect(character.id as number)}
-        className="flex w-full flex-col rounded-md border border-line bg-paper-card overflow-hidden text-left transition-shadow hover:shadow-[0_1px_3px_rgba(0,0,0,0.03)]"
+        className="flex w-full flex-col overflow-hidden bg-paper-card text-left transition-colors hover:bg-line"
       >
-        {character.headerUrl ? (
-          <div className="relative w-full aspect-[3/2] bg-paper-card">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={resolveImageUrl(character.headerUrl, 'header')}
-              alt=""
-              className="absolute inset-0 w-full h-full object-cover"
-            />
-          </div>
-        ) : null}
-        <div className={`flex gap-3 p-3 ${displayNationality ? 'items-start' : 'items-center'}`}>
+        <div className="relative aspect-[3/2] w-full bg-paper-card">
+          {character.headerUrl ? (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={resolveImageUrl(character.headerUrl, 'header')}
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+              {/* 图片与卡片底色之间做渐变过渡 */}
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-paper-card to-transparent" />
+            </>
+          ) : (
+            <div className="absolute inset-0 grid place-items-center font-serif text-2xl text-ink-faint">
+              {character.name.slice(0, 1)}
+            </div>
+          )}
+        </div>
+        <div className={`flex gap-3 p-2.5 ${displayNationality ? 'items-start' : 'items-center'}`}>
           <Avatar src={character.avatarUrl} size="md" className="shrink-0" />
           <div className="flex flex-col min-w-0 gap-0.5">
-            <div className="flex items-center gap-1 min-w-0">
+            <div className="flex items-center gap-1.5 min-w-0">
+              {character.isMajor ? (
+                <span title="主要角色" className="shrink-0">
+                  <Circle size={8} fill="var(--color-ink-muted)" className="text-ink-muted" />
+                </span>
+              ) : null}
               <h3 className="text-sm font-medium text-ink truncate">{character.name}</h3>
             </div>
             {displayNationality ? (
@@ -257,12 +271,17 @@ function CharacterRow({
       tabIndex={0}
       onClick={() => onSelect(character.id as number)}
       onKeyDown={handleKeyDown}
-      className="group relative flex w-full cursor-pointer items-center gap-3 rounded-md px-4 py-3 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8"
+      className="group relative flex w-full cursor-pointer items-center gap-3 px-4 py-2 text-left transition-colors hover:bg-[var(--oc-hover)]"
       {...longPress}
     >
       <Avatar src={getImageUrl(character.avatarUrl, 'avatar')} size="md" />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <div className="flex items-center gap-2 min-w-0">
+          {character.isMajor ? (
+            <span title="主要角色" className="shrink-0">
+              <Circle size={8} fill="var(--color-ink-muted)" className="text-ink-muted" />
+            </span>
+          ) : null}
           <h3 className="truncate text-sm font-medium text-ink">{character.name}</h3>
           {aliasText ? (
             <span className="shrink-0 text-xs text-ink-muted">({aliasText})</span>
@@ -378,7 +397,7 @@ export function CharacterList({
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <span className="text-sm text-ink-muted">加载中...</span>
+        <span className="text-[13px] text-ink-faint">加载中…</span>
       </div>
     )
   }
@@ -399,10 +418,9 @@ export function CharacterList({
 
   return (
     <div className="flex flex-col min-h-full">
-      <div className="max-md:hidden flex items-center justify-between sticky top-0 z-10 border-b border-line px-6 py-3 h-[60px] bg-paper/85 dark:bg-[#1C1B1A]/85 backdrop-blur-lg">
-        <div className="flex items-center gap-3">
-          <h2 className="text-lg text-ink font-serif font-bold">角色</h2>
-          <Separator orientation="vertical" className="max-md:hidden md:flex h-4 !self-center" />
+      <div className="max-md:hidden flex items-center justify-between sticky top-0 z-10 h-12 border-b border-line px-6 bg-paper/85 dark:bg-[#1C1B1A]/85 backdrop-blur-lg">
+        <div className="flex items-center gap-4">
+          <h2 className={PAGE_TITLE}>角色</h2>
           <div className="relative max-md:hidden md:block">
             <Search
               size={16}
@@ -414,16 +432,14 @@ export function CharacterList({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="搜索角色..."
-              className="h-9 w-48 rounded border border-line bg-paper-card/60 pl-9 pr-3 text-sm text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none focus:bg-paper-card/80"
+              className="h-8 w-44 border-b border-transparent bg-transparent pl-8 pr-2 text-[13px] text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none"
             />
           </div>
-          <Separator orientation="vertical" className="max-md:hidden md:flex h-4 !self-center" />
           <CountryFilterSelect
             value={countryFilter}
             onChange={setCountryFilter}
             options={countryOptions}
           />
-          <Separator orientation="vertical" className="max-md:hidden md:flex h-4 !self-center" />
           <SortViewControls
             sortKey={sortKey}
             onSortChange={(key) => setSortKey(key as SortKey)}
@@ -434,7 +450,7 @@ export function CharacterList({
         </div>
         <button
           onClick={onCreateCharacter}
-          className="touch-feedback flex h-9 items-center gap-1.5 rounded border border-line bg-paper-card/60 px-3 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
+          className="touch-feedback flex h-8 items-center gap-1.5 bg-ink px-3 text-[13px] text-paper transition-opacity hover:bg-ink hover:opacity-85"
         >
           <Plus size={16} strokeWidth={2} />
           <span>新建角色</span>
@@ -456,7 +472,7 @@ export function CharacterList({
         </div>
         <button
           onClick={onCreateCharacter}
-          className="touch-feedback flex h-7 items-center gap-1 rounded border border-line bg-paper-card/60 px-2.5 text-[11px] text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
+          className="touch-feedback flex items-center gap-1 bg-paper/85 px-2 py-1 text-[11px] text-ink-muted backdrop-blur transition-colors hover:text-ink"
         >
           <Plus size={14} strokeWidth={2} />
           <span>新建</span>
@@ -470,13 +486,13 @@ export function CharacterList({
           <div className="flex-1 flex items-center justify-center">
             <button
               onClick={onCreateCharacter}
-              className="text-sm text-ink-muted transition-colors hover:text-ink"
+              className="font-serif text-sm text-ink-faint transition-colors hover:text-ink"
             >
               暂无角色，点击创建第一个
             </button>
           </div>
         ) : viewMode === 'grid' ? (
-          <div className="columns-2 sm:columns-3 xl:columns-4 2xl:columns-5 gap-4">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
             {filtered.map((character) => (
               <div key={character.id} className="[break-inside:avoid] mb-4">
                 <CharacterCard

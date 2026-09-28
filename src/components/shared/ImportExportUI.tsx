@@ -133,11 +133,11 @@ export function useImportExport() {
           </AlertDialogHeader>
 
           <div className="flex flex-col gap-2 py-2">
-            <span className="text-sm text-ink-muted">重复记录处理策略</span>
+            <span className="text-[13px] text-ink-muted">重复记录处理策略</span>
             {MERGE_OPTIONS.map((opt) => (
               <label
                 key={opt.value}
-                className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors ${
+                className={`flex cursor-pointer items-start gap-3 border p-3 transition-colors ${
                   strategy === opt.value
                     ? 'border-line-hover bg-paper-card'
                     : 'border-line hover:border-line-hover'
@@ -149,13 +149,13 @@ export function useImportExport() {
                   value={opt.value}
                   checked={strategy === opt.value}
                   onChange={() => setStrategy(opt.value)}
-                  className="mt-0.5 h-4 w-4 shrink-0 rounded-full border-line bg-paper-card text-ink accent-ink"
+                  className="mt-0.5 h-4 w-4 shrink-0 border-line bg-paper-card text-ink accent-ink"
                 />
                 <div className="flex flex-col gap-0.5">
-                  <span className="text-sm text-ink">{opt.label}</span>
-                  <span className="text-xs text-ink-muted">{opt.description}</span>
+                  <span className="text-[13px] text-ink">{opt.label}</span>
+                  <span className="text-[11px] text-ink-faint">{opt.description}</span>
                   {opt.value === 'keep-both' && strategy === 'keep-both' ? (
-                    <span className="text-xs text-error pt-0.5">
+                    <span className="pt-0.5 text-[11px] text-error">
                       注意：关联关系（如 relatedCharacters）可能需要手动修复
                     </span>
                   ) : null}
@@ -170,7 +170,7 @@ export function useImportExport() {
               type="button"
               onClick={handleConfirmImport}
               disabled={importing}
-              className="touch-feedback inline-flex h-9 items-center justify-center rounded px-3 text-sm font-normal transition-colors border border-error bg-transparent text-error hover:bg-error/10 dark:hover:bg-red-950/30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+              className="touch-feedback inline-flex h-8 items-center justify-center bg-ink px-3 text-[13px] text-paper transition-opacity hover:bg-ink hover:opacity-85 disabled:pointer-events-none disabled:opacity-40"
             >
               {importing ? '导入中...' : '确认导入'}
             </button>

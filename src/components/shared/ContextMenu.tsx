@@ -88,8 +88,8 @@ function SubMenu({ item, onCloseParent }: { item: ContextMenuItem; onCloseParent
         disabled={item.disabled}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
-        className={`flex w-full items-center gap-4 rounded-sm px-3 py-1.5 text-left text-sm transition-colors ${
-          item.disabled ? 'text-ink-faint' : 'text-ink hover:bg-black/5 dark:hover:bg-white/5 dark:hover:bg-white/5'
+        className={`flex w-full items-center gap-3 px-2.5 py-1.5 text-left text-[13px] transition-colors ${
+          item.disabled ? 'text-ink-faint' : 'text-ink hover:bg-[var(--oc-hover)]'
         }`}
       >
         <span>{item.label}</span>
@@ -104,7 +104,7 @@ function SubMenu({ item, onCloseParent }: { item: ContextMenuItem; onCloseParent
               ref={subRef}
               onMouseEnter={handleMouseEnter}
               onMouseLeave={handleMouseLeave}
-              className="fixed z-50 ml-1 flex min-w-[140px] flex-col rounded-md border border-line bg-paper/85 dark:bg-paper/85 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 pointer-events-auto"
+              className="fixed z-50 ml-1 flex min-w-[140px] flex-col border border-line bg-paper/85 p-1 shadow-none backdrop-blur-lg pointer-events-auto dark:bg-paper/85"
               style={subStyle}
             >
           {children.map((child, i) => {
@@ -119,12 +119,12 @@ function SubMenu({ item, onCloseParent }: { item: ContextMenuItem; onCloseParent
                   child.onClick?.()
                   onCloseParent()
                 }}
-                className={`flex items-center gap-4 rounded-sm px-3 py-1.5 text-left text-sm transition-colors ${
+                className={`flex items-center gap-3 px-2.5 py-1.5 text-left text-[13px] transition-colors ${
                   child.danger
                     ? 'text-error hover:bg-error-light dark:hover:bg-red-950/30'
                     : child.disabled
                       ? 'text-ink-faint'
-                      : 'text-ink hover:bg-black/5 dark:hover:bg-white/5 dark:hover:bg-white/5'
+                      : 'text-ink hover:bg-[var(--oc-hover)]'
                 }`}
               >
                 <span>{child.label}</span>
@@ -260,7 +260,7 @@ export function ContextMenu({ children, items }: ContextMenuProps) {
         <div className="pointer-events-none fixed inset-0 z-50">
           <div
             ref={menuRef}
-            className={`pointer-events-auto absolute flex flex-col rounded-md border border-line bg-paper/85 dark:bg-paper/85 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 context-menu-fade ${visible ? 'context-menu-visible' : ''}`}
+            className={`pointer-events-auto absolute flex flex-col border border-line bg-paper/85 p-1 shadow-none backdrop-blur-lg context-menu-fade dark:bg-paper/85 ${visible ? 'context-menu-visible' : ''}`}
             style={{
               left: adjPosition.x,
               top: adjPosition.y,
@@ -285,12 +285,12 @@ export function ContextMenu({ children, items }: ContextMenuProps) {
                     close()
                   }}
                   disabled={item.disabled}
-                  className={`flex items-center gap-4 rounded-sm px-3 py-1.5 text-left text-sm transition-colors ${
+                  className={`flex items-center gap-3 px-2.5 py-1.5 text-left text-[13px] transition-colors ${
                     item.danger
                       ? 'text-error hover:bg-error-light dark:hover:bg-red-950/30'
                       : item.disabled
                         ? 'text-ink-faint'
-                        : 'text-ink hover:bg-black/5 dark:hover:bg-white/5 dark:hover:bg-white/5'
+                        : 'text-ink hover:bg-[var(--oc-hover)]'
                   }`}
                 >
                   <span>{item.label}</span>

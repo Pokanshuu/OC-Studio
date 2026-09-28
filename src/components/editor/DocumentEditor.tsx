@@ -32,7 +32,7 @@ export function DocumentEditor({
   if (loading) {
     return (
       <div className="flex py-8 items-center justify-center">
-        <span className="text-sm text-ink-muted">加载中...</span>
+        <span className="text-[13px] text-ink-faint">加载中…</span>
       </div>
     )
   }

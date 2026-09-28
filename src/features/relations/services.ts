@@ -51,7 +51,6 @@ export async function buildGraphData(): Promise<{ nodes: GraphNode[]; edges: Gra
     if (node) {
       const data = node.data as Record<string, unknown>
       data.avatarUrl = c.avatarUrl
-      data.qAvatarUrl = c.qAvatarUrl ?? ''
     }
   }
 

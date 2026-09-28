@@ -5,6 +5,7 @@ import { Check } from 'lucide-react'
 import type { Period } from '@/types'
 import { PERIOD_COLORS } from '@/types'
 import { parseTime, assembleTime, parseYear } from '@/features/events/utils'
+import { FIELD_LABEL_BLOCK, INPUT_LINE, PAGE_TITLE } from '@/lib/ui-tokens'
 
 interface PeriodDialogProps {
   open: boolean
@@ -59,51 +60,51 @@ export function PeriodDialog({ open, period, onSave, onClose }: PeriodDialogProp
       className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/15 dark:bg-black/40"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="max-md:w-[calc(100%-2rem)] w-[480px] rounded-lg border border-line bg-paper/85 dark:bg-paper/85 backdrop-blur-lg ring-1 ring-black/5 p-6">
-        <h2 className="text-lg font-medium text-ink mb-5">
+      <div className="w-[440px] max-md:w-[calc(100%-2rem)] border border-line bg-paper/85 dark:bg-paper/85 p-6 backdrop-blur-lg">
+        <h2 className={`mb-5 ${PAGE_TITLE}`}>
           {period ? '编辑时期' : '添加时期'}
         </h2>
 
         {/* Name */}
         <div className="mb-4">
-          <label className="block text-sm text-ink-muted mb-1.5">名称</label>
+          <label className={FIELD_LABEL_BLOCK}>名称</label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="时期名称"
-            className="h-9 w-full rounded border border-line bg-black/5 dark:bg-white/5 px-3 text-sm text-ink placeholder:text-ink-faint focus:border-line-hover focus:outline-none"
+            className={INPUT_LINE}
           />
         </div>
 
         {/* Start & End time */}
         <div className="mb-4">
-          <label className="block text-sm text-ink-muted mb-1.5">开始 / 结束时间</label>
+          <label className={FIELD_LABEL_BLOCK}>开始 / 结束时间</label>
           <div className="flex items-center gap-2 max-md:flex-col max-md:items-start">
             <div className="flex items-center gap-2">
-              <input type="text" value={startYear} onChange={(e) => setStartYear(e.target.value)} placeholder="年" className="h-9 w-16 rounded border border-line bg-black/5 dark:bg-white/5 px-2 text-sm text-ink placeholder:text-ink-faint focus:border-line-hover focus:outline-none" />
-              <input type="text" value={startMonth} onChange={(e) => setStartMonth(e.target.value)} placeholder="月" className="h-9 w-12 rounded border border-line bg-black/5 dark:bg-white/5 px-2 text-sm text-ink placeholder:text-ink-faint focus:border-line-hover focus:outline-none" />
-              <input type="text" value={startDay} onChange={(e) => setStartDay(e.target.value)} placeholder="日" className="h-9 w-12 rounded border border-line bg-black/5 dark:bg-white/5 px-2 text-sm text-ink placeholder:text-ink-faint focus:border-line-hover focus:outline-none" />
-              <span className="text-xs text-ink-faint">→</span>
+              <input type="text" value={startYear} onChange={(e) => setStartYear(e.target.value)} placeholder="年" className={`w-16 ${INPUT_LINE}`} />
+              <input type="text" value={startMonth} onChange={(e) => setStartMonth(e.target.value)} placeholder="月" className={`w-12 ${INPUT_LINE}`} />
+              <input type="text" value={startDay} onChange={(e) => setStartDay(e.target.value)} placeholder="日" className={`w-12 ${INPUT_LINE}`} />
+              <span className="text-[11px] text-ink-faint">→</span>
             </div>
             <div className="flex items-center gap-2">
-              <input type="text" value={endYear} onChange={(e) => setEndYear(e.target.value)} placeholder="年" className="h-9 w-16 rounded border border-line bg-black/5 dark:bg-white/5 px-2 text-sm text-ink placeholder:text-ink-faint focus:border-line-hover focus:outline-none" />
-              <input type="text" value={endMonth} onChange={(e) => setEndMonth(e.target.value)} placeholder="月" className="h-9 w-12 rounded border border-line bg-black/5 dark:bg-white/5 px-2 text-sm text-ink placeholder:text-ink-faint focus:border-line-hover focus:outline-none" />
-              <input type="text" value={endDay} onChange={(e) => setEndDay(e.target.value)} placeholder="日" className="h-9 w-12 rounded border border-line bg-black/5 dark:bg-white/5 px-2 text-sm text-ink placeholder:text-ink-faint focus:border-line-hover focus:outline-none" />
+              <input type="text" value={endYear} onChange={(e) => setEndYear(e.target.value)} placeholder="年" className={`w-16 ${INPUT_LINE}`} />
+              <input type="text" value={endMonth} onChange={(e) => setEndMonth(e.target.value)} placeholder="月" className={`w-12 ${INPUT_LINE}`} />
+              <input type="text" value={endDay} onChange={(e) => setEndDay(e.target.value)} placeholder="日" className={`w-12 ${INPUT_LINE}`} />
             </div>
           </div>
         </div>
 
         {/* Color picker */}
         <div className="mb-5">
-          <label className="block text-sm text-ink-muted mb-2">底色</label>
+          <label className={FIELD_LABEL_BLOCK}>底色</label>
           <div className="flex gap-3">
             {PERIOD_COLORS.map((c) => (
               <button
                 key={c.value}
                 onClick={() => setColor(c.value)}
                 title={c.label}
-                className={`h-6 w-6 rounded-full ${c.value} transition-all ${
+                className={`h-6 w-6 ${c.value} transition-all ${
                   color === c.value
                     ? 'ring-2 ring-ink ring-offset-2 ring-offset-paper'
                     : ''
@@ -114,22 +115,22 @@ export function PeriodDialog({ open, period, onSave, onClose }: PeriodDialogProp
         </div>
 
         {error ? (
-          <p className="mb-3 text-xs text-error">{error}</p>
+          <p className="mb-3 text-[12px] text-error">{error}</p>
         ) : null}
 
         <div className="flex items-center justify-end gap-2">
           <button
             onClick={onClose}
-            className="touch-feedback h-9 rounded border border-line bg-white/60 dark:bg-white/[0.06] px-4 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink hover:bg-white/40 dark:hover:bg-white/[0.10]"
+            className="touch-feedback flex h-8 items-center px-3 text-[13px] text-ink-muted transition-colors hover:text-ink"
           >
             取消
           </button>
           <button
             onClick={handleSave}
             disabled={!canSave}
-            className="touch-feedback flex h-9 items-center gap-1.5 rounded bg-ink px-4 text-sm text-paper transition-colors hover:bg-ink/90 disabled:opacity-50"
+            className="touch-feedback flex h-8 items-center gap-1.5 bg-ink px-3 text-[13px] text-paper transition-opacity hover:bg-ink hover:opacity-85 disabled:opacity-40"
           >
-            <Check size={16} strokeWidth={2} />
+            <Check size={14} strokeWidth={2} />
             <span>{saving ? '保存中...' : '确认'}</span>
           </button>
         </div>

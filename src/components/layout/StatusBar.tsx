@@ -18,11 +18,11 @@ export function StatusBar() {
         : 'text-ink-faint'
 
   return (
-    <footer data-statusbar className="max-md:hidden flex h-8 shrink-0 items-center justify-between border-t border-line bg-transparent px-4">
-      <span className="text-xs text-ink-muted transparent-text">字数：{wordCount}</span>
-      <div className="flex items-center gap-1.5">
-        <SaveIcon size={14} strokeWidth={2} className={iconClass} />
-        <span className="text-xs text-ink-faint transparent-text">{saveLabel}</span>
+    <footer data-statusbar className="max-md:hidden flex h-6 shrink-0 items-center justify-between border-t border-line bg-transparent px-3">
+      <span className="text-[11px] text-ink-faint transparent-text">字数：<span className="tabular-nums">{wordCount}</span></span>
+      <div className="flex items-center gap-1">
+        <SaveIcon size={12} strokeWidth={2} className={iconClass} />
+        <span className="text-[11px] text-ink-faint transparent-text">{saveLabel}</span>
       </div>
     </footer>
   )

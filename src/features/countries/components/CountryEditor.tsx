@@ -10,10 +10,10 @@ import type { CountryFormData } from '../types'
 import { useCountry, useUpdateCountry } from '../hooks/useCountries'
 import { useCharacterList } from '@/features/characters/hooks/useCharacters'
 import { useEventList } from '@/features/events/hooks/useEvents'
-import { Separator } from '@/components/ui/separator'
 import { RelatedItemsSelector } from '@/components/shared/RelatedItemsSelector'
 import type { RelatedItem } from '@/components/shared/RelatedItemsSelector'
 import { ProfileBannerEditor } from '@/components/shared/ProfileBannerEditor'
+import { FIELD_LABEL, FIELD_ROW_TOP, PAGE_TITLE, SECTION_TITLE } from '@/lib/ui-tokens'
 import { useSaveStatus } from '@/components/layout/SaveStatusContext'
 
 interface CountryEditorProps {
@@ -43,7 +43,7 @@ export function CountryEditor({
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <span className="text-sm text-ink-muted">加载中...</span>
+        <span className="text-[13px] text-ink-faint">加载中…</span>
       </div>
     )
   }
@@ -210,30 +210,30 @@ function CountryEditorInner({
 
   return (
     <div className="flex flex-col min-h-full">
-      <div className="flex items-center justify-between max-md:fixed max-md:top-0 max-md:left-0 max-md:right-0 md:sticky md:top-0 z-10 border-b border-line px-4 max-md:h-[calc(60px+var(--safe-top))] md:h-[60px] max-md:pt-[var(--safe-top)] bg-paper/85 dark:bg-[#1C1B1A]/85 backdrop-blur-lg">
+      <div className="flex items-center justify-between max-md:fixed max-md:top-0 max-md:left-0 max-md:right-0 md:sticky md:top-0 z-10 border-b border-line px-4 max-md:h-[calc(60px+var(--safe-top))] md:h-12 max-md:pt-[var(--safe-top)] bg-paper/85 dark:bg-[#1C1B1A]/85 backdrop-blur-lg">
         <div className="flex items-center gap-3">
           <button
             data-mobile-back
             onClick={onBack}
-            className="flex h-9 w-9 items-center justify-center rounded text-ink-muted transition-colors hover:text-ink active:bg-black/8 dark:active:bg-white/8"
+            className="flex h-8 w-8 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink"
           >
-            <ArrowLeft size={20} strokeWidth={2} />
+            <ArrowLeft size={16} strokeWidth={2} />
           </button>
-          <h2 className="text-lg text-ink">编辑国家</h2>
+          <h2 className={PAGE_TITLE}>编辑国家</h2>
         </div>
         <button
           onClick={handleSave}
           disabled={saving || !name.trim()}
           data-save-button
-          className="touch-feedback flex h-9 items-center gap-1.5 rounded border border-line bg-paper-card/60 px-3 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink disabled:opacity-50"
+          className="touch-feedback flex h-8 items-center gap-1.5 bg-ink px-3 text-[13px] text-paper transition-opacity hover:bg-ink hover:opacity-85 disabled:opacity-40"
         >
-          <Save size={16} strokeWidth={2} />
+          <Save size={14} strokeWidth={2} />
           <span>{saving ? '保存中...' : '保存'}</span>
         </button>
       </div>
 
       <div className="flex-1 min-h-0 max-md:pt-[calc(60px+var(--safe-top))]">
-        <div className="mx-auto w-full px-4 py-3 md:py-6 space-y-5 md:space-y-8 md:max-w-3xl md:px-8">
+        <div className="mx-auto w-full max-w-3xl px-4 py-3 space-y-8 md:px-8 md:py-6">
           {/* Profile header */}
           <section>
             <ProfileBannerEditor
@@ -254,15 +254,15 @@ function CountryEditorInner({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="国家/地区名称"
-              className="w-full bg-transparent text-xl text-ink placeholder:text-ink-faint focus:outline-none"
+              className="w-full bg-transparent font-serif text-lg text-ink placeholder:text-ink-faint focus:outline-none"
             />
           </div>
 
-          <Separator />
+          <div className="border-t border-line" />
 
           {/* System + Geography + Culture (merged into one document) */}
           <section>
-            <h3 className="text-base text-ink mb-3">国家详情</h3>
+            <h3 className={SECTION_TITLE}>国家详情</h3>
             <DocumentEditor
               entityId={country.id as number}
               entityType="country"
@@ -276,41 +276,45 @@ function CountryEditorInner({
             />
           </section>
 
-          <Separator />
+          <div className="border-t border-line" />
 
-          {/* Related Characters */}
+          {/* 关联：与事件编辑器同一套字段行 */}
           <section>
-            <h3 className="text-base text-ink mb-3">相关角色</h3>
-            <RelatedItemsSelector
-              items={relatedCharacterItems}
-              selectedIds={relatedCharacterIds}
-              onChange={setEditableCharIds}
-              placeholder="搜索相关角色..."
-              onNavigateItem={onNavigateToCharacter}
-            /> 
+            <h3 className={SECTION_TITLE}>关联</h3>
+            <div className="flex flex-col">
+              <div className={FIELD_ROW_TOP}>
+                <span className={FIELD_LABEL}>相关角色</span>
+                <div className="min-w-0 flex-1">
+                  <RelatedItemsSelector
+                    items={relatedCharacterItems}
+                    selectedIds={relatedCharacterIds}
+                    onChange={setEditableCharIds}
+                    placeholder="搜索相关角色..."
+                    onNavigateItem={onNavigateToCharacter}
+                  />
+                </div>
+              </div>
 
-          </section>
+              <div className={FIELD_ROW_TOP}>
+                <span className={FIELD_LABEL}>相关事件</span>
+                <div className="min-w-0 flex-1">
+                  <RelatedItemsSelector
+                    items={relatedEventItems}
+                    selectedIds={relatedEventIds}
+                    onChange={setEditableEventIds}
+                    placeholder="搜索相关事件..."
+                    onNavigateItem={onNavigateToEvent}
+                  />
+                </div>
+              </div>
 
-          <Separator />
-
-          {/* Related Events */}
-          <section>
-            <h3 className="text-base text-ink mb-3">相关事件</h3>
-            <RelatedItemsSelector
-              items={relatedEventItems}
-              selectedIds={relatedEventIds}
-              onChange={setEditableEventIds}
-              placeholder="搜索相关事件..."
-              onNavigateItem={onNavigateToEvent}
-            />
-          </section>
-
-          <Separator />
-
-          {/* Tags */}
-          <section>
-            <h3 className="text-base text-ink mb-3">标签</h3>
-            <TagPicker selectedIds={tags} onChange={setTags} />
+              <div className={FIELD_ROW_TOP}>
+                <span className={FIELD_LABEL}>标签</span>
+                <div className="min-w-0 flex-1">
+                  <TagPicker selectedIds={tags} onChange={setTags} />
+                </div>
+              </div>
+            </div>
           </section>
         </div>
       </div>

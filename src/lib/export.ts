@@ -12,17 +12,19 @@ interface ExportPayload {
     worldEntries: unknown[]
     tags: unknown[]
     periods: unknown[]
+    meta: unknown[]
   }
 }
 
 export async function exportAllData(): Promise<ExportPayload> {
-  const [characters, events, countries, worldEntries, tags, periods] = await Promise.all([
+  const [characters, events, countries, worldEntries, tags, periods, meta] = await Promise.all([
     db.characters.filter((c) => !c.deleted).toArray(),
     db.events.filter((e) => !e.deleted).toArray(),
     db.countries.filter((c) => !c.deleted).toArray(),
     db.worldEntries.filter((w) => !w.deleted).toArray(),
     db.tags.toArray(),
     db.periods.filter((p) => !p.deleted).toArray(),
+    db.meta.toArray(),
   ])
 
   return {
@@ -35,15 +37,16 @@ export async function exportAllData(): Promise<ExportPayload> {
       worldEntries,
       tags,
       periods,
+      meta,
     },
   }
 }
 
 type ImageRecord = {
   avatarUrl?: string
-  qAvatarUrl?: string
   headerUrl?: string
   flagUrl?: string
+  coverUrl?: string
   avatars?: unknown[]
   gallery?: unknown[]
   images?: unknown[]
@@ -58,9 +61,9 @@ function collectImageUrls(records: unknown[]): Set<string> {
   for (const item of records) {
     const r = item as ImageRecord
     pushUrl(r.avatarUrl, urls)
-    pushUrl(r.qAvatarUrl, urls)
     pushUrl(r.headerUrl, urls)
     pushUrl(r.flagUrl, urls)
+    pushUrl(r.coverUrl, urls)
     for (const a of r.avatars ?? []) pushUrl(typeof a === 'string' ? a : (a as { url?: string }).url, urls)
     for (const g of r.gallery ?? []) pushUrl(typeof g === 'string' ? g : (g as { url?: string }).url, urls)
     for (const img of r.images ?? []) pushUrl(typeof img === 'string' ? img : (img as { url?: string }).url, urls)
@@ -95,9 +98,9 @@ function inlineImageUrls(records: unknown[], map: Map<string, string>): void {
   for (const item of records) {
     const r = item as ImageRecord
     if (r.avatarUrl) r.avatarUrl = replace(r.avatarUrl)
-    if (r.qAvatarUrl) r.qAvatarUrl = replace(r.qAvatarUrl)
     if (r.headerUrl) r.headerUrl = replace(r.headerUrl)
     if (r.flagUrl) r.flagUrl = replace(r.flagUrl)
+    if (r.coverUrl) r.coverUrl = replace(r.coverUrl)
     if (Array.isArray(r.avatars)) {
       r.avatars = r.avatars.map((a) => (typeof a === 'string' ? replace(a) : { ...(a as object), url: replace((a as { url?: string }).url) }))
     }
@@ -117,6 +120,7 @@ export async function exportFullBackup(): Promise<ExportPayload> {
     ...collectImageUrls(payload.data.characters),
     ...collectImageUrls(payload.data.events),
     ...collectImageUrls(payload.data.countries),
+    ...collectImageUrls(payload.data.meta),
   ])
 
   const map = new Map<string, string>()
@@ -128,6 +132,7 @@ export async function exportFullBackup(): Promise<ExportPayload> {
   inlineImageUrls(payload.data.characters, map)
   inlineImageUrls(payload.data.events, map)
   inlineImageUrls(payload.data.countries, map)
+  inlineImageUrls(payload.data.meta, map)
   return payload
 }
 

@@ -192,7 +192,7 @@ export function BlockTypeMenu({ editor, position, onClose, blockPos }: BlockType
         top: position.y - 4,
         zIndex: 100,
       }}
-      className={`pointer-events-auto flex gap-0.5 rounded-md border border-line bg-paper/85 dark:bg-paper/85 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 context-menu-fade ${visible ? 'context-menu-visible' : ''}`}
+      className={`pointer-events-auto flex gap-0.5 border border-line bg-paper/85 p-1 shadow-none backdrop-blur-lg context-menu-fade dark:bg-paper/85 ${visible ? 'context-menu-visible' : ''}`}
     >
       {buttons.map((btn) => (
         <button
@@ -200,10 +200,10 @@ export function BlockTypeMenu({ editor, position, onClose, blockPos }: BlockType
           onClick={btn.action}
           title={btn.label}
           onMouseDown={(e) => e.preventDefault()}
-          className={`flex h-7 w-7 items-center justify-center rounded transition-colors ${
+          className={`flex h-7 w-7 items-center justify-center transition-colors ${
             btn.isActive()
               ? 'text-ink bg-black/5 dark:bg-white/5'
-              : 'text-ink-muted hover:text-ink hover:bg-black/5 dark:hover:bg-white/5'
+              : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
           }`}
         >
           {btn.icon}

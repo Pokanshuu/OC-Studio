@@ -77,10 +77,10 @@ function ZoomSlider({ zoom, onZoomChange }: { zoom: number; onZoomChange: (value
         className="w-24 h-6 cursor-pointer appearance-none bg-transparent
           [&::-webkit-slider-runnable-track]:h-1 [&::-webkit-slider-runnable-track]:rounded [&::-webkit-slider-runnable-track]:bg-line
           [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:-mt-1 [&::-webkit-slider-thumb]:h-3.5
-          [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-ink-muted
+          [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:rounded-none [&::-webkit-slider-thumb]:bg-ink-muted
           [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-line
           [&::-moz-range-track]:h-1 [&::-moz-range-track]:rounded [&::-moz-range-track]:bg-line
-          [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:rounded-full
+          [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:rounded-none
           [&::-moz-range-thumb]:bg-ink-muted [&::-moz-range-thumb]:border-0"
       />
       <button

@@ -20,7 +20,7 @@ import {
   Pencil,
   Trash2,
 } from 'lucide-react'
-import { Separator } from '@/components/ui/separator'
+import { MENU, PAGE_TITLE } from '@/lib/ui-tokens'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -162,7 +162,7 @@ const DraggableNode = memo(function DraggableNode({
       title={event.summary || event.title}
     >
       {event.isMajor ? (
-        <span className="flex h-2 w-2 shrink-0 rounded-full bg-error" />
+        <span className="flex h-2 w-2 shrink-0 bg-error" />
       ) : null}
       <span className="truncate sticky left-2">{event.title}</span>
       {isRange ? (
@@ -212,7 +212,7 @@ const StaticNode = memo(function StaticNode({
       onClick={() => onSelect(event.id)}
     >
       {event.isMajor ? (
-        <span className="flex h-2 w-2 shrink-0 rounded-full bg-error" />
+        <span className="flex h-2 w-2 shrink-0 bg-error" />
       ) : null}
       <span className="truncate sticky left-2">{event.title}</span>
     </div>
@@ -269,7 +269,7 @@ function PeriodBar({
       {!isMobile ? (
         <button
           onClick={(e) => { e.stopPropagation(); onDelete() }}
-          className="absolute -top-1 -right-1 hidden h-4 w-4 items-center justify-center rounded-full bg-paper-card border border-line text-ink-muted group-hover:flex hover:text-error"
+          className="absolute -top-1 -right-1 hidden h-4 w-4 items-center justify-center rounded-none bg-paper-card border border-line text-ink-muted group-hover:flex hover:text-error"
         >
           <X size={10} strokeWidth={2} />
         </button>
@@ -340,7 +340,7 @@ function FilterSelect({
       <button
         ref={triggerRef}
         onClick={() => setOpen(!open)}
-        className="touch-feedback flex md:h-9 h-7 items-center gap-1 rounded border border-line bg-paper-card/60 md:px-3 px-2 md:text-sm text-[11px] text-ink transition-colors hover:border-line-hover"
+        className="touch-feedback flex h-7 items-center gap-1 px-2 text-[12px] text-ink transition-colors hover:bg-[var(--oc-hover)] md:h-8 md:px-2 md:text-[13px]"
       >
         <span className="max-w-[120px] truncate">{selectedLabel}</span>
         <ChevronDown size={16} strokeWidth={2} />
@@ -350,7 +350,7 @@ function FilterSelect({
         ? createPortal(
             <div
               ref={panelRef}
-              className="fixed z-30 mt-1 flex max-h-64 flex-col overflow-auto rounded-md border border-line bg-paper/85 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 pointer-events-auto"
+              className={`fixed z-30 mt-1 flex max-h-64 flex-col overflow-auto ${MENU} pointer-events-auto`}
               style={{ left: pos.x, top: pos.y }}
             >
           {options.map((opt) => (
@@ -363,7 +363,7 @@ function FilterSelect({
               className={`whitespace-nowrap rounded-sm px-3 py-1.5 text-left text-sm transition-colors ${
                 value === opt.value
                   ? 'bg-black/5 dark:bg-white/5 text-ink'
-                  : 'text-ink hover:bg-black/5 dark:hover:bg-white/5'
+                  : 'text-ink hover:bg-[var(--oc-hover)]'
               }`}
             >
               {opt.label}
@@ -394,7 +394,7 @@ function BucketView({
       {buckets.map((bucket) => (
         <div
           key={bucket.startYear}
-          className="absolute rounded-md border border-line bg-paper-card py-1.5 px-2"
+          className="absolute border border-line bg-paper-card px-2 py-1.5"
           style={{
             left: bucket.x,
             top: bucketTop,
@@ -408,7 +408,7 @@ function BucketView({
             <button
               key={event.id}
               onClick={() => onSelectEvent(event.id)}
-              className="flex h-6 w-full items-center gap-1 rounded px-1 text-xs text-ink-muted transition-colors hover:text-ink hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8 truncate"
+              className="flex h-6 w-full items-center gap-1 truncate px-1 text-xs text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink active:bg-[var(--oc-hover)]"
               title={event.summary || event.title}
             >
               {event.isMajor ? (
@@ -959,7 +959,7 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <span className="text-sm text-ink-muted">加载中...</span>
+        <span className="text-[13px] text-ink-faint">加载中…</span>
       </div>
     )
   }
@@ -1246,7 +1246,7 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
               <button
                 key={e.id}
                 onClick={() => onSelectEvent(e.id)}
-                className="touch-feedback flex items-center gap-1.5 rounded border border-line bg-paper-card px-2 py-1 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
+                className="touch-feedback flex items-center gap-1.5 px-2 py-1 text-[12px] text-ink-muted transition-colors hover:text-ink"
               >
                 {e.isMajor ? (
                   <Circle
@@ -1345,44 +1345,40 @@ function TimelineToolbar({
   return (
     <>
       {/* Desktop toolbar */}
-      <div className="max-md:hidden flex items-center justify-between sticky top-0 z-10 border-b border-line px-6 py-3 h-[60px] bg-paper/85 dark:bg-[#1C1B1A]/85 backdrop-blur-lg">
+      <div className="max-md:hidden flex h-12 items-center justify-between sticky top-0 z-10 border-b border-line px-6 bg-paper/85 dark:bg-[#1C1B1A]/85 backdrop-blur-lg">
         <div className="flex items-center gap-3">
-          <h2 className="text-lg text-ink font-serif font-bold">时间线</h2>
-          <Separator orientation="vertical" className="h-4 !self-center" />
-          <button
-            onClick={() => setFilterMajor(true)}
-            className={`h-9 rounded border px-3 text-xs transition-colors ${
-              filterMajor
-                ? 'border-line-hover bg-paper-card/60 text-ink'
-                : 'border-line text-ink-muted hover:text-ink'
-            }`}
-          >
-            大事表
-          </button>
-          <button
-            onClick={() => setFilterMajor(false)}
-            className={`h-9 rounded border px-3 text-xs transition-colors ${
-              !filterMajor
-                ? 'border-line-hover bg-paper-card/60 text-ink'
-                : 'border-line text-ink-muted hover:text-ink'
-            }`}
-          >
-            全部事件
-          </button>
-          <Separator orientation="vertical" className="h-4 !self-center" />
+          <h2 className={PAGE_TITLE}>时间线</h2>
+          <div className="-mx-1.5 ml-1 flex items-center gap-1">
+            <button
+              onClick={() => setFilterMajor(true)}
+              className={`h-8 px-1.5 text-[13px] transition-colors ${
+                filterMajor ? 'text-ink' : 'text-ink-faint hover:text-ink-muted'
+              }`}
+            >
+              大事表
+            </button>
+            <span className="text-[13px] text-ink-faint/50">/</span>
+            <button
+              onClick={() => setFilterMajor(false)}
+              className={`h-8 px-1.5 text-[13px] transition-colors ${
+                !filterMajor ? 'text-ink' : 'text-ink-faint hover:text-ink-muted'
+              }`}
+            >
+              全部事件
+            </button>
+          </div>
           <FilterSelect value={characterFilter} onChange={onCharacterFilterChange} options={characterOptions} placeholder="全部角色" />
           <FilterSelect value={countryFilter} onChange={onCountryFilterChange} options={countryOptions} placeholder="全部国家" />
           {showNav ? (
             <>
-              <Separator orientation="vertical" className="h-4 !self-center" />
               <button onClick={onPrev} disabled={isFirst}
-                className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${isFirst ? 'text-ink-faint cursor-default' : 'text-ink-muted hover:text-ink'}`}
+                className={`flex h-8 w-8 items-center justify-center transition-colors ${isFirst ? 'cursor-default text-ink-faint' : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'}`}
                 title="上一个事件"
               >
                 <ChevronLeft size={16} strokeWidth={2} />
               </button>
               <button onClick={onNext} disabled={isLast}
-                className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${isLast ? 'text-ink-faint cursor-default' : 'text-ink-muted hover:text-ink'}`}
+                className={`flex h-8 w-8 items-center justify-center transition-colors ${isLast ? 'cursor-default text-ink-faint' : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'}`}
                 title="下一个事件"
               >
                 <ChevronRight size={16} strokeWidth={2} />
@@ -1390,15 +1386,12 @@ function TimelineToolbar({
             </>
           ) : null}
           {onAddPeriod ? (
-            <>
-              <Separator orientation="vertical" className="h-4 !self-center" />
-              <button onClick={onAddPeriod}
-                className="flex h-8 w-8 items-center justify-center rounded text-ink-muted transition-colors hover:text-ink"
-                title="添加时期"
-              >
-                <Plus size={16} strokeWidth={2} />
-              </button>
-            </>
+            <button onClick={onAddPeriod}
+              className="flex h-8 w-8 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink"
+              title="添加时期"
+            >
+              <Plus size={16} strokeWidth={2} />
+            </button>
           ) : null}
         </div>
         <div className="flex items-center gap-2">
@@ -1413,17 +1406,17 @@ function TimelineToolbar({
                 className="h-8 w-32 cursor-pointer appearance-none bg-transparent
                   [&::-webkit-slider-runnable-track]:h-1 [&::-webkit-slider-runnable-track]:rounded [&::-webkit-slider-runnable-track]:bg-line
                   [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:-mt-1 [&::-webkit-slider-thumb]:h-3.5
-                  [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-ink-muted
+                  [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:rounded-none [&::-webkit-slider-thumb]:bg-ink-muted
                   [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-line
                   [&::-moz-range-track]:h-1 [&::-moz-range-track]:rounded [&::-moz-range-track]:bg-line
-                  [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:rounded-full
+                  [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:rounded-none
                   [&::-moz-range-thumb]:bg-ink-muted [&::-moz-range-thumb]:border-0"
               />
               <span className="text-[10px] text-ink-faint">年</span>
             </div>
           ) : null}
           <button onClick={onToggleEdit}
-            className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${editMode ? 'text-ink' : 'text-ink-muted hover:text-ink'}`}
+            className={`flex h-8 w-8 items-center justify-center transition-colors hover:bg-[var(--oc-hover)] ${editMode ? 'text-ink' : 'text-ink-muted hover:text-ink'}`}
             title={editMode ? '锁定时间轴' : '解锁时间轴'}
           >
             {editMode ? <LockOpen size={16} strokeWidth={2} /> : <Lock size={16} strokeWidth={2} />}
@@ -1433,16 +1426,17 @@ function TimelineToolbar({
 
       {/* Mobile filter bar */}
       <MobileFilterBar>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setFilterMajor(true)}
-            className={`touch-feedback h-7 rounded border px-1.5 text-[11px] transition-colors ${filterMajor ? 'border-line-hover bg-paper-card/60 text-ink' : 'border-line text-ink-muted hover:text-ink'}`}
+            className={`h-7 text-[12px] transition-colors ${filterMajor ? 'text-ink' : 'text-ink-faint'}`}
           >
             大事表
           </button>
+          <span className="text-[12px] text-ink-faint/50">/</span>
           <button
             onClick={() => setFilterMajor(false)}
-            className={`touch-feedback h-7 rounded border px-1.5 text-[11px] transition-colors ${!filterMajor ? 'border-line-hover bg-paper-card/60 text-ink' : 'border-line text-ink-muted hover:text-ink'}`}
+            className={`h-7 text-[12px] transition-colors ${!filterMajor ? 'text-ink' : 'text-ink-faint'}`}
           >
             全部事件
           </button>
@@ -1451,7 +1445,7 @@ function TimelineToolbar({
         </div>
         {onAddPeriod ? (
           <button onClick={onAddPeriod}
-            className="flex h-7 w-7 items-center justify-center rounded text-ink-muted transition-colors hover:text-ink active:bg-black/8 dark:active:bg-white/8"
+            className="flex h-7 w-7 items-center justify-center text-ink-muted transition-colors hover:text-ink"
             title="添加时期"
           >
             <Plus size={14} strokeWidth={2} />

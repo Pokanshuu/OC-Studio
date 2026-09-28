@@ -15,6 +15,10 @@ interface ImageGalleryProps {
   columns?: number
   enableCrop?: boolean
   cropAspect?: number
+  /** 网格缩略图比例：square 用于相册，portrait 用于立绘（9:16，与裁剪比例一致） */
+  gridAspect?: 'square' | 'portrait'
+  /** 把「添加」做成网格里的一个瓦片（比整条虚线按钮更轻） */
+  addTile?: boolean
 }
 
 export function ImageGallery({
@@ -24,6 +28,8 @@ export function ImageGallery({
   onRemove,
   enableCrop = false,
   cropAspect,
+  gridAspect = 'square',
+  addTile = false,
 }: ImageGalleryProps) {
   const [viewerIndex, setViewerIndex] = useState<number | null>(null)
   const [sliderIndex, setSliderIndex] = useState(0)
@@ -179,7 +185,7 @@ export function ImageGallery({
             {images.length > 1 ? (
               <button
                 onClick={prevImage}
-                className="absolute left-2 z-[5] flex h-8 w-8 items-center justify-center rounded-full bg-black/20 text-white/80 hover:bg-black/40 transition-colors"
+                className="absolute left-2 z-[5] flex h-8 w-8 items-center justify-center rounded-none bg-black/20 text-white/80 hover:bg-black/40 transition-colors"
               >
                 <ChevronLeft size={16} strokeWidth={2} />
               </button>
@@ -220,7 +226,7 @@ export function ImageGallery({
                       onRemove(sliderIndex)
                       setSliderIndex((i) => Math.max(0, Math.min(i, images.length - 2)))
                     }}
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-black/40 text-white/80 hover:bg-black/60 transition-colors"
+                    className="flex h-8 w-8 items-center justify-center rounded-none bg-black/40 text-white/80 hover:bg-black/60 transition-colors"
                     title="删除"
                   >
                     <Trash2 size={16} strokeWidth={2} />
@@ -230,7 +236,7 @@ export function ImageGallery({
                   <button
                     onClick={triggerFileUpload}
                     disabled={uploading}
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-black/40 text-white/80 hover:bg-black/60 transition-colors disabled:opacity-50"
+                    className="flex h-8 w-8 items-center justify-center rounded-none bg-black/40 text-white/80 hover:bg-black/60 transition-colors disabled:opacity-50"
                     title="添加"
                   >
                     {uploading ? (
@@ -245,7 +251,7 @@ export function ImageGallery({
             {images.length > 1 ? (
               <button
                 onClick={nextImage}
-                className="absolute right-2 z-[5] flex h-8 w-8 items-center justify-center rounded-full bg-black/20 text-white/80 hover:bg-black/40 transition-colors"
+                className="absolute right-2 z-[5] flex h-8 w-8 items-center justify-center rounded-none bg-black/20 text-white/80 hover:bg-black/40 transition-colors"
               >
                 <ChevronRight size={16} strokeWidth={2} />
               </button>
@@ -267,7 +273,7 @@ export function ImageGallery({
               <button
                 key={i}
                 onClick={() => setSliderIndex(i)}
-                className={`h-1.5 rounded-full transition-all ${
+                className={`h-1.5 transition-all ${
                   i === sliderIndex ? 'w-4 bg-ink-muted' : 'w-1.5 bg-line'
                 }`}
               />
@@ -300,7 +306,7 @@ export function ImageGallery({
 
   return (
     <div className="relative">
-      {images.length === 0 ? (
+      {images.length === 0 && !addTile ? (
         <div className="flex h-32 flex-col items-center justify-center gap-2 rounded-md border border-dashed border-line bg-paper-card">
           <ImageIcon size={20} strokeWidth={2} className="text-ink-faint" />
           <span className="text-xs text-ink-faint">暂无图片</span>
@@ -308,7 +314,12 @@ export function ImageGallery({
       ) : (
         <div className="grid grid-cols-4 gap-2">
           {images.map((url, idx) => (
-            <div key={idx} className="group relative aspect-square overflow-hidden rounded-md bg-paper-card">
+            <div
+              key={idx}
+              className={`group relative overflow-hidden rounded-md bg-paper-card ${
+                gridAspect === 'portrait' ? 'aspect-[9/16]' : 'aspect-square'
+              }`}
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={resolveImageUrl(url)}
@@ -322,16 +333,34 @@ export function ImageGallery({
               {onRemove ? (
                 <button
                   onClick={() => onRemove(idx)}
-                  className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/40 text-white/80 opacity-100 md:opacity-0 md:transition-opacity md:group-hover:opacity-100 hover:bg-black/60"
+                  className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-none bg-black/40 text-white/80 opacity-100 md:opacity-0 md:transition-opacity md:group-hover:opacity-100 hover:bg-black/60"
                 >
                   <Trash2 size={12} strokeWidth={2} />
                 </button>
               ) : null}
             </div>
           ))}
+
+          {addTile && onAdd ? (
+            <button
+              type="button"
+              onClick={triggerFileUpload}
+              disabled={uploading}
+              title="添加图片"
+              className={`flex items-center justify-center rounded-md border border-dashed border-line bg-paper-card text-ink-faint transition-colors hover:border-line-hover hover:text-ink disabled:opacity-50 ${
+                gridAspect === 'portrait' ? 'aspect-[9/16]' : 'aspect-square'
+              }`}
+            >
+              {uploading ? (
+                <Loader2 size={16} strokeWidth={2} className="animate-spin" />
+              ) : (
+                <Plus size={16} strokeWidth={2} />
+              )}
+            </button>
+          ) : null}
         </div>
       )}
-      {onAdd ? (
+      {onAdd && !addTile ? (
         <button
           onClick={triggerFileUpload}
           className="mt-2 flex h-9 w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-line bg-paper-card text-sm text-ink-faint transition-colors hover:border-line-hover"

@@ -29,6 +29,7 @@ function buildDefaultCharacter(
     gallery: data.gallery,
     avatars: data.avatars,
     tags: data.tags ?? [],
+    isMajor: data.isMajor ?? false,
     createdAt: now,
     updatedAt: now,
     deleted: false,
@@ -80,10 +81,10 @@ export async function updateCharacter(
     'height',
     'birthday',
     'avatarUrl',
-    'qAvatarUrl',
     'headerUrl',
     'bio',
     'lifeStory',
+    'isMajor',
   ]
 
   for (const field of fields) {

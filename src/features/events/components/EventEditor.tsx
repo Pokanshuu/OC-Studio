@@ -7,19 +7,20 @@ import { DocumentEditor } from '@/components/editor/DocumentEditor'
 import { chatCompletion, getAIConfig } from '@/lib/ai'
 import { useSettings } from '@/lib/settings'
 import { TagPicker } from '@/features/tags'
-import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Separator } from '@/components/ui/separator'
 import { RelatedItemsSelector } from '@/components/shared/RelatedItemsSelector'
 import type { RelatedItem } from '@/components/shared/RelatedItemsSelector'
 import { ProfileBannerEditor } from '@/components/shared/ProfileBannerEditor'
-import { useDevice } from '@/lib/use-device'
 import type { Event } from '@/types'
 import type { EventFormData } from '../types'
 import { useCharacterList } from '@/features/characters/hooks/useCharacters'
 import { useCountryList } from '@/features/countries/hooks/useCountries'
 import { parseTime, assembleTime } from '../utils'
 import { useSaveStatus } from '@/components/layout/SaveStatusContext'
+import { FIELD_LABEL, FIELD_ROW, FIELD_ROW_TOP, PAGE_TITLE, SECTION_TITLE } from '@/lib/ui-tokens'
+
+// 字段行统一样式见 @/lib/ui-tokens
+const FIELD_INPUT = 'h-6 w-14 min-w-0 bg-transparent text-sm text-ink placeholder:text-ink-faint focus:outline-none'
 
 interface EventEditorProps {
   event: Event
@@ -54,7 +55,6 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
   const [tags, setTags] = useState<number[]>(event.tags ?? [])
   const { settings } = useSettings()
   const editorRef = useRef<Editor | null>(null)
-  const { isMobile } = useDevice()
   const { markDirty, markSaving, markSaved, registerSaveHandler } = useSaveStatus()
   const isFirstRenderRef = useRef(true)
   const suppressDirtyRef = useRef(false)
@@ -199,30 +199,30 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
 
   return (
     <div className="flex flex-col min-h-full">
-      <div className="flex items-center justify-between max-md:fixed max-md:top-0 max-md:left-0 max-md:right-0 md:sticky md:top-0 z-10 border-b border-line px-4 max-md:h-[calc(60px+var(--safe-top))] md:h-[60px] max-md:pt-[var(--safe-top)] bg-paper/85 dark:bg-[#1C1B1A]/85 backdrop-blur-lg">
+      <div className="flex items-center justify-between max-md:fixed max-md:top-0 max-md:left-0 max-md:right-0 md:sticky md:top-0 z-10 border-b border-line px-4 max-md:h-[calc(60px+var(--safe-top))] md:h-12 max-md:pt-[var(--safe-top)] bg-paper/85 dark:bg-[#1C1B1A]/85 backdrop-blur-lg">
         <div className="flex items-center gap-3">
           <button
             data-mobile-back
             onClick={onBack}
-            className="flex h-9 w-9 items-center justify-center rounded text-ink-muted transition-colors hover:text-ink active:bg-black/8 dark:active:bg-white/8"
+            className="flex h-8 w-8 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink"
           >
-            <ArrowLeft size={20} strokeWidth={2} />
+            <ArrowLeft size={16} strokeWidth={2} />
           </button>
-          <h2 className="text-lg text-ink">编辑事件</h2>
+          <h2 className={PAGE_TITLE}>编辑事件</h2>
         </div>
         <button
           onClick={handleSave}
           disabled={saving || !title.trim()}
           data-save-button
-          className="touch-feedback flex h-9 items-center gap-1.5 rounded border border-line bg-paper-card/60 px-3 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink disabled:opacity-50"
+          className="touch-feedback flex h-8 items-center gap-1.5 bg-ink px-3 text-[13px] text-paper transition-opacity hover:bg-ink hover:opacity-85 disabled:opacity-40"
         >
-          <Save size={16} strokeWidth={2} />
+          <Save size={14} strokeWidth={2} />
           <span>{saving ? '保存中...' : '保存'}</span>
         </button>
       </div>
 
       <div className="flex-1 min-h-0 max-md:pt-[calc(60px+var(--safe-top))]">
-        <div className="mx-auto w-full px-4 py-3 md:py-6 md:max-w-3xl md:px-8 pb-24 md:pb-0">
+        <div className="mx-auto w-full max-w-3xl px-4 py-3 md:px-8 md:py-6">
           {/* Profile header */}
           <section>
             <ProfileBannerEditor
@@ -232,115 +232,132 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
             />
           </section>
 
-          {/* Title — below avatar area with enough padding */}
-          <div className="pt-8">
+          <div className="mt-8 flex flex-col gap-8">
+            {/* 身份区 */}
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="事件标题"
-              className="w-full bg-transparent text-xl text-ink placeholder:text-ink-faint focus:outline-none"
+              className="w-full bg-transparent font-serif text-lg text-ink placeholder:text-ink-faint focus:outline-none"
             />
-          </div>
 
-          {/* Mobile: time inputs stacked */}
-          <div className="mt-3 flex flex-col gap-2 md:hidden">
-            <div className="flex items-center gap-1">
-              <span className="text-xs text-ink-faint w-8 shrink-0">开始</span>
-              <Input value={year} onChange={(e) => setYear(e.target.value)} placeholder="年份" className="w-16" />
-              <Input value={month} onChange={(e) => setMonth(e.target.value)} placeholder="月" className="w-12" />
-              <Input value={day} onChange={(e) => setDay(e.target.value)} placeholder="日" className="w-12" />
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="text-xs text-ink-faint w-8 shrink-0">结束</span>
-              <Input value={endYear} onChange={(e) => setEndYear(e.target.value)} placeholder="结束年" className="w-16" />
-              <Input value={endMonth} onChange={(e) => setEndMonth(e.target.value)} placeholder="月" className="w-12" />
-              <Input value={endDay} onChange={(e) => setEndDay(e.target.value)} placeholder="日" className="w-12" />
-            </div>
-            <div className="flex items-center gap-2">
-              <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="地点" className="flex-1" />
-              <div className="flex items-center gap-2 shrink-0">
-                <Checkbox id="isMajor" checked={isMajor} onCheckedChange={(checked) => setIsMajor(checked === true)} />
-                <label htmlFor="isMajor" className="cursor-pointer text-sm text-ink">重大事件</label>
+            {/* 基本信息 */}
+            <section>
+              <h3 className={SECTION_TITLE}>基本信息</h3>
+              <div className="grid grid-cols-1 gap-x-10 sm:grid-cols-2">
+                <div className={FIELD_ROW}>
+                  <span className={FIELD_LABEL}>开始</span>
+                  <div className="flex min-w-0 flex-1 items-center gap-1">
+                    <input value={year} onChange={(e) => setYear(e.target.value)} placeholder="年" className={FIELD_INPUT} />
+                    <input value={month} onChange={(e) => setMonth(e.target.value)} placeholder="月" className={FIELD_INPUT} />
+                    <input value={day} onChange={(e) => setDay(e.target.value)} placeholder="日" className={FIELD_INPUT} />
+                  </div>
+                </div>
+
+                <div className={FIELD_ROW}>
+                  <span className={FIELD_LABEL}>结束</span>
+                  <div className="flex min-w-0 flex-1 items-center gap-1">
+                    <input value={endYear} onChange={(e) => setEndYear(e.target.value)} placeholder="年" className={FIELD_INPUT} />
+                    <input value={endMonth} onChange={(e) => setEndMonth(e.target.value)} placeholder="月" className={FIELD_INPUT} />
+                    <input value={endDay} onChange={(e) => setEndDay(e.target.value)} placeholder="日" className={FIELD_INPUT} />
+                  </div>
+                </div>
+
+                <div className={FIELD_ROW}>
+                  <span className={FIELD_LABEL}>地点</span>
+                  <input
+                    type="text"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    placeholder="地点"
+                    className="min-w-0 flex-1 bg-transparent text-sm text-ink placeholder:text-ink-faint focus:outline-none"
+                  />
+                </div>
+
+                <label className={`${FIELD_ROW} cursor-pointer`}>
+                  <span className={FIELD_LABEL}>重大事件</span>
+                  <Checkbox checked={isMajor} onCheckedChange={(checked) => setIsMajor(checked === true)} />
+                </label>
               </div>
-            </div>
-          </div>
-          {/* Desktop: time inputs inline */}
-          <div className="mt-3 max-md:hidden md:flex md:flex-wrap md:items-center md:gap-2">
-            <Input value={year} onChange={(e) => setYear(e.target.value)} placeholder="年份" className="w-16" />
-            <Input value={month} onChange={(e) => setMonth(e.target.value)} placeholder="月" className="w-12" />
-            <Input value={day} onChange={(e) => setDay(e.target.value)} placeholder="日" className="w-12" />
-            <span className="text-xs text-ink-faint">→</span>
-            <Input value={endYear} onChange={(e) => setEndYear(e.target.value)} placeholder="结束年" className="w-16" />
-            <Input value={endMonth} onChange={(e) => setEndMonth(e.target.value)} placeholder="月" className="w-12" />
-            <Input value={endDay} onChange={(e) => setEndDay(e.target.value)} placeholder="日" className="w-12" />
-            <Separator orientation="vertical" className="h-4 !self-center" />
-            <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="地点" className="flex-1" />
-            <div className="flex items-center gap-2">
-              <Checkbox id="isMajor" checked={isMajor} onCheckedChange={(checked) => setIsMajor(checked === true)} />
-              <label htmlFor="isMajor" className="cursor-pointer text-sm text-ink">重大事件</label>
-            </div>
-          </div>
+            </section>
 
-          <div className={`mt-3 grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2'} gap-4`}>
-            <div>
-              <p className="text-sm text-ink-muted font-medium mb-1">相关角色</p>
-              <RelatedItemsSelector
-                items={characterItems}
-                selectedIds={selectedCharacterIds}
-                onChange={setSelectedCharacterIds}
-                placeholder="搜索相关角色..."
-                onNavigateItem={(id) => onNavigateItem?.(id, 'character')}
+            <div className="border-t border-line" />
+
+            {/* 关联 */}
+            <section>
+              <h3 className={SECTION_TITLE}>关联</h3>
+              <div className="flex flex-col">
+                <div className={FIELD_ROW_TOP}>
+                  <span className={FIELD_LABEL}>相关角色</span>
+                  <div className="min-w-0 flex-1">
+                    <RelatedItemsSelector
+                      items={characterItems}
+                      selectedIds={selectedCharacterIds}
+                      onChange={setSelectedCharacterIds}
+                      placeholder="添加相关角色..."
+                      onNavigateItem={(id) => onNavigateItem?.(id, 'character')}
+                    />
+                  </div>
+                </div>
+
+                <div className={FIELD_ROW_TOP}>
+                  <span className={FIELD_LABEL}>相关国家</span>
+                  <div className="min-w-0 flex-1">
+                    <RelatedItemsSelector
+                      items={countryItems}
+                      selectedIds={selectedCountryIds}
+                      onChange={setSelectedCountryIds}
+                      placeholder="添加相关国家..."
+                      onNavigateItem={(id) => onNavigateItem?.(id, 'country')}
+                    />
+                  </div>
+                </div>
+
+                <div className={FIELD_ROW_TOP}>
+                  <span className={FIELD_LABEL}>标签</span>
+                  <div className="min-w-0 flex-1">
+                    <TagPicker selectedIds={tags} onChange={setTags} />
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {settings.aiEnabled ? (
+              <section>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleAISummarize}
+                    disabled={aiLoading}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-warning transition-colors hover:bg-[var(--oc-hover)] disabled:opacity-50"
+                  >
+                    <Sparkles size={14} strokeWidth={2} />
+                    <span>{aiLoading ? '生成中...' : 'AI 概括'}</span>
+                  </button>
+                </div>
+                {summary ? (
+                  <p className="mt-2 max-w-[60ch] text-sm text-ink-muted">{summary}</p>
+                ) : null}
+              </section>
+            ) : null}
+
+            <div className="border-t border-line" />
+
+            {/* 正文 */}
+            <section>
+              <h3 className={SECTION_TITLE}>正文</h3>
+              <DocumentEditor
+                entityId={event.id as number}
+                entityType="event"
+                fallbackContent={event.content}
+                onReady={handleEditorReady}
+                placeholder="开始编写事件内容..."
+                onMentionClick={onMentionClick}
+                onCharacterCount={onCharacterCount}
+                onWikiLinkClick={onWikiLinkClick}
+                onDocChange={markDirty}
               />
-            </div>
-            <div>
-              <p className="text-sm text-ink-muted font-medium mb-1">相关国家</p>
-              <RelatedItemsSelector
-                items={countryItems}
-                selectedIds={selectedCountryIds}
-                onChange={setSelectedCountryIds}
-                placeholder="搜索相关国家..."
-                onNavigateItem={(id) => onNavigateItem?.(id, 'country')}
-              />
-            </div>
-          </div>
-
-          <div className="mt-4 flex flex-col gap-1.5">
-            <p className="text-sm text-ink-muted font-medium">标签</p>
-            <TagPicker selectedIds={tags} onChange={setTags} />
-          </div>
-
-          {summary && settings.aiEnabled ? (
-            <div className="mt-3 rounded border border-line bg-paper-card px-3 py-2 text-sm text-ink-muted">
-              {summary}
-            </div>
-          ) : null}
-
-          {settings.aiEnabled ? (
-            <div className="mt-4 flex items-center gap-2 border-b border-line pb-3">
-              <button
-                onClick={handleAISummarize}
-                disabled={aiLoading}
-                className="flex items-center gap-1.5 rounded border border-warning px-2.5 py-1.5 text-xs text-warning transition-colors hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-50"
-              >
-                <Sparkles size={14} strokeWidth={2} />
-                <span>{aiLoading ? '生成中...' : 'AI 概括'}</span>
-              </button>
-            </div>
-          ) : null}
-
-          <div className="mt-4">
-            <DocumentEditor
-              entityId={event.id as number}
-              entityType="event"
-              fallbackContent={event.content}
-              onReady={handleEditorReady}
-              placeholder="开始编写事件内容..."
-              onMentionClick={onMentionClick}
-              onCharacterCount={onCharacterCount}
-              onWikiLinkClick={onWikiLinkClick}
-              onDocChange={markDirty}
-            />
+            </section>
           </div>
         </div>
       </div>

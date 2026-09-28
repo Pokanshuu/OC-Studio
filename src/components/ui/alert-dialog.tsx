@@ -3,6 +3,7 @@
 import * as React from "react"
 import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog"
 import { cn } from "@/lib/utils"
+import { PAGE_TITLE } from "@/lib/ui-tokens"
 
 function AlertDialog({
   ...props
@@ -58,7 +59,7 @@ function AlertDialogContent({
       <AlertDialogPrimitive.Content
         data-slot="alert-dialog-content"
         className={cn(
-          "pointer-events-auto fixed left-[50%] top-[50%] z-[99999] grid w-full max-w-lg max-md:max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 border border-line bg-[#FEFCF8]/85 dark:bg-[#1C1B1A]/85 backdrop-blur-lg p-6 rounded-lg ring-1 ring-black/5 shadow-none duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+          "pointer-events-auto fixed left-[50%] top-[50%] z-[99999] grid w-full max-w-lg max-md:max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 border border-line bg-[#FEFCF8]/85 dark:bg-[#1C1B1A]/85 backdrop-blur-lg p-6 rounded-lg shadow-none duration-150 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
           className,
         )}
         {...props}
@@ -100,7 +101,7 @@ function AlertDialogTitle({
   return (
     <AlertDialogPrimitive.Title
       data-slot="alert-dialog-title"
-      className={cn("text-lg font-normal text-ink", className)}
+      className={cn(PAGE_TITLE, className)}
       {...props}
     />
   )
@@ -113,12 +114,13 @@ function AlertDialogDescription({
   return (
     <AlertDialogPrimitive.Description
       data-slot="alert-dialog-description"
-      className={cn("text-sm text-ink-muted", className)}
+      className={cn("text-[13px] text-ink-muted", className)}
       {...props}
     />
   )
 }
 
+/* 按钮不带底色/文字色：由调用方给 bg-ink（主）或 bg-error（破坏性），避免工具类互相覆盖。 */
 function AlertDialogAction({
   className,
   ...props
@@ -127,7 +129,7 @@ function AlertDialogAction({
     <AlertDialogPrimitive.Action
       data-slot="alert-dialog-action"
       className={cn(
-        "touch-feedback inline-flex h-9 items-center justify-center rounded px-3 text-sm font-normal transition-colors border border-error bg-transparent text-error hover:bg-error/10 dark:hover:bg-red-950/30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
+        "touch-feedback inline-flex h-8 items-center justify-center gap-1.5 px-3 text-[13px] transition-opacity hover:opacity-85 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-40",
         className,
       )}
       {...props}
@@ -143,7 +145,7 @@ function AlertDialogCancel({
     <AlertDialogPrimitive.Cancel
       data-slot="alert-dialog-cancel"
       className={cn(
-        "touch-feedback inline-flex h-9 items-center justify-center rounded px-3 text-sm font-normal transition-colors bg-white/60 dark:bg-white/[0.06] border border-line text-ink-muted hover:text-ink hover:bg-white/40 dark:hover:bg-white/[0.10] hover:border-line-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+        "touch-feedback inline-flex h-8 items-center justify-center px-3 text-[13px] text-ink-muted transition-colors hover:text-ink focus-visible:outline-none",
         className,
       )}
       {...props}

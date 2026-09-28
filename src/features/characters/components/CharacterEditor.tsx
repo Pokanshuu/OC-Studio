@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
-import { Save, ArrowLeft } from 'lucide-react'
+import { Save, ArrowLeft, X } from 'lucide-react'
 import type { Editor } from '@tiptap/core'
 import { DocumentEditor } from '@/components/editor/DocumentEditor'
 import type { Character, RelatedCharacter } from '@/types'
@@ -12,9 +12,10 @@ import { TagPicker } from '@/features/tags'
 import { useCountryList } from '@/features/countries/hooks/useCountries'
 import { RelatedItemsSelector } from '@/components/shared/RelatedItemsSelector'
 import type { RelatedItem } from '@/components/shared/RelatedItemsSelector'
-import { ImageUploader } from '@/components/shared/ImageUploader'
 import { ImageGallery } from '@/components/shared/ImageGallery'
 import { ProfileBannerEditor } from '@/components/shared/ProfileBannerEditor'
+import { Checkbox } from '@/components/ui/checkbox'
+import { FIELD_LABEL, FIELD_ROW, FIELD_ROW_TOP, PAGE_TITLE, SECTION_TITLE, SECTION_TITLE_BARE } from '@/lib/ui-tokens'
 import { useSaveStatus } from '@/components/layout/SaveStatusContext'
 
 interface CharacterEditorProps {
@@ -32,6 +33,16 @@ function safeAliasesJoin(aliases: string[]): string {
   return aliases.join('、')
 }
 
+/** 信息行占位符：只在「填错格式」的字段给示例，其余留空（标签已在左侧） */
+const INFO_PLACEHOLDER: Record<string, string> = {
+  别名: '多个用、分隔',
+  身高: '170 cm',
+  生日: '1998-03-12',
+}
+
+// 关系表表头
+const REL_TH = 'pb-2 text-left text-[11px] font-normal tracking-[0.14em] text-ink-faint'
+
 export function CharacterEditor({ editCharacterId, onBack, onNavigateToCharacter, onNavigateToCountry, onMentionClick, onCharacterCount, onWikiLinkClick }: CharacterEditorProps) {
   const { character, loading, error, refresh } = useCharacter(editCharacterId)
   const { updateCharacter } = useUpdateCharacter()
@@ -43,7 +54,7 @@ export function CharacterEditor({ editCharacterId, onBack, onNavigateToCharacter
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <span className="text-sm text-ink-muted">加载中...</span>
+        <span className="text-[13px] text-ink-faint">加载中…</span>
       </div>
     )
   }
@@ -123,7 +134,6 @@ function CharacterEditorInner({
   const [birthday, setBirthday] = useState(character.birthday)
 
   const [avatarUrl, setAvatarUrl] = useState(character.avatarUrl)
-  const [qAvatarUrl, setQAvatarUrl] = useState(character.qAvatarUrl ?? '')
   const [headerUrl, setHeaderUrl] = useState(character.headerUrl ?? '')
   const [tags, setTags] = useState<number[]>(character.tags ?? [])
   const [avatarUrls, setAvatarUrls] = useState<string[]>(
@@ -135,6 +145,7 @@ function CharacterEditorInner({
   const [relatedCharacters, setRelatedCharacters] = useState<RelatedCharacter[]>(
     character.relatedCharacters,
   )
+  const [isMajor, setIsMajor] = useState(character.isMajor ?? false)
 
   const [saving, setSaving] = useState(false)
   const { markDirty, markSaving, markSaved, registerSaveHandler } = useSaveStatus()
@@ -154,7 +165,6 @@ function CharacterEditorInner({
       setHeight(character.height)
       setBirthday(character.birthday)
       setAvatarUrl(character.avatarUrl)
-      setQAvatarUrl(character.qAvatarUrl ?? '')
       setHeaderUrl(character.headerUrl ?? '')
       setAvatarUrls(
         (Array.isArray(character.avatars) ? character.avatars : []).map((a) => (typeof a === 'string' ? a : a.url)),
@@ -163,6 +173,7 @@ function CharacterEditorInner({
         (Array.isArray(character.gallery) ? character.gallery : []).map((g) => (typeof g === 'string' ? g : g.url)),
       )
       setRelatedCharacters(character.relatedCharacters)
+      setIsMajor(character.isMajor ?? false)
     }
   }, [character])
 
@@ -255,7 +266,6 @@ function CharacterEditorInner({
         height,
         birthday,
         avatarUrl,
-        qAvatarUrl,
         headerUrl,
         bio: character.bio,
         lifeStory: character.lifeStory,
@@ -264,6 +274,7 @@ function CharacterEditorInner({
         gallery: galleryUrls.map((url) => ({ url, caption: '' })),
         avatars: avatarUrls.map((url) => ({ url, type: 'portrait' as const })),
         tags,
+        isMajor,
       })
       markSaved()
     } finally {
@@ -274,7 +285,6 @@ function CharacterEditorInner({
     character.bio,
     character.lifeStory,
     avatarUrl,
-    qAvatarUrl,
     headerUrl,
     avatarUrls,
     galleryUrls,
@@ -289,6 +299,7 @@ function CharacterEditorInner({
     birthday,
     relatedCharacters,
     tags,
+    isMajor,
     onSave,
     markSaving,
     markSaved,
@@ -308,246 +319,281 @@ function CharacterEditorInner({
     ['生日', birthday],
   ]
 
+  // 名字下方的身份摘要（纯数据，不编辑器自身字段）
+  const summaryLine = [
+    occupation,
+    countries.find((c) => c.id === countryId)?.name ?? nationalityLegacy,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+
+  // 字段行统一样式见 @/lib/ui-tokens
+
   return (
     <div className="flex flex-col min-h-full">
-      <div className="flex items-center justify-between max-md:fixed max-md:top-0 max-md:left-0 max-md:right-0 md:sticky md:top-0 z-10 border-b border-line px-4 max-md:h-[calc(60px+var(--safe-top))] md:h-[60px] max-md:pt-[var(--safe-top)] bg-paper/85 dark:bg-[#1C1B1A]/85 backdrop-blur-lg">
+      <div className="flex items-center justify-between max-md:fixed max-md:top-0 max-md:left-0 max-md:right-0 md:sticky md:top-0 z-10 border-b border-line px-4 max-md:h-[calc(60px+var(--safe-top))] md:h-12 max-md:pt-[var(--safe-top)] bg-paper/85 dark:bg-[#1C1B1A]/85 backdrop-blur-lg">
         <div className="flex items-center gap-3">
           <button
             data-mobile-back
             onClick={onBack}
-            className="flex h-9 w-9 items-center justify-center rounded text-ink-muted transition-colors hover:text-ink active:bg-black/8 dark:active:bg-white/8"
+            className="flex h-8 w-8 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink"
           >
-            <ArrowLeft size={20} strokeWidth={2} />
+            <ArrowLeft size={16} strokeWidth={2} />
           </button>
-          <h2 className="text-lg text-ink">编辑角色</h2>
+          <h2 className={PAGE_TITLE}>编辑角色</h2>
         </div>
         <button
           onClick={handleSave}
           disabled={saving || !name.trim()}
           data-save-button
-          className="touch-feedback flex h-9 items-center gap-1.5 rounded border border-line bg-paper-card/60 px-3 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink disabled:opacity-50"
+          className="touch-feedback flex h-8 items-center gap-1.5 bg-ink px-3 text-[13px] text-paper transition-opacity hover:bg-ink hover:opacity-85 disabled:opacity-40"
         >
-          <Save size={16} strokeWidth={2} />
+          <Save size={14} strokeWidth={2} />
           <span>{saving ? '保存中...' : '保存'}</span>
         </button>
       </div>
 
       <div className="flex-1 min-h-0 max-md:pt-[calc(60px+var(--safe-top))]">
-        <div className="mx-auto w-full px-4 py-3 md:py-6 space-y-5 md:space-y-8 md:max-w-3xl md:px-8">
+        <div className="mx-auto w-full max-w-3xl px-4 py-3 md:px-8 md:py-6">
           {/* Profile header */}
           <section>
             <ProfileBannerEditor
               headerUrl={headerUrl}
-              avatarUrl={qAvatarUrl}
+              avatarUrl={avatarUrl}
               onHeaderChange={(path) => { setHeaderUrl(path); markDirty() }}
-              onAvatarChange={(path) => { setQAvatarUrl(path); markDirty() }}
+              onAvatarChange={(path) => { setAvatarUrl(path); markDirty() }}
               onHeaderRemove={() => { setHeaderUrl(''); markDirty() }}
-              onAvatarRemove={() => { setQAvatarUrl(''); markDirty() }}
+              onAvatarRemove={() => { setAvatarUrl(''); markDirty() }}
             />
           </section>
 
-          {/* Name */}
-          <div>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => { setName(e.target.value); markDirty() }}
-              placeholder="角色名称"
-              className="w-full bg-transparent text-xl text-ink placeholder:text-ink-faint focus:outline-none"
-            />
-          </div>
+          {/* ── 内容 ── */}
+          <div className="mt-8">
+            <div className="flex flex-col gap-8">
+              {/* 身份区：名字 / 摘要（头像在头图上） */}
+              <div className="flex min-w-0 flex-col gap-1">
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => { setName(e.target.value); markDirty() }}
+                  placeholder="角色名称"
+                  className="w-full bg-transparent font-serif text-lg text-ink placeholder:text-ink-faint focus:outline-none"
+                />
+                {summaryLine ? (
+                  <p className="text-sm text-ink-muted">{summaryLine}</p>
+                ) : null}
+              </div>
 
-          {/* Basic info */}
-          <section>
-            <h3 className="text-base text-ink mb-3">基本信息</h3>
-            <div className="flex flex-col lg:flex-row gap-6">
-              {/* Info table */}
-              <div className="flex-1 max-w-full md:max-w-[300px]">
-                {infoRows.map(([label]) => {
-                  const value = label === '别名'
-                    ? aliasesStr
-                    : label === '种族'
-                      ? race
-                      : label === '元素'
-                        ? element
-                        : label === '职业'
-                          ? occupation
-                          : label === '身高'
-                            ? height
-                            : label === '生日'
-                              ? birthday
-                              : ''
+              {/* Basic info */}
+              <section>
+                <h3 className={SECTION_TITLE}>基本信息</h3>
+                <div className="grid grid-cols-1 gap-x-10 sm:grid-cols-2">
+                  {infoRows.map(([label]) => {
+                    const value = label === '别名'
+                      ? aliasesStr
+                      : label === '种族'
+                        ? race
+                        : label === '元素'
+                          ? element
+                          : label === '职业'
+                            ? occupation
+                            : label === '身高'
+                              ? height
+                              : label === '生日'
+                                ? birthday
+                                : ''
 
-                  const onChange = label === '别名'
-                    ? (v: string) => setAliasesStr(v)
-                    : label === '种族'
-                      ? setRace
-                      : label === '元素'
-                        ? setElement
-                        : label === '职业'
-                          ? setOccupation
-                          : label === '身高'
-                            ? setHeight
-                            : setBirthday
+                    const onChange = label === '别名'
+                      ? (v: string) => setAliasesStr(v)
+                      : label === '种族'
+                        ? setRace
+                        : label === '元素'
+                          ? setElement
+                          : label === '职业'
+                            ? setOccupation
+                            : label === '身高'
+                              ? setHeight
+                              : setBirthday
 
-                  return (
-                    <div key={label} className="flex items-center border-b border-line py-1.5">
-                      <span className="w-20 md:w-24 inline-block shrink-0 text-sm text-ink-muted">{label}</span>
-                      <input
-                        type="text"
-                        value={value}
-                        onChange={(e) => { onChange(e.target.value); markDirty() }}
-                        placeholder={label}
-                        className="flex-1 bg-transparent text-sm text-ink placeholder:text-ink-faint focus:outline-none"
-                      />
+                    return (
+                      <div key={label} className={FIELD_ROW}>
+                        <span className={FIELD_LABEL}>{label}</span>
+                        <input
+                          type="text"
+                          value={value}
+                          onChange={(e) => { onChange(e.target.value); markDirty() }}
+                          placeholder={INFO_PLACEHOLDER[label] ?? ''}
+                          className="min-w-0 flex-1 bg-transparent text-sm text-ink placeholder:text-ink-faint focus:outline-none"
+                        />
+                      </div>
+                    )
+                  })}
+
+                  {/* Nationality */}
+                  <div className={FIELD_ROW}>
+                    <span className={FIELD_LABEL}>国籍</span>
+                    <div className="min-w-0 flex-1">
+                      {countries.length > 0 ? (
+                        <RelatedItemsSelector
+                          items={countryItems}
+                          selectedIds={selectedCountryIds}
+                          onChange={handleCountryChange}
+                          placeholder="搜索国家..."
+                          maxItems={1}
+                          onNavigateItem={onNavigateToCountry}
+                        />
+                      ) : (
+                        <input
+                          type="text"
+                          value={nationalityLegacy}
+                          onChange={(e) => { setNationalityLegacy(e.target.value); markDirty() }}
+                          className="w-full bg-transparent text-sm text-ink placeholder:text-ink-faint focus:outline-none"
+                        />
+                      )}
                     </div>
-                  )
-                })}
+                  </div>
 
-                {/* Nationality */}
-                <div className="flex items-center border-b border-line py-1.5">
-                   <span className="w-24 inline-block shrink-0 text-sm text-ink-muted">国籍</span>
-                  <div className="flex-1">
-                    {countries.length > 0 ? (
-                      <RelatedItemsSelector
-                        items={countryItems}
-                        selectedIds={selectedCountryIds}
-                        onChange={handleCountryChange}
-                        placeholder="搜索国家..."
-                        maxItems={1}
-                        onNavigateItem={onNavigateToCountry}
-                      />
-                    ) : (
-                      <input
-                        type="text"
-                        value={nationalityLegacy}
-                        onChange={(e) => { setNationalityLegacy(e.target.value); markDirty() }}
-                        placeholder="国籍"
-                        className="w-full bg-transparent text-sm text-ink placeholder:text-ink-faint focus:outline-none"
-                      />
-                    )}
+                  {/* Major */}
+                  <label className={`${FIELD_ROW} cursor-pointer`}>
+                    <span className={FIELD_LABEL}>主要角色</span>
+                    <Checkbox
+                      checked={isMajor}
+                      onCheckedChange={(checked) => { setIsMajor(checked === true); markDirty() }}
+                    />
+                  </label>
+
+                  {/* Tags — 占满整行，避免长标签把网格挤歪 */}
+                  <div className={`${FIELD_ROW_TOP} sm:col-span-2`}>
+                    <span className={FIELD_LABEL}>标签</span>
+                    <div className="min-w-0 flex-1">
+                      <TagPicker selectedIds={tags} onChange={(ids) => { setTags(ids); markDirty() }} />
+                    </div>
                   </div>
                 </div>
-              </div>
+              </section>
 
-              {/* 头像 */}
-              <div className="shrink-0 w-32">
-                <h4 className="text-xs text-ink-muted mb-2">头像</h4>
-                <ImageUploader
-                  value={avatarUrl}
-                  onChange={(path) => { setAvatarUrl(path); markDirty() }}
-                  onRemove={() => { setAvatarUrl(''); markDirty() }}
-                  aspectRatio="1:1"
-                  size="md"
+              <div className="border-t border-line" />
+
+              {/* 立绘 */}
+              <section>
+                <h3 className={SECTION_TITLE}>立绘</h3>
+                <ImageGallery
+                  mode="grid"
+                  gridAspect="portrait"
+                  addTile
+                  images={avatarUrls}
                   enableCrop
-                  cropAspect={1}
-                  shape="rect"
-                  placeholderText="上传头像"
+                  cropAspect={9 / 16}
+                  onAdd={(path) => { setAvatarUrls((prev) => [...prev, path]); markDirty() }}
+                  onRemove={(index) => { setAvatarUrls((prev) => prev.filter((_, i) => i !== index)); markDirty() }}
                 />
-              </div>
+              </section>
 
-              {/* 立绘 (portrait) */}
-              <div className="flex-1 max-w-full md:max-w-[200px] md:ml-auto">
-                <h4 className="text-xs text-ink-muted mb-2">立绘</h4>
-                <div className="aspect-[9/16]">
-                  <ImageGallery
-                    mode="slider"
-                    images={avatarUrls}
-                    enableCrop
-                    cropAspect={9 / 16}
-                    onAdd={(path) => { setAvatarUrls((prev) => [...prev, path]); markDirty() }}
-                    onRemove={(index) => { setAvatarUrls((prev) => prev.filter((_, i) => i !== index)); markDirty() }}
+              <div className="border-t border-line" />
+
+              {/* Bio + LifeStory (merged into one document) */}
+              <section>
+                <h3 className={SECTION_TITLE}>人物详情</h3>
+                <DocumentEditor
+                  entityId={character.id as number}
+                  entityType="character"
+                  fallbackContent={mergeBioLifeStory(character.bio, character.lifeStory)}
+                  onReady={handleDocReady}
+                  placeholder="编写角色简介..."
+                  onMentionClick={onMentionClick}
+                  onCharacterCount={onCharacterCount}
+                  onWikiLinkClick={onWikiLinkClick}
+                  onDocChange={markDirty}
+                />
+              </section>
+
+              <div className="border-t border-line" />
+
+              {/* 关系 */}
+              <section>
+                <div className="mb-3 flex items-center justify-between gap-4">
+                  <h3 className={SECTION_TITLE_BARE}>关系</h3>
+                  <RelatedItemsSelector
+                    items={characterItems}
+                    selectedIds={relatedCharacterIds}
+                    onChange={handleRelatedCharactersChange}
+                    placeholder="添加关联角色..."
+                    onNavigateItem={onNavigateToCharacter}
+                    hideSelected
+                    panelAlign="right"
                   />
                 </div>
-              </div>
+
+                {relatedCharacters.length > 0 ? (
+                  <table className="mt-4 w-full border-collapse">
+                    <thead>
+                      <tr>
+                        <th className={REL_TH}>对象</th>
+                        <th className={REL_TH}>类型</th>
+                        <th className={`${REL_TH} text-right`}>关系</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {relatedCharacters.map((rc, idx) => (
+                        <tr key={rc.characterId ?? idx} className="border-t border-line">
+                          <td className="py-2 pr-4 font-serif text-[13px] text-ink">
+                            <button
+                              type="button"
+                              onClick={() => { if (rc.characterId != null) onNavigateToCharacter?.(rc.characterId) }}
+                              className="transition-colors hover:text-ink-muted"
+                            >
+                              {rc.name}
+                            </button>
+                          </td>
+                          <td className="py-2 pr-4 text-[13px] text-ink-muted">角色</td>
+                          <td className="py-2">
+                            <div className="flex items-center justify-end gap-3">
+                              <input
+                                type="text"
+                                value={rc.relation}
+                                onChange={(e) => {
+                                  const next = [...relatedCharacters]
+                                  next[idx] = { ...next[idx], relation: e.target.value }
+                                  setRelatedCharacters(next)
+                                  markDirty()
+                                }}
+                                placeholder="关系"
+                                className="w-32 bg-transparent text-right text-[13px] text-ink placeholder:text-ink-faint focus:outline-none"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setRelatedCharacters(relatedCharacters.filter((_, i) => i !== idx))
+                                  handleRelatedCharactersChange(relatedCharacterIds.filter((id) => id !== rc.characterId))
+                                }}
+                                className="text-ink-faint transition-colors hover:text-error"
+                                title="移除"
+                              >
+                                <X size={12} strokeWidth={2} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : null}
+              </section>
+
+              <div className="border-t border-line" />
+
+              {/* Gallery */}
+              <section>
+                <h3 className={SECTION_TITLE}>相册</h3>
+                <ImageGallery
+                  mode="grid"
+                  images={galleryUrls}
+                  onAdd={(path) => { setGalleryUrls((prev) => [...prev, path]); markDirty() }}
+                  onRemove={(index) => { setGalleryUrls((prev) => prev.filter((_, i) => i !== index)); markDirty() }}
+                />
+              </section>
             </div>
-          </section>
-
-          <div className="border-t border-line" />
-
-          {/* Bio + LifeStory (merged into one document) */}
-          <section>
-            <h3 className="text-base text-ink mb-3">人物详情</h3>
-            <DocumentEditor
-              entityId={character.id as number}
-              entityType="character"
-              fallbackContent={mergeBioLifeStory(character.bio, character.lifeStory)}
-              onReady={handleDocReady}
-              placeholder="编写角色简介..."
-              onMentionClick={onMentionClick}
-              onCharacterCount={onCharacterCount}
-              onWikiLinkClick={onWikiLinkClick}
-              onDocChange={markDirty}
-            />
-          </section>
-
-          <div className="border-t border-line" />
-
-          {/* Related Characters */}
-          <section>
-            <h3 className="text-base text-ink mb-3">相关人物</h3>
-            <RelatedItemsSelector
-              items={characterItems}
-              selectedIds={relatedCharacterIds}
-              onChange={handleRelatedCharactersChange}
-              placeholder="搜索关联角色..."
-              onNavigateItem={onNavigateToCharacter}
-            />
-
-            {relatedCharacters.length > 0 ? (
-              <div className="mt-3 space-y-2">
-                {relatedCharacters.map((rc, idx) => (
-                  <div key={rc.characterId ?? idx} className="flex items-center gap-2">
-                    <span className="text-sm text-ink-muted w-20 shrink-0 truncate">{rc.name}</span>
-                    <span className="text-sm text-ink-muted shrink-0">关系：</span>
-                    <input
-                      type="text"
-                      value={rc.relation}
-                      onChange={(e) => {
-                        const next = [...relatedCharacters]
-                        next[idx] = { ...next[idx], relation: e.target.value }
-                        setRelatedCharacters(next)
-                        markDirty()
-                      }}
-                      placeholder="挚友、师徒..."
-                      className="flex-1 h-9 rounded border border-line bg-paper-card px-3 text-sm text-ink placeholder:text-ink-faint focus:border-line-hover focus:outline-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setRelatedCharacters(relatedCharacters.filter((_, i) => i !== idx))
-                        handleRelatedCharactersChange(relatedCharacterIds.filter((id) => id !== rc.characterId))
-                      }}
-                      className="text-ink-faint hover:text-error text-sm px-1"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-          </section>
-
-          <div className="border-t border-line" />
-
-          {/* Tags */}
-          <section>
-            <h3 className="text-base text-ink mb-3">标签</h3>
-            <TagPicker selectedIds={tags} onChange={(ids) => { setTags(ids); markDirty() }} />
-          </section>
-
-          <div className="border-t border-line" />
-
-          {/* Gallery */}
-          <section>
-            <h3 className="text-base text-ink mb-3">相册</h3>
-            <ImageGallery
-              mode="grid"
-              images={galleryUrls}
-              onAdd={(path) => { setGalleryUrls((prev) => [...prev, path]); markDirty() }}
-              onRemove={(index) => { setGalleryUrls((prev) => prev.filter((_, i) => i !== index)); markDirty() }}
-            />
-          </section>
+          </div>
         </div>
       </div>
 

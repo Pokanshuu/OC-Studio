@@ -15,6 +15,14 @@
   --oc-ink-faint: #A5A098;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  /* 动效令牌（统一时长与缓动） */
+  --dur-fast: 150ms;
+  --dur-base: 200ms;
+  --ease-quiet: cubic-bezier(0.2, 0.6, 0.2, 1);
+
+  /* 控件悬停底色（界面无色：只用墨色极低透明度） */
+  --oc-hover: rgba(43, 43, 43, 0.045);
 }
 
 .dark {
@@ -26,6 +34,7 @@
   --oc-ink: #E3DFD8;
   --oc-ink-muted: #A5A098;
   --oc-ink-faint: #6E6A63;
+  --oc-hover: rgba(227, 223, 216, 0.06);
 }
 
 @theme inline {
@@ -106,7 +115,7 @@
     --border: #E7E3DC;
     --input: #E7E3DC;
     --ring: #D6D0C4;
-    --radius: 0.375rem;
+    --radius: 0px;
     --shadow: none;
     --sidebar: #FAF7F2;
     --sidebar-foreground: #2B2B2B;
@@ -144,7 +153,7 @@
     --border: #38352F;
     --input: #38352F;
     --ring: #38352F;
-    --radius: 0.375rem;
+    --radius: 0px;
     --shadow: none;
     --sidebar: #242321;
     --sidebar-foreground: #E3DFD8;
@@ -170,9 +179,19 @@
     @apply font-sans;
   }
   button {
-    @apply hover:bg-paper-alt dark:hover:bg-white/5;
+    transition: background-color var(--dur-fast) ease-out, color var(--dur-fast) ease-out,
+      border-color var(--dur-fast) ease-out;
+  }
+  button:hover {
+    background-color: var(--oc-hover);
   }
 }
+
+/* 全局直角 —— 界面语言：除圆形头像外不使用任何圆角。
+   --radius 已置 0（派生工具类随之归零），但 Tailwind 的裸 `rounded` / `rounded-xs`
+   是固定值，需在非分层样式里兜底覆盖（非分层优先级高于 @layer utilities）。 */
+.rounded,
+.rounded-xs { border-radius: 0; }
 
 /* Degradation: opaque background by default (browser dev / Linux) */
 body {
@@ -298,7 +317,7 @@ html.tauri-mica [data-statusbar] {
   width: 16px !important;
   height: 16px !important;
   border: 1px solid #E7E3DC !important;
-  border-radius: 4px !important;
+  border-radius: 0 !important;
   background-color: #F3EFE9 !important;
   margin-right: 0.5rem !important;
   cursor: pointer !important;
@@ -335,7 +354,7 @@ html.tauri-mica [data-statusbar] {
 }
 
 .tiptap h1 {
-  font-family: var(--font-sans);
+  font-family: var(--font-serif);
   font-size: 1.5rem;
   font-weight: 400;
   line-height: 1.4;
@@ -344,7 +363,7 @@ html.tauri-mica [data-statusbar] {
 }
 
 .tiptap h2 {
-  font-family: var(--font-sans);
+  font-family: var(--font-serif);
   font-size: 1.25rem;
   font-weight: 400;
   line-height: 1.4;
@@ -353,6 +372,7 @@ html.tauri-mica [data-statusbar] {
 }
 
 .tiptap h3 {
+  font-family: var(--font-serif);
   font-size: 1.1rem;
   font-weight: 500;
   line-height: 1.4;
@@ -401,7 +421,7 @@ html.tauri-mica [data-statusbar] {
 
 .tiptap code {
   background: var(--color-paper-card);
-  border-radius: 3px;
+  border-radius: 0;
   padding: 0.15em 0.4em;
   font-family: var(--font-mono);
   font-size: 0.9em;
@@ -410,7 +430,7 @@ html.tauri-mica [data-statusbar] {
 .tiptap pre {
   background: var(--color-paper-card);
   border: 1px solid var(--color-line);
-  border-radius: 4px;
+  border-radius: 0;
   padding: 0.75em 1em;
   margin-top: 0.75em;
   margin-bottom: 0.75em;
@@ -633,6 +653,14 @@ html.tauri-mica [data-statusbar] {
   }
   .section-fade[data-animate] {
     animation: none;
+  }
+  /* 全局兜底：关闭所有过渡与动画（含 touch-feedback 缩放） */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
   }
 }
 

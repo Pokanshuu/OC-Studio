@@ -26,9 +26,6 @@ export function useAlbumData() {
       if (c.avatarUrl) {
         result.push({ url: c.avatarUrl, sourceName: c.name, sourceType: 'character', sourceId: c.id!, category: 'avatar', ...meta })
       }
-      if (c.qAvatarUrl) {
-        result.push({ url: c.qAvatarUrl, sourceName: c.name, sourceType: 'character', sourceId: c.id!, category: 'qAvatar', ...meta })
-      }
       if (Array.isArray(c.avatars)) {
         for (const av of c.avatars) {
           const url = typeof av === 'string' ? av : av.url

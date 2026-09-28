@@ -9,7 +9,6 @@ let tauriConvertFileSrc: ((path: string) => string) | null = null
 
 const DEFAULT_IMAGES: Record<string, string> = {
   avatar: '/images/defaults/character-avatar.svg',
-  'avatar-q': '/images/defaults/character-avatar-q.svg',
   flag: '/images/defaults/country-emblem.svg',
   header: '/images/defaults/header-placeholder.svg',
 }

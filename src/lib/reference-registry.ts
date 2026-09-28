@@ -78,7 +78,7 @@ registerEntityType({
         id: String(c.id),
         name: c.name,
         keywords: Array.isArray(c.aliases) ? c.aliases : [],
-        avatarUrl: c.qAvatarUrl || c.avatarUrl || undefined,
+        avatarUrl: c.avatarUrl || undefined,
       }))
   },
 })

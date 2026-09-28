@@ -237,7 +237,7 @@ export function RelationGraph({
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <span className="text-sm text-ink-muted">加载图谱数据...</span>
+        <span className="text-[13px] text-ink-faint">加载图谱数据…</span>
       </div>
     )
   }
@@ -245,8 +245,8 @@ export function RelationGraph({
   if (error) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3">
-        <span className="text-sm text-error">{error}</span>
-        <button onClick={refresh} className="rounded border border-line px-3 py-1.5 text-sm text-ink-muted hover:text-ink">重试</button>
+        <span className="text-[13px] text-error">{error}</span>
+        <button onClick={refresh} className="px-1.5 py-1 text-[13px] text-ink-muted transition-colors hover:text-ink">重试</button>
       </div>
     )
   }
@@ -254,8 +254,8 @@ export function RelationGraph({
   if (rawNodes.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3">
-        <span className="text-sm text-ink-muted">暂无关系数据，请先创建角色、事件或国家，并添加关联关系</span>
-        <button onClick={refresh} className="rounded border border-line px-3 py-1.5 text-sm text-ink-muted hover:text-ink">刷新</button>
+        <span className="font-serif text-sm text-ink-faint">暂无关系数据，请先创建角色、事件或国家，并添加关联关系</span>
+        <button onClick={refresh} className="px-1.5 py-1 text-[13px] text-ink-muted transition-colors hover:text-ink">刷新</button>
       </div>
     )
   }
@@ -293,11 +293,11 @@ export function RelationGraph({
           onZoomChange={handleZoomChange}
         />
 
-        <Panel position="bottom-left" className="max-md:hidden flex flex-col gap-1 bg-paper/85 backdrop-blur-lg border border-line rounded-md px-3 py-2 m-3 text-[11px] text-ink-muted">
-          <span className="font-medium text-ink-faint">图例</span>
+        <Panel position="bottom-left" className="max-md:hidden m-3 flex flex-col gap-1 border border-line bg-paper/85 px-3 py-2 text-[11px] text-ink-muted backdrop-blur-lg">
+          <span className="text-ink-faint">图例</span>
           <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full border border-line-hover bg-paper-card" />角色</span>
-          <span className="flex items-center gap-1.5"><span className="h-2.5 w-4 rounded-sm border border-line bg-paper-card" />事件</span>
-          <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-[3px] border border-line bg-paper-card" />国家</span>
+          <span className="flex items-center gap-1.5"><span className="h-2.5 w-4 border border-line bg-paper-card" />事件</span>
+          <span className="flex items-center gap-1.5"><span className="h-3 w-3 border border-line bg-paper-card" />国家</span>
         </Panel>
 
         <FitViewOnLoad key={filteredNodes.length} ready={filteredNodes.length > 0 && !loading} />
@@ -315,7 +315,7 @@ export function RelationGraph({
             }
           }}
           maskColor="rgba(0,0,0,0.03)"
-          className="!border !border-line !rounded-md !bg-paper"
+          className="!border !border-line !rounded-none !bg-paper"
         />
       </ReactFlow>
 

@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { invoke } from "@tauri-apps/api/core"
-import { Database, Cpu, Info } from "lucide-react"
+import { Database, Cpu, Info, BookOpen } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -16,17 +16,21 @@ import { isTauri as isTauriEnv } from "@/lib/env"
 import { APP_VERSION } from "@/lib/version"
 import { useImportExport } from "@/components/shared/ImportExportUI"
 import { useInputContextMenu } from "@/lib/use-input-context-menu"
+import { useProjectMeta } from "@/features/project"
+import { ImageUploader } from "@/components/shared/ImageUploader"
 
 interface SettingsDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  defaultTab?: string
+  tab: string
+  onTabChange: (tab: string) => void
 }
 
 const TAB_ITEMS = [
+  { value: "world", label: "世界", icon: BookOpen },
   { value: "general", label: "通用", icon: Cpu },
-  { value: "data", label: "数据与同步", icon: Database },
-  { value: "ai", label: "AI 与云", icon: Cpu },
+  { value: "data", label: "数据", icon: Database },
+  { value: "ai", label: "AI", icon: Cpu },
   { value: "about", label: "关于", icon: Info },
 ] as const
 
@@ -51,12 +55,12 @@ function ThemeRadio({
           className="flex items-center gap-2 cursor-pointer"
         >
           <div
-            className={`relative flex items-center justify-center rounded-full border h-4 w-4 shrink-0 ${
+            className={`relative flex h-4 w-4 shrink-0 items-center justify-center border ${
               value === opt.value ? "border-line-hover" : "border-line"
             } bg-black/5 dark:bg-white/5`}
           >
             {value === opt.value && (
-              <div className="h-2 w-2 rounded-full bg-ink-muted" />
+              <div className="h-2 w-2 bg-ink-muted" />
             )}
           </div>
           <input
@@ -75,24 +79,24 @@ function ThemeRadio({
 }
 
 const SWITCH_CLASSES = {
-  base: "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border transition-colors",
+  base: "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center border transition-colors",
   on: "border-line-hover bg-ink-muted",
   off: "border-line bg-black/5 dark:bg-white/5",
 }
 
 const SWITCH_DOT =
-  "block h-3.5 w-3.5 rounded-full transition-transform bg-ink-muted"
+  "block h-3.5 w-3.5 transition-transform bg-ink-muted"
 
 export function SettingsDialog({
   open,
   onOpenChange,
-  defaultTab = "general",
+  tab,
+  onTabChange,
 }: SettingsDialogProps) {
   const { settings, updateSetting } = useSettings()
   const { isMobile } = useDevice()
   const { handleExport, handleImportClick, dialog: importExportDialog } =
     useImportExport()
-  const [tab, setTab] = useState(defaultTab)
 
   const [blurEnabled, setBlurEnabled] = useState(() => {
     if (typeof window === "undefined") return false
@@ -109,6 +113,27 @@ export function SettingsDialog({
   const aiModelRef = useInputContextMenu()
   const aiBaseUrlRef = useInputContextMenu()
   const syncServerUrlRef = useInputContextMenu()
+  const worldNameRef = useInputContextMenu()
+  const taglineRef = useInputContextMenu()
+
+  const { meta, loading: metaLoading, save: saveMeta } = useProjectMeta()
+  const [worldName, setWorldName] = useState('')
+  const [tagline, setTagline] = useState('')
+  const [coverUrl, setCoverUrl] = useState('')
+  const touchedRef = useRef(false)
+
+  // 打开对话框时回填；用户一旦编辑过就不再回写，避免打字过程中被异步结果覆盖
+  useEffect(() => {
+    if (!open || metaLoading || touchedRef.current) return
+    setWorldName(meta.worldName)
+    setTagline(meta.tagline)
+    setCoverUrl(meta.coverUrl)
+  }, [open, metaLoading, meta])
+
+  // 关闭后重置「已编辑」标记，下次打开重新同步
+  useEffect(() => {
+    if (!open) touchedRef.current = false
+  }, [open])
 
   useEffect(() => {
     if (!isTauri) return
@@ -141,9 +166,9 @@ export function SettingsDialog({
           <DialogTitle>设置</DialogTitle>
         </DialogHeader>
 
-        <Tabs value={tab} onValueChange={(v) => setTab(v as string)}>
+        <Tabs value={tab} onValueChange={onTabChange}>
           <div className="px-6">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               {TAB_ITEMS.map((item) => (
                 <TabsTrigger
                   key={item.value}
@@ -158,15 +183,72 @@ export function SettingsDialog({
           </div>
 
           <div className="px-6 pb-6">
+            {/* ---- world ---- */}
+            <TabsContent value="world">
+              <div className="flex flex-col gap-5">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-sm text-ink">世界名称</label>
+                  <input
+                    ref={worldNameRef}
+                    type="text"
+                    value={worldName}
+                    onChange={(e) => {
+                      touchedRef.current = true
+                      setWorldName(e.target.value)
+                      void saveMeta({ worldName: e.target.value })
+                    }}
+                    placeholder="例如：灰烬纪元"
+                    className="h-8 w-full border-b border-line bg-transparent text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-sm text-ink">一句话简介</label>
+                  <input
+                    ref={taglineRef}
+                    type="text"
+                    value={tagline}
+                    onChange={(e) => {
+                      touchedRef.current = true
+                      setTagline(e.target.value)
+                      void saveMeta({ tagline: e.target.value })
+                    }}
+                    placeholder="例如：当最后一座浮空城坠落，大地只剩下灰与余烬。"
+                    className="h-8 w-full border-b border-line bg-transparent text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-sm text-ink">封面</span>
+                  <ImageUploader
+                    value={coverUrl}
+                    onChange={(path) => {
+                      touchedRef.current = true
+                      setCoverUrl(path)
+                      void saveMeta({ coverUrl: path })
+                    }}
+                    onRemove={() => {
+                      touchedRef.current = true
+                      setCoverUrl('')
+                      void saveMeta({ coverUrl: '' })
+                    }}
+                    aspectRatio="3:2"
+                    placeholderText="上传封面"
+                    size="lg"
+                  />
+                </div>
+              </div>
+            </TabsContent>
+
             {/* ---- general ---- */}
             <TabsContent value="general">
               <div className="flex flex-col gap-5">
                 <label className="flex items-center justify-between">
                   <div className="flex flex-col">
                     <span className="text-sm text-ink">开机自启动</span>
-                    <span className="text-xs text-ink-faint">
-                      {isMobile ? '桌面端支持开机自启动' : '应用程序将在系统启动时自动运行'}
-                    </span>
+                    {isMobile ? (
+                      <span className="text-xs text-ink-faint">桌面端支持</span>
+                    ) : null}
                   </div>
                   <button
                     role="switch"
@@ -205,9 +287,9 @@ export function SettingsDialog({
                       <span className="text-sm text-ink">
                         启用窗口模糊效果
                       </span>
-                      <span className="text-xs text-ink-faint">
-                        仅在桌面环境下生效
-                      </span>
+                      {isMobile ? (
+                        <span className="text-xs text-ink-faint">桌面端支持</span>
+                      ) : null}
                     </div>
                     <button
                       role="switch"
@@ -234,37 +316,29 @@ export function SettingsDialog({
             {/* ---- data ---- */}
             <TabsContent value="data">
               <div className="flex flex-col gap-4">
-                <p className="text-sm text-ink-muted">
-                  管理您的创作数据。可以导出为常用格式备份，或发布为独立页面。
-                </p>
                 <div className="flex flex-col gap-3">
                   <button
                     onClick={handleImportClick}
-                    className="touch-feedback inline-flex items-center justify-center h-9 px-4 rounded text-sm border border-line bg-white/60 dark:bg-white/[0.06] text-ink transition-colors hover:border-line-hover hover:bg-white/40 dark:hover:bg-white/[0.10]"
+                    className="touch-feedback inline-flex h-8 items-center justify-center px-3 text-[13px] text-ink transition-colors hover:bg-[var(--oc-hover)]"
                   >
                     导入数据...
                   </button>
                   <button
                     onClick={handleExport}
-                    className="touch-feedback inline-flex items-center justify-center h-9 px-4 rounded text-sm border border-line bg-white/60 dark:bg-white/[0.06] text-ink transition-colors hover:border-line-hover hover:bg-white/40 dark:hover:bg-white/[0.10]"
+                    className="touch-feedback inline-flex h-8 items-center justify-center px-3 text-[13px] text-ink transition-colors hover:bg-[var(--oc-hover)]"
                   >
                     导出所有数据 (JSON)
                   </button>
                   <button
                     disabled
-                    className="inline-flex items-center justify-center h-9 px-4 rounded text-sm border border-line bg-black/5 dark:bg-white/5 text-ink-muted cursor-not-allowed"
+                    className="inline-flex h-8 items-center justify-center px-3 text-[13px] text-ink-faint cursor-not-allowed"
                   >
                     发布为静态网站...
                   </button>
                   <p className="text-xs text-ink-faint mt-1">注：导出不含图片文件，仅包含文本数据</p>
                 </div>
                 <div className="flex items-center justify-between pt-2 border-t border-line">
-                  <div className="flex flex-col">
-                    <span className="text-sm text-ink">云同步</span>
-                    <span className="text-xs text-ink-faint">
-                      开启后将自动同步数据到云端
-                    </span>
-                  </div>
+                  <span className="text-sm text-ink">云同步</span>
                   <button
                     role="switch"
                     aria-checked={settings.cloudSyncEnabled}
@@ -296,14 +370,7 @@ export function SettingsDialog({
             <TabsContent value="ai">
               <div className="flex flex-col gap-5">
                 <label className="flex items-center justify-between">
-                  <div className="flex flex-col">
-                    <span className="text-sm text-ink">
-                      启用AI概括功能
-                    </span>
-                    <span className="text-xs text-ink-faint">
-                      实验性功能，开启后可配置 AI 接口并在事件编辑中使用 AI 概括
-                    </span>
-                  </div>
+                  <span className="text-sm text-ink">启用AI概括功能</span>
                   <button
                     role="switch"
                     aria-checked={settings.aiEnabled}
@@ -334,7 +401,7 @@ export function SettingsDialog({
                         value={settings.apiKey}
                         onChange={(e) => updateSetting("apiKey", e.target.value)}
                         placeholder="sk-...（从 platform.deepseek.com 获取）"
-                        className="h-9 w-full rounded border border-line bg-black/5 dark:bg-white/5 px-3 text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
+                        className="h-8 w-full border-b border-line bg-transparent text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
                       />
                       <span className="text-xs text-ink-faint">
                         密钥仅存储在本地，不会上传到任何服务器
@@ -349,7 +416,7 @@ export function SettingsDialog({
                         value={settings.aiModel}
                         onChange={(e) => updateSetting("aiModel", e.target.value)}
                         placeholder="deepseek-v4-flash"
-                        className="h-9 w-full rounded border border-line bg-black/5 dark:bg-white/5 px-3 text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
+                        className="h-8 w-full border-b border-line bg-transparent text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
                       />
                     </div>
 
@@ -363,7 +430,7 @@ export function SettingsDialog({
                           updateSetting("aiBaseUrl", e.target.value)
                         }
                         placeholder="https://api.deepseek.com"
-                        className="h-9 w-full rounded border border-line bg-black/5 dark:bg-white/5 px-3 text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
+                        className="h-8 w-full border-b border-line bg-transparent text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
                       />
                     </div>
                   </>
@@ -379,7 +446,7 @@ export function SettingsDialog({
                       updateSetting("syncServerUrl", e.target.value)
                     }
                     placeholder="https://your-sync-server.com"
-                    className="h-9 w-full rounded border border-line bg-black/5 dark:bg-white/5 px-3 text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
+                    className="h-8 w-full border-b border-line bg-transparent text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
                   />
                 </div>
               </div>
@@ -396,7 +463,7 @@ export function SettingsDialog({
                 </div>
                 <button
                   disabled
-                  className="inline-flex items-center justify-center h-9 px-4 rounded text-sm border border-line bg-black/5 dark:bg-white/5 text-ink-muted cursor-not-allowed"
+                  className="inline-flex h-8 items-center justify-center px-3 text-[13px] text-ink-faint cursor-not-allowed"
                 >
                   检查更新
                 </button>
@@ -404,7 +471,7 @@ export function SettingsDialog({
                   href="https://github.com/Pokanshuu/OC-Studio"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="touch-feedback inline-flex items-center justify-center h-9 px-4 rounded text-sm border border-line bg-white/60 dark:bg-white/[0.06] text-ink transition-colors hover:border-line-hover hover:bg-white/40 dark:hover:bg-white/[0.10]"
+                  className="touch-feedback inline-flex h-8 items-center justify-center px-3 text-[13px] text-ink transition-colors hover:bg-[var(--oc-hover)]"
                 >
                   访问 GitHub 项目
                 </a>
@@ -419,7 +486,7 @@ export function SettingsDialog({
         <div className="flex justify-end border-t border-line px-6 py-4">
           <button
             onClick={() => onOpenChange(false)}
-            className="touch-feedback inline-flex items-center justify-center h-9 px-3 rounded text-sm border border-line bg-white/60 dark:bg-white/[0.06] text-ink transition-colors hover:border-line-hover hover:bg-white/40 dark:hover:bg-white/[0.10]"
+            className="touch-feedback inline-flex h-8 items-center justify-center px-3 text-[13px] text-ink-muted transition-colors hover:text-ink"
           >
             关闭
           </button>

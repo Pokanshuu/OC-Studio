@@ -81,7 +81,7 @@ export function InlineCrop({
         <button
           type="button"
           onClick={onCancel}
-          className="flex h-9 items-center gap-1.5 rounded border border-line bg-paper-card px-3 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
+          className="flex h-8 items-center gap-1.5 px-3 text-[13px] text-ink-muted transition-colors hover:text-ink"
         >
           <X size={16} strokeWidth={2} />
           <span>取消</span>
@@ -89,7 +89,7 @@ export function InlineCrop({
         <button
           type="button"
           onClick={handleConfirm}
-          className="flex h-9 items-center gap-1.5 rounded bg-ink px-4 text-sm text-paper transition-colors hover:bg-ink/90"
+          className="flex h-8 items-center gap-1.5 bg-ink px-3 text-[13px] text-paper transition-opacity hover:bg-ink hover:opacity-85"
         >
           <Check size={16} strokeWidth={2} />
           <span>确认</span>

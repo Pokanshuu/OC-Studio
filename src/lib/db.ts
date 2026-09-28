@@ -8,6 +8,7 @@ import type {
   Tag,
   OperationLog,
   Period,
+  ProjectMeta,
 } from '@/types'
 
 export class OCStudioDB extends Dexie {
@@ -18,6 +19,7 @@ export class OCStudioDB extends Dexie {
   tags!: Table<Tag, number>
   operationLog!: Table<OperationLog, number>
   periods!: Table<Period, number>
+  meta!: Table<ProjectMeta, number>
 
   constructor() {
     super('OCStudioDB')
@@ -39,6 +41,18 @@ export class OCStudioDB extends Dexie {
       tags: '++id, name, category',
       operationLog: '++id, timestamp, targetType, targetId',
       periods: '++id, startTime, deleted',
+    })
+
+    // v6：新增项目元信息表（单例）；characters 增加 isMajor 索引（主要角色）
+    this.version(6).stores({
+      characters: '++id, name, race, element, occupation, nationalityLegacy, countryId, isMajor, deleted, _syncStatus',
+      events: '++id, title, time, parentEventId, isMajor, deleted, _syncStatus',
+      countries: '++id, name, parentId, deleted, _syncStatus',
+      worldEntries: '++id, title, category, parentId, deleted, _syncStatus',
+      tags: '++id, name, category',
+      operationLog: '++id, timestamp, targetType, targetId',
+      periods: '++id, startTime, deleted',
+      meta: 'id',
     })
   }
 }

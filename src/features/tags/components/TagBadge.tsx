@@ -28,7 +28,7 @@ export function TagBadge({ tag, onRemove }: TagBadgeProps) {
 
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded border px-2 py-1 text-xs ${colorClass}`}
+      className={`inline-flex items-center gap-1 px-2 py-[3px] text-[12px] ${colorClass}`}
     >
       {tag.name}
       {onRemove ? (
@@ -38,7 +38,7 @@ export function TagBadge({ tag, onRemove }: TagBadgeProps) {
             e.stopPropagation()
             onRemove()
           }}
-          className="ml-0.5 rounded-full p-0.5 transition-colors hover:text-error"
+          className="ml-0.5 rounded-none p-0.5 transition-colors hover:text-error"
         >
           <X size={12} strokeWidth={2} />
         </button>

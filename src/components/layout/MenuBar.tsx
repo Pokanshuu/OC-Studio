@@ -13,6 +13,7 @@ import { useImportExport } from '@/components/shared/ImportExportUI'
 import { downloadMarkdown, downloadTxt, downloadFullBackup } from '@/lib/export'
 import { toast } from 'sonner'
 import { useActiveEditor } from '@/lib/editor-context'
+import { useProjectMeta } from '@/features/project'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -71,6 +72,7 @@ export function MenuBar() {
   const { openSettings } = useSettingsTrigger()
   const { handleExport, handleImportClick, dialog: importExportDialog } = useImportExport()
   const { activeEditor } = useActiveEditor()
+  const { meta } = useProjectMeta()
 
   const handleUndo = useCallback(() => {
     activeEditor?.chain().focus().undo().run()
@@ -275,10 +277,17 @@ export function MenuBar() {
     <nav
       data-menubar
       data-tauri-drag-region
-      className="max-md:hidden relative flex h-10 shrink-0 items-center justify-between border-b border-line bg-transparent px-4"
+      className="max-md:hidden relative flex h-8 shrink-0 items-center justify-between border-b border-line bg-transparent px-3"
     >
       <div className="flex items-center gap-4">
-        <span className="font-serif text-sm text-ink transparent-text">OC Studio</span>
+        <button
+          type="button"
+          onClick={() => openSettings('world')}
+          title="编辑世界信息"
+          className="bg-transparent font-serif text-[13px] text-ink transparent-text transition-colors hover:bg-transparent hover:text-ink-muted"
+        >
+          {meta.worldName.trim() || 'OC Studio'}
+        </button>
         <div className="hidden md:flex md:items-center md:gap-1">
           <DropdownMenu open={openMenu === 'file'} onOpenChange={(o) => { if (o) setOpen('file'); else if (openMenuRef.current === 'file') setOpen(null) }}>
             <span data-menu-trigger="file">
@@ -428,7 +437,7 @@ export function MenuBar() {
 
       <div className="absolute left-1/2 -translate-x-1/2">
         <div className="relative" ref={searchWrapperRef}>
-          <Search size={14} strokeWidth={2} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-faint" />
+          <Search size={13} strokeWidth={2} className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-ink-faint" />
           <input
             ref={inputRef}
             type="text"
@@ -438,14 +447,14 @@ export function MenuBar() {
             onBlur={() => { setTimeout(() => setIsOpen(false), 150) }}
             onKeyDown={handleKeyDown}
             placeholder="搜索..."
-            className="h-8 w-40 rounded border border-line bg-black/5 dark:bg-white/5 pl-8 pr-3 text-sm text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none focus:bg-black/10 dark:focus:bg-white/10 sm:w-56 lg:w-64 xl:w-96"
+            className="h-6 w-40 border-b border-transparent bg-transparent pl-7 pr-3 text-[12px] text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none sm:w-56 lg:w-64 xl:w-96"
           />
 
           {isOpen
             ? createPortal(
                 <div
                   ref={panelRef}
-                  className="fixed rounded-md border border-line bg-paper/85 dark:bg-paper/85 backdrop-blur-lg shadow-none ring-1 ring-black/5 max-h-[320px] overflow-auto pointer-events-auto"
+                  className="fixed border border-line bg-paper/85 dark:bg-paper/85 backdrop-blur-lg shadow-none max-h-[320px] overflow-auto pointer-events-auto"
                   style={{
                     left: panelPos.x,
                     top: panelPos.y,
@@ -454,13 +463,13 @@ export function MenuBar() {
                 >
               {query.trim() === '' ? (
                 <div>
-                  <div className="px-3 py-1 text-xs font-medium text-ink-faint">快速新建</div>
+                  <div className="px-3 py-1 text-[11px] tracking-[0.08em] text-ink-faint">快速新建</div>
                   {CREATE_COMMANDS.map((cmd) => {
                     const Icon = cmd.icon
                     return (
                       <button
                         key={cmd.label}
-                        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-ink-muted transition-colors hover:bg-black/5 dark:hover:bg-white/5 hover:text-ink"
+                        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink"
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => handleCreateSelect(cmd.type)}
                       >
@@ -469,13 +478,13 @@ export function MenuBar() {
                       </button>
                     )
                   })}
-                  <div className="mt-1 px-3 py-1 text-xs font-medium text-ink-faint">切换板块</div>
+                  <div className="mt-1 px-3 py-1 text-[11px] tracking-[0.08em] text-ink-faint">切换板块</div>
                   {SECTION_COMMANDS.map((cmd) => {
                     const Icon = cmd.icon
                     return (
                       <button
                         key={cmd.label}
-                        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-ink-muted transition-colors hover:bg-black/5 dark:hover:bg-white/5 hover:text-ink"
+                        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink"
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => handleSectionSelect(cmd.label)}
                       >
@@ -496,7 +505,7 @@ export function MenuBar() {
                     .reduce((sum, g) => sum + g.items.length, 0)
                   return (
                     <div key={group.type}>
-                      <div className="px-3 py-1 text-xs font-medium text-ink-faint">
+                      <div className="px-3 py-1 text-[11px] tracking-[0.08em] text-ink-faint">
                         {group.label}
                       </div>
                       {group.items.map((entity, idx) => {
@@ -506,10 +515,10 @@ export function MenuBar() {
                           <button
                             key={entity.id}
                             data-selected={globalIdx === selectedIndex}
-                            className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors ${
+                            className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] transition-colors ${
                               globalIdx === selectedIndex
-                                ? 'bg-black/5 dark:bg-white/5 text-ink'
-                                : 'text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-ink'
+                                ? 'bg-[var(--oc-hover)] text-ink'
+                                : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
                             }`}
                             onMouseDown={(e) => e.preventDefault()}
                             onClick={() => handleSelect(entity)}
@@ -537,25 +546,25 @@ export function MenuBar() {
 
       <div className="flex items-center gap-0">
         <button
-          className="h-7 w-7 flex items-center justify-center rounded text-ink-muted hover:text-ink hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+          className="flex h-6 w-6 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink"
           onClick={() => { import('@tauri-apps/api/window').then(({ getCurrentWindow }) => getCurrentWindow().minimize()).catch(() => {}) }}
           aria-label="最小化"
         >
-          <Minus size={14} strokeWidth={2} />
+          <Minus size={13} strokeWidth={2} />
         </button>
         <button
-          className="h-7 w-7 flex items-center justify-center rounded text-ink-muted hover:text-ink hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+          className="flex h-6 w-6 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink"
           onClick={() => { import('@tauri-apps/api/window').then(({ getCurrentWindow }) => getCurrentWindow().toggleMaximize()).catch(() => {}) }}
           aria-label={isMaximized ? '还原' : '最大化'}
         >
-          {isMaximized ? <Minimize2 size={14} strokeWidth={2} /> : <Maximize2 size={14} strokeWidth={2} />}
+          {isMaximized ? <Minimize2 size={13} strokeWidth={2} /> : <Maximize2 size={13} strokeWidth={2} />}
         </button>
         <button
-          className="h-7 w-7 flex items-center justify-center rounded text-ink-muted hover:text-error hover:bg-red-500/15 dark:hover:bg-red-500/20 transition-colors"
+          className="flex h-6 w-6 items-center justify-center text-ink-muted transition-colors hover:bg-red-500/15 hover:text-error dark:hover:bg-red-500/20"
           onClick={() => { import('@tauri-apps/api/window').then(({ getCurrentWindow }) => getCurrentWindow().close()).catch(() => {}) }}
           aria-label="关闭"
         >
-          <X size={14} strokeWidth={2} />
+          <X size={13} strokeWidth={2} />
         </button>
       </div>
     </nav>

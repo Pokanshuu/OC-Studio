@@ -704,7 +704,7 @@ export function MobileTextSelectionBar() {
     <>
       <div
         ref={barRef}
-        className="pointer-events-auto fixed z-50 flex items-center rounded-full border border-line bg-paper/85 backdrop-blur-lg shadow-sm px-1.5 py-1 gap-0.5 cursor-default"
+        className="pointer-events-auto fixed z-50 flex items-center border border-line bg-paper/85 px-1.5 py-1 gap-0.5 backdrop-blur-lg cursor-default"
         style={{
           left: position.x,
           top: position.y,
@@ -715,25 +715,25 @@ export function MobileTextSelectionBar() {
       >
         {hasSelection ? (
           <>
-            <button onClick={handleCut} className="whitespace-nowrap rounded-full px-3 py-1.5 text-sm text-ink active:bg-black/8 dark:active:bg-white/8 transition-colors">
+            <button onClick={handleCut} className="whitespace-nowrap px-3 py-1.5 text-sm text-ink transition-colors active:bg-[var(--oc-hover)]">
               剪切
             </button>
-            <button onClick={handleCopy} className="whitespace-nowrap rounded-full px-3 py-1.5 text-sm text-ink active:bg-black/8 dark:active:bg-white/8 transition-colors">
+            <button onClick={handleCopy} className="whitespace-nowrap px-3 py-1.5 text-sm text-ink transition-colors active:bg-[var(--oc-hover)]">
               复制
             </button>
-            <button onClick={handlePaste} className="whitespace-nowrap rounded-full px-3 py-1.5 text-sm text-ink active:bg-black/8 dark:active:bg-white/8 transition-colors">
+            <button onClick={handlePaste} className="whitespace-nowrap px-3 py-1.5 text-sm text-ink transition-colors active:bg-[var(--oc-hover)]">
               粘贴
             </button>
-            <button onClick={handleSelectAll} className="whitespace-nowrap rounded-full px-3 py-1.5 text-sm text-ink active:bg-black/8 dark:active:bg-white/8 transition-colors">
+            <button onClick={handleSelectAll} className="whitespace-nowrap px-3 py-1.5 text-sm text-ink transition-colors active:bg-[var(--oc-hover)]">
               全选
             </button>
           </>
         ) : (
           <>
-            <button onClick={handlePaste} className="whitespace-nowrap rounded-full px-3 py-1.5 text-sm text-ink active:bg-black/8 dark:active:bg-white/8 transition-colors">
+            <button onClick={handlePaste} className="whitespace-nowrap px-3 py-1.5 text-sm text-ink transition-colors active:bg-[var(--oc-hover)]">
               粘贴
             </button>
-            <button onClick={handleSelectAll} className="whitespace-nowrap rounded-full px-3 py-1.5 text-sm text-ink active:bg-black/8 dark:active:bg-white/8 transition-colors">
+            <button onClick={handleSelectAll} className="whitespace-nowrap px-3 py-1.5 text-sm text-ink transition-colors active:bg-[var(--oc-hover)]">
               全选
             </button>
             {editableRef.current === safeGetEditorDom(activeEditor) && (
@@ -741,7 +741,7 @@ export function MobileTextSelectionBar() {
                 <span className="w-px h-4 bg-line mx-0.5" />
                 <button
                   onClick={() => dispatch({ type: 'ACTION_OPEN' })}
-                  className="flex items-center justify-center w-8 h-8 rounded-full active:bg-black/8 dark:active:bg-white/8 transition-colors"
+                  className="flex h-8 w-8 items-center justify-center transition-colors active:bg-[var(--oc-hover)]"
                 >
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" className="text-ink">
                     <circle cx="4" cy="8" r="1.5" />
