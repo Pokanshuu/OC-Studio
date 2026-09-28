@@ -1,211 +1,23 @@
 'use client'
 
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
-import { createPortal } from 'react-dom'
-import { Search, RefreshCw, ChevronRight, ChevronLeft, Menu, ExternalLink, ChevronDown } from 'lucide-react'
-import { MENU, LOADING_TEXT, PAGE_TITLE } from '@/lib/ui-tokens'
-import { resolveImageUrl, getDefaultImage } from '@/lib/image-service'
+import { useState, useMemo, useCallback, useEffect } from 'react'
+import { Search, RefreshCw, Menu, ExternalLink } from 'lucide-react'
+import { LOADING_TEXT, PAGE_TITLE } from '@/lib/ui-tokens'
 import { FullscreenViewer } from './FullscreenViewer'
 import { useAlbumData, type AlbumEntry } from './useAlbumData'
 import { useDevice } from '@/lib/use-device'
 import { useMobilePageHeader } from '@/components/layout/MobilePageHeaderContext'
 import { useMobileNavigation } from '@/components/layout/MobileNavigationContext'
-import { useLongPress } from '@/lib/useLongPress'
 import { MobileActionSheet, type ActionItem } from '@/components/shared/MobileActionSheet'
 import { useTags } from '@/features/tags'
 import { SortSelect } from '@/components/shared/SortViewControls'
-
-interface SubCategory {
-  key: string
-  label: string
-  sourceType: string
-  category: string
-}
-
-interface TopCategory {
-  key: string
-  label: string
-  children: SubCategory[]
-}
-
-const CATEGORY_TREE: TopCategory[] = [
-  {
-    key: 'character', label: '角色',
-    children: [
-      { key: 'character:avatar', label: '头像', sourceType: 'character', category: 'avatar' },
-      { key: 'character:fullbody', label: '立绘', sourceType: 'character', category: 'fullbody' },
-      { key: 'character:header', label: '头图', sourceType: 'character', category: 'header' },
-      { key: 'character:gallery', label: '相册图片', sourceType: 'character', category: 'gallery' },
-    ],
-  },
-  {
-    key: 'event', label: '事件',
-    children: [
-      { key: 'event:header', label: '头图', sourceType: 'event', category: 'header' },
-      { key: 'event:gallery', label: '图片', sourceType: 'event', category: 'gallery' },
-    ],
-  },
-  {
-    key: 'country', label: '国家',
-    children: [
-      { key: 'country:flag', label: '标志', sourceType: 'country', category: 'flag' },
-      { key: 'country:header', label: '头图', sourceType: 'country', category: 'header' },
-    ],
-  },
-]
-
-function getTopCount(entries: AlbumEntry[], top: TopCategory): number {
-  return entries.filter((e) =>
-    top.children.some((sub) => sub.sourceType === e.sourceType && sub.category === e.category)
-  ).length
-}
-
-function getSubCount(entries: AlbumEntry[], sub: SubCategory): number {
-  return entries.filter((e) => e.sourceType === sub.sourceType && e.category === sub.category).length
-}
+import { AlbumCard } from './AlbumCard'
+import { TagFilterSelect } from './AlbumTagFilter'
+import { AlbumTreePanel } from './AlbumTreePanel'
+import { CATEGORY_TREE } from './album-utils'
 
 interface GlobalAlbumProps {
   onNavigate?: (id: number, type: string) => void
-}
-
-function getEntryImageUrl(entry: AlbumEntry): string {
-  const typeMap: Record<string, string> = {
-    avatar: 'avatar', fullbody: 'avatar',
-    header: 'avatar', gallery: 'avatar', flag: 'flag',
-  }
-  const url = resolveImageUrl(entry.url)
-  if (url.includes('/defaults/')) return url
-  return url || getDefaultImage(typeMap[entry.category] || 'avatar')
-}
-
-function AlbumCard({
-  entry,
-  isMobile,
-  onNavigate,
-  onLongPress,
-  onViewImage,
-}: {
-  entry: AlbumEntry
-  isMobile: boolean
-  onNavigate?: (id: number, type: string) => void
-  onLongPress?: () => void
-  onViewImage: () => void
-}) {
-  const longPress = useLongPress({
-    onLongPress: onLongPress ?? (() => {}),
-    enabled: isMobile,
-  })
-
-  return (
-    <div className="group relative" {...longPress}>
-      <img
-        src={getEntryImageUrl(entry)}
-        alt={entry.sourceName}
-        className="touch-feedback aspect-square w-full cursor-pointer object-cover transition-opacity hover:opacity-90"
-        onClick={onViewImage}
-      />
-      <div className="mt-1 truncate text-xs text-ink-faint">
-        {entry.sourceName}
-        {onNavigate && !isMobile ? (
-          <span className="opacity-0 transition-opacity group-hover:opacity-100">
-            <button
-              onClick={(e) => { e.stopPropagation(); onNavigate(entry.sourceId, entry.sourceType) }}
-              className="ml-1 text-ink-muted hover:text-ink"
-            >
-              跳转
-            </button>
-          </span>
-        ) : null}
-      </div>
-    </div>
-  )
-}
-
-interface TagOption {
-  value: number | 'all'
-  label: string
-}
-
-function TagFilterSelect({
-  value,
-  onChange,
-  options,
-}: {
-  value: number | 'all'
-  onChange: (val: number | 'all') => void
-  options: TagOption[]
-}) {
-  const [open, setOpen] = useState(false)
-  const triggerRef = useRef<HTMLButtonElement>(null)
-  const panelRef = useRef<HTMLDivElement>(null)
-  const [pos, setPos] = useState({ x: 0, y: 0 })
-
-  useEffect(() => {
-    if (open && triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect()
-      setPos({ x: rect.left, y: rect.bottom + 4 })
-    }
-  }, [open])
-
-  const handleClickOutside = useCallback((e: MouseEvent) => {
-    const target = e.target as Node
-    const overlay = document.getElementById('overlay-root')
-    if (triggerRef.current && !triggerRef.current.contains(target)) {
-      if (panelRef.current && !panelRef.current.contains(target)) {
-        if (overlay && overlay.contains(target)) return
-        setOpen(false)
-      }
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!open) return
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [open, handleClickOutside])
-
-  const selectedLabel = options.find((o) => o.value === value)?.label ?? '全部标签'
-
-  return (
-    <div>
-      <button
-        ref={triggerRef}
-        onClick={() => setOpen(!open)}
-        className="touch-feedback flex h-8 items-center gap-1 px-2 text-[13px] text-ink transition-colors hover:bg-[var(--oc-hover)]"
-      >
-        <span>{selectedLabel}</span>
-        <ChevronDown size={14} strokeWidth={2} />
-      </button>
-
-      {open
-        ? createPortal(
-            <div
-              ref={panelRef}
-              className={`fixed z-30 mt-1 flex max-h-64 flex-col overflow-auto ${MENU} pointer-events-auto`}
-              style={{ left: pos.x, top: pos.y }}
-            >
-              {options.map((opt) => (
-                <button
-                  key={String(opt.value)}
-                  onClick={() => {
-                    onChange(opt.value)
-                    setOpen(false)
-                  }}
-                  className={`whitespace-nowrap px-2.5 py-1.5 text-left text-[13px] transition-colors ${
-                    value === opt.value
-                      ? 'bg-[var(--oc-hover)] text-ink'
-                      : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>,
-            document.getElementById('overlay-root')!,
-          )
-        : null}
-    </div>
-  )
 }
 
 export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
@@ -310,85 +122,18 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
   }, [isMobile, section, selectedLabel, setConfig])
 
   const treePanel = (
-    <div className="flex h-full flex-col border-r border-line bg-paper-alt max-md:pt-[var(--safe-top)]">
-      {isMobile ? (
-        <div className="flex h-12 items-center justify-between border-b border-line px-3">
-          <button onClick={() => setShowMobileTree(false)} className="flex h-8 w-8 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink">
-            <ChevronLeft size={16} strokeWidth={2} />
-          </button>
-          <button onClick={handleRefresh} disabled={refreshing}
-            className={`flex h-8 w-8 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink ${refreshing ? 'animate-spin' : ''}`}
-            title="刷新"
-          >
-            <RefreshCw size={15} strokeWidth={2} />
-          </button>
-        </div>
-      ) : (
-        <div className="flex h-12 items-center justify-between border-b border-line px-3">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setTreeCollapsed(true)}
-              className="flex h-8 w-8 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink"
-              title="折叠目录"
-            >
-              <ChevronLeft size={16} strokeWidth={2} />
-            </button>
-            <h2 className={PAGE_TITLE}>相册</h2>
-          </div>
-        </div>
-      )}
-      <div className="flex-1 overflow-auto p-3">
-        <nav className="flex flex-col gap-1">
-          <button
-            onClick={() => { setSelectedKey('all'); if (isMobile) setShowMobileTree(false) }}
-            className={`flex w-full items-center px-2 py-1.5 text-left text-[13px] transition-colors ${
-              selectedKey === 'all' ? 'bg-[var(--oc-hover)] text-ink' : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
-            }`}
-          >
-            <span className="flex-1">全部</span>
-            {entries.length > 0 ? <span className="text-[11px] text-ink-faint">{entries.length}</span> : null}
-          </button>
-          {CATEGORY_TREE.map((top) => {
-            const topCount = getTopCount(entries, top)
-            const isExpanded = expanded.has(top.key)
-            const isTopSelected = selectedKey === top.key
-            return (
-              <div key={top.key}>
-                <button
-                  onClick={() => { toggleExpand(top.key); setSelectedKey(top.key) }}
-                  className={`flex w-full items-center gap-1 px-2 py-1.5 text-left text-[13px] transition-colors ${
-                    isTopSelected ? 'bg-[var(--oc-hover)] text-ink' : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
-                  }`}
-                >
-                  <ChevronRight size={13} strokeWidth={2} className={`shrink-0 text-ink-muted transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
-                  <span className="flex-1">{top.label}</span>
-                  {topCount > 0 ? <span className="text-[11px] text-ink-faint">{topCount}</span> : null}
-                </button>
-                {isExpanded ? (
-                  <div className="mt-0.5 flex flex-col gap-0.5">
-                    {top.children.map((sub) => {
-                      const subCount = getSubCount(entries, sub)
-                      const isSubSelected = selectedKey === sub.key
-                      return (
-                        <button key={sub.key}
-                          onClick={() => { setSelectedKey(sub.key); if (isMobile) setShowMobileTree(false) }}
-                          className={`flex w-full items-center py-1 pl-6 pr-2 text-left text-[12px] transition-colors ${
-                            isSubSelected ? 'bg-[var(--oc-hover)] text-ink' : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
-                          }`}
-                        >
-                          <span className="flex-1">{sub.label}</span>
-                          {subCount > 0 ? <span className="text-[10px] text-ink-faint">{subCount}</span> : null}
-                        </button>
-                      )
-                    })}
-                  </div>
-                ) : null}
-              </div>
-            )
-          })}
-        </nav>
-      </div>
-    </div>
+    <AlbumTreePanel
+      entries={entries}
+      selectedKey={selectedKey}
+      onSelectKey={setSelectedKey}
+      expanded={expanded}
+      onToggleExpand={toggleExpand}
+      isMobile={isMobile}
+      refreshing={refreshing}
+      onRefresh={handleRefresh}
+      onCloseMobileTree={() => setShowMobileTree(false)}
+      onCollapseTree={() => setTreeCollapsed(true)}
+    />
   )
 
   return (
@@ -502,3 +247,4 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
     </div>
   )
 }
+
