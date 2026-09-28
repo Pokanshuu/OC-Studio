@@ -104,14 +104,16 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [containerWidth, setContainerWidth] = useState(0)
   const [navEdge, setNavEdge] = useState({ prev: true, next: false })
-  const [scrollLeft, setScrollLeft] = useState(0)
-  const [dragId, setDragId] = useState<number | null>(null)
   const zoomOffsetRef = useRef(0)
   const zoomOriginRef = useRef(0)
   const oldScaleRef = useRef(0)
   const didZoomRef = useRef(false)
   const zoomRatioRef = useRef(zoomRatio)
-  zoomRatioRef.current = zoomRatio
+  // 事件处理器读的是「最新一次提交的缩放比」。按 React 规则不在 render 期写 ref，
+  // 放到 layout effect（处理器总是在提交之后才会被调用）。
+  useLayoutEffect(() => {
+    zoomRatioRef.current = zoomRatio
+  }, [zoomRatio])
   const pinchRef = useRef<{ active: boolean; initialDistance: number; initialZoomRatio: number }>({
     active: false,
     initialDistance: 0,
@@ -206,6 +208,9 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
 
     if (autoPx < 40) {
       const targetRatio = Math.min(Math.ceil(40 / autoPx), 5.0)
+      // 一次性的「按测量宽度定初值」：容器宽度来自 ResizeObserver（外部系统），挂载时
+      // 不可知；initialZoomSetRef 保证只执行一次，不会级联渲染 —— 规则看不到这个守卫。
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setZoomRatio(targetRatio)
     }
 
@@ -213,11 +218,15 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
   }, [containerWidth, yearRange])
 
   const displayPxRef = useRef(displayPxPerYear)
-  displayPxRef.current = displayPxPerYear
-
-  if (!didZoomRef.current) {
-    oldScaleRef.current = displayPxPerYear
-  }
+  // displayPxRef 只被事件处理器读；oldScaleRef 被下面的滚动补偿 effect 读。
+  // 两者都不需要「渲染期」写入，放 layout effect 即可 —— layout effect 先于
+  // passive effect 执行，滚动补偿读到的仍是本次提交对应的值。
+  useLayoutEffect(() => {
+    displayPxRef.current = displayPxPerYear
+    if (!didZoomRef.current) {
+      oldScaleRef.current = displayPxPerYear
+    }
+  }, [displayPxPerYear])
 
   const applyZoom = useCallback((newRatio: number, originX: number) => {
     const container = scrollRef.current
@@ -250,7 +259,6 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
       cancelAnimationFrame(raf)
       raf = requestAnimationFrame(() => {
         setNavEdge({ prev, next })
-        setScrollLeft(sl)
       })
     }
 
@@ -387,7 +395,6 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
         const sl = el.scrollLeft
         const maxScroll = el.scrollWidth - el.clientWidth
         setNavEdge({ prev: sl <= 1, next: sl >= maxScroll - 1 })
-        setScrollLeft(sl)
       }
     }
 
@@ -483,7 +490,6 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
         zoomRatio={zoomRatio}
         onZoomChange={handleZoomChange}
         onZoomCommit={handleZoomCommit}
-        density={'year'}
         characterFilter={characterFilter}
         onCharacterFilterChange={setCharacterFilter}
         characterOptions={characterOptions}
@@ -517,8 +523,7 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
           zoomRatio={zoomRatio}
           onZoomChange={handleZoomChange}
           onZoomCommit={handleZoomCommit}
-          density={'year'}
-          characterFilter={characterFilter}
+            characterFilter={characterFilter}
           onCharacterFilterChange={setCharacterFilter}
           characterOptions={characterOptions}
           countryFilter={countryFilter}
@@ -558,7 +563,6 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
         zoomRatio={zoomRatio}
         onZoomChange={handleZoomChange}
         onZoomCommit={handleZoomCommit}
-        density={density}
         characterFilter={characterFilter}
         onCharacterFilterChange={setCharacterFilter}
         characterOptions={characterOptions}
@@ -655,11 +659,7 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
           {density === 'year' ? (
             canDrag ? (
               <DndContext
-                onDragStart={(e) => {
-                  setDragId(e.active.data.current?.event?.id as number | undefined ?? null)
-                }}
                 onDragEnd={(e) => {
-                  setDragId(null)
                   void handleDragEnd(e, pxPerYear)
                 }}
                 modifiers={[restrictToHorizontalAxis]}
@@ -790,6 +790,7 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
     </div>
   )
 }
+
 
 
 

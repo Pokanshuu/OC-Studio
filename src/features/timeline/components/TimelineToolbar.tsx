@@ -4,7 +4,6 @@ import { ChevronLeft, ChevronRight, Lock, LockOpen, Plus } from 'lucide-react'
 import { PAGE_TITLE } from '@/lib/ui-tokens'
 import { MobileFilterBar } from '@/components/layout/MobileFilterBar'
 import type { FilterOption } from '../types'
-import type { TimelineDensity } from '../utils'
 import { FilterSelect } from './FilterSelect'
 
 export function TimelineToolbar({
@@ -21,7 +20,6 @@ export function TimelineToolbar({
   zoomRatio,
   onZoomChange,
   onZoomCommit,
-  density,
   characterFilter,
   onCharacterFilterChange,
   characterOptions,
@@ -43,7 +41,6 @@ export function TimelineToolbar({
   zoomRatio: number
   onZoomChange: (value: number) => void
   onZoomCommit: (value: number) => void
-  density: TimelineDensity
   characterFilter: number | 'all'
   onCharacterFilterChange: (val: number | 'all') => void
   characterOptions: FilterOption[]
