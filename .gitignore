@@ -42,6 +42,7 @@ next-env.d.ts
 
 #开发文档
 docs/
+todo.md
 
 #ai相关
 AGENTS.md
