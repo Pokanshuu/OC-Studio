@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
-import { Plus, ChevronRight, ChevronDown, FileText, GripVertical, Pencil, Trash2 } from 'lucide-react'
+import { useState, useCallback, useMemo } from 'react'
+import { Plus, Pencil, FileText, Trash2 } from 'lucide-react'
 import {
   DndContext,
   closestCenter,
@@ -10,16 +10,7 @@ import {
   useSensors,
   type DragEndEvent,
 } from '@dnd-kit/core'
-import {
-  SortableContext,
-  verticalListSortingStrategy,
-  useSortable,
-} from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
-import { DeleteButton } from '@/components/shared/DeleteButton'
-import { ContextMenu } from '@/components/shared/ContextMenu'
-import type { ContextMenuItem } from '@/components/shared/ContextMenu'
-import { useLongPress } from '@/lib/useLongPress'
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { MobileActionSheet, type ActionItem } from '@/components/shared/MobileActionSheet'
 import {
   AlertDialog,
@@ -32,11 +23,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import type { WorldEntry } from '@/types'
-
-interface TreeNode {
-  entry: WorldEntry
-  children: TreeNode[]
-}
+import { SortableTreeItem } from './WorldTreeItem'
+import { buildTree, computeReorder, loadExpanded } from './world-tree-utils'
 
 export interface WorldTreeProps {
   entries: WorldEntry[]
@@ -47,308 +35,6 @@ export interface WorldTreeProps {
   onRename: (id: number, title: string) => void
   onReorder: (updates: { id: number; parentId: number | null; order: number }[]) => void
   isMobile: boolean
-}
-
-const STORAGE_KEY = 'world-tree-expanded'
-
-function loadExpanded(): Set<number> {
-  if (typeof window === 'undefined') return new Set()
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) {
-      const parsed: unknown = JSON.parse(raw)
-      if (Array.isArray(parsed)) {
-        return new Set(parsed.filter((v): v is number => typeof v === 'number'))
-      }
-    }
-  } catch { /* ignore */ }
-  return new Set()
-}
-
-function saveExpanded(ids: Set<number>) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...ids])) } catch { /* ignore */ }
-}
-
-function buildTree(entries: WorldEntry[]): TreeNode[] {
-  const map = new Map<number, TreeNode>()
-  const roots: TreeNode[] = []
-  for (const entry of entries) {
-    map.set(entry.id, { entry, children: [] })
-  }
-  for (const entry of entries) {
-    const node = map.get(entry.id)!
-    if (entry.parentId !== null && entry.parentId !== undefined) {
-      const parent = map.get(entry.parentId)
-      if (parent) parent.children.push(node)
-      else roots.push(node)
-    } else {
-      roots.push(node)
-    }
-  }
-  const sort = (nodes: TreeNode[]) => {
-    nodes.sort((a, b) => (a.entry.order ?? 0) - (b.entry.order ?? 0) || a.entry.title.localeCompare(b.entry.title, 'zh-Hans'))
-    for (const n of nodes) sort(n.children)
-  }
-  sort(roots)
-  return roots
-}
-
-function computeReorder(
-  entries: WorldEntry[],
-  draggedId: number,
-  newParentId: number | null,
-  insertBeforeId: number | null,
-): { id: number; parentId: number | null; order: number }[] {
-  const dragged = entries.find((e) => e.id === draggedId)
-  if (!dragged) return []
-  const oldParentId = dragged.parentId
-  const updates: { id: number; parentId: number | null; order: number }[] = []
-
-  if (oldParentId !== newParentId && oldParentId !== undefined) {
-    const oldSiblings = entries
-      .filter((e) => e.parentId === oldParentId && e.id !== draggedId)
-      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || a.title.localeCompare(b.title, 'zh-Hans'))
-    for (let i = 0; i < oldSiblings.length; i++) {
-      updates.push({ id: oldSiblings[i].id, parentId: oldParentId, order: i })
-    }
-  }
-
-  const newSiblings = entries
-    .filter((e) => e.parentId === newParentId && e.id !== draggedId)
-    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || a.title.localeCompare(b.title, 'zh-Hans'))
-
-  const insertIndex = insertBeforeId !== null
-    ? newSiblings.findIndex((s) => s.id === insertBeforeId)
-    : -1
-
-  const finalIndex = insertIndex >= 0 ? insertIndex : newSiblings.length
-  const reordered = [...newSiblings]
-  reordered.splice(finalIndex, 0, { ...dragged, parentId: newParentId })
-
-  for (let i = 0; i < reordered.length; i++) {
-    const existing = updates.find((u) => u.id === reordered[i].id)
-    if (!existing) {
-      updates.push({ id: reordered[i].id, parentId: newParentId, order: i })
-    }
-  }
-
-  return updates
-}
-
-function InlineEditInput({
-  initialValue,
-  onSubmit,
-  onCancel,
-}: {
-  initialValue: string
-  onSubmit: (value: string) => void
-  onCancel: () => void
-}) {
-  const inputRef = useRef<HTMLInputElement>(null)
-  const [value, setValue] = useState(initialValue)
-
-  useEffect(() => {
-    inputRef.current?.focus()
-    inputRef.current?.select()
-  }, [])
-
-  const commit = useCallback(() => {
-    const trimmed = value.trim()
-    if (trimmed) onSubmit(trimmed)
-    else onCancel()
-  }, [value, onSubmit, onCancel])
-
-  return (
-    <div className="flex flex-1 items-center gap-1">
-      <input
-        ref={inputRef}
-        type="text"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onKeyDown={(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') onCancel() }}
-        onBlur={commit}
-        className="min-w-0 flex-1 border-b border-line bg-transparent px-0 py-0.5 text-[13px] text-ink focus:border-line-hover focus:outline-none"
-      />
-    </div>
-  )
-}
-
-function SortableTreeItem({
-  node,
-  depth,
-  selectedId,
-  onSelect,
-  onDelete,
-  onRename,
-  editingId,
-  setEditingId,
-  expandedIds,
-  setExpandedIds,
-  isMobile,
-  onLongPress,
-}: {
-  node: TreeNode
-  depth: number
-  selectedId: number | null
-  onSelect: (id: number, entry: WorldEntry) => void
-  onDelete: (id: number) => void
-  onRename: (id: number, title: string) => void
-  editingId: number | null
-  setEditingId: (id: number | null) => void
-  expandedIds: Set<number>
-  setExpandedIds: React.Dispatch<React.SetStateAction<Set<number>>>
-  isMobile: boolean
-  onLongPress?: () => void
-}) {
-  const entryId = node.entry.id
-  const isSelected = selectedId === entryId
-  const isExpanded = expandedIds.has(entryId)
-  const hasChildren = node.children.length > 0
-  const isEditing = editingId === entryId
-
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: entryId,
-    disabled: isEditing || isMobile,
-  })
-
-  const longPress = useLongPress({
-    onLongPress: onLongPress ?? (() => {}),
-    enabled: isMobile,
-  })
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : undefined,
-  }
-
-  const childIds = useMemo(() => node.children.map((c) => c.entry.id), [node.children])
-
-  const toggleExpand = useCallback((id: number) => {
-    setExpandedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      saveExpanded(next)
-      return next
-    })
-  }, [setExpandedIds])
-
-  const handleRenameClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation()
-    setEditingId(entryId)
-  }, [entryId, setEditingId])
-
-  const handleRename = useCallback((newTitle: string) => {
-    onRename(entryId, newTitle)
-    setEditingId(null)
-  }, [entryId, onRename, setEditingId])
-
-  const handleRowClick = useCallback(() => {
-    onSelect(entryId, node.entry)
-  }, [entryId, node.entry, onSelect])
-
-  const treeContextMenuItems = useMemo((): ContextMenuItem[] => [
-    {
-      label: '重命名',
-      onClick: () => setEditingId(entryId),
-    },
-    { separator: true, label: '', onClick: () => {} },
-    {
-      label: '删除',
-      danger: true,
-      onClick: () => onDelete(entryId),
-    },
-  ], [entryId, setEditingId, onDelete])
-
-  return (
-    <div ref={setNodeRef} style={style}>
-      <ContextMenu items={treeContextMenuItems}>
-      <div
-        className={`group flex items-center gap-0.5 py-1 text-[13px] transition-colors cursor-pointer ${
-          isSelected
-            ? 'bg-[var(--oc-hover)] text-ink'
-            : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
-        }`}
-        style={{ paddingLeft: `${depth * 12 + 6}px` }}
-        onClick={handleRowClick}
-        {...longPress}
-      >
-        {!isMobile ? (
-          <span
-            {...attributes}
-            {...listeners}
-            className="flex h-4 w-4 shrink-0 items-center justify-center cursor-grab text-ink-faint opacity-100 md:opacity-0 md:group-hover:opacity-100 md:transition-opacity"
-          >
-            <GripVertical size={11} strokeWidth={2} />
-          </span>
-        ) : null}
-
-        {hasChildren ? (
-          <button
-            onClick={(e) => { e.stopPropagation(); toggleExpand(entryId) }}
-            className="flex h-4 w-4 shrink-0 items-center justify-center text-ink-faint"
-          >
-            {isExpanded ? <ChevronDown size={13} strokeWidth={2} /> : <ChevronRight size={13} strokeWidth={2} />}
-          </button>
-        ) : (
-          <span className="w-4 shrink-0" />
-        )}
-
-        {isEditing ? (
-          <InlineEditInput
-            initialValue={node.entry.title}
-            onSubmit={handleRename}
-            onCancel={() => setEditingId(null)}
-          />
-        ) : (
-          <span
-            className="flex-1 truncate pl-0.5 text-[13px]"
-            onDoubleClick={handleRenameClick}
-            title="双击重命名"
-          >
-            {node.entry.isConcept ? (
-              <span className="inline-flex items-center gap-1">
-                <FileText size={12} strokeWidth={2} className="text-ink-faint shrink-0" />
-                {node.entry.title}
-              </span>
-            ) : (
-              node.entry.title
-            )}
-          </span>
-        )}
-
-        <div className="flex items-center gap-0.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:transition-opacity">
-          {!isMobile ? (
-            <DeleteButton onDelete={() => onDelete(entryId)} />
-          ) : null}
-        </div>
-      </div>
-      </ContextMenu>
-
-      {isExpanded && hasChildren ? (
-        <SortableContext items={childIds} strategy={verticalListSortingStrategy}>
-          {node.children.map((child) => (
-            <SortableTreeItem
-              key={child.entry.id}
-              node={child}
-              depth={depth + 1}
-              selectedId={selectedId}
-              onSelect={onSelect}
-              onDelete={onDelete}
-              onRename={onRename}
-              editingId={editingId}
-              setEditingId={setEditingId}
-              expandedIds={expandedIds}
-              setExpandedIds={setExpandedIds}
-              isMobile={isMobile}
-              onLongPress={onLongPress}
-            />
-          ))}
-        </SortableContext>
-      ) : null}
-    </div>
-  )
 }
 
 export function WorldTree({
@@ -379,7 +65,7 @@ export function WorldTree({
         { id: 'delete', label: '删除', icon: <Trash2 size={20} strokeWidth={2} />, destructive: true, onPress: () => setDeleteTarget(entryId) },
       ],
     })
-  }, [entries, onSelect, onDelete, setEditingId])
+  }, [entries, onSelect, setEditingId])
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -499,3 +185,4 @@ export function WorldTree({
     </div>
   )
 }
+
