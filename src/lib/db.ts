@@ -1,4 +1,4 @@
-import Dexie, { type Table } from 'dexie'
+import Dexie, { type EntityTable } from 'dexie'
 
 import type {
   Character,
@@ -12,14 +12,16 @@ import type {
 } from '@/types'
 
 export class OCStudioDB extends Dexie {
-  characters!: Table<Character, number>
-  events!: Table<Event, number>
-  countries!: Table<Country, number>
-  worldEntries!: Table<WorldEntry, number>
-  tags!: Table<Tag, number>
-  operationLog!: Table<OperationLog, number>
-  periods!: Table<Period, number>
-  meta!: Table<ProjectMeta, number>
+  // EntityTable<T, 'id'>：读出来的行 id 必为 number，写入时 id 可省略（由 Dexie 生成）。
+  // 这样「落库实体」与「新建草稿」两种状态在类型上分开，不再需要 `id as number` 之类的断言。
+  characters!: EntityTable<Character, 'id'>
+  events!: EntityTable<Event, 'id'>
+  countries!: EntityTable<Country, 'id'>
+  worldEntries!: EntityTable<WorldEntry, 'id'>
+  tags!: EntityTable<Tag, 'id'>
+  operationLog!: EntityTable<OperationLog, 'id'>
+  periods!: EntityTable<Period, 'id'>
+  meta!: EntityTable<ProjectMeta, 'id'>
 
   constructor() {
     super('OCStudioDB')

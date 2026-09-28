@@ -15,7 +15,7 @@ export interface AvatarImage {
 }
 
 export interface Character {
-  id?: number
+  id: number
   name: string
   aliases: string[]
   race: string
@@ -44,7 +44,7 @@ export interface Character {
 }
 
 export interface Event {
-  id?: number
+  id: number
   title: string
   time: string
   endTime?: string
@@ -78,7 +78,7 @@ export interface ImageEntry {
 }
 
 export interface Country {
-  id?: number
+  id: number
   name: string
   parentId: number | null
   description: string
@@ -99,7 +99,7 @@ export interface Country {
 }
 
 export interface WorldEntry {
-  id?: number
+  id: number
   title: string
   content: string
   document?: unknown
@@ -122,14 +122,14 @@ export interface WorldReference {
 }
 
 export interface Tag {
-  id?: number
+  id: number
   name: string
   category: string
   color: string
 }
 
 export interface OperationLog {
-  id?: number
+  id: number
   timestamp: number
   targetType: string
   targetId: number
@@ -139,7 +139,7 @@ export interface OperationLog {
 }
 
 export interface Period {
-  id?: number
+  id: number
   name: string
   startTime: string
   endTime: string
@@ -151,7 +151,7 @@ export interface Period {
 
 /** 项目级元信息（单例记录，id 固定为 1）。用于应用标题与导出站点的标题/简介/封面。 */
 export interface ProjectMeta {
-  id?: number
+  id: number
   worldName: string
   tagline: string
   coverUrl: string
