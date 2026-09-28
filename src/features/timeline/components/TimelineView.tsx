@@ -1,26 +1,17 @@
 'use client'
 
-import { memo, useMemo, useCallback, useState, useRef, useEffect, useLayoutEffect, startTransition } from 'react'
-import { createPortal } from 'react-dom'
+import { useMemo, useCallback, useState, useRef, useEffect, useLayoutEffect, startTransition } from 'react'
 import {
   DndContext,
-  useDraggable,
   type DragEndEvent,
 } from '@dnd-kit/core'
 import { restrictToHorizontalAxis } from '@dnd-kit/modifiers'
 import {
   Lock,
-  LockOpen,
   Circle,
-  ChevronLeft,
-  ChevronRight,
-  ChevronDown,
-  Plus,
-  X,
   Pencil,
   Trash2,
 } from 'lucide-react'
-import { MENU, PAGE_TITLE } from '@/lib/ui-tokens'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,404 +23,46 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { useDevice } from '@/lib/use-device'
-import { useLongPress } from '@/lib/useLongPress'
 import { MobileActionSheet, type ActionItem } from '@/components/shared/MobileActionSheet'
 import { useTimelineEvents } from '../hooks/useTimelineEvents'
 import { useCharacterList } from '@/features/characters/hooks/useCharacters'
 import { useCountryList } from '@/features/countries/hooks/useCountries'
 import { usePeriods } from '@/features/periods'
 import { PeriodDialog } from '@/components/shared/PeriodDialog'
-import { MobileFilterBar } from '@/components/layout/MobileFilterBar'
 import { PERIOD_COLORS } from '@/types'
 import { updateEventTime } from '../services'
 import type { TimelineFilter } from '../services'
 import { parseYear, addOneYear } from '@/features/events/utils'
 import {
   computeDensity,
-  densityLabel,
   buildBuckets,
   buildYearTicks,
   type TimelineDensity,
-  type TimeBucket,
   type YearTick,
 } from '../utils'
 import type { TimelineEvent } from '../types'
+import {
+  LEFT_PADDING,
+  RIGHT_PADDING,
+  TOP_AXIS_Y,
+  LANE_HEIGHT,
+  YEAR_TICK_HEIGHT,
+  MAX_LANES,
+  DEFAULT_PX_PER_YEAR,
+  MIN_PX_PER_YEAR,
+  MAX_PX_PER_YEAR,
+  ZOOM_SNAP_STEP,
+} from '../constants'
+import { assignLanes, shiftYear } from '../utils'
+import type { ComputedEvent, FilterOption } from '../types'
+import { DraggableNode, StaticNode } from './EventNode'
+import { PeriodBar } from './PeriodBar'
+import { EmptyTimeline } from './EmptyTimeline'
+import { BucketView } from './BucketView'
+import { TimelineToolbar } from './TimelineToolbar'
 
 interface TimelineViewProps {
   onSelectEvent: (id: number) => void
-}
-
-const LEFT_PADDING = 64
-const RIGHT_PADDING = 64
-const TOP_AXIS_Y = 40
-const LANE_HEIGHT = 48
-const YEAR_TICK_HEIGHT = 8
-const MAX_LANES = 8
-const DEFAULT_PX_PER_YEAR = 120
-const MIN_PX_PER_YEAR = 12
-const MAX_PX_PER_YEAR = 120
-const ZOOM_SNAP_STEP = 10
-const minBarWidth = 80
-
-function shiftYear(time: string, delta: number): string {
-  if (!time) return String(delta)
-  const match = /^(-?\d+)(.*)$/.exec(time)
-  if (!match) return String(delta)
-  const year = parseInt(match[1], 10) + delta
-  return `${year}${match[2]}`
-}
-
-interface ComputedEvent {
-  event: TimelineEvent
-  x: number
-  width: number
-  lane: number
-}
-
-function assignLanes(sortedByX: ComputedEvent[]): ComputedEvent[] {
-  const laneEnds: number[] = []
-  const laneLastYear: number[] = []
-  return sortedByX.map((item) => {
-    const nodeStart = item.x
-    const nodeEnd = item.x + item.width
-    const startYear = parseYear(item.event.time) ?? 0
-    let lane = 0
-    for (; lane < MAX_LANES; lane++) {
-      const canFit = !(lane in laneEnds) || (
-        laneEnds[lane] <= nodeStart &&
-        Math.abs(startYear - (laneLastYear[lane] ?? Infinity)) >= 4
-      )
-      if (canFit) {
-        laneEnds[lane] = nodeEnd
-        laneLastYear[lane] = startYear
-        return { ...item, lane }
-      }
-    }
-    laneEnds.push(nodeEnd)
-    laneLastYear.push(startYear)
-    return { ...item, lane }
-  })
-}
-
-const DraggableNode = memo(function DraggableNode({
-  event,
-  x,
-  y,
-  width,
-  onSelect,
-}: {
-  event: TimelineEvent
-  x: number
-  y: number
-  width: number
-  onSelect: (id: number) => void
-}) {
-  const bodyDrag = useDraggable({
-    id: `event-body-${event.id}`,
-    data: { event, startX: x, type: 'move' },
-  })
-
-  const leftDrag = useDraggable({
-    id: `event-left-${event.id}`,
-    data: { event, startX: x, type: 'resize-left' },
-  })
-
-  const rightDrag = useDraggable({
-    id: `event-right-${event.id}`,
-    data: { event, startX: x, type: 'resize-right' },
-  })
-
-  const dragDelta = (bodyDrag.transform || leftDrag.transform || rightDrag.transform)?.x ?? 0
-  const isRange = !!event.endTime
-  const barWidth = isRange ? Math.max(width, minBarWidth) : undefined
-
-  return (
-    <div
-      ref={bodyDrag.setNodeRef}
-      className={`touch-feedback absolute flex items-center gap-1.5 rounded-md border border-line bg-paper-card px-2 py-1 text-sm text-ink transition-colors hover:border-line-hover ${isRange ? 'bg-ink-muted/10' : ''}`}
-      style={{
-        left: x + dragDelta,
-        top: y,
-        width: barWidth,
-        height: 32,
-      }}
-      {...bodyDrag.listeners}
-      {...bodyDrag.attributes}
-      onClick={(e) => {
-        e.stopPropagation()
-        onSelect(event.id)
-      }}
-      title={event.summary || event.title}
-    >
-      {event.isMajor ? (
-        <span className="flex h-2 w-2 shrink-0 bg-error" />
-      ) : null}
-      <span className="truncate sticky left-2">{event.title}</span>
-      {isRange ? (
-        <>
-          <div
-            ref={leftDrag.setNodeRef}
-            className="absolute left-0 top-0 h-full w-2 cursor-ew-resize"
-            {...leftDrag.listeners}
-            {...leftDrag.attributes}
-          />
-          <div
-            ref={rightDrag.setNodeRef}
-            className="absolute right-0 top-0 h-full w-2 cursor-ew-resize"
-            {...rightDrag.listeners}
-            {...rightDrag.attributes}
-          />
-        </>
-      ) : null}
-    </div>
-  )
-})
-
-const StaticNode = memo(function StaticNode({
-  event,
-  x,
-  y,
-  width,
-  onSelect,
-}: {
-  event: TimelineEvent
-  x: number
-  y: number
-  width: number
-  onSelect: (id: number) => void
-}) {
-  const isRange = !!event.endTime
-  return (
-    <div
-      className={`touch-feedback absolute flex items-center gap-1.5 rounded-md border border-line bg-paper-card px-2 py-1 text-sm text-ink transition-colors hover:border-line-hover ${isRange ? 'bg-ink-muted/10' : ''}`}
-      style={{
-        left: x,
-        top: y,
-        width: isRange ? width : undefined,
-        height: 32,
-      }}
-      title={event.summary || event.title}
-      onClick={() => onSelect(event.id)}
-    >
-      {event.isMajor ? (
-        <span className="flex h-2 w-2 shrink-0 bg-error" />
-      ) : null}
-      <span className="truncate sticky left-2">{event.title}</span>
-    </div>
-  )
-})
-
-function PeriodBar({
-  period,
-  left,
-  width,
-  isDark,
-  hex,
-  hexDark,
-  row,
-  isMobile,
-  onEdit,
-  onDelete,
-  onLongPress,
-}: {
-  period: import('@/types').Period
-  left: number
-  width: number
-  isDark: boolean
-  hex: string
-  hexDark: string
-  row: number
-  isMobile: boolean
-  onEdit: () => void
-  onDelete: () => void
-  onLongPress?: () => void
-}) {
-  const longPress = useLongPress({
-    onLongPress: onLongPress ?? (() => {}),
-    enabled: isMobile,
-  })
-
-  return (
-    <div
-      className="touch-feedback absolute group flex items-center rounded"
-      style={{
-        left,
-        top: row * 28,
-        width,
-        height: 24,
-        backgroundColor: isDark ? hexDark : hex,
-      }}
-      onClick={onEdit}
-      title={period.name}
-      {...longPress}
-    >
-      <span className="truncate sticky left-2 px-2 text-xs text-ink font-medium leading-4">
-        {period.name}
-      </span>
-      {!isMobile ? (
-        <button
-          onClick={(e) => { e.stopPropagation(); onDelete() }}
-          className="absolute -top-1 -right-1 hidden h-4 w-4 items-center justify-center rounded-none bg-paper-card border border-line text-ink-muted group-hover:flex hover:text-error"
-        >
-          <X size={10} strokeWidth={2} />
-        </button>
-      ) : null}
-    </div>
-  )
-}
-
-function EmptyTimeline() {
-  return (
-    <div className="flex flex-1 items-center justify-center">
-      <p className="text-sm text-ink-muted">
-        暂无事件，请先创建事件后查看时间线
-      </p>
-    </div>
-  )
-}
-
-interface FilterOption {
-  value: number | 'all'
-  label: string
-}
-
-function FilterSelect({
-  value,
-  onChange,
-  options,
-  placeholder,
-}: {
-  value: number | 'all'
-  onChange: (val: number | 'all') => void
-  options: FilterOption[]
-  placeholder: string
-}) {
-  const [open, setOpen] = useState(false)
-  const triggerRef = useRef<HTMLButtonElement>(null)
-  const panelRef = useRef<HTMLDivElement>(null)
-  const [pos, setPos] = useState({ x: 0, y: 0 })
-
-  useEffect(() => {
-    if (open && triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect()
-      setPos({ x: rect.left, y: rect.bottom + 4 })
-    }
-  }, [open])
-
-  const handleClickOutside = useCallback((e: MouseEvent) => {
-    const target = e.target as Node
-    const overlay = document.getElementById('overlay-root')
-    if (triggerRef.current && !triggerRef.current.contains(target)) {
-      if (panelRef.current && !panelRef.current.contains(target)) {
-        if (overlay && overlay.contains(target)) return
-        setOpen(false)
-      }
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!open) return
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [open, handleClickOutside])
-
-  const selectedLabel = options.find((o) => o.value === value)?.label ?? placeholder
-
-  return (
-    <div>
-      <button
-        ref={triggerRef}
-        onClick={() => setOpen(!open)}
-        className="touch-feedback flex h-7 items-center gap-1 px-2 text-[12px] text-ink transition-colors hover:bg-[var(--oc-hover)] md:h-8 md:px-2 md:text-[13px]"
-      >
-        <span className="max-w-[120px] truncate">{selectedLabel}</span>
-        <ChevronDown size={16} strokeWidth={2} />
-      </button>
-
-      {open
-        ? createPortal(
-            <div
-              ref={panelRef}
-              className={`fixed z-30 mt-1 flex max-h-64 flex-col overflow-auto ${MENU} pointer-events-auto`}
-              style={{ left: pos.x, top: pos.y }}
-            >
-          {options.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => {
-                onChange(opt.value)
-                setOpen(false)
-              }}
-              className={`whitespace-nowrap rounded-sm px-3 py-1.5 text-left text-sm transition-colors ${
-                value === opt.value
-                  ? 'bg-black/5 dark:bg-white/5 text-ink'
-                  : 'text-ink hover:bg-[var(--oc-hover)]'
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-            </div>,
-            document.getElementById('overlay-root')!,
-          )
-        : null}
-    </div>
-  )
-}
-
-function BucketView({
-  buckets,
-  onSelectEvent,
-  axisY,
-  spanningOffset = 0,
-}: {
-  buckets: TimeBucket[]
-  onSelectEvent: (id: number) => void
-  axisY: number
-  spanningOffset?: number
-}) {
-  const bucketTop = axisY + 24 + spanningOffset
-  return (
-    <>
-      {buckets.map((bucket) => (
-        <div
-          key={bucket.startYear}
-          className="absolute border border-line bg-paper-card px-2 py-1.5"
-          style={{
-            left: bucket.x,
-            top: bucketTop,
-            width: Math.max(bucket.width - 8, 120),
-          }}
-        >
-          <div className="mb-1.5 text-xs text-ink-muted font-mono border-b border-line pb-1">
-            {bucket.label}
-          </div>
-          {bucket.events.map((event) => (
-            <button
-              key={event.id}
-              onClick={() => onSelectEvent(event.id)}
-              className="flex h-6 w-full items-center gap-1 truncate px-1 text-xs text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink active:bg-[var(--oc-hover)]"
-              title={event.summary || event.title}
-            >
-              {event.isMajor ? (
-                <Circle
-                  size={6}
-                  fill="var(--color-error)"
-                  className="shrink-0 text-error"
-                />
-              ) : null}
-              <span className="truncate">{event.title}</span>
-              {event.endTime ? (
-                <span className="shrink-0 text-[10px] text-ink-faint ml-1">
-                  {event.time}~{event.endTime}
-                </span>
-              ) : null}
-            </button>
-          ))}
-        </div>
-      ))}
-    </>
-  )
 }
 
 export function TimelineView({ onSelectEvent }: TimelineViewProps) {
@@ -1297,161 +930,4 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
   )
 }
 
-function TimelineToolbar({
-  filterMajor,
-  setFilterMajor,
-  editMode,
-  onToggleEdit,
-  showNav,
-  onPrev,
-  onNext,
-  isFirst,
-  isLast,
-  showZoom,
-  zoomRatio,
-  onZoomChange,
-  onZoomCommit,
-  density,
-  characterFilter,
-  onCharacterFilterChange,
-  characterOptions,
-  countryFilter,
-  onCountryFilterChange,
-  countryOptions,
-  onAddPeriod,
-}: {
-  filterMajor: boolean
-  setFilterMajor: (v: boolean) => void
-  editMode: boolean
-  onToggleEdit: () => void
-  showNav: boolean
-  onPrev: () => void
-  onNext: () => void
-  isFirst: boolean
-  isLast: boolean
-  showZoom: boolean
-  zoomRatio: number
-  onZoomChange: (value: number) => void
-  onZoomCommit: (value: number) => void
-  density: TimelineDensity
-  characterFilter: number | 'all'
-  onCharacterFilterChange: (val: number | 'all') => void
-  characterOptions: FilterOption[]
-  countryFilter: number | 'all'
-  onCountryFilterChange: (val: number | 'all') => void
-  countryOptions: FilterOption[]
-  onAddPeriod?: () => void
-}) {
-  return (
-    <>
-      {/* Desktop toolbar */}
-      <div className="max-md:hidden flex h-12 items-center justify-between sticky top-0 z-10 border-b border-line px-6 bg-paper/85 dark:bg-[#1C1B1A]/85 backdrop-blur-lg">
-        <div className="flex items-center gap-3">
-          <h2 className={PAGE_TITLE}>时间线</h2>
-          <div className="-mx-1.5 ml-1 flex items-center gap-1">
-            <button
-              onClick={() => setFilterMajor(true)}
-              className={`h-8 px-1.5 text-[13px] transition-colors ${
-                filterMajor ? 'text-ink' : 'text-ink-faint hover:text-ink-muted'
-              }`}
-            >
-              大事表
-            </button>
-            <span className="text-[13px] text-ink-faint/50">/</span>
-            <button
-              onClick={() => setFilterMajor(false)}
-              className={`h-8 px-1.5 text-[13px] transition-colors ${
-                !filterMajor ? 'text-ink' : 'text-ink-faint hover:text-ink-muted'
-              }`}
-            >
-              全部事件
-            </button>
-          </div>
-          <FilterSelect value={characterFilter} onChange={onCharacterFilterChange} options={characterOptions} placeholder="全部角色" />
-          <FilterSelect value={countryFilter} onChange={onCountryFilterChange} options={countryOptions} placeholder="全部国家" />
-          {showNav ? (
-            <>
-              <button onClick={onPrev} disabled={isFirst}
-                className={`flex h-8 w-8 items-center justify-center transition-colors ${isFirst ? 'cursor-default text-ink-faint' : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'}`}
-                title="上一个事件"
-              >
-                <ChevronLeft size={16} strokeWidth={2} />
-              </button>
-              <button onClick={onNext} disabled={isLast}
-                className={`flex h-8 w-8 items-center justify-center transition-colors ${isLast ? 'cursor-default text-ink-faint' : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'}`}
-                title="下一个事件"
-              >
-                <ChevronRight size={16} strokeWidth={2} />
-              </button>
-            </>
-          ) : null}
-          {onAddPeriod ? (
-            <button onClick={onAddPeriod}
-              className="flex h-8 w-8 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink"
-              title="添加时期"
-            >
-              <Plus size={16} strokeWidth={2} />
-            </button>
-          ) : null}
-        </div>
-        <div className="flex items-center gap-2">
-          {showZoom ? (
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] text-ink-faint">百年</span>
-              <input type="range" min={10} max={500} step={1}
-                value={Math.round(zoomRatio * 100)}
-                onChange={(e) => onZoomChange(Number(e.target.value))}
-                onMouseUp={(e) => onZoomCommit(Number((e.target as HTMLInputElement).value))}
-                onTouchEnd={(e) => onZoomCommit(Number((e.target as HTMLInputElement).value))}
-                className="h-8 w-32 cursor-pointer appearance-none bg-transparent
-                  [&::-webkit-slider-runnable-track]:h-1 [&::-webkit-slider-runnable-track]:rounded [&::-webkit-slider-runnable-track]:bg-line
-                  [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:-mt-1 [&::-webkit-slider-thumb]:h-3.5
-                  [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:rounded-none [&::-webkit-slider-thumb]:bg-ink-muted
-                  [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-line
-                  [&::-moz-range-track]:h-1 [&::-moz-range-track]:rounded [&::-moz-range-track]:bg-line
-                  [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:rounded-none
-                  [&::-moz-range-thumb]:bg-ink-muted [&::-moz-range-thumb]:border-0"
-              />
-              <span className="text-[10px] text-ink-faint">年</span>
-            </div>
-          ) : null}
-          <button onClick={onToggleEdit}
-            className={`flex h-8 w-8 items-center justify-center transition-colors hover:bg-[var(--oc-hover)] ${editMode ? 'text-ink' : 'text-ink-muted hover:text-ink'}`}
-            title={editMode ? '锁定时间轴' : '解锁时间轴'}
-          >
-            {editMode ? <LockOpen size={16} strokeWidth={2} /> : <Lock size={16} strokeWidth={2} />}
-          </button>
-        </div>
-      </div>
 
-      {/* Mobile filter bar */}
-      <MobileFilterBar>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setFilterMajor(true)}
-            className={`h-7 text-[12px] transition-colors ${filterMajor ? 'text-ink' : 'text-ink-faint'}`}
-          >
-            大事表
-          </button>
-          <span className="text-[12px] text-ink-faint/50">/</span>
-          <button
-            onClick={() => setFilterMajor(false)}
-            className={`h-7 text-[12px] transition-colors ${!filterMajor ? 'text-ink' : 'text-ink-faint'}`}
-          >
-            全部事件
-          </button>
-          <FilterSelect value={characterFilter} onChange={onCharacterFilterChange} options={characterOptions} placeholder="全部角色" />
-          <FilterSelect value={countryFilter} onChange={onCountryFilterChange} options={countryOptions} placeholder="全部国家" />
-        </div>
-        {onAddPeriod ? (
-          <button onClick={onAddPeriod}
-            className="flex h-7 w-7 items-center justify-center text-ink-muted transition-colors hover:text-ink"
-            title="添加时期"
-          >
-            <Plus size={14} strokeWidth={2} />
-          </button>
-        ) : null}
-      </MobileFilterBar>
-    </>
-  )
-}

@@ -1,4 +1,5 @@
-import type { TimelineEvent } from './types'
+import { MAX_LANES } from './constants'
+import type { ComputedEvent, TimelineEvent } from './types'
 
 export type TimelineDensity = 'year' | 'decade' | 'half-century' | 'century'
 
@@ -176,3 +177,39 @@ export function buildYearTicks(
 
   return ticks
 }
+
+export function shiftYear(time: string, delta: number): string {
+  if (!time) return String(delta)
+  const match = /^(-?\d+)(.*)$/.exec(time)
+  if (!match) return String(delta)
+  const year = parseInt(match[1], 10) + delta
+  return `${year}${match[2]}`
+}
+
+export function assignLanes(sortedByX: ComputedEvent[]): ComputedEvent[] {
+  const laneEnds: number[] = []
+  const laneLastYear: number[] = []
+  return sortedByX.map((item) => {
+    const nodeStart = item.x
+    const nodeEnd = item.x + item.width
+    const startYear = parseYear(item.event.time) ?? 0
+    let lane = 0
+    for (; lane < MAX_LANES; lane++) {
+      const canFit = !(lane in laneEnds) || (
+        laneEnds[lane] <= nodeStart &&
+        Math.abs(startYear - (laneLastYear[lane] ?? Infinity)) >= 4
+      )
+      if (canFit) {
+        laneEnds[lane] = nodeEnd
+        laneLastYear[lane] = startYear
+        return { ...item, lane }
+      }
+    }
+    laneEnds.push(nodeEnd)
+    laneLastYear.push(startYear)
+    return { ...item, lane }
+  })
+}
+
+
+

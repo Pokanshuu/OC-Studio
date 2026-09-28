@@ -21,3 +21,17 @@ export function pickTimelineFields(event: Event): TimelineEvent {
 }
 
 export type TimelineScale = 'year' | 'month' | 'day'
+
+export interface ComputedEvent {
+  event: TimelineEvent
+  x: number
+  width: number
+  lane: number
+}
+
+export interface FilterOption {
+  value: number | 'all'
+  label: string
+}
+
+
