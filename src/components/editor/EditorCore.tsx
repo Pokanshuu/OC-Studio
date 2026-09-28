@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useId, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { tauriReadClipboard } from '@/lib/tauri-clipboard'
 import { useEditor, EditorContent } from '@tiptap/react'
 import { BubbleMenu } from '@tiptap/react/menus'
 import type { Editor } from '@tiptap/core'
@@ -15,8 +14,8 @@ import { useActiveEditor } from '@/lib/editor-context'
 import { useKeyboard } from '@/lib/KeyboardContext'
 import { isBelowTargetVersion } from '@/lib/browser-compat'
 import { ContextMenu } from '@/components/shared/ContextMenu'
-import type { ContextMenuItem } from '@/components/shared/ContextMenu'
 import { BubbleMenuButtons } from './BubbleMenuButtons'
+import { buildEditorContextMenu } from './editor-context-menu'
 
 import { buildEditorConfig, BLOCK_MENU_EVENT } from './editor-config'
 
@@ -328,152 +327,10 @@ export function EditorCore({
     handleToolbarAction(action)
   }, [handleToolbarAction])
 
-  const contextMenuItems = useMemo((): ContextMenuItem[] => [
-    {
-      label: '撤销',
-      shortcut: 'Ctrl+Z',
-      onClick: () => editor?.chain().focus().undo().run(),
-    },
-    {
-      label: '重做',
-      shortcut: 'Ctrl+Shift+Z',
-      onClick: () => editor?.chain().focus().redo().run(),
-    },
-    { separator: true, label: '', onClick: () => {} },
-    {
-      label: '剪切',
-      shortcut: 'Ctrl+X',
-      onClick: () => {
-        editor?.view.focus()
-        try { document.execCommand('cut') } catch { /* noop */ }
-      },
-    },
-    {
-      label: '复制',
-      shortcut: 'Ctrl+C',
-      onClick: () => {
-        editor?.view.focus()
-        try { document.execCommand('copy') } catch { /* noop */ }
-      },
-    },
-    {
-      label: '粘贴',
-      shortcut: 'Ctrl+V',
-      onClick: () => {
-        if (!editor) return
-        editor.view.focus()
-        tauriReadClipboard()
-          .then((text) => { editor.chain().focus().insertContent(text).run() })
-          .catch(() => {})
-      },
-    },
-    { separator: true, label: '', onClick: () => {} },
-    {
-      label: '全选',
-      shortcut: 'Ctrl+A',
-      onClick: () => editor?.chain().focus().selectAll().run(),
-    },
-    { separator: true, label: '', onClick: () => {} },
-    {
-      label: '插入',
-      children: [
-        {
-          label: '表格',
-          onClick: () => {
-            if (!editor) return
-            const chain = editor.chain().focus()
-            chain.insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
-          },
-        },
-        {
-          label: '图片',
-          onClick: () => {
-            if (!editor) return
-            editor.chain().focus().insertContent({ type: 'imageBlock' }).run()
-          },
-        },
-        {
-          label: '分割线',
-          onClick: () => {
-            if (!editor) return
-            const chain = editor.chain().focus()
-            chain.setHorizontalRule().run()
-          },
-        },
-      ],
-    },
-    ...(isTableActive
-      ? [
-          { separator: true, label: '', onClick: () => {} } as ContextMenuItem,
-          {
-            label: '表格',
-            children: [
-              {
-                label: '在上方插入行',
-                onClick: () => {
-                  if (!editor) return
-                  const chain = editor.chain().focus()
-                  chain.addRowBefore().run()
-                },
-              },
-              {
-                label: '在下方插入行',
-                onClick: () => {
-                  if (!editor) return
-                  const chain = editor.chain().focus()
-                  chain.addRowAfter().run()
-                },
-              },
-              {
-                label: '在左侧插入列',
-                onClick: () => {
-                  if (!editor) return
-                  const chain = editor.chain().focus()
-                  chain.addColumnBefore().run()
-                },
-              },
-              {
-                label: '在右侧插入列',
-                onClick: () => {
-                  if (!editor) return
-                  const chain = editor.chain().focus()
-                  chain.addColumnAfter().run()
-                },
-              },
-              { separator: true, label: '', onClick: () => {} } as ContextMenuItem,
-              {
-                label: '删除当前行',
-                danger: true,
-                onClick: () => {
-                  if (!editor) return
-                  const chain = editor.chain().focus()
-                  chain.deleteRow().run()
-                },
-              },
-              {
-                label: '删除当前列',
-                danger: true,
-                onClick: () => {
-                  if (!editor) return
-                  const chain = editor.chain().focus()
-                  chain.deleteColumn().run()
-                },
-              },
-              {
-                label: '删除整个表格',
-                danger: true,
-                onClick: () => {
-                  if (!editor) return
-                  const chain = editor.chain().focus()
-                  chain.deleteTable().run()
-                },
-              },
-            ],
-          },
-        ]
-      : []),
-  ], [editor, isTableActive])
-
+  const contextMenuItems = useMemo(
+    () => buildEditorContextMenu({ editor, isTableActive }),
+    [editor, isTableActive],
+  )
   if (!editor) {
     return <div className="flex h-32 items-center justify-center text-sm text-ink-muted">编辑器加载中...</div>
   }
@@ -676,6 +533,7 @@ export function EditorCore({
     </ContextMenu>
   )
 }
+
 
 
 
