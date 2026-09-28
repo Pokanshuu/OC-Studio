@@ -5,36 +5,20 @@ import { createPortal } from 'react-dom'
 import { tauriReadClipboard } from '@/lib/tauri-clipboard'
 import { useEditor, EditorContent } from '@tiptap/react'
 import { BubbleMenu } from '@tiptap/react/menus'
-import StarterKit from '@tiptap/starter-kit'
-import Paragraph from '@tiptap/extension-paragraph'
-import Placeholder from '@tiptap/extension-placeholder'
-import TaskList from '@tiptap/extension-task-list'
-import TaskItem from '@tiptap/extension-task-item'
-import { Table } from '@tiptap/extension-table'
-import { TableRow } from '@tiptap/extension-table-row'
-import { TableCell } from '@tiptap/extension-table-cell'
-import { TableHeader } from '@tiptap/extension-table-header'
-import Mention from '@tiptap/extension-mention'
-import { DragHandle } from '@tiptap/extension-drag-handle'
 import type { Editor } from '@tiptap/core'
 import { Bold, Italic, Underline as UnderlineIcon, AtSign, Pilcrow, Heading1, Heading2, Heading3, List, ListOrdered, ListTodo, Quote, Scissors, Image, Table as TableIcon, ChevronDown, Link2, Undo2, Redo2 } from 'lucide-react'
 import React from 'react'
-import { ImageBlock } from './extensions/ImageBlock'
 
 import { BlockTypeMenu } from './BlockTypeMenu'
-import { SlashCommand } from './SlashCommandMenu'
-import { WikiLinkExtension } from './WikiLinkExtension'
-import { searchAllEntitiesFlat } from '@/lib/reference-registry'
 import { useDevice } from '@/lib/use-device'
 import { useActiveEditor } from '@/lib/editor-context'
 import { useKeyboard } from '@/lib/KeyboardContext'
 import { isBelowTargetVersion } from '@/lib/browser-compat'
 import { ContextMenu } from '@/components/shared/ContextMenu'
 import type { ContextMenuItem } from '@/components/shared/ContextMenu'
-import { createMentionRender, type ExtendedReferableEntity } from './mention-render'
 import { BubbleMenuButtons } from './BubbleMenuButtons'
 
-const BLOCK_MENU_EVENT = 'editor-block-menu'
+import { buildEditorConfig, BLOCK_MENU_EVENT } from './editor-config'
 
 interface EditorCoreProps {
   onReady: (editor: Editor) => void
@@ -110,167 +94,23 @@ export function EditorCore({
     return () => window.removeEventListener(BLOCK_MENU_EVENT, handleBlockMenuEvent)
   }, [handleBlockMenuEvent])
 
-  const editor = useEditor({
-    immediatelyRender: false,
-    extensions: [
-      StarterKit.configure({
-        heading: { levels: [1, 2, 3] },
-        paragraph: false,
-        blockquote: {
-          HTMLAttributes: { class: 'border-l-2 border-line pl-4 bg-paper-alt rounded-r-sm italic text-ink-muted my-3 py-1' },
-        },
-      }),
-      Paragraph.extend({
-        addAttributes() {
-          return {
-            placeholder: {
-              default: null,
-              parseHTML: (element) => element.getAttribute('data-placeholder'),
-              renderHTML: (attrs) => {
-                if (!attrs.placeholder) return {}
-                return { 'data-placeholder': attrs.placeholder }
-              },
-            },
-          }
-        },
-      }),
-      Placeholder.configure({
-        placeholder: ({ node }) => {
-          if (node.type.name === 'paragraph') {
-            return (node.attrs.placeholder as string | null) ?? placeholder ?? '开始创作你的世界...'
-          }
-          return placeholder ?? '开始创作你的世界...'
-        },
-      }),
-      TaskList, TaskItem.configure({ nested: true }),
-      Table.configure({
-        resizable: true,
-        HTMLAttributes: { class: 'w-full border-collapse rounded-md overflow-hidden' },
-      }),
-      TableRow.configure({
-        HTMLAttributes: { class: 'border-b border-line' },
-      }),
-      TableCell.configure({
-        HTMLAttributes: { class: 'border border-line px-3 py-2 text-sm text-ink' },
-      }),
-      TableHeader.configure({
-        HTMLAttributes: { class: 'border border-line bg-paper-alt px-3 py-2 text-sm font-medium text-ink text-left' },
-      }),
-      ImageBlock,
-      SlashCommand,
-      WikiLinkExtension,
-      ...(isMobile ? [] : [
-        // eslint-disable-next-line react-hooks/refs
-        DragHandle.configure({
-        render: () => {
-          const handle = document.createElement('div')
-          handle.className = 'flex h-5 w-5 items-center justify-center cursor-grab rounded text-ink-faint opacity-0 transition-opacity hover:opacity-100 group-hover:opacity-100'
-          handle.innerHTML = `<svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><circle cx="2" cy="2" r="1"/><circle cx="6" cy="2" r="1"/><circle cx="10" cy="2" r="1"/><circle cx="2" cy="6" r="1"/><circle cx="6" cy="6" r="1"/><circle cx="10" cy="6" r="1"/><circle cx="2" cy="10" r="1"/><circle cx="6" cy="10" r="1"/><circle cx="10" cy="10" r="1"/></svg>`
-          handle.title = '拖拽排序'
-          handle.dataset.blockHandle = 'true'
-          handle.addEventListener('click', (e) => {
-            e.stopPropagation()
-            const ed = editorRef.current
-            const rect = handle.getBoundingClientRect()
-            const blockPos = ed ? ed.view.posAtCoords({ left: e.clientX, top: e.clientY })?.pos : undefined
-            window.dispatchEvent(new CustomEvent(BLOCK_MENU_EVENT, { detail: { editorId, rect, blockPos } }))
-          })
-          return handle
-        },
-        nested: true,
-      })]),
-      Mention.extend({
-        addAttributes() {
-          return {
-            ...this.parent?.(),
-            entityType: {
-              default: '',
-              parseHTML: (element) => element.getAttribute('data-entity-type') || '',
-              renderHTML: (attributes) => ({ 'data-entity-type': attributes.entityType }),
-            },
-          }
-        },
-      }).configure({
-        HTMLAttributes: {
-          class: 'inline-flex bg-paper-alt border border-line rounded px-1.5 text-sm text-ink cursor-pointer',
-        },
-        renderHTML: ({ options, node }) => {
-          const cls = options.HTMLAttributes?.class ?? ''
-          const label = (node.attrs.label as string) ?? ''
-          return ['span', {
-            class: cls,
-            'data-type': 'mention',
-            'data-id': node.attrs.id as string ?? '',
-            'data-label': label,
-            'data-entity-type': node.attrs.entityType as string ?? '',
-          }, `@${label}`]
-        },
-        suggestion: {
-          char: '@',
-          items: async ({ query }) => {
-            const entities = await searchAllEntitiesFlat(query)
-            return entities.filter((e) => e.type !== 'world').map((e) => ({ ...e, label: e.name }))
-          },
-          render: createMentionRender(),
-          command: ({ editor, range, props }) => {
-            const p = props as ExtendedReferableEntity
-            editor
-              .chain()
-              .focus()
-              .deleteRange(range)
-              .insertContent({
-                type: 'mention',
-                attrs: {
-                  id: p.id,
-                  label: p.label ?? p.name,
-                  entityType: p.type,
-                },
-              })
-              .run()
-          },
-        },
-      }),
-    ],
-    editorProps: {
-      handleScrollToSelection: () => {
-        if (!isMobile) return false
-        if (!keyboardVisibleRef.current) return true
-        const ed = editorRef.current
-        if (!ed) return true
-        const { selection } = ed.state
-        if (selection.empty) {
-          const coords = ed.view.coordsAtPos(selection.head)
-          const toolbarH = 56
-          const vvBottom = document.documentElement.clientHeight
-          const overflow = coords.bottom + toolbarH - vvBottom
-          if (overflow > 0) {
-            const scroller = ed.view.dom.closest('.section-fade') as HTMLElement | null
-            if (scroller) scroller.scrollTop += overflow
-          }
-        }
-        return true
-      },
-      attributes: {
-        class: plain
-          ? 'tiptap max-w-none pl-0 pr-0 py-0 text-[15px] leading-relaxed focus:outline-none min-h-[2em]'
-          : 'tiptap max-w-none pl-8 pr-4 py-2 text-[15px] leading-relaxed focus:outline-none min-h-[2em]',
-        ...(isMobile ? { /* virtualkeyboardpolicy removed — system handles keyboard natively */ } : {}),
-      },
-    },
-    content: content ?? '',
-    onCreate({ editor: readyEditor }) {
-      editorRef.current = readyEditor as Editor
-      setActiveEditor(readyEditor as Editor)
-      onReady(readyEditor as Editor)
-      onCharacterCount?.(readyEditor.getText().length)
-      // 注意：不在 onCreate 调用 onContentChange——否则编辑器一挂载就触发"未保存"误报
-    },
-    onUpdate({ editor: updatedEditor }) {
-      onCharacterCount?.(updatedEditor.getText().length)
-      onContentChange?.(updatedEditor.getHTML())
-    },
-  })
-
+  // 仅把「取值器」交给配置模块（.current 一律在事件处理器里才读，render 期不读）。
+  // 规则在 render 表达式里看到存在 .current 的闭包即报，无法区分是否真的读取 —— 属误报。
+  // eslint-disable-next-line react-hooks/refs
+  const editor = useEditor(buildEditorConfig({
+    placeholder,
+    plain,
+    content,
+    isMobile,
+    editorId,
+    getEditor: () => editorRef.current,
+    isKeyboardVisible: () => keyboardVisibleRef.current,
+    setEditor: (ed) => { editorRef.current = ed },
+    setActiveEditor,
+    onReady,
+    onCharacterCount,
+    onContentChange,
+  }))
   useEffect(() => {
     if (!editor) return
     const updateTableState = () => {
@@ -836,5 +676,6 @@ export function EditorCore({
     </ContextMenu>
   )
 }
+
 
 
