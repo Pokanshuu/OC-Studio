@@ -13,7 +13,7 @@ import type {
 
 export class OCStudioDB extends Dexie {
   // EntityTable<T, 'id'>：读出来的行 id 必为 number，写入时 id 可省略（由 Dexie 生成）。
-  // 这样「落库实体」与「新建草稿」两种状态在类型上分开，不再需要 `id as number` 之类的断言。
+  // 这样「落库实体」与「新建草稿」两种状态在类型上分开，不再需要 `id` 之类的断言。
   characters!: EntityTable<Character, 'id'>
   events!: EntityTable<Event, 'id'>
   countries!: EntityTable<Country, 'id'>

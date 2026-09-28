@@ -87,7 +87,7 @@ function EventCard({
   return (
     <div className="relative group touch-feedback" {...longPress}>
       <button
-        onClick={() => onSelect(event.id as number)}
+        onClick={() => onSelect(event.id)}
         className="flex w-full flex-col overflow-hidden bg-paper-card text-left transition-colors hover:bg-line"
       >
         <div className="relative aspect-[3/2] w-full bg-paper-card">
@@ -133,7 +133,7 @@ function EventCard({
 
       {!isMobile ? (
         <div className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity">
-          <DeleteButton onDelete={() => onDelete(event.id as number)} />
+          <DeleteButton onDelete={() => onDelete(event.id)} />
         </div>
       ) : null}
     </div>
@@ -160,7 +160,7 @@ function EventRow({
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-      onSelect(event.id as number)
+      onSelect(event.id)
     }
   }
 
@@ -168,7 +168,7 @@ function EventRow({
     <div
       role="button"
       tabIndex={0}
-      onClick={() => onSelect(event.id as number)}
+      onClick={() => onSelect(event.id)}
       onKeyDown={handleKeyDown}
       className="group relative flex w-full cursor-pointer items-center gap-4 px-4 py-3 text-left transition-colors hover:bg-[var(--oc-hover)] active:bg-[var(--oc-hover)]"
       {...longPress}
@@ -190,7 +190,7 @@ function EventRow({
       ) : null}
       {!isMobile ? (
         <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <DeleteButton onDelete={() => onDelete(event.id as number)} />
+          <DeleteButton onDelete={() => onDelete(event.id)} />
         </div>
       ) : null}
     </div>
@@ -220,8 +220,8 @@ export function EventList({
       open: true,
       title: ev.title,
       actions: [
-        { id: 'edit', label: '编辑', icon: <Pencil size={20} strokeWidth={2} />, onPress: () => onSelectEvent(ev.id as number) },
-        { id: 'delete', label: '删除', icon: <Trash2 size={20} strokeWidth={2} />, destructive: true, onPress: () => setDeleteTarget(ev.id as number) },
+        { id: 'edit', label: '编辑', icon: <Pencil size={20} strokeWidth={2} />, onPress: () => onSelectEvent(ev.id) },
+        { id: 'delete', label: '删除', icon: <Trash2 size={20} strokeWidth={2} />, destructive: true, onPress: () => setDeleteTarget(ev.id) },
       ],
     })
   }, [onSelectEvent, onDeleteEvent])

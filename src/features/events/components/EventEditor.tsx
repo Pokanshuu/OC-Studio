@@ -86,7 +86,7 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
   const characterItems: RelatedItem[] = useMemo(
     () =>
       characters.map((c) => ({
-        id: c.id as number,
+        id: c.id,
         name: c.name,
         subtitle: c.aliases.length > 0 ? c.aliases.join('、') : undefined,
       })),
@@ -96,7 +96,7 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
   const countryItems: RelatedItem[] = useMemo(
     () =>
       countries.map((c) => ({
-        id: c.id as number,
+        id: c.id,
         name: c.name,
       })),
     [countries],
@@ -150,7 +150,7 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
       const time = assembleTime(year, month, day)
       const endTimeVal = assembleTime(endYear, endMonth, endDay)
       const document = editorRef.current.getJSON()
-      await onSave(event.id as number, {
+      await onSave(event.id, {
         title,
         time,
         endTime: endTimeVal || undefined,
@@ -347,7 +347,7 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
             <section>
               <h3 className={SECTION_TITLE}>正文</h3>
               <DocumentEditor
-                entityId={event.id as number}
+                entityId={event.id}
                 entityType="event"
                 fallbackContent={event.content}
                 onReady={handleEditorReady}

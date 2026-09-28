@@ -37,7 +37,7 @@ export async function getCountry(id: number): Promise<Country | undefined> {
 
 export async function createCountry(data: CountryFormData): Promise<number> {
   const country = buildDefaultCountry(data)
-  const id = await db.countries.add(country as Country)
+  const id = await db.countries.add(country)
 
   await logOperation(TABLE, id, 'name', '', data.name)
   if (data.description) {

@@ -27,7 +27,7 @@ export async function updateTag(id: number, data: Partial<{ name: string; catego
 }
 
 interface TaggableRow {
-  id?: number
+  id: number
   tags: number[]
 }
 
@@ -40,7 +40,7 @@ async function removeTagReferences(
   for (const row of rows) {
     if (Array.isArray(row.tags) && row.tags.includes(tagId)) {
       writes.push(
-        table.update(row.id as number, {
+        table.update(row.id, {
           tags: row.tags.filter((t) => t !== tagId),
         }),
       )

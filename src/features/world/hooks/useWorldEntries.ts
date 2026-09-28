@@ -9,7 +9,7 @@ import { DATA_UPDATED_EVENT } from '@/lib/data-events'
 
 const LIST_KEY = ['worldEntries']
 
-function makeEntryKey(id: number) {
+function makeEntryKey(id: number | null) {
   return ['worldEntry', id]
 }
 
@@ -51,8 +51,8 @@ export function useEntry(id: number | null): {
   error: string | null
 } {
   const { data, isLoading, error } = useQuery({
-    queryKey: makeEntryKey(id as number),
-    queryFn: () => service.getEntry(id as number),
+    queryKey: makeEntryKey(id),
+    queryFn: async () => (id === null ? undefined : service.getEntry(id)),
     enabled: id !== null,
     // 详情始终取最新：WorldLayout 自动保存（saveEntryContent）直连 service、不走 mutation，
     // 缓存过久会导致切换词条后读到旧内容

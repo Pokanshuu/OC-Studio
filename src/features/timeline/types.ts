@@ -11,7 +11,7 @@ export interface TimelineEvent {
 
 export function pickTimelineFields(event: Event): TimelineEvent {
   return {
-    id: event.id as number,
+    id: event.id,
     title: event.title,
     time: event.time,
     endTime: event.endTime,

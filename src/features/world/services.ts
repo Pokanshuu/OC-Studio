@@ -36,7 +36,7 @@ export async function getEntry(id: number): Promise<WorldEntry | undefined> {
 
 export async function createEntry(data: WorldFormData): Promise<number> {
   const entry = buildDefaultEntry(data)
-  const id = await db.worldEntries.add(entry as WorldEntry)
+  const id = await db.worldEntries.add(entry)
   await logOperation(TABLE, id, 'title', '', data.title)
   return id
 }

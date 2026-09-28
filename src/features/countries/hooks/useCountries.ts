@@ -9,7 +9,7 @@ import { DATA_UPDATED_EVENT } from '@/lib/data-events'
 
 const LIST_KEY = ['countries']
 
-function makeCountryKey(id: number) {
+function makeCountryKey(id: number | null) {
   return ['country', id]
 }
 
@@ -50,8 +50,8 @@ export function useCountry(id: number | null): {
   refresh: () => void
 } {
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: makeCountryKey(id as number),
-    queryFn: () => countryService.getCountry(id as number),
+    queryKey: makeCountryKey(id),
+    queryFn: async () => (id === null ? undefined : countryService.getCountry(id)),
     enabled: id !== null,
     staleTime: 30_000,
   })

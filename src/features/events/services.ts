@@ -41,7 +41,7 @@ export async function getEvent(id: number): Promise<Event | undefined> {
 
 export async function createEvent(data: EventFormData): Promise<number> {
   const event = buildDefaultEvent(data)
-  const id = await db.events.add(event as Event)
+  const id = await db.events.add(event)
 
   await logOperation(TABLE, id, 'title', '', data.title)
   await logOperation(TABLE, id, 'time', '', data.time)

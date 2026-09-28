@@ -9,7 +9,7 @@ import { DATA_UPDATED_EVENT } from '@/lib/data-events'
 
 const LIST_KEY = ['characters']
 
-function makeCharacterKey(id: number) {
+function makeCharacterKey(id: number | null) {
   return ['character', id]
 }
 
@@ -52,8 +52,8 @@ export function useCharacter(id: number | null): {
   refresh: () => void
 } {
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: makeCharacterKey(id as number),
-    queryFn: () => characterService.getCharacter(id as number),
+    queryKey: makeCharacterKey(id),
+    queryFn: async () => (id === null ? undefined : characterService.getCharacter(id)),
     enabled: id !== null,
     // 详情始终取最新（编辑器显式保存后失效重取，跨模块写入也依赖挂载时重取）
     staleTime: 0,

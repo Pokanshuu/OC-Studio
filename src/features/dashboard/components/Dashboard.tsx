@@ -64,10 +64,10 @@ export function Dashboard({ onNavigate, onOpenSection }: DashboardProps) {
 
   const recent = useMemo(() => {
     const all: { id: number; type: RecentType; name: string; updatedAt: number }[] = [
-      ...characters.map((c) => ({ id: c.id as number, type: 'character' as const, name: c.name, updatedAt: c.updatedAt })),
-      ...events.map((e) => ({ id: e.id as number, type: 'event' as const, name: e.title, updatedAt: e.updatedAt })),
-      ...countries.map((c) => ({ id: c.id as number, type: 'country' as const, name: c.name, updatedAt: c.updatedAt })),
-      ...entries.map((e) => ({ id: e.id as number, type: 'world' as const, name: e.title, updatedAt: e.updatedAt })),
+      ...characters.map((c) => ({ id: c.id, type: 'character' as const, name: c.name, updatedAt: c.updatedAt })),
+      ...events.map((e) => ({ id: e.id, type: 'event' as const, name: e.title, updatedAt: e.updatedAt })),
+      ...countries.map((c) => ({ id: c.id, type: 'country' as const, name: c.name, updatedAt: c.updatedAt })),
+      ...entries.map((e) => ({ id: e.id, type: 'world' as const, name: e.title, updatedAt: e.updatedAt })),
     ].filter((x) => typeof x.id === 'number')
 
     return all.sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0)).slice(0, 6)
@@ -119,7 +119,7 @@ export function Dashboard({ onNavigate, onOpenSection }: DashboardProps) {
               {majorCharacters.map((c) => (
                 <button
                   key={c.id}
-                  onClick={() => onNavigate(c.id as number, 'character')}
+                  onClick={() => onNavigate(c.id, 'character')}
                   className="flex w-16 flex-col items-center gap-1.5 px-1 py-0.5"
                   title={c.name}
                 >

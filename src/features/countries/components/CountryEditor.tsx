@@ -151,7 +151,7 @@ function CountryEditorInner({
     try {
       const document = docEditorRef.current?.getJSON()
 
-      await onSave(country.id as number, {
+      await onSave(country.id, {
         name,
         parentId: country.parentId,
         description: '',
@@ -181,7 +181,7 @@ function CountryEditorInner({
   const relatedCharacterItems: RelatedItem[] = useMemo(
     () =>
       allCharacters.map((c) => ({
-        id: c.id as number,
+        id: c.id,
         name: c.name,
         subtitle: c.aliases.length > 0 ? c.aliases.join('、') : undefined,
       })),
@@ -191,7 +191,7 @@ function CountryEditorInner({
   const relatedEventItems: RelatedItem[] = useMemo(
     () =>
       allEvents.map((e) => ({
-        id: e.id as number,
+        id: e.id,
         name: e.title,
         subtitle: e.time,
       })),
@@ -264,7 +264,7 @@ function CountryEditorInner({
           <section>
             <h3 className={SECTION_TITLE}>国家详情</h3>
             <DocumentEditor
-              entityId={country.id as number}
+              entityId={country.id}
               entityType="country"
               fallbackContent={mergeCountrySections(country.system, country.geography, country.culture)}
               onReady={handleDocReady}

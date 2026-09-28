@@ -78,7 +78,7 @@ function CountryRow({
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-      onSelect(country.id as number)
+      onSelect(country.id)
     }
   }
 
@@ -86,7 +86,7 @@ function CountryRow({
     <div
       role="button"
       tabIndex={0}
-      onClick={() => onSelect(country.id as number)}
+      onClick={() => onSelect(country.id)}
       onKeyDown={handleKeyDown}
       className="group relative flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--oc-hover)] active:bg-[var(--oc-hover)]"
       {...longPress}
@@ -100,7 +100,7 @@ function CountryRow({
       </div>
       {!isMobile ? (
         <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <DeleteButton onDelete={() => onDelete(country.id as number)} />
+          <DeleteButton onDelete={() => onDelete(country.id)} />
         </div>
       ) : null}
     </div>
@@ -130,7 +130,7 @@ function CountryCard({
   return (
     <div className="relative group touch-feedback" {...longPress}>
       <button
-        onClick={() => onSelect(country.id as number)}
+        onClick={() => onSelect(country.id)}
         className="flex w-full flex-col overflow-hidden bg-paper-card text-left transition-colors hover:bg-line"
       >
         <div className="relative aspect-[3/2] w-full bg-paper-card">
@@ -163,7 +163,7 @@ function CountryCard({
 
       {!isMobile ? (
         <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <DeleteButton onDelete={() => onDelete(country.id as number)} />
+          <DeleteButton onDelete={() => onDelete(country.id)} />
         </div>
       ) : null}
     </div>
@@ -197,8 +197,8 @@ export function CountryList({
       open: true,
       title: c.name,
       actions: [
-        { id: 'edit', label: '编辑', icon: <Pencil size={20} strokeWidth={2} />, onPress: () => onSelectCountry(c.id as number) },
-        { id: 'delete', label: '删除', icon: <Trash2 size={20} strokeWidth={2} />, destructive: true, onPress: () => setDeleteTarget(c.id as number) },
+        { id: 'edit', label: '编辑', icon: <Pencil size={20} strokeWidth={2} />, onPress: () => onSelectCountry(c.id) },
+        { id: 'delete', label: '删除', icon: <Trash2 size={20} strokeWidth={2} />, destructive: true, onPress: () => setDeleteTarget(c.id) },
       ],
     })
   }, [onSelectCountry, onDeleteCountry])

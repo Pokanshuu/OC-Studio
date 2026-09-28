@@ -55,7 +55,12 @@ function loadExpanded(): Set<number> {
   if (typeof window === 'undefined') return new Set()
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) return new Set(JSON.parse(raw) as number[])
+    if (raw) {
+      const parsed: unknown = JSON.parse(raw)
+      if (Array.isArray(parsed)) {
+        return new Set(parsed.filter((v): v is number => typeof v === 'number'))
+      }
+    }
   } catch { /* ignore */ }
   return new Set()
 }
@@ -68,10 +73,10 @@ function buildTree(entries: WorldEntry[]): TreeNode[] {
   const map = new Map<number, TreeNode>()
   const roots: TreeNode[] = []
   for (const entry of entries) {
-    map.set(entry.id as number, { entry, children: [] })
+    map.set(entry.id, { entry, children: [] })
   }
   for (const entry of entries) {
-    const node = map.get(entry.id as number)!
+    const node = map.get(entry.id)!
     if (entry.parentId !== null && entry.parentId !== undefined) {
       const parent = map.get(entry.parentId)
       if (parent) parent.children.push(node)
@@ -104,7 +109,7 @@ function computeReorder(
       .filter((e) => e.parentId === oldParentId && e.id !== draggedId)
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || a.title.localeCompare(b.title, 'zh-Hans'))
     for (let i = 0; i < oldSiblings.length; i++) {
-      updates.push({ id: oldSiblings[i].id as number, parentId: oldParentId, order: i })
+      updates.push({ id: oldSiblings[i].id, parentId: oldParentId, order: i })
     }
   }
 
@@ -123,7 +128,7 @@ function computeReorder(
   for (let i = 0; i < reordered.length; i++) {
     const existing = updates.find((u) => u.id === reordered[i].id)
     if (!existing) {
-      updates.push({ id: reordered[i].id as number, parentId: newParentId, order: i })
+      updates.push({ id: reordered[i].id, parentId: newParentId, order: i })
     }
   }
 
@@ -195,7 +200,7 @@ function SortableTreeItem({
   isMobile: boolean
   onLongPress?: () => void
 }) {
-  const entryId = node.entry.id as number
+  const entryId = node.entry.id
   const isSelected = selectedId === entryId
   const isExpanded = expandedIds.has(entryId)
   const hasChildren = node.children.length > 0
@@ -217,7 +222,7 @@ function SortableTreeItem({
     opacity: isDragging ? 0.5 : undefined,
   }
 
-  const childIds = useMemo(() => node.children.map((c) => c.entry.id as number), [node.children])
+  const childIds = useMemo(() => node.children.map((c) => c.entry.id), [node.children])
 
   const toggleExpand = useCallback((id: number) => {
     setExpandedIds((prev) => {
@@ -385,7 +390,7 @@ export function WorldTree({
   const parentMap = useMemo(() => {
     const map = new Map<number, number | null>()
     for (const e of entries) {
-      map.set(e.id as number, e.parentId)
+      map.set(e.id, e.parentId)
     }
     return map
   }, [entries])
@@ -395,8 +400,12 @@ export function WorldTree({
       const { active, over, delta } = event
       if (!over || active.id === over.id) return
 
-      const draggedId = active.id as number
-      const overId = over.id as number
+      // dnd-kit 的 id 是 UniqueIdentifier（string | number）；这里显式转成 number 并校验，
+      // 而不是强转 —— 否则字符串 id 会静默进入 Map 查询、拖拽无声失效。
+      const draggedId = Number(active.id)
+      const overId = Number(over.id)
+      if (Number.isNaN(draggedId) || Number.isNaN(overId)) return
+
       const draggedParent = parentMap.get(draggedId) ?? null
       const overParent = parentMap.get(overId) ?? null
 
@@ -435,7 +444,7 @@ export function WorldTree({
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext
-            items={tree.map((n) => n.entry.id as number)}
+            items={tree.map((n) => n.entry.id)}
             strategy={verticalListSortingStrategy}
           >
             <div className="flex-1 overflow-auto py-1">
@@ -453,7 +462,7 @@ export function WorldTree({
                   expandedIds={expandedIds}
                   setExpandedIds={setExpandedIds}
                   isMobile={isMobile}
-                  onLongPress={() => handleLongPress(node.entry.id as number, node.entry.title)}
+                  onLongPress={() => handleLongPress(node.entry.id, node.entry.title)}
                 />
               ))}
             </div>

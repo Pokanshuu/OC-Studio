@@ -188,7 +188,7 @@ function CharacterCard({
   return (
     <div className="relative group touch-feedback" {...longPress}>
       <button
-        onClick={() => onSelect(character.id as number)}
+        onClick={() => onSelect(character.id)}
         className="flex w-full flex-col overflow-hidden bg-paper-card text-left transition-colors hover:bg-line"
       >
         <div className="relative aspect-[3/2] w-full bg-paper-card">
@@ -229,7 +229,7 @@ function CharacterCard({
 
       {!isMobile ? (
         <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <DeleteButton onDelete={() => onDelete(character.id as number)} />
+          <DeleteButton onDelete={() => onDelete(character.id)} />
         </div>
       ) : null}
     </div>
@@ -261,7 +261,7 @@ function CharacterRow({
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-      onSelect(character.id as number)
+      onSelect(character.id)
     }
   }
 
@@ -269,7 +269,7 @@ function CharacterRow({
     <div
       role="button"
       tabIndex={0}
-      onClick={() => onSelect(character.id as number)}
+      onClick={() => onSelect(character.id)}
       onKeyDown={handleKeyDown}
       className="group relative flex w-full cursor-pointer items-center gap-3 px-4 py-2 text-left transition-colors hover:bg-[var(--oc-hover)]"
       {...longPress}
@@ -295,7 +295,7 @@ function CharacterRow({
       </div>
       {!isMobile ? (
         <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <DeleteButton onDelete={() => onDelete(character.id as number)} />
+          <DeleteButton onDelete={() => onDelete(character.id)} />
         </div>
       ) : null}
     </div>
@@ -336,8 +336,8 @@ export function CharacterList({
       open: true,
       title: char.name,
       actions: [
-        { id: 'edit', label: '编辑', icon: <Pencil size={20} strokeWidth={2} />, onPress: () => onSelectCharacter(char.id as number) },
-        { id: 'delete', label: '删除', icon: <Trash2 size={20} strokeWidth={2} />, destructive: true, onPress: () => setDeleteTarget(char.id as number) },
+        { id: 'edit', label: '编辑', icon: <Pencil size={20} strokeWidth={2} />, onPress: () => onSelectCharacter(char.id) },
+        { id: 'delete', label: '删除', icon: <Trash2 size={20} strokeWidth={2} />, destructive: true, onPress: () => setDeleteTarget(char.id) },
       ],
     })
   }, [onSelectCharacter, onDeleteCharacter])
@@ -357,7 +357,7 @@ export function CharacterList({
       { value: 'all', label: '全部国家' },
       ...countries
         .filter((c) => c.id !== undefined)
-        .map((c) => ({ value: c.id as number, label: c.name })),
+        .map((c) => ({ value: c.id, label: c.name })),
     ]
   }, [countries])
 

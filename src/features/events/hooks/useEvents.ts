@@ -10,7 +10,7 @@ import { DATA_UPDATED_EVENT } from '@/lib/data-events'
 const LIST_KEY = ['events']
 const TIMELINE_KEY = ['timeline-events']
 
-function makeEventKey(id: number) {
+function makeEventKey(id: number | null) {
   return ['event', id]
 }
 
@@ -53,8 +53,8 @@ export function useEvent(id: number | null): {
   refresh: () => void
 } {
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: makeEventKey(id as number),
-    queryFn: () => eventService.getEvent(id as number),
+    queryKey: makeEventKey(id),
+    queryFn: async () => (id === null ? undefined : eventService.getEvent(id)),
     enabled: id !== null,
     // 详情始终取最新：时间线拖拽等跨模块写入后，重新挂载编辑器时必须读到新值
     staleTime: 0,

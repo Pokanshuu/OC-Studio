@@ -445,7 +445,7 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
                   { value: 'all', label: '全部标签' },
                   ...tags
                     .filter((t) => t.id !== undefined)
-                    .map((t) => ({ value: t.id as number, label: t.name })),
+                    .map((t) => ({ value: t.id, label: t.name })),
                 ]}
               />
               <SortSelect

@@ -185,7 +185,7 @@ function CharacterEditorInner({
       allCharacters
         .filter((c) => c.id !== character.id)
         .map((c) => ({
-          id: c.id as number,
+          id: c.id,
           name: c.name,
           subtitle: c.aliases.length > 0 ? c.aliases.join('、') : undefined,
         })),
@@ -195,8 +195,8 @@ function CharacterEditorInner({
   const relatedCharacterIds = useMemo(
     () =>
       relatedCharacters
-        .filter((rc) => rc.characterId !== undefined)
-        .map((rc) => rc.characterId as number),
+        .filter((rc): rc is RelatedCharacter & { characterId: number } => rc.characterId !== undefined)
+        .map((rc) => rc.characterId),
     [relatedCharacters],
   )
 
@@ -220,7 +220,7 @@ function CharacterEditorInner({
   const countryItems: RelatedItem[] = useMemo(
     () =>
       countries.map((c) => ({
-        id: c.id as number,
+        id: c.id,
         name: c.name,
       })),
     [countries],
@@ -255,7 +255,7 @@ function CharacterEditorInner({
     try {
       const document = docEditorRef.current?.getJSON()
 
-      await onSave(character.id as number, {
+      await onSave(character.id, {
         name,
         aliases: parseAliases(aliasesStr),
         race,
@@ -495,7 +495,7 @@ function CharacterEditorInner({
               <section>
                 <h3 className={SECTION_TITLE}>人物详情</h3>
                 <DocumentEditor
-                  entityId={character.id as number}
+                  entityId={character.id}
                   entityType="character"
                   fallbackContent={mergeBioLifeStory(character.bio, character.lifeStory)}
                   onReady={handleDocReady}

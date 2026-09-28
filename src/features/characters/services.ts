@@ -48,7 +48,7 @@ export async function getCharacter(id: number): Promise<Character | undefined> {
 
 export async function createCharacter(data: CharacterFormData): Promise<number> {
   const character = buildDefaultCharacter(data)
-  const id = await db.characters.add(character as Character)
+  const id = await db.characters.add(character)
 
   await logOperation(TABLE, id, 'name', '', data.name)
 

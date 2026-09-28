@@ -46,7 +46,7 @@ export async function buildGraphData(): Promise<{ nodes: GraphNode[]; edges: Gra
   for (const c of characters) {
     const id = `character-${c.id}`
     const subtitle = c.aliases?.length > 0 ? c.aliases.join('、') : undefined
-    addNode(id, c.name, 'character', c.id as number, subtitle)
+    addNode(id, c.name, 'character', c.id, subtitle)
     const node = nodes.find((n) => n.id === id)
     if (node) {
       const data = node.data as Record<string, unknown>
@@ -55,11 +55,11 @@ export async function buildGraphData(): Promise<{ nodes: GraphNode[]; edges: Gra
   }
 
   for (const e of events) {
-    addNode(`event-${e.id}`, e.title, 'event', e.id as number, e.time)
+    addNode(`event-${e.id}`, e.title, 'event', e.id, e.time)
   }
 
   for (const c of countries) {
-    addNode(`country-${c.id}`, c.name, 'country', c.id as number)
+    addNode(`country-${c.id}`, c.name, 'country', c.id)
     const node = nodes.find((n) => n.id === `country-${c.id}`)
     if (node) {
       ;(node.data as Record<string, unknown>).flagUrl = c.flagUrl ?? ''

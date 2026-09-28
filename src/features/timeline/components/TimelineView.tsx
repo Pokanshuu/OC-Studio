@@ -448,7 +448,7 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
       { value: 'all', label: '全部角色' },
       ...characters
         .filter((c) => c.id !== undefined)
-        .map((c) => ({ value: c.id as number, label: c.name })),
+        .map((c) => ({ value: c.id, label: c.name })),
     ]
   }, [characters])
 
@@ -457,7 +457,7 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
       { value: 'all', label: '全部国家' },
       ...countries
         .filter((c) => c.id !== undefined)
-        .map((c) => ({ value: c.id as number, label: c.name })),
+        .map((c) => ({ value: c.id, label: c.name })),
     ]
   }, [countries])
 

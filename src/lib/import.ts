@@ -1,18 +1,18 @@
 import { db } from '@/lib/db'
 import type { QueryClient } from '@tanstack/react-query'
-import type { Table } from 'dexie'
+import type { Table, EntityTable } from 'dexie'
 
 interface ImportPayload {
   version: 1
   exportedAt: string
   data: {
-    characters: unknown[]
-    events: unknown[]
-    countries: unknown[]
-    worldEntries: unknown[]
-    tags: unknown[]
-    periods?: unknown[]
-    meta?: unknown[]
+    characters: Record<string, unknown>[]
+    events: Record<string, unknown>[]
+    countries: Record<string, unknown>[]
+    worldEntries: Record<string, unknown>[]
+    tags: Record<string, unknown>[]
+    periods?: Record<string, unknown>[]
+    meta?: Record<string, unknown>[]
   }
 }
 
@@ -35,16 +35,40 @@ export interface ImportResult {
 
 const TABLE_CONFIG: Array<{
   key: keyof ImportPayload['data']
-  table: Table<Record<string, unknown>, number>
+  table: LooseTable
   nameField: string
 }> = [
-  { key: 'characters', table: db.characters as unknown as Table<Record<string, unknown>, number>, nameField: 'name' },
-  { key: 'events', table: db.events as unknown as Table<Record<string, unknown>, number>, nameField: 'title' },
-  { key: 'countries', table: db.countries as unknown as Table<Record<string, unknown>, number>, nameField: 'name' },
-  { key: 'worldEntries', table: db.worldEntries as unknown as Table<Record<string, unknown>, number>, nameField: 'title' },
-  { key: 'tags', table: db.tags as unknown as Table<Record<string, unknown>, number>, nameField: 'name' },
-  { key: 'periods', table: db.periods as unknown as Table<Record<string, unknown>, number>, nameField: 'name' },
+  { key: 'characters', table: looseTable(db.characters), nameField: 'name' },
+  { key: 'events', table: looseTable(db.events), nameField: 'title' },
+  { key: 'countries', table: looseTable(db.countries), nameField: 'name' },
+  { key: 'worldEntries', table: looseTable(db.worldEntries), nameField: 'title' },
+  { key: 'tags', table: looseTable(db.tags), nameField: 'name' },
+  { key: 'periods', table: looseTable(db.periods), nameField: 'name' },
 ]
+
+/**
+ * 导入是**唯一未校验的外部数据入口**：备份 JSON 来自磁盘上任意文件，
+ * 只保证「是对象数组」，不做字段级校验（字段完整性由 merge 去重策略与
+ * 各实体自身的读取容错承担）。
+ *
+ * 因此这里需要把强类型的表当作「任意列」的表来写。断言只集中在下面两个函数里，
+ * 不再像以前那样在配置里散 6 处 `as unknown as`、在调用点散 10 处 `as never[]`。
+ */
+type LooseTable = Table<Record<string, unknown>, number>
+
+function looseTable<T extends { id: number }>(table: EntityTable<T, 'id'>): LooseTable {
+  return table as unknown as LooseTable
+}
+
+async function bulkAddRows(table: LooseTable, rows: Record<string, unknown>[]): Promise<void> {
+  await table.bulkAdd(rows)
+}
+
+/** 只接受「对象元素」的数组；非对象元素直接丢弃，避免脏数据在后续 merge 中炸开。 */
+function asRows(value: unknown): Record<string, unknown>[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((item): item is Record<string, unknown> => item !== null && typeof item === 'object')
+}
 
 export function validateImportData(json: unknown): ImportSummary {
   if (json === null || typeof json !== 'object') {
@@ -71,21 +95,21 @@ export function validateImportData(json: unknown): ImportSummary {
   }
 
   // periods 为 v1 后期新增字段，旧备份可能缺失，向后兼容按 0 处理
-  const periods = Array.isArray(data.periods) ? (data.periods as unknown[]) : []
+  const periods = asRows(data.periods)
 
   return {
-    characters: (data.characters as unknown[]).length,
-    events: (data.events as unknown[]).length,
-    countries: (data.countries as unknown[]).length,
-    worldEntries: (data.worldEntries as unknown[]).length,
-    tags: (data.tags as unknown[]).length,
+    characters: asRows(data.characters).length,
+    events: asRows(data.events).length,
+    countries: asRows(data.countries).length,
+    worldEntries: asRows(data.worldEntries).length,
+    tags: asRows(data.tags).length,
     periods: periods.length,
   }
 }
 
 async function processTableMerge(
-  table: Table<Record<string, unknown>, number>,
-  records: unknown[],
+  table: LooseTable,
+  records: Record<string, unknown>[],
   strategy: MergeStrategy,
   nameField: string,
 ): Promise<{ added: number; skipped: number; overwritten: number }> {
@@ -93,11 +117,11 @@ async function processTableMerge(
 
   if (strategy === 'keep-both') {
     const toAdd = records.map((r) => {
-      const { id: _id, ...rest } = r as Record<string, unknown>
+      const { id: _id, ...rest } = r
       void _id
       return rest
     })
-    await table.bulkAdd(toAdd as never[])
+    await bulkAddRows(table, toAdd)
     return { added: toAdd.length, skipped: 0, overwritten: 0 }
   }
 
@@ -115,10 +139,10 @@ async function processTableMerge(
   let skipped = 0
   let overwritten = 0
 
-  const toAdd: unknown[] = []
+  const toAdd: Record<string, unknown>[] = []
 
   for (const rawRecord of records) {
-    const rec = rawRecord as Record<string, unknown>
+    const rec = rawRecord
     const name = rec[nameField]
 
     if (typeof name !== 'string') {
@@ -150,7 +174,7 @@ async function processTableMerge(
   }
 
   if (toAdd.length > 0) {
-    await table.bulkAdd(toAdd as never[])
+    await bulkAddRows(table, toAdd)
   }
 
   return { added, skipped, overwritten }
@@ -184,25 +208,25 @@ export async function importData(
 
         await Promise.all([
           records.characters.length > 0
-            ? db.characters.bulkAdd(records.characters as never[])
+            ? bulkAddRows(looseTable(db.characters), records.characters)
             : Promise.resolve(),
           records.events.length > 0
-            ? db.events.bulkAdd(records.events as never[])
+            ? bulkAddRows(looseTable(db.events), records.events)
             : Promise.resolve(),
           records.countries.length > 0
-            ? db.countries.bulkAdd(records.countries as never[])
+            ? bulkAddRows(looseTable(db.countries), records.countries)
             : Promise.resolve(),
           records.worldEntries.length > 0
-            ? db.worldEntries.bulkAdd(records.worldEntries as never[])
+            ? bulkAddRows(looseTable(db.worldEntries), records.worldEntries)
             : Promise.resolve(),
           records.tags.length > 0
-            ? db.tags.bulkAdd(records.tags as never[])
+            ? bulkAddRows(looseTable(db.tags), records.tags)
             : Promise.resolve(),
           periods.length > 0
-            ? db.periods.bulkAdd(periods as never[])
+            ? bulkAddRows(looseTable(db.periods), periods)
             : Promise.resolve(),
           metaRecords.length > 0
-            ? db.meta.bulkAdd(metaRecords as never[])
+            ? bulkAddRows(looseTable(db.meta), metaRecords)
             : Promise.resolve(),
         ])
 
@@ -215,7 +239,7 @@ export async function importData(
       let totalOverwritten = 0
 
       for (const config of TABLE_CONFIG) {
-        const items = records[config.key] as unknown[]
+        const items = records[config.key] ?? []
         const result = await processTableMerge(config.table, items, strategy, config.nameField)
         totalAdded += result.added
         totalSkipped += result.skipped
@@ -225,7 +249,7 @@ export async function importData(
       // 项目元信息为单例：直接覆盖本地
       if (metaRecords.length > 0) {
         const hadMeta = (await db.meta.get(1)) !== undefined
-        await db.meta.put(metaRecords[0] as never)
+        await looseTable(db.meta).put(metaRecords[0])
         if (hadMeta) totalOverwritten += 1
         else totalAdded += 1
       }
