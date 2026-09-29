@@ -1,145 +1,13 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback, useLayoutEffect, type ReactNode } from 'react'
-import { createPortal } from 'react-dom'
+import { useState, useRef, useEffect, useCallback, useLayoutEffect } from 'react'
 import { Separator } from '@/components/ui/separator'
-import { adjustContextMenuPosition, adjustSubMenuPosition } from '@/lib/menu-utils'
+import { adjustContextMenuPosition } from '@/lib/menu-utils'
+import { ContextMenuButton } from './context-menu/ContextMenuButton'
+import { ContextSubMenu } from './context-menu/ContextSubMenu'
+import type { ContextMenuProps, ContextMenuItem } from './context-menu/context-menu-types'
 
-interface ContextMenuProps {
-  children: ReactNode
-  items: ContextMenuItem[]
-}
-
-export interface ContextMenuItem {
-  label: string
-  shortcut?: string
-  danger?: boolean
-  onClick?: () => void
-  separator?: boolean
-  disabled?: boolean
-  children?: ContextMenuItem[]
-}
-
-function SubMenu({ item, onCloseParent }: { item: ContextMenuItem; onCloseParent: () => void }) {
-  const [subOpen, setSubOpen] = useState(false)
-  const subRef = useRef<HTMLDivElement>(null)
-  const itemRef = useRef<HTMLButtonElement>(null)
-  const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const lastMouseRef = useRef({ x: 0, y: 0 })
-  const [subStyle, setSubStyle] = useState<React.CSSProperties>({})
-
-  useEffect(() => {
-    if (!subOpen) return
-
-    const h = (e: MouseEvent) => {
-      lastMouseRef.current = { x: e.clientX, y: e.clientY }
-      if (!closeTimeoutRef.current || !subRef.current) return
-      const rect = subRef.current.getBoundingClientRect()
-      if (
-        e.clientX >= rect.left && e.clientX <= rect.right &&
-        e.clientY >= rect.top && e.clientY <= rect.bottom
-      ) {
-        clearTimeout(closeTimeoutRef.current)
-        closeTimeoutRef.current = null
-      }
-    }
-
-    document.addEventListener('mousemove', h, true)
-    return () => document.removeEventListener('mousemove', h, true)
-  }, [subOpen])
-
-  const handleMouseEnter = useCallback(() => {
-    if (closeTimeoutRef.current) {
-      clearTimeout(closeTimeoutRef.current)
-      closeTimeoutRef.current = null
-    }
-    setSubOpen(true)
-  }, [])
-
-  const handleMouseLeave = useCallback(() => {
-    closeTimeoutRef.current = setTimeout(() => {
-      setSubOpen(false)
-    }, 200)
-  }, [])
-
-  useLayoutEffect(() => {
-    if (!subOpen || !itemRef.current || !subRef.current) return
-    const parentRect = itemRef.current.getBoundingClientRect()
-    const subRect = subRef.current.getBoundingClientRect()
-    const offset = adjustSubMenuPosition(parentRect, subRect.width, subRect.height)
-    setSubStyle({
-      left: offset.xViewport,
-      top: offset.yViewport,
-    })
-  }, [subOpen])
-
-  useEffect(() => {
-    return () => {
-      if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current)
-    }
-  }, [])
-
-  const children = item.children ?? []
-
-  return (
-    <div>
-      <button
-        ref={itemRef}
-        disabled={item.disabled}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-        className={`flex w-full items-center gap-3 px-2.5 py-1.5 text-left text-[13px] transition-colors ${
-          item.disabled ? 'text-ink-faint' : 'text-ink hover:bg-[var(--oc-hover)]'
-        }`}
-      >
-        <span>{item.label}</span>
-        <svg className="ml-auto h-3 w-3 text-ink-faint" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="9 6 15 12 9 18" />
-        </svg>
-      </button>
-
-      {subOpen && children.length > 0
-        ? createPortal(
-            <div
-              ref={subRef}
-              onMouseEnter={handleMouseEnter}
-              onMouseLeave={handleMouseLeave}
-              className="fixed z-50 ml-1 flex min-w-[140px] flex-col border border-line bg-paper/85 p-1 shadow-none backdrop-blur-lg pointer-events-auto dark:bg-paper/85"
-              style={subStyle}
-            >
-          {children.map((child, i) => {
-            if (child.separator) {
-              return <Separator key={i} className="my-1" />
-            }
-            return (
-              <button
-                key={i}
-                disabled={child.disabled}
-                onClick={() => {
-                  child.onClick?.()
-                  onCloseParent()
-                }}
-                className={`flex items-center gap-3 px-2.5 py-1.5 text-left text-[13px] transition-colors ${
-                  child.danger
-                    ? 'text-error hover:bg-error-light dark:hover:bg-red-950/30'
-                    : child.disabled
-                      ? 'text-ink-faint'
-                      : 'text-ink hover:bg-[var(--oc-hover)]'
-                }`}
-              >
-                <span>{child.label}</span>
-                {child.shortcut ? (
-                  <span className="ml-auto text-xs text-ink-faint">{child.shortcut}</span>
-                ) : null}
-              </button>
-            )
-          })}
-        </div>,
-        document.getElementById('overlay-root')!,
-      ) : null}
-    </div>
-  )
-}
+export type { ContextMenuItem, ContextMenuProps }
 
 interface SelectionSnapshot {
   startContainer: Node | null
@@ -148,6 +16,10 @@ interface SelectionSnapshot {
   endOffset: number
 }
 
+/**
+ * 右键菜单：长按/右键弹出，位置自动贴边；带子菜单；选区变化时自动收起。
+ * 分层：`context-menu/`（`context-menu-types` · `ContextMenuButton` · `ContextSubMenu`）。
+ */
 export function ContextMenu({ children, items }: ContextMenuProps) {
   const [open, setOpen] = useState(false)
   const [position, setPosition] = useState({ x: 0, y: 0 })
@@ -274,32 +146,11 @@ export function ContextMenu({ children, items }: ContextMenuProps) {
               }
 
               if (item.children && item.children.length > 0) {
-                return <SubMenu key={i} item={item} onCloseParent={close} />
+                return <ContextSubMenu key={i} item={item} onCloseParent={close} />
               }
 
               return (
-                <button
-                  key={i}
-                  onClick={() => {
-                    item.onClick?.()
-                    close()
-                  }}
-                  disabled={item.disabled}
-                  className={`flex items-center gap-3 px-2.5 py-1.5 text-left text-[13px] transition-colors ${
-                    item.danger
-                      ? 'text-error hover:bg-error-light dark:hover:bg-red-950/30'
-                      : item.disabled
-                        ? 'text-ink-faint'
-                        : 'text-ink hover:bg-[var(--oc-hover)]'
-                  }`}
-                >
-                  <span>{item.label}</span>
-                  {item.shortcut ? (
-                    <span className="ml-auto text-xs text-ink-faint">
-                      {item.shortcut}
-                    </span>
-                  ) : null}
-                </button>
+                <ContextMenuButton key={i} item={item} onSelect={close} />
               )
             })}
           </div>
