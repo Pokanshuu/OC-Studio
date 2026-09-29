@@ -8,7 +8,6 @@ import {
   Panel,
   useNodesState,
   useEdgesState,
-  useReactFlow,
   BackgroundVariant,
   type Node,
   type Edge,
@@ -18,26 +17,9 @@ import {
 import '@xyflow/react/dist/style.css'
 
 import { useGraphData } from '../hooks/useGraphData'
-import { CharacterNode } from './CharacterNode'
-import { EventNode } from './EventNode'
-import { CountryNode } from './CountryNode'
-import { RelationEdge } from './RelationEdge'
 import { MobileRelationControls, DesktopRelationPanel } from './MobileRelationControls'
-
-const NODE_POSITIONS_KEY = 'oc-relation-node-positions'
-
-function loadNodePositions(): Record<string, { x: number; y: number }> {
-  try {
-    const raw = localStorage.getItem(NODE_POSITIONS_KEY)
-    return raw ? JSON.parse(raw) : {}
-  } catch { return {} }
-}
-
-function saveNodePositions(positions: Record<string, { x: number; y: number }>) {
-  try {
-    localStorage.setItem(NODE_POSITIONS_KEY, JSON.stringify(positions))
-  } catch { /* quota exceeded, ignore */ }
-}
+import { FitViewOnLoad, ZoomReader } from './RelationGraphHelpers'
+import { loadNodePositions, saveNodePositions, nodePositionKey, nodeTypes, edgeTypes } from './relation-graph-utils'
 
 interface RelationGraphProps {
   onNavigateToCharacter?: (id: number) => void
@@ -46,37 +28,6 @@ interface RelationGraphProps {
   visible?: boolean
 }
 
-const nodeTypes = {
-  characterNode: CharacterNode,
-  eventNode: EventNode,
-  countryNode: CountryNode,
-}
-
-const edgeTypes = {
-  relationEdge: RelationEdge,
-}
-
-function FitViewOnLoad({ ready }: { ready: boolean }) {
-  const { fitView } = useReactFlow()
-  const called = useRef(false)
-  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
-
-  useEffect(() => {
-    if (ready && !called.current) {
-      timerRef.current = setTimeout(() => fitView({ padding: 0.3 }), 100)
-      called.current = true
-    }
-    return () => { if (timerRef.current) clearTimeout(timerRef.current) }
-  }, [ready, fitView])
-
-  return null
-}
-
-function ZoomReader({ onInstance }: { onInstance: (rf: ReactFlowInstance) => void }) {
-  const rf = useReactFlow()
-  useEffect(() => { onInstance(rf) }, [rf, onInstance])
-  return null
-}
 
 export function RelationGraph({
   onNavigateToCharacter,
@@ -133,9 +84,7 @@ export function RelationGraph({
     const savedPositions = loadNodePositions()
     return filteredNodes.map((node, index) => {
       // use saved position if available
-      const savedKey = node.data?.entityType && node.data?.entityId
-        ? `${node.data.entityType}-${node.data.entityId}`
-        : node.id
+      const savedKey = nodePositionKey(node)
       if (savedPositions[savedKey]) {
         return { ...node, position: savedPositions[savedKey] }
       }
@@ -202,9 +151,7 @@ export function RelationGraph({
     const timer = setTimeout(() => {
       const positions: Record<string, { x: number; y: number }> = {}
       for (const node of nodes) {
-        const key = node.data?.entityType && node.data?.entityId
-          ? `${node.data.entityType}-${node.data.entityId}`
-          : String(node.id)
+        const key = nodePositionKey(node)
         positions[key] = { x: node.position.x, y: node.position.y }
       }
       if (Object.keys(positions).length > 0) {
@@ -332,3 +279,5 @@ export function RelationGraph({
     </div>
   )
 }
+
+
