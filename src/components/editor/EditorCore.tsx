@@ -16,6 +16,9 @@ import { buildEditorContextMenu } from './editor-context-menu'
 import { MobileEditorToolbar } from './MobileEditorToolbar'
 
 import { buildEditorConfig, BLOCK_MENU_EVENT } from './editor-config'
+import { bindMobileEditorEvents } from './editor-mobile-events'
+import { useEditorBubbleMenu } from './useEditorBubbleMenu'
+import { useEditorMobileInput } from './useEditorMobileInput'
 
 interface EditorCoreProps {
   onReady: (editor: Editor) => void
@@ -44,37 +47,9 @@ export function EditorCore({
   const mobileToolbarRef = useRef<HTMLDivElement>(null)
   const mobileBlockMenuRef = useRef<HTMLDivElement>(null)
   const selectionRef = useRef<{ from: number; to: number } | null>(null)
-  const isPointerDownRef = useRef(false)
-  const isTypingRef = useRef(false)
-  const typingTimerRef = useRef<ReturnType<typeof setTimeout>>(null)
   const keyboardVisibleRef = useRef(keyboardVisible)
   keyboardVisibleRef.current = keyboardVisible
   const lastClickRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
-
-  useEffect(() => {
-    const down = (e: PointerEvent) => {
-      const el = editorRef.current?.view.dom
-      if (el && el.contains(e.target as Node)) {
-        isPointerDownRef.current = true
-      }
-    }
-    const up = () => {
-      const wasDown = isPointerDownRef.current
-      isPointerDownRef.current = false
-      if (wasDown) {
-        const ed = editorRef.current
-        if (ed && !ed.isDestroyed) {
-          ed.view.dispatch(ed.view.state.tr.setMeta('bubbleMenu', 'show'))
-        }
-      }
-    }
-    document.addEventListener('pointerdown', down)
-    document.addEventListener('pointerup', up)
-    return () => {
-      document.removeEventListener('pointerdown', down)
-      document.removeEventListener('pointerup', up)
-    }
-  }, [])
 
   const handleBlockMenuEvent = useCallback((e: Event) => {
     const detail = (e as CustomEvent).detail
@@ -128,154 +103,11 @@ export function EditorCore({
     return () => { editor.off('focus', handleFocus) }
   }, [editor, setActiveEditor])
 
-  // 桌面端 BubbleMenu：聚焦/失焦时主动触发显示/隐藏
-  useEffect(() => {
-    if (!editor || isMobile) return
-    const onFocus = () => {
-      requestAnimationFrame(() => {
-        const ed = editorRef.current
-        if (ed && !ed.isDestroyed && ed.isFocused) {
-          ed.view.dispatch(ed.view.state.tr.setMeta('bubbleMenu', 'show'))
-        }
-      })
-    }
-    const onBlur = () => {
-      const ed = editorRef.current
-      if (ed && !ed.isDestroyed) {
-        ed.view.dispatch(ed.view.state.tr.setMeta('bubbleMenu', 'hide'))
-      }
-    }
-    editor.on('focus', onFocus)
-    editor.on('blur', onBlur)
-    return () => {
-      editor.off('focus', onFocus)
-      editor.off('blur', onBlur)
-    }
-  }, [editor, isMobile])
-
-  // 桌面端 BubbleMenu：输入时隐藏，停止输入 200ms 后显示
-  useEffect(() => {
-    if (!editor) return
-    const dom = editor.view.dom
-    const onKeyDown = () => {
-      isTypingRef.current = true
-      if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
-      typingTimerRef.current = setTimeout(() => {
-        isTypingRef.current = false
-        const ed = editorRef.current
-        if (ed && !ed.isDestroyed && ed.isFocused) {
-          ed.view.dispatch(ed.view.state.tr.setMeta('bubbleMenu', 'show'))
-        }
-      }, 200)
-    }
-    dom.addEventListener('keydown', onKeyDown)
-    return () => {
-      dom.removeEventListener('keydown', onKeyDown)
-      if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
-    }
-  }, [editor])
-
-  useEffect(() => {
-    if (!isMobile || !editor) return
-    const dom = editor.view.dom
-    let timer: ReturnType<typeof setTimeout> | null = null
-    let startPos: { x: number; y: number } | null = null
-    let wasLongPress = false
-    let wasScroll = false
-
-    const onTouchStart = (e: TouchEvent) => {
-      const touch = e.touches[0]
-      startPos = { x: touch.clientX, y: touch.clientY }
-      wasLongPress = false
-      wasScroll = false
-      timer = setTimeout(() => {
-        wasLongPress = true
-      }, 320)
-    }
-
-    const onTouchMove = (e: TouchEvent) => {
-      if (!startPos) return
-      const touch = e.touches[0]
-      if (Math.abs(touch.clientX - startPos.x) > 8 || Math.abs(touch.clientY - startPos.y) > 8) {
-        if (timer) { clearTimeout(timer); timer = null }
-        wasScroll = true
-      }
-    }
-
-    const onTouchEnd = () => {
-      if (timer) { clearTimeout(timer); timer = null }
-      if (wasScroll || wasLongPress) {
-        startPos = null
-        return
-      }
-      // 延迟聚焦：让浏览器原生的 touch→click 管线先完成光标定位，
-      // 仅在编辑器确实没聚焦时才补救（例如点击在 padding 区域）
-      setTimeout(() => {
-        if (!editor.isFocused) {
-          editor.view.dom.focus()
-        }
-      })
-      startPos = null
-    }
-
-    dom.addEventListener('touchstart', onTouchStart, { passive: true })
-    dom.addEventListener('touchmove', onTouchMove, { passive: true })
-    dom.addEventListener('touchend', onTouchEnd)
-    dom.addEventListener('touchcancel', onTouchEnd)
-    return () => {
-      dom.removeEventListener('touchstart', onTouchStart)
-      dom.removeEventListener('touchmove', onTouchMove)
-      dom.removeEventListener('touchend', onTouchEnd)
-      dom.removeEventListener('touchcancel', onTouchEnd)
-    }
-  }, [isMobile, editor])
-
   // 移动端工具栏自定义事件（MobileTextSelectionBar → EditorCore）
   useEffect(() => {
     if (!isMobile || !editor) return
-    const dom = editor.view.dom
-    const handlers: Record<string, () => void> = {
-      'mobile:insert-image': () => editor.chain().focus().insertContent({ type: 'imageBlock' }).run(),
-      'mobile:insert-table': () => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
-      'mobile:insert-link': () => editor.chain().focus().toggleLink({ href: '' }).run(),
-      'mobile:insert-code': () => editor.chain().focus().toggleCodeBlock().run(),
-      'mobile:insert-divider': () => editor.chain().focus().setHorizontalRule().run(),
-      'mobile:table-add-row-before': () => editor.chain().focus().addRowBefore().run(),
-      'mobile:table-add-row-after': () => editor.chain().focus().addRowAfter().run(),
-      'mobile:table-add-col-before': () => editor.chain().focus().addColumnBefore().run(),
-      'mobile:table-add-col-after': () => editor.chain().focus().addColumnAfter().run(),
-      'mobile:table-delete': () => editor.chain().focus().deleteTable().run(),
-      'mobile:table-delete-row': () => editor.chain().focus().deleteRow().run(),
-      'mobile:table-delete-col': () => editor.chain().focus().deleteColumn().run(),
-    }
-    for (const [name, fn] of Object.entries(handlers)) {
-      dom.addEventListener(name, fn)
-    }
-    return () => {
-      for (const [name, fn] of Object.entries(handlers)) {
-        dom.removeEventListener(name, fn)
-      }
-    }
+    return bindMobileEditorEvents(editor)
   }, [isMobile, editor])
-
-  // 移动端键盘弹出后检查光标是否被遮挡并滚动到位
-  useEffect(() => {
-    if (!isMobile || !keyboardVisible) return
-    const ed = editorRef.current
-    if (!ed || !ed.isFocused) return
-    const id = setTimeout(() => {
-      if (!editorRef.current || editorRef.current.isDestroyed) return
-      const coords = editorRef.current.view.coordsAtPos(editorRef.current.state.selection.head)
-      const toolbarH = 56
-      const vvBottom = document.documentElement.clientHeight
-      const overflow = coords.bottom + toolbarH - vvBottom
-      if (overflow > 0) {
-        const scroller = editorRef.current.view.dom.closest('.section-fade') as HTMLElement | null
-        if (scroller) scroller.scrollTop += overflow
-      }
-    }, 30)
-    return () => clearTimeout(id)
-  }, [isMobile, keyboardVisible])
 
   // 移动端：缓存最近一次文本选择，防止工具栏按钮点击时丢失选择
   useEffect(() => {
@@ -292,17 +124,11 @@ export function EditorCore({
     return () => { editor.off('selectionUpdate', handle) }
   }, [editor, isMobile])
 
-  // 移动端工具栏按钮：先恢复选择再执行操作
-  const handleToolbarAction = useCallback((action: () => void) => {
-    if (!editor) return
-    if (isMobile && selectionRef.current) {
-      const { from, to } = selectionRef.current
-      editor.chain().setTextSelection({ from, to }).run()
-    }
-    editor.commands.focus()
-    action()
-    setToolbarTick(v => v + 1)
-  }, [isMobile, editor])
+  // 移动端：触摸补焦 / 键盘遮挡 / 选区缓存
+  useEditorMobileInput({ editor, isMobile, keyboardVisible, editorRef })
+
+  // 桌面端气泡菜单显隐时机（点选后立即出现 / 输入中隐藏）
+  const { isTypingRef } = useEditorBubbleMenu({ editor, isMobile, editorRef })
 
   // 移动端工具栏禁止长按弹出右键菜单（原生 DOM 监听，capture 阶段拦截，比 React 合成事件更可靠）
   useEffect(() => {
@@ -317,6 +143,18 @@ export function EditorCore({
       blockMenu?.removeEventListener('contextmenu', preventCtx, true)
     }
   }, [isMobile, keyboardVisible, mobileBlockMenuOpen])
+
+  // 移动端工具栏按钮：先恢复选择再执行操作
+  const handleToolbarAction = useCallback((action: () => void) => {
+    if (!editor) return
+    if (isMobile && selectionRef.current) {
+      const { from, to } = selectionRef.current
+      editor.chain().setTextSelection({ from, to }).run()
+    }
+    editor.commands.focus()
+    action()
+    setToolbarTick(v => v + 1)
+  }, [isMobile, editor, setToolbarTick])
 
   // 移动端工具栏统一 onPointerDown 入口：preventDefault + stopPropagation + 执行命令
   const handleToolbarPointerDown = useCallback((e: React.PointerEvent, action: () => void) => {
@@ -425,6 +263,13 @@ export function EditorCore({
     )}    </ContextMenu>
   )
 }
+
+
+
+
+
+
+
 
 
 
