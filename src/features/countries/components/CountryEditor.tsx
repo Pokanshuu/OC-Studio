@@ -1,20 +1,14 @@
 'use client'
 
-import { useState, useCallback, useRef, useMemo, useEffect } from 'react'
 import { Save, ArrowLeft } from 'lucide-react'
-import { TagPicker } from '@/features/tags'
-import type { Editor } from '@tiptap/core'
 import { DocumentEditor } from '@/components/editor/DocumentEditor'
-import type { Country, Character, Event } from '@/types'
+import type { Country } from '@/types'
 import type { CountryFormData } from '../types'
 import { useCountry, useUpdateCountry } from '../hooks/useCountries'
-import { useCharacterList } from '@/features/characters/hooks/useCharacters'
-import { useEventList } from '@/features/events/hooks/useEvents'
-import { RelatedItemsSelector } from '@/components/shared/RelatedItemsSelector'
-import type { RelatedItem } from '@/components/shared/RelatedItemsSelector'
+import { useCountryForm, mergeCountrySections } from '../hooks/useCountryForm'
 import { ProfileBannerEditor } from '@/components/shared/ProfileBannerEditor'
-import { FIELD_LABEL, FIELD_ROW_TOP, PAGE_TITLE, SECTION_TITLE } from '@/lib/ui-tokens'
-import { useSaveStatus } from '@/components/layout/SaveStatusContext'
+import { CountryRelationSection } from './CountryRelationSection'
+import { PAGE_TITLE, SECTION_TITLE } from '@/lib/ui-tokens'
 
 interface CountryEditorProps {
   editCountryId: number
@@ -37,8 +31,6 @@ export function CountryEditor({
 }: CountryEditorProps) {
   const { country, loading, error } = useCountry(editCountryId)
   const { updateCountry } = useUpdateCountry()
-  const { characters: allCharacters } = useCharacterList()
-  const { events: allEvents } = useEventList()
 
   if (loading) {
     return (
@@ -79,8 +71,6 @@ export function CountryEditor({
   return (
     <CountryEditorInner
       country={country}
-      allCharacters={allCharacters}
-      allEvents={allEvents}
       onBack={onBack}
       onSave={async (id, data) => {
         await updateCountry(id, data)
@@ -96,8 +86,6 @@ export function CountryEditor({
 
 function CountryEditorInner({
   country,
-  allCharacters,
-  allEvents,
   onBack,
   onSave,
   onNavigateToCharacter,
@@ -107,8 +95,6 @@ function CountryEditorInner({
   onWikiLinkClick,
 }: {
   country: Country
-  allCharacters: Character[]
-  allEvents: Event[]
   onBack: () => void
   onSave: (id: number, data: Partial<CountryFormData>) => Promise<void>
   onNavigateToCharacter?: (id: number) => void
@@ -117,96 +103,7 @@ function CountryEditorInner({
   onCharacterCount?: (count: number) => void
   onWikiLinkClick?: (id: string) => void
 }) {
-  const [name, setName] = useState(country.name)
-  const [flagUrl, setFlagUrl] = useState(country.flagUrl ?? '')
-  const [headerUrl, setHeaderUrl] = useState(country.headerUrl ?? '')
-  const [saving, setSaving] = useState(false)
-  const [editableCharIds, setEditableCharIds] = useState<number[]>(country.characters)
-  const [editableEventIds, setEditableEventIds] = useState<number[]>(country.events)
-  const [tags, setTags] = useState<number[]>(country.tags ?? [])
-
-  const { markDirty, markSaving, markSaved, registerSaveHandler } = useSaveStatus()
-  const isFirstRenderRef = useRef(true)
-  const suppressDirtyRef = useRef(false)
-
-  const docEditorRef = useRef<Editor | null>(null)
-
-  // 任一字段变化即标记未保存（跳过首帧与保存后的程序化同步）
-  useEffect(() => {
-    if (isFirstRenderRef.current) {
-      isFirstRenderRef.current = false
-      return
-    }
-    if (suppressDirtyRef.current) return
-    markDirty()
-  }, [name, flagUrl, headerUrl, editableCharIds, editableEventIds, tags, markDirty])
-
-  const handleDocReady = useCallback((editor: Editor) => {
-    docEditorRef.current = editor
-  }, [])
-
-  const handleSave = useCallback(async () => {
-    markSaving()
-    setSaving(true)
-    try {
-      const document = docEditorRef.current?.getJSON()
-
-      await onSave(country.id, {
-        name,
-        parentId: country.parentId,
-        description: '',
-        document,
-        system: country.system,
-        geography: country.geography,
-        culture: country.culture,
-        flagUrl,
-        headerUrl,
-        characters: editableCharIds,
-        events: editableEventIds,
-        tags,
-      })
-      markSaved()
-      suppressDirtyRef.current = true
-      setTimeout(() => { suppressDirtyRef.current = false }, 0)
-    } finally {
-      setSaving(false)
-    }
-  }, [country.id, country.parentId, country.system, country.geography, country.culture, name, flagUrl, headerUrl, editableCharIds, editableEventIds, tags, onSave, markSaving, markSaved])
-
-  useEffect(() => {
-    registerSaveHandler('country', handleSave)
-    return () => registerSaveHandler('country', null)
-  }, [handleSave, registerSaveHandler])
-
-  const relatedCharacterItems: RelatedItem[] = useMemo(
-    () =>
-      allCharacters.map((c) => ({
-        id: c.id,
-        name: c.name,
-        subtitle: c.aliases.length > 0 ? c.aliases.join('、') : undefined,
-      })),
-    [allCharacters],
-  )
-
-  const relatedEventItems: RelatedItem[] = useMemo(
-    () =>
-      allEvents.map((e) => ({
-        id: e.id,
-        name: e.title,
-        subtitle: e.time,
-      })),
-    [allEvents],
-  )
-
-  const relatedCharacterIds = useMemo(
-    () => editableCharIds.filter((id) => typeof id === 'number'),
-    [editableCharIds],
-  )
-
-  const relatedEventIds = useMemo(
-    () => editableEventIds.filter((id) => typeof id === 'number'),
-    [editableEventIds],
-  )
+  const form = useCountryForm(country, onSave)
 
   return (
     <div className="flex flex-col min-h-full">
@@ -222,13 +119,13 @@ function CountryEditorInner({
           <h2 className={PAGE_TITLE}>编辑国家</h2>
         </div>
         <button
-          onClick={handleSave}
-          disabled={saving || !name.trim()}
+          onClick={form.handleSave}
+          disabled={form.saving || !form.name.trim()}
           data-save-button
           className="touch-feedback flex h-8 items-center gap-1.5 bg-ink px-3 text-[13px] text-paper transition-opacity hover:bg-ink hover:opacity-85 disabled:opacity-40"
         >
           <Save size={14} strokeWidth={2} />
-          <span>{saving ? '保存中...' : '保存'}</span>
+          <span>{form.saving ? '保存中...' : '保存'}</span>
         </button>
       </div>
 
@@ -237,12 +134,12 @@ function CountryEditorInner({
           {/* Profile header */}
           <section>
             <ProfileBannerEditor
-              headerUrl={headerUrl}
-              avatarUrl={flagUrl}
-              onHeaderChange={setHeaderUrl}
-              onAvatarChange={setFlagUrl}
-              onHeaderRemove={() => setHeaderUrl('')}
-              onAvatarRemove={() => setFlagUrl('')}
+              headerUrl={form.headerUrl}
+              avatarUrl={form.flagUrl}
+              onHeaderChange={form.setHeaderUrl}
+              onAvatarChange={form.setFlagUrl}
+              onHeaderRemove={() => form.setHeaderUrl('')}
+              onAvatarRemove={() => form.setFlagUrl('')}
               avatarType="flag"
             />
           </section>
@@ -251,8 +148,8 @@ function CountryEditorInner({
           <div>
             <input
               type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              value={form.name}
+              onChange={(e) => form.setName(e.target.value)}
               placeholder="国家/地区名称"
               className="w-full bg-transparent font-serif text-lg text-ink placeholder:text-ink-faint focus:outline-none"
             />
@@ -267,66 +164,25 @@ function CountryEditorInner({
               entityId={country.id}
               entityType="country"
               fallbackContent={mergeCountrySections(country.system, country.geography, country.culture)}
-              onReady={handleDocReady}
+              onReady={form.handleDocReady}
               placeholder="政治制度、地理、文化..."
               onMentionClick={onMentionClick}
               onCharacterCount={onCharacterCount}
               onWikiLinkClick={onWikiLinkClick}
-              onDocChange={markDirty}
+              onDocChange={form.markDirty}
             />
           </section>
 
           <div className="border-t border-line" />
 
           {/* 关联：与事件编辑器同一套字段行 */}
-          <section>
-            <h3 className={SECTION_TITLE}>关联</h3>
-            <div className="flex flex-col">
-              <div className={FIELD_ROW_TOP}>
-                <span className={FIELD_LABEL}>相关角色</span>
-                <div className="min-w-0 flex-1">
-                  <RelatedItemsSelector
-                    items={relatedCharacterItems}
-                    selectedIds={relatedCharacterIds}
-                    onChange={setEditableCharIds}
-                    placeholder="搜索相关角色..."
-                    onNavigateItem={onNavigateToCharacter}
-                  />
-                </div>
-              </div>
-
-              <div className={FIELD_ROW_TOP}>
-                <span className={FIELD_LABEL}>相关事件</span>
-                <div className="min-w-0 flex-1">
-                  <RelatedItemsSelector
-                    items={relatedEventItems}
-                    selectedIds={relatedEventIds}
-                    onChange={setEditableEventIds}
-                    placeholder="搜索相关事件..."
-                    onNavigateItem={onNavigateToEvent}
-                  />
-                </div>
-              </div>
-
-              <div className={FIELD_ROW_TOP}>
-                <span className={FIELD_LABEL}>标签</span>
-                <div className="min-w-0 flex-1">
-                  <TagPicker selectedIds={tags} onChange={setTags} />
-                </div>
-              </div>
-            </div>
-          </section>
+          <CountryRelationSection
+            form={form}
+            onNavigateToCharacter={onNavigateToCharacter}
+            onNavigateToEvent={onNavigateToEvent}
+          />
         </div>
       </div>
     </div>
   )
-}
-
-function mergeCountrySections(system: string, geography: string, culture: string): string | undefined {
-  if (!system && !geography && !culture) return undefined
-  const parts: string[] = []
-  if (system) { parts.push('<h2>政治制度</h2>'); parts.push(system) }
-  if (geography) { parts.push('<h2>地理环境</h2>'); parts.push(geography) }
-  if (culture) { parts.push('<h2>人文风貌</h2>'); parts.push(culture) }
-  return parts.join('\n')
 }
