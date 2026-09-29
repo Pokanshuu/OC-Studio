@@ -1,16 +1,13 @@
 'use client'
 
-import { useMemo, useCallback, useState, useRef, useEffect } from 'react'
+import { useMemo, useCallback, useState, useRef } from 'react'
 import {
   DndContext,
-  type DragEndEvent,
 } from '@dnd-kit/core'
 import { restrictToHorizontalAxis } from '@dnd-kit/modifiers'
 import {
   Lock,
   Circle,
-  Pencil,
-  Trash2,
 } from 'lucide-react'
 import {
   AlertDialog,
@@ -23,27 +20,26 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { useDevice } from '@/lib/use-device'
-import { MobileActionSheet, type ActionItem } from '@/components/shared/MobileActionSheet'
+import { MobileActionSheet } from '@/components/shared/MobileActionSheet'
 import { useTimelineEvents } from '../hooks/useTimelineEvents'
 import { useCharacterList } from '@/features/characters/hooks/useCharacters'
 import { useCountryList } from '@/features/countries/hooks/useCountries'
-import { usePeriods } from '@/features/periods'
 import { PeriodDialog } from '@/components/shared/PeriodDialog'
 import { PERIOD_COLORS } from '@/types'
-import { updateEventTime } from '../services'
 import type { TimelineFilter } from '../services'
-import { parseYear, addOneYear } from '@/features/events/utils'
-import type { TimelineEvent } from '../types'
+import { parseYear } from '@/features/events/utils'
 import {
   LEFT_PADDING,
   LANE_HEIGHT,
   YEAR_TICK_HEIGHT,
   MAX_LANES,
 } from '../constants'
-import { shiftYear } from '../utils'
 import type { FilterOption } from '../types'
 import { useTimelineLayout } from '../hooks/useTimelineLayout'
 import { useTimelineViewport } from '../hooks/useTimelineViewport'
+import { useTimelineContainerWidth } from '../hooks/useTimelineContainerWidth'
+import { useTimelineDrag } from '../hooks/useTimelineDrag'
+import { usePeriodEditor } from '../hooks/usePeriodEditor'
 import { DraggableNode, StaticNode } from './EventNode'
 import { PeriodBar } from './PeriodBar'
 import { EmptyTimeline } from './EmptyTimeline'
@@ -91,71 +87,17 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
   }, [characterFilter, countryFilter])
 
   const { events, loading, error, refresh } = useTimelineEvents(timelineFilter)
-  const { periods, addPeriod, updatePeriod, removePeriod } = usePeriods()
-  const [periodDialogOpen, setPeriodDialogOpen] = useState(false)
-  const [editingPeriod, setEditingPeriod] = useState<import('@/types').Period | undefined>(undefined)
-  const [deleteTarget, setDeleteTarget] = useState<import('@/types').Period | null>(null)
-  const [actionSheet, setActionSheet] = useState<{ open: boolean; title: string; actions: ActionItem[] }>({
-    open: false, title: '', actions: [],
-  })
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const [containerWidth, setContainerWidth] = useState(0)
+  const periodEditor = usePeriodEditor()
+  const { periods } = periodEditor
 
-  useEffect(() => {
-    const el = scrollRef.current
-    if (!el) return
-    const observer = new ResizeObserver((entries) => {
-      const rect = entries[0]?.contentRect
-      if (rect && rect.width > 0) {
-        setContainerWidth(rect.width)
-      }
-    })
-    observer.observe(el)
-    setContainerWidth(el.clientWidth)
-    return () => observer.disconnect()
-  }, [events])
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const containerWidth = useTimelineContainerWidth(scrollRef, events)
 
   const toggleEditMode = useCallback(() => {
     setEditMode((prev) => !prev)
   }, [])
 
-  const handleDragEnd = useCallback(
-    async (e: DragEndEvent, pxPerYear: number) => {
-      const { active, delta } = e
-      const data = active.data.current as
-        | { event: TimelineEvent; startX: number; type: 'move' | 'resize-left' | 'resize-right' }
-        | undefined
-      if (!data) return
-
-      const deltaYears = Math.round(delta.x / pxPerYear)
-      if (deltaYears === 0) return
-
-      if (data.type === 'resize-left') {
-        const newTime = shiftYear(data.event.time, deltaYears)
-        try {
-          await updateEventTime(data.event.id, newTime, data.event.endTime)
-          refresh()
-        } catch { /* ignore */ }
-      } else if (data.type === 'resize-right') {
-        const endTime = data.event.endTime || addOneYear(data.event.time)
-        const newEndTime = shiftYear(endTime, deltaYears)
-        try {
-          await updateEventTime(data.event.id, data.event.time, newEndTime)
-          refresh()
-        } catch { /* ignore */ }
-      } else {
-        const newTime = shiftYear(data.event.time, deltaYears)
-        const newEndTime = data.event.endTime
-          ? shiftYear(data.event.endTime, deltaYears)
-          : undefined
-        try {
-          await updateEventTime(data.event.id, newTime, newEndTime)
-          refresh()
-        } catch { /* ignore */ }
-      }
-    },
-    [refresh],
-  )
+  const handleDragEnd = useTimelineDrag(refresh)
 
   const {
     filtered,
@@ -191,31 +133,44 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
     navTargets,
     hasEvents: events.length > 0,
   })
-  const handlePeriodSave = useCallback(async (data: { name: string; startTime: string; endTime: string; color: string }) => {
-    if (editingPeriod?.id) {
-      await updatePeriod(editingPeriod.id, data)
-    } else {
-      await addPeriod(data)
-    }
-  }, [editingPeriod, addPeriod, updatePeriod])
 
-  const handlePeriodDelete = useCallback(async () => {
-    if (deleteTarget?.id) {
-      await removePeriod(deleteTarget.id)
-    }
-    setDeleteTarget(null)
-  }, [deleteTarget, removePeriod])
+  const isFiltering = characterFilter !== 'all' || countryFilter !== 'all' || filterMajor
+  const canDrag = editMode && !isMobile && density === 'year'
+  const showNav = !isMobile && navTargets.length > 1
+  const showZoom = !isMobile && events.length > 0
+  const inAggregation = density !== 'year'
+  const hasContent = density === 'year' ? nodes.items.length > 0 : (buckets && (buckets.buckets.length > 0 || buckets.spanning.length > 0))
 
-  const openPeriodActionSheet = useCallback((period: import('@/types').Period) => {
-    setActionSheet({
-      open: true,
-      title: period.name,
-      actions: [
-        { id: 'edit', label: '编辑', icon: <Pencil size={20} strokeWidth={2} />, onPress: () => { setEditingPeriod(period); setPeriodDialogOpen(true) } },
-        { id: 'delete', label: '删除', icon: <Trash2 size={20} strokeWidth={2} />, destructive: true, onPress: () => setDeleteTarget(period) },
-      ],
-    })
-  }, [])
+  // 工具栏 props 只写一次：三个渲染分支共用同一份，避免三处重复
+  const toolbarProps = {
+    filterMajor,
+    setFilterMajor,
+    editMode,
+    onToggleEdit: toggleEditMode,
+    zoomRatio,
+    onZoomChange: handleZoomChange,
+    onZoomCommit: handleZoomCommit,
+    characterFilter,
+    onCharacterFilterChange: setCharacterFilter,
+    characterOptions,
+    countryFilter,
+    onCountryFilterChange: setCountryFilter,
+    countryOptions,
+    onAddPeriod: periodEditor.openNewPeriodDialog,
+  }
+
+  /** 空态/全被筛掉时的工具栏：导航与缩放都不展示 */
+  const emptyToolbar = (
+    <TimelineToolbar
+      {...toolbarProps}
+      showNav={false}
+      onPrev={() => {}}
+      onNext={() => {}}
+      isFirst={true}
+      isLast={true}
+      showZoom={false}
+    />
+  )
 
   if (loading) {
     return (
@@ -236,61 +191,17 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
   if (events.length === 0) {
     return (
       <div className="flex h-full flex-col">
-      <TimelineToolbar
-        filterMajor={filterMajor}
-        setFilterMajor={setFilterMajor}
-        editMode={editMode}
-        onToggleEdit={toggleEditMode}
-        showNav={false}
-        onPrev={() => {}}
-        onNext={() => {}}
-        isFirst={true}
-        isLast={true}
-        showZoom={false}
-        zoomRatio={zoomRatio}
-        onZoomChange={handleZoomChange}
-        onZoomCommit={handleZoomCommit}
-        characterFilter={characterFilter}
-        onCharacterFilterChange={setCharacterFilter}
-        characterOptions={characterOptions}
-        countryFilter={countryFilter}
-        onCountryFilterChange={setCountryFilter}
-        countryOptions={countryOptions}
-        onAddPeriod={() => { setEditingPeriod(undefined); setPeriodDialogOpen(true) }}
-      />
+      {emptyToolbar}
       <div className="max-md:h-10 flex-shrink-0" />
       <EmptyTimeline />
       </div>
     )
   }
 
-  const isFiltering = characterFilter !== 'all' || countryFilter !== 'all' || filterMajor
-
   if (filtered.length === 0 && events.length > 0) {
     return (
       <div className="flex h-full flex-col">
-        <TimelineToolbar
-          filterMajor={filterMajor}
-          setFilterMajor={setFilterMajor}
-          editMode={editMode}
-          onToggleEdit={toggleEditMode}
-          showNav={false}
-          onPrev={() => {}}
-          onNext={() => {}}
-          isFirst={true}
-          isLast={true}
-          showZoom={false}
-          zoomRatio={zoomRatio}
-          onZoomChange={handleZoomChange}
-          onZoomCommit={handleZoomCommit}
-            characterFilter={characterFilter}
-          onCharacterFilterChange={setCharacterFilter}
-          characterOptions={characterOptions}
-          countryFilter={countryFilter}
-        onCountryFilterChange={setCountryFilter}
-        countryOptions={countryOptions}
-        onAddPeriod={() => { setEditingPeriod(undefined); setPeriodDialogOpen(true) }}
-      />
+        {emptyToolbar}
       <div className="max-md:h-10 flex-shrink-0" />
         <div className="flex flex-1 items-center justify-center">
           <p className="text-sm text-ink-muted">
@@ -301,35 +212,16 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
     )
   }
 
-  const canDrag = editMode && !isMobile && density === 'year'
-  const showNav = !isMobile && navTargets.length > 1
-  const showZoom = !isMobile && events.length > 0
-  const inAggregation = density !== 'year'
-  const hasContent = density === 'year' ? nodes.items.length > 0 : (buckets && (buckets.buckets.length > 0 || buckets.spanning.length > 0))
-
   return (
     <div className="flex flex-col h-full">
       <TimelineToolbar
-        filterMajor={filterMajor}
-        setFilterMajor={setFilterMajor}
-        editMode={editMode}
-        onToggleEdit={toggleEditMode}
+        {...toolbarProps}
         showNav={showNav}
         onPrev={() => navigateToEvent('prev')}
         onNext={() => navigateToEvent('next')}
         isFirst={isFirstEvent}
         isLast={isLastEvent}
         showZoom={showZoom}
-        zoomRatio={zoomRatio}
-        onZoomChange={handleZoomChange}
-        onZoomCommit={handleZoomCommit}
-        characterFilter={characterFilter}
-        onCharacterFilterChange={setCharacterFilter}
-        characterOptions={characterOptions}
-        countryFilter={countryFilter}
-        onCountryFilterChange={setCountryFilter}
-        countryOptions={countryOptions}
-        onAddPeriod={() => { setEditingPeriod(undefined); setPeriodDialogOpen(true) }}
       />
       <div className="max-md:h-10 flex-shrink-0" />
 
@@ -371,9 +263,9 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
                     hexDark={hexDark}
                     row={row}
                     isMobile={isMobile}
-                    onEdit={() => { setEditingPeriod(period); setPeriodDialogOpen(true) }}
-                    onDelete={() => setDeleteTarget(period)}
-                    onLongPress={() => openPeriodActionSheet(period)}
+                    onEdit={() => periodEditor.openEditPeriodDialog(period)}
+                    onDelete={() => periodEditor.setDeleteTarget(period)}
+                    onLongPress={() => periodEditor.openPeriodActionSheet(period)}
                   />
                 )
               })}
@@ -517,24 +409,24 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
       ) : null}
 
       <PeriodDialog
-        key={editingPeriod?.id ?? 'new'}
-        open={periodDialogOpen}
-        period={editingPeriod}
-        onSave={handlePeriodSave}
-        onClose={() => { setPeriodDialogOpen(false); setEditingPeriod(undefined) }}
+        key={periodEditor.editingPeriod?.id ?? 'new'}
+        open={periodEditor.periodDialogOpen}
+        period={periodEditor.editingPeriod}
+        onSave={periodEditor.handlePeriodSave}
+        onClose={periodEditor.closePeriodDialog}
       />
 
-      <AlertDialog open={deleteTarget !== null} onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}>
+      <AlertDialog open={periodEditor.deleteTarget !== null} onOpenChange={(open) => { if (!open) periodEditor.setDeleteTarget(null) }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>删除时期</AlertDialogTitle>
             <AlertDialogDescription>
-              确认删除「{deleteTarget?.name}」？此操作不可撤销。
+              确认删除「{periodEditor.deleteTarget?.name}」？此操作不可撤销。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={handlePeriodDelete} className="bg-transparent border border-error text-error hover:bg-red-50">
+            <AlertDialogAction onClick={periodEditor.handlePeriodDelete} className="bg-transparent border border-error text-error hover:bg-red-50">
               删除
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -542,18 +434,12 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
       </AlertDialog>
 
       <MobileActionSheet
-        open={actionSheet.open}
-        onClose={() => setActionSheet((prev) => ({ ...prev, open: false }))}
-        title={actionSheet.title}
-        actions={actionSheet.actions}
+        open={periodEditor.actionSheet.open}
+        onClose={() => periodEditor.setActionSheet((prev) => ({ ...prev, open: false }))}
+        title={periodEditor.actionSheet.title}
+        actions={periodEditor.actionSheet.actions}
       />
     </div>
   )
 }
-
-
-
-
-
-
 
