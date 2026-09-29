@@ -7,7 +7,7 @@ import type { Character } from '@/types'
 import type { CharacterFormData } from '../types'
 import { useCharacter, useUpdateCharacter } from '../hooks/useCharacters'
 import { useCharacterForm } from '../hooks/useCharacterForm'
-import { ImageGallery } from '@/components/shared/ImageGallery'
+import { ImageGallery } from '@/components/shared/image-gallery/ImageGallery'
 import { ProfileBannerEditor } from '@/components/shared/ProfileBannerEditor'
 import { CharacterInfoSection } from './CharacterInfoSection'
 import { CharacterRelationSection } from './CharacterRelationSection'
@@ -232,3 +232,4 @@ function mergeBioLifeStory(bio: string, lifeStory: string): string | undefined {
   }
   return parts.join('\n')
 }
+
