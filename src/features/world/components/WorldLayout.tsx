@@ -1,61 +1,20 @@
 'use client'
 
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
-import { Plus, Menu, ChevronLeft, Search } from 'lucide-react'
-import type { Editor } from '@tiptap/core'
+import { Menu } from 'lucide-react'
 import { EditorCore } from '@/components/editor/EditorCore'
 import { useDevice } from '@/lib/use-device'
 import type { WorldEntry } from '@/types'
 import { useEntryList, useEntry, useCreateEntry, useDeleteEntry } from '../hooks/useWorldEntries'
-import { saveEntryContent, renameEntry, reorderEntries, updateEntry } from '../services'
+import { renameEntry, reorderEntries, updateEntry } from '../services'
 import { TagPicker } from '@/features/tags'
-import { FIELD_LABEL, FIELD_ROW, FIELD_ROW_TOP, PAGE_TITLE, SECTION_TITLE } from '@/lib/ui-tokens'
-import { syncReferenceLabels } from '@/lib/reference-sync'
+import { FIELD_LABEL, FIELD_ROW, FIELD_ROW_TOP, SECTION_TITLE } from '@/lib/ui-tokens'
 import type { WorldFormData } from '../types'
-import { WorldTree } from './WorldTree'
+import { useWorldEntryDraft } from '../hooks/useWorldEntryDraft'
+import { WorldTreePanel } from './WorldTreePanel'
+import { docHasRef, filterEntriesWithAncestors } from './world-content-utils'
 import { useMobilePageHeader } from '@/components/layout/MobilePageHeaderContext'
 import { useMobileNavigation } from '@/components/layout/MobileNavigationContext'
-
-function parseEditorContent(content: string): object | string {
-  if (!content) return ''
-  try {
-    const parsed = JSON.parse(content) as unknown
-    if (parsed && typeof parsed === 'object') return parsed as object
-    return content
-  } catch {
-    return content
-  }
-}
-
-/** 判断一份 TipTap JSON 文档里是否引用了某个实体（wikiLink / mention） */
-function docHasRef(node: unknown, idStr: string): boolean {
-  if (Array.isArray(node)) return node.some((n) => docHasRef(n, idStr))
-  if (!node || typeof node !== 'object') return false
-  const n = node as Record<string, unknown>
-  if ((n.type === 'wikiLink' || n.type === 'mention') && n.attrs && typeof n.attrs === 'object') {
-    if (String((n.attrs as Record<string, unknown>).id) === idStr) return true
-  }
-  return Array.isArray(n.content) ? docHasRef(n.content, idStr) : false
-}
-
-/** 目录搜索：命中项的祖先一并保留，维持树的形状 */
-function filterEntriesWithAncestors(entries: WorldEntry[], query: string): WorldEntry[] {
-  const key = query.trim().toLowerCase()
-  if (!key) return entries
-  const byId = new Map<number, WorldEntry>()
-  for (const e of entries) if (e.id != null) byId.set(e.id, e)
-  const keep = new Set<number>()
-  for (const e of entries) {
-    if (e.id == null || !e.title.toLowerCase().includes(key)) continue
-    keep.add(e.id)
-    let parent = e.parentId
-    while (parent != null && !keep.has(parent)) {
-      keep.add(parent)
-      parent = byId.get(parent)?.parentId ?? null
-    }
-  }
-  return entries.filter((e) => e.id != null && keep.has(e.id))
-}
 
 interface WorldLayoutProps {  onMentionClick?: (id: string, entityType?: string) => void
   onCharacterCount?: (count: number) => void
@@ -93,17 +52,15 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
     return () => window.removeEventListener('worldToggle', handler)
   }, [])
 
-  const editorRef = useRef<Editor | null>(null)
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const pendingSaveRef = useRef<{ title: string; content: string } | null>(null)
-  const selectedIdRef = useRef<number | null>(null)
-  const saveEnabledRef = useRef(false)
-  const currentEntryRef = useRef<WorldEntry | undefined>(undefined)
-
-  useEffect(() => { selectedIdRef.current = selectedId }, [selectedId])
-
   const { entry: currentEntry } = useEntry(selectedId)
-  useEffect(() => { currentEntryRef.current = currentEntry }, [currentEntry])
+
+  const {
+    handleContentChange,
+    handleTitleChange,
+    handleEditorReady,
+    flushSave,
+    selectedIdRef,
+  } = useWorldEntryDraft({ selectedId, currentEntry, refresh, title, setTitle })
 
   // 已有分类（去重，供输入建议 —— 防止「地理 / 地理志」这类分裂）
   const categories = useMemo(
@@ -137,58 +94,13 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
     setCategory(value)
     if (selectedIdRef.current == null) return
     void updateEntry(selectedIdRef.current, { category: value }).catch(() => {})
-  }, [])
+  }, [selectedIdRef])
 
   const handleTagsChange = useCallback((ids: number[]) => {
     setTags(ids)
     if (selectedIdRef.current == null) return
     void updateEntry(selectedIdRef.current, { tags: ids }).catch(() => {})
-  }, [])
-
-  const flushSave = useCallback(async () => {
-    if (!selectedIdRef.current || !pendingSaveRef.current) return
-    if (saveTimerRef.current) {
-      clearTimeout(saveTimerRef.current)
-      saveTimerRef.current = null
-    }
-    const { title: t, content: c } = pendingSaveRef.current
-    try {
-      const doc = JSON.parse(c) as Record<string, unknown>
-      const synced = await syncReferenceLabels(doc)
-      await saveEntryContent(selectedIdRef.current, t, JSON.stringify(synced))
-      pendingSaveRef.current = null
-      refresh()
-    } catch (err) {
-      console.error(`[save] flushSave 写入失败:`, err)
-    }
-  }, [refresh])
-
-  const scheduleSave = useCallback((newTitle: string, json: object) => {
-    if (!selectedIdRef.current) return
-    const contentStr = JSON.stringify(json)
-    pendingSaveRef.current = { title: newTitle, content: contentStr }
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-    saveTimerRef.current = setTimeout(() => {
-      void flushSave()
-    }, 2000)
-  }, [flushSave])
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleContentChange = useCallback((_html: string) => {
-    if (!saveEnabledRef.current) return
-    if (!editorRef.current) return
-    const json = editorRef.current.getJSON()
-    scheduleSave(title, json)
-  }, [title, scheduleSave])
-
-  const handleTitleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const newTitle = e.target.value
-    setTitle(newTitle)
-    if (editorRef.current) {
-      const json = editorRef.current.getJSON()
-      scheduleSave(newTitle, json)
-    }
-  }, [scheduleSave])
+  }, [selectedIdRef])
 
   const handleSelect = useCallback(async (id: number, entry: WorldEntry) => {
     if (selectedIdRef.current === id) return
@@ -198,7 +110,7 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
     setCategory(entry.category ?? '')
     setTags(entry.tags ?? [])
     setShowMobileTree(false)
-  }, [flushSave])
+  }, [flushSave, selectedIdRef])
 
   const handleCreate = useCallback(async (parentId: number | null, entryTitle: string) => {
     await flushSave()
@@ -235,29 +147,6 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
   }, [refresh])
 
   useEffect(() => {
-    const handler = () => {
-      if (selectedIdRef.current && pendingSaveRef.current) {
-        if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-        void saveEntryContent(
-          selectedIdRef.current,
-          pendingSaveRef.current.title,
-          pendingSaveRef.current.content,
-        ).catch((err) => {
-          console.error(`[WorldLayout] beforeunload 保存失败:`, err)
-        })
-      }
-    }
-    window.addEventListener('beforeunload', handler)
-    return () => window.removeEventListener('beforeunload', handler)
-  }, [])
-
-  useEffect(() => {
-    return () => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-    }
-  }, [])
-
-  useEffect(() => {
     if (selectedEntryId == null || selectedEntryId === selectedIdRef.current) return
     const entry = entries.find((e) => e.id === selectedEntryId)
     if (!entry) return
@@ -267,88 +156,24 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
       setCategory(entry.category ?? '')
       setTags(entry.tags ?? [])
     })
-  }, [selectedEntryId, entries, flushSave])
-
-  const handleEditorReady = useCallback((editor: Editor) => {
-    editorRef.current = editor
-    saveEnabledRef.current = false
-    const entry = currentEntryRef.current
-    if (entry && entry.id === selectedIdRef.current && entry.content) {
-      const content = parseEditorContent(entry.content)
-      editor.commands.setContent(content)
-      setTimeout(() => {
-        saveEnabledRef.current = true
-      }, 300)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (currentEntry && editorRef.current && currentEntry.id === selectedId) {
-      saveEnabledRef.current = false
-      const content = parseEditorContent(currentEntry.content)
-      editorRef.current.commands.setContent(content)
-      setTimeout(() => {
-        saveEnabledRef.current = true
-      }, 300)
-    }
-  }, [currentEntry, selectedId])
+  }, [selectedEntryId, entries, flushSave, selectedIdRef])
 
    const treePanel = (
-    <div className="flex h-full flex-col border-r border-line bg-paper-alt max-md:pt-[var(--safe-top)]">
-      <div className="flex h-12 items-center justify-between border-b border-line px-3">
-        <div className="flex items-center gap-1">
-          {isMobile ? (
-            <button onClick={() => setShowMobileTree(false)} className="flex h-8 w-8 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink">
-              <ChevronLeft size={16} strokeWidth={2} />
-            </button>
-          ) : null}
-          {!isMobile ? (
-            <button
-              onClick={() => setTreeCollapsed(!treeCollapsed)}
-              className="flex h-8 w-8 items-center justify-center text-ink-faint transition-colors hover:bg-[var(--oc-hover)] hover:text-ink"
-              title={treeCollapsed ? '展开目录' : '折叠目录'}
-            >
-              {treeCollapsed ? <Menu size={16} strokeWidth={2} /> : <ChevronLeft size={16} strokeWidth={2} />}
-            </button>
-          ) : null}
-          <h2 className={PAGE_TITLE}>世界观</h2>
-        </div>
-        <button
-          onClick={() => handleCreate(null, '新词条')}
-          className="flex h-8 w-8 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink"
-          title="新建词条"
-        >
-          <Plus size={16} strokeWidth={2} />
-        </button>
-      </div>
-
-      {/* 目录搜索 */}
-      <div className="border-b border-line px-3 py-1.5">
-        <div className="flex items-center gap-2 border-b border-transparent transition-colors focus-within:border-line-hover">
-          <Search size={13} strokeWidth={2} className="shrink-0 text-ink-faint" />
-          <input
-            type="text"
-            value={treeQuery}
-            onChange={(e) => setTreeQuery(e.target.value)}
-            placeholder="搜索词条"
-            className="h-6 w-full bg-transparent text-[13px] text-ink placeholder:text-ink-faint focus:outline-none"
-          />
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-auto">
-        <WorldTree
-          entries={visibleEntries}
-          selectedId={selectedId}
-          onSelect={handleSelect}
-          onCreate={handleCreate}
-          onDelete={handleDelete}
-          onRename={handleRename}
-          onReorder={handleReorder}
-          isMobile={isMobile}
-        />
-      </div>
-    </div>
+    <WorldTreePanel
+      entries={visibleEntries}
+      selectedId={selectedId}
+      onSelect={handleSelect}
+      onCreate={handleCreate}
+      onDelete={handleDelete}
+      onRename={handleRename}
+      onReorder={handleReorder}
+      treeQuery={treeQuery}
+      onTreeQueryChange={setTreeQuery}
+      treeCollapsed={treeCollapsed}
+      onToggleTreeCollapsed={() => setTreeCollapsed(!treeCollapsed)}
+      isMobile={isMobile}
+      onCloseMobileTree={() => setShowMobileTree(false)}
+    />
   )
 
   return (
