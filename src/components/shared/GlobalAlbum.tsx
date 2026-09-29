@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { Search, RefreshCw, Menu, ExternalLink } from 'lucide-react'
-import { LOADING_TEXT, PAGE_TITLE } from '@/lib/ui-tokens'
+import { LOADING_TEXT, MENU, PAGE_TITLE } from '@/lib/ui-tokens'
 import { FullscreenViewer } from './FullscreenViewer'
 import { useAlbumData, type AlbumEntry } from './useAlbumData'
 import { useDevice } from '@/lib/use-device'
@@ -12,7 +12,7 @@ import { MobileActionSheet, type ActionItem } from '@/components/shared/MobileAc
 import { useTags } from '@/features/tags'
 import { SortSelect } from '@/components/shared/SortViewControls'
 import { AlbumCard } from './AlbumCard'
-import { TagFilterSelect } from './AlbumTagFilter'
+import { FilterSelect } from './FilterSelect'
 import { AlbumTreePanel } from './AlbumTreePanel'
 import { CATEGORY_TREE } from './album-utils'
 
@@ -183,7 +183,7 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
                   className="h-8 w-48 border-b border-transparent bg-transparent pl-7 pr-2 text-[13px] text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none"
                 />
               </div>
-              <TagFilterSelect
+              <FilterSelect
                 value={tagFilter}
                 onChange={setTagFilter}
                 options={[
@@ -192,6 +192,12 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
                     .filter((t) => t.id !== undefined)
                     .map((t) => ({ value: t.id, label: t.name })),
                 ]}
+                fallbackLabel="全部标签"
+                triggerClassName="touch-feedback flex h-8 items-center gap-1 px-2 text-[13px] text-ink transition-colors hover:bg-[var(--oc-hover)]"
+                panelClassName={`fixed z-30 mt-1 flex flex-col overflow-auto ${MENU} pointer-events-auto`}
+                itemClassName="whitespace-nowrap px-2.5 py-1.5 text-left text-[13px] transition-colors"
+                activeItemClassName="bg-[var(--oc-hover)] text-ink"
+                maxHeightClassName="max-h-64"
               />
               <SortSelect
                 sortKey={sortByTime ? 'time' : 'default'}
@@ -247,4 +253,7 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
     </div>
   )
 }
+
+
+
 

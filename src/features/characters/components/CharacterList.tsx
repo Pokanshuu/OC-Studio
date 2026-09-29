@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { CharacterCard, CharacterRow } from './CharacterListItems'
 import { CharacterListToolbar } from './CharacterListToolbar'
-import type { CountryOption } from './CountryFilterSelect'
+import type { FilterOption } from '@/components/shared/FilterSelect'
 import {
   readViewPreference,
   writeViewPreference,
@@ -80,7 +80,7 @@ export function CharacterList({
     return map
   }, [countries])
 
-  const countryOptions = useMemo<CountryOption[]>(() => {
+  const countryOptions = useMemo<FilterOption[]>(() => {
     return [
       { value: 'all', label: '全部国家' },
       ...countries
@@ -233,4 +233,5 @@ export function CharacterList({
     </div>
   )
 }
+
 

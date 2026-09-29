@@ -1,25 +1,47 @@
 'use client'
 
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronDown } from 'lucide-react'
-import { MENU } from '@/lib/ui-tokens'
 
-export interface TagOption {
+export interface FilterOption {
   value: number | 'all'
   label: string
 }
 
-/** 标签筛选下拉（触发按钮 + portal 到 #overlay-root 的面板） */
-export function TagFilterSelect({
+interface FilterSelectProps {
+  value: number | 'all'
+  onChange: (value: number | 'all') => void
+  options: FilterOption[]
+  /** 找不到当前项时的兜底文案（通常是「全部 XX」） */
+  fallbackLabel: string
+  /** 触发按钮类名（各调用点样式不同，从这里传） */
+  triggerClassName: string
+  panelClassName?: string
+  itemClassName?: string
+  /** 当前项的高亮类名 */
+  activeItemClassName?: string
+  chevronSize?: number
+  /** 面板最小高度保护（用于 max-h-64 这类滚动） */
+  maxHeightClassName?: string
+}
+
+/**
+ * 通用筛选下拉：触发按钮 + portal 到 `#overlay-root` 的面板 + 点外部关闭。
+ * 样式由调用点传入（各列表页的触发按钮/面板密度不同），行为只有这一份实现。
+ */
+export function FilterSelect({
   value,
   onChange,
   options,
-}: {
-  value: number | 'all'
-  onChange: (val: number | 'all') => void
-  options: TagOption[]
-}) {
+  fallbackLabel,
+  triggerClassName,
+  panelClassName = 'fixed z-30 mt-1 flex max-h-64 flex-col overflow-auto border border-line bg-paper/85 backdrop-blur-lg p-1 pointer-events-auto',
+  itemClassName = 'whitespace-nowrap px-2.5 py-1.5 text-left text-[13px] transition-colors',
+  activeItemClassName = 'bg-[var(--oc-hover)] text-ink',
+  chevronSize = 14,
+  maxHeightClassName = 'max-h-64',
+}: FilterSelectProps) {
   const [open, setOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
@@ -49,24 +71,24 @@ export function TagFilterSelect({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [open, handleClickOutside])
 
-  const selectedLabel = options.find((o) => o.value === value)?.label ?? '全部标签'
+  const selectedLabel = options.find((o) => o.value === value)?.label ?? fallbackLabel
 
   return (
     <div>
       <button
         ref={triggerRef}
         onClick={() => setOpen(!open)}
-        className="touch-feedback flex h-8 items-center gap-1 px-2 text-[13px] text-ink transition-colors hover:bg-[var(--oc-hover)]"
+        className={triggerClassName}
       >
         <span>{selectedLabel}</span>
-        <ChevronDown size={14} strokeWidth={2} />
+        <ChevronDown size={chevronSize} strokeWidth={2} />
       </button>
 
       {open
         ? createPortal(
             <div
               ref={panelRef}
-              className={`fixed z-30 mt-1 flex max-h-64 flex-col overflow-auto ${MENU} pointer-events-auto`}
+              className={`${panelClassName} ${maxHeightClassName}`}
               style={{ left: pos.x, top: pos.y }}
             >
               {options.map((opt) => (
@@ -76,11 +98,7 @@ export function TagFilterSelect({
                     onChange(opt.value)
                     setOpen(false)
                   }}
-                  className={`whitespace-nowrap px-2.5 py-1.5 text-left text-[13px] transition-colors ${
-                    value === opt.value
-                      ? 'bg-[var(--oc-hover)] text-ink'
-                      : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
-                  }`}
+                  className={`${itemClassName} ${value === opt.value ? activeItemClassName : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'}`}
                 >
                   {opt.label}
                 </button>
