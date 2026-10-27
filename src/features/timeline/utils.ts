@@ -25,6 +25,22 @@ export function parseYear(time: string): number | null {
   return match ? parseInt(match[0], 10) : null
 }
 
+/**
+ * 底色够不够浅 —— 决定「固定底色」色块上的文字该用固定墨色还是固定纸色。
+ * 用 WCAG 相对亮度，阈值 0.179 是「黑字对比度高于白字」的分界点。
+ */
+export function isLightColor(hex: string): boolean {
+  const match = /^#?([0-9a-f]{6})$/i.exec(hex.trim())
+  if (!match) return true
+  const value = parseInt(match[1], 16)
+  const channels = [(value >> 16) & 255, (value >> 8) & 255, value & 255].map((raw) => {
+    const c = raw / 255
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+  })
+  const luminance = 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
+  return luminance > 0.179
+}
+
 export function buildBuckets(
   timedEvents: TimelineEvent[],
   density: TimelineDensity,

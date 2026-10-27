@@ -227,7 +227,7 @@ export function RelationGraph({
         proOptions={{ hideAttribution: true }}
       >
         <ZoomReader onInstance={handleInstance} />
-        <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#E7E3DC" />
+        <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="var(--color-line)" />
 
         <DesktopRelationPanel
           showCharacters={showCharacters}
@@ -252,13 +252,13 @@ export function RelationGraph({
           nodeColor={(node) => {
             switch (node.data?.entityType as string | undefined) {
               case 'character':
-                return '#D6D0C4'
+                return 'var(--color-line-hover)'
               case 'event':
-                return '#E7E3DC'
+                return 'var(--color-line)'
               case 'country':
-                return '#F3EFE9'
+                return 'var(--color-paper-card)'
               default:
-                return '#A5A098'
+                return 'var(--color-ink-faint)'
             }
           }}
           maskColor="rgba(0,0,0,0.03)"

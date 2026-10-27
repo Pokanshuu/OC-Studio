@@ -8,7 +8,7 @@ import type { WorldEntry } from '@/types'
 import { useEntryList, useEntry, useCreateEntry, useDeleteEntry } from '../hooks/useWorldEntries'
 import { renameEntry, reorderEntries, updateEntry } from '../services'
 import { TagPicker } from '@/features/tags'
-import { FIELD_LABEL, FIELD_ROW, FIELD_ROW_TOP, SECTION_TITLE } from '@/lib/ui-tokens'
+import { FIELD_LABEL, LIST_END, FIELD_ROW, FIELD_ROW_TOP, SECTION_TITLE } from '@/lib/ui-tokens'
 import type { WorldFormData } from '../types'
 import { useWorldEntryDraft } from '../hooks/useWorldEntryDraft'
 import { WorldTreePanel } from './WorldTreePanel'
@@ -201,7 +201,7 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
         {selectedId !== null && currentEntry ? (
           <>
             <div className="flex-1">
-              <div className="flex h-12 items-center gap-2 sticky top-0 max-md:top-[calc(60px+var(--safe-top))] z-10 border-b border-line px-4 bg-paper/85 dark:bg-[#1C1B1A]/85 backdrop-blur-lg">
+              <div className="flex h-12 items-center gap-2 sticky top-0 max-md:top-[calc(60px+var(--safe-top))] z-10 border-b border-line px-4 bg-paper/85 backdrop-blur-lg">
                 {treeCollapsed && !isMobile ? (
                   <button
                     onClick={() => setTreeCollapsed(false)}
@@ -223,7 +223,7 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
               <div className="mx-auto w-full max-w-3xl px-4 md:px-8">
                 {/* 属性：分类 / 标签 / 被引用，与编辑器同一套字段行 */}
                 <section className="mt-8">
-                  <div className="grid grid-cols-1 gap-x-10 sm:grid-cols-2">
+                  <div className={`grid grid-cols-1 gap-x-10 sm:grid-cols-2 ${LIST_END}`}>
                     <div className={`${FIELD_ROW} sm:col-span-2`}>
                       <span className={FIELD_LABEL}>分类</span>
                       <input

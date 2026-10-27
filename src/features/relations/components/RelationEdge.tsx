@@ -32,7 +32,7 @@ export function RelationEdge({
               transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
               pointerEvents: 'all',
             }}
-            className="rounded border border-line bg-paper px-1.5 py-0.5 text-[10px] text-ink-muted whitespace-nowrap"
+            className="rounded-item border border-line bg-paper px-1.5 py-0.5 text-[10px] text-ink-muted whitespace-nowrap"
           >
             {data.relation as string}
           </div>

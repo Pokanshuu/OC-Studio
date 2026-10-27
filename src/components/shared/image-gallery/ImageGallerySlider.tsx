@@ -114,7 +114,7 @@ export function ImageGallerySlider({
             </button>
           ) : null}
           <div
-            className="group relative h-full w-full overflow-hidden rounded-md select-none"
+            className="group relative h-full w-full overflow-hidden rounded-media select-none"
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
             onMouseDown={handleMouseDown}
@@ -184,7 +184,7 @@ export function ImageGallerySlider({
         <button
           type="button"
           onClick={onUploadClick}
-          className="flex h-full w-full flex-col items-center justify-center gap-2 rounded-md border border-dashed border-line bg-paper-card transition-colors hover:border-line-hover"
+          className="flex h-full w-full flex-col items-center justify-center gap-2 rounded-media border border-dashed border-line bg-paper-card transition-colors hover:border-line-hover"
         >
           <ImageIcon size={24} strokeWidth={1.5} className="text-ink-faint" />
           <span className="text-xs text-ink-faint">点击上传立绘</span>

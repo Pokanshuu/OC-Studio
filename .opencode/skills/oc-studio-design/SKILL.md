@@ -58,7 +58,9 @@ description: >
 
   `--radius: 5px` 供 shadcn 派生的 `rounded-sm/md/lg/xl` 使用（3/4/5/7px），不再做「直角兜底」。
   **禁止写 `rounded-[6px]` 这类像素字面量**，也不要用 `rounded-full` 做胶囊（头像/徽章/圆点除外）。
-- 唯一例外是**圆形**：角色头像、国家旗帜、头像占位图、关系图里代表头像的图例标记
+  业务代码里**不再出现** `rounded` / `rounded-md` / `rounded-lg`（它们是 Tailwind/shadcn 的固定值，会和令牌打架）；一律 `rounded-item/media/menu/panel`。`src/components/ui/` 下也只剩仍在用的基元。
+- 唯一例外是**圆形**：角色头像、国家旗帜、头像占位图、关系图里代表头像的图例标记、**颜色色板**（色点）
+- 颜色色板：圆形色点 `h-6 w-6 rounded-full`，选中 = `ring-1 ring-ink ring-offset-2 ring-offset-paper`，未选中 `ring-1 ring-transparent hover:ring-line-hover`（不做 2px 粗环）
 - **全程无阴影**：不写 `shadow-*`；卡片悬停改**底色**（`hover:bg-[var(--oc-hover)]`）；浮层不加 `ring`
 
 ## 3. 原子组件样式
@@ -68,7 +70,7 @@ description: >
 
 - **主按钮** `BTN_PRIMARY`：**浅底实心** `bg-paper-card text-ink h-8 px-3 text-[13px]`，无边框，hover 加深到 `bg-line`。**不要用实心墨色**：强调色是稀缺资源（见「强调色预算」）
 - **次按钮** `BTN_QUIET`：纯文字 `text-ink-muted hover:text-ink`，无边框无底色
-- **图标按钮** `ICON_BTN` / `ICON_BTN_SM`：`h-6 w-6` / `h-5 w-5`，无边框，hover `bg-[var(--oc-hover)]`
+- **图标按钮** `ICON_BTN`：`h-6 w-6`，无边框，hover `bg-[var(--oc-hover)]`
 - **危险按钮**：实心 `bg-error text-paper`
 - **AI 按钮**：用暖色文字 `text-warning`，不加边框
 - 高度：页头与工具栏 `h-8`（32px）；页头内图标按钮 `h-6`；移动端最小热区 44px 由 padding 保证
@@ -89,6 +91,7 @@ description: >
 
 ### 分割线
 - **不再使用 `<Separator>` 组件**：区块之间用 `<div className="border-t border-line" />`，表格行用 `border-b border-line`
+- **行列表不留尾线**：行用 `border-b` 画行间线，容器加 `LIST_END`（`[&>*:last-child]:border-b-0`）；两列网格用 `FIELD_GRID`（最后两格都去掉）。区块底部那条线什么都不分隔，只会让每个 section 看起来被方框围住
 - 浮层内部的菜单分组线可以继续用 `Separator`（`mx-2 my-1 h-px bg-line`）—— 两端内缩，与满宽 hover 形成对比
 - 竖分隔线（`Separator orientation="vertical"`）已从所有页头/工具栏移除
 
@@ -98,7 +101,8 @@ description: >
 - 标签选择器把「＋」与输入框合并进同一个 chip（见 `TagPicker.tsx`）；已选关联项与「＋ 添加」处于同一 `flex-wrap` 行内
 
 ### 对话框 / 抽屉
-- 面板：`border border-line bg-paper/85 dark:bg-[#1C1B1A]/85 backdrop-blur-lg rounded-panel`，**无 ring**
+- 面板：`border border-line bg-paper/85 backdrop-blur-lg rounded-panel`，**无 ring**。
+  `bg-paper/85` 自己就跟着主题走，**不要**再写 `dark:bg-[#1C1B1A]/85`（那串十六进制等于把令牌抄一遍）
 - 遮罩 `bg-black/15 dark:bg-black/40`
 - 弹窗标题用 `PAGE_TITLE`（18px 衬线加粗），描述 13px `ink-muted`
 
@@ -130,11 +134,13 @@ description: >
 ### 浮层内的按钮（历史方案已废弃）
 早期版本为「毛玻璃上按钮用 `bg-white/60` 隆起、`bg-black/5` 凹陷」的分层体系，**现已全部废弃**。
 现行规则只有三条，与页面其它地方一致：
-- 主操作：实心 `bg-ink text-paper`
-- 次操作：纯文字 `text-ink-muted hover:text-ink`
+- 主操作：`BTN_PRIMARY`（浅底实心 `bg-paper-card`），**不是**实心墨色
+- 次操作：`BTN_QUIET`（纯文字 `text-ink-muted hover:text-ink`）
 - 图标按钮：无边框，hover `bg-[var(--oc-hover)]`
 
-不再使用 `bg-white/*` 遮罩、不再用「隆起/凹陷」表达可用性。
+实心墨色 `bg-ink text-paper` 只用于**选中态**（气泡菜单当前格式、块类型当前项、chip 选中）。
+
+不再使用 `bg-white/*` 遮罩、不再用「隆起/凹陷」表达可用性；也不再用 `bg-black/5 dark:bg-white/5` 当「抬起/选中」底色 —— 那是 `bg-[var(--oc-hover)]`。
 
 ### 下拉菜单 (DropdownMenu)
 - 使用 `@base-ui/react` Menu.Portal + Popup
@@ -143,6 +149,7 @@ description: >
 - Item 直接用 `MENU_ITEM`（含 `data-highlighted` 高亮），不要再写 `px-*/py-*`
 
 ### 右键菜单 (ContextMenu)
+- **系统右键菜单不出现在界面里**：`GlobalContextMenu` 在 `document` 上统一拦截 `contextmenu` —— 非文本区一律 `preventDefault()`（右键在那里就是「没反应」，需要菜单的地方由应用自己的菜单接手）；输入框 / textarea / 全选中的可编辑区保留系统菜单（复制粘贴靠它）
 - 面板：`MENU`（`border border-line bg-paper/85 backdrop-blur-lg shadow-none rounded-menu`，无 ring）
 - 子菜单通过 `createPortal` 到 `#overlay-root`，`position: fixed` + 视口坐标，面板同样 `MENU`
 - 菜单项：`MENU_ITEM_BASE`（`gap-2 px-3 py-1 text-[13px] rounded-item`，hover `bg-[var(--oc-hover)]`）；自定义语气（危险/禁用）只换文字色，不重写盒子
@@ -150,15 +157,20 @@ description: >
 
 ### 弹窗 (Dialog/AlertDialog)
 - 遮罩：`bg-black/15 dark:bg-black/40`（无 blur）
-- 面板：`border border-line bg-paper/85 dark:bg-[#1C1B1A]/85 backdrop-blur-lg rounded-panel`，**无 ring**
-- 按钮：确定 = `bg-ink text-paper`（破坏性用 `bg-error text-paper`），取消 = 纯文字 `text-ink-muted hover:text-ink`
+- 面板：`border border-line bg-paper/85 backdrop-blur-lg rounded-panel`，**无 ring**
+- 按钮：确定 = `BTN_PRIMARY`（浅底实心；破坏性操作才用 `bg-error text-paper`），取消 = `BTN_QUIET`
+- 关窗按钮：`ICON_BTN`（`X`，`strokeWidth={2}`），`top-3 right-3`
+
+### 固定底色上的文字
+用户选的固定色（时期条、标签）不随主题翻转，上面的文字也**不能**用 `text-ink` / `text-paper`（那两个跟着主题翻）。
+用固定色令牌：`text-ink-fixed`（`--oc-ink-fixed` #2B2B2B）/ `text-paper-fixed`（`--oc-paper-fixed` #FEFCF8），由亮度决定用哪个（`isLightColor()`）。
 
 ### 气泡菜单 (BubbleMenu)
 - 面板：`MENU`（`rounded-menu`）
 - 按钮：`h-8 w-8`，**激活 `bg-ink text-paper`**，未激活 `text-ink-muted hover:text-ink`
 
 ### 顶栏 (Toolbar / 页头)
-- **统一 48px**：`h-12 sticky top-0 z-10 border-b border-line bg-paper/85 dark:bg-[#1C1B1A]/85 backdrop-blur-lg`
+- **统一 48px**：`h-12 sticky top-0 z-10 border-b border-line bg-paper/85 backdrop-blur-lg`（`bg-paper` 自带明暗，别再叠 `dark:bg-[#1C1B1A]/85`）
   横向内边距：列表页 `px-6`；编辑器 / 相册 / 世界观 `px-4`（与各自内容列对齐）
 - 标题用 `PAGE_TITLE`（18px 衬线加粗）；页头内控件一律 `h-8`，图标按钮 `h-6`
 - 不再有竖分隔线；视图切换用文字（见「下拉选择器」）
@@ -226,3 +238,4 @@ description: >
 - 遮罩内文字允许：`text-white`
 - `FullscreenViewer` 全屏背景允许：`bg-black/80`
 - 标签色板（`src/lib/tag-colors.ts` + `TagBadge`）允许**字面量十六进制**类名（如 `bg-[#FF6B6B]/15 text-[#FF6B6B]`）：颜色是用户数据，Tailwind JIT 按源码文本扫描，**不能**写成 `bg-[${hex}]/15`
+- 关系图的 canvas/SVG 层（点阵、连线、缩略图）写 `var(--color-line)` 这类**令牌变量**，不写十六进制 —— 它不经过 Tailwind，暗色下写死就会错色

@@ -22,8 +22,8 @@ function RelationFilterButtons({
     <div className="flex items-center gap-1">
       <button
         onClick={onToggleCharacters}
-        className={`flex items-center gap-1 md:px-2 px-1.5 md:py-0.5 py-0 rounded text-[11px] md:text-xs transition-colors h-7 md:h-auto ${
-          showCharacters ? 'bg-black/5 dark:bg-white/5 border border-line-hover text-ink' : 'text-ink-faint hover:text-ink-muted'
+        className={`flex items-center gap-1 md:px-2 px-1.5 md:py-0.5 py-0 rounded-item text-[11px] md:text-xs transition-colors h-7 md:h-auto ${
+          showCharacters ? 'bg-[var(--oc-hover)] border border-line-hover text-ink' : 'text-ink-faint hover:text-ink-muted'
         }`}
       >
         <Users size={14} strokeWidth={2} />
@@ -31,8 +31,8 @@ function RelationFilterButtons({
       </button>
       <button
         onClick={onToggleEvents}
-        className={`flex items-center gap-1 md:px-2 px-1.5 md:py-0.5 py-0 rounded text-[11px] md:text-xs transition-colors h-7 md:h-auto ${
-          showEvents ? 'bg-black/5 dark:bg-white/5 border border-line-hover text-ink' : 'text-ink-faint hover:text-ink-muted'
+        className={`flex items-center gap-1 md:px-2 px-1.5 md:py-0.5 py-0 rounded-item text-[11px] md:text-xs transition-colors h-7 md:h-auto ${
+          showEvents ? 'bg-[var(--oc-hover)] border border-line-hover text-ink' : 'text-ink-faint hover:text-ink-muted'
         }`}
       >
         <Calendar size={14} strokeWidth={2} />
@@ -40,8 +40,8 @@ function RelationFilterButtons({
       </button>
       <button
         onClick={onToggleCountries}
-        className={`flex items-center gap-1 md:px-2 px-1.5 md:py-0.5 py-0 rounded text-[11px] md:text-xs transition-colors h-7 md:h-auto ${
-          showCountries ? 'bg-black/5 dark:bg-white/5 border border-line-hover text-ink' : 'text-ink-faint hover:text-ink-muted'
+        className={`flex items-center gap-1 md:px-2 px-1.5 md:py-0.5 py-0 rounded-item text-[11px] md:text-xs transition-colors h-7 md:h-auto ${
+          showCountries ? 'bg-[var(--oc-hover)] border border-line-hover text-ink' : 'text-ink-faint hover:text-ink-muted'
         }`}
       >
         <Flag size={14} strokeWidth={2} />
@@ -63,7 +63,7 @@ function ZoomSlider({ zoom, onZoomChange }: { zoom: number; onZoomChange: (value
     <div className="flex items-center gap-1">
       <button
         onClick={() => handleZoom(zoomValue - 10)}
-        className="h-6 w-6 flex items-center justify-center rounded text-ink-faint hover:text-ink transition-colors"
+        className="h-6 w-6 flex items-center justify-center rounded-item text-ink-faint hover:text-ink transition-colors"
       >
         <Minus size={14} strokeWidth={2} />
       </button>
@@ -75,17 +75,17 @@ function ZoomSlider({ zoom, onZoomChange }: { zoom: number; onZoomChange: (value
         value={zoomValue}
         onChange={(e) => handleZoom(Number(e.target.value))}
         className="w-24 h-6 cursor-pointer appearance-none bg-transparent
-          [&::-webkit-slider-runnable-track]:h-1 [&::-webkit-slider-runnable-track]:rounded [&::-webkit-slider-runnable-track]:bg-line
+          [&::-webkit-slider-runnable-track]:h-1 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-line
           [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:-mt-1 [&::-webkit-slider-thumb]:h-3.5
           [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-ink-muted
           [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-line
-          [&::-moz-range-track]:h-1 [&::-moz-range-track]:rounded [&::-moz-range-track]:bg-line
+          [&::-moz-range-track]:h-1 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-line
           [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:rounded-full
           [&::-moz-range-thumb]:bg-ink-muted [&::-moz-range-thumb]:border-0"
       />
       <button
         onClick={() => handleZoom(zoomValue + 10)}
-        className="h-6 w-6 flex items-center justify-center rounded text-ink-faint hover:text-ink transition-colors"
+        className="h-6 w-6 flex items-center justify-center rounded-item text-ink-faint hover:text-ink transition-colors"
       >
         <Plus size={14} strokeWidth={2} />
       </button>
@@ -104,7 +104,7 @@ export function MobileRelationControls(props: RelationControlsProps) {
 
 export function DesktopRelationPanel(props: RelationControlsProps) {
   return (
-    <Panel position="top-left" className="max-md:hidden flex items-center gap-4 bg-paper/85 backdrop-blur-lg border border-line rounded-md px-3 py-2 m-3">
+    <Panel position="top-left" className="max-md:hidden flex items-center gap-4 bg-paper/85 backdrop-blur-lg border border-line rounded-menu px-3 py-2 m-3">
       <RelationFilterButtons {...props} />
       <ZoomSlider zoom={props.zoom} onZoomChange={props.onZoomChange} />
     </Panel>

@@ -184,7 +184,7 @@ page.tsx 用 `display:none` 切换页面 → 组件生命周期不停 → useEff
 
 ### 4.9 Android 安全区域沉浸（safe-area）
 
-**原则**：`min-h-[60px]` 不精确 → 用 `h-[calc(60px+var(--safe-*))]` 精确高度。
+**原则**：`min-h-[60px]` 不精确 → 用 `h-[calc(60px+var(--safe-top))]`（底栏换成 `--safe-bottom`）精确高度。
 
 **CSS 变量**（定义在 `globals.css`）：
 

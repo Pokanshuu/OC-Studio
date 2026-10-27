@@ -249,7 +249,6 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
                 const right = LEFT_PADDING + (endYear - yearRange.rangeStart) * displayPxPerYear
                 const w = Math.max(right - left, 4)
                 if (density !== 'year' && w < 40) return null
-                const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
                 const hex = PERIOD_COLORS.find(c => c.value === period.color)?.hex ?? '#F3EFE9'
                 const hexDark = PERIOD_COLORS.find(c => c.value === period.color)?.hexDark ?? hex
                 return (
@@ -258,7 +257,6 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
                     period={period}
                     left={left}
                     width={w}
-                    isDark={isDark}
                     hex={hex}
                     hexDark={hexDark}
                     row={row}

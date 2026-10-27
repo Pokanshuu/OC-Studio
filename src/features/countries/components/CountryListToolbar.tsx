@@ -30,7 +30,7 @@ export function CountryListToolbar({
 }: CountryListToolbarProps) {
   return (
     <>
-      <div className="max-md:hidden flex items-center justify-between sticky top-0 z-10 h-12 border-b border-line px-6 bg-paper/85 dark:bg-[#1C1B1A]/85 backdrop-blur-lg">
+      <div className="max-md:hidden flex items-center justify-between sticky top-0 z-10 h-12 border-b border-line px-6 bg-paper/85 backdrop-blur-lg">
         <div className="flex items-center gap-4">
           <h2 className={PAGE_TITLE}>国家</h2>
           <div className="relative max-md:hidden md:block">

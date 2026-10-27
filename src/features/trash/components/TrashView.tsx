@@ -14,7 +14,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Separator } from "@/components/ui/separator"
-import { BTN_QUIET, EMPTY_STATE, ICON_BTN, LOADING_TEXT, PAGE_TITLE, ROUND_PANEL } from '@/lib/ui-tokens'
+import { BTN_QUIET, EMPTY_STATE, ICON_BTN, LIST_END, LOADING_TEXT, PAGE_TITLE, ROUND_PANEL } from '@/lib/ui-tokens'
 import { useTrash } from "../hooks/useTrash"
 import * as trashService from "../services"
 import type { TrashItem, TrashItemType } from "../types"
@@ -134,7 +134,7 @@ export function TrashView({ onClose }: TrashViewProps) {
         className={`flex max-md:w-[calc(100%-2rem)] max-md:min-h-[40vh] max-md:max-h-[calc(100vh-4rem)] max-md:my-4 h-[80vh] w-[80vw] max-w-5xl flex-col overflow-auto border border-line bg-paper transition-opacity duration-150 ${ROUND_PANEL}`}
         style={{ opacity: visible ? 1 : 0 }}
       >
-        <div className="flex h-12 shrink-0 items-center justify-between sticky top-0 z-10 border-b border-line px-4 bg-paper/85 dark:bg-[#1C1B1A]/85 backdrop-blur-lg">
+        <div className="flex h-12 shrink-0 items-center justify-between sticky top-0 z-10 border-b border-line px-4 bg-paper/85 backdrop-blur-lg">
           <div className="flex items-center gap-3">
             <h2 className={PAGE_TITLE}>回收站</h2>
             {items.length > 0 ? (
@@ -170,7 +170,7 @@ export function TrashView({ onClose }: TrashViewProps) {
                     <span className="text-[11px] tracking-[0.08em] text-ink-faint">{typeLabel}</span>
                     <Separator className="flex-1" />
                   </div>
-                  <div className="flex flex-col">
+                  <div className={`flex flex-col ${LIST_END}`}>
                     {groupItems.map((item) => (
                       <div key={item.type + "-" + item.id}
                         className="flex items-center gap-4 border-b border-line px-1 py-2.5"

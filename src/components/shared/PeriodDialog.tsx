@@ -1,11 +1,17 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { Check } from 'lucide-react'
 import type { Period } from '@/types'
 import { PERIOD_COLORS } from '@/types'
 import { parseTime, assembleTime, parseYear } from '@/features/events/utils'
-import { BTN_PRIMARY, FIELD_LABEL_BLOCK, INPUT_LINE, PAGE_TITLE, ROUND_PANEL } from '@/lib/ui-tokens'
+import { BTN_PRIMARY, BTN_QUIET, FIELD_LABEL_BLOCK, INPUT_LINE, PAGE_TITLE, PANEL } from '@/lib/ui-tokens'
+
+/** 日期段：整组共用一条底线（与事件编辑器的年/月/日 同一语言），段内不再各自画线 */
+const DATE_GROUP = 'flex min-w-0 flex-1 items-center gap-1.5 border-b border-line transition-colors focus-within:border-line-hover'
+const DATE_INPUT = 'min-w-0 flex-1 bg-transparent text-sm text-ink placeholder:text-ink-faint focus:outline-none'
+const DATE_YEAR = `${DATE_INPUT} flex-[3]`
 
 interface PeriodDialogProps {
   open: boolean
@@ -55,12 +61,14 @@ export function PeriodDialog({ open, period, onSave, onClose }: PeriodDialogProp
     }
   }
 
-  return (
+  const overlayRoot = typeof document === 'undefined' ? null : document.getElementById('overlay-root')
+
+  const dialog = (
     <div
-      className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/15 dark:bg-black/40"
+      className="pointer-events-auto fixed inset-0 flex items-center justify-center bg-black/15 dark:bg-black/40"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className={`w-[440px] max-md:w-[calc(100%-2rem)] border border-line bg-paper/85 p-6 backdrop-blur-lg ${ROUND_PANEL}`}>
+      <div className={`w-[440px] max-md:w-[calc(100%-2rem)] p-6 ${PANEL}`}>
         <h2 className={`mb-5 ${PAGE_TITLE}`}>
           {period ? '编辑时期' : '添加时期'}
         </h2>
@@ -80,17 +88,17 @@ export function PeriodDialog({ open, period, onSave, onClose }: PeriodDialogProp
         {/* Start & End time */}
         <div className="mb-4">
           <label className={FIELD_LABEL_BLOCK}>开始 / 结束时间</label>
-          <div className="flex items-center gap-2 max-md:flex-col max-md:items-start">
-            <div className="flex items-center gap-2">
-              <input type="text" value={startYear} onChange={(e) => setStartYear(e.target.value)} placeholder="年" className={`w-16 ${INPUT_LINE}`} />
-              <input type="text" value={startMonth} onChange={(e) => setStartMonth(e.target.value)} placeholder="月" className={`w-12 ${INPUT_LINE}`} />
-              <input type="text" value={startDay} onChange={(e) => setStartDay(e.target.value)} placeholder="日" className={`w-12 ${INPUT_LINE}`} />
-              <span className="text-[11px] text-ink-faint">→</span>
+          <div className="flex items-center gap-3 max-md:flex-col max-md:items-stretch max-md:gap-2">
+            <div className={DATE_GROUP}>
+              <input type="text" value={startYear} onChange={(e) => setStartYear(e.target.value)} placeholder="年" className={DATE_YEAR} />
+              <input type="text" value={startMonth} onChange={(e) => setStartMonth(e.target.value)} placeholder="月" className={DATE_INPUT} />
+              <input type="text" value={startDay} onChange={(e) => setStartDay(e.target.value)} placeholder="日" className={DATE_INPUT} />
             </div>
-            <div className="flex items-center gap-2">
-              <input type="text" value={endYear} onChange={(e) => setEndYear(e.target.value)} placeholder="年" className={`w-16 ${INPUT_LINE}`} />
-              <input type="text" value={endMonth} onChange={(e) => setEndMonth(e.target.value)} placeholder="月" className={`w-12 ${INPUT_LINE}`} />
-              <input type="text" value={endDay} onChange={(e) => setEndDay(e.target.value)} placeholder="日" className={`w-12 ${INPUT_LINE}`} />
+            <span className="shrink-0 self-center text-[12px] text-ink-faint">→</span>
+            <div className={DATE_GROUP}>
+              <input type="text" value={endYear} onChange={(e) => setEndYear(e.target.value)} placeholder="年" className={DATE_YEAR} />
+              <input type="text" value={endMonth} onChange={(e) => setEndMonth(e.target.value)} placeholder="月" className={DATE_INPUT} />
+              <input type="text" value={endDay} onChange={(e) => setEndDay(e.target.value)} placeholder="日" className={DATE_INPUT} />
             </div>
           </div>
         </div>
@@ -98,19 +106,25 @@ export function PeriodDialog({ open, period, onSave, onClose }: PeriodDialogProp
         {/* Color picker */}
         <div className="mb-5">
           <label className={FIELD_LABEL_BLOCK}>底色</label>
-          <div className="flex gap-3">
-            {PERIOD_COLORS.map((c) => (
-              <button
-                key={c.value}
-                onClick={() => setColor(c.value)}
-                title={c.label}
-                className={`h-6 w-6 ${c.value} transition-all ${
-                  color === c.value
-                    ? 'ring-2 ring-ink ring-offset-2 ring-offset-paper'
-                    : ''
-                }`}
-              />
-            ))}
+          <div className="flex gap-2">
+            {PERIOD_COLORS.map((c) => {
+              const selected = color === c.value
+              return (
+                <button
+                  key={c.value}
+                  type="button"
+                  onClick={() => setColor(c.value)}
+                  title={c.label}
+                  aria-label={c.label}
+                  aria-pressed={selected}
+                  className={`h-6 w-6 rounded-full ring-1 transition-all focus:outline-none ${c.value} ${
+                    selected
+                      ? 'ring-ink ring-offset-2 ring-offset-paper'
+                      : 'ring-transparent hover:ring-line-hover'
+                  }`}
+                />
+              )
+            })}
           </div>
         </div>
 
@@ -118,18 +132,11 @@ export function PeriodDialog({ open, period, onSave, onClose }: PeriodDialogProp
           <p className="mb-3 text-[12px] text-error">{error}</p>
         ) : null}
 
-        <div className="flex items-center justify-end gap-2">
-          <button
-            onClick={onClose}
-            className="touch-feedback flex h-8 items-center px-3 text-[13px] text-ink-muted transition-colors hover:text-ink"
-          >
+        <div className="flex items-center justify-end gap-3">
+          <button type="button" onClick={onClose} className={BTN_QUIET}>
             取消
           </button>
-          <button
-            onClick={handleSave}
-            disabled={!canSave}
-            className={BTN_PRIMARY}
-          >
+          <button type="button" onClick={handleSave} disabled={!canSave} className={BTN_PRIMARY}>
             <Check size={14} strokeWidth={2} />
             <span>{saving ? '保存中...' : '确认'}</span>
           </button>
@@ -137,4 +144,6 @@ export function PeriodDialog({ open, period, onSave, onClose }: PeriodDialogProp
       </div>
     </div>
   )
+
+  return overlayRoot ? createPortal(dialog, overlayRoot) : dialog
 }

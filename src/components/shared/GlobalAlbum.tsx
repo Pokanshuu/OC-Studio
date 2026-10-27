@@ -161,7 +161,7 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
         {/* Grid — scroll container, header inside for blur */}
         <div className="flex-1">
           {/* Desktop header */}
-          <div className="max-md:hidden sticky top-0 z-10 flex items-center border-b border-line px-4 h-12 bg-paper/85 dark:bg-[#1C1B1A]/85 backdrop-blur-lg">
+          <div className="max-md:hidden sticky top-0 z-10 flex items-center border-b border-line px-4 h-12 bg-paper/85 backdrop-blur-lg">
             <div className="flex items-center gap-3">
               {treeCollapsed ? (
                 <>

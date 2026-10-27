@@ -17,8 +17,8 @@ export function BubbleMenuButtons({ editor }: { editor: Editor }) {
     }),
   })
 
-  const base = 'flex h-8 w-8 items-center justify-center rounded transition-colors'
-  const active = 'bg-black/10 dark:bg-white/10 text-ink'
+  const base = 'flex h-8 w-8 items-center justify-center rounded-item transition-colors'
+  const active = 'bg-ink text-paper'
   const inactive = 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
 
   return (

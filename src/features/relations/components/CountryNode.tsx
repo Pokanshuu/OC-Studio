@@ -13,7 +13,8 @@ export function CountryNode({ data }: NodeProps) {
       <div className="flex flex-col items-center gap-1 group cursor-pointer">
         <Avatar
           src={getImageUrl(flagUrl, 'flag')}
-          className="w-14 h-14 rounded-md border-2 border-line"
+          className="w-14 h-14"
+          shape="square"
           size="md"
         />
         <span className="text-xs text-ink text-center max-w-[80px] truncate">

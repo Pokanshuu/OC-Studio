@@ -23,6 +23,7 @@ import { EventListToolbar } from './EventListToolbar'
 import { readViewPreference, writeViewPreference } from './event-list-utils'
 import type { SortKey } from './event-list-utils'
 import type { ViewMode } from '@/components/shared/SortViewControls'
+import { BTN_QUIET } from '@/lib/ui-tokens'
 
 interface EventListProps {
   events: Event[]
@@ -95,7 +96,7 @@ export function EventList({
         <span className="text-sm text-error">{error}</span>
         <button
           onClick={onCreateEvent}
-          className="flex h-9 items-center rounded border border-line px-3 text-sm text-ink-muted transition-colors hover:text-ink"
+          className={BTN_QUIET}
         >
           重试
         </button>

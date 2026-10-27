@@ -13,7 +13,7 @@ export function MobileFab({ viewMode, onViewModeChange }: MobileFabProps) {
     <div className="md:hidden fixed bottom-[calc(5rem+var(--safe-bottom))] right-4 z-40 flex flex-col gap-1 rounded-media border border-line bg-paper/85 p-1 backdrop-blur-lg">
       {/* Sliding pill indicator */}
       <div
-        className={`absolute left-1 h-10 w-10 rounded-item bg-black/5 transition-[top] duration-300 ease-out dark:bg-white/5 ${
+        className={`absolute left-1 h-10 w-10 rounded-item bg-[var(--oc-hover)] transition-[top] duration-300 ease-out ${
           viewMode === 'grid' ? 'top-1' : 'top-12'
         }`}
       />

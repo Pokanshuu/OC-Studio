@@ -6,7 +6,6 @@ import { createPortal } from 'react-dom'
 import { Separator } from '@/components/ui/separator'
 import { MENU, MENU_ITEM } from '@/lib/ui-tokens'
 import { adjustContextMenuPosition } from '@/lib/menu-utils'
-import { useDevice } from '@/lib/use-device'
 
 interface InputMenuContextValue {
   openMenuAt: (target: HTMLElement, x: number, y: number) => void
@@ -26,7 +25,6 @@ interface SelectionSnapshot {
 }
 
 export function GlobalContextMenu({ children }: { children: ReactNode }) {
-  const { isMobile } = useDevice()
   const [open, setOpen] = useState(false)
   const [position, setPosition] = useState({ x: 0, y: 0 })
   const [adjPosition, setAdjPosition] = useState({ x: 0, y: 0 })
@@ -73,15 +71,16 @@ export function GlobalContextMenu({ children }: { children: ReactNode }) {
       : target instanceof HTMLTextAreaElement || target.isContentEditable
 
     if (!isEditableEl) {
-      // 桌面端放行原生右键菜单，仅移动端抑制长按弹出的原生菜单
-      if (!isMobile) return
+      // 非文本区一律吃掉系统菜单：WebView 自带的「刷新 / 另存为 / 检查」既用不上，
+      // 也不属于这套界面语言。关掉后右键在这些区域就是「没反应」，
+      // 需要菜单的地方自有应用的右键菜单接手。
       e.preventDefault()
       return
     }
 
     e.preventDefault()
     openMenuAt(target, e.clientX, e.clientY)
-  }, [openMenuAt, isMobile])
+  }, [openMenuAt])
 
   useEffect(() => {
     if (!open || !menuRef.current) return

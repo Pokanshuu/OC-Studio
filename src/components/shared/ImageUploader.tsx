@@ -134,11 +134,11 @@ export function ImageUploader({
         />
 
         {uploading ? (
-          <div className={`flex h-full w-full items-center justify-center border border-dashed border-line bg-paper-card ${shape === 'circle' ? 'rounded-full' : 'rounded-md'}`}>
+          <div className={`flex h-full w-full items-center justify-center border border-dashed border-line bg-paper-card ${shape === 'circle' ? 'rounded-full' : 'rounded-media'}`}>
             <Loader2 size={20} strokeWidth={2} className="animate-spin text-ink-muted" />
           </div>
         ) : currentSrc ? (
-          <div className={`group/image relative h-full w-full overflow-hidden ${shape === 'circle' ? 'rounded-full' : 'rounded-md'}`}>
+          <div className={`group/image relative h-full w-full overflow-hidden ${shape === 'circle' ? 'rounded-full' : 'rounded-media'}`}>
             <button
               type="button"
               onClick={handleClick}
@@ -147,8 +147,8 @@ export function ImageUploader({
             />
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={currentSrc} alt="" className="h-full w-full object-cover pointer-events-none" />
-            <div className={`absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition-opacity group-hover/image:opacity-100 pointer-events-none ${shape === 'circle' ? 'rounded-full' : 'rounded'}`}>
-              <span className="rounded px-2 py-1 text-xs text-white">更换</span>
+            <div className={`absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition-opacity group-hover/image:opacity-100 pointer-events-none ${shape === 'circle' ? 'rounded-full' : 'rounded-item'}`}>
+              <span className="rounded-item px-2 py-1 text-xs text-white">更换</span>
             </div>
             {onRemove ? (
               <button
@@ -168,7 +168,7 @@ export function ImageUploader({
           <button
             type="button"
             onClick={handleClick}
-            className={`flex h-full w-full flex-col items-center justify-center gap-1 border border-dashed border-line bg-paper-card transition-colors hover:border-line-hover ${shape === 'circle' ? 'rounded-full' : 'rounded-md'}`}
+            className={`flex h-full w-full flex-col items-center justify-center gap-1 border border-dashed border-line bg-paper-card transition-colors hover:border-line-hover ${shape === 'circle' ? 'rounded-full' : 'rounded-media'}`}
           >
             <ImageIcon size={16} strokeWidth={2} className="text-ink-faint" />
             <span className="text-xs text-ink-faint">{placeholderText}</span>

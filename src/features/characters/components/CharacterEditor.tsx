@@ -11,7 +11,7 @@ import { ImageGallery } from '@/components/shared/image-gallery/ImageGallery'
 import { ProfileBannerEditor } from '@/components/shared/ProfileBannerEditor'
 import { CharacterInfoSection } from './CharacterInfoSection'
 import { CharacterRelationSection } from './CharacterRelationSection'
-import { BTN_PRIMARY, PAGE_TITLE, SECTION_TITLE } from '@/lib/ui-tokens'
+import { BTN_PRIMARY, BTN_QUIET, PAGE_TITLE, SECTION_TITLE } from '@/lib/ui-tokens'
 
 interface CharacterEditorProps {
   editCharacterId: number
@@ -45,7 +45,7 @@ export function CharacterEditor({ editCharacterId, onBack, onNavigateToCharacter
         <span className="text-sm text-error">{error}</span>
         <button
           onClick={onBack}
-          className="flex h-9 items-center rounded border border-line px-3 text-sm text-ink-muted transition-colors hover:text-ink"
+          className={BTN_QUIET}
         >
           返回
         </button>
@@ -59,7 +59,7 @@ export function CharacterEditor({ editCharacterId, onBack, onNavigateToCharacter
         <span className="text-sm text-ink-muted">角色不存在</span>
         <button
           onClick={onBack}
-          className="flex h-9 items-center rounded border border-line px-3 text-sm text-ink-muted transition-colors hover:text-ink"
+          className={BTN_QUIET}
         >
           返回
         </button>
@@ -107,7 +107,7 @@ function CharacterEditorInner({
 
   return (
     <div className="flex flex-col min-h-full">
-      <div className="flex items-center justify-between max-md:fixed max-md:top-0 max-md:left-0 max-md:right-0 md:sticky md:top-0 z-10 border-b border-line px-4 max-md:h-[calc(60px+var(--safe-top))] md:h-12 max-md:pt-[var(--safe-top)] bg-paper/85 dark:bg-[#1C1B1A]/85 backdrop-blur-lg">
+      <div className="flex items-center justify-between max-md:fixed max-md:top-0 max-md:left-0 max-md:right-0 md:sticky md:top-0 z-10 border-b border-line px-4 max-md:h-[calc(60px+var(--safe-top))] md:h-12 max-md:pt-[var(--safe-top)] bg-paper/85 backdrop-blur-lg">
         <div className="flex items-center gap-3">
           <button
             data-mobile-back

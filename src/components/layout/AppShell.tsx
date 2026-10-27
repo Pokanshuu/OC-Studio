@@ -67,7 +67,7 @@ function AppShellChrome({ settings, children }: { settings: ReturnType<typeof us
       {!hideMobileShell && <MobileTopBar />}
       <div className="flex flex-1 overflow-hidden">
         {settings.sidebarVisible ? <Sidebar /> : null}
-        <main className="flex-1 overflow-x-auto main-scroll bg-paper dark:bg-[#1C1B1A]">
+        <main className="flex-1 overflow-x-auto main-scroll bg-paper">
           {children}
           <MobileTextSelectionBar />
         </main>

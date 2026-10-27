@@ -22,11 +22,11 @@ export function Avatar({ src, alt = '', size = 'md', className = '', type = 'ava
   const [failedImgSrc, setFailedImgSrc] = useState<string | undefined>()
   const imgSrc = resolveImageUrl(src, type)
   const showImage = imgSrc && imgSrc !== failedImgSrc
-  const rounded = shape === 'square' ? 'rounded-md' : 'rounded-full'
+  const roundClass = shape === 'square' ? 'rounded-media' : 'rounded-full'
 
   return (
     <div
-      className={`shrink-0 overflow-hidden border border-line ${rounded} ${SIZE_MAP[size]} ${className}`}
+      className={`shrink-0 overflow-hidden border border-line ${roundClass} ${SIZE_MAP[size]} ${className}`}
     >
       {showImage ? (
         // eslint-disable-next-line @next/next/no-img-element
@@ -37,7 +37,7 @@ export function Avatar({ src, alt = '', size = 'md', className = '', type = 'ava
           className="h-full w-full object-cover"
         />
       ) : (
-        <div className={`flex h-full w-full items-center justify-center bg-paper-card ${rounded}`}>
+        <div className={`flex h-full w-full items-center justify-center bg-paper-card ${roundClass}`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={getDefaultImage(type)}

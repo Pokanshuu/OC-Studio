@@ -24,7 +24,7 @@ export function ThemeRadio({
           <div
             className={`relative flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
               value === opt.value ? "border-line-hover" : "border-line"
-            } bg-black/5 dark:bg-white/5`}
+            } bg-[var(--oc-hover)]`}
           >
             {value === opt.value && (
               <div className="h-2 w-2 rounded-full bg-ink-muted" />
@@ -49,7 +49,7 @@ export function ThemeRadio({
 export const SWITCH_CLASSES = {
   base: "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border transition-colors",
   on: "border-line-hover bg-ink-muted",
-  off: "border-line bg-black/5 dark:bg-white/5",
+  off: "border-line bg-[var(--oc-hover)]",
 }
 
 export const SWITCH_DOT =

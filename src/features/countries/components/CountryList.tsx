@@ -23,6 +23,7 @@ import { CountryListToolbar } from './CountryListToolbar'
 import { readViewPreference, writeViewPreference, sortCountryList } from './country-list-utils'
 import type { CountrySortKey } from './country-list-utils'
 import type { ViewMode } from '@/components/shared/SortViewControls'
+import { BTN_QUIET } from '@/lib/ui-tokens'
 
 interface CountryListProps {
   onSelectCountry: (id: number) => void
@@ -91,7 +92,7 @@ export function CountryList({
         <span className="text-sm text-error">{error}</span>
         <button
           onClick={onCreateCountry}
-          className="flex h-9 items-center rounded border border-line px-3 text-sm text-ink-muted transition-colors hover:text-ink"
+          className={BTN_QUIET}
         >
           重试
         </button>

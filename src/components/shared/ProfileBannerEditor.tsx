@@ -118,7 +118,7 @@ export function ProfileBannerEditor({
     <div className="relative w-full">
       {/* Header — CSS intrinsic ratio */}
       <div
-        className={`group/header relative w-full overflow-hidden rounded-lg bg-paper-card aspect-[3/2] ${onHeaderChange ? 'cursor-pointer' : ''}`}
+        className={`group/header relative w-full overflow-hidden rounded-media bg-paper-card aspect-[3/2] ${onHeaderChange ? 'cursor-pointer' : ''}`}
         onClick={onHeaderChange ? () => { if (headerInputRef.current) { headerInputRef.current.value = ''; headerInputRef.current.click() } } : undefined}
       >
         {headerSrc ? (
@@ -174,7 +174,7 @@ export function ProfileBannerEditor({
               onClick={() => { if (avatarInputRef.current) { avatarInputRef.current.value = ''; avatarInputRef.current.click() } }}
               className="relative block bg-transparent hover:bg-transparent"
             >
-              <div className="overflow-hidden rounded-full border-[4px] border-paper dark:border-[#1C1B1A]">
+              <div className="overflow-hidden rounded-full border-4 border-paper">
                 <Avatar src={avatarUrl} size="lg" type={avatarType} />
               </div>
               <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/0 opacity-0 transition-all group-hover/avatar:bg-black/30 group-hover/avatar:opacity-100 group-hover/avatar:text-xs group-hover/avatar:text-white">

@@ -20,9 +20,15 @@ export const ROUND_MENU = 'rounded-menu'
 export const ROUND_PANEL = 'rounded-panel'
 
 /* ── 字段行 ─────────────────────────────────────────────
-   标签在左（固定 64px），内容在右，行间 1px 线。 */
+   标签在左（固定 64px），内容在右，行间 1px 线（线画在行下方）。
+   行容器加 `LIST_END` / `FIELD_GRID`，去掉**最后一行**的尾线 —— 那条线什么都不分隔，
+   只会让每个区块看起来被一个方框围住。表格行（概览 / 回收站）同理。 */
 export const FIELD_ROW = 'flex items-center gap-3 border-b border-line py-1.5'
 export const FIELD_ROW_TOP = 'flex items-start gap-3 border-b border-line py-1.5'
+/** 行容器：竖排（含全宽网格）—— 最后一行不要尾线 */
+export const LIST_END = '[&>*:last-child]:border-b-0'
+/** 字段行容器：两列网格 —— 最后**两格**都不要尾线（窄屏回落到 `LIST_END` 的效果） */
+export const FIELD_GRID = '[&>*:last-child]:border-b-0 sm:[&>*:nth-last-child(-n+2)]:border-b-0'
 export const FIELD_LABEL = 'w-16 shrink-0 text-sm text-ink-muted'
 /** 竖排表单里的标签（弹窗/设置） */
 export const FIELD_LABEL_BLOCK = 'mb-1.5 block text-[13px] text-ink-muted'

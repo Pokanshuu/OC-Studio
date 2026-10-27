@@ -52,7 +52,7 @@ export function TimelineToolbar({
   return (
     <>
       {/* Desktop toolbar */}
-      <div className="max-md:hidden flex h-12 items-center justify-between sticky top-0 z-10 border-b border-line px-6 bg-paper/85 dark:bg-[#1C1B1A]/85 backdrop-blur-lg">
+      <div className="max-md:hidden flex h-12 items-center justify-between sticky top-0 z-10 border-b border-line px-6 bg-paper/85 backdrop-blur-lg">
         <div className="flex items-center gap-3">
           <h2 className={PAGE_TITLE}>时间线</h2>
           <div className="-mx-1.5 ml-1 flex items-center gap-1">
@@ -111,11 +111,11 @@ export function TimelineToolbar({
                 onMouseUp={(e) => onZoomCommit(Number((e.target as HTMLInputElement).value))}
                 onTouchEnd={(e) => onZoomCommit(Number((e.target as HTMLInputElement).value))}
                 className="h-8 w-32 cursor-pointer appearance-none bg-transparent
-                  [&::-webkit-slider-runnable-track]:h-1 [&::-webkit-slider-runnable-track]:rounded [&::-webkit-slider-runnable-track]:bg-line
+                  [&::-webkit-slider-runnable-track]:h-1 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-line
                   [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:-mt-1 [&::-webkit-slider-thumb]:h-3.5
                   [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-ink-muted
                   [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-line
-                  [&::-moz-range-track]:h-1 [&::-moz-range-track]:rounded [&::-moz-range-track]:bg-line
+                  [&::-moz-range-track]:h-1 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-line
                   [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:rounded-full
                   [&::-moz-range-thumb]:bg-ink-muted [&::-moz-range-thumb]:border-0"
               />

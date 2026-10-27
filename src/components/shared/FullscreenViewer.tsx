@@ -128,7 +128,7 @@ export function FullscreenViewer({ images, initialIndex, onClose }: FullscreenVi
             <ChevronRight size={20} strokeWidth={2} />
           </button>
           <div
-            className="absolute left-1/2 -translate-x-1/2 rounded bg-black/50 px-3 py-1 text-sm text-white"
+            className="absolute left-1/2 -translate-x-1/2 rounded-item bg-black/50 px-3 py-1 text-sm text-white"
             style={{ bottom: `calc(1rem + var(--safe-bottom, 0px))` }}
           >
             {index + 1} / {images.length}

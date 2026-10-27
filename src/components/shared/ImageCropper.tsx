@@ -144,7 +144,7 @@ export function ImageCropper({
             onChange={(e) => setZoom(Number(e.target.value))}
             className="h-8 w-32 cursor-pointer appearance-none bg-transparent
               [&::-webkit-slider-runnable-track]:h-1
-              [&::-webkit-slider-runnable-track]:rounded
+              [&::-webkit-slider-runnable-track]:rounded-item
               [&::-webkit-slider-runnable-track]:bg-line-hover
               [&::-webkit-slider-thumb]:appearance-none
               [&::-webkit-slider-thumb]:-mt-1
@@ -155,7 +155,7 @@ export function ImageCropper({
               [&::-webkit-slider-thumb]:border
               [&::-webkit-slider-thumb]:border-line
               [&::-moz-range-track]:h-1
-              [&::-moz-range-track]:rounded
+              [&::-moz-range-track]:rounded-item
               [&::-moz-range-track]:bg-line-hover
               [&::-moz-range-thumb]:h-3.5
               [&::-moz-range-thumb]:w-3.5
@@ -198,7 +198,7 @@ export function ImageCropper({
             onChange={(e) => setZoom(Number(e.target.value))}
             className="h-8 w-full cursor-pointer appearance-none bg-transparent
               [&::-webkit-slider-runnable-track]:h-1
-              [&::-webkit-slider-runnable-track]:rounded
+              [&::-webkit-slider-runnable-track]:rounded-item
               [&::-webkit-slider-runnable-track]:bg-line-hover
               [&::-webkit-slider-thumb]:appearance-none
               [&::-webkit-slider-thumb]:-mt-1
@@ -209,7 +209,7 @@ export function ImageCropper({
               [&::-webkit-slider-thumb]:border
               [&::-webkit-slider-thumb]:border-line
               [&::-moz-range-track]:h-1
-              [&::-moz-range-track]:rounded
+              [&::-moz-range-track]:rounded-item
               [&::-moz-range-track]:bg-line-hover
               [&::-moz-range-thumb]:h-3.5
               [&::-moz-range-thumb]:w-3.5

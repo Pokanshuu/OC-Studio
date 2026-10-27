@@ -153,17 +153,21 @@ npx tauri build   # Tauri 打包 (.exe/.msi)
 ## 核心约束
 1. **设计系统**：加载 `oc-studio-design` skill。禁止 `#000`/`#FFF`，使用设计令牌
 2. **界面原子**：类名一律取自 `src/lib/ui-tokens.ts`（字段行 / 标题 / 按钮 / 输入 / 浮层 / chip / 圆角 / 空态），不要就地拼写；**极小圆角（3–8px，圆形头像/徽章例外）、控件零描边**（输入只有一条底线），线只用于区块之间 / 表格行 / 浮层边界 / 空态占位框
-   - 圆角只用四个语义名：`rounded-item`(3) / `rounded-media`(4) / `rounded-menu`(6) / `rounded-panel`(8)。**禁止 `rounded-[6px]` 这类像素字面量**；组合式类名用 `ui-tokens` 的 `ROUND_*` 常量拼
+   - 圆角只用四个语义名：`rounded-item`(3) / `rounded-media`(4) / `rounded-menu`(6) / `rounded-panel`(8)。**禁止 `rounded-[6px]` 这类像素字面量**，也不要用裸 `rounded` / `rounded-md` / `rounded-lg`（它们是 Tailwind/shadcn 固定值，会和令牌打架）；组合式类名用 `ui-tokens` 的 `ROUND_*` 常量拼
    - 浮层菜单（右键 / 下拉 / 筛选 / @ / / ）一律：容器 `MENU`（只留 `py-1`，**没有左右内边距**）+ 行 `MENU_ITEM_BASE`（自带 `px-3`）—— hover 才能横向铺满、左右不留缝；行高 `py-1`（27px），不要再用 `py-1.5`
-3. **数据层**：Dexie 唯一数据源，通过 hooks 访问，软删除默认启用
-4. **编辑器**：复用 EditorCore，不创建新实例
-5. **浮层**：必须 Portal 到 `#overlay-root`
-6. **代码风格**：TypeScript strict，禁止 `any`，`export function` 导出
-7. **移动端布局**：CSS-first 方案（`max-md:hidden`/`md:hidden`），不依赖 `useDevice()` 做壳切换
-8. **图标规则**：返回/关闭=ArrowLeft，折叠=ChevronLeft，展开=Menu，统一 `strokeWidth={2}`
-9. **模糊效果**：`backdrop-blur` 的 header 必须放在滚动容器内部（非平级兄弟）。同时滚动容器**不得**有 `padding-top`/`padding-bottom`，padding 不参与滚动，内容无法到达 fixed bar 背后。必须用内容内部的透明 spacer div 替代（顶部 `<div className="md:hidden h-[calc(60px+var(--safe-top))]">`，底部 `pb-24`）。
-10. **安全区域**：所有移动端固定定位元素使用 `h-[calc(60px+var(--safe-top))] pt-[var(--safe-top))]` 模式（精确高度，非 min-h）。CSS 变量定义在 `globals.css`，Java 层在 `MainActivity.java`
-11. **移动端触控反馈**：所有移动端可交互控件必须提供按压反馈，分两层规则：
+   - 主题切换交给 `bg-paper` / `text-ink` 这类令牌本身，**不要再叠 `dark:bg-[#1C1B1A]` 这种十六进制**（等于把令牌抄一遍）
+   - 「抬起 / 选中」的浅底色一律 `bg-[var(--oc-hover)]`，不要用 `bg-black/5 dark:bg-white/5`
+   - 固定底色色块（时期条 / 标签）上的文字用 `text-ink-fixed` / `text-paper-fixed`（不随主题翻转），配 `isLightColor()` 判断
+3. **系统右键菜单**：`GlobalContextMenu` 在 document 上统一拦截 —— 非文本区 `preventDefault()`（不弹 WebView 自带菜单），输入框 / textarea / 可编辑区保留系统菜单
+4. **数据层**：Dexie 唯一数据源，通过 hooks 访问，软删除默认启用
+5. **编辑器**：复用 EditorCore，不创建新实例
+6. **浮层**：必须 Portal 到 `#overlay-root`
+7. **代码风格**：TypeScript strict，禁止 `any`，`export function` 导出
+8. **移动端布局**：CSS-first 方案（`max-md:hidden`/`md:hidden`），不依赖 `useDevice()` 做壳切换
+9. **图标规则**：返回/关闭=ArrowLeft，折叠=ChevronLeft，展开=Menu，统一 `strokeWidth={2}`
+10. **模糊效果**：`backdrop-blur` 的 header 必须放在滚动容器内部（非平级兄弟）。同时滚动容器**不得**有 `padding-top`/`padding-bottom`，padding 不参与滚动，内容无法到达 fixed bar 背后。必须用内容内部的透明 spacer div 替代（顶部 `<div className="md:hidden h-[calc(60px+var(--safe-top))]">`，底部 `pb-24`）。
+11. **安全区域**：所有移动端固定定位元素使用 `h-[calc(60px+var(--safe-top))] pt-[var(--safe-top))]` 模式（精确高度，非 min-h）。CSS 变量定义在 `globals.css`，Java 层在 `MainActivity.java`
+12. **移动端触控反馈**：所有移动端可交互控件必须提供按压反馈，分两层规则：
    - **有边框**（`border border-line`）→ `touch-feedback` class，提供 120ms `scale(0.96)` 缩放反馈
    - **无边框** → `active:bg-[var(--oc-hover)]` 背景高亮反馈
    CSS 定义在 `globals.css` 的 `.touch-feedback` 规则中。例外：MobileTabBar 和 GlobalAlbum 分类切换按钮保持简洁无感

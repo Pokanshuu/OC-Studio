@@ -45,7 +45,6 @@
     "@tiptap/starter-kit": "^3.22.4",
     "@tiptap/suggestion": "^3.22.4",
     "@xyflow/react": "^12.10.2",
-    "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "dexie": "^4.4.2",

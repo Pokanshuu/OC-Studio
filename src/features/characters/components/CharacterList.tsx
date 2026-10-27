@@ -29,6 +29,7 @@ import {
 } from './character-list-utils'
 import type { SortKey } from './character-list-utils'
 import type { ViewMode } from '@/components/shared/SortViewControls'
+import { BTN_QUIET } from '@/lib/ui-tokens'
 
 interface CharacterListProps {
   characters: Character[]
@@ -136,7 +137,7 @@ export function CharacterList({
         <span className="text-sm text-error">{error}</span>
         <button
           onClick={onCreateCharacter}
-          className="flex h-9 items-center rounded border border-line px-3 text-sm text-ink-muted transition-colors hover:text-ink"
+          className={BTN_QUIET}
         >
           重试
         </button>

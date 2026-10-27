@@ -1,7 +1,7 @@
 'use client'
 
 import { Checkbox } from '@/components/ui/checkbox'
-import { FIELD_LABEL, FIELD_ROW, SECTION_TITLE } from '@/lib/ui-tokens'
+import { FIELD_GRID, FIELD_LABEL, FIELD_ROW, SECTION_TITLE } from '@/lib/ui-tokens'
 import type { EventForm } from '../hooks/useEventForm'
 
 // 字段行统一样式见 @/lib/ui-tokens
@@ -12,7 +12,7 @@ export function EventInfoSection({ form }: { form: EventForm }) {
   return (
     <section>
       <h3 className={SECTION_TITLE}>基本信息</h3>
-      <div className="grid grid-cols-1 gap-x-10 sm:grid-cols-2">
+      <div className={`grid grid-cols-1 gap-x-10 sm:grid-cols-2 ${FIELD_GRID}`}>
         <div className={FIELD_ROW}>
           <span className={FIELD_LABEL}>开始</span>
           <div className="flex min-w-0 flex-1 items-center gap-1">

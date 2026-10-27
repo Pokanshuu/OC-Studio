@@ -62,7 +62,6 @@ export const CREDIT_GROUPS: CreditGroup[] = [
       { name: 'sonner', url: 'https://github.com/emilkowalski/sonner', license: 'MIT', note: '通知' },
       { name: 'react-easy-crop', url: 'https://github.com/ValentinH/react-easy-crop', license: 'MIT', note: '图片裁剪' },
       { name: 'react-image-crop', url: 'https://github.com/dominictobias/react-image-crop', license: 'ISC' },
-      { name: 'class-variance-authority', url: 'https://github.com/joe-bell/cva', license: 'Apache-2.0' },
       { name: 'clsx', url: 'https://github.com/lukeed/clsx', license: 'MIT' },
       { name: 'tailwind-merge', url: 'https://github.com/dcastil/tailwind-merge', license: 'MIT' },
       { name: 'tw-animate-css', url: 'https://github.com/Wombosvideo/tw-animate-css', license: 'MIT' },

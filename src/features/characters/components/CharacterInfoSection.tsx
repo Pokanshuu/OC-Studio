@@ -3,7 +3,7 @@
 import { RelatedItemsSelector } from '@/components/shared/RelatedItemsSelector'
 import { TagPicker } from '@/features/tags'
 import { Checkbox } from '@/components/ui/checkbox'
-import { FIELD_LABEL, FIELD_ROW, FIELD_ROW_TOP, SECTION_TITLE } from '@/lib/ui-tokens'
+import { FIELD_LABEL, LIST_END, FIELD_ROW, FIELD_ROW_TOP, SECTION_TITLE } from '@/lib/ui-tokens'
 import type { CharacterForm } from '../hooks/useCharacterForm'
 
 /** 可编辑的文本信息字段（顺序即展示顺序） */
@@ -46,7 +46,7 @@ export function CharacterInfoSection({
   return (
     <section>
       <h3 className={SECTION_TITLE}>基本信息</h3>
-      <div className="grid grid-cols-1 gap-x-10 sm:grid-cols-2">
+      <div className={`grid grid-cols-1 gap-x-10 sm:grid-cols-2 ${LIST_END}`}>
         {INFO_FIELDS.map(({ label, key, placeholder }) => (
           <div key={label} className={FIELD_ROW}>
             <span className={FIELD_LABEL}>{label}</span>

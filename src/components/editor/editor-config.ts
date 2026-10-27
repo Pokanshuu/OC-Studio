@@ -116,7 +116,7 @@ export function buildEditorConfig({
         },
       }).configure({
         resizable: true,
-        HTMLAttributes: { class: 'w-full border-collapse rounded-md overflow-hidden' },
+        HTMLAttributes: { class: 'w-full border-collapse rounded-media overflow-hidden' },
       }),
       TableRow.configure({
         HTMLAttributes: { class: 'border-b border-line' },
@@ -135,7 +135,7 @@ export function buildEditorConfig({
         DragHandle.configure({
         render: () => {
           const handle = document.createElement('div')
-          handle.className = 'flex h-5 w-5 items-center justify-center cursor-grab rounded text-ink-faint opacity-0 transition-opacity hover:opacity-100 group-hover:opacity-100'
+          handle.className = 'flex h-5 w-5 items-center justify-center cursor-grab rounded-item text-ink-faint opacity-0 transition-opacity hover:opacity-100 group-hover:opacity-100'
           handle.innerHTML = `<svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><circle cx="2" cy="2" r="1"/><circle cx="6" cy="2" r="1"/><circle cx="10" cy="2" r="1"/><circle cx="2" cy="6" r="1"/><circle cx="6" cy="6" r="1"/><circle cx="10" cy="6" r="1"/><circle cx="2" cy="10" r="1"/><circle cx="6" cy="10" r="1"/><circle cx="10" cy="10" r="1"/></svg>`
           handle.title = '拖拽排序'
           handle.dataset.blockHandle = 'true'
@@ -170,7 +170,7 @@ export function buildEditorConfig({
         },
       }).configure({
         HTMLAttributes: {
-          class: 'inline-flex bg-paper-alt border border-line rounded px-1.5 text-sm text-ink cursor-pointer',
+          class: 'inline-flex bg-paper-alt border border-line rounded-item px-1.5 text-sm text-ink cursor-pointer',
         },
         renderHTML: ({ options, node }) => {
           const cls = options.HTMLAttributes?.class ?? ''

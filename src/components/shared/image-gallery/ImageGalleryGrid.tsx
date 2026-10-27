@@ -30,7 +30,7 @@ export function ImageGalleryGrid({
   return (
     <div className="relative">
       {images.length === 0 && !addTile ? (
-        <div className="flex h-32 flex-col items-center justify-center gap-2 rounded-md border border-dashed border-line bg-paper-card">
+        <div className="flex h-32 flex-col items-center justify-center gap-2 rounded-media border border-dashed border-line bg-paper-card">
           <ImageIcon size={20} strokeWidth={2} className="text-ink-faint" />
           <span className="text-xs text-ink-faint">暂无图片</span>
         </div>
@@ -39,7 +39,7 @@ export function ImageGalleryGrid({
           {images.map((url, idx) => (
             <div
               key={idx}
-              className={`group relative overflow-hidden rounded-md bg-paper-card ${aspectClass}`}
+              className={`group relative overflow-hidden rounded-media bg-paper-card ${aspectClass}`}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -68,7 +68,7 @@ export function ImageGalleryGrid({
               onClick={onUploadClick}
               disabled={uploading}
               title="添加图片"
-              className={`flex items-center justify-center rounded-md border border-dashed border-line bg-paper-card text-ink-faint transition-colors hover:border-line-hover hover:text-ink disabled:opacity-50 ${aspectClass}`}
+              className={`flex items-center justify-center rounded-media border border-dashed border-line bg-paper-card text-ink-faint transition-colors hover:border-line-hover hover:text-ink disabled:opacity-50 ${aspectClass}`}
             >
               {uploading ? (
                 <Loader2 size={16} strokeWidth={2} className="animate-spin" />
@@ -82,7 +82,7 @@ export function ImageGalleryGrid({
       {onAdd && !addTile ? (
         <button
           onClick={onUploadClick}
-          className="mt-2 flex h-9 w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-line bg-paper-card text-sm text-ink-faint transition-colors hover:border-line-hover"
+          className="mt-2 flex h-9 w-full items-center justify-center gap-1.5 rounded-media border border-dashed border-line bg-paper-card text-sm text-ink-faint transition-colors hover:border-line-hover"
         >
           <Plus size={16} strokeWidth={2} />
           <span>添加图片</span>

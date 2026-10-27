@@ -105,7 +105,7 @@ export function MobileSearchOverlay({ open, onClose }: { open: boolean; onClose:
             ) : (
               <div className="space-y-4">
                 {results.map((group) => (
-                  <div key={group.type} className="overflow-hidden rounded-media border border-line bg-paper-card dark:bg-[#2D2B28]">
+                  <div key={group.type} className="overflow-hidden rounded-media border border-line bg-paper-card">
                     <div className="px-3 py-1 text-xs font-medium text-ink-faint border-b border-line">
                       {group.label}
                     </div>

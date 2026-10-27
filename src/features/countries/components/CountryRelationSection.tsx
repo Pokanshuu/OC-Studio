@@ -2,7 +2,7 @@
 
 import { RelatedItemsSelector } from '@/components/shared/RelatedItemsSelector'
 import { TagPicker } from '@/features/tags'
-import { FIELD_LABEL, FIELD_ROW_TOP, SECTION_TITLE } from '@/lib/ui-tokens'
+import { FIELD_LABEL, LIST_END, FIELD_ROW_TOP, SECTION_TITLE } from '@/lib/ui-tokens'
 import type { CountryForm } from '../hooks/useCountryForm'
 
 /** 关联：相关角色 / 相关事件 / 标签（与事件编辑器同一套字段行） */
@@ -18,7 +18,7 @@ export function CountryRelationSection({
   return (
     <section>
       <h3 className={SECTION_TITLE}>关联</h3>
-      <div className="flex flex-col">
+      <div className={`flex flex-col ${LIST_END}`}>
         <div className={FIELD_ROW_TOP}>
           <span className={FIELD_LABEL}>相关角色</span>
           <div className="min-w-0 flex-1">

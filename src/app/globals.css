@@ -23,6 +23,11 @@
 
   /* 控件悬停底色（界面无色：只用墨色极低透明度） */
   --oc-hover: rgba(43, 43, 43, 0.045);
+
+  /* 固定墨色 —— **不随主题翻转**。只给「底色固定」的色块用（如时间线的时期条）：
+     底色不跟着主题走，文字就不能跟着翻，否则暗色下浅底会配上浅字。 */
+  --oc-ink-fixed: #2B2B2B;
+  --oc-paper-fixed: #FEFCF8;
 }
 
 .dark {
@@ -46,6 +51,8 @@
   --color-ink: var(--oc-ink);
   --color-ink-muted: var(--oc-ink-muted);
   --color-ink-faint: var(--oc-ink-faint);
+  --color-ink-fixed: var(--oc-ink-fixed);
+  --color-paper-fixed: var(--oc-paper-fixed);
   --color-error: #B36651;
   --color-warning: #C68D44;
   --color-success: #A5A098;

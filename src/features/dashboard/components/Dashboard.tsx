@@ -9,7 +9,7 @@ import { useCharacterList } from '@/features/characters/hooks/useCharacters'
 import { useEventList } from '@/features/events/hooks/useEvents'
 import { useCountryList } from '@/features/countries/hooks/useCountries'
 import { useEntryList } from '@/features/world/hooks/useWorldEntries'
-import { PAGE_TITLE, SECTION_TITLE } from '@/lib/ui-tokens'
+import { LIST_END, PAGE_TITLE, SECTION_TITLE } from '@/lib/ui-tokens'
 
 interface DashboardProps {
   /** 打开某个实体 */
@@ -139,7 +139,7 @@ export function Dashboard({ onNavigate, onOpenSection }: DashboardProps) {
         <section className="mt-12">
           <h2 className={SECTION_TITLE}>最近更新</h2>
           {recent.length > 0 ? (
-            <div className="-mx-2 flex flex-col">
+            <div className={`-mx-2 flex flex-col ${LIST_END}`}>
               {recent.map((r) => (
                 <button
                   key={`${r.type}-${r.id}`}

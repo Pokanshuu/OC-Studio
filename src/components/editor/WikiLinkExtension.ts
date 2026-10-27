@@ -156,7 +156,7 @@ export const WikiLinkExtension = Mention.extend({
   },
 }).configure({
   HTMLAttributes: {
-    class: 'inline-flex bg-paper-alt border border-line rounded px-1.5 text-sm text-ink cursor-pointer underline decoration-ink-faint decoration-dotted hover:decoration-ink',
+    class: 'inline-flex bg-paper-alt border border-line rounded-item px-1.5 text-sm text-ink cursor-pointer underline decoration-ink-faint decoration-dotted hover:decoration-ink',
   },
   renderHTML({ options, node }) {
     const cls = options.HTMLAttributes?.class ?? ''

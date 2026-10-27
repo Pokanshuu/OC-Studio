@@ -11,7 +11,7 @@ export function CharacterNode({ data }: NodeProps) {
     <>
       <Handle type="target" position={Position.Top} className="!bg-line-hover" />
       <div className="flex flex-col items-center gap-1 group cursor-pointer">
-        <Avatar src={getImageUrl(src, 'avatar')} className="w-14 h-14 border-2 border-line-hover" size="md" />
+        <Avatar src={getImageUrl(src, 'avatar')} className="w-14 h-14" size="md" />
         <span className="text-xs text-ink text-center max-w-[80px] truncate">
           {data.label as string}
         </span>

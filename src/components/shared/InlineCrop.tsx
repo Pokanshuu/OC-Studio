@@ -63,7 +63,7 @@ export function InlineCrop({
   }
 
   return (
-    <div className="overflow-hidden rounded-md bg-paper-card">
+    <div className="overflow-hidden rounded-media bg-paper-card">
       <ReactCrop
         crop={crop}
         onChange={(_, percentCrop) => setCrop(percentCrop)}
