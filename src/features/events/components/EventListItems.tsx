@@ -7,6 +7,7 @@ import { resolveImageUrl } from '@/lib/image-service'
 import { DeleteButton } from '@/components/shared/DeleteButton'
 import { useLongPress } from '@/lib/useLongPress'
 import { formatTimeDisplay } from './event-list-utils'
+import { ROUND_MEDIA } from '@/lib/ui-tokens'
 
 interface EventItemProps {
   event: Event
@@ -33,7 +34,7 @@ export function EventCard({
     <div className="relative group touch-feedback" {...longPress}>
       <button
         onClick={() => onSelect(event.id)}
-        className="flex w-full flex-col overflow-hidden bg-paper-card text-left transition-colors hover:bg-line"
+        className={`flex w-full flex-col overflow-hidden bg-paper-card text-left transition-colors hover:bg-line ${ROUND_MEDIA}`}
       >
         <div className="relative aspect-[3/2] w-full bg-paper-card">
           {event.headerUrl ? (

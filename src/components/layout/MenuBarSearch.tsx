@@ -9,6 +9,7 @@ import { searchAllEntitiesFlat } from '@/lib/reference-registry'
 import type { ReferableEntity } from '@/lib/reference-registry'
 import { useEntityNavigate } from './EntityNavigateContext'
 import { useNavigation } from './NavigationContext'
+import { MENU, MENU_GROUP_LABEL, MENU_ITEM_BASE } from '@/lib/ui-tokens'
 
 const TYPE_ICON_MAP: Record<string, typeof Users> = {
   character: Users,
@@ -182,7 +183,7 @@ export function MenuBarSearch() {
             ? createPortal(
                 <div
                   ref={panelRef}
-                  className="fixed border border-line bg-paper/85 dark:bg-paper/85 backdrop-blur-lg shadow-none max-h-[320px] overflow-auto pointer-events-auto"
+                  className={`fixed max-h-[320px] overflow-auto pointer-events-auto ${MENU}`}
                   style={{
                     left: panelPos.x,
                     top: panelPos.y,
@@ -191,13 +192,13 @@ export function MenuBarSearch() {
                 >
               {query.trim() === '' ? (
                 <div>
-                  <div className="px-3 py-1 text-[11px] tracking-[0.08em] text-ink-faint">快速新建</div>
+                  <div className={MENU_GROUP_LABEL}>快速新建</div>
                   {CREATE_COMMANDS.map((cmd) => {
                     const Icon = cmd.icon
                     return (
                       <button
                         key={cmd.label}
-                        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink"
+                        className={`${MENU_ITEM_BASE} text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink`}
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => handleCreateSelect(cmd.type)}
                       >
@@ -206,13 +207,13 @@ export function MenuBarSearch() {
                       </button>
                     )
                   })}
-                  <div className="mt-1 px-3 py-1 text-[11px] tracking-[0.08em] text-ink-faint">切换板块</div>
+                  <div className={`mt-1 ${MENU_GROUP_LABEL}`}>切换板块</div>
                   {SECTION_COMMANDS.map((cmd) => {
                     const Icon = cmd.icon
                     return (
                       <button
                         key={cmd.label}
-                        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink"
+                        className={`${MENU_ITEM_BASE} text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink`}
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => handleSectionSelect(cmd.label)}
                       >
@@ -233,7 +234,7 @@ export function MenuBarSearch() {
                     .reduce((sum, g) => sum + g.items.length, 0)
                   return (
                     <div key={group.type}>
-                      <div className="px-3 py-1 text-[11px] tracking-[0.08em] text-ink-faint">
+                      <div className={MENU_GROUP_LABEL}>
                         {group.label}
                       </div>
                       {group.items.map((entity, idx) => {
@@ -243,7 +244,7 @@ export function MenuBarSearch() {
                           <button
                             key={entity.id}
                             data-selected={globalIdx === selectedIndex}
-                            className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] transition-colors ${
+                            className={`${MENU_ITEM_BASE} ${
                               globalIdx === selectedIndex
                                 ? 'bg-[var(--oc-hover)] text-ink'
                                 : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'

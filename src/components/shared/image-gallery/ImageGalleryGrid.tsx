@@ -54,7 +54,7 @@ export function ImageGalleryGrid({
               {onRemove ? (
                 <button
                   onClick={() => onRemove(idx)}
-                  className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-none bg-black/40 text-white/80 opacity-100 md:opacity-0 md:transition-opacity md:group-hover:opacity-100 hover:bg-black/60"
+                  className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-item bg-black/40 text-white/80 opacity-100 md:opacity-0 md:transition-opacity md:group-hover:opacity-100 hover:bg-black/60"
                 >
                   <Trash2 size={12} strokeWidth={2} />
                 </button>

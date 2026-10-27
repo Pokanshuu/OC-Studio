@@ -13,6 +13,7 @@ import type { SuggestionProps, SuggestionKeyDownProps } from '@tiptap/suggestion
 import type { ReferableEntity } from '@/lib/reference-registry'
 import { adjustSuggestionPosition } from '@/lib/menu-utils'
 import { getImageUrl, getDefaultImage } from '@/lib/image-service'
+import { MENU, MENU_ITEM_BASE } from '@/lib/ui-tokens'
 
 export interface ExtendedReferableEntity extends ReferableEntity {
   label: string
@@ -45,7 +46,7 @@ export function createMentionRender() {
       currentCommand = props.command
       selectedIndex = 0
       popup = document.createElement('div')
-      popup.className = 'pointer-events-auto fixed z-50 max-h-56 overflow-auto border border-line bg-paper/85 p-1 shadow-none backdrop-blur-lg min-w-[200px] dark:bg-paper/85'
+      popup.className = `pointer-events-auto fixed z-50 max-h-56 overflow-auto min-w-[200px] ${MENU}`
       const rect = props.clientRect()
       if (rect) {
         popup.style.left = `${rect.left}px`
@@ -141,7 +142,7 @@ function renderMentionGroups(
   for (const type of orderedTypes) {
     if (orderedTypes.length > 1) {
       const hdr = document.createElement('div')
-      hdr.className = 'px-3 py-1.5 text-xs font-medium text-ink-faint'
+      hdr.className = 'px-3 py-1 text-xs font-medium text-ink-faint'
       hdr.textContent = ENTITY_TYPE_LABELS[type] ?? type
       container.appendChild(hdr)
     }
@@ -150,7 +151,7 @@ function renderMentionGroups(
       globalIdx++
       const btn = document.createElement('button')
       btn.type = 'button'
-      btn.className = `flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[13px] transition-colors hover:bg-[var(--oc-hover)] ${isSelected ? 'bg-[var(--oc-hover)] text-ink' : 'text-ink'}`
+      btn.className = `${MENU_ITEM_BASE} ${isSelected ? 'bg-[var(--oc-hover)] text-ink' : 'text-ink'}`
 
       if (item.type === 'character' || item.type === 'country') {
         const avatarType = item.type === 'country' ? 'flag' : 'avatar'

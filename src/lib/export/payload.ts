@@ -80,7 +80,7 @@ function blobToDataUri(blob: Blob): Promise<string> {
   })
 }
 
-async function urlToDataUri(url: string): Promise<string | null> {
+export async function urlToDataUri(url: string): Promise<string | null> {
   if (!url || url.startsWith('data:')) return null
   try {
     const resolved = resolveImageUrl(url, 'avatar')

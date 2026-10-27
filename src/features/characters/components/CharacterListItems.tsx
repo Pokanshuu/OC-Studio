@@ -7,6 +7,7 @@ import { DeleteButton } from '@/components/shared/DeleteButton'
 import { getImageUrl, resolveImageUrl } from '@/lib/image-service'
 import { useLongPress } from '@/lib/useLongPress'
 import { aliasesText } from './character-list-utils'
+import { ROUND_MEDIA } from '@/lib/ui-tokens'
 
 interface CharacterItemProps {
   character: Character
@@ -37,7 +38,7 @@ export function CharacterCard({
     <div className="relative group touch-feedback" {...longPress}>
       <button
         onClick={() => onSelect(character.id)}
-        className="flex w-full flex-col overflow-hidden bg-paper-card text-left transition-colors hover:bg-line"
+        className={`flex w-full flex-col overflow-hidden bg-paper-card text-left transition-colors hover:bg-line ${ROUND_MEDIA}`}
       >
         <div className="relative aspect-[3/2] w-full bg-paper-card">
           {character.headerUrl ? (

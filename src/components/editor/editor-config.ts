@@ -15,6 +15,7 @@ import type { Editor } from '@tiptap/core'
 import type { UseEditorOptions } from '@tiptap/react'
 import { searchAllEntitiesFlat } from '@/lib/reference-registry'
 import { ImageBlock } from './extensions/ImageBlock'
+import { SmallMark } from './extensions/SmallMark'
 import { SlashCommand } from './SlashCommandMenu'
 import { WikiLinkExtension } from './WikiLinkExtension'
 import { createMentionRender, type ExtendedReferableEntity } from './mention-render'
@@ -66,7 +67,9 @@ export function buildEditorConfig({
     immediatelyRender: false,
     extensions: [
       StarterKit.configure({
-        heading: { levels: [1, 2, 3] },
+        // 4 级而非常见的 1–3：导入的 vault 里实测有 21 个 H4，
+        // 不放进 schema 就会被丢弃。5/6 级由 markdown 桥降级到 4 级。
+        heading: { levels: [1, 2, 3, 4] },
         paragraph: false,
         blockquote: {
           HTMLAttributes: { class: 'border-l-2 border-line pl-4 bg-paper-alt rounded-r-sm italic text-ink-muted my-3 py-1' },
@@ -95,7 +98,23 @@ export function buildEditorConfig({
         },
       }),
       TaskList, TaskItem.configure({ nested: true }),
-      Table.configure({
+      Table.extend({
+        addAttributes() {
+          return {
+            ...this.parent?.(),
+            // 表格分隔行的原文（`|------|-----|` 这类紧凑写法）。
+            // ProseMirror 的 fromJSON 只保留扩展 spec 里**声明过**的 attrs，
+            // 不在这里声明就会被丢掉，序列化时只能退回 `| --- |` 规范形式，
+            // 等于改掉用户这些文件的排版。分隔行不产生 token，解析时按行号回源码取。
+            rawSeparator: {
+              default: null,
+              parseHTML: (element) => element.getAttribute('data-raw-separator'),
+              renderHTML: (attributes) =>
+                attributes.rawSeparator ? { 'data-raw-separator': attributes.rawSeparator } : {},
+            },
+          }
+        },
+      }).configure({
         resizable: true,
         HTMLAttributes: { class: 'w-full border-collapse rounded-md overflow-hidden' },
       }),
@@ -109,6 +128,7 @@ export function buildEditorConfig({
         HTMLAttributes: { class: 'border border-line bg-paper-alt px-3 py-2 text-sm font-medium text-ink text-left' },
       }),
       ImageBlock,
+      SmallMark,
       SlashCommand,
       WikiLinkExtension,
       ...(isMobile ? [] : [
@@ -138,6 +158,13 @@ export function buildEditorConfig({
               default: '',
               parseHTML: (element) => element.getAttribute('data-entity-type') || '',
               renderHTML: (attributes) => ({ 'data-entity-type': attributes.entityType }),
+            },
+            // vault 的 [[ ]] 里可能带锚点或别名。
+            // 节点只按 id 定位，原文另存一份，写回磁盘时才能逐字还原。
+            raw: {
+              default: null,
+              parseHTML: (element) => element.getAttribute('data-raw'),
+              renderHTML: (attributes) => (attributes.raw ? { 'data-raw': attributes.raw } : {}),
             },
           }
         },

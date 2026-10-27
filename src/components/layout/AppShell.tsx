@@ -17,6 +17,7 @@ import { TrashOverlayProvider, useTrashOverlay } from "@/components/layout/Trash
 import { MobilePageHeaderProvider } from "@/components/layout/MobilePageHeaderContext"
 import { SaveStatusProvider, useSaveStatus } from "@/components/layout/SaveStatusContext"
 import { TrashView } from "@/features/trash/components/TrashView"
+import { VaultSurfaces, VaultWriteBanner } from "@/features/vault"
 import { useSettings } from "@/lib/settings"
 import { useKeyboard } from "@/lib/KeyboardContext"
 import { useBackButton } from "@/lib/useBackButton"
@@ -62,6 +63,7 @@ function AppShellChrome({ settings, children }: { settings: ReturnType<typeof us
   return (
     <>
       <MenuBar />
+      <VaultWriteBanner />
       {!hideMobileShell && <MobileTopBar />}
       <div className="flex flex-1 overflow-hidden">
         {settings.sidebarVisible ? <Sidebar /> : null}
@@ -202,6 +204,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     {children}
                   </AppShellChrome>
                   <TrashOverlayRenderer />
+                  <VaultSurfaces />
                 </MobilePageHeaderProvider>
               </MobileNavigationProvider>
             </SaveStatusProvider>

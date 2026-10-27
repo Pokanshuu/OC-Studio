@@ -18,6 +18,7 @@ import { exportAllData, downloadJson } from '@/lib/export'
 import { validateImportData, importData } from '@/lib/import'
 import type { ImportSummary, MergeStrategy } from '@/lib/import'
 import { notifyDataUpdated } from '@/lib/data-events'
+import { BTN_PRIMARY } from '@/lib/ui-tokens'
 
 const MERGE_OPTIONS: { value: MergeStrategy; label: string; description: string }[] = [
   { value: 'skip', label: '跳过重复', description: '仅添加不重名的数据，已有记录保持不变' },
@@ -170,7 +171,7 @@ export function useImportExport() {
               type="button"
               onClick={handleConfirmImport}
               disabled={importing}
-              className="touch-feedback inline-flex h-8 items-center justify-center bg-ink px-3 text-[13px] text-paper transition-opacity hover:bg-ink hover:opacity-85 disabled:pointer-events-none disabled:opacity-40"
+              className={BTN_PRIMARY}
             >
               {importing ? '导入中...' : '确认导入'}
             </button>

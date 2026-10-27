@@ -1,0 +1,116 @@
+# TODO — OC Studio 待办与改进清单
+
+> 本文件记录产品改进建议与后续重构计划。按「交互设计建议」「技术重构」「已知技术债」三块维护，优先级 P0 > P1 > P2 > P3。
+
+---
+
+## 一、界面交互设计建议（为需求服务）
+
+> 已在 `stability-update` 分支实现的标 [x]；用户确认跳过的标 ~~删除线~~；待用户拍板的标 [ ]。
+
+### 已完成（stability-update）
+- [x] **未保存更改保护**：`beforeunload` 防刷新/关标签 + 返回键与同类型跨实体跳转弹确认。
+- [x] **保存状态可见**：StatusBar 显示「未保存 / 保存中 / 已保存」。
+- [x] **保存快捷键去 hack**：`Ctrl/Cmd+S` 改为 `requestSave()` 显式命令。
+- [x] **命令面板（Ctrl/Cmd+K）**：快速新建（角色/事件/国家）+ 切换板块（7 个板块）；实体搜索跳转原本已有。
+- [x] **词条编辑体验统一**：删除死代码 WorldEditor（HTML 路径），World 内容统一为 TipTap JSON。
+- [x] **关系图增强**：悬停聚焦高亮邻居 + 图例；类型筛选/节点头像/双指缩放原本已有。
+- [x] **相册素材库（部分）**：类型过滤（已有）+ 标签过滤 + 按更新时间排序。
+- [x] **完整备份（含图片）**：图片内联为 data URI，换机可移植；「不含图片」提示已有。
+- [x] **空状态引导**：全站已有（角色/事件/国家/词条/图谱/时间线/相册），无需改。
+- [x] **设计语言统一**：新增 `lib/ui-tokens.ts` 作为唯一原子类源（字段行 / 标题 / 按钮 / 输入 / 浮层 / chip / 空态）；控件零描边（输入改下划线）、页头统一 48px + 标题统一 18px 衬线、浮层去 ring 光晕；列表页视图切换当时改为「画廊 / 目录」文字（后来又改回图标，见下）。<br>（原「零圆角」已被下条**极小圆角**取代）
+- [x] **概览（主页）首屏**：世界名 + 一句话简介 + 角色/事件/国家/词条计数 + 主要角色 + 最近更新；侧边栏顶部新增「主页」入口（`activeItem === null`）。数据层配套：项目元信息（DB v6 `meta` 表 + `features/project/` + 设置「世界」tab）与 `Character.isMajor`。
+- [x] **编辑器「关联」排版**：相关角色 / 相关国家 / 标签改为字段行；`RelatedItemsSelector` 重写为单行内联，「＋ 添加」并入标题行右侧；四个编辑器（角色/事件/国家/世界观）同一套网格。
+- [x] **圆角回归 + 菜单密度（2026-10）**：撤掉「零圆角」——改为**极小圆角**，四个语义名入 `globals.css` 的 `@theme`（`rounded-item` 3px / `media` 4px / `menu` 6px / `panel` 8px），`--radius: 5px` 供 shadcn 派生类；`ui-tokens` 新增 `ROUND_*` 与 `MENU_ITEM_BASE`。所有弹出菜单（右键 / 下拉 / 筛选 / @ / / / 命令面板 / 移动端选词栏）改为 macOS 观感：容器**只留 `py-1`、去掉左右内边距**，行自带 `px-3`、行高 `py-1`，hover **横向铺满、左右不留缝**。顺带把 `features/timeline/components/FilterSelect` 收敛成 `shared/FilterSelect` 的薄封装，删掉 4 处各自拼写的菜单项类名。规范写在 `AGENTS.md §核心约束 2` 与 `oc-studio-design` skill 的「圆角与阴影 / 浮层面板 / 下拉菜单 / 右键菜单」。
+- [x] **强调色预算 / 圆形控件 / 标签字段（2026-10 下半场）**
+  - 强调色收紧：`BTN_PRIMARY` 从实心墨色改浅底（保存 / 新建 / 确认全跟着变）；重复拼写的 9 处主按钮类名收进令牌。一屏之内不再出现第二块深色。
+  - 圆形控件：开关（胶囊轨道 + 圆滑块）、主题单选（圆 + 圆点）、滑杆拇指、事件「主要」标记点、菜单单选圆点、标签色点。
+  - 视图切换改回图标（`LayoutGrid` / `List`，`h-8 w-8`）。
+  - 标签字段：只显示**当前实体已有**的标签（原来把全库几百个标签铺在表单里）；其它靠关键词搜索（上限 40）+「新建」入口；chip 右侧**常显** ×（不再 hover 才出现）；面板挂在输入 chip 上，不再被前面的标签挤到行首。实体已保存的标签 chip 不再用强调色。
+  - 关于页：`访问 GitHub 项目` 走 `open_external`（Tauri 里 `target="_blank"` 点不动）；新增 31 项开源致谢（`settings/credits.ts`，许可证取自各自 package.json / Cargo.toml）；列表定高自滚动，设置弹窗整体限高（`max-h-[calc(100vh-4rem)]` + 内容区自滚）。
+  - 修 Mica 被设置页关掉：`GeneralTab` 原先把 `init_blur(enabled: false)` 当能力探针，等于每次打开设置就 `clear_mica`；新增纯查询命令 `blur_supported`。
+  - 文案：界面里 Vault → **仓库**（代码仍叫 vault）。
+
+### 待做（2026-10 用户反馈 · 按推荐顺序）
+
+> 三条都还没动手。每条记了「做法」与「待定」，**待定项没拍板前不要开工**。
+> 前提变更：**浏览器模式已取消**，存储只需考虑「仓库（文件夹）」与「内置数据库」，且都在桌面壳内。
+
+- [ ] **① 编辑界面分区折叠（2/3 栏）** —— 用户要“像那类三栏编辑器”：左=条目列表、中=元数据、右=正文
+  - 关键决定：**三个区域各自可折叠，不是两套页面**。断点 `≥1500` 三栏（列表 220 / 元数据 340 / 正文余量）· `1280–1500` 列表折成 44px 图标条（两栏）· `<1280` 列表变抽屉、元数据收到正文上方（单栏）
+  - 手动切换覆盖断点默认值并记住（localStorage）；快捷键 `⌘/Ctrl+B`；展开方式 `≥1500` 推开、`<1500` 浮层（否则正文被挤到不能读）
+  - 中栏**不放画廊**，只放封面 + 「立绘 (N) →」入口；左栏与中栏各自独立滚动、各自 sticky 头（滚动容器不得加 padding，见 AGENTS §核心约束 9）
+  - 左栏复用列表页的 **Row 变体**（名字 + 副标题），不要塞卡片；不要把列表页整个搬进来（搜索/分组就够）
+  - 落地顺序：① 元数据侧栏（不动导航）→ ② 可折叠列表 → ③ 切换即自动保存（改行为语义，最后做）
+  - 待定：左栏按**国家分组 + 「全部」开关**，还是平铺 + 搜索？
+- [ ] **② 字段可见性 + 模板新建** —— “有的世界观用不到种族/元素”，要能把这些行去掉
+  - 硬约束：**只改界面不改数据模型**。隐藏不影响 `Character` 字段列，也**不动 frontmatter 的键**；解析仍按全量字段（`fields.ts` 键链），隐藏→再显示必须无损
+  - 配置存 `.ocstudio/fields.json`（与 `.ocstudio/tags.json` 同构、跟文件夹走），按实体类型一套：`{ character, event, country, world }`
+  - 入口：字段行 hover `⋯` → 隐藏；表单底部「+ 添加字段」捡回；设置「世界」tab 再放一份清单
+  - **必须**留兜底提示「已隐藏：种族、元素」可点开，否则老角色看起来像数据丢了
+  - 模板新建：「以此为模板新建」= 复制**字段集合**（= 世界可见字段），值按勾选带（阵营/国籍这类世界设定值），**不带**姓名 / 头像 / 正文 / 关系
+  - 待定：内置数据库模式是否也要这套配置（不要就只在仓库模式可用）
+- [ ] **③ 创作时间线（保存即留痕）** —— 用户反馈：想有“时间节点”，被指抄袭时能讲清过程
+  - 范围：**只做只读列表 + 导出**。不做回滚、不做 diff、不做全文快照
+  - 存 `.ocstudio/journal.jsonl`，一行一条、**只追加**：`ts / kind / relPath / title / 改了哪些键 / 内容 sha256 / prevHash`
+  - 写入点：现有落盘 flush 里追加一行（那里本来就知道“谁变了、改了哪些键”）；「新建」也记一条（“什么时候开始写的”最常被问）
+  - UI：实体页头 `⋯ → 历史` 弹层（倒序列表 + 导出 Markdown，供截图/发送）；世界级汇总视图以后再说
+  - 待定：内置数据库模式要不要也记（可复用已有 `operationLog` 表）；**倾向只要仓库**
+- **已排除的方案（别再提）**
+  - 写进 frontmatter 的 `last_saved` / `history: []`：跟着文件一起被拷走，**零举证价值**，还会污染用户精修的 YAML
+  - 读文件系统 mtime 当“创作时间”：只能表达“最后一次”，且我们的原子写（temp + rename）会重置 `CreationTime`；它只配做展示，不配做记录
+  - 让用户学 git / commit / push：给画师的工具不该要求这些；将来顶多做“后台自动 commit”的高级开关
+
+### 已跳过（用户确认不做）
+- ~~编辑/浏览模式落地~~（交互未定，搁置）
+- ~~时间线移动端可编辑~~（点击时间已进编辑，且移动端交互不便）
+- ~~标签交互~~（没必要）
+- ~~快捷键可发现性提示~~（没必要）
+
+### 已跳过 / 暂不做（用户确认）
+- ~~相册批量操作~~：用户确认暂不做。
+
+### 待定
+- [ ] **命令面板合并移动端搜索**：MenuBar 搜索与 MobileSearchOverlay 合并为统一组件。
+
+### 其他打磨（P3）
+- [x] 移动端断点缺口（640–768px）：`MenuBar` 内部菜单组原为 `hidden sm:flex`，与外壳 `max-md:hidden`（Sidebar/StatusBar/MobileTopBar 统一 768）不一致 → 已对齐为 `md:`。
+- [x] 移动端选词栏滚动跟随非首段：`MobileTextSelectionBar` 原 `querySelector('.section-fade')` 写死第一个滚动容器（仅事件页生效）→ 改为 document 捕获阶段监听滚动，覆盖所有 section。
+
+---
+
+## 二、技术重构（独立 PR，风险较高）
+
+### P2 — 数据层
+- [x] **统一到 React Query**：characters / events / world 已改为 useQuery/useMutation（与 countries 同构）；列表 30s staleTime + data-updated 事件刷新，详情 staleTime 0 防跨模块写入读到旧值。`refreshKey` 已删除；`data updated` 事件总线保留（trash/import/periods/timeline 等跨模块刷新依赖）。
+- [~] **泛型 CRUD 仓储**（部分完成）：`src/lib/repository.ts` 已收敛 listActive/getById/softDelete 三件套到 5 个 service；剩余 create/update 因字段级日志与引用同步差异仍各自手写，可进一步抽取带配置的 update 模板。
+- [ ] **World `content` 单格式迁移**：HTML 路径已删（WorldEditor），现为 JSON 字符串（active）+ `document` 对象（unused）两形态，可进一步收敛到 `document`。
+
+### P2 — 组件拆分（God 组件）
+> 本轮解耦已收口：全项目再无「真·God 组件」，`≥300 行` 名单里剩下的都是本轮抽出的层或壳（`use-entity-workspace` 620 / `TimelineView` 445 / `WorldLayout` 327 / `useTimelineViewport` 304 / `seed/index` 309），**不建议再拆**。
+
+- [x] `features/timeline/components/TimelineView.tsx`：**1457 → 445**。`hooks/useTimelineLayout`（纯派生：坐标/泳道/刻度/聚合桶）、`hooks/useTimelineViewport`（滚动/缩放/捏合/导航）、`hooks/useTimelineContainerWidth`（ResizeObserver）、`hooks/useTimelineDrag`（拖拽落位）、`hooks/usePeriodEditor`（时期增删改 + 长按面板）+ `components/{TimelineToolbar,EventNode,FilterSelect,PeriodBar,BucketView,EmptyTimeline}` + `constants.ts` / `utils.ts` / `types.ts`。顺带把工具栏 props 从三份重复收敛为一份。
+- [x] `src/components/editor/EditorCore.tsx`：**1041 → 276**。`editor-config.ts`（配置构建）、`editor-context-menu.tsx`、`mention-render.ts`、`BubbleMenuButtons.tsx`、`MobileEditorToolbar.tsx`、`editor-mobile-events.ts`（`mobile:*` 命令绑定）、`useEditorBubbleMenu.ts`、`useEditorMobileInput.ts`。
+- [x] `src/app/page.tsx`：**770 → 272**，抽出 `src/lib/use-entity-workspace.ts`（视图路由 / 返回栈 / 未保存守卫 / 滑动动画 / 词数）。
+- [x] 同一轮次其余：`MobileTextSelectionBar` 766→109（`shared/mobile-text-selection/` 7 文件；**修 `ACTION_OPEN` 顺序 bug**——Android 触摸下插入/表格菜单打不开且工具栏卡死）、`CharacterEditor` 613→234、`MenuBar` 574→39（+`MenuBarMenus` / `WindowControls` / `MenuBarSearch`）、`CharacterList` 555→235、`WorldLayout` 502→327（+`useWorldEntryDraft` / `WorldTreePanel`）、`GlobalAlbum` 504→249、`WorldTree` 501→187、`SettingsDialog` 498→100、`SeedData` 399→17、`EventList` 392→189、`ImageGallery` 382→95（**修 grid+裁剪下上传空操作 bug**）、`lib/export.ts` 380→barrel（`export/{payload,markdown,download}`）、`CountryList` 370→185、`EventEditor` 366→120、`CountryEditor` 332→188、`RelationGraph` 334→283、`ContextMenu` 310→161。顺带清掉 6 条既有 eslint warning；两个筛选下拉（`CountryFilterSelect` / `AlbumTagFilter`）合并为 `components/shared/FilterSelect`。
+
+### P3 — 死代码清理
+- [x] `saveDocument` ×4（characters/events/countries/world）
+- [x] `sync.ts` 的 `markAsPending` / `markAsSynced` / `getPendingItems`（同步 stub）
+- [x] `WorldEditor.tsx`（已删除）
+- [x] `EditorToolbar.tsx`、`AlbumTriggerContext.tsx`（零引用）
+- [x] `Character.relationships` 字段（实际用 `relatedCharacters`）
+- [x] `db.ts` v3→v4 无操作迁移
+- [x] `adapter.getUrl()`（local-adapter / capacitor-adapter）
+
+### P3 — 一致性
+- [x] 环境检测抽 `lib/env.ts`（`isTauri` / `isCapacitor` / `isNativePlatform` 单一权威实现，browser-compat 再导出兼容）
+- [x] 版本号单源（package.json → `lib/version.ts` → SettingsDialog；文档随发布同步）
+- [x] 浮层 Portal 统一到 `#overlay-root`（`dialog.tsx` / `alert-dialog.tsx` / `FullscreenViewer` / `ImageCropper` / 编辑器弹层 ×4：mention 弹层、slash 弹层、移动端键盘工具栏+块面板、BlockTypeMenu）
+- [x] `id?: number` → 精确类型：实体 `id` 收敛为必填 + Dexie 4 `EntityTable<T,'id'>`（读出行 id 必为 number、写入时 id 可省）；顺带修正 `lib/repository.ts` 的泛型位 —— 原先 `Table<T, number>` 会把推断出的 T 统一成 `InsertType`（写入态），是全局 `as number` 的根源。断言 **82 → 5**（余下 4 处为外部无类型边界：dnd-kit `data`、react-flow `node.data`、自定义事件 `detail`、ProseMirror `attrs`）。导入层 `as never[]` ×10 一并收敛为单一 `looseTable()` 断言点。
+
+---
+
+## 三、已知技术债（继承自 AGENTS.md）
+- [x] 桌面/移动端折叠展开图标规则同步到 RelationGraph 的 Controls（核查后确认 RelationGraph 未用 @xyflow/react 默认 Controls，已自定义 lucide 控件，此项已过时）
+- [x] `_syncStatus` 写入逻辑各 service 手写，已统一为 `pendingStamp()` helper

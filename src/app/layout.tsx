@@ -8,6 +8,8 @@ import { SettingsProvider } from "@/lib/settings";
 import { ActiveEditorProvider } from "@/lib/editor-context";
 import { Providers } from "./providers";
 import { SeedData } from "@/components/shared/SeedData";
+import { VaultGate } from "@/features/vault";
+import { VaultProvider } from "@/lib/vault/vault-provider";
 import { OverlayRoot } from "@/components/layout/OverlayRoot";
 import { KeyboardProvider } from "@/lib/KeyboardContext";
 import "./globals.css";
@@ -42,24 +44,28 @@ export default function RootLayout({
         </head>
         <body className="flex flex-col h-screen overflow-hidden">
         <Providers>
-          <SeedData />
-          <KeyboardProvider>
-          <SettingsProvider>
-            <ActiveEditorProvider>
-            <EntityNavigateProvider>
-              <WordCountProvider>
-                <NavigationProvider>
-                  <NavigationSourceProvider>
-                  <AppShell>
-                    {children}
-                  </AppShell>
-                  </NavigationSourceProvider>
-                </NavigationProvider>
-              </WordCountProvider>
-            </EntityNavigateProvider>
-            </ActiveEditorProvider>
-          </SettingsProvider>
-          </KeyboardProvider>
+          <VaultProvider>
+            <SeedData />
+            <KeyboardProvider>
+            <SettingsProvider>
+              <ActiveEditorProvider>
+              <EntityNavigateProvider>
+                <WordCountProvider>
+                  <NavigationProvider>
+                    <NavigationSourceProvider>
+                    <VaultGate>
+                      <AppShell>
+                        {children}
+                      </AppShell>
+                    </VaultGate>
+                    </NavigationSourceProvider>
+                  </NavigationProvider>
+                </WordCountProvider>
+              </EntityNavigateProvider>
+              </ActiveEditorProvider>
+            </SettingsProvider>
+            </KeyboardProvider>
+          </VaultProvider>
         </Providers>
       <OverlayRoot />
       </body>

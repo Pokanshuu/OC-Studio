@@ -25,7 +25,7 @@ const TAB_ITEMS = [
   { value: "world", label: "世界", icon: BookOpen },
   { value: "general", label: "通用", icon: Cpu },
   { value: "data", label: "数据", icon: Database },
-  { value: "ai", label: "AI", icon: Cpu },
+  { value: "ai", label: "云", icon: Cpu },
   { value: "about", label: "关于", icon: Info },
 ] as const
 
@@ -37,13 +37,13 @@ export function SettingsDialog({
 }: SettingsDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-md:max-w-[calc(100%-2rem)] p-0 overflow-hidden" showCloseButton={false}>
-        <DialogHeader className="flex flex-row items-center gap-3 px-6 pt-6 pb-2">
+      <DialogContent className="flex max-h-[calc(100vh-4rem)] max-w-lg flex-col overflow-hidden p-0 max-md:max-w-[calc(100%-2rem)]" showCloseButton={false}>
+        <DialogHeader className="flex shrink-0 flex-row items-center gap-3 px-6 pt-6 pb-2">
           <DialogTitle>设置</DialogTitle>
         </DialogHeader>
 
-        <Tabs value={tab} onValueChange={onTabChange}>
-          <div className="px-6">
+        <Tabs value={tab} onValueChange={onTabChange} className="flex min-h-0 flex-1 flex-col">
+          <div className="shrink-0 px-6">
             <TabsList className="grid w-full grid-cols-5">
               {TAB_ITEMS.map((item) => (
                 <TabsTrigger
@@ -58,7 +58,8 @@ export function SettingsDialog({
             </TabsList>
           </div>
 
-          <div className="px-6 pb-6">
+          {/* 内容区自己滚：窗口矮的时候（或「关于」里那一长串致谢）不会把弹窗撑出屏幕 */}
+          <div className="main-scroll min-h-0 flex-1 overflow-y-auto px-6 pb-6">
             {/* ---- world ---- */}
             <TabsContent value="world">
               <WorldTab open={open} />
@@ -83,7 +84,7 @@ export function SettingsDialog({
           </div>
         </Tabs>
 
-        <div className="flex justify-end border-t border-line px-6 py-4">
+        <div className="flex shrink-0 justify-end border-t border-line px-6 py-4">
           <button
             onClick={() => onOpenChange(false)}
             className="touch-feedback inline-flex h-8 items-center justify-center px-3 text-[13px] text-ink-muted transition-colors hover:text-ink"

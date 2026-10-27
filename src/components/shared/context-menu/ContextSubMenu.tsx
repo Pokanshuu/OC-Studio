@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Separator } from '@/components/ui/separator'
+import { MENU, MENU_ITEM_BASE } from '@/lib/ui-tokens'
 import { adjustSubMenuPosition } from '@/lib/menu-utils'
 import { ContextMenuButton } from './ContextMenuButton'
 import type { ContextMenuItem } from './context-menu-types'
@@ -76,7 +77,7 @@ export function ContextSubMenu({ item, onCloseParent }: { item: ContextMenuItem;
         disabled={item.disabled}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
-        className={`flex w-full items-center gap-3 px-2.5 py-1.5 text-left text-[13px] transition-colors ${
+        className={`${MENU_ITEM_BASE} ${
           item.disabled ? 'text-ink-faint' : 'text-ink hover:bg-[var(--oc-hover)]'
         }`}
       >
@@ -92,12 +93,12 @@ export function ContextSubMenu({ item, onCloseParent }: { item: ContextMenuItem;
               ref={subRef}
               onMouseEnter={handleMouseEnter}
               onMouseLeave={handleMouseLeave}
-              className="fixed z-50 ml-1 flex min-w-[140px] flex-col border border-line bg-paper/85 p-1 shadow-none backdrop-blur-lg pointer-events-auto dark:bg-paper/85"
+              className={`${MENU} fixed z-50 ml-1 flex min-w-[140px] flex-col pointer-events-auto`}
               style={subStyle}
             >
           {children.map((child, i) => {
             if (child.separator) {
-              return <Separator key={i} className="my-1" />
+              return <Separator key={i} className="mx-2 my-1" />
             }
             return (
               <ContextMenuButton key={i} item={child} onSelect={onCloseParent} />

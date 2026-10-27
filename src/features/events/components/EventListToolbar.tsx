@@ -3,7 +3,7 @@
 import { Search, Plus } from 'lucide-react'
 import { SortViewControls, SortSelect } from '@/components/shared/SortViewControls'
 import type { ViewMode } from '@/components/shared/SortViewControls'
-import { PAGE_TITLE } from '@/lib/ui-tokens'
+import { BTN_PRIMARY, PAGE_TITLE } from '@/lib/ui-tokens'
 import { MobileFilterBar } from '@/components/layout/MobileFilterBar'
 import { SORT_OPTIONS } from './event-list-utils'
 import type { SortKey } from './event-list-utils'
@@ -57,7 +57,7 @@ export function EventListToolbar({
         </div>
         <button
           onClick={onCreateEvent}
-          className="touch-feedback flex h-8 items-center gap-1.5 bg-ink px-3 text-[13px] text-paper transition-opacity hover:bg-ink hover:opacity-85"
+          className={BTN_PRIMARY}
         >
           <Plus size={16} strokeWidth={2} />
           <span>新建事件</span>

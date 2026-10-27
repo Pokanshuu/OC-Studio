@@ -2,7 +2,8 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, LayoutGrid, List } from 'lucide-react'
+import { MENU, MENU_ITEM_BASE, ROUND_ITEM } from '@/lib/ui-tokens'
 
 export interface SortOption {
   label: string
@@ -75,7 +76,7 @@ export function SortSelect({
         ? createPortal(
             <div
               ref={panelRef}
-              className="fixed z-30 mt-1 flex flex-col border border-line bg-paper/85 backdrop-blur-lg p-1 shadow-none pointer-events-auto"
+              className={`fixed z-30 mt-1 flex flex-col ${MENU} pointer-events-auto`}
               style={{ left: pos.x, top: pos.y }}
             >
               {options.map((opt) => (
@@ -85,7 +86,7 @@ export function SortSelect({
                     onChange(opt.value)
                     setOpen(false)
                   }}
-                  className={`px-2.5 py-1.5 text-left text-[13px] transition-colors ${
+                  className={`${MENU_ITEM_BASE} ${
                     sortKey === opt.value
                       ? 'text-ink bg-[var(--oc-hover)]'
                       : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
@@ -120,24 +121,27 @@ export function SortViewControls({
   return (
     <>
       <SortSelect sortKey={sortKey} onChange={onSortChange} options={sortOptions} />
-      {/* 文字切换（替代图标）：默认画廊 */}
-      <div className="-mx-1.5 flex items-center gap-1">
+      {/* 视图切换：图标（画廊 / 目录），当前项用墨色，另一项淡出 */}
+      <div className="flex items-center">
         <button
           onClick={() => onViewModeChange('grid')}
-          className={`h-8 px-1.5 text-[13px] transition-colors ${
+          aria-label="画廊视图"
+          title="画廊"
+          className={`flex h-8 w-8 items-center justify-center ${ROUND_ITEM} transition-colors ${
             viewMode === 'grid' ? 'text-ink' : 'text-ink-faint hover:text-ink-muted'
           }`}
         >
-          画廊
+          <LayoutGrid size={16} strokeWidth={2} />
         </button>
-        <span className="text-[13px] text-ink-faint/50">/</span>
         <button
           onClick={() => onViewModeChange('list')}
-          className={`h-8 px-1.5 text-[13px] transition-colors ${
+          aria-label="目录视图"
+          title="目录"
+          className={`flex h-8 w-8 items-center justify-center ${ROUND_ITEM} transition-colors ${
             viewMode === 'list' ? 'text-ink' : 'text-ink-faint hover:text-ink-muted'
           }`}
         >
-          目录
+          <List size={16} strokeWidth={2} />
         </button>
       </div>
     </>

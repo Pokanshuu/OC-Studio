@@ -262,7 +262,7 @@ export function RelationGraph({
             }
           }}
           maskColor="rgba(0,0,0,0.03)"
-          className="!border !border-line !rounded-none !bg-paper"
+          className="!border !border-line !rounded-item !bg-paper"
         />
       </ReactFlow>
 

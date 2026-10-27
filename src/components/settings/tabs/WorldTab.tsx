@@ -38,13 +38,13 @@ export function WorldTab({ open }: { open: boolean }) {
                       setWorldName(e.target.value)
                       void saveMeta({ worldName: e.target.value })
                     }}
-                    placeholder="例如：灰烬纪元"
+                    placeholder="给世界起个名吧"
                     className="h-8 w-full border-b border-line bg-transparent text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
                   />
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-sm text-ink">一句话简介</label>
+                  <label className="text-sm text-ink">简介</label>
                   <input
                     ref={taglineRef}
                     type="text"
@@ -54,7 +54,7 @@ export function WorldTab({ open }: { open: boolean }) {
                       setTagline(e.target.value)
                       void saveMeta({ tagline: e.target.value })
                     }}
-                    placeholder="例如：当最后一座浮空城坠落，大地只剩下灰与余烬。"
+                    placeholder="在这里输入简介"
                     className="h-8 w-full border-b border-line bg-transparent text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
                   />
                 </div>

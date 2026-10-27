@@ -35,6 +35,7 @@ export function useCharacterForm(
   const [race, setRace] = useState(character.race)
   const [element, setElement] = useState(character.element)
   const [occupation, setOccupation] = useState(character.occupation)
+  const [faction, setFaction] = useState(character.faction)
   const [nationalityLegacy, setNationalityLegacy] = useState(character.nationalityLegacy)
   const [countryId, setCountryId] = useState<number | undefined>(character.countryId)
   const [height, setHeight] = useState(character.height)
@@ -67,6 +68,7 @@ export function useCharacterForm(
       setRace(character.race)
       setElement(character.element)
       setOccupation(character.occupation)
+      setFaction(character.faction)
       setNationalityLegacy(character.nationalityLegacy)
       setCountryId(character.countryId)
       setHeight(character.height)
@@ -161,6 +163,7 @@ export function useCharacterForm(
         race,
         element,
         occupation,
+        faction,
         nationalityLegacy,
         countryId,
         height,
@@ -193,6 +196,7 @@ export function useCharacterForm(
     race,
     element,
     occupation,
+    faction,
     nationalityLegacy,
     countryId,
     height,
@@ -224,6 +228,7 @@ export function useCharacterForm(
     race, setRace,
     element, setElement,
     occupation, setOccupation,
+    faction, setFaction,
     nationalityLegacy, setNationalityLegacy,
     countryId,
     height, setHeight,

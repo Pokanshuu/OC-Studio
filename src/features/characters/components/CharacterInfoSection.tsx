@@ -12,6 +12,7 @@ const INFO_FIELDS = [
   { label: '种族', key: 'race', placeholder: '' },
   { label: '元素', key: 'element', placeholder: '' },
   { label: '职业', key: 'occupation', placeholder: '' },
+  { label: '阵营', key: 'faction', placeholder: '如：皇室 / 革新派' },
   { label: '身高', key: 'height', placeholder: '170 cm' },
   { label: '生日', key: 'birthday', placeholder: '1998-03-12' },
 ] as const
@@ -28,6 +29,7 @@ export function CharacterInfoSection({
     race: form.race,
     element: form.element,
     occupation: form.occupation,
+    faction: form.faction,
     height: form.height,
     birthday: form.birthday,
   }
@@ -36,6 +38,7 @@ export function CharacterInfoSection({
     race: form.setRace,
     element: form.setElement,
     occupation: form.setOccupation,
+    faction: form.setFaction,
     height: form.setHeight,
     birthday: form.setBirthday,
   }

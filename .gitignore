@@ -40,13 +40,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-#开发文档
-docs/
-todo.md
-
-#ai相关
-AGENTS.md
-CLAUDE.md
+#开发文档（公开：设计文档 / 待办 / agent 约定）
+# docs/ 与 todo.md / AGENTS.md / CLAUDE.md 已纳入版本管理
 
 # 构建产物
 .next/
@@ -78,7 +73,10 @@ Thumbs.db
 # 编辑器配置
 .vscode/
 .vs/
-.opencode/
+
+# .opencode：只公开 skills（agent 约定文档），依赖与本地状态不公开
+/.opencode/*
+!/.opencode/skills/
 opencode.json
 .claude/
 

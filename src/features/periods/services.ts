@@ -1,16 +1,12 @@
 import { db } from '@/lib/db'
 import { logOperation, pendingStamp } from '@/lib/sync'
-import { listActive, getById, softDelete } from '@/lib/repository'
+import { listActive, softDelete } from '@/lib/repository'
 import type { Period } from '@/types'
 
 const TABLE = 'periods'
 
 export async function getAllPeriods(): Promise<Period[]> {
   return listActive(db.periods, 'startTime')
-}
-
-export async function getPeriod(id: number): Promise<Period | undefined> {
-  return getById(db.periods, id)
 }
 
 export async function createPeriod(data: {

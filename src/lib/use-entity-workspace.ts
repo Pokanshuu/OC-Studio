@@ -314,6 +314,7 @@ export function useEntityWorkspace() {  const { activeItem: desktopActiveItem, s
         race: '',
         element: '',
         occupation: '',
+        faction: '',
         nationalityLegacy: '',
         height: '',
         birthday: '',

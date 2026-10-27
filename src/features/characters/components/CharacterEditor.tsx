@@ -11,7 +11,7 @@ import { ImageGallery } from '@/components/shared/image-gallery/ImageGallery'
 import { ProfileBannerEditor } from '@/components/shared/ProfileBannerEditor'
 import { CharacterInfoSection } from './CharacterInfoSection'
 import { CharacterRelationSection } from './CharacterRelationSection'
-import { PAGE_TITLE, SECTION_TITLE } from '@/lib/ui-tokens'
+import { BTN_PRIMARY, PAGE_TITLE, SECTION_TITLE } from '@/lib/ui-tokens'
 
 interface CharacterEditorProps {
   editCharacterId: number
@@ -122,7 +122,7 @@ function CharacterEditorInner({
           onClick={form.handleSave}
           disabled={form.saving || !form.name.trim()}
           data-save-button
-          className="touch-feedback flex h-8 items-center gap-1.5 bg-ink px-3 text-[13px] text-paper transition-opacity hover:bg-ink hover:opacity-85 disabled:opacity-40"
+          className={BTN_PRIMARY}
         >
           <Save size={14} strokeWidth={2} />
           <span>{form.saving ? '保存中...' : '保存'}</span>

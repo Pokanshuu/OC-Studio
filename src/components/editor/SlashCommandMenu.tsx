@@ -2,6 +2,7 @@ import { Extension, type Editor } from '@tiptap/core'
 import Suggestion from '@tiptap/suggestion'
 import type { SuggestionProps, SuggestionKeyDownProps } from '@tiptap/suggestion'
 import { adjustSuggestionPosition } from '@/lib/menu-utils'
+import { MENU, MENU_ITEM_BASE } from '@/lib/ui-tokens'
 
 interface SlashCommandItem {
   title: string
@@ -86,8 +87,8 @@ function renderItems(
   items.forEach((item, index) => {
     const btn = document.createElement('button')
     btn.type = 'button'
-    btn.className = `flex w-full items-center px-2.5 py-1.5 text-left text-[13px] transition-colors hover:bg-[var(--oc-hover)] ${
-      index === selected ? 'bg-black/5 dark:bg-white/5 text-ink' : 'text-ink'
+    btn.className = `${MENU_ITEM_BASE} ${
+      index === selected ? 'bg-[var(--oc-hover)] text-ink' : 'text-ink'
     }`
     btn.textContent = item.title
     btn.addEventListener('click', () => command(item))
@@ -134,7 +135,7 @@ export const SlashCommand = Extension.create({
 
             popup = document.createElement('div')
             popup.className =
-              'pointer-events-auto fixed z-50 max-h-[60vh] overflow-auto border border-line bg-paper/85 p-1 shadow-none backdrop-blur-lg min-w-[180px]'
+              `pointer-events-auto fixed z-50 max-h-[60vh] overflow-auto min-w-[180px] ${MENU}`
 
             const rect = props.clientRect?.()
             if (rect) {

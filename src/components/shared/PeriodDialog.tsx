@@ -5,7 +5,7 @@ import { Check } from 'lucide-react'
 import type { Period } from '@/types'
 import { PERIOD_COLORS } from '@/types'
 import { parseTime, assembleTime, parseYear } from '@/features/events/utils'
-import { FIELD_LABEL_BLOCK, INPUT_LINE, PAGE_TITLE } from '@/lib/ui-tokens'
+import { BTN_PRIMARY, FIELD_LABEL_BLOCK, INPUT_LINE, PAGE_TITLE, ROUND_PANEL } from '@/lib/ui-tokens'
 
 interface PeriodDialogProps {
   open: boolean
@@ -60,7 +60,7 @@ export function PeriodDialog({ open, period, onSave, onClose }: PeriodDialogProp
       className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/15 dark:bg-black/40"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="w-[440px] max-md:w-[calc(100%-2rem)] border border-line bg-paper/85 dark:bg-paper/85 p-6 backdrop-blur-lg">
+      <div className={`w-[440px] max-md:w-[calc(100%-2rem)] border border-line bg-paper/85 p-6 backdrop-blur-lg ${ROUND_PANEL}`}>
         <h2 className={`mb-5 ${PAGE_TITLE}`}>
           {period ? '编辑时期' : '添加时期'}
         </h2>
@@ -128,7 +128,7 @@ export function PeriodDialog({ open, period, onSave, onClose }: PeriodDialogProp
           <button
             onClick={handleSave}
             disabled={!canSave}
-            className="touch-feedback flex h-8 items-center gap-1.5 bg-ink px-3 text-[13px] text-paper transition-opacity hover:bg-ink hover:opacity-85 disabled:opacity-40"
+            className={BTN_PRIMARY}
           >
             <Check size={14} strokeWidth={2} />
             <span>{saving ? '保存中...' : '确认'}</span>

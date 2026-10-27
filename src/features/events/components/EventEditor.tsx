@@ -9,7 +9,7 @@ import { useEventForm } from '../hooks/useEventForm'
 import { EventInfoSection } from './EventInfoSection'
 import { EventRelationSection } from './EventRelationSection'
 import { EventAiSummary } from './EventAiSummary'
-import { PAGE_TITLE, SECTION_TITLE } from '@/lib/ui-tokens'
+import { BTN_PRIMARY, PAGE_TITLE, SECTION_TITLE } from '@/lib/ui-tokens'
 
 interface EventEditorProps {
   event: Event
@@ -41,7 +41,7 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
           onClick={form.handleSave}
           disabled={form.saving || !form.title.trim()}
           data-save-button
-          className="touch-feedback flex h-8 items-center gap-1.5 bg-ink px-3 text-[13px] text-paper transition-opacity hover:bg-ink hover:opacity-85 disabled:opacity-40"
+          className={BTN_PRIMARY}
         >
           <Save size={14} strokeWidth={2} />
           <span>{form.saving ? '保存中...' : '保存'}</span>

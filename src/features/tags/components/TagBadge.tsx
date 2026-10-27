@@ -3,6 +3,9 @@
 import { X } from 'lucide-react'
 import type { Tag } from '@/types'
 
+// 注意：这里必须是**完整字面量**类名。Tailwind 的 JIT 按源码文本扫描生成 CSS，
+// 用 `bg-[${hex}]/15` 这类拼接写法不会产出任何样式。
+// 色板的唯一源在 `@/lib/tag-colors.ts`（导入 vault 时为新标签分配颜色用）。
 const PRESET_COLORS: Record<string, string> = {
   '#FF6B6B': 'bg-[#FF6B6B]/15 text-[#FF6B6B] border-[#FF6B6B]/30',
   '#4ECDC4': 'bg-[#4ECDC4]/15 text-[#4ECDC4] border-[#4ECDC4]/30',
@@ -28,7 +31,7 @@ export function TagBadge({ tag, onRemove }: TagBadgeProps) {
 
   return (
     <span
-      className={`inline-flex items-center gap-1 px-2 py-[3px] text-[12px] ${colorClass}`}
+      className={`inline-flex items-center gap-1 rounded-item px-2 py-[3px] text-[12px] ${colorClass}`}
     >
       {tag.name}
       {onRemove ? (
@@ -38,7 +41,7 @@ export function TagBadge({ tag, onRemove }: TagBadgeProps) {
             e.stopPropagation()
             onRemove()
           }}
-          className="ml-0.5 rounded-none p-0.5 transition-colors hover:text-error"
+          className="ml-0.5 rounded-item p-0.5 transition-colors hover:text-error"
         >
           <X size={12} strokeWidth={2} />
         </button>

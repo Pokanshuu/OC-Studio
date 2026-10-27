@@ -1,5 +1,6 @@
 'use client'
 
+import { MENU_ITEM_BASE } from '@/lib/ui-tokens'
 import type { ContextMenuItem } from './context-menu-types'
 
 /** 菜单项按钮（顶层与子菜单共用同一套样式） */
@@ -17,7 +18,7 @@ export function ContextMenuButton({
         item.onClick?.()
         onSelect()
       }}
-      className={`flex items-center gap-3 px-2.5 py-1.5 text-left text-[13px] transition-colors ${
+      className={`${MENU_ITEM_BASE} ${
         item.danger
           ? 'text-error hover:bg-error-light dark:hover:bg-red-950/30'
           : item.disabled

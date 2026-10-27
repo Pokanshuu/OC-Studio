@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { Search, RefreshCw, Menu, ExternalLink } from 'lucide-react'
-import { LOADING_TEXT, MENU, PAGE_TITLE } from '@/lib/ui-tokens'
+import { LOADING_TEXT, PAGE_TITLE } from '@/lib/ui-tokens'
 import { FullscreenViewer } from './FullscreenViewer'
 import { useAlbumData, type AlbumEntry } from './useAlbumData'
 import { useDevice } from '@/lib/use-device'
@@ -194,10 +194,6 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
                 ]}
                 fallbackLabel="全部标签"
                 triggerClassName="touch-feedback flex h-8 items-center gap-1 px-2 text-[13px] text-ink transition-colors hover:bg-[var(--oc-hover)]"
-                panelClassName={`fixed z-30 mt-1 flex flex-col overflow-auto ${MENU} pointer-events-auto`}
-                itemClassName="whitespace-nowrap px-2.5 py-1.5 text-left text-[13px] transition-colors"
-                activeItemClassName="bg-[var(--oc-hover)] text-ink"
-                maxHeightClassName="max-h-64"
               />
               <SortSelect
                 sortKey={sortByTime ? 'time' : 'default'}

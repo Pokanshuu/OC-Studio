@@ -9,6 +9,7 @@ import React from 'react'
 import { BlockTypeMenu } from './BlockTypeMenu'
 import { useDevice } from '@/lib/use-device'
 import { useActiveEditor } from '@/lib/editor-context'
+import { MENU } from '@/lib/ui-tokens'
 import { useKeyboard } from '@/lib/KeyboardContext'
 import { ContextMenu } from '@/components/shared/ContextMenu'
 import { BubbleMenuButtons } from './BubbleMenuButtons'
@@ -237,7 +238,7 @@ export function EditorCore({
               ),
             }
           }}
-          className="flex gap-0.5 border border-line bg-paper/85 p-1 shadow-none backdrop-blur-lg z-20 context-menu-fade context-menu-visible dark:bg-paper/85"
+          className={`flex gap-0.5 ${MENU} z-20 context-menu-fade context-menu-visible`}
         >
           <BubbleMenuButtons editor={editor} />
         </BubbleMenu>

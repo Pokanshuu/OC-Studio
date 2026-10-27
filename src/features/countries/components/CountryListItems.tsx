@@ -6,6 +6,7 @@ import { useLongPress } from '@/lib/useLongPress'
 import { Avatar } from '@/components/shared/Avatar'
 import { getImageUrl, resolveImageUrl } from '@/lib/image-service'
 import { countryPreview } from './country-list-utils'
+import { ROUND_MEDIA } from '@/lib/ui-tokens'
 
 interface CountryItemProps {
   country: Country
@@ -80,7 +81,7 @@ export function CountryCard({
     <div className="relative group touch-feedback" {...longPress}>
       <button
         onClick={() => onSelect(country.id)}
-        className="flex w-full flex-col overflow-hidden bg-paper-card text-left transition-colors hover:bg-line"
+        className={`flex w-full flex-col overflow-hidden bg-paper-card text-left transition-colors hover:bg-line ${ROUND_MEDIA}`}
       >
         <div className="relative aspect-[3/2] w-full bg-paper-card">
           {country.headerUrl ? (

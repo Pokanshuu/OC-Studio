@@ -11,7 +11,7 @@ export function EventAiSummary({ form }: { form: EventForm }) {
         <button
           onClick={form.handleAISummarize}
           disabled={form.aiLoading}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-warning transition-colors hover:bg-[var(--oc-hover)] disabled:opacity-50"
+          className="flex items-center gap-1.5 rounded-item px-2.5 py-1 text-xs text-warning transition-colors hover:bg-[var(--oc-hover)] disabled:opacity-50"
         >
           <Sparkles size={14} strokeWidth={2} />
           <span>{form.aiLoading ? '生成中...' : 'AI 概括'}</span>

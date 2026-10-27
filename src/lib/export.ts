@@ -1,4 +1,6 @@
 export { exportAllData, exportFullBackup, downloadFullBackup } from './export/payload'
 export type { ExportPayload } from './export/payload'
-export { downloadJson, downloadMarkdown, downloadTxt } from './export/download'
+export { downloadJson, downloadMarkdown, downloadTxt, downloadText } from './export/download'
 export { exportToMarkdown, exportToTxt } from './export/markdown'
+export { buildStaticSite, exportStaticSite } from './export/site'
+export type { SiteData, BuildOptions } from './export/site'

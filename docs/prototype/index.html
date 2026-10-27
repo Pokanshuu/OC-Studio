@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="light dark" />
+  <title>灰烬纪元 · 设定集</title>
+  <meta name="description" content="一个关于坠落、灰烬与记忆的原创世界观设定集。" />
+  <!-- 多语言预留：各语言站点互相声明（样张只含默认语言） -->
+  <link rel="alternate" hreflang="zh-CN" href="./index.html" />
+  <link rel="stylesheet" href="./site.css" />
+  <!-- 防主题闪烁：与工作台 layout.tsx 同款手法 -->
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('oc-site-theme');
+        var dark = t ? t === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (dark) document.documentElement.classList.add('dark');
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+
+  <!-- ── 导航 ───────────────────────────────────────────────────────────── -->
+  <header class="nav">
+    <div class="wrap nav__inner">
+      <a class="brand" href="./index.html">灰烬纪元<em>Ashen Era</em></a>
+
+      <nav class="nav__links" aria-label="主导航">
+        <a href="./character.html">角色</a>
+        <a href="#events">事件</a>
+        <a href="#world">世界观</a>
+        <a href="#world">时间线</a>
+      </nav>
+
+      <div class="nav__tools">
+        <span class="lang" aria-label="语言">
+          <b>中</b><span aria-hidden="true">/</span><a href="#" title="样张未包含英文站点">EN</a>
+        </span>
+        <button id="theme-toggle" class="iconbtn" type="button" aria-label="切换明暗主题" aria-pressed="false">
+          <svg class="i-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+          <svg class="i-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Hero ──────────────────────────────────────────────────────────── -->
+  <section class="hero">
+    <div class="hero__media" data-mono="灰" role="img" aria-label="站点主视觉（样张占位）"></div>
+    <div class="hero__body">
+      <div class="wrap">
+        <p class="hero__eyebrow reveal">原创世界观设定集 · Setting Archive</p>
+        <h1 class="hero__title reveal reveal--d1">灰烬纪元</h1>
+        <p class="hero__lede reveal reveal--d2">当最后一座浮空城坠落，大地只剩下灰与余烬——以及记得旧日的人。</p>
+      </div>
+    </div>
+  </section>
+
+  <main>
+    <!-- ── 01 主要角色 ─────────────────────────────────────────────────── -->
+    <section class="section">
+      <div class="wrap">
+        <div class="section__head">
+          <span class="section__num tnum">01</span>
+          <h2 class="section__title">主要角色</h2>
+          <a class="section__more" href="./character.html">全部 12 位 →</a>
+        </div>
+
+        <div class="grid-chars">
+          <a class="card" href="./character.html">
+            <div class="card__plate" data-mono="薇" role="img" aria-label="薇拉·索恩 立绘（占位）"></div>
+            <h3 class="card__name">薇拉·索恩</h3>
+            <p class="card__meta">灰烬教团 · 首席记录官</p>
+          </a>
+          <a class="card" href="./character.html">
+            <div class="card__plate" data-mono="凯" role="img" aria-label="凯尔·阿斯特 立绘（占位）"></div>
+            <h3 class="card__name">凯尔·阿斯特</h3>
+            <p class="card__meta">浮空城遗民 · 拾荒者</p>
+          </a>
+          <a class="card" href="./character.html">
+            <div class="card__plate" data-mono="瑟" role="img" aria-label="瑟琳 立绘（占位）"></div>
+            <h3 class="card__name">瑟琳</h3>
+            <p class="card__meta">无声修会 · 执灯人</p>
+          </a>
+          <a class="card" href="./character.html">
+            <div class="card__plate" data-mono="奥" role="img" aria-label="奥兹·格雷 立绘（占位）"></div>
+            <h3 class="card__name">奥兹·格雷</h3>
+            <p class="card__meta">旧帝国 · 最后的铸剑师</p>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── 02 近期事件 ─────────────────────────────────────────────────── -->
+    <section class="section section--line" id="events">
+      <div class="wrap">
+        <div class="section__head">
+          <span class="section__num tnum">02</span>
+          <h2 class="section__title">近期事件</h2>
+          <a class="section__more" href="#events">完整年表 →</a>
+        </div>
+
+        <div class="stream">
+          <article class="stream__row">
+            <div class="stream__year tnum">412<small>灰烬历</small></div>
+            <div>
+              <h3 class="stream__title">浮空城「阿斯特拉」坠落</h3>
+              <p class="stream__desc">最后一座仍悬于云上的城市在三日内解体，碎片坠入东境盐海。教团将其定为新纪元的起点。</p>
+            </div>
+          </article>
+          <article class="stream__row">
+            <div class="stream__year tnum">408<small>灰烬历</small></div>
+            <div>
+              <h3 class="stream__title">无声修会成立</h3>
+              <p class="stream__desc">七名执灯人立誓不再开口，以灯与碑代替言语，行走于灰风季之后的荒原。</p>
+            </div>
+          </article>
+          <article class="stream__row">
+            <div class="stream__year tnum">397<small>灰烬历</small></div>
+            <div>
+              <h3 class="stream__title">第三灰风季</h3>
+              <p class="stream__desc">持续十一个月的风沙吞没西境三座城邦，幸存者沿地下引水渠迁徙至中央高地。</p>
+            </div>
+          </article>
+          <article class="stream__row">
+            <div class="stream__year tnum">366<small>灰烬历</small></div>
+            <div>
+              <h3 class="stream__title">旧帝国分裂</h3>
+              <p class="stream__desc">皇位空悬三年后，四位督军各自称制，帝国自此不再有一个名字。</p>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── 03 世界观 ───────────────────────────────────────────────────── -->
+    <section class="section section--line" id="world">
+      <div class="wrap">
+        <div class="section__head">
+          <span class="section__num tnum">03</span>
+          <h2 class="section__title">世界观</h2>
+          <a class="section__more" href="#world">全部词条 →</a>
+        </div>
+
+        <div class="grid-world">
+          <a class="world-cell" href="#world"><span class="world-cell__label">Geography</span><span class="world-cell__title">地理志</span><span class="world-cell__count">18 条词条</span></a>
+          <a class="world-cell" href="#world"><span class="world-cell__label">Orders</span><span class="world-cell__title">教团与修会</span><span class="world-cell__count">12 条词条</span></a>
+          <a class="world-cell" href="#world"><span class="world-cell__label">Peoples</span><span class="world-cell__title">种族与造物</span><span class="world-cell__count">9 条词条</span></a>
+          <a class="world-cell" href="#world"><span class="world-cell__label">Scripts</span><span class="world-cell__title">语言与文字</span><span class="world-cell__count">6 条词条</span></a>
+          <a class="world-cell" href="#world"><span class="world-cell__label">Craft</span><span class="world-cell__title">器物与工艺</span><span class="world-cell__count">11 条词条</span></a>
+          <a class="world-cell" href="#world"><span class="world-cell__label">Chronicle</span><span class="world-cell__title">年表</span><span class="world-cell__count">24 条记录</span></a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ── 页脚 ─────────────────────────────────────────────────────────────── -->
+  <footer class="footer">
+    <div class="wrap footer__inner">
+      <span class="serif">灰烬纪元 · Ashen Era</span>
+      <span>由 OC Studio 生成</span>
+      <span class="tnum">最后更新 2026-09-23</span>
+    </div>
+  </footer>
+
+  <script src="./site.js" defer></script>
+</body>
+</html>

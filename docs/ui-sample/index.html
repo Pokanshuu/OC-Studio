@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light dark" />
+<title>OC Studio · 界面样张</title>
+<link rel="stylesheet" href="./app.css" />
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem('oc-ui-sample-theme');
+      if (t === 'dark' || (!t && matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      }
+    } catch (e) {}
+  })();
+</script>
+</head>
+<body>
+
+<!-- ── 顶栏 ─────────────────────────────────────────────────────────────── -->
+<header class="topbar">
+  <span class="brand">灰烬纪元</span>
+
+  <nav class="menu">
+    <button>文件</button>
+    <button>编辑</button>
+    <button>视图</button>
+  </nav>
+
+  <div class="search">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+    <input placeholder="搜索" />
+  </div>
+
+  <button class="iconbtn" id="theme" title="明暗">
+    <svg id="i-sun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/></svg>
+    <svg id="i-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" hidden><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+  </button>
+</header>
+
+<div class="shell">
+
+  <!-- ── 侧栏 ──────────────────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar__group">
+      <div class="sidebar__label">内容</div>
+      <button class="navitem" aria-current="page">角色<span class="count tnum">12</span></button>
+      <button class="navitem">事件<span class="count tnum">38</span></button>
+      <button class="navitem">国家<span class="count tnum">4</span></button>
+      <button class="navitem">世界观<span class="count tnum">61</span></button>
+    </div>
+
+    <div class="sidebar__group">
+      <div class="sidebar__label">视图</div>
+      <button class="navitem">时间线</button>
+      <button class="navitem">关系图</button>
+      <button class="navitem">相册</button>
+    </div>
+
+    <div class="sidebar__group sidebar__foot">
+      <button class="navitem">回收站</button>
+      <button class="navitem">设置</button>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <!-- ══ 视图一：列表 ══════════════════════════════════════════════════ -->
+    <section class="body" id="view-list">
+      <div class="pagehead">
+        <h1>角色</h1>
+        <span class="count tnum">12</span>
+        <div class="actions">
+          <button class="btn btn--ghost">筛选</button>
+          <button class="btn btn--primary">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            新建角色
+          </button>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <div class="search" style="width:280px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+          <input placeholder="搜索角色" />
+        </div>
+        <div class="spacer"></div>
+        <div class="segment">
+          <button aria-pressed="true">目录</button>
+          <button aria-pressed="false">画廊</button>
+        </div>
+      </div>
+
+      <ol class="rows">
+        <li class="row">
+          <span class="row__idx tnum">01</span>
+          <span class="avatar">薇</span>
+          <div>
+            <div class="row__title"><span class="row__mark" title="主要角色"></span><span class="row__name">薇拉·索恩</span></div>
+            <div class="row__meta">灰烬教团 · 首席记录官 · 半精灵</div>
+          </div>
+          <div class="row__tags"><span>教团</span><span>记录者</span></div>
+          <span class="row__time tnum">09-23</span>
+        </li>
+        <li class="row">
+          <span class="row__idx tnum">02</span>
+          <span class="avatar">凯</span>
+          <div>
+            <div class="row__title"><span class="row__name">凯尔·阿斯特</span></div>
+            <div class="row__meta">浮空城遗民 · 拾荒者 · 人类</div>
+          </div>
+          <div class="row__tags"><span>拾荒者</span></div>
+          <span class="row__time tnum">09-22</span>
+        </li>
+        <li class="row">
+          <span class="row__idx tnum">03</span>
+          <span class="avatar">瑟</span>
+          <div>
+            <div class="row__title"><span class="row__name">瑟琳</span></div>
+            <div class="row__meta">无声修会 · 执灯人</div>
+          </div>
+          <div class="row__tags"><span>修会</span></div>
+          <span class="row__time tnum">09-21</span>
+        </li>
+        <li class="row">
+          <span class="row__idx tnum">04</span>
+          <span class="avatar">奥</span>
+          <div>
+            <div class="row__title"><span class="row__name">奥兹·格雷</span></div>
+            <div class="row__meta">旧帝国 · 最后的铸剑师 · 矮人</div>
+          </div>
+          <div class="row__tags"><span>旧帝国</span><span>工匠</span></div>
+          <span class="row__time tnum">09-20</span>
+        </li>
+        <li class="row">
+          <span class="row__idx tnum">05</span>
+          <span class="avatar">诺</span>
+          <div>
+            <div class="row__title"><span class="row__name">诺兰·维斯</span></div>
+            <div class="row__meta">盐海商队 · 领队</div>
+          </div>
+          <div class="row__tags"><span>商队</span></div>
+          <span class="row__time tnum">09-18</span>
+        </li>
+        <li class="row">
+          <span class="row__idx tnum">06</span>
+          <span class="avatar">缇</span>
+          <div>
+            <div class="row__title"><span class="row__name">缇雅</span></div>
+            <div class="row__meta">无声修会 · 抄经人</div>
+          </div>
+          <div class="row__tags"><span>修会</span></div>
+          <span class="row__time tnum">09-17</span>
+        </li>
+      </ol>
+    </section>
+
+    <!-- ══ 视图二：编辑 ══════════════════════════════════════════════════ -->
+    <section class="body" id="view-editor" hidden style="padding-top:0">
+      <div class="editbar" style="margin:0 -48px 32px; padding:0 48px">
+        <button class="iconbtn" title="返回">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        </button>
+        <span class="editbar__name">薇拉·索恩</span>
+        <span class="editbar__state">未保存</span>
+        <div class="actions">
+          <button class="btn btn--primary">保存</button>
+        </div>
+      </div>
+
+      <section class="block">
+        <h2 class="block__label">基本信息</h2>
+        <div class="fields">
+          <label class="field"><span class="k">别名</span><input value="灰里的抄书人" /></label>
+          <label class="field"><span class="k">种族</span><input value="半精灵" /></label>
+          <label class="field"><span class="k">职业</span><input value="首席记录官" /></label>
+          <label class="field"><span class="k">所属</span><input value="灰烬教团" /></label>
+          <label class="field"><span class="k">国籍</span><input value="暮光联邦" /></label>
+          <label class="field"><span class="k">元素</span><input value="风" /></label>
+          <label class="field"><span class="k">身高</span><input value="168 cm" class="tnum" /></label>
+          <label class="field"><span class="k">生日</span><input value="1998-03-12" class="tnum" /></label>
+        </div>
+      </section>
+
+      <section class="block">
+        <h2 class="block__label">立绘</h2>
+        <div class="plates">
+          <figure class="plate">薇</figure>
+          <figure class="plate">薇</figure>
+          <figure class="plate">薇</figure>
+          <button class="plate plate--add" title="添加">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+        </div>
+      </section>
+
+      <section class="block">
+        <h2 class="block__label">正文</h2>
+        <div class="prose">
+          <p>灰烬教团的第一位、也是唯一一位首席记录官。她的职责不是书写历史，而是保存那些拒绝被写下的东西——名字、口音、一首没唱完的歌。</p>
+          <h3>生平</h3>
+          <p>生于西境城邦伊尔，父母皆为引水渠的维护匠人。第三灰风季吞没伊尔时她九岁，随幸存者沿渠徒步四十日抵达中央高地。</p>
+        </div>
+      </section>
+
+      <section class="block">
+        <h2 class="block__label">关系</h2>
+        <table class="rel">
+          <thead>
+            <tr><th>对象</th><th>类型</th><th>关系</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>凯尔·阿斯特</td><td>角色</td><td>同行者</td></tr>
+            <tr><td>瑟琳</td><td>角色</td><td>对立</td></tr>
+            <tr><td>灰烬教团</td><td>词条</td><td>所属</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="block">
+        <h2 class="block__label">标签</h2>
+        <div class="chips">
+          <button class="chip chip--on">教团</button>
+          <button class="chip">记录者</button>
+          <button class="chip">西境出身</button>
+          <button class="chip">主要角色</button>
+          <button class="chip chip--add">添加</button>
+        </div>
+      </section>
+    </section>
+
+  </main>
+</div>
+
+<!-- ── 样张切换器（非产品 UI） ──────────────────────────────────────────── -->
+<div class="sampler">
+  <span>样张</span>
+  <span class="sep"></span>
+  <button id="tab-list" aria-pressed="true">列表</button>
+  <button id="tab-editor" aria-pressed="false">编辑</button>
+</div>
+
+<script>
+  var root = document.documentElement;
+
+  function syncIcons() {
+    var dark = root.classList.contains('dark');
+    document.getElementById('i-sun').hidden = dark;
+    document.getElementById('i-moon').hidden = !dark;
+  }
+
+  document.getElementById('theme').addEventListener('click', function () {
+    root.classList.toggle('dark');
+    try { localStorage.setItem('oc-ui-sample-theme', root.classList.contains('dark') ? 'dark' : 'light'); } catch (e) {}
+    syncIcons();
+  });
+  syncIcons();
+
+  var views = { list: document.getElementById('view-list'), editor: document.getElementById('view-editor') };
+  function show(name) {
+    views.list.hidden = name !== 'list';
+    views.editor.hidden = name !== 'editor';
+    document.getElementById('tab-list').setAttribute('aria-pressed', String(name === 'list'));
+    document.getElementById('tab-editor').setAttribute('aria-pressed', String(name === 'editor'));
+    document.querySelector('.main').scrollTop = 0;
+  }
+  document.getElementById('tab-list').addEventListener('click', function () { show('list'); });
+  document.getElementById('tab-editor').addEventListener('click', function () { show('editor'); });
+</script>
+</body>
+</html>

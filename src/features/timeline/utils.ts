@@ -19,13 +19,6 @@ export function computeDensity(pxPerYear: number): TimelineDensity {
   return 'century'
 }
 
-export function densityLabel(density: TimelineDensity): string {
-  if (density === 'year') return '年视图'
-  if (density === 'decade') return '十年视图'
-  if (density === 'half-century') return '五十年视图'
-  return '百年视图'
-}
-
 export function parseYear(time: string): number | null {
   if (!time) return null
   const match = /^-?\d+/.exec(time)

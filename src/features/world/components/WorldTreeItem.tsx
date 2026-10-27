@@ -144,7 +144,7 @@ export function SortableTreeItem({
     <div ref={setNodeRef} style={style}>
       <ContextMenu items={treeContextMenuItems}>
       <div
-        className={`group flex items-center gap-0.5 py-1 text-[13px] transition-colors cursor-pointer ${
+        className={`group flex items-center gap-0.5 rounded-item py-1 text-[13px] transition-colors cursor-pointer ${
           isSelected
             ? 'bg-[var(--oc-hover)] text-ink'
             : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'

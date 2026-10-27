@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronDown } from 'lucide-react'
+import { MENU, MENU_ITEM_BASE } from '@/lib/ui-tokens'
 
 export interface FilterOption {
   value: number | 'all'
@@ -21,6 +22,8 @@ interface FilterSelectProps {
   itemClassName?: string
   /** 当前项的高亮类名 */
   activeItemClassName?: string
+  /** 触发按钮里文字那一层的类名（需要截断时传 max-w-* truncate） */
+  labelClassName?: string
   chevronSize?: number
   /** 面板最小高度保护（用于 max-h-64 这类滚动） */
   maxHeightClassName?: string
@@ -36,9 +39,10 @@ export function FilterSelect({
   options,
   fallbackLabel,
   triggerClassName,
-  panelClassName = 'fixed z-30 mt-1 flex max-h-64 flex-col overflow-auto border border-line bg-paper/85 backdrop-blur-lg p-1 pointer-events-auto',
-  itemClassName = 'whitespace-nowrap px-2.5 py-1.5 text-left text-[13px] transition-colors',
+  panelClassName = `fixed z-30 mt-1 flex max-h-64 flex-col overflow-auto ${MENU} pointer-events-auto`,
+  itemClassName = `${MENU_ITEM_BASE} whitespace-nowrap`,
   activeItemClassName = 'bg-[var(--oc-hover)] text-ink',
+  labelClassName,
   chevronSize = 14,
   maxHeightClassName = 'max-h-64',
 }: FilterSelectProps) {
@@ -80,7 +84,7 @@ export function FilterSelect({
         onClick={() => setOpen(!open)}
         className={triggerClassName}
       >
-        <span>{selectedLabel}</span>
+        <span className={labelClassName}>{selectedLabel}</span>
         <ChevronDown size={chevronSize} strokeWidth={2} />
       </button>
 

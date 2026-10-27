@@ -7,6 +7,7 @@ import type { Area, Point } from 'react-easy-crop'
 import { RotateCcw, RotateCw, Check, X, ZoomOut, ZoomIn, Loader2 } from 'lucide-react'
 import { getCroppedBlob } from '@/lib/image-crop'
 import 'react-easy-crop/react-easy-crop.css'
+import { BTN_PRIMARY } from '@/lib/ui-tokens'
 
 interface ImageCropperProps {
   open: boolean
@@ -149,7 +150,7 @@ export function ImageCropper({
               [&::-webkit-slider-thumb]:-mt-1
               [&::-webkit-slider-thumb]:h-3.5
               [&::-webkit-slider-thumb]:w-3.5
-              [&::-webkit-slider-thumb]:rounded-none
+              [&::-webkit-slider-thumb]:rounded-full
               [&::-webkit-slider-thumb]:bg-ink
               [&::-webkit-slider-thumb]:border
               [&::-webkit-slider-thumb]:border-line
@@ -158,7 +159,7 @@ export function ImageCropper({
               [&::-moz-range-track]:bg-line-hover
               [&::-moz-range-thumb]:h-3.5
               [&::-moz-range-thumb]:w-3.5
-              [&::-moz-range-thumb]:rounded-none
+              [&::-moz-range-thumb]:rounded-full
               [&::-moz-range-thumb]:bg-ink
               [&::-moz-range-thumb]:border-line"
           />
@@ -176,7 +177,7 @@ export function ImageCropper({
           <button
             type="button"
             onClick={handleConfirm}
-            className="touch-feedback flex h-8 items-center gap-1.5 bg-ink px-3 text-[13px] text-paper transition-opacity hover:bg-ink hover:opacity-85"
+            className={BTN_PRIMARY}
           >
             <Check size={16} strokeWidth={2} />
             <span>确认</span>
@@ -203,7 +204,7 @@ export function ImageCropper({
               [&::-webkit-slider-thumb]:-mt-1
               [&::-webkit-slider-thumb]:h-3.5
               [&::-webkit-slider-thumb]:w-3.5
-              [&::-webkit-slider-thumb]:rounded-none
+              [&::-webkit-slider-thumb]:rounded-full
               [&::-webkit-slider-thumb]:bg-ink
               [&::-webkit-slider-thumb]:border
               [&::-webkit-slider-thumb]:border-line
@@ -212,7 +213,7 @@ export function ImageCropper({
               [&::-moz-range-track]:bg-line-hover
               [&::-moz-range-thumb]:h-3.5
               [&::-moz-range-thumb]:w-3.5
-              [&::-moz-range-thumb]:rounded-none
+              [&::-moz-range-thumb]:rounded-full
               [&::-moz-range-thumb]:bg-ink
               [&::-moz-range-thumb]:border-line"
           />
@@ -254,7 +255,7 @@ export function ImageCropper({
             <button
               type="button"
               onClick={handleConfirm}
-              className="touch-feedback flex h-8 items-center gap-1.5 bg-ink px-3 text-[13px] text-paper transition-opacity hover:bg-ink hover:opacity-85"
+              className={BTN_PRIMARY}
             >
               <Check size={16} strokeWidth={2} />
               <span>确认</span>

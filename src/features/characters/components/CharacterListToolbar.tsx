@@ -3,7 +3,7 @@
 import { Search, Plus } from 'lucide-react'
 import { SortViewControls, SortSelect } from '@/components/shared/SortViewControls'
 import type { ViewMode } from '@/components/shared/SortViewControls'
-import { PAGE_TITLE } from '@/lib/ui-tokens'
+import { BTN_PRIMARY, PAGE_TITLE } from '@/lib/ui-tokens'
 import { MobileFilterBar } from '@/components/layout/MobileFilterBar'
 import { FilterSelect } from '@/components/shared/FilterSelect'
 import type { FilterOption } from '@/components/shared/FilterSelect'
@@ -61,11 +61,7 @@ export function CharacterListToolbar({
             options={countryOptions}
             fallbackLabel="全部国家"
             triggerClassName="touch-feedback flex md:h-9 h-7 items-center gap-1 px-2 text-[11px] text-ink transition-colors hover:bg-[var(--oc-hover)] md:px-3 md:text-[13px]"
-            panelClassName="fixed z-30 mt-1 flex flex-col overflow-auto border border-line bg-paper/85 backdrop-blur-lg p-1 shadow-none pointer-events-auto"
-            itemClassName="whitespace-nowrap rounded-sm px-3 py-1.5 text-left text-sm transition-colors"
-            activeItemClassName="bg-black/5 dark:bg-white/5 text-ink"
             chevronSize={16}
-            maxHeightClassName="max-h-64"
           />
           <SortViewControls
             sortKey={sortKey}
@@ -77,7 +73,7 @@ export function CharacterListToolbar({
         </div>
         <button
           onClick={onCreateCharacter}
-          className="touch-feedback flex h-8 items-center gap-1.5 bg-ink px-3 text-[13px] text-paper transition-opacity hover:bg-ink hover:opacity-85"
+          className={BTN_PRIMARY}
         >
           <Plus size={16} strokeWidth={2} />
           <span>新建角色</span>
@@ -92,11 +88,7 @@ export function CharacterListToolbar({
             options={countryOptions}
             fallbackLabel="全部国家"
             triggerClassName="touch-feedback flex md:h-9 h-7 items-center gap-1 px-2 text-[11px] text-ink transition-colors hover:bg-[var(--oc-hover)] md:px-3 md:text-[13px]"
-            panelClassName="fixed z-30 mt-1 flex flex-col overflow-auto border border-line bg-paper/85 backdrop-blur-lg p-1 shadow-none pointer-events-auto"
-            itemClassName="whitespace-nowrap rounded-sm px-3 py-1.5 text-left text-sm transition-colors"
-            activeItemClassName="bg-black/5 dark:bg-white/5 text-ink"
             chevronSize={16}
-            maxHeightClassName="max-h-64"
           />
           <SortSelect
             sortKey={sortKey}

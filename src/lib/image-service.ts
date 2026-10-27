@@ -2,10 +2,29 @@ import { BrowserAdapter } from './adapters/browser-adapter'
 import type { LocalAdapter } from './adapters/local-adapter'
 import { convertHeifToJpeg } from './image-heif'
 import { isTauri, isCapacitor } from './env'
+import { vaultFs } from './vault/vault-fs'
 
 let adapter: BrowserAdapter | LocalAdapter = new BrowserAdapter()
 let tauriAppDataDir = ''
 let tauriConvertFileSrc: ((path: string) => string) | null = null
+
+// ── vault 模式 ──────────────────────────────────────────────────────────
+// 打开 vault 时，素材必须落在 **vault 里**，否则把文件夹拷走会缺图。
+// 约定：相对路径（`附件/x.png`）一律相对 vault 根解析；绝对路径与 http/data
+// 仍按原样处理，历史数据（`images/x.png` 落在 appData）在关闭 vault 后照旧可用。
+
+let vaultRoot: string | null = null
+let vaultAssetsDir = '附件'
+
+/** 由 VaultProvider 在装载/关闭 vault 时调用 */
+export function setVaultImageContext(root: string | null, assetsDir = '附件'): void {
+  vaultRoot = root === null ? null : root.replace(/\\/g, '/').replace(/\/+$/, '')
+  vaultAssetsDir = assetsDir.replace(/^\/+|\/+$/g, '') || '附件'
+}
+
+export function getVaultImageContext(): { root: string; assetsDir: string } | null {
+  return vaultRoot === null ? null : { root: vaultRoot, assetsDir: vaultAssetsDir }
+}
 
 const DEFAULT_IMAGES: Record<string, string> = {
   avatar: '/images/defaults/character-avatar.svg',
@@ -45,6 +64,24 @@ async function ensureTauriAppDataDir(): Promise<string> {
 }
 
 export async function uploadImage(type: string): Promise<string> {
+  // vault 模式：把用户选的文件读成 Blob，交给 saveBlobToDisk 统一处理
+  // （HEIF 转换、裁剪流水线、落到 vault 素材目录都由它负责）
+  if (vaultRoot !== null && isTauri()) {
+    try {
+      const { open } = await import('@tauri-apps/plugin-dialog')
+      const picked = await open({
+        multiple: false,
+        filters: [{ name: '图片', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'heic', 'heif'] }],
+      })
+      if (picked === null || typeof picked !== 'string') return ''
+      const { readFile } = await import('@tauri-apps/plugin-fs')
+      const bytes = await readFile(picked)
+      return await saveBlobToDisk(new Blob([bytes]), type)
+    } catch (err) {
+      console.error('[uploadImage] vault 素材导入失败，回落到内置数据库路径:', err)
+    }
+  }
+
   if (isTauri()) {
     try {
       const { LocalAdapter: LA } = await import('./adapters/local-adapter')
@@ -78,6 +115,14 @@ export function resolveImageUrl(path: string | undefined, type: string = 'avatar
   if (!path) return getDefaultImage(type)
   if (path.startsWith('https://') || path.startsWith('http://') || path.startsWith('data:') || path.startsWith('blob:')) return path
   if (path.startsWith('/')) return path
+
+  // vault 模式：相对路径就是 vault 内的素材，直接相对 vault 根解析
+  if (vaultRoot !== null && isTauri()) {
+    const base = vaultRoot.replace(/\/+$/, '')
+    const normalized = path.replace(/\\/g, '/').replace(/^\/+/, '')
+    const toSrc = tauriConvertFileSrc
+    if (toSrc !== null) return toSrc(`${base}/${normalized}`)
+  }
 
   if (isTauri() && tauriAppDataDir && tauriConvertFileSrc) {
     const base = tauriAppDataDir.replace(/\/+$/, '').replace(/\\/g, '/')
@@ -160,7 +205,22 @@ export async function saveBlobToDisk(blob: Blob, type: string): Promise<string> 
     const bytes = new Uint8Array(arrayBuffer)
     await writeFile(destPath, bytes)
 
-    return `images/${fileName}`
+    const appDataRel = `images/${fileName}`
+
+    // vault 模式：再原生复制进 vault 的素材目录，返回值改为 vault 相对路径。
+    // 不直接把字节过 IPC —— Tauri 的 invoke 会把 number[] 序列化成 JSON，
+    // 一张 2MB 的图会变成几 MB 的文本；先落 appData 再原生复制，代价小得多。
+    if (vaultRoot !== null) {
+      const relPath = `${vaultAssetsDir}/${fileName}`
+      try {
+        await vaultFs.importFile(vaultRoot, destPath, relPath)
+        return relPath
+      } catch (err) {
+        console.error('[saveBlobToDisk] 复制进 vault 失败，回落到 appData 路径:', err)
+      }
+    }
+
+    return appDataRel
   } catch (err) {
     console.error('[saveBlobToDisk] FAILED, falling back to blob URL:', err)
     return URL.createObjectURL(blob)

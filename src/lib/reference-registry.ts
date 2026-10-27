@@ -20,32 +20,8 @@ export function registerEntityType(config: EntityTypeConfig) {
   registry.set(config.type, config)
 }
 
-export function unregisterEntityType(type: string) {
-  registry.delete(type)
-}
 
-export function getRegisteredTypes(): string[] {
-  return Array.from(registry.keys())
-}
 
-export async function searchEntities(query: string): Promise<Record<string, ReferableEntity[]>> {
-  const result: Record<string, ReferableEntity[]> = {}
-  const q = query.toLowerCase()
-
-  for (const [type, config] of registry) {
-    let entities = await config.fetch()
-    if (q) {
-      entities = entities.filter(
-        (e) =>
-          e.name.toLowerCase().includes(q) ||
-          (Array.isArray(e.keywords) && e.keywords.some((kw) => kw.toLowerCase().includes(q))),
-      )
-    }
-    result[type] = entities
-  }
-
-  return result
-}
 
 export async function searchAllEntitiesFlat(query: string): Promise<ReferableEntity[]> {
   const result: ReferableEntity[] = []

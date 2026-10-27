@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, useLayoutEffect } from 'react'
 import { Separator } from '@/components/ui/separator'
+import { MENU } from '@/lib/ui-tokens'
 import { adjustContextMenuPosition } from '@/lib/menu-utils'
 import { ContextMenuButton } from './context-menu/ContextMenuButton'
 import { ContextSubMenu } from './context-menu/ContextSubMenu'
@@ -132,7 +133,7 @@ export function ContextMenu({ children, items }: ContextMenuProps) {
         <div className="pointer-events-none fixed inset-0 z-50">
           <div
             ref={menuRef}
-            className={`pointer-events-auto absolute flex flex-col border border-line bg-paper/85 p-1 shadow-none backdrop-blur-lg context-menu-fade dark:bg-paper/85 ${visible ? 'context-menu-visible' : ''}`}
+            className={`pointer-events-auto absolute flex flex-col ${MENU} context-menu-fade ${visible ? 'context-menu-visible' : ''}`}
             style={{
               left: adjPosition.x,
               top: adjPosition.y,
@@ -141,7 +142,7 @@ export function ContextMenu({ children, items }: ContextMenuProps) {
             {items.map((item, i) => {
               if (item.separator) {
                 return (
-                  <Separator key={i} className="my-1" />
+                  <Separator key={i} className="mx-2 my-1" />
                 )
               }
 

@@ -1,5 +1,8 @@
 use std::sync::OnceLock;
 
+mod open;
+mod vault;
+
 #[cfg(target_os = "windows")]
 static IS_WIN11: OnceLock<bool> = OnceLock::new();
 
@@ -9,6 +12,28 @@ fn is_windows_11() -> bool {
         let v = windows_version::OsVersion::current();
         v.major >= 10 && v.build >= 22000
     })
+}
+
+/// 只回答「这台机器能不能用模糊」，**不去动窗口**。
+///
+/// 以前前端拿 `init_blur(enabled: false)` 当探针用，于是每次打开设置都会
+/// 把已经生效的 Mica 关掉（`clear_mica` + 把背景刷成不透明纸色）。
+#[tauri::command]
+fn blur_supported() -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        return is_windows_11();
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        return true;
+    }
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    {
+        false
+    }
 }
 
 #[tauri::command]
@@ -114,7 +139,22 @@ pub fn run() {
 
       Ok(())
     })
-    .invoke_handler(tauri::generate_handler![update_blur_effect, init_blur])
+    .invoke_handler(tauri::generate_handler![
+      update_blur_effect,
+      init_blur,
+      blur_supported,
+      open::open_external,
+      vault::vault_probe,
+      vault::vault_scan,
+      vault::vault_write_texts,
+      vault::vault_write_bytes,
+      vault::vault_import_file,
+      vault::vault_read_bytes,
+      vault::vault_move,
+      vault::vault_remove,
+      vault::vault_mkdir,
+      vault::vault_exists
+    ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
 }

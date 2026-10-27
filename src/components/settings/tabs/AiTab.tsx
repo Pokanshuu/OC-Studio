@@ -12,6 +12,24 @@ export function AiTab() {
   return (
     <>
               <div className="flex flex-col gap-5">
+                {/* 云同步：服务未上线，先灰着占位。开关不接后端，能拨动反而误导。 */}
+                <div className="flex flex-col gap-1 border-b border-line pb-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-ink-faint">云同步</span>
+                    <button
+                      role="switch"
+                      aria-checked={false}
+                      aria-disabled="true"
+                      disabled
+                      title="暂未开放"
+                      className={`${SWITCH_CLASSES.base} ${SWITCH_CLASSES.off} disabled:cursor-not-allowed disabled:opacity-40`}
+                    >
+                      <span className={`${SWITCH_DOT} translate-x-[2px]`} />
+                    </button>
+                  </div>
+                  <span className="text-xs text-ink-faint">开发中</span>
+                </div>
+
                 <label className="flex items-center justify-between">
                   <span className="text-sm text-ink">启用AI概括功能</span>
                   <button

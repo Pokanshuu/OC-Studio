@@ -56,7 +56,7 @@ export const DraggableNode = memo(function DraggableNode({
       title={event.summary || event.title}
     >
       {event.isMajor ? (
-        <span className="flex h-2 w-2 shrink-0 bg-error" />
+        <span className="flex h-2 w-2 shrink-0 rounded-full bg-error" />
       ) : null}
       <span className="truncate sticky left-2">{event.title}</span>
       {isRange ? (
@@ -106,7 +106,7 @@ export const StaticNode = memo(function StaticNode({
       onClick={() => onSelect(event.id)}
     >
       {event.isMajor ? (
-        <span className="flex h-2 w-2 shrink-0 bg-error" />
+        <span className="flex h-2 w-2 shrink-0 rounded-full bg-error" />
       ) : null}
       <span className="truncate sticky left-2">{event.title}</span>
     </div>

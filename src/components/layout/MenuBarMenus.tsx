@@ -6,9 +6,10 @@ import { tauriReadClipboard } from '@/lib/tauri-clipboard'
 import { useSettingsTrigger } from '@/components/layout/SettingsTriggerContext'
 import { useSettings } from '@/lib/settings'
 import { useImportExport } from '@/components/shared/ImportExportUI'
-import { downloadMarkdown, downloadTxt, downloadFullBackup } from '@/lib/export'
+import { downloadMarkdown, downloadTxt, downloadFullBackup, exportStaticSite } from '@/lib/export'
 import { toast } from 'sonner'
 import { useActiveEditor } from '@/lib/editor-context'
+import { VaultMenuSection } from '@/features/vault'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -114,6 +115,7 @@ export function MenuBarMenus() {
               <DropdownMenuTrigger>文件</DropdownMenuTrigger>
             </span>
             <DropdownMenuContent>
+              <VaultMenuSection />
               <DropdownMenuItem onClick={handleImportClick}>
                 导入...
               </DropdownMenuItem>
@@ -163,7 +165,14 @@ export function MenuBarMenus() {
                   <DropdownMenuItem disabled onClick={() => {}}>
                     图片
                   </DropdownMenuItem>
-                  <DropdownMenuItem disabled onClick={() => {}}>
+                  <DropdownMenuItem onClick={async () => {
+                    try {
+                      const name = await exportStaticSite()
+                      toast.success(`静态网站已导出：${name}`, { description: '单文件静态站，改名 index.html 即可发布' })
+                    } catch (error) {
+                      toast.error('静态网站导出失败', { description: error instanceof Error ? error.message : undefined })
+                    }
+                  }}>
                     静态网站
                   </DropdownMenuItem>
                 </DropdownMenuSubContent>

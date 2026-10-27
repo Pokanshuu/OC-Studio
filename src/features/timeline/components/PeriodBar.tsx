@@ -53,7 +53,7 @@ export function PeriodBar({
       {!isMobile ? (
         <button
           onClick={(e) => { e.stopPropagation(); onDelete() }}
-          className="absolute -top-1 -right-1 hidden h-4 w-4 items-center justify-center rounded-none bg-paper-card border border-line text-ink-muted group-hover:flex hover:text-error"
+          className="absolute -top-1 -right-1 hidden h-4 w-4 items-center justify-center rounded-item bg-paper-card border border-line text-ink-muted group-hover:flex hover:text-error"
         >
           <X size={10} strokeWidth={2} />
         </button>

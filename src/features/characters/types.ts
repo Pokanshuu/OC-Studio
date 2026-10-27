@@ -6,6 +6,7 @@ export interface CharacterFormData {
   race: string
   element: string
   occupation: string
+  faction: string
   nationalityLegacy: string
   countryId?: number
   height: string

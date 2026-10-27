@@ -46,7 +46,7 @@ export function MobileTextSelectionBar() {
     <>
       <div
         ref={barRef}
-        className="pointer-events-auto fixed z-50 flex items-center border border-line bg-paper/85 px-1.5 py-1 gap-0.5 backdrop-blur-lg cursor-default"
+        className="pointer-events-auto fixed z-50 flex items-center rounded-menu border border-line bg-paper/85 px-1.5 py-1 gap-0.5 backdrop-blur-lg cursor-default"
         style={{
           left: position.x,
           top: position.y,
@@ -57,25 +57,25 @@ export function MobileTextSelectionBar() {
       >
         {hasSelection ? (
           <>
-            <button onClick={actions.handleCut} className="whitespace-nowrap px-3 py-1.5 text-sm text-ink transition-colors active:bg-[var(--oc-hover)]">
+            <button onClick={actions.handleCut} className="whitespace-nowrap rounded-item px-3 py-1.5 text-sm text-ink transition-colors active:bg-[var(--oc-hover)]">
               剪切
             </button>
-            <button onClick={actions.handleCopy} className="whitespace-nowrap px-3 py-1.5 text-sm text-ink transition-colors active:bg-[var(--oc-hover)]">
+            <button onClick={actions.handleCopy} className="whitespace-nowrap rounded-item px-3 py-1.5 text-sm text-ink transition-colors active:bg-[var(--oc-hover)]">
               复制
             </button>
-            <button onClick={actions.handlePaste} className="whitespace-nowrap px-3 py-1.5 text-sm text-ink transition-colors active:bg-[var(--oc-hover)]">
+            <button onClick={actions.handlePaste} className="whitespace-nowrap rounded-item px-3 py-1.5 text-sm text-ink transition-colors active:bg-[var(--oc-hover)]">
               粘贴
             </button>
-            <button onClick={actions.handleSelectAll} className="whitespace-nowrap px-3 py-1.5 text-sm text-ink transition-colors active:bg-[var(--oc-hover)]">
+            <button onClick={actions.handleSelectAll} className="whitespace-nowrap rounded-item px-3 py-1.5 text-sm text-ink transition-colors active:bg-[var(--oc-hover)]">
               全选
             </button>
           </>
         ) : (
           <>
-            <button onClick={actions.handlePaste} className="whitespace-nowrap px-3 py-1.5 text-sm text-ink transition-colors active:bg-[var(--oc-hover)]">
+            <button onClick={actions.handlePaste} className="whitespace-nowrap rounded-item px-3 py-1.5 text-sm text-ink transition-colors active:bg-[var(--oc-hover)]">
               粘贴
             </button>
-            <button onClick={actions.handleSelectAll} className="whitespace-nowrap px-3 py-1.5 text-sm text-ink transition-colors active:bg-[var(--oc-hover)]">
+            <button onClick={actions.handleSelectAll} className="whitespace-nowrap rounded-item px-3 py-1.5 text-sm text-ink transition-colors active:bg-[var(--oc-hover)]">
               全选
             </button>
             {editableRef.current === safeGetEditorDom(activeEditor) && (

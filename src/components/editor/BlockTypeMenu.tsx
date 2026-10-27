@@ -17,6 +17,7 @@ import {
   Table as TableIcon,
 } from 'lucide-react'
 import React from 'react'
+import { MENU, ROUND_ITEM } from '@/lib/ui-tokens'
 
 interface BlockButton {
   label: string
@@ -192,7 +193,7 @@ export function BlockTypeMenu({ editor, position, onClose, blockPos }: BlockType
         top: position.y - 4,
         zIndex: 100,
       }}
-      className={`pointer-events-auto flex gap-0.5 border border-line bg-paper/85 p-1 shadow-none backdrop-blur-lg context-menu-fade dark:bg-paper/85 ${visible ? 'context-menu-visible' : ''}`}
+      className={`pointer-events-auto flex gap-0.5 ${MENU} context-menu-fade ${visible ? 'context-menu-visible' : ''}`}
     >
       {buttons.map((btn) => (
         <button
@@ -200,7 +201,7 @@ export function BlockTypeMenu({ editor, position, onClose, blockPos }: BlockType
           onClick={btn.action}
           title={btn.label}
           onMouseDown={(e) => e.preventDefault()}
-          className={`flex h-7 w-7 items-center justify-center transition-colors ${
+          className={`flex h-7 w-7 items-center justify-center transition-colors ${ROUND_ITEM} ${
             btn.isActive()
               ? 'text-ink bg-black/5 dark:bg-white/5'
               : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'

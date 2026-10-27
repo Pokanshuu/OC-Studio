@@ -12,7 +12,7 @@ export function Toaster() {
           border: "1px solid var(--color-line)",
           color: "var(--color-ink)",
           fontSize: "12px",
-          borderRadius: "0px",
+          borderRadius: "4px",
           boxShadow: "none",
         },
       }}

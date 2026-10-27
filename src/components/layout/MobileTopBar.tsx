@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { Search, Trash2, Settings, Menu } from 'lucide-react'
 import { MobileSearchOverlay } from './MobileSearchOverlay'
 import { useMobileNavigation, type GallerySubTab } from './MobileNavigationContext'
-import { useNavigation } from './NavigationContext'
 import { useSettingsTrigger } from './SettingsTriggerContext'
 import { useTrashOverlay } from './TrashOverlayContext'
 import { useMobilePageHeader } from './MobilePageHeaderContext'
@@ -24,7 +23,6 @@ const GALLERY_TABS: { key: GallerySubTab; label: string }[] = [
 
 export function MobileTopBar() {
   const { section, gallerySubTab, setGallerySubTab } = useMobileNavigation()
-  const { setActiveItem } = useNavigation()
   const { openSettings } = useSettingsTrigger()
   const { openTrash } = useTrashOverlay()
   const { title: pageTitle } = useMobilePageHeader()

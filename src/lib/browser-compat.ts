@@ -15,17 +15,8 @@ export function isBelowTargetVersion(): boolean {
   return version !== null && version < MIN_CHROMIUM_VERSION
 }
 
-export function supportsTransitionBehavior(): boolean {
-  return typeof CSS !== 'undefined' && CSS.supports('transition-behavior', 'allow-discrete')
-}
 
-export function supportsStartingStyle(): boolean {
-  return typeof CSS !== 'undefined' && CSS.supports('at-rule', 'starting-style')
-}
 
-export function needsAnimationFallback(): boolean {
-  return !supportsTransitionBehavior() || !supportsStartingStyle()
-}
 
 // HarmonyOS / OpenHarmony 检测
 // ArkWeb UA 格式: ... OpenHarmony/<version> ... ArkWeb/<version> ...
@@ -41,15 +32,7 @@ export function getHarmonyOSVersion(): number | null {
   return match ? parseFloat(match[1]) : null
 }
 
-export function isHarmonyOS4(): boolean {
-  const version = getHarmonyOSVersion()
-  return version !== null && version >= 4 && version < 5
-}
 
-export function isHarmonyOSNext(): boolean {
-  const version = getHarmonyOSVersion()
-  return version !== null && version >= 5
-}
 
 // 安全区域估算 — 当 env(safe-area-inset-*) 返回 0 时使用
 // 注意：screen.height / screen.availHeight 已是 CSS pixels，无需 dpr 换算

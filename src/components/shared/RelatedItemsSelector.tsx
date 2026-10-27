@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { Plus, X } from 'lucide-react'
-import { CHIP, MENU } from '@/lib/ui-tokens'
+import { CHIP, MENU, MENU_ITEM_BASE } from '@/lib/ui-tokens'
 
 export interface RelatedItem {
   id: number
@@ -162,7 +162,7 @@ export function RelatedItemsSelector({
                   type="button"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => addItem(item.id)}
-                  className={`flex w-full items-center px-2.5 py-1.5 text-left text-[13px] transition-colors hover:bg-[var(--oc-hover)] ${
+                  className={`${MENU_ITEM_BASE} ${
                     selectedIds.includes(item.id) ? 'text-ink' : 'text-ink-muted'
                   }`}
                 >
@@ -175,11 +175,11 @@ export function RelatedItemsSelector({
             </div>
           ) : search.trim() ? (
             <div
-              className={`absolute top-full z-50 mt-1 min-w-[220px] p-3 ${MENU} ${
+              className={`absolute top-full z-50 mt-1 min-w-[220px] ${MENU} ${
                 panelAlign === 'right' ? 'right-0' : 'left-0'
               }`}
             >
-              <p className="text-[12px] text-ink-faint">未找到匹配项</p>
+              <p className="px-3 py-2 text-[12px] text-ink-faint">未找到匹配项</p>
             </div>
           ) : null}
         </div>

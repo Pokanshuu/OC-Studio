@@ -155,7 +155,7 @@ export function ProfileBannerEditor({
             {onHeaderRemove && headerUrl ? (
               <button
                 onClick={(e) => { e.stopPropagation(); onHeaderRemove() }}
-                className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-none bg-black/40 text-white/80 opacity-0 transition-opacity group-hover/header:opacity-100 hover:bg-black/60"
+                className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-item bg-black/40 text-white/80 opacity-0 transition-opacity group-hover/header:opacity-100 hover:bg-black/60"
                 title="删除头图"
               >
                 <Trash2 size={16} strokeWidth={2} />
@@ -184,7 +184,7 @@ export function ProfileBannerEditor({
             {onAvatarRemove && avatarUrl ? (
               <button
                 onClick={(e) => { e.stopPropagation(); onAvatarRemove() }}
-                className="absolute -right-1 -top-1 z-10 flex h-8 w-8 items-center justify-center rounded-none bg-black/40 text-white/80 opacity-0 transition-opacity group-hover/avatar:opacity-100 hover:bg-black/60"
+                className="absolute -right-1 -top-1 z-10 flex h-8 w-8 items-center justify-center rounded-item bg-black/40 text-white/80 opacity-0 transition-opacity group-hover/avatar:opacity-100 hover:bg-black/60"
                 title="删除头像"
               >
                 <Trash2 size={16} strokeWidth={2} />

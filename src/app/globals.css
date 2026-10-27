@@ -92,6 +92,13 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* 圆角语义名（唯一源）：界面语言是「极小圆角」，改这里等于全局改圆角。
+     item 控件（菜单行 / chip / 图标按钮）· media 图片与卡片 · menu 浮层菜单 · panel 弹窗大面板 */
+  --radius-item: 3px;
+  --radius-media: 4px;
+  --radius-menu: 6px;
+  --radius-panel: 8px;
 }
 
 @layer base {
@@ -115,7 +122,7 @@
     --border: #E7E3DC;
     --input: #E7E3DC;
     --ring: #D6D0C4;
-    --radius: 0px;
+    --radius: 5px;
     --shadow: none;
     --sidebar: #FAF7F2;
     --sidebar-foreground: #2B2B2B;
@@ -153,7 +160,7 @@
     --border: #38352F;
     --input: #38352F;
     --ring: #38352F;
-    --radius: 0px;
+    --radius: 5px;
     --shadow: none;
     --sidebar: #242321;
     --sidebar-foreground: #E3DFD8;
@@ -187,11 +194,10 @@
   }
 }
 
-/* 全局直角 —— 界面语言：除圆形头像外不使用任何圆角。
-   --radius 已置 0（派生工具类随之归零），但 Tailwind 的裸 `rounded` / `rounded-xs`
-   是固定值，需在非分层样式里兜底覆盖（非分层优先级高于 @layer utilities）。 */
-.rounded,
-.rounded-xs { border-radius: 0; }
+/* 全局极小圆角 —— 界面语言：除圆形头像/徽章外，一律 3–8px 的小圆角。
+   语义名在 @theme 里（`--radius-item/media/menu/panel` → `rounded-item` 等工具类），
+   取类名请走 `lib/ui-tokens.ts` 的 `ROUND_*`，不要就地写 `rounded-[6px]`。
+   裸 `rounded` / `rounded-xs` 是 Tailwind 固定值（4px / 2px），与令牌同一量级，无需覆盖。 */
 
 /* Degradation: opaque background by default (browser dev / Linux) */
 body {
@@ -644,6 +650,24 @@ html.tauri-mica [data-statusbar] {
 }
 .context-menu-fade.context-menu-visible {
   opacity: 1;
+}
+
+/* 模态浮层进场。
+   刻意只用进场动画、不做退出：面板关闭即卸载，省掉一套 mounted/visible 状态机
+   （那套状态机必须在 effect 里同步 setState 才能启动过渡，会触发 cascading render）。 */
+@keyframes overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes overlay-panel-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.overlay-backdrop {
+  animation: overlay-in 140ms ease-out;
+}
+.overlay-panel {
+  animation: overlay-panel-in 160ms ease-out;
 }
 
 @media (prefers-reduced-motion: reduce) {

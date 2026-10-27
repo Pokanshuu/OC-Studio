@@ -51,7 +51,7 @@ async function downloadJsonCapacitor(json: string, filename: string): Promise<vo
 // ── Markdown / TXT 导出 ──
 
 
-async function downloadText(content: string, filename: string, mimeType: string): Promise<void> {
+export async function downloadText(content: string, filename: string, mimeType: string): Promise<void> {
   if (isNativePlatform()) {
     await downloadTextCapacitor(content, filename)
     return

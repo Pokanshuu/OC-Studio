@@ -6,10 +6,6 @@ export async function getAllTags(): Promise<Tag[]> {
   return db.tags.orderBy('name').toArray()
 }
 
-export async function getTag(id: number): Promise<Tag | undefined> {
-  return db.tags.get(id)
-}
-
 export async function createTag(data: { name: string; category: string; color: string }): Promise<number> {
   return db.tags.add({
     name: data.name.trim(),

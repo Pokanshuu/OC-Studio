@@ -21,6 +21,14 @@ export interface Character {
   race: string
   element: string
   occupation: string
+  /** 阵营 / 立场（vault 侧 frontmatter 键：阵营 或 faction）。自由文本，不强制归一 */
+  faction: string
+  /**
+   * 阵营名解析到的实体 id（软引用）。
+   * 阵营值多为叙事性描述，磁盘上没有稳定标识，因此按**名字**解析：
+   * 命中同名文件名或别名即可跳转，未命中就保持纯文本并计入扫描报告。
+   */
+  factionId?: number
   nationalityLegacy: string
   countryId?: number
   height: string
@@ -46,6 +54,8 @@ export interface Character {
 export interface Event {
   id: number
   title: string
+  /** 别名（vault 侧 [[ ]] 链接的解析键之一；改名时旧名会推进这里） */
+  aliases?: string[]
   time: string
   endTime?: string
   location: string
@@ -80,6 +90,8 @@ export interface ImageEntry {
 export interface Country {
   id: number
   name: string
+  /** 别名（vault 侧 [[ ]] 链接的解析键之一；改名时旧名会推进这里） */
+  aliases?: string[]
   parentId: number | null
   description: string
   document?: unknown
@@ -101,6 +113,8 @@ export interface Country {
 export interface WorldEntry {
   id: number
   title: string
+  /** 别名（vault 侧 [[ ]] 链接的解析键之一；改名时旧名会推进这里） */
+  aliases?: string[]
   content: string
   document?: unknown
   category: string

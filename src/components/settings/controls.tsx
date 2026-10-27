@@ -22,12 +22,12 @@ export function ThemeRadio({
           className="flex items-center gap-2 cursor-pointer"
         >
           <div
-            className={`relative flex h-4 w-4 shrink-0 items-center justify-center border ${
+            className={`relative flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
               value === opt.value ? "border-line-hover" : "border-line"
             } bg-black/5 dark:bg-white/5`}
           >
             {value === opt.value && (
-              <div className="h-2 w-2 bg-ink-muted" />
+              <div className="h-2 w-2 rounded-full bg-ink-muted" />
             )}
           </div>
           <input
@@ -45,12 +45,13 @@ export function ThemeRadio({
   )
 }
 
+/** 开关：胶囊轨道 + 圆形滑块（界面里唯一的「圆」除了头像，因为它表达的是拨动） */
 export const SWITCH_CLASSES = {
-  base: "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center border transition-colors",
+  base: "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border transition-colors",
   on: "border-line-hover bg-ink-muted",
   off: "border-line bg-black/5 dark:bg-white/5",
 }
 
 export const SWITCH_DOT =
-  "block h-3.5 w-3.5 transition-transform bg-ink-muted"
+  "block h-3.5 w-3.5 rounded-full transition-transform bg-ink-muted"
 

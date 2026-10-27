@@ -23,7 +23,8 @@ export function GeneralTab() {
   useEffect(() => {
     if (!isTauri) return
     try {
-      invoke<boolean>('init_blur', { enabled: false, isDark: false }).then((supported) => {
+      // 只探测能力。别再用 init_blur(false) 当探针 —— 那会真的把当前的 Mica 关掉。
+      invoke<boolean>('blur_supported').then((supported) => {
         if (supported === true) setBlurSupported(true)
       }).catch(() => {})
     } catch {}

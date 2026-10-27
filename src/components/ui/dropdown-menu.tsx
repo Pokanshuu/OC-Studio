@@ -5,10 +5,10 @@ import { Menu } from "@base-ui/react/menu"
 
 import { cn } from "@/lib/utils"
 
-const PANEL =
-  "z-[99999] min-w-[160px] border border-line bg-paper/85 dark:bg-paper/85 backdrop-blur-lg p-1 shadow-none pointer-events-none"
-const ITEM =
-  "flex cursor-pointer items-center gap-2 px-3 py-1.5 text-[13px] text-ink outline-none transition-colors data-highlighted:bg-[var(--oc-hover)] data-highlighted:text-ink pointer-events-auto"
+import { MENU, MENU_ITEM } from "@/lib/ui-tokens"
+
+const PANEL = `z-[99999] min-w-[160px] pointer-events-none ${MENU}`
+const ITEM = `${MENU_ITEM} cursor-pointer outline-none pointer-events-auto data-highlighted:bg-[var(--oc-hover)]`
 
 function DropdownMenu(props: Menu.Root.Props) {
   return <Menu.Root {...props} />
@@ -58,7 +58,7 @@ function DropdownMenuSeparator({
 }: React.ComponentProps<"div">) {
   return (
     <Menu.Separator
-      className={cn("-mx-1 my-1 h-px bg-line", className)}
+      className={cn("mx-2 my-1 h-px bg-line", className)}
       {...props}
     />
   )
@@ -70,7 +70,7 @@ function DropdownMenuLabel({
 }: React.ComponentProps<"div">) {
   return (
     <div
-      className={cn("px-3 py-1.5 text-[11px] tracking-[0.14em] text-ink-faint", className)}
+      className={cn("px-3 py-1 text-[11px] tracking-[0.14em] text-ink-faint", className)}
       {...props}
     />
   )
@@ -101,7 +101,7 @@ function DropdownMenuRadioItem({
     <Menu.RadioItem className={cn(ITEM, className)} {...props}>
       {children}
       <Menu.RadioItemIndicator className="absolute left-1 flex h-3.5 w-3.5 items-center justify-center">
-        <div className="h-1.5 w-1.5 bg-ink" />
+        <div className="h-1.5 w-1.5 rounded-full bg-ink" />
       </Menu.RadioItemIndicator>
     </Menu.RadioItem>
   )

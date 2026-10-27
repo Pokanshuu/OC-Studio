@@ -137,5 +137,4 @@ export function useMobileSelectionActions(ctx: MobileSelectionCtx, activeEditor:
   }
 }
 
-export type MobileSelectionActions = ReturnType<typeof useMobileSelectionActions>
 

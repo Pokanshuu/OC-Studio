@@ -5,6 +5,7 @@ import type { RefObject } from 'react'
 import { Pilcrow, ChevronDown, Bold, Italic, Underline as UnderlineIcon, AtSign, Link2, Undo2, Redo2, Heading1, Heading2, Heading3, List, ListOrdered, ListTodo, Quote, Scissors, Image, Table as TableIcon } from 'lucide-react'
 import type { Editor } from '@tiptap/core'
 import { isBelowTargetVersion } from '@/lib/browser-compat'
+import { ROUND_ITEM } from '@/lib/ui-tokens'
 
 export interface MobileEditorToolbarProps {
   editor: Editor
@@ -138,7 +139,7 @@ export function MobileEditorToolbar({
                   key={item.label}
                   type="button"
                   onPointerDown={(e) => handleToolbarPointerDown(e, () => { item.action(); setMobileBlockMenuOpen(false) })}
-                  className={`touch-feedback flex items-center gap-1.5 px-2.5 py-1.5 text-[13px] transition-colors ${item.active() ? 'bg-ink text-paper' : 'text-ink-muted'}`}
+                  className={`touch-feedback flex items-center gap-1.5 px-2.5 py-1.5 text-[13px] transition-colors ${ROUND_ITEM} ${item.active() ? 'bg-ink text-paper' : 'text-ink-muted'}`}
                 >
                   {item.icon}
                   {item.label}

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, createContext, useContext, ty
 import { tauriReadClipboard } from '@/lib/tauri-clipboard'
 import { createPortal } from 'react-dom'
 import { Separator } from '@/components/ui/separator'
+import { MENU, MENU_ITEM } from '@/lib/ui-tokens'
 import { adjustContextMenuPosition } from '@/lib/menu-utils'
 import { useDevice } from '@/lib/use-device'
 
@@ -195,26 +196,26 @@ export function GlobalContextMenu({ children }: { children: ReactNode }) {
     <div className="pointer-events-none fixed inset-0 z-50">
       <div
         ref={menuRef}
-        className={`pointer-events-auto absolute flex flex-col border border-line bg-paper/85 p-1 shadow-none backdrop-blur-lg context-menu-fade dark:bg-paper/85 ${visible ? 'context-menu-visible' : ''}`}
+        className={`pointer-events-auto absolute flex flex-col ${MENU} context-menu-fade ${visible ? 'context-menu-visible' : ''}`}
         style={{
           left: adjPosition.x,
           top: adjPosition.y,
         }}
       >
-        <button onClick={handleCut} className="flex items-center gap-3 px-2.5 py-1.5 text-left text-[13px] text-ink transition-colors hover:bg-[var(--oc-hover)]">
+        <button onClick={handleCut} className={MENU_ITEM}>
           <span>剪切</span>
           <span className="ml-auto text-[11px] text-ink-faint">Ctrl+X</span>
         </button>
-        <button onClick={handleCopy} className="flex items-center gap-3 px-2.5 py-1.5 text-left text-[13px] text-ink transition-colors hover:bg-[var(--oc-hover)]">
+        <button onClick={handleCopy} className={MENU_ITEM}>
           <span>复制</span>
           <span className="ml-auto text-[11px] text-ink-faint">Ctrl+C</span>
         </button>
-        <button onClick={handlePaste} className="flex items-center gap-3 px-2.5 py-1.5 text-left text-[13px] text-ink transition-colors hover:bg-[var(--oc-hover)]">
+        <button onClick={handlePaste} className={MENU_ITEM}>
           <span>粘贴</span>
           <span className="ml-auto text-[11px] text-ink-faint">Ctrl+V</span>
         </button>
-        <Separator className="my-1" />
-        <button onClick={handleSelectAll} className="flex items-center gap-3 px-2.5 py-1.5 text-left text-[13px] text-ink transition-colors hover:bg-[var(--oc-hover)]">
+        <Separator className="mx-2 my-1" />
+        <button onClick={handleSelectAll} className={MENU_ITEM}>
           <span>全选</span>
           <span className="ml-auto text-[11px] text-ink-faint">Ctrl+A</span>
         </button>
