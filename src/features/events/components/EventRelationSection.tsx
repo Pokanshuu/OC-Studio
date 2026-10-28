@@ -6,7 +6,7 @@ import { FIELD_LABEL, LIST_END, FIELD_ROW_TOP, SECTION_TITLE } from '@/lib/ui-to
 import { useFields } from '@/lib/fields'
 import type { EventForm } from '../hooks/useEventForm'
 
-/** 关联：相关角色 / 相关国家 / 标签 */
+/** 关联：相关角色 / 相关国家 / 相关事件 / 标签 */
 export function EventRelationSection({
   form,
   onNavigateItem,
@@ -42,6 +42,21 @@ export function EventRelationSection({
               onChange={form.setSelectedCountryIds}
               placeholder="添加相关国家..."
               onNavigateItem={(id) => onNavigateItem?.(id, 'country')}
+            />
+          </div>
+        </div>
+
+        <div className={FIELD_ROW_TOP}>
+          <span className={FIELD_LABEL}>相关事件</span>
+          <div className="min-w-0 flex-1">
+            <RelatedItemsSelector
+              items={form.eventItems}
+              selectedIds={form.relatedEventIds}
+              onChange={form.handleRelatedEventsChange}
+              placeholder="添加相关事件..."
+              onNavigateItem={(id) => onNavigateItem?.(id, 'event')}
+              labels={form.eventRelationLabels}
+              onLabelChange={form.setEventRelation}
             />
           </div>
         </div>

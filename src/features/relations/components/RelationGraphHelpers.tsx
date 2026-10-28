@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { useReactFlow, type ReactFlowInstance } from '@xyflow/react'
+import { MIN_ZOOM } from './relation-graph-utils'
 
 /** 数据就绪后自动 fitView 一次（每次过滤结果变化时重新挂载以重置） */
 export function FitViewOnLoad({ ready }: { ready: boolean }) {
@@ -11,7 +12,8 @@ export function FitViewOnLoad({ ready }: { ready: boolean }) {
 
   useEffect(() => {
     if (ready && !called.current) {
-      timerRef.current = setTimeout(() => fitView({ padding: 0.3 }), 100)
+      // minZoom：图很大时不缩到看不清（见 MIN_ZOOM）
+      timerRef.current = setTimeout(() => fitView({ padding: 0.3, minZoom: MIN_ZOOM }), 100)
       called.current = true
     }
     return () => { if (timerRef.current) clearTimeout(timerRef.current) }

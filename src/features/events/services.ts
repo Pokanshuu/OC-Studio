@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import { logOperation, pendingStamp } from '@/lib/sync'
 import { listActive, getById, softDelete } from '@/lib/repository'
 import { updateReferencesAfterRename, syncReferenceLabels } from '@/lib/reference-sync'
+import { syncEventCountries } from '@/lib/membership'
 import type { Event } from '@/types'
 import type { EventFormData } from './types'
 
@@ -20,7 +21,7 @@ function buildDefaultEvent(data: EventFormData, overrides: Partial<Event> = {}):
     characters: data.characters ?? [],
     countries: data.countries ?? [],
     parentEventId: null,
-    relations: [],
+    relations: data.relations ?? [],
     tags: data.tags ?? [],
     custom: data.custom ?? {},
     images: [],
@@ -113,6 +114,17 @@ export async function updateEvent(id: number, data: Partial<EventFormData>): Pro
     )
   }
 
+  if (data.relations !== undefined) {
+    ;(updates as Record<string, unknown>).relations = data.relations
+    await logOperation(
+      TABLE,
+      id,
+      'relations',
+      JSON.stringify(existing.relations ?? []),
+      JSON.stringify(data.relations),
+    )
+  }
+
   if (data.tags !== undefined) {
     ;(updates as Record<string, unknown>).tags = data.tags
     await logOperation(
@@ -130,6 +142,11 @@ export async function updateEvent(id: number, data: Partial<EventFormData>): Pro
   }
 
   await db.events.update(id, updates)
+
+  // 相关国家变了 → 国家侧的「相关事件」跟着增删（成员关系两边都写，与关系图拖拽同一口径）
+  if (data.countries !== undefined) {
+    await syncEventCountries(id, existing.countries ?? [], data.countries, now)
+  }
 
   if (data.title !== undefined) {
     updateReferencesAfterRename('event', id, data.title).catch(() => {})

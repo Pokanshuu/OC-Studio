@@ -48,6 +48,7 @@
     "@xyflow/react": "^12.10.2",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
+    "d3-force": "^3.0.0",
     "dexie": "^4.4.2",
     "heic-to": "^1.5.2",
     "js-yaml": "^4.3.2",
@@ -66,6 +67,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@tauri-apps/cli": "^2.11.1",
+    "@types/d3-force": "^3.0.10",
     "@types/js-yaml": "^4.0.9",
     "@types/markdown-it": "^14.2.0",
     "@types/node": "^20",

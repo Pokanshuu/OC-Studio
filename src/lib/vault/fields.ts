@@ -43,6 +43,8 @@ export const CHARACTER_KEYS = {
   relations: chain('relations'),
   tags: chain('tags'),
   order: chain('order', '排序'),
+  /** 关系图坐标：`{ x, y }`。只有用户拖过节点才有这个键 */
+  graphPosition: chain('graph_position', 'graphPosition'),
   date: chain('date'),
 } as const
 
@@ -60,6 +62,8 @@ export const COUNTRY_KEYS = {
   events: chain('events', '事件', '相关事件'),
   tags: chain('tags'),
   order: chain('order', '排序'),
+  /** 关系图坐标：`{ x, y }`。只有用户拖过节点才有这个键 */
+  graphPosition: chain('graph_position', 'graphPosition'),
   date: chain('date'),
 } as const
 
@@ -81,6 +85,8 @@ export const EVENT_KEYS = {
   relations: chain('relations'),
   tags: chain('tags'),
   order: chain('order', '排序'),
+  /** 关系图坐标：`{ x, y }`。只有用户拖过节点才有这个键 */
+  graphPosition: chain('graph_position', 'graphPosition'),
   date: chain('date'),
 } as const
 
@@ -171,12 +177,30 @@ export function readBool(fm: Record<string, unknown>, c: KeyChain): boolean {
 
 export function readNumber(fm: Record<string, unknown>, c: KeyChain): number | undefined {
   const value = firstPresent(fm, c)
+  return toFinite(value)
+}
+
+function toFinite(value: unknown): number | undefined {
   if (typeof value === 'number' && Number.isFinite(value)) return value
   if (typeof value === 'string') {
     const parsed = Number.parseFloat(value)
     if (Number.isFinite(parsed)) return parsed
   }
   return undefined
+}
+
+/** `{ x, y }` 坐标（关系图位置）；缺一个轴就当没有 */
+export function readPosition(
+  fm: Record<string, unknown>,
+  c: KeyChain,
+): { x: number; y: number } | undefined {
+  const value = firstPresent(fm, c)
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return undefined
+  const record = value as Record<string, unknown>
+  const x = toFinite(record.x)
+  const y = toFinite(record.y)
+  if (x === undefined || y === undefined) return undefined
+  return { x, y }
 }
 
 export function readTimestamp(
@@ -252,4 +276,15 @@ export function writeBool(value: boolean): boolean | undefined {
 
 export function writeNumber(value: number | undefined): number | undefined {
   return value === undefined || !Number.isFinite(value) ? undefined : value
+}
+
+/**
+ * 关系图坐标落盘：保留 1 位小数（拖拽给的是 123.456789 这种），非法值当没有。
+ * 键顺序固定 `{ x, y }` —— `sameDiskValue` 用 JSON 比较，顺序必须稳定。
+ */
+export function writePosition(
+  value: { x: number; y: number } | undefined,
+): { x: number; y: number } | undefined {
+  if (!value || !Number.isFinite(value.x) || !Number.isFinite(value.y)) return undefined
+  return { x: Math.round(value.x * 10) / 10, y: Math.round(value.y * 10) / 10 }
 }

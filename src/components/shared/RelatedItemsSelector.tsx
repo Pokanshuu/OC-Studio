@@ -21,6 +21,11 @@ interface RelatedItemsSelectorProps {
   hideSelected?: boolean
   /** 弹层对齐方向：放在标题行右侧时用 right */
   panelAlign?: 'left' | 'right'
+  /** 已选项的附加标签（如关系名）：按 id 取值，非空时跟在名称后面 */
+  labels?: Record<number, string>
+  /** 提供后标签变成 chip 内的行内输入（给关联起名，如事件之间的关系） */
+  onLabelChange?: (id: number, value: string) => void
+  labelPlaceholder?: string
 }
 
 /**
@@ -37,6 +42,9 @@ export function RelatedItemsSelector({
   maxItems,
   hideSelected = false,
   panelAlign = 'left',
+  labels,
+  onLabelChange,
+  labelPlaceholder = '关系',
 }: RelatedItemsSelectorProps) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -120,6 +128,18 @@ export function RelatedItemsSelector({
               >
                 {item.name}
               </button>
+              {onLabelChange ? (
+                <input
+                  type="text"
+                  value={labels?.[item.id] ?? ''}
+                  onChange={(e) => onLabelChange(item.id, e.target.value)}
+                  placeholder={labelPlaceholder}
+                  aria-label={`${item.name}的${labelPlaceholder}`}
+                  className="w-12 bg-transparent text-[12px] text-ink-muted placeholder:text-ink-faint focus:outline-none"
+                />
+              ) : labels?.[item.id] ? (
+                <span className="text-[12px] text-ink-faint">{labels[item.id]}</span>
+              ) : null}
               <button
                 type="button"
                 onClick={() => removeItem(item.id)}

@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import { logOperation, pendingStamp } from '@/lib/sync'
 import { listActive, getById, softDelete } from '@/lib/repository'
 import { updateReferencesAfterRename, syncReferenceLabels } from '@/lib/reference-sync'
+import { syncCountryCharacters, syncCountryEvents } from '@/lib/membership'
 import type { Country } from '@/types'
 import type { CountryFormData } from './types'
 
@@ -97,6 +98,15 @@ export async function updateCountry(id: number, data: Partial<CountryFormData>):
   }
 
   await db.countries.update(id, updates)
+
+  // 国家侧的成员名单是镜像：相关角色 ⇄ 角色的国籍、相关事件 ⇄ 事件的相关国家。
+  // 不反向同步的话，从国家这边删掉一条，关系图上那条边还会因为国籍/事件侧而留着。
+  if (data.characters !== undefined) {
+    await syncCountryCharacters(id, existing.characters ?? [], data.characters, now)
+  }
+  if (data.events !== undefined) {
+    await syncCountryEvents(id, existing.events ?? [], data.events, now)
+  }
 
   if (data.name !== undefined) {
     updateReferencesAfterRename('country', id, data.name).catch(() => {})

@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import { logOperation, pendingStamp } from '@/lib/sync'
 import { listActive, getById, softDelete } from '@/lib/repository'
 import { updateReferencesAfterRename, syncReferenceLabels } from '@/lib/reference-sync'
+import { syncCharacterCountry } from '@/lib/membership'
 import type { Character } from '@/types'
 import type { CharacterFormData } from './types'
 
@@ -171,6 +172,15 @@ export async function updateCharacter(
   }
 
   await db.characters.update(id, updates)
+
+  // 国籍变了 → 国家侧的「相关角色」跟着增删（成员关系两边都写，与关系图拖拽同一口径）
+  if (data.countryId !== undefined) {
+    const previousCountryId = existing.countryId ?? null
+    const nextCountryId = data.countryId ?? null
+    if (previousCountryId !== nextCountryId) {
+      await syncCharacterCountry(id, previousCountryId, nextCountryId, now)
+    }
+  }
 
   if (data.name !== undefined) {
     updateReferencesAfterRename('character', id, data.name).catch(() => {})

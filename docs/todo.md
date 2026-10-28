@@ -35,6 +35,11 @@
   - 关于页：`访问 GitHub 项目` 走 `open_external`（Tauri 里 `target="_blank"` 点不动）；新增 31 项开源致谢（`settings/credits.ts`，许可证取自各自 package.json / Cargo.toml）；列表定高自滚动，设置弹窗整体限高（`max-h-[calc(100vh-4rem)]` + 内容区自滚）。
   - 修 Mica 被设置页关掉：`GeneralTab` 原先把 `init_blur(enabled: false)` 当能力探针，等于每次打开设置就 `clear_mica`；新增纯查询命令 `blur_supported`。
   - 文案：界面里 Vault → **仓库**（代码仍叫 vault）。
+- [x] **外壳细节（2026-10 下半场）**
+  - 菜单栏 / 状态栏 / 侧边栏之间去线，三块共用一张表面；内容区改成一块 `bg-paper` + `border` + 6px 圆角的浮纸；窗口控制按钮的上/右内缩统一为 4px；Mica 恢复（底色只由 `globals.css` 的 `[data-*]` 规则给）。
+  - 相册分类树的行改「满宽条」：容器不留左右内边距，悬停 / 选中铺满整行，圆角仍是小档 4px。
+  - **侧边栏宽度可拖**：默认 140px，右边缘 6px 命中区（悬停显浅底、不画线），范围 112–168px（0.8–1.2 倍），双击复位；常量在 `src/lib/sidebar-width.ts`，宽度存 `settings.sidebarWidth`。
+  - 「视图」菜单移除「浏览模式」（`settings.editMode` 删除）。
 
 ### 待做（2026-10 用户反馈 · 按推荐顺序）
 
@@ -70,8 +75,47 @@
   - 读文件系统 mtime 当“创作时间”：只能表达“最后一次”，且我们的原子写（temp + rename）会重置 `CreationTime`；它只配做展示，不配做记录
   - 让用户学 git / commit / push：给画师的工具不该要求这些；将来顶多做“后台自动 commit”的高级开关
 
+### 已完成 · 关系图布局与坐标持久化（2026-10-28 规格书）
+
+> 规格书原稿《关系图布局与图片导出 v0.19.0-alpha》。**本轮只做 Phase 1–2（布局 + 坐标）**，导出（Phase 3–4）暂缓，技术要点记在最后一节，别丢。
+> 与规格书的差异（已定，不再讨论）：① 不引 Zustand —— 坐标走现有 service + React Query，不引第二套状态库；② 不用 `graphX` / `graphY` 两列，实体上一个 `graphPosition: { x, y }` 对象，正好对上 frontmatter 的 `graph_position`；③ 角色 / 事件 / 国家**三种节点都持久化**（只存角色的话，事件与国家每次重开都会重排）；④ **localStorage 缓存整个删掉**（见下）。
+
+**问题**：节点一多，头像互相压住、连线从节点身上穿过去；布局只存在 localStorage，换机器 / 重开仓库就丢。
+
+**目标**：力导向 + 碰撞检测算出初始布局；用户拖过的位置写进实体（仓库写 frontmatter），重开还在。
+
+- [x] **P1 力导向布局**（新增依赖 `d3-force` + `@types/d3-force`）
+  - `src/features/relations/layout.ts`：`computeForceLayout(nodes, edges, { pinned })` 纯函数 → `Map<nodeId, { x, y }>`
+  - 力模型：`forceLink`（用现有边；距离 150 / 强度 0.6）+ `forceManyBody(-180)` + `forceCollide(半径 + 12)` + **向心引力 `forceX/forceY` 0.09**（没有它孤立节点会一路往外飘，图被摊到几千像素、fitView 只能缩到 0.2）
+  - 引力中心：有钉住节点时朝**锚点质心**聚（新节点落在已摆好的那坨附近），否则朝原点
+  - **不摊太大**：模拟结束后按 `TARGET = 1500×1000` 回缩一次（只在「全是自由节点」时做，有锚点时不缩放，否则会把用户摆好的位置一起挪走），回缩后再跑 60 步纯碰撞把压在一起的推开
+  - 碰撞半径按节点形态给：角色 / 国家 52（56 头像 + 名字），事件 64（矩形更宽）；d3 给的是圆心，换算成 React Flow 的左上角时减掉半个身位（`NODE_SIZE`）
+  - **确定性**：初始位置按圆周均分 + `randomSource(mulberry32(0x9e3779b9))`，`simulation.stop()` 后同步跑 300 tick —— 两次结果逐字节一致
+  - 只给**没有坐标**的节点算位置；钉住的节点原样返回
+  - 实测（真实 `computeForceLayout`）：13 节点 497×529、25 节点 717×705、40 节点 964×892，最近一对间距 +23~24px（即碰撞半径生效、无重叠）
+- [x] **P2 坐标双轨持久化**
+  - `Character` / `Event` / `Country` 加 `graphPosition?: { x, y }`（`src/types/index.ts` 的 `GraphPosition`）
+  - 仓库键 `graph_position`（键链 `graph_position` / `graphPosition`）；`serialize.ts` 有值才写、未改动不写（`sameDiskValue` 补了对象比较，否则每次保存都会重写这个键），`scan.ts` 读回
+  - 拖拽结束（`onNodeDragStop`）→ `saveNodePosition()` 写回实体：`graphPosition` + `pendingStamp`，**不动 `updatedAt`**（排版不算编辑，不该窜到「最近更新」最前面）
+  - 没升 Dexie 版本（`graphPosition` 不是索引字段）
+- [x] **P3 可读性（用户反馈追加）**
+  - **删掉 localStorage 缓存**：旧版把径向布局的坐标写进 `oc-relation-node-positions`，结果整张图被钉死、力导向永远不跑（用户实测「看不出任何变化」）。现在坐标只认实体，没有就现算 —— 力导向是确定性的，重算结果稳定，缓存没有存在意义
+  - **缩放下限 `MIN_ZOOM = 0.6`**：画布 `minZoom`、`fitView` 的 `minZoom`、缩放滑杆三处共用。再小人脸和名字就看不清了，看不全就让用户自己平移
+  - **连线四向落点**：节点上 / 右 / 下 / 左四个手柄（Loose 模式，任一端都能起手），`routeEdges()` 按两端节点的相对方位给每条边挑手柄（横向走左右、纵向走上下）；贝塞尔曲率 0.25 → 0.15。之前所有线都从正下方一个点挤出来，贴着节点糊成一束
+  - 手柄桌面**悬停节点才显形**（`md:group-hover`，节点带 `group`），移动端常显；可落点时填墨（`.valid`）
+  - 工具面板加 **⟳ 重新布局**（纯图标，桌面 / 移动端同一形态）：无视已有坐标整张图重跑，并把新坐标写回实体 —— 不写回的话下次打开又弹回旧位置
+- **验收**：`tsc` / `eslint` / `npm run build` / `npm run audit:design` / `npx tsx scripts/vault-migrate-check.ts` 全绿；布局几何用临时脚本量过（上表）；真机观感由用户确认
+- **已知取舍**：图很大时（>40 节点）默认视图看不全，需要平移 —— 这是「宁可少看一点，也不要糊成一片」的代价
+
+#### 导出（暂缓，先记技术要点）
+
+- 角色卡：`html-to-image` 的 `toPng()` + 隐藏的 800×1200 模板；Tauri 本地图片必须先转 data URL（`image-service` 已有三环境适配），否则 canvas 被污染、导出空白
+- 整图：React Flow 的 `getNodesBounds` + `getViewportForBounds` 算包围盒，对 `.react-flow__viewport` 出图，而不是截当前视口
+- 落盘：`src-tauri/src/files.rs` 目前只有 `save_text`，导出 PNG 要加 `save_bytes`（照现有「同目录临时文件 + rename」写，带单测）
+- 水印：默认「Created with OC Studio」，不硬编码作者名
+
 ### 已跳过（用户确认不做）
-- ~~编辑/浏览模式落地~~（交互未定，搁置）
+- ~~编辑/浏览模式~~：2026-10 从「视图」菜单**移除**（阅读态开关不做，`settings.editMode` 一并删掉）。正文只读靠导出与静态站，不再有第二种模式
 - ~~时间线移动端可编辑~~（点击时间已进编辑，且移动端交互不便）
 - ~~标签交互~~（没必要）
 - ~~快捷键可发现性提示~~（没必要）

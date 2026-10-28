@@ -1,7 +1,8 @@
 'use client'
 
-import { Minus, Plus, Users, Calendar, Flag } from 'lucide-react'
+import { Minus, Plus, Users, Calendar, Flag, RefreshCw } from 'lucide-react'
 import { Panel } from '@xyflow/react'
+import { MIN_ZOOM } from './relation-graph-utils'
 
 interface RelationControlsProps {
   showCharacters: boolean
@@ -12,6 +13,8 @@ interface RelationControlsProps {
   onToggleCountries: () => void
   zoom: number
   onZoomChange: (value: number) => void
+  /** 重跑力导向布局（并把新坐标写回实体） */
+  onRelayout: () => void
 }
 
 function RelationFilterButtons({
@@ -55,7 +58,8 @@ function ZoomSlider({ zoom, onZoomChange }: { zoom: number; onZoomChange: (value
   const zoomValue = Math.round(zoom * 100)
 
   const handleZoom = (value: number) => {
-    const clamped = Math.max(10, Math.min(200, value))
+    const min = Math.round(MIN_ZOOM * 100)
+    const clamped = Math.max(min, Math.min(200, value))
     onZoomChange(clamped)
   }
 
@@ -69,7 +73,7 @@ function ZoomSlider({ zoom, onZoomChange }: { zoom: number; onZoomChange: (value
       </button>
       <input
         type="range"
-        min={10}
+        min={Math.round(MIN_ZOOM * 100)}
         max={200}
         step={1}
         value={zoomValue}
@@ -96,7 +100,17 @@ function ZoomSlider({ zoom, onZoomChange }: { zoom: number; onZoomChange: (value
 export function MobileRelationControls(props: RelationControlsProps) {
   return (
     <div className="md:hidden fixed top-[calc(60px+var(--safe-top))] left-0 right-0 z-30 flex h-10 items-center justify-between border-b border-line/50 bg-paper-alt/85 px-4 backdrop-blur-lg">
-      <RelationFilterButtons {...props} />
+      <div className="flex items-center gap-1">
+        <RelationFilterButtons {...props} />
+        <button
+          onClick={props.onRelayout}
+          aria-label="重新布局"
+          title="重新布局"
+          className="flex h-7 w-7 items-center justify-center rounded-item text-ink-faint transition-colors hover:text-ink"
+        >
+          <RefreshCw size={14} strokeWidth={2} />
+        </button>
+      </div>
       <ZoomSlider zoom={props.zoom} onZoomChange={props.onZoomChange} />
     </div>
   )
@@ -107,6 +121,14 @@ export function DesktopRelationPanel(props: RelationControlsProps) {
     <Panel position="top-left" className="max-md:hidden flex items-center gap-4 bg-paper/85 backdrop-blur-lg border border-line rounded-control px-3 py-2 m-3 float-shadow">
       <RelationFilterButtons {...props} />
       <ZoomSlider zoom={props.zoom} onZoomChange={props.onZoomChange} />
+      <button
+        onClick={props.onRelayout}
+        aria-label="重新布局"
+        title="重新布局"
+        className="flex h-7 w-7 items-center justify-center rounded-item text-ink-faint transition-colors hover:text-ink md:h-6 md:w-6"
+      >
+        <RefreshCw size={14} strokeWidth={2} />
+      </button>
     </Panel>
   )
 }

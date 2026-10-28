@@ -9,6 +9,7 @@ import {
   chainKeys,
   writeBool,
   writeNumber,
+  writePosition,
   writeString,
   writeStringList,
   type KeyChain,
@@ -58,6 +59,10 @@ function sameDiskValue(a: unknown, b: unknown): boolean {
   if (a === undefined && Array.isArray(b) && b.length === 0) return true
   if (b === undefined && Array.isArray(a) && a.length === 0) return true
   if (Array.isArray(a) && Array.isArray(b)) return JSON.stringify(a) === JSON.stringify(b)
+  // 对象值（目前只有 `graph_position: { x, y }`）：键顺序由写入侧固定，逐字节比较即可
+  if (a && b && typeof a === 'object' && typeof b === 'object') {
+    return JSON.stringify(a) === JSON.stringify(b)
+  }
   return false
 }
 
@@ -219,6 +224,7 @@ export function serializeCharacter(
   putIfChanged(out, existing, CHARACTER_KEYS.avatars, imageListDisk(entity.avatars), prev === null ? null : imageListDisk(prev.avatars))
   putIfChanged(out, existing, CHARACTER_KEYS.relations, relationDisk(entity, ctx), prev === null ? null : relationDisk(prev, ctx))
   putIfChanged(out, existing, CHARACTER_KEYS.order, writeNumber(entity.order), prev === null ? null : writeNumber(prev.order))
+  putIfChanged(out, existing, CHARACTER_KEYS.graphPosition, writePosition(entity.graphPosition), prev === null ? null : writePosition(prev.graphPosition))
   putCustomFields(out, existing, 'character', entity.custom, prev === null ? undefined : prev.custom)
 
   // 注意：`date` 刻意不写 —— 那是作者的创作日期，不该被 updatedAt 覆盖
@@ -253,6 +259,7 @@ export function serializeCountry(
   putIfChanged(out, existing, COUNTRY_KEYS.events, namesOf(ctx, 'event', entity.events), p === null ? null : namesOf(ctx, 'event', p.events))
   putIfChanged(out, existing, COUNTRY_KEYS.tags, tagNames(ctx, entity.tags), p === null ? null : tagNames(ctx, p.tags))
   putIfChanged(out, existing, COUNTRY_KEYS.order, writeNumber(entity.order), p === null ? null : writeNumber(p.order))
+  putIfChanged(out, existing, COUNTRY_KEYS.graphPosition, writePosition(entity.graphPosition), p === null ? null : writePosition(p.graphPosition))
   return out
 }
 
@@ -286,6 +293,7 @@ export function serializeEvent(
   putIfChanged(out, existing, EVENT_KEYS.relations, eventRelationDisk(entity, ctx), p === null ? null : eventRelationDisk(p, ctx))
   putIfChanged(out, existing, EVENT_KEYS.tags, tagNames(ctx, entity.tags), p === null ? null : tagNames(ctx, p.tags))
   putIfChanged(out, existing, EVENT_KEYS.order, writeNumber(entity.order), p === null ? null : writeNumber(p.order))
+  putIfChanged(out, existing, EVENT_KEYS.graphPosition, writePosition(entity.graphPosition), p === null ? null : writePosition(p.graphPosition))
   putCustomFields(out, existing, 'event', entity.custom, p === null ? undefined : p.custom)
   return out
 }

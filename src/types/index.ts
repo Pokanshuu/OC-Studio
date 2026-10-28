@@ -14,6 +14,12 @@ export interface AvatarImage {
   type: 'portrait' | 'fullbody' | 'other'
 }
 
+/** 关系图坐标：用户把节点拖到哪里就记在哪里（仓库写 frontmatter 的 `graph_position`） */
+export interface GraphPosition {
+  x: number
+  y: number
+}
+
 export interface Character {
   id: number
   name: string
@@ -46,6 +52,8 @@ export interface Character {
   isMajor?: boolean
   /** 手动排序位置（升序；缺省 = 排在已有项之后）。落盘到 frontmatter 的 `order` */
   order?: number
+  /** 关系图里的坐标（用户拖过才有；落盘到 frontmatter 的 `graph_position`） */
+  graphPosition?: GraphPosition
   createdAt: number
   /** 自定义字段的值（键 = 字段表里的 key；内置字段仍然走各自的列） */
   custom?: Record<string, string>
@@ -76,6 +84,8 @@ export interface Event {
   isMajor: boolean
   /** 手动排序位置（升序；缺省 = 排在已有项之后） */
   order?: number
+  /** 关系图里的坐标（用户拖过才有） */
+  graphPosition?: GraphPosition
   createdAt: number
   /** 自定义字段的值（键 = 字段表里的 key；内置字段仍然走各自的列） */
   custom?: Record<string, string>
@@ -113,6 +123,8 @@ export interface Country {
   tags: number[]
   /** 手动排序位置（升序；缺省 = 排在已有项之后） */
   order?: number
+  /** 关系图里的坐标（用户拖过才有） */
+  graphPosition?: GraphPosition
   createdAt: number
   /** 自定义字段的值（键 = 字段表里的 key；内置字段仍然走各自的列） */
   custom?: Record<string, string>

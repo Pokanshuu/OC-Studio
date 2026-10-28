@@ -21,6 +21,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - `src/types/index.ts` — 全局类型定义（实体 `id: number` 必填、`Period` + `PERIOD_COLORS`、`ProjectMeta`）
 - `src/lib/sync.ts` — 操作日志 (`logOperation`) + 待同步时间戳 (`pendingStamp`)
 - `src/lib/repository.ts` — 泛型 CRUD 仓储原语（listActive / getById / softDelete）。签名是 `Table<T, number, TInsert>`，**第 3 个泛型位不可省**（否则推断会把行类型统一成写入类型，见 §已知差异）
+- `src/lib/membership.ts` — **成员关系镜像写入的唯一实现**：角色 `countryId`（国籍）⇄ 国家 `characters`、事件 `countries` ⇄ 国家 `events`。实体侧是权威、国家侧是镜像；关系图拖拽与角色 / 国家 / 事件三个编辑器的保存共用。只写一侧会出现「拖完只在国家里看到、角色国籍仍为空」
 - `src/lib/env.ts` — 环境检测唯一权威（isTauri / isCapacitor / isNativePlatform）
 - `src/lib/version.ts` — 版本号单源（读 package.json）
 - `src/lib/open-external.ts` — 用系统浏览器打开外链（桌面走自建命令 `open_external`，见 `src-tauri/src/open.rs`；浏览器/Capacitor 走 `window.open`）。**Tauri 里 `target="_blank"` 是死的**，别再直接写 `<a>`
@@ -30,6 +31,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - `src/lib/ui-tokens.ts` — **界面原子类唯一源**，改 UI 时从这里取，不要就地拼写。分八组：标题（PAGE_TITLE / SECTION_TITLE）· 页头（TOOLBAR / EDITOR_HEADER / EDITOR_BODY）· 按钮（BTN_PRIMARY / BTN_QUIET / **BTN_DANGER**（灰调红实心，破坏性确认唯一形态）/ ICON_BTN / ICON_BTN_MD / FILTER_TRIGGER）· 输入与字段行（INPUT_LINE / TITLE_INPUT / FIELD_INPUT / **DATE_INPUT**（年/月/日 三段）/ FIELD_ROW / FIELD_LABEL / FIELD_GRID / LIST_END / SEARCH_INPUT / SEARCH_ICON）· 浮层（PANEL / MENU / MENU_ITEM_BASE / MENU_ITEM / MENU_GROUP_LABEL）· 列表（LIST_GRID / ROW_ACTIONS / EMPTY_HINT / MOBILE_FILTER_BTN / CHIP）· 素材卡与节点（MEDIA_CARD / MEDIA_IMG / MEDIA_GRADIENT / MEDIA_FALLBACK / NODE_WRAPPER）· 圆角与空态（ROUND_ITEM / ROUND_CONTROL / ROUND_PANEL、EMPTY_STATE / CENTER_STATE / LOADING_TEXT）
 - `src/app/globals.css` — 设计令牌（`--oc-paper/ink/line/hover`、`--oc-danger`（危险按钮的灰调红底色））、**圆角三档**（`--radius-item: 4px` / `control: 6px` / `panel: 8px` → `rounded-item` 等工具类）、`--oc-hover`（全局控件悬停底色）、`--oc-ink-fixed/paper-fixed`（固定底色上的文字）、`.touch-feedback`、`.row-rule`+`.rules-end`（可点整行的直线分隔）
 - `scripts/design-audit.ts` — **设计令牌体检**（`npm run audit:design`）：扫全项目找像素圆角 / Tailwind 原色 / 暗色十六进制 / 黑·白半透明底 / 阴影 / 粗描边 / ring 光晕，并列出「重复 ≥3 次、该收进 ui-tokens 的类名串」。确有例外就写 `// design-audit-allow <规则名> 理由`。**提交前跑一次，0 违规才算过**
+- `src/lib/sidebar-width.ts` — **侧边栏宽度唯一源**：默认 140px，可调范围 0.8–1.2 倍（112–168px），`clampSidebarWidth()` 负责夹取；宽度存在 settings 的 `sidebarWidth`（localStorage），拖动中只更新本地 state，松手才落盘
 
 ### 编辑器（全局唯一内核）
 - `src/components/editor/EditorCore.tsx` — 统一 Tiptap 实例（含移动端键盘工具栏与块面板）
@@ -46,6 +48,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - **实体编辑器统一形态**：`components/<X>Editor.tsx` = 页头 + 头图 + 各 section 组装（约 120–240 行）；表单状态/派生/保存管线放 `hooks/use<X>Form.ts`（返回单个对象，`export type <X>Form = ReturnType<...>`）；字段区拆成 `components/<X>InfoSection.tsx` / `<X>RelationSection.tsx` 等。已按此收口：CharacterEditor / EventEditor / WorldLayout(`useWorldEntryDraft`) / SettingsDialog
 - **列表页统一形态**：`components/<X>List.tsx` = 状态 + 过滤派生 + 空态/错误态 + 网格·目录渲染 + 浮层；列表项 `components/<X>ListItems.tsx`（Card/Row 共用 props）、页头 `components/<X>ListToolbar.tsx`、纯函数与偏好读写 `components/<X>-list-utils.ts`。已按此收口：CharacterList / EventList / CountryList
 - `src/features/timeline/` — 已按职责分层：`hooks/useTimelineLayout`（纯派生：坐标/泳道/刻度/聚合桶）、`hooks/useTimelineViewport`（滚动/缩放/捏合/导航）、`components/{TimelineToolbar,EventNode,FilterSelect,PeriodBar,BucketView,EmptyTimeline}`、`constants.ts`、`utils.ts`（纯函数）
+- `src/features/relations/` — 关系图：`layout.ts`（**力导向 + 碰撞检测唯一实现** `computeForceLayout`，含向心引力与目标尺寸回缩）、`services.ts`（`buildGraphData` / 拖拽建边 `createRelationBetween` / 存坐标 `saveNodePosition`）、`components/relation-graph-utils.ts`（`relationPlan` 连线语义表 + `routeEdges` 四向落点 + `MIN_ZOOM`）。节点坐标存实体的 `graphPosition`（仓库写 `graph_position`），**不再用 localStorage 缓存**
 - `src/features/project/` — 项目元信息（单例 `meta` 表，id 固定为 1）
 - `src/lib/world-tree.ts` — **词条树唯一实现**（`buildEntryTree`）。层级只由 `parentId` 表达；编辑器目录与静态站导出共用同一份排序。`parentId` 悬空（父级被删）时该条当根，不消失
 - `src/features/dashboard/` — 概览（主页）首屏。世界封面（`meta.coverUrl`，设置 → 世界）就是这一页的头图（`StretchyHeader`，3:2）；没设封面时不占位
@@ -66,7 +69,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - `src/lib/useBackButton.ts` — Capacitor 系统返回键处理
 - `src/lib/browser-compat.ts` — 浏览器兼容性检测：Chromium 版本、HarmonyOS/ArkWeb、安全区域降级估算与修正
 - `src/lib/reference-registry.ts` — @ 引用和 [[ 内链数据源注册
-- `src/lib/settings.tsx` — 主题 / 同步设置
+- `src/lib/settings.tsx` — 主题 / 同步 / 界面偏好（`sidebarVisible`、`sidebarWidth`）设置
 - `src/lib/use-device.ts` — useDevice() (isMobile)
 - `src/lib/image-service.ts` — 图片全流程（含 Tauri/Capacitor/Browser 三环境适配）
 - `src/lib/image-crop.ts` — Canvas 裁剪引擎（getCroppedBlob 支持 Blob 入参 + HEIF 自动转换）
@@ -105,10 +108,10 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - `src/lib/vault/vault-fs.ts` — Tauri 命令的 TS 门面（含 `isVaultSupported()`）
 - `src/lib/vault/vault-load.ts` — 读盘 + 建会话 + 整库替换 Dexie（**挂起落盘**）
 - `src/lib/vault/vault-persist.ts` — 落盘队列：挂在 **Dexie dbcore 中间件**上，`dbcore.table().mutate` 是所有写入的唯一入口，一处接线覆盖全部写入路径；只在事务外做 IO；**绝不静默删除文件**（`deleteRange` 一律忽略）。主键要**同时**看 request 的 `keys` 与 response 的 `results` —— 不带 id 的 `add`/`bulkAdd` 只有在 response 里才拿得到自增主键，漏了它新行永不落盘；单条序列化失败只记错并把该行留在队列，不连坐整批
-- `src/lib/vault/export-dir.ts` — **老数据 → 文件夹**的全量物化（笔记 + 图片 + `tags.json` + `fields.json` + 标记文件）。只写不删、目标必须是空文件夹；`scripts/vault-migrate-check.ts` 是它的内存闭环自检
+- `src/lib/vault/export-dir.ts` — **老数据 → 文件夹**的全量物化（笔记 + 图片 + `tags.json` + `fields.json` + 标记文件）。只写不删；目标文件夹**可以已有笔记**，合并策略（跳过/覆盖/保留两者/清空并导入）原样作用于同名文件（「清空并导入」只是把旧笔记挪进 `.ocstudio/trash/`）；`scripts/vault-migrate-check.ts` 是它的内存闭环自检
 - `src/lib/vault/vault-paths.ts` — 路径分配（纯函数）：Windows 非法字符、保留设备名、撞名去重、回收站路径
 - `src/lib/vault/vault-session.ts` / `vault-registry.ts` / `vault-tags.ts` / `vault-marker.ts`
-- `src/lib/vault/vault-migrate.ts` — 把应用数据目录里的存量图片迁进 vault 并改写引用。**显式动作**（菜单里点），不自动执行 —— 它要往用户文件夹里写文件
+- `src/lib/vault/vault-assets.ts` — 素材引用的改写原语（`planImageRewrites` / `allocateAssetPath`）。图片由落地迁移一起搬（字段 + 正文 + `data:` URI）；**没有**单独的「把旧图片收进文件夹」动作了，那半套只认字段，会搬一半
 - `src/lib/vault/vault-provider.tsx` — 上下文。状态是**派生**的（`useSyncExternalStore` 读环境）：`isVaultSupported()` 服务端为 false，直接做 useState 初值会造成水合不一致
 - `src/features/vault/` — UI（`VaultGate` 启动闸门 / `VaultWriteBanner` / `VaultMenuSection` / `VaultStatus` / `VaultSurfaces` / `VaultOverlay` / `VaultScanReportDialog` —— 界面上叫**概览**：一行「N 篇笔记 → 构成」，正常时只说「没有发现问题」，有异常才出现一条「未知 N 项」，点开才是文件清单）
 - `scripts/vault-analyze.ts` — 离线体检 + 内存往返验证
@@ -167,6 +170,7 @@ npx tauri build   # Tauri 打包 (.exe/.msi)
    - **禁止 `rounded-[6px]` 像素字面量**；也禁止 `rounded-sm|md|lg`（Tailwind/shadcn 固定值）、裸 `rounded`、以及已废弃的 `rounded-media` / `rounded-menu`。组合式类名用 `ui-tokens` 的 `ROUND_*` 常量拼；圆形（头像/徽章/色点/开关/图上的圆钮）直接写 `rounded-full`
    - **页签（Tabs）选中 = 2px 墨色下划线**，悬停只换文字色；其余「选中」才用浅底块
    - **外壳**：菜单栏 / 状态栏 / 侧边栏之间不画线，三块共用同一表面（底色只由 globals.css 的 `[data-app-shell|data-menubar|data-sidebar|data-statusbar]` 规则给，**Mica 下必须透明**，父级禁止再铺 `bg-*`）；内容区是一块 `bg-paper` + `border border-line` + `rounded-control`(6px) 的面板，**不加内外边距**，那条 border 就是 chrome 与内容之间的唯一分隔线
+   - **侧边栏宽度**：默认 140px，拖右边缘可调 112–168px（0.8–1.2 倍），双击复位；拖拽条是一条 6px 命中区、悬停才显 `--oc-hover`，**不画分隔线**（外壳之间本来就不许有线）。常量与夹取逻辑在 `src/lib/sidebar-width.ts`，别再就地写 140
    - **阴影**：内容面（卡片 / 按钮 / 输入）零阴影；浮层（菜单 / 下拉 / 右键 / 弹窗 / 抽屉 / 通知）只用唯一一档 `FLOAT_SHADOW`（`float-shadow`，值在 `globals.css`）。禁止 Tailwind `shadow-sm/md/lg` 与自编阴影值，`audit:design` 的 `shadow-literal` 会拦
    - **设置弹窗**：衬线只给弹窗标题（`PAGE_TITLE`），内部一律黑体 —— 分组标题 `text-sm font-medium text-ink`、字段标签 `text-sm text-ink`、说明 `text-xs text-ink-faint`；**动作按钮文字居中**，二级页面入口按列表行两端对齐（文字靠左、`›` 靠右）。细则见 design skill「设置弹窗」
    - 浮层菜单（右键 / 下拉 / 筛选 / @ / / ）一律：容器 `MENU`（只留 `py-1`，**没有左右内边距**）+ 行 `MENU_ITEM_BASE`（自带 `px-3`）—— hover 才能横向铺满、左右不留缝；行高 `py-1`（27px），不要再用 `py-1.5`

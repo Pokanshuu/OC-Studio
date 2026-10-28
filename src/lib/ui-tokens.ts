@@ -119,6 +119,8 @@ export const MENU_GROUP_LABEL = 'px-3 py-1 text-[11px] tracking-[0.08em] text-in
 /* ── chip ─────────────────────────────────────────────
    无描边、低对比底色；选中态反相为实心墨色。 */
 export const CHIP = `inline-flex items-center gap-1 bg-paper-alt px-2 py-[3px] text-[12px] text-ink-muted ${ROUND_ITEM}`
+/** chip 选中态：反相为实心墨色（只用于「选中」语义，不当按钮强调色用） */
+export const CHIP_ON = `inline-flex items-center gap-1 bg-ink px-2 py-[3px] text-[12px] text-paper ${ROUND_ITEM}`
 
 /* ── 空态 / 加载 ─────────────────────────────────────── */
 export const EMPTY_STATE = 'flex flex-1 flex-col items-center justify-center gap-2 py-24'
@@ -166,3 +168,6 @@ export const DRAG_SLOT_ROW = 'absolute left-2 top-1/2 -translate-y-1/2'
 /* ── 关系图节点 ──────────────────────────────────────── */
 /** 节点外壳：图标在上、名字在下的竖排 */
 export const NODE_WRAPPER = 'flex flex-col items-center gap-1 group cursor-pointer'
+/** 节点的连线手柄：四向小圆点（Loose 模式，任一端都能起手）。桌面悬停节点才显形，移动端常显 */
+export const NODE_HANDLE =
+  '!h-3 !w-3 max-md:!h-4 max-md:!w-4 !rounded-full !border !border-line !bg-paper opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 hover:!bg-paper-card [&.valid]:!bg-ink-muted [&.valid]:opacity-100'

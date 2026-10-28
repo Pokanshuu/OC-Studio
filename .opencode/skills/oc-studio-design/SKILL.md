@@ -128,6 +128,7 @@ description: >
 - **可点的整行不要用 `border-b`**：圆角会把线的两端带弯（看着像括号/尾巴）。改用 `.row-rule`（行内 `::after` 直线，两端各缩 8px）+ 容器 `.rules-end`（最后一行不画线）。不可点的行（字段行那种 div）继续 `border-b`
 - **行列表不留尾线**：行用 `border-b` 画行间线，容器加 `LIST_END`（`[&>*:last-child]:border-b-0`）；两列网格用 `FIELD_GRID`（最后两格都去掉）。区块底部那条线什么都不分隔，只会让每个 section 看起来被方框围住
 - **列表行（目录视图）**：行底色的悬停 / 选中块是**小档圆角**（`rounded-item`），行间线用 `.row-rule` + 容器 `.rules-end` —— 用 `border-b` 的话线会跟着 4px 圆角拐弯，看着像括号/尾巴
+- **例外：侧栏 / 目录树的行是「满宽条」**（主 `Sidebar`、相册分类树）：悬停 / 选中块从面板左边缘铺到右边缘，**容器不留左右内边距**，内边距只由行自己给（`px-3`，二级 `pl-6 pr-3`）；圆角仍是小档 `rounded-item`（4px，满宽时只在两端切个很小的角）。它们是导航条，不是列表卡片
 - **选中态只有两种形态，按元素定、不许混**：**页签（Tabs）→ 2px 墨色下划线**（压在列表的 1px 底线上，详见「页签」一节）；其余（菜单项 / 分段项 / 卡片 / chip）→ 浅底块 `bg-[var(--oc-hover)]` 或 `bg-paper-card`。下划线**不要**画在圆角块下面：圆角会让线在两端拐弯、还多出一截尾巴
 - 浮层内部的菜单分组线可以继续用 `Separator`（`mx-2 my-1 h-px bg-line`）—— 两端内缩，与满宽 hover 形成对比
 - 竖分隔线（`Separator orientation="vertical"`）已从所有页头/工具栏移除
@@ -218,6 +219,7 @@ description: >
   - 面板**不加内外边距**：内容仍然贴到原来的位置（`main` 唯一的额外样式是圆角 + 边框）
   - 6px 是外壳专用取值：整窗尺寸下 8px 显得太软（像被包住），但仍在三档之内
 - `<main>` 仍是唯一滚动容器（`overflow-x-auto main-scroll`）；圆角与边框不影响 `sticky` 头部
+- **侧边栏宽度可拖**：默认 140px，右边缘留一条 6px 命中区（`cursor-col-resize`，悬停显 `--oc-hover`，**不画分隔线**），可调 112–168px（默认的 0.8–1.2 倍），双击复位；常量与夹取在 `src/lib/sidebar-width.ts`，偏好存 `settings.sidebarWidth`
 - 分隔线只在**内容区内部**使用：区块之间 / 表格行 / 空态占位框
 
 ### 顶栏 (Toolbar / 页头)
@@ -258,6 +260,7 @@ description: >
 - 节点与图例标记**与实体形态一致**：角色 / 国家用圆形头像（唯一允许的圆形），事件块用方形矩形（`bg-paper-card` + 1px `line`）
 - 时间线上的时间点：**方形小色块**（`h-2 w-2`），不用圆点
 - 标签：`text-[11px]` / `text-xs`，颜色 `ink-muted`
+- 关系图的连线手柄：节点上 / 右 / 下 / 左**四向**小圆点（`NODE_HANDLE`，12px，移动端 16px），桌面**悬停节点才显形**（`md:group-hover`）、移动端常显，可落点时填墨（React Flow 的 `.valid`）；每条边按目标方位选落点（`routeEdges`），贝塞尔曲率 0.15，连线用 `ink-muted` 1.5px
 
 ## 6. 动画规范
 - **不引入动画库**（项目未安装 `framer-motion`）：一律 CSS `transition` + `tw-animate-css` 的数据属性动画

@@ -3,10 +3,11 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react'
 import type { Editor } from '@tiptap/core'
 import type { RelatedItem } from '@/components/shared/RelatedItemsSelector'
-import type { Event } from '@/types'
+import type { Event, EventRelation } from '@/types'
 import type { EventFormData } from '../types'
 import { useCharacterList } from '@/features/characters/hooks/useCharacters'
 import { useCountryList } from '@/features/countries/hooks/useCountries'
+import { useEventList } from './useEvents'
 import { parseTime, assembleTime } from '../utils'
 import { useSaveStatus } from '@/components/layout/SaveStatusContext'
 import { toast } from 'sonner'
@@ -29,6 +30,7 @@ interface EventValues {
   custom: Record<string, string>
   characterIds: number[]
   countryIds: number[]
+  relations: EventRelation[]
   tags: number[]
 }
 
@@ -50,6 +52,7 @@ function valuesFromEntity(event: Event): EventValues {
     custom: event.custom ?? {},
     characterIds: event.characters ?? [],
     countryIds: event.countries ?? [],
+    relations: event.relations ?? [],
     tags: event.tags ?? [],
   }
 }
@@ -67,6 +70,7 @@ function valuesSnapshot(values: EventValues): Record<string, unknown> {
     custom: values.custom,
     characters: values.characterIds,
     countries: values.countryIds,
+    relations: values.relations,
     tags: values.tags,
   }
 }
@@ -96,6 +100,7 @@ export function useEventForm(
   const [custom, setCustom] = useState<Record<string, string>>(initial.custom)
   const [selectedCharacterIds, setSelectedCharacterIds] = useState<number[]>(initial.characterIds)
   const [selectedCountryIds, setSelectedCountryIds] = useState<number[]>(initial.countryIds)
+  const [relations, setRelations] = useState<EventRelation[]>(initial.relations)
   const [tags, setTags] = useState<number[]>(initial.tags)
   const [saving, setSaving] = useState(false)
   const editorRef = useRef<Editor | null>(null)
@@ -108,10 +113,10 @@ export function useEventForm(
 
   const values = useMemo<EventValues>(() => ({
     title, headerUrl, year, month, day, endYear, endMonth, endDay, location, summary,
-    isMajor, custom, characterIds: selectedCharacterIds, countryIds: selectedCountryIds, tags,
+    isMajor, custom, characterIds: selectedCharacterIds, countryIds: selectedCountryIds, relations, tags,
   }), [
     title, headerUrl, year, month, day, endYear, endMonth, endDay, location, summary,
-    isMajor, custom, selectedCharacterIds, selectedCountryIds, tags,
+    isMajor, custom, selectedCharacterIds, selectedCountryIds, relations, tags,
   ])
 
   const snapshot = useMemo(() => valuesSnapshot(values), [values])
@@ -139,12 +144,14 @@ export function useEventForm(
     setCustom(next.custom)
     setSelectedCharacterIds(next.characterIds)
     setSelectedCountryIds(next.countryIds)
+    setRelations(next.relations)
     setTags(next.tags)
     markFieldsClean(nextKey)
   }, [event, markFieldsClean, saving])
 
   const { characters } = useCharacterList()
   const { countries } = useCountryList()
+  const { events } = useEventList()
 
   const characterItems: RelatedItem[] = useMemo(
     () =>
@@ -164,6 +171,40 @@ export function useEventForm(
       })),
     [countries],
   )
+
+  /** 相关事件的候选：除自己以外的全部事件（时间是天然的第二行，与关系图节点一致） */
+  const eventItems: RelatedItem[] = useMemo(
+    () =>
+      events
+        .filter((e) => e.id !== event.id)
+        .map((e) => ({
+          id: e.id,
+          name: e.title,
+          subtitle: e.time || undefined,
+        })),
+    [events, event.id],
+  )
+
+  const relatedEventIds = useMemo(() => relations.map((r) => r.targetId), [relations])
+
+  /** 已选事件的「关系」名：键 = 目标事件 id */
+  const eventRelationLabels = useMemo(() => {
+    const out: Record<number, string> = {}
+    for (const relation of relations) out[relation.targetId] = relation.relation
+    return out
+  }, [relations])
+
+  const handleRelatedEventsChange = useCallback((ids: number[]) => {
+    setRelations((prev) =>
+      ids.map((id) => prev.find((relation) => relation.targetId === id) ?? { targetId: id, relation: '' }),
+    )
+  }, [])
+
+  const setEventRelation = useCallback((id: number, value: string) => {
+    setRelations((prev) =>
+      prev.map((relation) => (relation.targetId === id ? { ...relation, relation: value } : relation)),
+    )
+  }, [])
 
   const handleEditorReady = useCallback((editor: Editor) => {
     editorRef.current = editor
@@ -199,6 +240,7 @@ export function useEventForm(
         headerUrl,
         characters: selectedCharacterIds,
         countries: selectedCountryIds,
+        relations,
         tags,
         custom,
       })
@@ -229,6 +271,7 @@ export function useEventForm(
     isMajor,
     selectedCharacterIds,
     selectedCountryIds,
+    relations,
     tags,
     custom,
     onSave,
@@ -263,6 +306,11 @@ export function useEventForm(
     },
     selectedCharacterIds, setSelectedCharacterIds,
     selectedCountryIds, setSelectedCountryIds,
+    relations, setRelations,
+    relatedEventIds,
+    eventRelationLabels,
+    handleRelatedEventsChange,
+    setEventRelation,
     tags, setTags,
     saving,
     handleSave,
@@ -270,6 +318,7 @@ export function useEventForm(
     handleDocChange,
     characterItems,
     countryItems,
+    eventItems,
   }
 }
 
