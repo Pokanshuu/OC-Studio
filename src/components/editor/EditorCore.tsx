@@ -21,8 +21,9 @@ import { bindMobileEditorEvents } from './editor-mobile-events'
 import { useEditorBubbleMenu } from './useEditorBubbleMenu'
 import { useEditorMobileInput } from './useEditorMobileInput'
 import { FindReplaceBar } from './FindReplaceBar'
+import { OutlinePanel } from './OutlinePanel'
 import { LinkPopover } from './LinkPopover'
-import { OPEN_FIND_EVENT, type OpenFindEventDetail } from './editor-events'
+import { OPEN_FIND_EVENT, OPEN_OUTLINE_EVENT, type OpenFindEventDetail, type OpenOutlineEventDetail } from './editor-events'
 
 interface EditorCoreProps {
   onReady: (editor: Editor) => void
@@ -42,6 +43,7 @@ export function EditorCore({
   const [blockMenuPosition, setBlockMenuPosition] = useState<{ x: number; y: number } | null>(null)
   const [blockMenuPos, setBlockMenuPos] = useState<number | undefined>(undefined)
   const [findOpen, setFindOpen] = useState(false)
+  const [outlineOpen, setOutlineOpen] = useState(false)
   const [linkAnchor, setLinkAnchor] = useState<HTMLElement | null | undefined>(undefined)
   const editorRef = useRef<Editor | null>(null)
   const [isTableActive, setIsTableActive] = useState(false)
@@ -54,7 +56,9 @@ export function EditorCore({
   const mobileBlockMenuRef = useRef<HTMLDivElement>(null)
   const selectionRef = useRef<{ from: number; to: number } | null>(null)
   const keyboardVisibleRef = useRef(keyboardVisible)
-  keyboardVisibleRef.current = keyboardVisible
+  useEffect(() => {
+    keyboardVisibleRef.current = keyboardVisible
+  }, [keyboardVisible])
   const lastClickRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
 
   const handleBlockMenuEvent = useCallback((e: Event) => {
@@ -141,9 +145,14 @@ export function EditorCore({
     if (!editor) return
     const onKey = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey) || e.altKey) return
-      const key = e.key.toLowerCase()
-      if (key !== 'f' && key !== 'h') return
       if (!editor.isFocused) return
+      const key = e.key.toLowerCase()
+      if (key === 'o' && e.shiftKey) {
+        e.preventDefault()
+        setOutlineOpen(true)
+        return
+      }
+      if (key !== 'f' && key !== 'h') return
       e.preventDefault()
       setFindOpen(true)
     }
@@ -160,6 +169,17 @@ export function EditorCore({
     }
     window.addEventListener(OPEN_FIND_EVENT, onOpenFind)
     return () => window.removeEventListener(OPEN_FIND_EVENT, onOpenFind)
+  }, [editor])
+
+  // 工具栏的「大纲」入口（同上，事件只开对应实例）。
+  useEffect(() => {
+    if (!editor) return
+    const onOpenOutline = (e: Event) => {
+      const detail = (e as CustomEvent<OpenOutlineEventDetail>).detail
+      if (detail?.editor === editor) setOutlineOpen(true)
+    }
+    window.addEventListener(OPEN_OUTLINE_EVENT, onOpenOutline)
+    return () => window.removeEventListener(OPEN_OUTLINE_EVENT, onOpenOutline)
   }, [editor])
 
   // 移动端工具栏禁止长按弹出右键菜单（原生 DOM 监听，capture 阶段拦截，比 React 合成事件更可靠）
@@ -296,6 +316,9 @@ export function EditorCore({
 
     {findOpen ? (
       <FindReplaceBar editor={editor} onClose={() => setFindOpen(false)} />
+    ) : null}
+    {outlineOpen ? (
+      <OutlinePanel editor={editor} onClose={() => setOutlineOpen(false)} />
     ) : null}
     {linkAnchor !== undefined ? (
       <LinkPopover editor={editor} anchor={linkAnchor} onClose={() => setLinkAnchor(undefined)} />

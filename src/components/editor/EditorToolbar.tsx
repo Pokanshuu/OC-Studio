@@ -28,11 +28,12 @@ import {
   MoreHorizontal,
   ChevronDown,
   Search,
+  ListTree,
 } from 'lucide-react'
 import { ICON_BTN_MD, ROUND_CONTROL } from '@/lib/ui-tokens'
 import { LinkPopover } from './LinkPopover'
 import { ToolbarMenu, type ToolbarMenuGroup, type ToolbarMenuItem } from './ToolbarMenu'
-import { requestFind } from './editor-events'
+import { requestFind, requestOutline } from './editor-events'
 
 type MenuKind = 'block' | 'list' | 'more'
 
@@ -260,6 +261,13 @@ export function EditorToolbar({ editor, sticky = true }: { editor: Editor; stick
     onClick: () => requestFind(editor),
   }
 
+  const outlineItem: ToolbarMenuItem = {
+    label: '大纲',
+    icon: <ListTree size={14} strokeWidth={2} />,
+    shortcut: 'Ctrl+Shift+O',
+    onClick: () => requestOutline(editor),
+  }
+
   const redoItem: ToolbarMenuItem = {
     label: '重做',
     icon: <Redo2 size={14} strokeWidth={2} />,
@@ -295,7 +303,7 @@ export function EditorToolbar({ editor, sticky = true }: { editor: Editor; stick
   insertItems.push(tableItem, hrItem)
   moreGroups.push({ label: '插入', items: insertItems })
 
-  const editItems: ToolbarMenuItem[] = [findItem]
+  const editItems: ToolbarMenuItem[] = [findItem, outlineItem]
   if (!show.redo) editItems.push(redoItem)
   moreGroups.push({ label: '编辑', items: editItems })
 

@@ -108,7 +108,7 @@ export function FindReplaceBar({ editor, onClose }: FindReplaceBarProps) {
 
   return createPortal(
     <div
-      className={`fixed left-1/2 top-24 z-[60] w-[min(460px,calc(100vw-32px))] -translate-x-1/2 ${PANEL} pointer-events-auto p-3`}
+      className={`fixed left-1/2 top-32 z-[60] w-[min(460px,calc(100vw-32px))] -translate-x-1/2 ${PANEL} pointer-events-auto p-3`}
       role="search"
       onMouseDown={(e) => e.stopPropagation()}
     >
