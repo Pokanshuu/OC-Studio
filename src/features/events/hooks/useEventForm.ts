@@ -313,6 +313,7 @@ export function useEventForm(
     setEventRelation,
     tags, setTags,
     saving,
+    docDirty,
     handleSave,
     handleEditorReady,
     handleDocChange,

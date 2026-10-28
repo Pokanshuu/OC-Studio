@@ -393,6 +393,7 @@ export function useCharacterForm(
     isMajor, setIsMajor,
     custom, setCustomValue,
     saving,
+    docDirty,
     handleSave,
     handleDocReady,
     handleDocChange,

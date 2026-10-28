@@ -87,7 +87,7 @@ export function GeneralTab() {
                     value={settings.editorLayout}
                     onChange={(v) => updateSetting("editorLayout", v)}
                   />
-                  <span className="text-[11px] text-ink-faint">重新打开编辑器生效</span>
+                  <span className="text-[11px] text-ink-faint">正文未保存时暂不切换</span>
                 </div>
 
                 <div className="flex flex-col gap-3 pt-2 border-t border-line">

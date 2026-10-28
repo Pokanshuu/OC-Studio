@@ -203,6 +203,7 @@ export function useCountryForm(
     flagUrl, setFlagUrl,
     headerUrl, setHeaderUrl,
     saving,
+    docDirty,
     editableCharIds, setEditableCharIds,
     editableEventIds, setEditableEventIds,
     tags, setTags,

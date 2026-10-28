@@ -3,7 +3,7 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { Menu } from 'lucide-react'
 import { useDevice } from '@/lib/use-device'
-import { useInitialEditorLayout } from '@/lib/use-initial-editor-layout'
+import { useEditorLayout } from '@/lib/use-editor-layout'
 import type { WorldEntry } from '@/types'
 import { EntityHistoryButton } from '@/features/vault'
 import { useEntryList, useEntry, useCreateEntry, useDeleteEntry } from '../hooks/useWorldEntries'
@@ -41,7 +41,7 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
   const { isMobile } = useDevice()
   const { setConfig } = useMobilePageHeader()
   const { section } = useMobileNavigation()
-  const layout = useInitialEditorLayout()
+  const desiredLayout = useEditorLayout()
 
   const editorContainerRef = useRef<HTMLDivElement>(null)
 
@@ -67,6 +67,18 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
     flushSave,
     selectedIdRef,
   } = useWorldEntryDraft({ selectedId, currentEntry, refresh, title, setTitle })
+
+  // 布局实时跟随设置/窗口；切换前先把词条草稿 flush 掉，避免 EditorCore 重挂丢最后 2s。
+  const [layout, setLayout] = useState<'multi' | 'full'>(desiredLayout)
+  const layoutSwitchingRef = useRef(false)
+  useEffect(() => {
+    if (desiredLayout === layout || layoutSwitchingRef.current) return
+    layoutSwitchingRef.current = true
+    void flushSave().finally(() => {
+      layoutSwitchingRef.current = false
+      setLayout(desiredLayout)
+    })
+  }, [desiredLayout, layout, flushSave])
 
   // 被引用：哪些词条在正文里 [[链接]] 或 @ 引用了当前词条
   const backlinks = useMemo(() => {

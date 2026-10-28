@@ -5,7 +5,7 @@ import { Save, ArrowLeft, ChevronLeft, Menu } from 'lucide-react'
 import { DocumentEditor } from '@/components/editor/DocumentEditor'
 import type { Character } from '@/types'
 import { EntityHistoryButton } from '@/features/vault'
-import { useInitialEditorLayout } from '@/lib/use-initial-editor-layout'
+import { useEditorLayout } from '@/lib/use-editor-layout'
 import type { CharacterFormData } from '../types'
 import { useCharacter, useUpdateCharacter } from '../hooks/useCharacters'
 import { useCharacterForm } from '../hooks/useCharacterForm'
@@ -108,9 +108,17 @@ function CharacterEditorInner({
 }) {
   const form = useCharacterForm(character, onSave)
   const [railOpen, setRailOpen] = useState(true)
-  // 布局在「这篇角色」挂载时定一次：inner 以角色 id 为 key，换人会重新挂载；
-  // 同一篇内改设置不立即换布局（切换会重挂 TipTap，未保存正文会丢）。
-  const layout = useInitialEditorLayout()
+  const desiredLayout = useEditorLayout()
+  const [layout, setLayout] = useState<'multi' | 'full'>(desiredLayout)
+  // 布局实时跟随设置/窗口；正文有未保存改动时先不切 —— 切布局会重挂 TipTap。
+  // 保存后 docDirty 变 false，effect 会再把布局补上。
+  useEffect(() => {
+    if (desiredLayout === layout) return
+    if (form.docDirty) return
+    // 布局是设置/窗口的派生状态；正文脏时冻结是刻意的。
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLayout(desiredLayout)
+  }, [desiredLayout, layout, form.docDirty])
 
   return (
     <div className={layout === 'multi' ? 'flex h-full min-h-0 flex-col' : 'flex min-h-full flex-col'}>

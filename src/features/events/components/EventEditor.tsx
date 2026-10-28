@@ -1,12 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Save, ArrowLeft, ChevronLeft, Menu } from 'lucide-react'
 import { DocumentEditor } from '@/components/editor/DocumentEditor'
 import { ProfileBannerEditor } from '@/components/shared/ProfileBannerEditor'
 import type { Event } from '@/types'
 import { EntityHistoryButton } from '@/features/vault'
-import { useInitialEditorLayout } from '@/lib/use-initial-editor-layout'
+import { useEditorLayout } from '@/lib/use-editor-layout'
 import type { EventFormData } from '../types'
 import { useEventForm } from '../hooks/useEventForm'
 import { EventEditorMulti } from './EventEditorMulti'
@@ -28,7 +28,15 @@ interface EventEditorProps {
 export function EventEditor({ event, onBack, onSave, onNavigateToEvent, onMentionClick, onNavigateItem, onCharacterCount, onWikiLinkClick }: EventEditorProps) {
   const form = useEventForm(event, onSave)
   const [railOpen, setRailOpen] = useState(true)
-  const layout = useInitialEditorLayout()
+  const desiredLayout = useEditorLayout()
+  const [layout, setLayout] = useState<'multi' | 'full'>(desiredLayout)
+  useEffect(() => {
+    if (desiredLayout === layout) return
+    if (form.docDirty) return
+    // 布局是设置/窗口的派生状态；正文脏时冻结是刻意的。
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLayout(desiredLayout)
+  }, [desiredLayout, layout, form.docDirty])
 
   return (
     <div className={layout === 'multi' ? 'flex h-full min-h-0 flex-col' : 'flex min-h-full flex-col'}>
