@@ -22,6 +22,7 @@ import { useEditorBubbleMenu } from './useEditorBubbleMenu'
 import { useEditorMobileInput } from './useEditorMobileInput'
 import { FindReplaceBar } from './FindReplaceBar'
 import { LinkPopover } from './LinkPopover'
+import { OPEN_FIND_EVENT, type OpenFindEventDetail } from './editor-events'
 
 interface EditorCoreProps {
   onReady: (editor: Editor) => void
@@ -148,6 +149,17 @@ export function EditorCore({
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
+  }, [editor])
+
+  // 工具栏的「查找替换」入口（工具栏与 EditorCore 是兄弟节点，用事件只开对应实例）。
+  useEffect(() => {
+    if (!editor) return
+    const onOpenFind = (e: Event) => {
+      const detail = (e as CustomEvent<OpenFindEventDetail>).detail
+      if (detail?.editor === editor) setFindOpen(true)
+    }
+    window.addEventListener(OPEN_FIND_EVENT, onOpenFind)
+    return () => window.removeEventListener(OPEN_FIND_EVENT, onOpenFind)
   }, [editor])
 
   // 移动端工具栏禁止长按弹出右键菜单（原生 DOM 监听，capture 阶段拦截，比 React 合成事件更可靠）

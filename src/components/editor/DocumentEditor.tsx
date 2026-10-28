@@ -1,5 +1,9 @@
+'use client'
+
+import { useCallback, useState } from 'react'
 import type { Editor } from '@tiptap/core'
 import { EditorCore } from '@/components/editor/EditorCore'
+import { EditorToolbar } from '@/components/editor/EditorToolbar'
 import { useDocument } from '@/hooks/useDocument'
 
 type EntityType = 'character' | 'event' | 'country' | 'worldEntry'
@@ -28,6 +32,15 @@ export function DocumentEditor({
   placeholder,
 }: DocumentEditorProps) {
   const { document, loading, error } = useDocument(entityId, entityType)
+  const [editor, setEditor] = useState<Editor | null>(null)
+
+  const handleReady = useCallback(
+    (ready: Editor) => {
+      setEditor(ready)
+      onReady(ready)
+    },
+    [onReady],
+  )
 
   if (loading) {
     return (
@@ -48,16 +61,19 @@ export function DocumentEditor({
   const content = document ?? fallbackContent ?? getDefaultDocument(entityType)
 
   return (
-    <EditorCore
-      plain
-      content={content}
-      onReady={onReady}
-      onCharacterCount={onCharacterCount}
-      onMentionClick={onMentionClick}
-      onWikiLinkClick={onWikiLinkClick}
-      onContentChange={onDocChange ? () => onDocChange() : undefined}
-      placeholder={placeholder}
-    />
+    <div>
+      {editor ? <EditorToolbar editor={editor} /> : null}
+      <EditorCore
+        plain
+        content={content}
+        onReady={handleReady}
+        onCharacterCount={onCharacterCount}
+        onMentionClick={onMentionClick}
+        onWikiLinkClick={onWikiLinkClick}
+        onContentChange={onDocChange ? () => onDocChange() : undefined}
+        placeholder={placeholder}
+      />
+    </div>
   )
 }
 
