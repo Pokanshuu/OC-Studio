@@ -2,8 +2,8 @@
 
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { Menu } from 'lucide-react'
-import { EditorCore } from '@/components/editor/EditorCore'
 import { useDevice } from '@/lib/use-device'
+import { useInitialEditorLayout } from '@/lib/use-initial-editor-layout'
 import type { WorldEntry } from '@/types'
 import { EntityHistoryButton } from '@/features/vault'
 import { useEntryList, useEntry, useCreateEntry, useDeleteEntry } from '../hooks/useWorldEntries'
@@ -14,6 +14,7 @@ import { useFields } from '@/lib/fields'
 import type { WorldFormData } from '../types'
 import { useWorldEntryDraft } from '../hooks/useWorldEntryDraft'
 import { WorldTreePanel } from './WorldTreePanel'
+import { WorldEntryBody } from './WorldEntryBody'
 import { docHasRef, filterEntriesWithAncestors } from './world-content-utils'
 import { useMobilePageHeader } from '@/components/layout/MobilePageHeaderContext'
 import { useMobileNavigation } from '@/components/layout/MobileNavigationContext'
@@ -40,6 +41,7 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
   const { isMobile } = useDevice()
   const { setConfig } = useMobilePageHeader()
   const { section } = useMobileNavigation()
+  const layout = useInitialEditorLayout()
 
   const editorContainerRef = useRef<HTMLDivElement>(null)
 
@@ -181,6 +183,76 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
         </div>
       ) : null}
 
+      {layout === 'multi' && !isMobile && selectedId !== null && currentEntry ? (
+        <div className="flex min-h-0 flex-1">
+          <section className="w-[340px] shrink-0 overflow-y-auto border-r border-line">
+            <div className="flex flex-col gap-4 p-4">
+              <div className="flex items-center gap-2">
+                {treeCollapsed ? (
+                  <button
+                    type="button"
+                    onClick={() => setTreeCollapsed(false)}
+                    className={ICON_BTN_MD}
+                    title="展开目录"
+                    aria-label="展开目录"
+                  >
+                    <Menu size={16} strokeWidth={2} />
+                  </button>
+                ) : null}
+                <input
+                  type="text"
+                  value={title}
+                  onChange={handleTitleChange}
+                  placeholder="词条标题"
+                  className="h-8 min-w-0 flex-1 bg-transparent font-serif text-lg text-ink placeholder:text-ink-faint focus:outline-none"
+                />
+                <EntityHistoryButton table="worldEntries" id={currentEntry.id} name={title} />
+              </div>
+
+              <div className={`flex flex-col ${LIST_END}`}>
+                {showTags ? (
+                  <div className={FIELD_ROW_TOP}>
+                    <span className={FIELD_LABEL}>标签</span>
+                    <div className="min-w-0 flex-1">
+                      <TagPicker selectedIds={tags} onChange={handleTagsChange} />
+                    </div>
+                  </div>
+                ) : null}
+
+                {backlinks.length > 0 ? (
+                  <div className={FIELD_ROW_TOP}>
+                    <span className={FIELD_LABEL}>被引用</span>
+                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-1.5">
+                      {backlinks.map((b) => (
+                        <button
+                          key={b.id}
+                          onClick={() => {
+                            const target = entries.find((e) => e.id === b.id)
+                            if (target) void handleSelect(b.id, target)
+                          }}
+                          className="text-[13px] text-ink-muted underline-offset-2 transition-colors hover:text-ink hover:underline"
+                        >
+                          {b.title}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </section>
+
+          <WorldEntryBody
+            selectedId={selectedId}
+            pane
+            onReady={handleEditorReady}
+            onContentChange={handleContentChange}
+            onMentionClick={onMentionClick}
+            onCharacterCount={onCharacterCount}
+            onWikiLinkClick={onWikiLinkClick}
+          />
+        </div>
+      ) : (
       <div
         className="flex flex-1 flex-col min-w-0 overflow-auto max-md:overflow-visible"
         ref={editorContainerRef}
@@ -248,12 +320,10 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
 
                 <section className="mt-8 pb-24 md:pb-16">
                   <h3 className={SECTION_TITLE}>正文</h3>
-                  <EditorCore
-                    plain
-                    key={selectedId}
+                  <WorldEntryBody
+                    selectedId={selectedId}
+                    pane={false}
                     onReady={handleEditorReady}
-                    content=""
-                    placeholder="编写词条内容... 输入 @ 引用角色/事件/国家，输入 / 插入块"
                     onContentChange={handleContentChange}
                     onMentionClick={onMentionClick}
                     onCharacterCount={onCharacterCount}
@@ -296,6 +366,7 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
           </div>
         )}
       </div>
+      )}
     </div>
   )
 }
