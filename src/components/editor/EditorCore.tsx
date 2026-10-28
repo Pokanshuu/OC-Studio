@@ -20,6 +20,7 @@ import { buildEditorConfig, BLOCK_MENU_EVENT } from './editor-config'
 import { bindMobileEditorEvents } from './editor-mobile-events'
 import { useEditorBubbleMenu } from './useEditorBubbleMenu'
 import { useEditorMobileInput } from './useEditorMobileInput'
+import { useImagePasteDrop } from './useImagePasteDrop'
 import { FindReplaceBar } from './FindReplaceBar'
 import { OutlinePanel } from './OutlinePanel'
 import { LinkPopover } from './LinkPopover'
@@ -219,6 +220,7 @@ export function EditorCore({
     () => buildEditorContextMenu({ editor, isTableActive, onFind: () => setFindOpen(true) }),
     [editor, isTableActive],
   )
+  const { dragging } = useImagePasteDrop(editor)
   if (!editor) {
     return <div className="flex h-32 items-center justify-center text-sm text-ink-muted">编辑器加载中...</div>
   }
@@ -295,6 +297,12 @@ export function EditorCore({
         </BubbleMenu>
       )}
       <EditorContent editor={editor} />
+      {dragging ? (
+        <div
+          className="pointer-events-none absolute inset-0 z-10 rounded-item border border-dashed border-line-hover"
+          aria-hidden
+        />
+      ) : null}
       {!isMobile && (
         <BlockTypeMenu editor={editor} position={blockMenuPosition} onClose={closeBlockMenu} blockPos={blockMenuPos} />
       )}

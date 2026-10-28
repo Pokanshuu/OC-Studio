@@ -15,6 +15,7 @@ import type { Editor } from '@tiptap/core'
 import type { UseEditorOptions } from '@tiptap/react'
 import { searchAllEntitiesFlat } from '@/lib/reference-registry'
 import { openExternal } from '@/lib/open-external'
+import { safeHref } from '@/lib/safe-href'
 import { ImageBlock } from './extensions/ImageBlock'
 import { SmallMark } from './extensions/SmallMark'
 import { SlashCommand } from './SlashCommandMenu'
@@ -77,7 +78,13 @@ export function buildEditorConfig({
         },
         // 链接由我们自己的浮层编辑；点击交给 handleClick 走系统浏览器，
         // 不能让 WebView 自己导航（Tauri 里 target="_blank" 是死的）。
-        link: { openOnClick: false, autolink: true, linkOnPaste: true },
+        link: {
+          openOnClick: false,
+          autolink: true,
+          linkOnPaste: true,
+          // 粘贴/自动链接也走同一套 URL 白名单（javascript:/data: 等直接丢）
+          isAllowedUri: (url) => safeHref(url) !== '',
+        },
       }),
       Paragraph.extend({
         addAttributes() {
@@ -214,6 +221,21 @@ export function buildEditorConfig({
       }),
     ],
     editorProps: {
+      // 粘贴清洗：OC schema 已经只保留 Markdown 能表达的结构；这里再挡掉
+      // script/style/iframe、on* 事件与不安全链接（javascript:/data: 等）。
+      transformPastedHTML: (html) => {
+        const doc = new DOMParser().parseFromString(html, 'text/html')
+        doc.querySelectorAll('script,style,iframe,object,embed,link,meta').forEach((element) => element.remove())
+        doc.querySelectorAll('*').forEach((element) => {
+          for (const attr of Array.from(element.attributes)) {
+            if (/^on/i.test(attr.name)) element.removeAttribute(attr.name)
+          }
+        })
+        doc.querySelectorAll('a[href]').forEach((anchor) => {
+          if (!safeHref(anchor.getAttribute('href') ?? '')) anchor.removeAttribute('href')
+        })
+        return doc.body.innerHTML
+      },
       handleClick: (_view, _pos, event) => {
         const target = event.target
         if (!(target instanceof HTMLElement)) return false

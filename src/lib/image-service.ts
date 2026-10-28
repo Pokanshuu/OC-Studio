@@ -1,7 +1,7 @@
 import { BrowserAdapter } from './adapters/browser-adapter'
 import type { LocalAdapter } from './adapters/local-adapter'
 import { convertHeifToJpeg } from './image-heif'
-import { isTauri, isCapacitor } from './env'
+import { isTauri, isNativePlatform } from './env'
 import { vaultFs } from './vault/vault-fs'
 
 let adapter: BrowserAdapter | LocalAdapter = new BrowserAdapter()
@@ -39,7 +39,7 @@ export function getDefaultImage(type: string): string {
 let capacitorConvertFileSrc: ((path: string) => string) | null = null
 
 async function ensureCapacitorConvertFileSrc(): Promise<void> {
-  if (!capacitorConvertFileSrc && isCapacitor()) {
+  if (!capacitorConvertFileSrc && isNativePlatform()) {
     const { Capacitor } = await import('@capacitor/core')
     capacitorConvertFileSrc = Capacitor.convertFileSrc
   }
@@ -48,7 +48,7 @@ async function ensureCapacitorConvertFileSrc(): Promise<void> {
 export async function initImageService(): Promise<void> {
   if (isTauri()) {
     await ensureTauriAppDataDir()
-  } else if (isCapacitor()) {
+  } else if (isNativePlatform()) {
     await ensureCapacitorConvertFileSrc()
   }
 }
@@ -76,7 +76,20 @@ export async function uploadImage(type: string): Promise<string> {
       if (picked === null || typeof picked !== 'string') return ''
       const { readFile } = await import('@tauri-apps/plugin-fs')
       const bytes = await readFile(picked)
-      return await saveBlobToDisk(new Blob([bytes]), type)
+      const ext = (picked.split('.').pop() ?? '').toLowerCase()
+      const mime =
+        ext === 'jpg' || ext === 'jpeg'
+          ? 'image/jpeg'
+          : ext === 'webp'
+            ? 'image/webp'
+            : ext === 'gif'
+              ? 'image/gif'
+              : ext === 'svg'
+                ? 'image/svg+xml'
+                : ext === 'heic' || ext === 'heif'
+                  ? 'image/heic'
+                  : 'image/png'
+      return await saveBlobToDisk(new Blob([bytes], { type: mime }), type)
     } catch (err) {
       console.error('[uploadImage] vault 素材导入失败，回落到内置数据库路径:', err)
     }
@@ -97,7 +110,7 @@ export async function uploadImage(type: string): Promise<string> {
     }
   }
 
-  if (isCapacitor()) {
+  if (isNativePlatform()) {
     try {
       const { CapacitorAdapter: CA } = await import('./adapters/capacitor-adapter')
       const ca = new CA()
@@ -130,7 +143,7 @@ export function resolveImageUrl(path: string | undefined, type: string = 'avatar
     return tauriConvertFileSrc(`${base}/${normalizedPath}`)
   }
 
-  if (isCapacitor() && capacitorConvertFileSrc && path.startsWith('file://')) {
+  if (isNativePlatform() && capacitorConvertFileSrc && path.startsWith('file://')) {
     return capacitorConvertFileSrc(path)
   }
 
@@ -141,8 +154,7 @@ export function getImageUrl(path: string | undefined, type: string): string {
   return resolveImageUrl(path, type)
 }
 
-async function writeBlobToCapacitorFs(blob: Blob, fileName: string): Promise<string> {
-  const { Filesystem, Directory } = await import('@capacitor/filesystem')
+async function writeBlobToCapacitorFs(blob: Blob, fileName: string): Promise<string> {  const { Filesystem, Directory } = await import('@capacitor/filesystem')
   const arrayBuffer = await blob.arrayBuffer()
   const bytes = new Uint8Array(arrayBuffer)
   const base64 = btoa(
@@ -161,14 +173,23 @@ async function writeBlobToCapacitorFs(blob: Blob, fileName: string): Promise<str
   return uri
 }
 
+function imageExtension(mime: string): string {
+  if (mime === 'image/jpeg') return 'jpg'
+  if (mime === 'image/webp') return 'webp'
+  if (mime === 'image/gif') return 'gif'
+  if (mime === 'image/svg+xml') return 'svg'
+  return 'png'
+}
+
 export async function saveBlobToDisk(blob: Blob, type: string): Promise<string> {
   try {
     // HEIF → JPEG 转换（覆盖非裁剪直接上传路径）
     const converted = await convertHeifToJpeg(blob)
+    const extension = imageExtension(converted.type)
 
-    if (isCapacitor()) {
+    if (isNativePlatform()) {
       const timestamp = Date.now()
-      const fileName = `${type}-${timestamp}.png`
+      const fileName = `${type}-${timestamp}.${extension}`
       await ensureCapacitorConvertFileSrc()
       return await writeBlobToCapacitorFs(converted, fileName)
     }
@@ -192,7 +213,7 @@ export async function saveBlobToDisk(blob: Blob, type: string): Promise<string> 
 
     const imagesDir = `${basePath}/images`
     const timestamp = Date.now()
-    const fileName = `${type}-${timestamp}.png`
+    const fileName = `${type}-${timestamp}.${extension}`
     const destPath = `${imagesDir}/${fileName}`
 
     try {
