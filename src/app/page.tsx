@@ -90,9 +90,11 @@ export default function Home() {
       >
         {selectedEvent ? (
           <EventEditor
+            key={selectedEvent.id}
             event={selectedEvent}
             onBack={handleBackToList}
             onSave={handleSaveEvent}
+            onNavigateToEvent={handleSelectEvent}
             onMentionClick={handleMentionClick}
             onNavigateItem={(id, type) => handleRelatedItemNavigate(id, type)}
             onCharacterCount={handleEventCharCount}
@@ -156,8 +158,10 @@ export default function Home() {
       >
         {countryView.sub === 'editor' ? (
           <CountryEditor
+            key={countryView.countryId}
             editCountryId={countryView.countryId}
             onBack={handleBackToCountryList}
+            onNavigateToCountry={handleSelectCountry}
             onNavigateToCharacter={(id) => handleRelatedItemNavigate(id, 'character')}
             onNavigateToEvent={(id) => handleRelatedItemNavigate(id, 'event')}
             onMentionClick={handleMentionClick}

@@ -1,19 +1,23 @@
 'use client'
 
-import { Save, ArrowLeft } from 'lucide-react'
+import { useState } from 'react'
+import { Save, ArrowLeft, ChevronLeft, Menu } from 'lucide-react'
 import { DocumentEditor } from '@/components/editor/DocumentEditor'
 import type { Country } from '@/types'
 import { EntityHistoryButton } from '@/features/vault'
+import { useInitialEditorLayout } from '@/lib/use-initial-editor-layout'
 import type { CountryFormData } from '../types'
 import { useCountry, useUpdateCountry } from '../hooks/useCountries'
 import { useCountryForm, mergeCountrySections } from '../hooks/useCountryForm'
 import { ProfileBannerEditor } from '@/components/shared/ProfileBannerEditor'
+import { CountryEditorMulti } from './CountryEditorMulti'
 import { CountryRelationSection } from './CountryRelationSection'
 import { BTN_PRIMARY, BTN_QUIET, CENTER_STATE, EDITOR_BODY, EDITOR_HEADER, ICON_BTN_MD, PAGE_TITLE, SECTION_TITLE, TITLE_INPUT } from '@/lib/ui-tokens'
 
 interface CountryEditorProps {
   editCountryId: number
   onBack: () => void
+  onNavigateToCountry?: (id: number) => void
   onNavigateToCharacter?: (id: number) => void
   onNavigateToEvent?: (id: number) => void
   onMentionClick?: (id: string, entityType?: string) => void
@@ -24,6 +28,7 @@ interface CountryEditorProps {
 export function CountryEditor({
   editCountryId,
   onBack,
+  onNavigateToCountry,
   onNavigateToCharacter,
   onNavigateToEvent,
   onMentionClick,
@@ -76,6 +81,7 @@ export function CountryEditor({
       onSave={async (id, data) => {
         await updateCountry(id, data)
       }}
+      onNavigateToCountry={onNavigateToCountry}
       onNavigateToCharacter={onNavigateToCharacter}
       onNavigateToEvent={onNavigateToEvent}
       onMentionClick={onMentionClick}
@@ -89,6 +95,7 @@ function CountryEditorInner({
   country,
   onBack,
   onSave,
+  onNavigateToCountry,
   onNavigateToCharacter,
   onNavigateToEvent,
   onMentionClick,
@@ -98,6 +105,7 @@ function CountryEditorInner({
   country: Country
   onBack: () => void
   onSave: (id: number, data: Partial<CountryFormData>) => Promise<void>
+  onNavigateToCountry?: (id: number) => void
   onNavigateToCharacter?: (id: number) => void
   onNavigateToEvent?: (id: number) => void
   onMentionClick?: (id: string, entityType?: string) => void
@@ -105,11 +113,24 @@ function CountryEditorInner({
   onWikiLinkClick?: (id: string) => void
 }) {
   const form = useCountryForm(country, onSave)
+  const [railOpen, setRailOpen] = useState(true)
+  const layout = useInitialEditorLayout()
 
   return (
-    <div className="flex flex-col min-h-full">
+    <div className={layout === 'multi' ? 'flex h-full min-h-0 flex-col' : 'flex min-h-full flex-col'}>
       <div className={EDITOR_HEADER}>
         <div className="flex items-center gap-3">
+          {layout === 'multi' ? (
+            <button
+              type="button"
+              onClick={() => setRailOpen((open) => !open)}
+              className={ICON_BTN_MD}
+              title={railOpen ? '收起列表' : '展开列表'}
+              aria-label={railOpen ? '收起列表' : '展开列表'}
+            >
+              {railOpen ? <ChevronLeft size={16} strokeWidth={2} /> : <Menu size={16} strokeWidth={2} />}
+            </button>
+          ) : null}
           <button
             data-mobile-back
             onClick={onBack}
@@ -133,7 +154,21 @@ function CountryEditorInner({
         </div>
       </div>
 
-      <div className={EDITOR_BODY}>
+      {layout === 'multi' ? (
+        <CountryEditorMulti
+          country={country}
+          form={form}
+          fallbackContent={mergeCountrySections(country.system, country.geography, country.culture)}
+          railOpen={railOpen}
+          onNavigateToCountry={onNavigateToCountry}
+          onNavigateToCharacter={onNavigateToCharacter}
+          onNavigateToEvent={onNavigateToEvent}
+          onMentionClick={onMentionClick}
+          onCharacterCount={onCharacterCount}
+          onWikiLinkClick={onWikiLinkClick}
+        />
+      ) : (
+        <div className={EDITOR_BODY}>
         <div className="mx-auto w-full max-w-3xl px-4 py-3 space-y-8 md:px-8 md:py-6">
           {/* Profile header */}
           <section>
@@ -186,7 +221,8 @@ function CountryEditorInner({
             onNavigateToEvent={onNavigateToEvent}
           />
         </div>
-      </div>
+        </div>
+      )}
     </div>
   )
 }

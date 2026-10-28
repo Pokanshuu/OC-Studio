@@ -5,8 +5,7 @@ import { Save, ArrowLeft, ChevronLeft, Menu } from 'lucide-react'
 import { DocumentEditor } from '@/components/editor/DocumentEditor'
 import type { Character } from '@/types'
 import { EntityHistoryButton } from '@/features/vault'
-import { useSettings } from '@/lib/settings'
-import { resolveEditorLayout } from '@/lib/editor-layout'
+import { useInitialEditorLayout } from '@/lib/use-initial-editor-layout'
 import type { CharacterFormData } from '../types'
 import { useCharacter, useUpdateCharacter } from '../hooks/useCharacters'
 import { useCharacterForm } from '../hooks/useCharacterForm'
@@ -108,16 +107,10 @@ function CharacterEditorInner({
   onWikiLinkClick?: (id: string) => void
 }) {
   const form = useCharacterForm(character, onSave)
-  const { settings } = useSettings()
   const [railOpen, setRailOpen] = useState(true)
   // 布局在「这篇角色」挂载时定一次：inner 以角色 id 为 key，换人会重新挂载；
   // 同一篇内改设置不立即换布局（切换会重挂 TipTap，未保存正文会丢）。
-  const [layout] = useState<'multi' | 'full'>(() => {
-    if (typeof window === 'undefined') return 'full'
-    // 手机宽度强制回单栏；多栏只在桌面窗口里成立。
-    if (window.innerWidth < 768) return 'full'
-    return resolveEditorLayout(settings.editorLayout, window.innerWidth)
-  })
+  const layout = useInitialEditorLayout()
 
   return (
     <div className={layout === 'multi' ? 'flex h-full min-h-0 flex-col' : 'flex min-h-full flex-col'}>

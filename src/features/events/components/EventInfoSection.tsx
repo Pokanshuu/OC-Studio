@@ -11,7 +11,14 @@ import type { EventForm } from '../hooks/useEventForm'
  * 开始 / 结束各占一格（三个输入），地点 / 重大各占一格，自定义字段各占一格。
  * 标签那一行归「关联」区，这里跳过。
  */
-export function EventInfoSection({ form }: { form: EventForm }) {
+export function EventInfoSection({
+  form,
+  compact = false,
+}: {
+  form: EventForm
+  /** 三栏中栏的窄容器：字段单列（不依赖 viewport 的 sm 断点） */
+  compact?: boolean
+}) {
   const fields = useFields('event')
   const hiddenBuiltins = BUILTIN_FIELDS.event.filter(
     (builtin) => !fields.some((field) => field.id === builtin.id),
@@ -90,7 +97,13 @@ export function EventInfoSection({ form }: { form: EventForm }) {
   return (
     <section>
       <h3 className={SECTION_TITLE}>基本信息</h3>
-      <div className={`grid grid-cols-1 gap-x-10 sm:grid-cols-2 ${FIELD_GRID}`}>
+      <div
+        className={
+          compact
+            ? 'grid grid-cols-1 [&>*:last-child]:border-b-0'
+            : `grid grid-cols-1 gap-x-10 sm:grid-cols-2 ${FIELD_GRID}`
+        }
+      >
         {fields.map(renderRow)}
       </div>
       {hiddenBuiltins.length > 0 ? (

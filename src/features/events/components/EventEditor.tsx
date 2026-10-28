@@ -1,12 +1,15 @@
 'use client'
 
-import { Save, ArrowLeft } from 'lucide-react'
+import { useState } from 'react'
+import { Save, ArrowLeft, ChevronLeft, Menu } from 'lucide-react'
 import { DocumentEditor } from '@/components/editor/DocumentEditor'
 import { ProfileBannerEditor } from '@/components/shared/ProfileBannerEditor'
 import type { Event } from '@/types'
 import { EntityHistoryButton } from '@/features/vault'
+import { useInitialEditorLayout } from '@/lib/use-initial-editor-layout'
 import type { EventFormData } from '../types'
 import { useEventForm } from '../hooks/useEventForm'
+import { EventEditorMulti } from './EventEditorMulti'
 import { EventInfoSection } from './EventInfoSection'
 import { EventRelationSection } from './EventRelationSection'
 import { BTN_PRIMARY, EDITOR_BODY, EDITOR_HEADER, ICON_BTN_MD, PAGE_TITLE, SECTION_TITLE, TITLE_INPUT } from '@/lib/ui-tokens'
@@ -15,19 +18,33 @@ interface EventEditorProps {
   event: Event
   onBack: () => void
   onSave: (id: number, data: Partial<EventFormData>) => Promise<void>
+  onNavigateToEvent?: (id: number) => void
   onMentionClick?: (id: string, entityType?: string) => void
   onNavigateItem?: (id: number, type?: string) => void
   onCharacterCount?: (count: number) => void
   onWikiLinkClick?: (id: string) => void
 }
 
-export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateItem, onCharacterCount, onWikiLinkClick }: EventEditorProps) {
+export function EventEditor({ event, onBack, onSave, onNavigateToEvent, onMentionClick, onNavigateItem, onCharacterCount, onWikiLinkClick }: EventEditorProps) {
   const form = useEventForm(event, onSave)
+  const [railOpen, setRailOpen] = useState(true)
+  const layout = useInitialEditorLayout()
 
   return (
-    <div className="flex flex-col min-h-full">
+    <div className={layout === 'multi' ? 'flex h-full min-h-0 flex-col' : 'flex min-h-full flex-col'}>
       <div className={EDITOR_HEADER}>
         <div className="flex items-center gap-3">
+          {layout === 'multi' ? (
+            <button
+              type="button"
+              onClick={() => setRailOpen((open) => !open)}
+              className={ICON_BTN_MD}
+              title={railOpen ? '收起列表' : '展开列表'}
+              aria-label={railOpen ? '收起列表' : '展开列表'}
+            >
+              {railOpen ? <ChevronLeft size={16} strokeWidth={2} /> : <Menu size={16} strokeWidth={2} />}
+            </button>
+          ) : null}
           <button
             data-mobile-back
             onClick={onBack}
@@ -51,7 +68,19 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
         </div>
       </div>
 
-      <div className={EDITOR_BODY}>
+      {layout === 'multi' ? (
+        <EventEditorMulti
+          event={event}
+          form={form}
+          railOpen={railOpen}
+          onNavigateToEvent={onNavigateToEvent}
+          onMentionClick={onMentionClick}
+          onNavigateItem={onNavigateItem}
+          onCharacterCount={onCharacterCount}
+          onWikiLinkClick={onWikiLinkClick}
+        />
+      ) : (
+        <div className={EDITOR_BODY}>
         <div className="mx-auto w-full max-w-3xl px-4 py-3 md:px-8 md:py-6">
           {/* Profile header */}
           <section>
@@ -97,7 +126,8 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
             </section>
           </div>
         </div>
-      </div>
+        </div>
+      )}
     </div>
   )
 }

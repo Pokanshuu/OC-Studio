@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import type { Editor } from '@tiptap/core'
 import { DocumentEditor } from '@/components/editor/DocumentEditor'
-import { EditorToolbar } from '@/components/editor/EditorToolbar'
+import { EditorBodyPane } from '@/components/editor/EditorBodyPane'
+import { MultiColumnEditor } from '@/components/shared/MultiColumnEditor'
 import { ImageGallery } from '@/components/shared/image-gallery/ImageGallery'
 import { ProfileBannerEditor } from '@/components/shared/ProfileBannerEditor'
 import { SECTION_TITLE, TITLE_INPUT } from '@/lib/ui-tokens'
@@ -29,8 +30,7 @@ interface CharacterEditorMultiProps {
  * 三栏角色编辑器（多栏模式）。
  *
  * 左：搜索 + 国家分组的角色列表；中：全部 frontmatter + 上传物；右：只有正文。
- * 右栏的工具条由这里渲染在滚动容器之外，正文再单独限宽 —— 工具条能占满右栏，
- * 正文保持可读行长。
+ * 右栏的工具条由 `EditorBodyPane` 渲染在滚动容器之外，正文再单独限宽。
  */
 export function CharacterEditorMulti({
   character,
@@ -46,14 +46,10 @@ export function CharacterEditorMulti({
   const [bodyEditor, setBodyEditor] = useState<Editor | null>(null)
 
   return (
-    <div className="flex min-h-0 flex-1">
-      {railOpen ? (
-        <aside className="flex h-full w-[220px] shrink-0 flex-col border-r border-line">
-          <CharacterEditorList currentId={character.id} onSelect={onNavigateToCharacter} />
-        </aside>
-      ) : null}
-
-      <section className="w-[340px] shrink-0 overflow-y-auto border-r border-line">
+    <MultiColumnEditor
+      railOpen={railOpen}
+      rail={<CharacterEditorList currentId={character.id} onSelect={onNavigateToCharacter} />}
+      meta={
         <div className="flex flex-col gap-6 p-4">
           <ProfileBannerEditor
             headerUrl={form.headerUrl}
@@ -108,30 +104,25 @@ export function CharacterEditorMulti({
             />
           </section>
         </div>
-      </section>
-
-      <section className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {bodyEditor ? <EditorToolbar editor={bodyEditor} sticky={false} /> : null}
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-3xl px-4 py-6 md:px-8">
-            <DocumentEditor
-              entityId={character.id}
-              entityType="character"
-              fallbackContent={fallbackContent}
-              onReady={(editor) => {
-                setBodyEditor(editor)
-                form.handleDocReady(editor)
-              }}
-              placeholder="编写角色简介..."
-              onMentionClick={onMentionClick}
-              onCharacterCount={onCharacterCount}
-              onWikiLinkClick={onWikiLinkClick}
-              onDocChange={form.handleDocChange}
-              showToolbar={false}
-            />
-          </div>
-        </div>
-      </section>
-    </div>
+      }
+    >
+      <EditorBodyPane editor={bodyEditor}>
+        <DocumentEditor
+          entityId={character.id}
+          entityType="character"
+          fallbackContent={fallbackContent}
+          onReady={(editor) => {
+            setBodyEditor(editor)
+            form.handleDocReady(editor)
+          }}
+          placeholder="编写角色简介..."
+          onMentionClick={onMentionClick}
+          onCharacterCount={onCharacterCount}
+          onWikiLinkClick={onWikiLinkClick}
+          onDocChange={form.handleDocChange}
+          showToolbar={false}
+        />
+      </EditorBodyPane>
+    </MultiColumnEditor>
   )
 }
