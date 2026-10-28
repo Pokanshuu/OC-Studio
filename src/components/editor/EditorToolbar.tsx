@@ -115,7 +115,7 @@ function headingIcon(level: number): ReactNode {
  * 最小集 + 组级溢出：宽/中/窄按**工具栏容器宽度**切换，不按窗口宽度。
  * 只挂 Markdown 桥能表达的节点与标记；颜色/字体/对齐不在这里。
  */
-export function EditorToolbar({ editor }: { editor: Editor }) {
+export function EditorToolbar({ editor, sticky = true }: { editor: Editor; sticky?: boolean }) {
   const toolbarRef = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)
   const [menu, setMenu] = useState<{ kind: MenuKind; anchor: HTMLButtonElement } | null>(null)
@@ -305,7 +305,7 @@ export function EditorToolbar({ editor }: { editor: Editor }) {
         ref={toolbarRef}
         role="toolbar"
         aria-label="格式工具"
-        className="sticky top-12 z-10 flex h-10 items-center gap-0.5 border-b border-line bg-paper px-2 max-md:hidden"
+        className={`${sticky ? 'sticky top-12' : ''} z-10 flex h-10 items-center gap-0.5 border-b border-line bg-paper px-2 max-md:hidden`}
       >
         <IconButton
           label="撤销"

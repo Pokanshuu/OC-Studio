@@ -5,7 +5,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { useSettings } from '@/lib/settings'
 import { useDevice } from '@/lib/use-device'
 import { isTauri as isTauriEnv } from '@/lib/env'
-import { ThemeRadio, SWITCH_CLASSES, SWITCH_DOT } from '../controls'
+import { ThemeRadio, LayoutRadio, SWITCH_CLASSES, SWITCH_DOT } from '../controls'
 export function GeneralTab() {
   const { settings, updateSetting } = useSettings()
   const { isMobile } = useDevice()
@@ -79,6 +79,15 @@ export function GeneralTab() {
                       updateSetting("theme", v as "light" | "dark" | "auto")
                     }
                   />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <span className="text-sm text-ink">编辑界面样式</span>
+                  <LayoutRadio
+                    value={settings.editorLayout}
+                    onChange={(v) => updateSetting("editorLayout", v)}
+                  />
+                  <span className="text-[11px] text-ink-faint">重新打开编辑器生效</span>
                 </div>
 
                 <div className="flex flex-col gap-3 pt-2 border-t border-line">

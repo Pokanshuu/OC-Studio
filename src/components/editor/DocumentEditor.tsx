@@ -18,6 +18,8 @@ interface DocumentEditorProps {
   onWikiLinkClick?: (id: string) => void
   onDocChange?: () => void
   placeholder?: string
+  /** 三栏右栏自己渲染工具条时置 false，避免出现两条 */
+  showToolbar?: boolean
 }
 
 export function DocumentEditor({
@@ -30,6 +32,7 @@ export function DocumentEditor({
   onWikiLinkClick,
   onDocChange,
   placeholder,
+  showToolbar = true,
 }: DocumentEditorProps) {
   const { document, loading, error } = useDocument(entityId, entityType)
   const [editor, setEditor] = useState<Editor | null>(null)
@@ -62,7 +65,7 @@ export function DocumentEditor({
 
   return (
     <div>
-      {editor ? <EditorToolbar editor={editor} /> : null}
+      {showToolbar && editor ? <EditorToolbar editor={editor} /> : null}
       <EditorCore
         plain
         content={content}

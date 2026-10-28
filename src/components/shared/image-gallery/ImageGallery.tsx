@@ -30,6 +30,7 @@ export function ImageGallery({
   mode,
   onAdd,
   onRemove,
+  columns = 4,
   enableCrop = false,
   cropAspect,
   gridAspect = 'square',
@@ -60,6 +61,7 @@ export function ImageGallery({
       ) : (
         <ImageGalleryGrid
           images={images}
+          columns={columns}
           gridAspect={gridAspect}
           addTile={addTile}
           onAdd={onAdd}

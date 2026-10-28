@@ -22,9 +22,12 @@ const TEXT_PLACEHOLDERS: Record<string, string> = {
 export function CharacterInfoSection({
   form,
   onNavigateToCountry,
+  compact = false,
 }: {
   form: CharacterForm
   onNavigateToCountry?: (id: number) => void
+  /** 三栏中栏的窄容器：字段单列（不依赖 viewport 的 sm 断点） */
+  compact?: boolean
 }) {
   const fields = useFieldConfig().character
   const hiddenBuiltins = BUILTIN_FIELDS.character.filter(
@@ -42,7 +45,9 @@ export function CharacterInfoSection({
 
   const renderRow = (field: FieldDef) => {
     const wide = field.type === 'tags'
-    const rowClass = wide ? `${FIELD_ROW_TOP} sm:col-span-2` : FIELD_ROW
+    const rowClass = wide
+      ? `${FIELD_ROW_TOP}${compact ? '' : ' sm:col-span-2'}`
+      : FIELD_ROW
 
     if (field.type === 'bool') {
       return (
@@ -148,7 +153,13 @@ export function CharacterInfoSection({
   return (
     <section>
       <h3 className={SECTION_TITLE}>基本信息</h3>
-      <div className={`grid grid-cols-1 gap-x-10 sm:grid-cols-2 ${FIELD_GRID}`}>
+      <div
+        className={
+          compact
+            ? 'grid grid-cols-1 [&>*:last-child]:border-b-0'
+            : `grid grid-cols-1 gap-x-10 sm:grid-cols-2 ${FIELD_GRID}`
+        }
+      >
         {fields.map(renderRow)}
       </div>
       {hiddenBuiltins.length > 0 ? (

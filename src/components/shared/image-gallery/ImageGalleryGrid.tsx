@@ -5,6 +5,7 @@ import { resolveImageUrl } from '@/lib/image-service'
 
 interface ImageGalleryGridProps {
   images: string[]
+  columns: number
   gridAspect: 'square' | 'portrait'
   addTile: boolean
   onAdd?: (path: string) => void
@@ -17,6 +18,7 @@ interface ImageGalleryGridProps {
 /** grid 模式：网格缩略图（可把「添加」做成瓦片） */
 export function ImageGalleryGrid({
   images,
+  columns,
   gridAspect,
   addTile,
   onAdd,
@@ -35,7 +37,10 @@ export function ImageGalleryGrid({
           <span className="text-xs text-ink-faint">暂无图片</span>
         </div>
       ) : (
-        <div className="grid grid-cols-4 gap-2">
+        <div
+          className="grid gap-2"
+          style={{ gridTemplateColumns: `repeat(${Math.max(1, columns)}, minmax(0, 1fr))` }}
+        >
           {images.map((url, idx) => (
             <div
               key={idx}

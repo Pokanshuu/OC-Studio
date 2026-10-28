@@ -1,10 +1,12 @@
 'use client'
 
-import { useEffect } from 'react'
-import { Save, ArrowLeft } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Save, ArrowLeft, ChevronLeft, Menu } from 'lucide-react'
 import { DocumentEditor } from '@/components/editor/DocumentEditor'
 import type { Character } from '@/types'
 import { EntityHistoryButton } from '@/features/vault'
+import { useSettings } from '@/lib/settings'
+import { resolveEditorLayout } from '@/lib/editor-layout'
 import type { CharacterFormData } from '../types'
 import { useCharacter, useUpdateCharacter } from '../hooks/useCharacters'
 import { useCharacterForm } from '../hooks/useCharacterForm'
@@ -12,6 +14,7 @@ import { ImageGallery } from '@/components/shared/image-gallery/ImageGallery'
 import { ProfileBannerEditor } from '@/components/shared/ProfileBannerEditor'
 import { CharacterInfoSection } from './CharacterInfoSection'
 import { CharacterRelationSection } from './CharacterRelationSection'
+import { CharacterEditorMulti } from './CharacterEditorMulti'
 import { BTN_PRIMARY, BTN_QUIET, CENTER_STATE, EDITOR_BODY, EDITOR_HEADER, ICON_BTN_MD, PAGE_TITLE, SECTION_TITLE, TITLE_INPUT } from '@/lib/ui-tokens'
 
 interface CharacterEditorProps {
@@ -105,11 +108,32 @@ function CharacterEditorInner({
   onWikiLinkClick?: (id: string) => void
 }) {
   const form = useCharacterForm(character, onSave)
+  const { settings } = useSettings()
+  const [railOpen, setRailOpen] = useState(true)
+  // 布局在「这篇角色」挂载时定一次：inner 以角色 id 为 key，换人会重新挂载；
+  // 同一篇内改设置不立即换布局（切换会重挂 TipTap，未保存正文会丢）。
+  const [layout] = useState<'multi' | 'full'>(() => {
+    if (typeof window === 'undefined') return 'full'
+    // 手机宽度强制回单栏；多栏只在桌面窗口里成立。
+    if (window.innerWidth < 768) return 'full'
+    return resolveEditorLayout(settings.editorLayout, window.innerWidth)
+  })
 
   return (
-    <div className="flex flex-col min-h-full">
+    <div className={layout === 'multi' ? 'flex h-full min-h-0 flex-col' : 'flex min-h-full flex-col'}>
       <div className={EDITOR_HEADER}>
         <div className="flex items-center gap-3">
+          {layout === 'multi' ? (
+            <button
+              type="button"
+              onClick={() => setRailOpen((open) => !open)}
+              className={ICON_BTN_MD}
+              title={railOpen ? '收起列表' : '展开列表'}
+              aria-label={railOpen ? '收起列表' : '展开列表'}
+            >
+              {railOpen ? <ChevronLeft size={16} strokeWidth={2} /> : <Menu size={16} strokeWidth={2} />}
+            </button>
+          ) : null}
           <button
             data-mobile-back
             onClick={onBack}
@@ -133,7 +157,20 @@ function CharacterEditorInner({
         </div>
       </div>
 
-      <div className={EDITOR_BODY}>
+      {layout === 'multi' ? (
+        <CharacterEditorMulti
+          character={character}
+          form={form}
+          fallbackContent={mergeBioLifeStory(character.bio, character.lifeStory)}
+          railOpen={railOpen}
+          onNavigateToCharacter={onNavigateToCharacter}
+          onNavigateToCountry={onNavigateToCountry}
+          onMentionClick={onMentionClick}
+          onCharacterCount={onCharacterCount}
+          onWikiLinkClick={onWikiLinkClick}
+        />
+      ) : (
+        <div className={EDITOR_BODY}>
         <div className="mx-auto w-full max-w-3xl px-4 py-3 md:px-8 md:py-6">
           {/* Profile header */}
           <section>
@@ -220,7 +257,8 @@ function CharacterEditorInner({
             </div>
           </div>
         </div>
-      </div>
+        </div>
+      )}
 
     </div>
   )

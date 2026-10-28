@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useCallback, useEffect, type React
 import { invoke } from "@tauri-apps/api/core"
 import { isTauri } from "./env"
 import { DEFAULT_SIDEBAR_WIDTH, clampSidebarWidth } from "./sidebar-width"
+import type { EditorLayout } from "./editor-layout"
 
 const STORAGE_KEY = "oc-studio-settings"
 
@@ -14,6 +15,8 @@ export interface Settings {
   autoStart: boolean
   sidebarVisible: boolean
   sidebarWidth: number
+  /** 编辑界面样式；默认「自动」（≥1280 多栏，否则全屏） */
+  editorLayout: EditorLayout
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -23,6 +26,7 @@ const DEFAULT_SETTINGS: Settings = {
   autoStart: false,
   sidebarVisible: true,
   sidebarWidth: DEFAULT_SIDEBAR_WIDTH,
+  editorLayout: "auto",
 }
 
 function loadSettings(): Settings {

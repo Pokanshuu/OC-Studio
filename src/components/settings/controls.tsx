@@ -1,11 +1,47 @@
 'use client'
 
+import { EDITOR_LAYOUT_OPTIONS, type EditorLayout } from "@/lib/editor-layout"
+
 /** 设置页的共享控件：主题单选 + 开关样式常量（被「个性化」等 tab 使用）。 */
 export const THEME_OPTIONS = [
   { value: "light", label: "白天模式" },
   { value: "dark", label: "夜间模式" },
   { value: "auto", label: "跟随系统" },
 ] as const
+
+/** 编辑界面样式单选：多栏 / 全屏 / 自动 */
+export function LayoutRadio({
+  value,
+  onChange,
+}: {
+  value: EditorLayout
+  onChange: (v: EditorLayout) => void
+}) {
+  return (
+    <div className="flex gap-3">
+      {EDITOR_LAYOUT_OPTIONS.map((opt) => (
+        <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
+          <div
+            className={`relative flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
+              value === opt.value ? "border-line-hover" : "border-line"
+            } bg-[var(--oc-hover)]`}
+          >
+            {value === opt.value && <div className="h-2 w-2 rounded-full bg-ink-muted" />}
+          </div>
+          <input
+            type="radio"
+            name="editorLayout"
+            value={opt.value}
+            checked={value === opt.value}
+            onChange={() => onChange(opt.value)}
+            className="sr-only"
+          />
+          <span className="text-sm text-ink">{opt.label}</span>
+        </label>
+      ))}
+    </div>
+  )
+}
 
 export function ThemeRadio({
   value,
