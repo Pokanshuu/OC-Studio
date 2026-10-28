@@ -48,12 +48,8 @@ export function GeneralTab() {
     <>
               <div className="flex flex-col gap-5">
                 <label className="flex items-center justify-between">
-                  <div className="flex flex-col">
-                    <span className="text-sm text-ink">开机自启动</span>
-                    {isMobile ? (
-                      <span className="text-xs text-ink-faint">桌面端支持</span>
-                    ) : null}
-                  </div>
+                  {/* 禁用态由 opacity + 光标表达，不再补「桌面端支持」这类次级标签 */}
+                  <span className="text-sm text-ink">开机自启动</span>
                   <button
                     role="switch"
                     aria-checked={settings.autoStart}
@@ -87,14 +83,7 @@ export function GeneralTab() {
 
                 <div className="flex flex-col gap-3 pt-2 border-t border-line">
                   <label className="flex items-center justify-between">
-                    <div className="flex flex-col">
-                      <span className="text-sm text-ink">
-                        启用窗口模糊效果
-                      </span>
-                      {isMobile ? (
-                        <span className="text-xs text-ink-faint">桌面端支持</span>
-                      ) : null}
-                    </div>
+                    <span className="text-sm text-ink">启用窗口模糊效果</span>
                     <button
                       role="switch"
                       aria-checked={blurEnabled}

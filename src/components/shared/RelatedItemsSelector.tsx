@@ -190,7 +190,7 @@ export function RelatedItemsSelector({
           className="flex shrink-0 items-center gap-1 py-[3px] pr-1 text-[12px] text-ink-faint transition-colors hover:text-ink"
         >
           <Plus size={12} strokeWidth={2} />
-          <span>{isFull ? '更换' : '添加'}</span>
+          <span>{isFull ? '更换' : maxItems === 1 ? '选择' : '添加'}</span>
         </button>
       )}
     </div>

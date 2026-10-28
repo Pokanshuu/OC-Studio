@@ -127,3 +127,12 @@ export function useDeleteCharacter(): {
     deleting: mutation.isPending,
   }
 }
+
+/** 拖拽排序后写回顺序，并刷新列表 */
+export function useReorderCharacters(): (ids: number[]) => Promise<void> {
+  const queryClient = useQueryClient()
+  return async (ids: number[]) => {
+    await characterService.reorderCharacters(ids)
+    await queryClient.invalidateQueries({ queryKey: LIST_KEY })
+  }
+}

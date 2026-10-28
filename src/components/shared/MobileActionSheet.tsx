@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { FLOAT_SHADOW } from '@/lib/ui-tokens'
 
 export interface ActionItem {
   id: string
@@ -59,7 +60,7 @@ export function MobileActionSheet({ open, onClose, title, actions }: MobileActio
       <div
         ref={panelRef}
         data-action-sheet-panel
-        className="absolute bottom-0 left-0 right-0 z-10 bg-paper/85 backdrop-blur-lg rounded-t-panel transition-transform duration-200 ease-out"
+        className={`absolute bottom-0 left-0 right-0 z-10 bg-paper/85 backdrop-blur-lg rounded-t-panel transition-transform duration-200 ease-out ${FLOAT_SHADOW}`}
         style={{
           transform: visible ? 'translateY(0)' : 'translateY(100%)',
           paddingBottom: 'var(--safe-bottom, 0px)',

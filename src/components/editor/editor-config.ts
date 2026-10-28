@@ -72,7 +72,7 @@ export function buildEditorConfig({
         heading: { levels: [1, 2, 3, 4] },
         paragraph: false,
         blockquote: {
-          HTMLAttributes: { class: 'border-l-2 border-line pl-4 bg-paper-alt rounded-r-sm italic text-ink-muted my-3 py-1' },
+          HTMLAttributes: { class: 'border-l-2 border-line pl-4 bg-paper-alt rounded-r-item italic text-ink-muted my-3 py-1' },
         },
       }),
       Paragraph.extend({
@@ -116,7 +116,7 @@ export function buildEditorConfig({
         },
       }).configure({
         resizable: true,
-        HTMLAttributes: { class: 'w-full border-collapse rounded-media overflow-hidden' },
+        HTMLAttributes: { class: 'w-full border-collapse rounded-item overflow-hidden' },
       }),
       TableRow.configure({
         HTMLAttributes: { class: 'border-b border-line' },

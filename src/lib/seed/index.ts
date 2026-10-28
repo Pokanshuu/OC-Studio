@@ -247,7 +247,7 @@ export async function seedSampleData(): Promise<void> {      const { db } = awai
       const entry1Id = await db.worldEntries.add({
         title: '示例词条：转弯',
         content: SAMPLE_HTML,
-        category: '概念',
+        category: '',
         parentId: null,
         order: 0,
         isConcept: true,
@@ -289,7 +289,7 @@ export async function seedSampleData(): Promise<void> {      const { db } = awai
       await db.worldEntries.add({
         title: '示例词条：引用演示',
         content: JSON.stringify(entry2Doc),
-        category: '概念',
+        category: '',
         parentId: null,
         order: 1,
         isConcept: true,

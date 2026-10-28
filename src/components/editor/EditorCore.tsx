@@ -177,7 +177,7 @@ export function EditorCore({
     <div
       className={plain
         ? 'relative'
-        : 'relative rounded-media border border-transparent bg-paper transition-colors hover:border-line focus-within:border-line-hover'
+        : 'relative rounded-item border border-transparent bg-paper transition-colors hover:border-line focus-within:border-line-hover'
       }
       onMouseDown={(e) => {
         lastClickRef.current = { x: e.clientX, y: e.clientY }

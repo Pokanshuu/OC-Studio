@@ -55,10 +55,18 @@ export function listRecentVaults(): VaultRegistryEntry[] {
   return readList()
 }
 
+/**
+ * 记住一个 vault，并**标记「用户已经选过文件夹」**。
+ *
+ * 标记必须在成功打开之后写：`isVaultEnabled()` 决定启动时要不要自动恢复上次的
+ * 文件夹。这个标记以前没人写（删欢迎流程时把调用点一起删了），结果每次刷新都
+ * 落回欢迎页 —— 明明选过一次了。
+ */
 export function rememberVault(path: string): void {
   const name = vaultNameFromPath(path)
   const rest = readList().filter((item) => item.path !== path)
   writeList([{ path, name, openedAt: Date.now() }, ...rest])
+  setVaultEnabled(true)
   setLastVaultPath(path)
 }
 

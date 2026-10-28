@@ -26,10 +26,14 @@ import {
   writeViewPreference,
   sortCharacters,
   aliasesMatch,
+  SORT_STORAGE_KEY,
 } from './character-list-utils'
+import { readSortKey, writeSortKey } from '@/lib/sort-manual'
 import type { SortKey } from './character-list-utils'
 import type { ViewMode } from '@/components/shared/SortViewControls'
-import { BTN_QUIET } from '@/lib/ui-tokens'
+import { SortableList, moveId } from '@/components/shared/list-dnd'
+import { useReorderCharacters } from '../hooks/useCharacters'
+import { BTN_QUIET, CENTER_STATE, EMPTY_HINT, LIST_GRID } from '@/lib/ui-tokens'
 
 interface CharacterListProps {
   characters: Character[]
@@ -50,7 +54,7 @@ export function CharacterList({
 }: CharacterListProps) {
   const { isMobile } = useDevice()
   const handleSelect = useMemo(() => withTouchFeedback(onSelectCharacter), [onSelectCharacter])
-  const [sortKey, setSortKey] = useState<SortKey>('updatedAt')
+  const [sortKey, setSortKey] = useState<SortKey>(() => readSortKey(SORT_STORAGE_KEY, 'updatedAt'))
   const [viewMode, setViewMode] = useState<ViewMode>(readViewPreference)
   const [search, setSearch] = useState('')
   const [countryFilter, setCountryFilter] = useState<number | 'all'>('all')
@@ -123,6 +127,23 @@ export function CharacterList({
     writeViewPreference(mode)
   }
 
+  const handleSortChange = (key: SortKey) => {
+    setSortKey(key)
+    writeSortKey(SORT_STORAGE_KEY, key)
+  }
+
+  const manual = sortKey === 'manual'
+  const reorderCharacters = useReorderCharacters()
+
+  // 拖拽后按「全集的手动顺序」重排，再把 0..n-1 写回实体（筛选时也不打乱全局）
+  const handleReorder = useCallback(
+    (activeId: number | string, overId: number | string) => {
+      const base = sortCharacters(characters, 'manual').map((c) => c.id)
+      void reorderCharacters(moveId(base, Number(activeId), Number(overId)))
+    },
+    [characters, reorderCharacters],
+  )
+
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -133,7 +154,7 @@ export function CharacterList({
 
   if (error) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3">
+      <div className={CENTER_STATE}>
         <span className="text-sm text-error">{error}</span>
         <button
           onClick={onCreateCharacter}
@@ -154,7 +175,7 @@ export function CharacterList({
         onCountryFilterChange={setCountryFilter}
         countryOptions={countryOptions}
         sortKey={sortKey}
-        onSortKeyChange={setSortKey}
+        onSortKeyChange={handleSortChange}
         viewMode={viewMode}
         onViewModeChange={handleViewChange}
         onCreateCharacter={onCreateCharacter}
@@ -167,40 +188,56 @@ export function CharacterList({
           <div className="flex-1 flex items-center justify-center">
             <button
               onClick={onCreateCharacter}
-              className="font-serif text-sm text-ink-faint transition-colors hover:text-ink"
+              className={EMPTY_HINT}
             >
               暂无角色，点击创建第一个
             </button>
           </div>
         ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-            {filtered.map((character) => (
-              <div key={character.id} className="[break-inside:avoid] mb-4">
-                <CharacterCard
+          <SortableList
+            ids={filtered.map((c) => c.id)}
+            onReorder={handleReorder}
+            layout="grid"
+            disabled={!manual}
+          >
+            <div className={LIST_GRID}>
+              {filtered.map((character) => (
+                <div key={character.id} className="[break-inside:avoid] mb-4">
+                  <CharacterCard
+                    character={character}
+                    onSelect={handleSelect}
+                    onDelete={onDeleteCharacter}
+                    onLongPress={() => openActionSheet(character)}
+                    countryName={getCountryName(character)}
+                    isMobile={isMobile}
+                    sortable={manual}
+                  />
+                </div>
+              ))}
+            </div>
+          </SortableList>
+        ) : (
+          <SortableList
+            ids={filtered.map((c) => c.id)}
+            onReorder={handleReorder}
+            layout="list"
+            disabled={!manual}
+          >
+            <div className="flex flex-col rules-end">
+              {filtered.map((character) => (
+                <CharacterRow
+                  key={character.id}
                   character={character}
                   onSelect={handleSelect}
                   onDelete={onDeleteCharacter}
                   onLongPress={() => openActionSheet(character)}
                   countryName={getCountryName(character)}
                   isMobile={isMobile}
+                  sortable={manual}
                 />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="flex flex-col divide-y divide-line">
-            {filtered.map((character) => (
-              <CharacterRow
-                key={character.id}
-                character={character}
-                onSelect={handleSelect}
-                onDelete={onDeleteCharacter}
-                onLongPress={() => openActionSheet(character)}
-                countryName={getCountryName(character)}
-                isMobile={isMobile}
-              />
-            ))}
-          </div>
+              ))}
+            </div>
+          </SortableList>
         )}
         <MobileFab viewMode={viewMode} onViewModeChange={handleViewChange} />
       </div>

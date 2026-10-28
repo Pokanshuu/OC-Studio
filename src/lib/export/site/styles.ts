@@ -17,6 +17,7 @@ export const SITE_CSS = `
   --ink-muted: #6E6A63;
   --ink-faint: #A5A098;
   --hover: rgba(43, 43, 43, 0.045);
+  /* 导出站只有卡片与图片用圆角：对应应用里的「小」档 rounded-item（4px） */
   --radius: 4px;
 }
 @media (prefers-color-scheme: dark) {
@@ -89,6 +90,9 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 24px 0; }
   font-size: 15px; font-weight: 700;
   margin: 32px 0 14px;
 }
+/* 词条章节标题本身是入口（指向该词条的详情页） */
+.section-title a { color: inherit; }
+.section-title a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .crumb {
   display: inline-flex; align-items: center; gap: 6px;
   font-size: 12px; color: var(--ink-muted); margin-bottom: 18px;
@@ -118,6 +122,8 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 24px 0; }
 .row .body { flex: 1; min-width: 0; }
 .row .title { font-family: Georgia, "Songti SC", serif; font-size: 15px; font-weight: 700; }
 .row .note { font-size: 12px; color: var(--ink-muted); margin-top: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+/* 词条按树分章：子孙条目按 --depth 缩进（渲染时已截到四级） */
+.row .body { padding-left: calc(var(--depth, 0) * 18px); }
 .row.major .title::after { content: ' ★'; color: var(--ink-faint); font-size: 11px; }
 
 /* ── 字段行 ───────────────────────────────────────────── */

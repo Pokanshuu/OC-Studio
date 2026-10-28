@@ -109,6 +109,12 @@ export function PeriodDialog({ open, period, onSave, onClose }: PeriodDialogProp
           <div className="flex gap-2">
             {PERIOD_COLORS.map((c) => {
               const selected = color === c.value
+              // 色点选中环用 ring（1px + 外留 2px 空隙）：它不是焦点光晕，是「这颗被选中了」
+              const swatch = `h-6 w-6 rounded-full ring-1 transition-all focus:outline-none ${c.value} ${ // design-audit-allow focus-ring 色点选中环
+                selected
+                  ? 'ring-ink ring-offset-2 ring-offset-paper'
+                  : 'ring-transparent hover:ring-line-hover'
+              }`
               return (
                 <button
                   key={c.value}
@@ -117,11 +123,7 @@ export function PeriodDialog({ open, period, onSave, onClose }: PeriodDialogProp
                   title={c.label}
                   aria-label={c.label}
                   aria-pressed={selected}
-                  className={`h-6 w-6 rounded-full ring-1 transition-all focus:outline-none ${c.value} ${
-                    selected
-                      ? 'ring-ink ring-offset-2 ring-offset-paper'
-                      : 'ring-transparent hover:ring-line-hover'
-                  }`}
+                  className={swatch}
                 />
               )
             })}

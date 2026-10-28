@@ -1,6 +1,7 @@
 import type { Event } from '@/types'
+import { compareManual } from '@/lib/sort-manual'
 
-export type SortKey = 'time' | 'updatedAt' | 'createdAt'
+export type SortKey = 'manual' | 'time' | 'updatedAt' | 'createdAt'
 
 interface ParsedTime {
   year: string
@@ -52,6 +53,7 @@ export function normalizeTime(time: string): string {
 export function sortEvents(events: Event[], key: SortKey): Event[] {
   const sorted = [...events]
   sorted.sort((a, b) => {
+    if (key === 'manual') return compareManual(a, b)
     if (key === 'time') {
       const aYear = parseYear(a.time)
       const bYear = parseYear(b.time)

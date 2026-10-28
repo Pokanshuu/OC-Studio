@@ -2,7 +2,7 @@
 name: oc-studio-coding
 description: >
   OC Studio 编码规范。定义架构与文件组织、数据与状态管理、组件开发标准、样式与触控规则、
-  响应式适配、AI 功能集成、编辑器扩展、z-index 层级规范。所有代码生成必须遵循。
+  响应式适配、编辑器扩展、z-index 层级规范。所有代码生成必须遵循。
   触发词：编码规范、架构、数据层、组件规范、编辑器扩展、响应式。
 ---
 
@@ -72,6 +72,7 @@ description: >
 - **页头统一 48px**：`h-12 border-b border-line bg-paper/85 dark:bg-[#1C1B1A]/85 backdrop-blur-lg`（列表页 `px-6`，编辑器 `px-4`），标题用 `PAGE_TITLE`（18px 衬线加粗）
 - 页面外层 `flex flex-col min-h-full`（非 `h-full`），内容区 `flex-1`（无 `overflow-auto`，由 `<main>` 统一滚动）
 - **浮层强制 Portal**：所有下拉菜单、筛选面板、弹窗必须通过 `createPortal` 渲染到 `#overlay-root`。禁止在顶栏（含 `backdrop-blur` 合成层）内部使用 `absolute` 定位浮层。
+- **禁止浏览器原生的弹出型控件**：`<datalist>`、`<input type="date">`、`<select>` 的弹层由 WebView 自己绘制（不在 DOM 里、CSS 够不着、暗色下仍是一块浅灰）。需要建议列表 / 日期选择就自己写「input + portal 的 `MENU` 面板」，参考 `FilterSelect`。
 
 ## 4. 样式与触控
 - **强制使用 Tailwind 类名**，禁止内联样式。例外：动态坐标/尺寸等无法用 Tailwind 表达的场景可用 `style`。
@@ -103,10 +104,9 @@ description: >
   - 移动端键盘工具栏通过 `KeyboardContext` 精确定位，`paddingBottom: var(--safe-bottom)` 消化导航栏高度（与 `MobileSearchOverlay` 保持一致）
 - **侧边栏固定不滚动**：分栏布局中侧边栏用外层 `sticky overflow-hidden` + 内层 `overflow-auto` 两层解耦
 
-## 6. AI 功能集成
-- API Key 从 `localStorage` 读取，用户设置页输入，严禁硬编码。
-- AI 按钮状态：`idle` → `loading` → `done`/`error`，结果用浮层面板展示，不打断编辑。
-- **AI 只能返回结构化数据或提示，不能返回用户直接使用的创作内容（如故事文本）。**
+## 6. AI（暂不做）
+- 2026-10 已删除全部 AI 代码与入口：`src/lib/ai/`、`EventAiSummary`、设置里的 AI 页签、`settings.tsx` 的 `ai*` 字段、`useEventForm` 的概括逻辑。
+- **不要恢复旧实现、不要新增 AI 入口、不要在文案里承诺 AI**；要做得当成新功能重新设计。
 
 ## 7. 编辑器扩展
 - TipTap 为全局内核，自定义节点必须注册在同一实例上。
@@ -157,7 +157,7 @@ description: >
 | `src/lib/reference-registry.ts` | @ 引用和 [[ 内链的数据源注册 |
 | `src/lib/use-device.ts` | useDevice() hook |
 | `src/lib/editor-context.tsx` | ActiveEditorProvider，追踪当前聚焦的编辑器 |
-| `src/lib/settings.tsx` | SettingsProvider，主题/同步/AI 设置 |
+| `src/lib/settings.tsx` | SettingsProvider，主题 / 同步设置 |
 | `src/lib/image-service.ts` | 图片上传、URL 解析、blob 持久化 |
 | `src/lib/image-crop.ts` | Canvas 裁剪引擎（getCroppedBlob / getCroppedDataUrl / createCroppedCanvas） |
 | `src/lib/image-heif.ts` | HEIF/HEIC 格式检测与转换（isHeif / convertHeifToJpeg），heic-to 库封装 |
@@ -176,7 +176,7 @@ description: >
 | `src/lib/vault/vault-fs.ts` | Tauri 文件命令的 TS 门面（含 `isVaultSupported()`） |
 | `src/lib/vault/vault-paths.ts` | 路径分配（纯函数）：Windows 非法字符 / 保留设备名 / 撞名去重 / 回收站路径 |
 | `src/lib/vault/vault-migrate.ts` | 存量图片迁进 vault 并改写引用（**显式动作**，不自动跑） |
-| `src/features/vault/` | UI：`VaultGate` / `VaultWriteBanner` / `VaultMenuSection` / `VaultStatus` / `VaultSurfaces` / `VaultOverlay` / `VaultWelcome` / `VaultScanReportDialog` |
+| `src/features/vault/` | UI：`VaultGate` / `VaultWriteBanner` / `VaultMenuSection` / `VaultStatus` / `VaultSurfaces` / `VaultOverlay` / `VaultScanReportDialog`（界面上叫「概览」） |
 | `src-tauri/src/vault.rs` | 自建文件 IO 命令（原子写 / mtime 乐观并发 / 路径逃逸拦截 / BOM 剥离 / `spawn_blocking`），带 6 个单测；另 `src-tauri/src/open.rs` 用系统浏览器打开外链（2 个单测） |
 | `scripts/vault-*.ts` | 验收脚本：analyze / frontmatter-check / write-acceptance / markdown-check / body-diff |
 | `src/components/editor/EditorCore.tsx` | 统一编辑器内核（含移动端键盘工具栏与块面板） |
@@ -189,6 +189,7 @@ description: >
 | `src/components/shared/FilterSelect.tsx` | 通用筛选下拉（样式由调用点传入；行为只有一份） |
 | `src/lib/export/` | 导出器：`payload`（.ocbak + 图片内联）/ `markdown` / `download`（含 Capacitor 适配）/ `site`（静态展示站：`render` 正文→HTML、`styles` 设计令牌、`build` 组装单文件 `index.html`）；`src/lib/export.ts` 只是 barrel |
 | `src/features/world/hooks/useWorldEntryDraft.ts` | 词条草稿 → 落库管线（2s 防抖 + 切词条 / beforeunload flush） |
+| `src/lib/world-tree.ts` | **词条树唯一实现**（`buildEntryTree`）：层级只由 `parentId` 表达，编辑器目录与静态站导出共用；`parentId` 悬空时当根处理 |
 | `src/components/editor/BubbleMenuButtons.tsx` | 气泡菜单按钮组 |
 | `src/features/timeline/hooks/useTimelineLayout.ts` | 时间线纯派生层：坐标 / 泳道 / 刻度 / 聚合桶 / 时期行（无状态无副作用） |
 | `src/features/timeline/hooks/useTimelineViewport.ts` | 时间线视口层：滚动 / 缩放（滑杆·ctrl+滚轮·双指捏合）/ 上下一件导航 |

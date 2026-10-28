@@ -18,7 +18,7 @@ layout.tsx
     │   └── VaultProvider                 ← Vault 上下文（仅桌面；状态由 useSyncExternalStore 派生）
     │       ├── SeedData                  ← 首次运行种子数据
     │       └── KeyboardProvider          ← Capacitor 键盘状态
-    │           └── SettingsProvider      ← 主题/同步/AI 设置
+    │           └── SettingsProvider      ← 主题 / 同步设置
     │               └── ActiveEditorProvider  ← 追踪当前聚焦编辑器
     │                   └── EntityNavigateProvider   ← 跨实体跳转 handler
     │                       └── WordCountProvider    ← 字数统计
@@ -48,7 +48,7 @@ layout.tsx
 
 **注意**：`GlobalContextMenu`（提供 `InputMenuContext`）现在位于 AppShell 最外层 → `SettingsDialog`、`MobileSearchOverlay` 等也能用 `useInputContextMenu()`。
 
-**Vault**：`VaultProvider` 在最外层（`Providers` 之下、`SeedData` 同级之上），`VaultGate` 包住整个 `AppShell`。因此 `useVault()` 在任何页面可用；`VaultGate` 在浏览器 / 移动端（不支持 vault）直接 `return children`，不改变原有行为。`VaultWriteBanner`（写盘冲突条）与 `VaultSurfaces`（Welcome + 扫描报告两个全局浮层）挂在 AppShell 内部。
+**Vault**：`VaultProvider` 在最外层（`Providers` 之下、`SeedData` 同级之上），`VaultGate` 包住整个 `AppShell`。因此 `useVault()` 在任何页面可用；`VaultGate` 在浏览器 / 移动端（不支持 vault）直接 `return children`，不改变原有行为。`VaultWriteBanner`（写盘冲突条）与 `VaultSurfaces`（「概览」全局浮层）挂在 AppShell 内部。
 
 ## 2. 页面渲染模式
 
@@ -389,3 +389,13 @@ vault 装载未完成前**不渲染主界面**（否则列表先按空库渲染�
 - **表格 `rawSeparator` 必须声明为 attr**：否则 `|------|-----|` 这类紧凑分隔行被规范化成 `| --- |`，等于改用户排版。
 - **`<small>` 必须有 `SmallMark` 标记**：它是 vault 里唯一用到的行内 HTML（实测 32 处），不做成标记就会在正文里露出标签或被丢弃。
 - **WikiLink 的 `raw` 属性**：`[[目标#锚点|别名]]` 只按 id 定位节点、原文另存，写回时逐字还原。
+
+### 4.21 时间线里的「角色出生」是伪事件，id 用负数
+
+时间线的布局层只认 `TimelineEvent`，所以角色生日被合成为同形状的节点（`kind: 'birth'`、`characterId`）。它**不是事件**，三条边界必须守住：
+
+- **id 取负数**（`-characterId`）：事件与角色分属两张表，id 会撞；负数前缀是唯一标记，所有回调（节点 / 聚合桶 / 导航）都只传 `number`，分发集中在 `TimelineView` 的 `handleSelect`。
+- **绝不注册 draggable**：`useTimelineDrag` 拿到 `event.id` 就去 `updateEventTime`，出生节点一旦可拖，拖一下就把某个**事件**的时间改了。渲染时走 `StaticNode`，编辑模式也一样。
+- **不进聚合桶**：`useTimelineLayout` 里 `buildBuckets` 的输入要滤掉 `kind === 'birth'`，否则桶被点开会打开一个同号事件。
+
+按国家筛选时不生成出生节点（出生没有国家归属）；`parseYear` 读不出来的生日（「不详」这类自由文本）不上时间线，也不报错。

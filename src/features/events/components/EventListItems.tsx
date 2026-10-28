@@ -7,7 +7,8 @@ import { resolveImageUrl } from '@/lib/image-service'
 import { DeleteButton } from '@/components/shared/DeleteButton'
 import { useLongPress } from '@/lib/useLongPress'
 import { formatTimeDisplay } from './event-list-utils'
-import { ROUND_MEDIA } from '@/lib/ui-tokens'
+import { DRAG_SLOT_CARD, DRAG_SLOT_ROW, MEDIA_CARD, MEDIA_FALLBACK, MEDIA_GRADIENT, MEDIA_IMG, ROUND_ITEM, ROW_ACTIONS } from '@/lib/ui-tokens'
+import { DragHandle, useSortableItem } from '@/components/shared/list-dnd'
 
 interface EventItemProps {
   event: Event
@@ -15,6 +16,8 @@ interface EventItemProps {
   onDelete: (id: number) => void
   onLongPress?: () => void
   isMobile: boolean
+  /** 手动排序模式下才挂拖拽手柄 */
+  sortable?: boolean
 }
 
 /** 「画廊」视图的卡片 */
@@ -24,31 +27,43 @@ export function EventCard({
   onDelete,
   onLongPress,
   isMobile,
+  sortable = false,
 }: EventItemProps) {
   const longPress = useLongPress({
     onLongPress: onLongPress ?? (() => {}),
     enabled: isMobile,
   })
+  const { setNodeRef, style, attributes, listeners } = useSortableItem(event.id, !sortable)
 
   return (
-    <div className="relative group touch-feedback" {...longPress}>
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="relative group touch-feedback"
+      {...longPress}
+    >
+      {sortable ? (
+        <div className={DRAG_SLOT_CARD}>
+          <DragHandle tone="overlay" handleProps={{ attributes, listeners }} />
+        </div>
+      ) : null}
       <button
         onClick={() => onSelect(event.id)}
-        className={`flex w-full flex-col overflow-hidden bg-paper-card text-left transition-colors hover:bg-line ${ROUND_MEDIA}`}
+        className={`flex w-full flex-col overflow-hidden bg-paper-card text-left transition-colors hover:bg-line ${ROUND_ITEM}`}
       >
-        <div className="relative aspect-[3/2] w-full bg-paper-card">
+        <div className={MEDIA_CARD}>
           {event.headerUrl ? (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={resolveImageUrl(event.headerUrl, 'header')}
                 alt=""
-                className="absolute inset-0 h-full w-full object-cover"
+                className={MEDIA_IMG}
               />
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-paper-card to-transparent" />
+              <div className={MEDIA_GRADIENT} />
             </>
           ) : (
-            <div className="absolute inset-0 grid place-items-center font-serif text-2xl text-ink-faint">
+            <div className={MEDIA_FALLBACK}>
               {event.title.slice(0, 1)}
             </div>
           )}
@@ -93,11 +108,13 @@ export function EventRow({
   onDelete,
   onLongPress,
   isMobile,
+  sortable = false,
 }: EventItemProps) {
   const longPress = useLongPress({
     onLongPress: onLongPress ?? (() => {}),
     enabled: isMobile,
   })
+  const { setNodeRef, style, attributes, listeners } = useSortableItem(event.id, !sortable)
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -107,13 +124,20 @@ export function EventRow({
 
   return (
     <div
+      ref={setNodeRef}
+      style={style}
       role="button"
       tabIndex={0}
       onClick={() => onSelect(event.id)}
       onKeyDown={handleKeyDown}
-      className="group relative flex w-full cursor-pointer items-center gap-4 px-4 py-3 text-left transition-colors hover:bg-[var(--oc-hover)] active:bg-[var(--oc-hover)]"
+      className={`group relative row-rule flex w-full cursor-pointer items-center gap-4 rounded-item py-3 pr-4 text-left transition-colors hover:bg-[var(--oc-hover)] active:bg-[var(--oc-hover)] ${sortable ? 'pl-10' : 'pl-4'}`}
       {...longPress}
     >
+      {sortable ? (
+        <div className={DRAG_SLOT_ROW}>
+          <DragHandle handleProps={{ attributes, listeners }} />
+        </div>
+      ) : null}
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <div className="flex items-center gap-2 min-w-0">
           {event.isMajor ? (
@@ -130,7 +154,7 @@ export function EventRow({
         <p className="min-w-0 flex-1 truncate text-xs text-ink-muted">{event.summary}</p>
       ) : null}
       {!isMobile ? (
-        <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className={ROW_ACTIONS}>
           <DeleteButton onDelete={() => onDelete(event.id)} />
         </div>
       ) : null}

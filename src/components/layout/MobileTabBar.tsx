@@ -29,7 +29,7 @@ export function MobileTabBar() {
                 setActiveItem(null)
                 setSection(tab.section)
               }}
-              className="flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-2 transition-colors hover:bg-[var(--oc-hover)]"
+              className="flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-none py-2 transition-colors hover:bg-[var(--oc-hover)]"
             >
               <tab.icon
                 size={20}

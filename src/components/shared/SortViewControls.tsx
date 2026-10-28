@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronDown, LayoutGrid, List } from 'lucide-react'
-import { MENU, MENU_ITEM_BASE, ROUND_ITEM } from '@/lib/ui-tokens'
+import { FILTER_TRIGGER, MENU, MENU_ITEM_BASE, ROUND_ITEM } from '@/lib/ui-tokens'
 
 export interface SortOption {
   label: string
@@ -66,7 +66,7 @@ export function SortSelect({
       <button
         ref={triggerRef}
         onClick={() => setOpen(!open)}
-        className="touch-feedback flex h-7 md:h-8 items-center gap-1 px-2 text-[11px] text-ink transition-colors hover:bg-[var(--oc-hover)] md:text-[13px]"
+        className={FILTER_TRIGGER}
       >
         <span>{getSortLabel(options, sortKey)}</span>
         <ChevronDown size={16} strokeWidth={2} />

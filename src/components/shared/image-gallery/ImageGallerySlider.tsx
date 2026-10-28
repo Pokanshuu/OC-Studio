@@ -108,13 +108,13 @@ export function ImageGallerySlider({
           {images.length > 1 ? (
             <button
               onClick={prevImage}
-              className="absolute left-2 z-[5] flex h-8 w-8 items-center justify-center rounded-item bg-black/20 text-white/80 hover:bg-black/40 transition-colors"
+              className="absolute left-2 z-[5] flex h-8 w-8 items-center justify-center rounded-full bg-black/20 text-white/80 hover:bg-black/40 transition-colors"
             >
               <ChevronLeft size={16} strokeWidth={2} />
             </button>
           ) : null}
           <div
-            className="group relative h-full w-full overflow-hidden rounded-media select-none"
+            className="group relative h-full w-full overflow-hidden rounded-item select-none"
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
             onMouseDown={handleMouseDown}
@@ -149,7 +149,7 @@ export function ImageGallerySlider({
                     onRemove(sliderIndex)
                     setSliderIndex((i) => Math.max(0, Math.min(i, images.length - 2)))
                   }}
-                  className="flex h-8 w-8 items-center justify-center rounded-item bg-black/40 text-white/80 hover:bg-black/60 transition-colors"
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-black/40 text-white/80 hover:bg-black/60 transition-colors"
                   title="删除"
                 >
                   <Trash2 size={16} strokeWidth={2} />
@@ -159,7 +159,7 @@ export function ImageGallerySlider({
                 <button
                   onClick={onUploadClick}
                   disabled={uploading}
-                  className="flex h-8 w-8 items-center justify-center rounded-item bg-black/40 text-white/80 hover:bg-black/60 transition-colors disabled:opacity-50"
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-black/40 text-white/80 hover:bg-black/60 transition-colors disabled:opacity-50"
                   title="添加"
                 >
                   {uploading ? (
@@ -174,7 +174,7 @@ export function ImageGallerySlider({
           {images.length > 1 ? (
             <button
               onClick={nextImage}
-              className="absolute right-2 z-[5] flex h-8 w-8 items-center justify-center rounded-item bg-black/20 text-white/80 hover:bg-black/40 transition-colors"
+              className="absolute right-2 z-[5] flex h-8 w-8 items-center justify-center rounded-full bg-black/20 text-white/80 hover:bg-black/40 transition-colors"
             >
               <ChevronRight size={16} strokeWidth={2} />
             </button>
@@ -184,7 +184,7 @@ export function ImageGallerySlider({
         <button
           type="button"
           onClick={onUploadClick}
-          className="flex h-full w-full flex-col items-center justify-center gap-2 rounded-media border border-dashed border-line bg-paper-card transition-colors hover:border-line-hover"
+          className="flex h-full w-full flex-col items-center justify-center gap-2 rounded-item border border-dashed border-line bg-paper-card transition-colors hover:border-line-hover"
         >
           <ImageIcon size={24} strokeWidth={1.5} className="text-ink-faint" />
           <span className="text-xs text-ink-faint">点击上传立绘</span>

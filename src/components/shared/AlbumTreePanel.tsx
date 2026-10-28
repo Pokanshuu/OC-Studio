@@ -1,7 +1,7 @@
 'use client'
 
 import { ChevronRight, ChevronLeft, RefreshCw } from 'lucide-react'
-import { PAGE_TITLE } from '@/lib/ui-tokens'
+import { ICON_BTN_MD, PAGE_TITLE } from '@/lib/ui-tokens'
 import type { AlbumEntry } from './useAlbumData'
 import { CATEGORY_TREE, getTopCount, getSubCount } from './album-utils'
 
@@ -35,11 +35,11 @@ export function AlbumTreePanel({
     <div className="flex h-full flex-col border-r border-line bg-paper-alt max-md:pt-[var(--safe-top)]">
       {isMobile ? (
         <div className="flex h-12 items-center justify-between border-b border-line px-3">
-          <button onClick={onCloseMobileTree} className="flex h-8 w-8 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink">
+          <button onClick={onCloseMobileTree} className={ICON_BTN_MD}>
             <ChevronLeft size={16} strokeWidth={2} />
           </button>
           <button onClick={onRefresh} disabled={refreshing}
-            className={`flex h-8 w-8 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink ${refreshing ? 'animate-spin' : ''}`}
+            className={`${ICON_BTN_MD} ${refreshing ? 'animate-spin' : ''}`}
             title="刷新"
           >
             <RefreshCw size={15} strokeWidth={2} />
@@ -50,7 +50,7 @@ export function AlbumTreePanel({
           <div className="flex items-center gap-2">
             <button
               onClick={onCollapseTree}
-              className="flex h-8 w-8 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink"
+              className={ICON_BTN_MD}
               title="折叠目录"
             >
               <ChevronLeft size={16} strokeWidth={2} />

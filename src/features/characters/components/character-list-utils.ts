@@ -1,13 +1,18 @@
 import type { ViewMode, SortOption } from '@/components/shared/SortViewControls'
 import type { Character } from '@/types'
+import { compareManual } from '@/lib/sort-manual'
 
-export type SortKey = 'name' | 'updatedAt' | 'createdAt'
+export type SortKey = 'manual' | 'name' | 'updatedAt' | 'createdAt'
 
 export const SORT_OPTIONS: SortOption[] = [
+  { label: '手动排序', value: 'manual' },
   { label: '按名称', value: 'name' },
   { label: '按编辑时间', value: 'updatedAt' },
   { label: '按创建时间', value: 'createdAt' },
 ]
+
+/** 排序方式（手动 / 名称 / 时间…）落 localStorage */
+export const SORT_STORAGE_KEY = 'oc-characters-sort'
 
 /** 视图偏好（网格 / 目录）落 localStorage */
 export function readViewPreference(): ViewMode {
@@ -23,6 +28,7 @@ export function writeViewPreference(mode: ViewMode): void {
 
 export function sortCharacters(characters: Character[], key: SortKey): Character[] {
   return [...characters].sort((a, b) => {
+    if (key === 'manual') return compareManual(a, b)
     if (key === 'name') {
       return a.name.localeCompare(b.name, 'zh-Hans')
     }

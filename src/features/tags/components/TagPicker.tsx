@@ -224,7 +224,7 @@ export function TagPicker({ selectedIds, onChange }: TagPickerProps) {
                       onKeyDown={(e) => { if (e.key === 'Enter' && tag.id != null) { addTag(tag.id); setQuery('') } }}
                       className={`group cursor-pointer ${MENU_ITEM}`}
                     >
-                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: tag.color || '#999' }} />
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: tag.color || 'var(--oc-ink-faint)' }} />
                       <span className="flex-1">{tag.name}</span>
                       {!isMobile ? (
                         <button

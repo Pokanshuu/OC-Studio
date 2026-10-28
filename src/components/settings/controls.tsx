@@ -1,6 +1,6 @@
 'use client'
 
-/** 设置页的共享控件：主题单选 + 开关样式常量（被「通用」等 tab 使用）。 */
+/** 设置页的共享控件：主题单选 + 开关样式常量（被「个性化」等 tab 使用）。 */
 export const THEME_OPTIONS = [
   { value: "light", label: "白天模式" },
   { value: "dark", label: "夜间模式" },

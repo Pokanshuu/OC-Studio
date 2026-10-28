@@ -1,5 +1,6 @@
 use std::sync::OnceLock;
 
+mod files;
 mod open;
 mod vault;
 
@@ -153,7 +154,8 @@ pub fn run() {
       vault::vault_move,
       vault::vault_remove,
       vault::vault_mkdir,
-      vault::vault_exists
+      vault::vault_exists,
+      files::save_text
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

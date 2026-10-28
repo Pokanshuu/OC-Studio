@@ -8,10 +8,6 @@ const STORAGE_KEY = "oc-studio-settings"
 
 export interface Settings {
   theme: "light" | "dark" | "auto"
-  aiEnabled: boolean
-  apiKey: string
-  aiModel: string
-  aiBaseUrl: string
   cloudSyncEnabled: boolean
   syncServerUrl: string
   autoStart: boolean
@@ -21,10 +17,6 @@ export interface Settings {
 
 const DEFAULT_SETTINGS: Settings = {
   theme: "auto",
-  aiEnabled: false,
-  apiKey: "",
-  aiModel: "deepseek-v4-flash",
-  aiBaseUrl: "https://api.deepseek.com",
   cloudSyncEnabled: false,
   syncServerUrl: "",
   autoStart: false,

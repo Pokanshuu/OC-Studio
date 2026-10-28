@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "audit:design": "tsx scripts/design-audit.ts",
     "cap:dev": "npm run build && npx cap sync && npx cap open android",
     "cap:hot": "npm run build && npx cap sync"
   },

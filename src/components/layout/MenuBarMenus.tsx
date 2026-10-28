@@ -30,7 +30,7 @@ import {
 export function MenuBarMenus() {
   const { settings, updateSetting } = useSettings()
   const { openSettings } = useSettingsTrigger()
-  const { handleExport, handleImportClick, dialog: importExportDialog } = useImportExport()
+  const { handleImportClick, dialog: importExportDialog } = useImportExport()
   const { activeEditor } = useActiveEditor()
 
   const handleUndo = useCallback(() => {
@@ -131,10 +131,7 @@ export function MenuBarMenus() {
                       toast.error('完整备份导出失败')
                     }
                   }}>
-                    完整备份（含图片）
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleExport}>
-                    JSON（不含图片）
+                    完整备份（.ocbak）
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={async () => {
                     try {

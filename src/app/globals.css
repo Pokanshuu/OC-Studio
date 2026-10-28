@@ -28,6 +28,20 @@
      底色不跟着主题走，文字就不能跟着翻，否则暗色下浅底会配上浅字。 */
   --oc-ink-fixed: #2B2B2B;
   --oc-paper-fixed: #FEFCF8;
+
+  /* 危险操作的浅底（hover / 选中）：亮色是极淡的粉，暗色是极淡的同一枚红 */
+  --oc-error-light: #FBF2EF;
+
+  /* 危险按钮的实心底色 —— **灰调红**（比 --color-error 低饱和一档，压在纸上不刺眼、
+     压在暗底上也不糊）。只给「点下去数据就没了」的确认键：删除 / 永久删除 / 放弃未保存改动。
+     底色在亮暗两套里都用这一枚（同 --color-error），所以上面的字用固定纸白，不随主题翻转。 */
+  --oc-danger: #9C5F4D;
+  --oc-danger-hover: #8A5344;
+  --oc-danger-ink: #FBF7F1;
+
+  /* 浮层阴影（**唯一一档**）：只给浮在内容之上的东西 —— 菜单 / 下拉 / 右键 / 弹窗 / 抽屉 / 通知。
+     小、淡、两层：近处一圈收边 + 远处一圈柔光。内容面（卡片 / 按钮 / 输入）仍然是零阴影。 */
+  --oc-shadow-float: 0 1px 2px rgba(43, 43, 43, 0.05), 0 6px 16px -6px rgba(43, 43, 43, 0.12);
 }
 
 .dark {
@@ -40,6 +54,9 @@
   --oc-ink-muted: #A5A098;
   --oc-ink-faint: #6E6A63;
   --oc-hover: rgba(227, 223, 216, 0.06);
+  --oc-error-light: rgba(179, 102, 81, 0.18);
+  /* 暗色下浮层的「浮起」全靠阴影：底色更深，收边用更实的黑 */
+  --oc-shadow-float: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 20px -8px rgba(0, 0, 0, 0.55);
 }
 
 @theme inline {
@@ -56,7 +73,10 @@
   --color-error: #B36651;
   --color-warning: #C68D44;
   --color-success: #A5A098;
-  --color-error-light: #FBF2EF;
+  --color-error-light: var(--oc-error-light);
+  --color-danger: var(--oc-danger);
+  --color-danger-hover: var(--oc-danger-hover);
+  --color-danger-ink: var(--oc-danger-ink);
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans SC', sans-serif;
   --font-mono: 'Courier New', Courier, monospace;
   --font-serif: 'Noto Serif SC', 'Times New Roman', serif;
@@ -92,19 +112,19 @@
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  /* ── 圆角：只有三档（唯一源，改这里等于全局改圆角）──────────────────
+     界面语言是「极小圆角」，所以三档全在 4–8px，没有 12px 以上的"卡片大圆角"。
 
-  /* 圆角语义名（唯一源）：界面语言是「极小圆角」，改这里等于全局改圆角。
-     item 控件（菜单行 / chip / 图标按钮）· media 图片与卡片 · menu 浮层菜单 · panel 弹窗大面板 */
-  --radius-item: 3px;
-  --radius-media: 4px;
-  --radius-menu: 6px;
+       小 rounded-item      4px   —— 贴内容的小件：chip / 菜单行 / 复选 / 缩略图 / 图片 / 卡片
+       中 rounded-control   6px   —— 一个能点的控件：按钮 / 图标按钮 / 菜单容器 / 浮层
+       大 rounded-panel     8px   —— 一块浮起来的容器：弹窗 / 面板 / 底部抽屉
+
+     另外只有两种非档位形态：rounded-full（圆形：头像 / 徽章 / 色点 / 开关滑杆 / 浮在图上的圆钮）
+     与 rounded-none（贴边整条 / 线段）。**不再有** media / menu 两个名字（已并入 item / control），
+     也没有 shadcn 那套 --radius-sm/md/lg 梯子（`rounded-sm|md|lg` 一律禁用，audit 会拦）。
+     元素 → 档位的完整对照表：.opencode/skills/oc-studio-design/SKILL.md「圆角」一节。 */
+  --radius-item: 4px;
+  --radius-control: 6px;
   --radius-panel: 8px;
 }
 
@@ -129,7 +149,6 @@
     --border: #E7E3DC;
     --input: #E7E3DC;
     --ring: #D6D0C4;
-    --radius: 5px;
     --shadow: none;
     --sidebar: #FAF7F2;
     --sidebar-foreground: #2B2B2B;
@@ -167,7 +186,6 @@
     --border: #38352F;
     --input: #38352F;
     --ring: #38352F;
-    --radius: 5px;
     --shadow: none;
     --sidebar: #242321;
     --sidebar-foreground: #E3DFD8;
@@ -192,7 +210,11 @@
   html {
     @apply font-sans;
   }
+  /* 按钮默认带 `--radius-control`（6px）。全局 `button:hover` 会给**任何**按钮铺一块底色，
+     漏写 rounded-* 的那一个就会是个方块 —— 这里兜住，免得靠人记得写。
+     显式写了圆角类的以显式值为准（utilities 层在 base 之后）。 */
   button {
+    border-radius: var(--radius-control);
     transition: background-color var(--dur-fast) ease-out, color var(--dur-fast) ease-out,
       border-color var(--dur-fast) ease-out;
   }
@@ -201,10 +223,11 @@
   }
 }
 
-/* 全局极小圆角 —— 界面语言：除圆形头像/徽章外，一律 3–8px 的小圆角。
-   语义名在 @theme 里（`--radius-item/media/menu/panel` → `rounded-item` 等工具类），
-   取类名请走 `lib/ui-tokens.ts` 的 `ROUND_*`，不要就地写 `rounded-[6px]`。
-   裸 `rounded` / `rounded-xs` 是 Tailwind 固定值（4px / 2px），与令牌同一量级，无需覆盖。 */
+/* 全局极小圆角 —— 界面语言：除圆形（头像/徽章/色点/开关）外，只有 4 / 6 / 8 三档。
+   三档定义在 @theme（`--radius-item/control/panel` → `rounded-item` 等工具类），
+   取类名请走 `lib/ui-tokens.ts` 的 `ROUND_*`；不要就地写 `rounded-[6px]`，
+   也不要用 `rounded-sm|md|lg`（Tailwind/shadcn 固定值，会和三档打架）。
+   每个元素归哪一档，见 .opencode/skills/oc-studio-design/SKILL.md「圆角」一节的对照表。 */
 
 /* Degradation: opaque background by default (browser dev / Linux) */
 body {
@@ -251,13 +274,15 @@ html.tauri-mica.dark .transparent-text {
 }
 
 /* Degradation: layout shells restore standard bg */
+html:not(.tauri-mica) [data-app-shell],
 html:not(.tauri-mica) [data-sidebar],
 html:not(.tauri-mica) [data-menubar],
 html:not(.tauri-mica) [data-statusbar] {
   background: var(--color-paper-alt);
 }
 
-/* Mica active: layout shells transparent */
+/* Mica active: layout shells transparent —— 外壳和 chrome 都不能铺底色，否则毛玻璃被盖死 */
+html.tauri-mica [data-app-shell],
 html.tauri-mica [data-sidebar],
 html.tauri-mica [data-menubar],
 html.tauri-mica [data-statusbar] {
@@ -540,6 +565,33 @@ html.tauri-mica [data-statusbar] {
   transform: scale(0.96);
 }
 
+/* 浮层阴影 —— 唯一一档（值见 :root / .dark 的 --oc-shadow-float）。
+   只给浮在内容之上的东西用：菜单 / 下拉 / 右键 / 弹窗 / 抽屉 / 通知。
+   用法：loat-shadow（ui-tokens 里的 FLOAT_SHADOW）。内容面仍然零阴影。 */
+@utility float-shadow {
+  box-shadow: var(--oc-shadow-float);
+}
+/* 行分隔线（可 hover 的整行用）
+   行自己带 `border-b` 时，圆角会把线的两端向上带弯 —— 线跟着圆角走，看着像括号。
+   这里把线画成行内部的一条 1px 直线、两端各缩 8px：直线就是直线，圆角只管底色。
+   容器加 `.rules-end` 去掉最后一行的线（那条线什么都不分隔）。 */
+.row-rule {
+  position: relative;
+}
+.row-rule::after {
+  content: '';
+  position: absolute;
+  left: 0.5rem;
+  right: 0.5rem;
+  bottom: 0;
+  height: 1px;
+  background: var(--oc-line);
+  pointer-events: none;
+}
+.rules-end > *:last-child::after {
+  content: none;
+}
+
 /* Section stacking — CSS Grid so all sections occupy the same cell.
    Combined with display:none + allow-discrete, hidden sections don't
    affect the grid. During transitions both sections overlap for crossfade. */
@@ -560,6 +612,10 @@ html.tauri-mica [data-statusbar] {
   transition: opacity 150ms ease-out, display 150ms ease-out;
   transition-behavior: allow-discrete;
   scrollbar-gutter: stable;
+  /* 弹性头图（StretchyHeader）折叠时逐帧改头图高度，正文会被带着上移。
+     滚动锚定会为了「钉住视口里的元素」反向调整 scrollTop，和折叠量打架（来回跳），
+     这里关掉：各 section 里的图片框都有固定比例，本来也不需要锚定。 */
+  overflow-anchor: none;
 }
 .section-fade-no-gutter {
   scrollbar-gutter: auto;

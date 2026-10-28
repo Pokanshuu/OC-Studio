@@ -44,7 +44,11 @@ export interface Character {
   tags: number[]
   /** 主要角色标记（用于概览与导出首页精选） */
   isMajor?: boolean
+  /** 手动排序位置（升序；缺省 = 排在已有项之后）。落盘到 frontmatter 的 `order` */
+  order?: number
   createdAt: number
+  /** 自定义字段的值（键 = 字段表里的 key；内置字段仍然走各自的列） */
+  custom?: Record<string, string>
   updatedAt: number
   deleted: boolean
   _syncStatus: string
@@ -70,7 +74,11 @@ export interface Event {
   tags: number[]
   images: ImageEntry[]
   isMajor: boolean
+  /** 手动排序位置（升序；缺省 = 排在已有项之后） */
+  order?: number
   createdAt: number
+  /** 自定义字段的值（键 = 字段表里的 key；内置字段仍然走各自的列） */
+  custom?: Record<string, string>
   updatedAt: number
   deleted: boolean
   _syncStatus: string
@@ -103,7 +111,11 @@ export interface Country {
   characters: number[]
   events: number[]
   tags: number[]
+  /** 手动排序位置（升序；缺省 = 排在已有项之后） */
+  order?: number
   createdAt: number
+  /** 自定义字段的值（键 = 字段表里的 key；内置字段仍然走各自的列） */
+  custom?: Record<string, string>
   updatedAt: number
   deleted: boolean
   _syncStatus: string
@@ -117,12 +129,18 @@ export interface WorldEntry {
   aliases?: string[]
   content: string
   document?: unknown
+  /**
+   * 历史字段（已废弃）：层级只由 `parentId` 表达，界面不再编辑、新条目一律空。
+   * 保留是为了读得懂老数据和已有 vault 文件里的 `分类:` 键 —— 写回时也不再动它。
+   */
   category: string
   parentId: number | null
   order: number
   isConcept: boolean
   references: WorldReference[]
   tags: number[]
+  /** 自定义字段的值（键 = 字段表里的 key；内置字段仍然走各自的列） */
+  custom?: Record<string, string>
   createdAt: number
   updatedAt: number
   deleted: boolean
@@ -170,6 +188,8 @@ export interface ProjectMeta {
   tagline: string
   coverUrl: string
   updatedAt: number
+  /** 字段表（没有文件夹时存这里；有文件夹时在 .ocstudio/fields.json） */
+  fields?: Record<string, unknown>
   _syncStatus?: string
   _lastModified?: number
 }

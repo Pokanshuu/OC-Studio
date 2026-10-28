@@ -1,9 +1,7 @@
 import type { WorldEntry } from '@/types'
+import { buildEntryTree, type WorldTreeNode } from '@/lib/world-tree'
 
-export interface TreeNode {
-  entry: WorldEntry
-  children: TreeNode[]
-}
+export type TreeNode = WorldTreeNode
 
 export const STORAGE_KEY = 'world-tree-expanded'
 
@@ -26,29 +24,9 @@ export function saveExpanded(ids: Set<number>) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...ids])) } catch { /* ignore */ }
 }
 
-/** 扁平词条 → 树；同一层按 order 再按标题（zh-Hans）排序 */
+/** 扁平词条 → 树；同一层按 order 再按标题（zh-Hans）排序。实现见 `lib/world-tree`（导出侧共用同一份） */
 export function buildTree(entries: WorldEntry[]): TreeNode[] {
-  const map = new Map<number, TreeNode>()
-  const roots: TreeNode[] = []
-  for (const entry of entries) {
-    map.set(entry.id, { entry, children: [] })
-  }
-  for (const entry of entries) {
-    const node = map.get(entry.id)!
-    if (entry.parentId !== null && entry.parentId !== undefined) {
-      const parent = map.get(entry.parentId)
-      if (parent) parent.children.push(node)
-      else roots.push(node)
-    } else {
-      roots.push(node)
-    }
-  }
-  const sort = (nodes: TreeNode[]) => {
-    nodes.sort((a, b) => (a.entry.order ?? 0) - (b.entry.order ?? 0) || a.entry.title.localeCompare(b.entry.title, 'zh-Hans'))
-    for (const n of nodes) sort(n.children)
-  }
-  sort(roots)
-  return roots
+  return buildEntryTree(entries)
 }
 
 /** 计算一次拖拽后需要写回的顺序（旧父级与目标父级两层） */

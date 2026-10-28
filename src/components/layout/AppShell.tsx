@@ -6,7 +6,6 @@ import { Sidebar } from "@/components/layout/Sidebar"
 import { StatusBar } from "@/components/layout/StatusBar"
 import { MobileTopBar } from "@/components/layout/MobileTopBar"
 import { MobileTabBar } from "@/components/layout/MobileTabBar"
-import { Toaster } from "@/components/shared/toaster"
 import { GlobalContextMenu } from "@/components/shared/GlobalContextMenu"
 import { MobileTextSelectionBar } from "@/components/shared/mobile-text-selection/MobileTextSelectionBar"
 import { SettingsDialog } from "@/components/settings/SettingsDialog"
@@ -17,7 +16,9 @@ import { TrashOverlayProvider, useTrashOverlay } from "@/components/layout/Trash
 import { MobilePageHeaderProvider } from "@/components/layout/MobilePageHeaderContext"
 import { SaveStatusProvider, useSaveStatus } from "@/components/layout/SaveStatusContext"
 import { TrashView } from "@/features/trash/components/TrashView"
+import { loadFieldConfig } from "@/lib/fields"
 import { VaultSurfaces, VaultWriteBanner } from "@/features/vault"
+import { useVault } from "@/lib/vault/vault-provider"
 import { useSettings } from "@/lib/settings"
 import { useKeyboard } from "@/lib/KeyboardContext"
 import { useBackButton } from "@/lib/useBackButton"
@@ -60,21 +61,29 @@ function AppShellChrome({ settings, children }: { settings: ReturnType<typeof us
     return () => window.removeEventListener('beforeunload', handler)
   }, [status])
 
+  // 外壳容器**不写底色**：chrome 的底色由 globals.css 的
+  // `html:not(.tauri-mica) [data-menubar|data-sidebar|data-statusbar]` 给成 paper-alt，
+  // Mica 下保持 transparent。在父级铺一层 bg 会把毛玻璃整个盖死（已踩过）。
   return (
-    <>
+    <div data-app-shell className="flex h-full min-h-0 flex-1 flex-col">
       <MenuBar />
       <VaultWriteBanner />
       {!hideMobileShell && <MobileTopBar />}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         {settings.sidebarVisible ? <Sidebar /> : null}
-        <main className="flex-1 overflow-x-auto main-scroll bg-paper">
+        {/*
+          内容区是一块「浮起来的纸」：圆角 + 一条边界线，与 chrome（顶栏 / 侧栏 / 底栏）分开。
+          chrome 三块共用同一个底色、彼此之间不画线；**不额外加内外边距**，内容仍然贴到原来的位置。
+          圆角取中档 6px（8px 在整窗尺寸上偏软，看着像被「包」住了）。
+        */}
+        <main className="min-w-0 flex-1 overflow-x-auto main-scroll bg-paper md:rounded-control md:border md:border-line">
           {children}
           <MobileTextSelectionBar />
         </main>
       </div>
       <StatusBar />
       {!hideTabBar && <MobileTabBar />}
-    </>
+    </div>
   )
 }
 
@@ -99,6 +108,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [])
 
   // 移动端：HarmonyOS 检测 + 安全区域 polyfill
+  useEffect(() => {
+    void loadFieldConfig()
+  }, [])
+
   useEffect(() => {
     if (!isMobilePlatform()) return
     const root = document.documentElement
@@ -205,12 +218,12 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </AppShellChrome>
                   <TrashOverlayRenderer />
                   <VaultSurfaces />
+                  <DevMockBadge />
                 </MobilePageHeaderProvider>
               </MobileNavigationProvider>
             </SaveStatusProvider>
           </EditorProvider>
         </TrashOverlayProvider>
-        <Toaster />
         <SettingsDialog
           open={settingsOpen}
           onOpenChange={setSettingsOpen}
@@ -219,5 +232,23 @@ export function AppShell({ children }: { children: ReactNode }) {
         />
       </SettingsTriggerContext.Provider>
     </GlobalContextMenu>
+  )
+}
+/**
+ * 浏览器预览标记。
+ *
+ * 桌面版永远绑定一个本地文件夹；浏览器里没有文件系统，走的是 Mock（数据只落在 IndexedDB）。
+ * 这个标只在「开发时用浏览器看界面」时出现，提醒你现在改的东西不会落盘。
+ */
+function DevMockBadge() {
+  const { supported } = useVault()
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+  if (!mounted || supported) return null
+
+  return (
+    <div className="pointer-events-none fixed right-2 bottom-8 z-50 rounded-item bg-paper-card/80 px-1.5 py-0.5 text-[10px] text-ink-faint backdrop-blur">
+      DEV · Mock（数据只在浏览器里）
+    </div>
   )
 }

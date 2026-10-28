@@ -132,3 +132,12 @@ export function useDeleteEvent(): {
     deleting: mutation.isPending,
   }
 }
+
+/** 拖拽排序后写回顺序，并刷新列表 */
+export function useReorderEvents(): (ids: number[]) => Promise<void> {
+  const queryClient = useQueryClient()
+  return async (ids: number[]) => {
+    await eventService.reorderEvents(ids)
+    await queryClient.invalidateQueries({ queryKey: LIST_KEY })
+  }
+}

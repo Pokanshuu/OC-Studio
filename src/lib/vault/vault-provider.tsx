@@ -15,10 +15,12 @@ import { open as openFolderDialog } from '@tauri-apps/plugin-dialog'
 import { toast } from 'sonner'
 
 import { notifyDataUpdated } from '@/lib/data-events'
+import type { MergeStrategy } from '@/lib/import'
 import { setVaultImageContext } from '@/lib/image-service'
+import { exportLegacyToFolder } from './export-dir'
 import { migrateImagesIntoVault } from './vault-migrate'
 import { pickAssetsDir } from './vault-paths'
-import { closeVaultSession, loadVault, type VaultLoadResult } from './vault-load'
+import { loadVault, type VaultLoadResult } from './vault-load'
 import { isVaultSupported, vaultFs } from './vault-fs'
 import {
   currentStatus,
@@ -28,11 +30,9 @@ import {
   type VaultWriteStatus,
 } from './vault-persist'
 import {
-  isVaultEnabled,
   lastVaultPath,
   listRecentVaults,
   rememberVault,
-  setVaultEnabled,
   vaultNameFromPath,
   type VaultRegistryEntry,
 } from './vault-registry'
@@ -53,7 +53,6 @@ export type VaultStatus = 'unsupported' | 'idle' | 'booting' | 'loading' | 'read
 /** 装载阶段；'unresolved' 表示还没决定要不要装 */
 type VaultPhase = 'unresolved' | 'loading' | 'ready' | 'error'
 
-type WelcomeState = 'auto' | 'open' | 'closed'
 
 interface VaultContextValue {
   supported: boolean
@@ -65,19 +64,20 @@ interface VaultContextValue {
   writeStatus: VaultWriteStatus
   recent: VaultRegistryEntry[]
   reportOpen: boolean
-  welcomeOpen: boolean
   pickFolder: () => Promise<string | null>
   openFolder: (path?: string) => Promise<void>
   createFolder: (path?: string) => Promise<void>
-  close: () => Promise<void>
   rescan: () => Promise<void>
   flush: () => Promise<void>
   /** 把应用数据目录里的存量图片迁进 vault 并改写引用 */
   migrateImages: () => Promise<void>
+  /**
+   * 把应用内（Dexie）的数据写进一个文件夹，然后打开它。
+   * 文件夹可以已有笔记：`strategy` 决定同名怎么处理，**由用户在对话框里选**，这里不给默认值。
+   */
+  migrateLegacy: (options?: { path?: string; strategy?: MergeStrategy }) => Promise<void>
   showReport: () => void
   hideReport: () => void
-  showWelcome: () => void
-  dismissWelcome: () => void
 }
 
 const VaultContext = createContext<VaultContextValue | null>(null)
@@ -88,27 +88,6 @@ export function useVault(): VaultContextValue {
     throw new Error('useVault 必须在 VaultProvider 内使用')
   }
   return value
-}
-
-/** 用户选择「继续用内置数据库」后不再自动弹欢迎浮层 */
-const WELCOME_DISMISSED_KEY = 'oc-studio-vault-welcome-dismissed'
-
-function isWelcomeDismissed(): boolean {
-  if (typeof window === 'undefined') return true
-  try {
-    return window.localStorage.getItem(WELCOME_DISMISSED_KEY) === 'true'
-  } catch {
-    return true
-  }
-}
-
-function markWelcomeDismissed(): void {
-  if (typeof window === 'undefined') return
-  try {
-    window.localStorage.setItem(WELCOME_DISMISSED_KEY, 'true')
-  } catch {
-    // 存储不可用：下次启动会再弹一次，可接受
-  }
 }
 
 // 环境能力不会在运行中变化，订阅函数保持恒等即可（useSyncExternalStore 要求稳定引用）
@@ -153,7 +132,6 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const [recent, setRecent] = useState<VaultRegistryEntry[]>([])
   const [writeStatus, setWriteStatus] = useState<VaultWriteStatus>(() => currentStatus())
   const [reportOpen, setReportOpen] = useState(false)
-  const [welcomeState, setWelcomeState] = useState<WelcomeState>('auto')
 
   useEffect(() => subscribeVaultWriteStatus(setWriteStatus), [])
 
@@ -198,20 +176,19 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         const message = describeError(err)
         setError(message)
         setPhase('error')
-        toast.error('打开仓库失败', { description: message })
+        toast.error('打开笔记库失败', { description: message })
       }
     },
     [refreshLists],
   )
 
-  // 启动时自动恢复上次的 vault。没配置过就什么都不做，
-  // status 会由 wantsVault 派生为 'idle'，完全走原来的内置数据库路径。
+  // 启动时自动恢复上次的文件夹。没打开过就什么都不做，
+  // status 会由 wantsVault 派生为 'idle'，显示欢迎引导。
   useEffect(() => {
     if (!supported) return
     // 中间件要在任何写入之前装好；装一次即可，幂等
     installVaultPersist()
 
-    if (!isVaultEnabled()) return
     const path = lastVaultPath()
     if (path === null) return
     // 放进 rAF：装载会在过程中改状态，直接同步调用会在 effect 里触发级联渲染
@@ -226,7 +203,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     const picked = await openFolderDialog({
       directory: true,
       multiple: false,
-      title: '选择仓库文件夹',
+      title: '选择笔记库文件夹',
     })
     if (picked === null) return null
     return typeof picked === 'string' ? picked : null
@@ -265,25 +242,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         const message = describeError(err)
         setError(message)
         setPhase('error')
-        toast.error('创建仓库失败', { description: message })
+        toast.error('新建笔记库失败', { description: message })
       }
     },
     [openVault, pickFolder],
   )
-
-  const close = useCallback(async () => {
-    await drainVaultWrites()
-    closeVaultSession()
-    setVaultImageContext(null)
-    setVaultEnabled(false)
-    setRoot(null)
-    setReport(null)
-    setError(null)
-    setPhase('unresolved')
-    toast('已关闭仓库', {
-      description: '数据仍在应用内数据库中，但后续修改不再写回文件夹。',
-    })
-  }, [])
 
   const rescan = useCallback(async () => {
     if (root === null) return
@@ -292,31 +255,59 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       const result = await loadVault(root)
       setReport(result)
       refreshLists()
-      toast.success('已重新扫描磁盘', { description: countsSummary(result) })
+      toast.success('已重新载入', { description: countsSummary(result) })
     } catch (err) {
-      toast.error('重新扫描失败', { description: describeError(err) })
+      toast.error('重新载入失败', { description: describeError(err) })
     }
   }, [root, refreshLists])
 
   const flush = useCallback(async () => {
     const result = await drainVaultWrites()
     if (result.errors.length > 0) {
-      toast.error('写盘失败', { description: result.errors[0].message })
+      toast.error('保存失败', { description: result.errors[0].message })
     } else if (result.conflicts.length > 0) {
       toast.warning(`${result.conflicts.length} 个文件在磁盘上被外部修改，已跳过未覆盖`)
     }
   }, [])
 
-  const dismissWelcome = useCallback(() => {
-    markWelcomeDismissed()
-    setWelcomeState('closed')
-  }, [])
+  // 老数据迁移：把 Dexie 全量物化进一个**空文件夹**，然后打开它。
+  //
+  // 不在迁移前强制导 .ocbak：点了「搬到文件夹」却弹一个保存对话框，是在做另一件事。
+  // 不需要那层保险也安全 —— 迁移只写不删，而清空 Dexie 发生在**写盘成功之后**
+  // （loadVault 里），写盘失败就直接抛错停在这里，旧数据一个字节都没动。
+  // 想自己备份的用户可以在下拉菜单里显式导出。
+  const migrateLegacy = useCallback(async (options?: { path?: string; strategy?: MergeStrategy }) => {
+    const target = options?.path ?? (await pickFolder())
+    if (target === null) return
+
+    setPhase('loading')
+    setError(null)
+    try {
+      const result = await exportLegacyToFolder(target, { strategy: options?.strategy })
+      await openVault(target, { boot: true, announce: false })
+
+      const parts = [`新建 ${result.created} 篇`]
+      if (result.overwritten > 0) parts.push(`更新 ${result.overwritten} 篇`)
+      if (result.skippedExisting > 0) parts.push(`跳过同名 ${result.skippedExisting} 篇`)
+      if (result.movedToTrash > 0) parts.push(`旧笔记挪进回收站 ${result.movedToTrash} 篇`)
+      if (result.images > 0) parts.push(`图片 ${result.images} 张`)
+      if (result.missingImages.length > 0) {
+        parts.push(`${result.missingImages.length} 张图片找不到原件`)
+      }
+      toast.success('已写进文件夹', { description: parts.join(' · ') })
+    } catch (err) {
+      const message = describeError(err)
+      setError(message)
+      setPhase('error')
+      toast.error('导入失败', { description: message })
+    }
+  }, [openVault, pickFolder])
 
   const migrateImages = useCallback(async () => {
     try {
       const report = await migrateImagesIntoVault()
       if (report.candidates === 0) {
-        toast('没有需要迁移的图片', { description: '所有图片引用都已经在仓库内。' })
+        toast('没有需要迁移的图片', { description: '所有图片引用都已经在文件夹里。' })
         return
       }
       const parts = [`已迁入 ${report.migrated} 张`]
@@ -337,9 +328,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     }
   }, [refreshLists])
 
-  // 是否该去装载：由持久配置派生，而不是存一个状态位
-  const wantsVault =
-    supported && phase === 'unresolved' && isVaultEnabled() && lastVaultPath() !== null
+  // 是否该去装载：只看「上次打开过哪个文件夹」，不再额外要求一个开关位。
+  // 没有内置库模式了，路径存在 = 该恢复；多一个 flag 就多一种「莫名回到欢迎页」。
+  const wantsVault = supported && phase === 'unresolved' && lastVaultPath() !== null
 
   const status: VaultStatus = !supported
     ? 'unsupported'
@@ -348,10 +339,6 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         ? 'booting'
         : 'idle'
       : phase
-
-  const welcomeOpen =
-    welcomeState === 'open' ||
-    (welcomeState === 'auto' && supported && !isVaultEnabled() && !isWelcomeDismissed())
 
   const value = useMemo<VaultContextValue>(
     () => ({
@@ -364,18 +351,15 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       writeStatus,
       recent,
       reportOpen,
-      welcomeOpen,
       pickFolder,
       openFolder,
       createFolder,
-      close,
       rescan,
       flush,
       migrateImages,
+      migrateLegacy,
       showReport: () => setReportOpen(true),
       hideReport: () => setReportOpen(false),
-      showWelcome: () => setWelcomeState('open'),
-      dismissWelcome,
     }),
     [
       supported,
@@ -386,15 +370,13 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       writeStatus,
       recent,
       reportOpen,
-      welcomeOpen,
       pickFolder,
       openFolder,
       createFolder,
-      close,
       rescan,
       flush,
       migrateImages,
-      dismissWelcome,
+      migrateLegacy,
     ],
   )
 

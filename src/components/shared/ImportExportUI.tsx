@@ -14,20 +14,19 @@ import {
   AlertDialogCancel,
 } from '@/components/ui/alert-dialog'
 
-import { exportAllData, downloadJson } from '@/lib/export'
+import { downloadFullBackup } from '@/lib/export'
 import { validateImportData, importData } from '@/lib/import'
-import type { ImportSummary, MergeStrategy } from '@/lib/import'
+import type { ImportResult, ImportSummary, MergeStrategy } from '@/lib/import'
 import { notifyDataUpdated } from '@/lib/data-events'
-import { BTN_PRIMARY } from '@/lib/ui-tokens'
+import { BTN_DANGER, BTN_PRIMARY } from '@/lib/ui-tokens'
+import { MergeStrategyPicker } from './merge-strategy'
 
-const MERGE_OPTIONS: { value: MergeStrategy; label: string; description: string }[] = [
-  { value: 'skip', label: '跳过重复', description: '仅添加不重名的数据，已有记录保持不变' },
-  { value: 'overwrite', label: '覆盖重复', description: '用导入数据替换本地同名记录' },
-  { value: 'keep-both', label: '保留两者', description: '导入数据作为新条目，生成新 ID' },
-  { value: 'replace', label: '清空并导入', description: '清除所有数据后导入，等同于覆盖替换' },
-]
-
-export function useImportExport() {
+/** 导入导出。备份格式只有一种：`.ocbak`（可被 `.json` 后缀兼容），版本字段由 `validateImportData` 判定 */
+export function useImportExport(options?: {
+  /** 导入成功后的回调：启动闸门用它接着把数据落到文件夹里 */
+  onImported?: (result: ImportResult, strategy: MergeStrategy) => void
+}) {
+  const onImported = options?.onImported
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [pendingJson, setPendingJson] = useState<unknown>(null)
@@ -41,11 +40,13 @@ export function useImportExport() {
     if (exporting) return
     setExporting(true)
     try {
-      const data = await exportAllData()
-      const name = await downloadJson(data)
-      toast.success(`导出成功：${name}`)
-    } catch {
-      toast.error('导出失败')
+      // 备份只有一种：完整备份（.ocbak，图片内联）。不再提供「不含图片的 JSON」
+      // —— 那是个更弱、更容易丢东西的第二格式。
+      const name = await downloadFullBackup()
+      toast.success(`完整备份导出成功：${name}`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : ''
+      if (message !== '已取消') toast.error('导出失败')
     } finally {
       setExporting(false)
     }
@@ -96,12 +97,13 @@ export function useImportExport() {
       setConfirmOpen(false)
       setPendingJson(null)
       setSummary(null)
+      onImported?.(result, strategy)
     } catch {
       toast.error('导入失败')
     } finally {
       setImporting(false)
     }
-  }, [pendingJson, strategy, queryClient])
+  }, [pendingJson, strategy, queryClient, onImported])
 
   const handleCancel = useCallback(() => {
     setConfirmOpen(false)
@@ -133,37 +135,7 @@ export function useImportExport() {
             </AlertDialogDescription>
           </AlertDialogHeader>
 
-          <div className="flex flex-col gap-2 py-2">
-            <span className="text-[13px] text-ink-muted">重复记录处理策略</span>
-            {MERGE_OPTIONS.map((opt) => (
-              <label
-                key={opt.value}
-                className={`flex cursor-pointer items-start gap-3 border p-3 transition-colors ${
-                  strategy === opt.value
-                    ? 'border-line-hover bg-paper-card'
-                    : 'border-line hover:border-line-hover'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="merge-strategy"
-                  value={opt.value}
-                  checked={strategy === opt.value}
-                  onChange={() => setStrategy(opt.value)}
-                  className="mt-0.5 h-4 w-4 shrink-0 border-line bg-paper-card text-ink accent-ink"
-                />
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-[13px] text-ink">{opt.label}</span>
-                  <span className="text-[11px] text-ink-faint">{opt.description}</span>
-                  {opt.value === 'keep-both' && strategy === 'keep-both' ? (
-                    <span className="pt-0.5 text-[11px] text-error">
-                      注意：关联关系（如 relatedCharacters）可能需要手动修复
-                    </span>
-                  ) : null}
-                </div>
-              </label>
-            ))}
-          </div>
+          <MergeStrategyPicker value={strategy} onChange={setStrategy} />
 
           <AlertDialogFooter>
             <AlertDialogCancel onClick={handleCancel}>取消</AlertDialogCancel>
@@ -171,7 +143,7 @@ export function useImportExport() {
               type="button"
               onClick={handleConfirmImport}
               disabled={importing}
-              className={BTN_PRIMARY}
+              className={strategy === 'replace' ? BTN_DANGER : BTN_PRIMARY}
             >
               {importing ? '导入中...' : '确认导入'}
             </button>

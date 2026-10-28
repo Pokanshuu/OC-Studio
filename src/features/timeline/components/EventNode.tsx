@@ -40,7 +40,7 @@ export const DraggableNode = memo(function DraggableNode({
   return (
     <div
       ref={bodyDrag.setNodeRef}
-      className={`touch-feedback absolute flex items-center gap-1.5 rounded-media border border-line bg-paper-card px-2 py-1 text-sm text-ink transition-colors hover:border-line-hover ${isRange ? 'bg-ink-muted/10' : ''}`}
+      className={`touch-feedback absolute flex items-center gap-1.5 rounded-item border border-line bg-paper-card px-2 py-1 text-sm text-ink transition-colors hover:border-line-hover ${isRange ? 'bg-ink-muted/10' : ''}`}
       style={{
         left: x + dragDelta,
         top: y,
@@ -55,7 +55,9 @@ export const DraggableNode = memo(function DraggableNode({
       }}
       title={event.summary || event.title}
     >
-      {event.isMajor ? (
+      {event.kind === 'birth' ? (
+        <span className="flex h-2 w-2 shrink-0 rounded-full border border-ink-faint" />
+      ) : event.isMajor ? (
         <span className="flex h-2 w-2 shrink-0 rounded-full bg-error" />
       ) : null}
       <span className="truncate sticky left-2">{event.title}</span>
@@ -95,7 +97,7 @@ export const StaticNode = memo(function StaticNode({
   const isRange = !!event.endTime
   return (
     <div
-      className={`touch-feedback absolute flex items-center gap-1.5 rounded-media border border-line bg-paper-card px-2 py-1 text-sm text-ink transition-colors hover:border-line-hover ${isRange ? 'bg-ink-muted/10' : ''}`}
+      className={`touch-feedback absolute flex items-center gap-1.5 rounded-item border border-line bg-paper-card px-2 py-1 text-sm text-ink transition-colors hover:border-line-hover ${isRange ? 'bg-ink-muted/10' : ''}`}
       style={{
         left: x,
         top: y,
@@ -105,7 +107,9 @@ export const StaticNode = memo(function StaticNode({
       title={event.summary || event.title}
       onClick={() => onSelect(event.id)}
     >
-      {event.isMajor ? (
+      {event.kind === 'birth' ? (
+        <span className="flex h-2 w-2 shrink-0 rounded-full border border-ink-faint" />
+      ) : event.isMajor ? (
         <span className="flex h-2 w-2 shrink-0 rounded-full bg-error" />
       ) : null}
       <span className="truncate sticky left-2">{event.title}</span>

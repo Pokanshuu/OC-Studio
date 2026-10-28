@@ -22,6 +22,7 @@ function buildDefaultEvent(data: EventFormData, overrides: Partial<Event> = {}):
     parentEventId: null,
     relations: [],
     tags: data.tags ?? [],
+    custom: data.custom ?? {},
     images: [],
     createdAt: now,
     updatedAt: now,
@@ -79,6 +80,17 @@ export async function updateEvent(id: number, data: Partial<EventFormData>): Pro
     }
   }
 
+  if (data.custom !== undefined) {
+    ;(updates as Record<string, unknown>).custom = data.custom
+    await logOperation(
+      TABLE,
+      id,
+      'custom',
+      JSON.stringify(existing.custom ?? {}),
+      JSON.stringify(data.custom),
+    )
+  }
+
   if (data.characters !== undefined) {
     ;(updates as Record<string, unknown>).characters = data.characters
     await logOperation(
@@ -126,4 +138,24 @@ export async function updateEvent(id: number, data: Partial<EventFormData>): Pro
 
 export async function deleteEvent(id: number): Promise<void> {
   await softDelete(db.events, id, TABLE)
+}
+
+/**
+ * 手动排序：把 `event` 的顺序写成 0..n-1。
+ * 只写真的变了的行；**不碰 updatedAt**（排序不是编辑，别让它窜到「按编辑时间」前面）。
+ */
+export async function reorderEvents(ids: number[]): Promise<void> {
+  const rows = await db.events.bulkGet(ids)
+  const changes: { id: number; order: number }[] = []
+  ids.forEach((id, index) => {
+    const row = rows[index]
+    if (row && row.order !== index) changes.push({ id, order: index })
+  })
+  if (changes.length === 0) return
+  const now = Date.now()
+  await db.transaction('rw', db.events, async () => {
+    for (const change of changes) {
+      await db.events.update(change.id, { order: change.order, ...pendingStamp(now) })
+    }
+  })
 }

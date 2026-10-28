@@ -1,7 +1,7 @@
 'use client'
 
 import { ChevronLeft, ChevronRight, Lock, LockOpen, Plus } from 'lucide-react'
-import { PAGE_TITLE } from '@/lib/ui-tokens'
+import { ICON_BTN_MD, PAGE_TITLE } from '@/lib/ui-tokens'
 import { MobileFilterBar } from '@/components/layout/MobileFilterBar'
 import type { FilterOption } from '../types'
 import { FilterSelect } from './FilterSelect'
@@ -94,7 +94,7 @@ export function TimelineToolbar({
           ) : null}
           {onAddPeriod ? (
             <button onClick={onAddPeriod}
-              className="flex h-8 w-8 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink"
+              className={ICON_BTN_MD}
               title="添加时期"
             >
               <Plus size={16} strokeWidth={2} />

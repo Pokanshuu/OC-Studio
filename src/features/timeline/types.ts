@@ -7,6 +7,13 @@ export interface TimelineEvent {
   endTime?: string
   summary: string
   isMajor: boolean
+  /**
+   * 节点来源。缺省 = 真事件。
+   * `birth` 是由角色生日合成的伪节点：不可拖拽（拖了会去改事件的 time），点击跳角色。
+   */
+  kind?: 'birth'
+  /** `kind === 'birth'` 时指向的角色 id */
+  characterId?: number
 }
 
 export function pickTimelineFields(event: Event): TimelineEvent {

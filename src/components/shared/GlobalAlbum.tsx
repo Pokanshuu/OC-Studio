@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { Search, RefreshCw, Menu, ExternalLink } from 'lucide-react'
-import { LOADING_TEXT, PAGE_TITLE } from '@/lib/ui-tokens'
+import { ICON_BTN_MD, LOADING_TEXT, PAGE_TITLE } from '@/lib/ui-tokens'
 import { FullscreenViewer } from './FullscreenViewer'
 import { useAlbumData, type AlbumEntry } from './useAlbumData'
 import { useDevice } from '@/lib/use-device'
@@ -167,7 +167,7 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
                 <>
                   <button
                     onClick={() => setTreeCollapsed(false)}
-                    className="flex h-8 w-8 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink"
+                    className={ICON_BTN_MD}
                     title="展开目录"
                   >
                     <Menu size={16} strokeWidth={2} />
@@ -204,7 +204,7 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
                 ]}
               />
               <button onClick={handleRefresh} disabled={refreshing}
-                className={`flex h-8 w-8 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink ${refreshing ? 'animate-spin' : ''}`}
+                className={`${ICON_BTN_MD} ${refreshing ? 'animate-spin' : ''}`}
                 title="刷新"
               >
                 <RefreshCw size={15} strokeWidth={2} />

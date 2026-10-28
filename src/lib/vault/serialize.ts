@@ -14,6 +14,7 @@ import {
   type KeyChain,
 } from './fields'
 import type { VaultEntityKind, VaultStorableKind } from './types'
+import { customFieldKeys } from './vault-field-keys'
 
 // ── 实体 → frontmatter 更新 ─────────────────────────────────────────────
 // 与 scan.ts 共用 fields.ts 的键链，因此读写的键永久对齐。
@@ -94,6 +95,24 @@ function putIfChanged(
 }
 
 /** 引用列表（名字数组） */
+/**
+ * 自定义字段写回：键 = 字段表里的 key（中文名），只写**改动过**的那几个。
+ * 上一份快照里没有这个值、现在也是空 —— 直接跳过，免得每次保存都往文件里塞一串删除。
+ */
+function putCustomFields(
+  out: FrontmatterUpdates,
+  existing: Record<string, unknown>,
+  kind: 'character' | 'event' | 'worldEntry',
+  current: Record<string, string> | undefined,
+  previous: Record<string, string> | undefined,
+): void {
+  for (const key of customFieldKeys(kind)) {
+    const now = writeString(current?.[key] ?? '')
+    const before = previous === undefined ? undefined : writeString(previous[key] ?? '')
+    if (now === undefined && before === undefined) continue
+    putIfChanged(out, existing, { primary: key, alt: [] }, now, before ?? null)
+  }
+}
 function namesOf(
   ctx: SerializeContext,
   kind: VaultEntityKind,
@@ -154,6 +173,24 @@ function relationDisk(
   return rows.length === 0 ? undefined : rows
 }
 
+/** 事件之间的关系（与角色关系同形，只是目标换成事件） */
+function eventRelationDisk(
+  entity: Event,
+  ctx: SerializeContext,
+): Record<string, unknown>[] | undefined {
+  const rows = (entity.relations ?? [])
+    .map((item) => {
+      const resolved =
+        item.targetId !== undefined ? ctx.nameOf('event', item.targetId) : undefined
+      if (resolved === undefined || resolved === '') return null
+      const row: Record<string, unknown> = { name: resolved }
+      if (item.relation) row.relation = item.relation
+      return row
+    })
+    .filter((row): row is Record<string, unknown> => row !== null)
+  return rows.length === 0 ? undefined : rows
+}
+
 export function serializeCharacter(
   entity: Character,
   prev: Character | null,
@@ -172,6 +209,8 @@ export function serializeCharacter(
   putIfChanged(out, existing, CHARACTER_KEYS.country, countryDiskValue(entity, ctx), prev === null ? null : countryDiskValue(prev, ctx))
   putIfChanged(out, existing, CHARACTER_KEYS.height, writeString(entity.height), prev === null ? null : writeString(prev.height))
   putIfChanged(out, existing, CHARACTER_KEYS.birthday, writeString(entity.birthday), prev === null ? null : writeString(prev.birthday))
+  putIfChanged(out, existing, CHARACTER_KEYS.bio, writeString(entity.bio), prev === null ? null : writeString(prev.bio))
+  putIfChanged(out, existing, CHARACTER_KEYS.lifeStory, writeString(entity.lifeStory), prev === null ? null : writeString(prev.lifeStory))
   putIfChanged(out, existing, CHARACTER_KEYS.isMajor, writeBool(entity.isMajor === true), prev === null ? null : writeBool(prev.isMajor === true))
   putIfChanged(out, existing, CHARACTER_KEYS.avatar, writeString(entity.avatarUrl), prev === null ? null : writeString(prev.avatarUrl))
   putIfChanged(out, existing, CHARACTER_KEYS.header, writeString(entity.headerUrl ?? ''), prev === null ? null : writeString(prev.headerUrl ?? ''))
@@ -179,6 +218,8 @@ export function serializeCharacter(
   putIfChanged(out, existing, CHARACTER_KEYS.gallery, imageListDisk(entity.gallery), prev === null ? null : imageListDisk(prev.gallery))
   putIfChanged(out, existing, CHARACTER_KEYS.avatars, imageListDisk(entity.avatars), prev === null ? null : imageListDisk(prev.avatars))
   putIfChanged(out, existing, CHARACTER_KEYS.relations, relationDisk(entity, ctx), prev === null ? null : relationDisk(prev, ctx))
+  putIfChanged(out, existing, CHARACTER_KEYS.order, writeNumber(entity.order), prev === null ? null : writeNumber(prev.order))
+  putCustomFields(out, existing, 'character', entity.custom, prev === null ? undefined : prev.custom)
 
   // 注意：`date` 刻意不写 —— 那是作者的创作日期，不该被 updatedAt 覆盖
   return out
@@ -211,6 +252,7 @@ export function serializeCountry(
   putIfChanged(out, existing, COUNTRY_KEYS.characters, namesOf(ctx, 'character', entity.characters), p === null ? null : namesOf(ctx, 'character', p.characters))
   putIfChanged(out, existing, COUNTRY_KEYS.events, namesOf(ctx, 'event', entity.events), p === null ? null : namesOf(ctx, 'event', p.events))
   putIfChanged(out, existing, COUNTRY_KEYS.tags, tagNames(ctx, entity.tags), p === null ? null : tagNames(ctx, p.tags))
+  putIfChanged(out, existing, COUNTRY_KEYS.order, writeNumber(entity.order), p === null ? null : writeNumber(p.order))
   return out
 }
 
@@ -234,13 +276,17 @@ export function serializeEvent(
   putIfChanged(out, existing, EVENT_KEYS.time, writeString(entity.time), p === null ? null : writeString(p.time))
   putIfChanged(out, existing, EVENT_KEYS.endTime, writeString(entity.endTime ?? ''), p === null ? null : writeString(p.endTime ?? ''))
   putIfChanged(out, existing, EVENT_KEYS.location, writeString(entity.location), p === null ? null : writeString(p.location))
+  putIfChanged(out, existing, EVENT_KEYS.summary, writeString(entity.summary), p === null ? null : writeString(p.summary))
   putIfChanged(out, existing, EVENT_KEYS.isMajor, writeBool(entity.isMajor), p === null ? null : writeBool(p.isMajor))
   putIfChanged(out, existing, EVENT_KEYS.parent, parentValue(entity), p === null ? null : parentValue(p))
   putIfChanged(out, existing, EVENT_KEYS.characters, namesOf(ctx, 'character', entity.characters), p === null ? null : namesOf(ctx, 'character', p.characters))
   putIfChanged(out, existing, EVENT_KEYS.countries, namesOf(ctx, 'country', entity.countries), p === null ? null : namesOf(ctx, 'country', p.countries))
   putIfChanged(out, existing, EVENT_KEYS.header, writeString(entity.headerUrl ?? ''), p === null ? null : writeString(p.headerUrl ?? ''))
   putIfChanged(out, existing, EVENT_KEYS.images, imageListDisk(entity.images), p === null ? null : imageListDisk(p.images))
+  putIfChanged(out, existing, EVENT_KEYS.relations, eventRelationDisk(entity, ctx), p === null ? null : eventRelationDisk(p, ctx))
   putIfChanged(out, existing, EVENT_KEYS.tags, tagNames(ctx, entity.tags), p === null ? null : tagNames(ctx, p.tags))
+  putIfChanged(out, existing, EVENT_KEYS.order, writeNumber(entity.order), p === null ? null : writeNumber(p.order))
+  putCustomFields(out, existing, 'event', entity.custom, p === null ? undefined : p.custom)
   return out
 }
 
@@ -261,11 +307,16 @@ export function serializeWorldEntry(
 
   putIfChanged(out, existing, WORLD_KEYS.title, writeString(entity.title), p === null ? null : writeString(p.title))
   putIfChanged(out, existing, WORLD_KEYS.aliases, writeStringList(entity.aliases ?? []), p === null ? null : writeStringList(p.aliases ?? []))
-  putIfChanged(out, existing, WORLD_KEYS.category, writeString(entity.category), p === null ? null : writeString(p.category))
+  // `分类` 已废弃：层级只由 `parent` 表达，界面不再编辑。
+  // 只在**有值**时写 —— 老数据迁移时保住原值，新条目（空）则绝不碰文件里已有的键。
+  if (entity.category.trim() !== '') {
+    putIfChanged(out, existing, WORLD_KEYS.category, writeString(entity.category), p === null ? null : writeString(p.category))
+  }
   putIfChanged(out, existing, WORLD_KEYS.parent, parentValue(entity), p === null ? null : parentValue(p))
   putIfChanged(out, existing, WORLD_KEYS.order, writeNumber(entity.order), p === null ? null : writeNumber(p.order))
   putIfChanged(out, existing, WORLD_KEYS.isConcept, writeBool(entity.isConcept), p === null ? null : writeBool(p.isConcept))
   putIfChanged(out, existing, WORLD_KEYS.tags, tagNames(ctx, entity.tags), p === null ? null : tagNames(ctx, p.tags))
+  putCustomFields(out, existing, 'worldEntry', entity.custom, p === null ? undefined : p.custom)
   return out
 }
 

@@ -15,4 +15,6 @@ export interface EventFormData {
   characters?: number[]
   countries?: number[]
   tags: number[]
+  /** 自定义字段的值（键 = 字段表里的 key） */
+  custom?: Record<string, string>
 }

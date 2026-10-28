@@ -19,7 +19,7 @@ export function StatusBar() {
         : 'text-ink-faint'
 
   return (
-    <footer data-statusbar className="max-md:hidden flex h-6 shrink-0 items-center justify-between border-t border-line bg-transparent px-3">
+    <footer data-statusbar className="max-md:hidden flex h-6 shrink-0 items-center justify-between bg-transparent px-3">
       <div className="flex min-w-0 items-center gap-3">
         <VaultStatus />
         <span className="text-[11px] text-ink-faint transparent-text">字数：<span className="tabular-nums">{wordCount}</span></span>

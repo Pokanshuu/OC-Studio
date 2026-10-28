@@ -1,6 +1,6 @@
 "use client"
 
-import { Database, Cpu, Info, BookOpen } from "lucide-react"
+import { Database, Palette, Info, BookOpen } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -11,7 +11,6 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { WorldTab } from "./tabs/WorldTab"
 import { GeneralTab } from "./tabs/GeneralTab"
 import { DataTab } from "./tabs/DataTab"
-import { AiTab } from "./tabs/AiTab"
 import { AboutTab } from "./tabs/AboutTab"
 
 interface SettingsDialogProps {
@@ -23,9 +22,9 @@ interface SettingsDialogProps {
 
 const TAB_ITEMS = [
   { value: "world", label: "世界", icon: BookOpen },
-  { value: "general", label: "通用", icon: Cpu },
+  { value: "general", label: "个性化", icon: Palette },
+  // 「数据」= 原来的「数据」+「云」两个页签合并（本地数据 / 同步 按类别分区）
   { value: "data", label: "数据", icon: Database },
-  { value: "ai", label: "云", icon: Cpu },
   { value: "about", label: "关于", icon: Info },
 ] as const
 
@@ -44,12 +43,12 @@ export function SettingsDialog({
 
         <Tabs value={tab} onValueChange={onTabChange} className="flex min-h-0 flex-1 flex-col">
           <div className="shrink-0 px-6">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-4">
               {TAB_ITEMS.map((item) => (
                 <TabsTrigger
                   key={item.value}
                   value={item.value}
-                  className="flex items-center justify-center gap-1.5 text-xs sm:text-sm"
+                  className="gap-1.5 text-xs sm:text-sm"
                 >
                   <item.icon size={14} strokeWidth={2} className="shrink-0 sm:hidden" />
                   <span className="hidden sm:inline">{item.label}</span>
@@ -71,10 +70,6 @@ export function SettingsDialog({
 
             <TabsContent value="data">
               <DataTab />
-            </TabsContent>
-
-            <TabsContent value="ai">
-              <AiTab />
             </TabsContent>
 
             <TabsContent value="about">

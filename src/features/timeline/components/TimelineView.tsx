@@ -48,9 +48,11 @@ import { TimelineToolbar } from './TimelineToolbar'
 
 interface TimelineViewProps {
   onSelectEvent: (id: number) => void
+  /** 打开角色（出生节点点进来时用） */
+  onSelectCharacter: (id: number) => void
 }
 
-export function TimelineView({ onSelectEvent }: TimelineViewProps) {
+export function TimelineView({ onSelectEvent, onSelectCharacter }: TimelineViewProps) {
   const { isMobile } = useDevice()
   const [editMode, setEditMode] = useState(false)
   const [filterMajor, setFilterMajor] = useState(false)
@@ -98,6 +100,15 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
   }, [])
 
   const handleDragEnd = useTimelineDrag(refresh)
+
+  /** 出生节点的 id 是负数（角色 id 取反），其余是事件 id —— 分发只在这里做一次 */
+  const handleSelect = useCallback(
+    (id: number) => {
+      if (id < 0) onSelectCharacter(-id)
+      else onSelectEvent(id)
+    },
+    [onSelectEvent, onSelectCharacter],
+  )
 
   const {
     filtered,
@@ -249,7 +260,7 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
                 const right = LEFT_PADDING + (endYear - yearRange.rangeStart) * displayPxPerYear
                 const w = Math.max(right - left, 4)
                 if (density !== 'year' && w < 40) return null
-                const hex = PERIOD_COLORS.find(c => c.value === period.color)?.hex ?? '#F3EFE9'
+                const hex = PERIOD_COLORS.find(c => c.value === period.color)?.hex ?? PERIOD_COLORS[0].hex
                 const hexDark = PERIOD_COLORS.find(c => c.value === period.color)?.hexDark ?? hex
                 return (
                   <PeriodBar
@@ -314,16 +325,27 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
                 }}
                 modifiers={[restrictToHorizontalAxis]}
               >
-                {nodes.items.map((item) => (
-                  <DraggableNode
-                    key={item.event.id}
-                    event={item.event}
-                    x={item.x}
-                    y={axisY + 24 + item.lane * LANE_HEIGHT}
-                    width={item.width}
-                    onSelect={onSelectEvent}
-                  />
-                ))}
+                {nodes.items.map((item) =>
+                  item.event.kind === 'birth' ? (
+                    <StaticNode
+                      key={item.event.id}
+                      event={item.event}
+                      x={item.x}
+                      y={axisY + 24 + item.lane * LANE_HEIGHT}
+                      width={item.width}
+                      onSelect={handleSelect}
+                    />
+                  ) : (
+                    <DraggableNode
+                      key={item.event.id}
+                      event={item.event}
+                      x={item.x}
+                      y={axisY + 24 + item.lane * LANE_HEIGHT}
+                      width={item.width}
+                      onSelect={handleSelect}
+                    />
+                  ),
+                )}
               </DndContext>
             ) : (
               nodes.items.map((item) => (
@@ -333,7 +355,7 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
                   x={item.x}
                   y={axisY + 24 + item.lane * LANE_HEIGHT}
                   width={item.width}
-                  onSelect={onSelectEvent}
+                  onSelect={handleSelect}
                 />
               ))
             )
@@ -354,12 +376,12 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
                     x={s.x}
                     y={axisY + 24 + s.lane * LANE_HEIGHT}
                     width={s.width}
-                    onSelect={onSelectEvent}
+                    onSelect={handleSelect}
                   />
                 ))}
                 <BucketView
                   buckets={bucketList}
-                  onSelectEvent={onSelectEvent}
+                  onSelectEvent={handleSelect}
                   axisY={axisY}
                   spanningOffset={spanningOffset}
                 />
@@ -389,7 +411,7 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
             {nodes.withoutTime.map((e) => (
               <button
                 key={e.id}
-                onClick={() => onSelectEvent(e.id)}
+                onClick={() => handleSelect(e.id)}
                 className="touch-feedback flex items-center gap-1.5 px-2 py-1 text-[12px] text-ink-muted transition-colors hover:text-ink"
               >
                 {e.isMajor ? (
@@ -424,7 +446,7 @@ export function TimelineView({ onSelectEvent }: TimelineViewProps) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={periodEditor.handlePeriodDelete} className="bg-transparent border border-error text-error hover:bg-red-50">
+            <AlertDialogAction onClick={periodEditor.handlePeriodDelete}>
               删除
             </AlertDialogAction>
           </AlertDialogFooter>

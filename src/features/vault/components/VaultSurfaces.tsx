@@ -1,17 +1,11 @@
 'use client'
 
 import { VaultScanReportDialog } from './VaultScanReportDialog'
-import { VaultWelcome } from './VaultWelcome'
 
 /**
- * 挂在应用壳里一次，集中渲染两个全局浮层。
- * 分开挂会让「菜单里点开报告」和「启动时自动弹报告」变成两处状态，容易不同步。
+ * 挂在应用壳里一次，集中渲染全局浮层。
+ * 引导页已经归 `VaultGate` 管（没有文件夹时直接渲染引导，不再是浮层）。
  */
 export function VaultSurfaces() {
-  return (
-    <>
-      <VaultWelcome />
-      <VaultScanReportDialog />
-    </>
-  )
+  return <VaultScanReportDialog />
 }

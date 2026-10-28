@@ -20,6 +20,7 @@ import { useGraphData } from '../hooks/useGraphData'
 import { MobileRelationControls, DesktopRelationPanel } from './MobileRelationControls'
 import { FitViewOnLoad, ZoomReader } from './RelationGraphHelpers'
 import { loadNodePositions, saveNodePositions, nodePositionKey, nodeTypes, edgeTypes } from './relation-graph-utils'
+import { CENTER_STATE } from '@/lib/ui-tokens'
 
 interface RelationGraphProps {
   onNavigateToCharacter?: (id: number) => void
@@ -191,7 +192,7 @@ export function RelationGraph({
 
   if (error) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3">
+      <div className={CENTER_STATE}>
         <span className="text-[13px] text-error">{error}</span>
         <button onClick={refresh} className="px-1.5 py-1 text-[13px] text-ink-muted transition-colors hover:text-ink">重试</button>
       </div>
@@ -200,7 +201,7 @@ export function RelationGraph({
 
   if (rawNodes.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3">
+      <div className={CENTER_STATE}>
         <span className="font-serif text-sm text-ink-faint">暂无关系数据，请先创建角色、事件或国家，并添加关联关系</span>
         <button onClick={refresh} className="px-1.5 py-1 text-[13px] text-ink-muted transition-colors hover:text-ink">刷新</button>
       </div>
@@ -240,7 +241,7 @@ export function RelationGraph({
           onZoomChange={handleZoomChange}
         />
 
-        <Panel position="bottom-left" className="max-md:hidden m-3 flex flex-col gap-1 border border-line bg-paper/85 px-3 py-2 text-[11px] text-ink-muted backdrop-blur-lg">
+        <Panel position="bottom-left" className="max-md:hidden m-3 flex flex-col gap-1 border border-line bg-paper/85 px-3 py-2 text-[11px] text-ink-muted backdrop-blur-lg float-shadow">
           <span className="text-ink-faint">图例</span>
           <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full border border-line-hover bg-paper-card" />角色</span>
           <span className="flex items-center gap-1.5"><span className="h-2.5 w-4 border border-line bg-paper-card" />事件</span>

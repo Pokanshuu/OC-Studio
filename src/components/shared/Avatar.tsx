@@ -22,7 +22,7 @@ export function Avatar({ src, alt = '', size = 'md', className = '', type = 'ava
   const [failedImgSrc, setFailedImgSrc] = useState<string | undefined>()
   const imgSrc = resolveImageUrl(src, type)
   const showImage = imgSrc && imgSrc !== failedImgSrc
-  const roundClass = shape === 'square' ? 'rounded-media' : 'rounded-full'
+  const roundClass = shape === 'square' ? 'rounded-item' : 'rounded-full'
 
   return (
     <div

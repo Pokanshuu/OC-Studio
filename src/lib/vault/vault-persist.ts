@@ -22,7 +22,8 @@ import type { Character, Country, Event, Tag, WorldEntry } from '@/types'
 // 1. **挂在 Dexie 中间件上，而不是逐个改 service。**
 //    `db.use({stack:'dbcore'})` 拦的是所有写入路径：service 的 CRUD、
 //    批量导入、引用回写、回收站还原、拖拽排序、词条自动保存 —— 一处接线全覆蓋。
-//    中间件拿到的 keys 已经解析完成（含自增主键），不需要去猜。
+//    中间件拿到的 keys 是**已解析完成**的：显式 id 在 request 上，
+//    自增主键只有 response 的 results 里才有 —— 两处都要看（见 noteMutation）。
 //
 // 2. **只在事务外做 IO。** 中间件里只记「(表, id) 脏了」，真正的读行/序列化/写文件
 //    都在防抖之后的异步 flush 里做，避免在 Dexie 事务里做文件 IO（事务可能回滚）。
@@ -32,6 +33,10 @@ import type { Character, Country, Event, Tag, WorldEntry } from '@/types'
 //    单个删除只走「移入回收站」，真正删除文件仅发生在「回收站里彻底删除」时。
 
 const FLUSH_DELAY_MS = 350
+
+function errorText(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
+}
 
 interface PendingWrite {
   table: VaultTableName
@@ -58,7 +63,10 @@ let installed = false
 let suppressed = 0
 let pending = new Map<string, PendingWrite>()
 let flushing = false
+/** 本轮 flush 的开始时间（看门狗用） */
+let flushingSince = 0
 let flushTimer: ReturnType<typeof setTimeout> | null = null
+let watchdog: ReturnType<typeof setInterval> | null = null
 let lastError: string | null = null
 let lastFlushedAt: number | null = null
 
@@ -112,6 +120,35 @@ function scheduleFlush(): void {
   }, FLUSH_DELAY_MS)
 }
 
+/**
+ * IPC 超时兜底。
+ *
+ * Rust 侧的命令正常情况下要么成功要么报错，但一旦某个 `invoke` 真的不返回
+ * （文件被别的程序锁住、阻塞线程池被占满…），`flushing` 会永远为真，
+ * 状态栏就一直是「保存中…」—— 用户看到的是无限转圈。
+ * 超时后当错误处理：本轮中止、错误上屏、队列留着等「重试保存」。
+ */
+const WRITE_TIMEOUT_MS = 20_000
+
+function withTimeout<T>(task: Promise<T>, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      console.warn(`[vault] 写盘超时（${WRITE_TIMEOUT_MS / 1000}s）：${label}`)
+      reject(new Error(`${label}超时`))
+    }, WRITE_TIMEOUT_MS)
+    task.then(
+      (value) => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      (error: unknown) => {
+        clearTimeout(timer)
+        reject(error instanceof Error ? error : new Error(String(error)))
+      },
+    )
+  })
+}
+
 function enqueue(table: VaultTableName, id: number): void {
   pending.set(entityKey(table, id), { table, id })
   notify()
@@ -130,7 +167,26 @@ interface MutateRequestLike {
   keys?: unknown[]
 }
 
-function noteMutation(tableName: string, req: MutateRequestLike): void {
+interface MutateResponseLike {
+  /** add / put 的**生成主键**（自增表在 request 上拿不到，只有 response 里有） */
+  results?: unknown[]
+}
+
+/** 从任意形态里抠出一个数字主键（response 可能是 key，也可能是整行） */
+function asId(value: unknown): number | undefined {
+  if (typeof value === 'number') return value
+  if (value !== null && typeof value === 'object') {
+    const id = (value as { id?: unknown }).id
+    if (typeof id === 'number') return id
+  }
+  return undefined
+}
+
+function noteMutation(
+  tableName: string,
+  req: MutateRequestLike,
+  res?: MutateResponseLike,
+): void {
   if (suppressed > 0) return
   if (getVaultSession() === null) return
   // clear() / 整表范围删除：一律不动文件（批量导入的 replace 走这条路）
@@ -141,18 +197,21 @@ function noteMutation(tableName: string, req: MutateRequestLike): void {
 
   if (req.type === 'add' || req.type === 'put') {
     const values = req.values ?? []
-    const keys = req.keys ?? []
+    const requestKeys = req.keys ?? []
+    const responseKeys = res?.results ?? []
     values.forEach((value, index) => {
-      const fromKey = keys[index]
-      const fromValue = (value as { id?: unknown }).id
-      const id = typeof fromKey === 'number' ? fromKey : typeof fromValue === 'number' ? fromValue : undefined
+      // 顺序有讲究：显式 id > request keys > **response 里的自增主键**
+      // 最后一项最容易漏 —— 不带 id 的 add / bulkAdd 在 request 上是没有 key 的，
+      // 漏了它，新建的实体与「保留两者」导入的行就只在 Dexie 里活着、永不落盘。
+      const id = asId((value as { id?: unknown }).id) ?? asId(requestKeys[index]) ?? asId(responseKeys[index])
       if (id !== undefined) enqueue(table, id)
     })
     return
   }
 
   for (const key of req.keys ?? []) {
-    if (typeof key === 'number') enqueue(table, key)
+    const id = asId(key)
+    if (id !== undefined) enqueue(table, id)
   }
 }
 
@@ -177,13 +236,38 @@ export function installVaultPersist(): void {
           ...table,
           mutate: async (req: DBCoreMutateRequest) => {
             const result = await table.mutate(req)
-            noteMutation(name, req as unknown as MutateRequestLike)
+            noteMutation(
+              name,
+              req as unknown as MutateRequestLike,
+              result as unknown as MutateResponseLike,
+            )
             return result
           },
         }
       },
     }),
   })
+  startWatchdog()
+}
+
+/**
+ * 看门狗：`flushing` 卡住时兜底复位。
+ *
+ * 单次 IPC 已有 `withTimeout`，但整轮 flush 还可能卡在别处（Dexie 读被长事务挡住等）。
+ * 这里只做一件事：卡太久就把门闩放开、把错误摆到界面上 —— 宁可报错，也不能让
+ * 状态栏永远转圈。
+ */
+function startWatchdog(): void {
+  if (watchdog !== null) return
+  watchdog = setInterval(() => {
+    if (!flushing || flushingSince === 0) return
+    if (Date.now() - flushingSince < WRITE_TIMEOUT_MS + 10_000) return
+    console.warn('[vault] 落盘队列卡住，复位门闩')
+    flushing = false
+    flushingSince = 0
+    lastError = '写盘超时，已中止本轮保存'
+    notify()
+  }, 5_000)
 }
 
 async function readRow(table: VaultTableName, id: number): Promise<Record<string, unknown> | undefined> {
@@ -372,9 +456,12 @@ async function flushProjectMeta(
   const content = `${JSON.stringify(next, null, 2)}\n`
   if (content === marker.content) return
 
-  const results = await vaultFs.writeTexts(session.root, [
-    { relPath: marker.relPath, content, expectedMtimeMs: undefined },
-  ])
+  const results = await withTimeout(
+    vaultFs.writeTexts(session.root, [
+      { relPath: marker.relPath, content, expectedMtimeMs: undefined },
+    ]),
+    '写入 oc-studio.json',
+  )
   const result = results[0]
   if (result !== undefined && !result.ok) {
     report.errors.push({ relPath: marker.relPath, message: result.error ?? '写入失败' })
@@ -411,14 +498,15 @@ async function flushTagMeta(report: VaultFlushReport): Promise<void> {
   if (content === session.tagMeta.content) return
 
   try {
-    await vaultFs.mkdir(session.root, '.ocstudio')
+    await withTimeout(vaultFs.mkdir(session.root, '.ocstudio'), '创建 .ocstudio')
   } catch {
     // 目录已存在
   }
 
-  const results = await vaultFs.writeTexts(session.root, [
-    { relPath: session.tagMeta.relPath, content },
-  ])
+  const results = await withTimeout(
+    vaultFs.writeTexts(session.root, [{ relPath: session.tagMeta.relPath, content }]),
+    '写入 tags.json',
+  )
   const result = results[0]
   if (result !== undefined && !result.ok) {
     report.errors.push({ relPath: session.tagMeta.relPath, message: result.error ?? '写入失败' })
@@ -447,7 +535,12 @@ export async function flushVaultWrites(): Promise<VaultFlushReport> {
   if (session === null || flushing || pending.size === 0) return report
 
   flushing = true
+  flushingSince = Date.now()
   notify()
+
+  // 单条记录的序列化失败不能连坐整批：坏行留在队列里等「重试保存」，
+  // 其余行照常落盘（旧备份缺字段时最容易走到这里，见 fields.writeString）
+  let itemErrors = 0
 
   try {
     const batch = [...pending.values()]
@@ -467,7 +560,15 @@ export async function flushVaultWrites(): Promise<VaultFlushReport> {
 
       // 项目元信息是单例特例
       if (kind === null) {
-        if (row !== undefined) await flushProjectMeta(row, report)
+        if (row !== undefined) {
+          try {
+            await flushProjectMeta(row, report)
+          } catch (err) {
+            itemErrors += 1
+            report.errors.push({ relPath: '', message: errorText(err) })
+            pending.set(key, item)
+          }
+        }
         continue
       }
 
@@ -547,7 +648,18 @@ export async function flushVaultWrites(): Promise<VaultFlushReport> {
         continue
       }
 
-      const write = await planTextWrite(item.table, item.id, row, state, ctx)
+      let write: PlannedWrite | null = null
+      try {
+        write = await planTextWrite(item.table, item.id, row, state, ctx)
+      } catch (err) {
+        itemErrors += 1
+        report.errors.push({
+          relPath: state?.relPath ?? '',
+          message: errorText(err),
+        })
+        pending.set(key, item)
+        continue
+      }
       if (write === null) continue
       texts.push({
         relPath: write.relPath,
@@ -560,7 +672,7 @@ export async function flushVaultWrites(): Promise<VaultFlushReport> {
     // 移动与删除先做：它们会改变后续路径占用
     for (const move of moves) {
       try {
-        await vaultFs.move(session.root, move.from, move.to)
+        await withTimeout(vaultFs.move(session.root, move.from, move.to), `移动 ${move.from}`)
         if (move.kind === 'trash') report.movedToTrash += 1
         else report.restored += 1
       } catch (err) {
@@ -570,7 +682,7 @@ export async function flushVaultWrites(): Promise<VaultFlushReport> {
 
     for (const target of removals) {
       try {
-        await vaultFs.remove(session.root, target)
+        await withTimeout(vaultFs.remove(session.root, target), `删除 ${target}`)
         report.removed += 1
       } catch (err) {
         report.errors.push({ relPath: target, message: err instanceof Error ? err.message : String(err) })
@@ -578,7 +690,7 @@ export async function flushVaultWrites(): Promise<VaultFlushReport> {
     }
 
     if (texts.length > 0) {
-      const results = await vaultFs.writeTexts(session.root, texts)
+      const results = await withTimeout(vaultFs.writeTexts(session.root, texts), '写入笔记')
       results.forEach((result, index) => {
         const write = planned[index]
         if (write === undefined) return
@@ -601,7 +713,7 @@ export async function flushVaultWrites(): Promise<VaultFlushReport> {
       })
     }
 
-    await flushTagMeta(report)
+    await withTimeout(flushTagMeta(report), '写入 tags.json')
 
     lastFlushedAt = Date.now()
     lastError =
@@ -615,9 +727,11 @@ export async function flushVaultWrites(): Promise<VaultFlushReport> {
     report.errors.push({ relPath: '', message: lastError })
   } finally {
     flushing = false
+    flushingSince = 0
     notify()
-    // 本轮产生的后续工作（标签改名带来的引用改写、冲突重排）不能就此搁置
-    if (pending.size > 0 && flushTimer === null) scheduleFlush()
+    // 本轮产生的后续工作（标签改名带来的引用改写、冲突重排）不能就此搁置。
+    // 但已经确定「写不了」的行不自动重试 —— 否则每 350ms 撞一次同一个错。
+    if (pending.size > 0 && flushTimer === null && itemErrors === 0) scheduleFlush()
   }
 
   return report

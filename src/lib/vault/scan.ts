@@ -12,6 +12,7 @@ import {
   CHARACTER_KEYS,
   COUNTRY_KEYS,
   EVENT_KEYS,
+  PERIOD_KEYS,
   WORLD_KEYS,
   readBool,
   readImageList,
@@ -25,6 +26,7 @@ import {
 import { classifyFolderWithOverrides, type FolderClassification } from './mapping'
 import { noteAliases, noteTitle, toNote } from './note'
 import { normalizeLinkKey, stripOrderPrefix } from './wikilink'
+import { customFieldKeys } from './vault-field-keys'
 import type {
   LinkResolution,
   LoadedEntity,
@@ -78,6 +80,25 @@ function syncStamp(mtimeMs: number): { _syncStatus: string; _lastModified: numbe
 function baseNameOf(path: string): string {
   const segments = path.replace(/\\/g, '/').split('/')
   return segments[segments.length - 1] ?? ''
+}
+
+/**
+ * 自定义字段：按登记的键从 frontmatter 读回。
+ * 键就是字段名本身（用户加的「境界」→ `境界:`），Obsidian 里直接可读可改。
+ * 没登记的键不读 —— 于是「删掉字段」之后数据仍在文件里，加回来还能读到。
+ */
+function readCustomFields(
+  fm: Record<string, unknown>,
+  kind: 'character' | 'event' | 'worldEntry',
+): Record<string, string> | undefined {
+  const keys = customFieldKeys(kind)
+  if (keys.length === 0) return undefined
+  const out: Record<string, string> = {}
+  for (const key of keys) {
+    const value = readString(fm, { primary: key, alt: [] })
+    if (value !== '') out[key] = value
+  }
+  return Object.keys(out).length === 0 ? undefined : out
 }
 
 /** 目标的「文件名解析键」 */
@@ -299,6 +320,7 @@ export function scanVault(options: ScanOptions): VaultScanResult {
   const countries: LoadedEntity<Country>[] = []
   const events: LoadedEntity<Event>[] = []
   const worldEntries: LoadedEntity<WorldEntry>[] = []
+  const periods: LoadedEntity<Period>[] = []
 
   // worldEntry 的 order：优先用文件名里的 `NN.` 序号，否则取所在目录内的顺序。
   // 注意不要写回 frontmatter —— 那份对象会在写盘时被原样合并回去。
@@ -335,8 +357,8 @@ export function scanVault(options: ScanOptions): VaultScanResult {
         birthday: readString(fm, CHARACTER_KEYS.birthday),
         avatarUrl: readString(fm, CHARACTER_KEYS.avatar),
         headerUrl: readString(fm, CHARACTER_KEYS.header) || undefined,
-        bio: '',
-        lifeStory: '',
+        bio: readString(fm, CHARACTER_KEYS.bio),
+        lifeStory: readString(fm, CHARACTER_KEYS.lifeStory),
         relatedCharacters: readObjects(fm, CHARACTER_KEYS.relations).map((item) => {
           const name = typeof item.name === 'string' ? item.name : ''
           const relation = typeof item.relation === 'string' ? item.relation : ''
@@ -352,6 +374,8 @@ export function scanVault(options: ScanOptions): VaultScanResult {
         })),
         tags: tagIdsOf(note, CHARACTER_KEYS.tags),
         isMajor: readBool(fm, CHARACTER_KEYS.isMajor),
+        order: readNumber(fm, CHARACTER_KEYS.order),
+        custom: readCustomFields(fm, 'character'),
         createdAt: readTimestamp(fm, CHARACTER_KEYS.date, note.mtimeMs),
         updatedAt: note.mtimeMs,
         deleted: false,
@@ -385,6 +409,7 @@ export function scanVault(options: ScanOptions): VaultScanResult {
           .map((name) => lookupTarget(name, 'event')?.id)
           .filter((id): id is number => id !== undefined),
         tags: tagIdsOf(note, COUNTRY_KEYS.tags),
+        order: readNumber(fm, COUNTRY_KEYS.order),
         createdAt: readTimestamp(fm, COUNTRY_KEYS.date, note.mtimeMs),
         updatedAt: note.mtimeMs,
         deleted: false,
@@ -407,7 +432,7 @@ export function scanVault(options: ScanOptions): VaultScanResult {
         time: readString(fm, EVENT_KEYS.time),
         endTime: readString(fm, EVENT_KEYS.endTime) || undefined,
         location: readString(fm, EVENT_KEYS.location),
-        summary: '',
+        summary: readString(fm, EVENT_KEYS.summary),
         content: '',
         characters: readStringList(fm, EVENT_KEYS.characters)
           .map((name) => lookupTarget(name, 'character')?.id)
@@ -417,13 +442,20 @@ export function scanVault(options: ScanOptions): VaultScanResult {
           .filter((id): id is number => id !== undefined),
         headerUrl: readString(fm, EVENT_KEYS.header) || undefined,
         parentEventId: lookupTarget(parentName, 'event')?.id ?? null,
-        relations: [],
+        relations: readObjects(fm, EVENT_KEYS.relations)
+          .map((item) => ({
+            targetId: lookupTarget(typeof item.name === 'string' ? item.name : '', 'event')?.id ?? 0,
+            relation: typeof item.relation === 'string' ? item.relation : '',
+          }))
+          .filter((item) => item.targetId !== 0),
         tags: tagIdsOf(note, EVENT_KEYS.tags),
         images: readImageList(fm, EVENT_KEYS.images).map((item) => ({
           url: item.url,
           caption: item.caption,
         })),
         isMajor: readBool(fm, EVENT_KEYS.isMajor),
+        order: readNumber(fm, EVENT_KEYS.order),
+        custom: readCustomFields(fm, 'event'),
         createdAt: readTimestamp(fm, EVENT_KEYS.date, note.mtimeMs),
         updatedAt: note.mtimeMs,
         deleted: false,
@@ -446,14 +478,37 @@ export function scanVault(options: ScanOptions): VaultScanResult {
         title: noteTitle(note),
         aliases: noteAliases(note),
         content: '',
-        category: readString(fm, WORLD_KEYS.category) || slot.cls.category,
+        // `分类` 已废弃（层级只由 parentId 表达），界面不再编辑；
+        // 但老笔记里已有的值仍然读回来 —— 迁移时不至于把它弄丢。
+        category: readString(fm, WORLD_KEYS.category),
         parentId: lookupTarget(parentName, 'worldEntry')?.id ?? null,
         order: readNumber(fm, WORLD_KEYS.order) ?? order ?? folderOrder,
         isConcept: readBool(fm, WORLD_KEYS.isConcept),
         references: [],
         tags: tagIdsOf(note, WORLD_KEYS.tags),
+        custom: readCustomFields(fm, 'worldEntry'),
         createdAt: readTimestamp(fm, WORLD_KEYS.date, note.mtimeMs),
         updatedAt: note.mtimeMs,
+        deleted: false,
+        ...syncStamp(note.mtimeMs),
+      },
+      relPath: note.relPath,
+      bodyMarkdown: note.body,
+    })
+  }
+
+  // 时期：`时期/xxx.md` 里只有四条属性，正文为空。以前这里是空的（时期只活在 Dexie 里，
+  // 一旦切到文件夹就丢），迁移要「无损」就必须能读回来。
+  for (const slot of grouped.get('period') ?? []) {
+    const note = slot.note
+    const fm = note.frontmatter
+    periods.push({
+      entity: {
+        id: idByPath.get(note.relPath) ?? 0,
+        name: noteTitle(note),
+        startTime: readString(fm, PERIOD_KEYS.startTime),
+        endTime: readString(fm, PERIOD_KEYS.endTime),
+        color: readString(fm, PERIOD_KEYS.color),
         deleted: false,
         ...syncStamp(note.mtimeMs),
       },
@@ -603,7 +658,7 @@ export function scanVault(options: ScanOptions): VaultScanResult {
     countries,
     worldEntries,
     tags: tagRows,
-    periods: [] as LoadedEntity<Period>[],
+    periods,
     project,
     ignored: unmappedSlots.map((slot) => slot.note.relPath),
   }

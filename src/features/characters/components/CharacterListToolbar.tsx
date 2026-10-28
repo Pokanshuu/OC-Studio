@@ -3,7 +3,7 @@
 import { Search, Plus } from 'lucide-react'
 import { SortViewControls, SortSelect } from '@/components/shared/SortViewControls'
 import type { ViewMode } from '@/components/shared/SortViewControls'
-import { BTN_PRIMARY, PAGE_TITLE } from '@/lib/ui-tokens'
+import { BTN_PRIMARY, FILTER_TRIGGER, MOBILE_FILTER_BTN, PAGE_TITLE, SEARCH_ICON, SEARCH_INPUT, TOOLBAR } from '@/lib/ui-tokens'
 import { MobileFilterBar } from '@/components/layout/MobileFilterBar'
 import { FilterSelect } from '@/components/shared/FilterSelect'
 import type { FilterOption } from '@/components/shared/FilterSelect'
@@ -38,21 +38,21 @@ export function CharacterListToolbar({
 }: CharacterListToolbarProps) {
   return (
     <>
-      <div className="max-md:hidden flex items-center justify-between sticky top-0 z-10 h-12 border-b border-line px-6 bg-paper/85 backdrop-blur-lg">
+      <div className={TOOLBAR}>
         <div className="flex items-center gap-4">
           <h2 className={PAGE_TITLE}>角色</h2>
           <div className="relative max-md:hidden md:block">
             <Search
               size={16}
               strokeWidth={2}
-              className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-faint"
+              className={SEARCH_ICON}
             />
             <input
               type="text"
               value={search}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder="搜索角色..."
-              className="h-8 w-44 border-b border-transparent bg-transparent pl-8 pr-2 text-[13px] text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none"
+              className={SEARCH_INPUT}
             />
           </div>
           <FilterSelect
@@ -60,7 +60,7 @@ export function CharacterListToolbar({
             onChange={onCountryFilterChange}
             options={countryOptions}
             fallbackLabel="全部国家"
-            triggerClassName="touch-feedback flex md:h-9 h-7 items-center gap-1 px-2 text-[11px] text-ink transition-colors hover:bg-[var(--oc-hover)] md:px-3 md:text-[13px]"
+            triggerClassName={FILTER_TRIGGER}
             chevronSize={16}
           />
           <SortViewControls
@@ -87,7 +87,7 @@ export function CharacterListToolbar({
             onChange={onCountryFilterChange}
             options={countryOptions}
             fallbackLabel="全部国家"
-            triggerClassName="touch-feedback flex md:h-9 h-7 items-center gap-1 px-2 text-[11px] text-ink transition-colors hover:bg-[var(--oc-hover)] md:px-3 md:text-[13px]"
+            triggerClassName={FILTER_TRIGGER}
             chevronSize={16}
           />
           <SortSelect
@@ -98,7 +98,7 @@ export function CharacterListToolbar({
         </div>
         <button
           onClick={onCreateCharacter}
-          className="touch-feedback flex items-center gap-1 bg-paper/85 px-2 py-1 text-[11px] text-ink-muted backdrop-blur transition-colors hover:text-ink"
+          className={MOBILE_FILTER_BTN}
         >
           <Plus size={14} strokeWidth={2} />
           <span>新建</span>

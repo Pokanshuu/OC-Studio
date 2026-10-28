@@ -446,6 +446,21 @@ export function useEntityWorkspace() {  const { activeItem: desktopActiveItem, s
     [setSource, setActiveItem, setEditing, isMobile, mobileSetSection, mobileSetGallerySubTab],
   )
 
+  /** 从时间线的「出生」节点进角色：来源记成 timeline，返回时回到时间线而不是角色列表 */
+  const handleTimelineSelectCharacter = useCallback(
+    (id: number) => {
+      setSource('timeline')
+      setCharacterView({ sub: 'editor', characterId: id })
+      setActiveItem('角色')
+      if (isMobile) {
+        mobileSetSection('gallery')
+        mobileSetGallerySubTab('characters')
+      }
+      setEditing('character', id)
+    },
+    [setSource, setActiveItem, setEditing, isMobile, mobileSetSection, mobileSetGallerySubTab],
+  )
+
   const handleRelatedItemNavigate = useCallback((id: number, type?: string) => {
     // 同类型实体间跳转会因 key 变化重挂编辑器 → 未保存改动会丢失，需确认
     const willRemount =
@@ -596,6 +611,7 @@ export function useEntityWorkspace() {  const { activeItem: desktopActiveItem, s
     handleSelectCharacter,
     handleSelectCountry,
     handleSelectEvent,
+    handleTimelineSelectCharacter,
     handleTimelineSelectEvent,
     handleWikiLinkClick,
     handleWorldCharCount,

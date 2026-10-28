@@ -31,6 +31,10 @@ export const CHARACTER_KEYS = {
   country: chain('country', '所属国家', '国籍', 'nationality'),
   height: chain('height', '身高'),
   birthday: chain('birthday', '生日'),
+  /** 简介：编辑器里的一行说明，既不是正文也不是标题，必须在 frontmatter 里有一格 */
+  bio: chain('bio', '简介'),
+  /** 旧版「人生故事」：早期版本的大段文本，编辑器已合并进正文展示，但数据不能丢 */
+  lifeStory: chain('lifeStory', '人生故事'),
   isMajor: chain('isMajor', '主要角色'),
   avatar: chain('avatar', 'avatarUrl'),
   header: chain('header', 'headerUrl'),
@@ -38,6 +42,7 @@ export const CHARACTER_KEYS = {
   avatars: chain('avatars'),
   relations: chain('relations'),
   tags: chain('tags'),
+  order: chain('order', '排序'),
   date: chain('date'),
 } as const
 
@@ -54,6 +59,7 @@ export const COUNTRY_KEYS = {
   characters: chain('characters', '角色', '相关角色'),
   events: chain('events', '事件', '相关事件'),
   tags: chain('tags'),
+  order: chain('order', '排序'),
   date: chain('date'),
 } as const
 
@@ -63,13 +69,18 @@ export const EVENT_KEYS = {
   time: chain('time', '时间'),
   endTime: chain('endTime', '结束时间'),
   location: chain('location', '地点'),
+  /** 概要：时间轴节点与列表上显示的那一行，正文之外唯一能塞它的地方 */
+  summary: chain('summary', '概要'),
   isMajor: chain('isMajor', '重大'),
   parent: chain('parent', '父事件'),
   characters: chain('characters', '参与角色', '角色'),
   countries: chain('countries', '相关国家', '国家'),
   header: chain('header', 'headerUrl'),
   images: chain('images'),
+  /** 事件之间的关联（与角色关系同形：{ name, relation }） */
+  relations: chain('relations'),
   tags: chain('tags'),
+  order: chain('order', '排序'),
   date: chain('date'),
 } as const
 
@@ -223,13 +234,15 @@ export function readImageList(
 // ── 写入原语 ────────────────────────────────────────────────────────────
 // 空值一律**删除键**（不写 `race: ""`），保持 frontmatter 干净。
 
-export function writeString(value: string): string | undefined {
-  const trimmed = value.trim()
+export function writeString(value: string | null | undefined): string | undefined {
+  // 旧备份 / 手改过的行可能缺字段，这里必须容错：undefined 当成空串，
+  // 否则 `.trim()` 直接抛错，整批落盘会一起失败（见 vault-persist 的 per-item 捕获）。
+  const trimmed = (value ?? '').trim()
   return trimmed === '' ? undefined : trimmed
 }
 
-export function writeStringList(value: string[]): string[] | undefined {
-  const cleaned = value.map((item) => item.trim()).filter((item) => item !== '')
+export function writeStringList(value: string[] | null | undefined): string[] | undefined {
+  const cleaned = (value ?? []).map((item) => (item ?? '').trim()).filter((item) => item !== '')
   return cleaned.length === 0 ? undefined : cleaned
 }
 

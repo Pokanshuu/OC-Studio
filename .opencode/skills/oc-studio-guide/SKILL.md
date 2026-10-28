@@ -20,6 +20,7 @@ description: >
 - **加载 `oc-studio-design` skill** 获取完整设计令牌和组件规范。
 - 禁止纯黑 `#000` 或纯白 `#FFF`。所有颜色使用设计令牌（`paper`, `ink`, `line` 等）。
 - 边框 1px 且**只用于「区块之间 / 表格行 / 浮层边界 / 空态占位框」**；**极小圆角**（3–8px，仅头像/徽章为圆形）、**控件零描边**（输入只留一条底线）。界面原子类一律取自 `src/lib/ui-tokens.ts`。图标仅用 `lucide-react` `strokeWidth={2}`。
+- 浮层一律自己画（`MENU` + Portal 到 `#overlay-root`）。**不用原生 `<datalist>` / `<select>` / `<input type="date">`**：它们的弹层由 WebView 绘制、CSS 完全够不着，出来就是一块游离于设计系统之外的灰卡片。
 
 ### 2. 架构
 - **加载 `oc-studio-coding` skill** 获取完整编码规范。
@@ -42,9 +43,8 @@ description: >
 - 使用 `useDevice()` (位于 `src/lib/use-device.ts`) 区分桌面/移动端。
 - 移动端禁用拖拽，用长按菜单替代，编辑器仅保留基础格式化按钮。
 
-### 6. AI 功能
-- API Key 从 `localStorage` 读取，严禁硬编码。
-- AI 不能返回用户直接使用的创作内容，只返回结构化数据或提示。
+### 6. AI（暂不做）
+- 2026-10 已删除全部 AI 代码与入口；不要恢复旧实现、不要新增 AI 入口。要做得当成新功能重新设计。
 
 ### 7. 代码风格
 - TypeScript strict，禁止 `any`。

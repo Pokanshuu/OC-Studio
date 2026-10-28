@@ -104,7 +104,7 @@ export function MobileRelationControls(props: RelationControlsProps) {
 
 export function DesktopRelationPanel(props: RelationControlsProps) {
   return (
-    <Panel position="top-left" className="max-md:hidden flex items-center gap-4 bg-paper/85 backdrop-blur-lg border border-line rounded-menu px-3 py-2 m-3">
+    <Panel position="top-left" className="max-md:hidden flex items-center gap-4 bg-paper/85 backdrop-blur-lg border border-line rounded-control px-3 py-2 m-3 float-shadow">
       <RelationFilterButtons {...props} />
       <ZoomSlider zoom={props.zoom} onZoomChange={props.onZoomChange} />
     </Panel>

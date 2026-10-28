@@ -3,6 +3,7 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { Avatar } from '@/components/shared/Avatar'
 import { getImageUrl } from '@/lib/image-service'
+import { NODE_WRAPPER } from '@/lib/ui-tokens'
 
 export function CountryNode({ data }: NodeProps) {
   const flagUrl = data.flagUrl as string | undefined
@@ -10,7 +11,7 @@ export function CountryNode({ data }: NodeProps) {
   return (
     <>
       <Handle type="target" position={Position.Top} className="!bg-line-hover" />
-      <div className="flex flex-col items-center gap-1 group cursor-pointer">
+      <div className={NODE_WRAPPER}>
         <Avatar
           src={getImageUrl(flagUrl, 'flag')}
           className="w-14 h-14"

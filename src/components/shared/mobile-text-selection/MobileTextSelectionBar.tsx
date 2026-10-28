@@ -46,7 +46,7 @@ export function MobileTextSelectionBar() {
     <>
       <div
         ref={barRef}
-        className="pointer-events-auto fixed z-50 flex items-center rounded-menu border border-line bg-paper/85 px-1.5 py-1 gap-0.5 backdrop-blur-lg cursor-default"
+        className="pointer-events-auto fixed z-50 flex items-center rounded-control border border-line bg-paper/85 px-1.5 py-1 gap-0.5 backdrop-blur-lg cursor-default float-shadow"
         style={{
           left: position.x,
           top: position.y,

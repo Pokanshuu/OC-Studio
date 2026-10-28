@@ -1,4 +1,5 @@
 import type { Character, Country, Event, Period, ProjectMeta, Tag, WorldEntry } from '@/types'
+import { buildEntryTree, type WorldTreeNode } from '@/lib/world-tree'
 import { collectDocImages, escapeHtml, hasRichText, plainTextOf, renderRichText, type RenderOptions } from './render'
 import { SITE_CSS } from './styles'
 
@@ -382,37 +383,50 @@ export function buildSite(data: SiteData, options: BuildOptions): string {
   })
 
   // ── 词条 ──────────────────────────────────────────────────────────
+  // 章节按**词条树**分（`parentId`）：有子项的一级词条当章节标题，子孙按深度缩进。
+  // 以前那个凭 `category` 自由文本分组的做法已经删了 —— 它跟树完全无关。
+  const worldTree = buildEntryTree(data.worldEntries)
 
-  const grouped = new Map<string, WorldEntry[]>()
-  for (const entry of [...data.worldEntries].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))) {
-    const key = entry.category?.trim() || '未分类'
-    const list = grouped.get(key) ?? []
-    list.push(entry)
-    grouped.set(key, list)
+  const entryRow = (node: WorldTreeNode, depth: number): string => {
+    const w = node.entry
+    const text = shortText(w.content || w.document)
+    // 缩进最多四级，再深就不再加宽 —— 否则手机上一行只剩几个字
+    return `<a class="row" style="--depth:${Math.min(depth, 4)}" href="#/world/${w.id}"><div class="when"></div>
+      <div class="body"><div class="title">${escapeHtml(w.title || '未命名')}</div>
+      ${text ? `<div class="note">${escapeHtml(text)}</div>` : ''}</div></a>`
   }
+
+  const renderChapter = (node: WorldTreeNode): string => {
+    const rows: string[] = []
+    const walk = (children: WorldTreeNode[], depth: number) => {
+      for (const child of children) {
+        rows.push(entryRow(child, depth))
+        walk(child.children, depth + 1)
+      }
+    }
+    walk(node.children, 1)
+    return `<h2 class="section-title"><a href="#/world/${node.entry.id}">${escapeHtml(node.entry.title || '未命名')}</a></h2>
+      ${rows.length > 0 ? `<div class="rows">${rows.join('')}</div>` : ''}`
+  }
+
+  const chapters = worldTree.filter((node) => node.children.length > 0)
+  const loose = worldTree.filter((node) => node.children.length === 0)
 
   const worldList = `
     <h1 class="page-title">词条</h1>
     <p class="page-sub">共 ${data.worldEntries.length} 条</p>
+    ${chapters.map(renderChapter).join('')}
     ${
-      grouped.size > 0
-        ? [...grouped.entries()]
-            .map(
-              ([category, list]) => `<h2 class="section-title">${escapeHtml(category)}</h2>
-                <div class="rows">${list
-                  .map(
-                    (w) => `<a class="row" href="#/world/${w.id}"><div class="when"></div>
-                      <div class="body"><div class="title">${escapeHtml(w.title || '未命名')}</div>
-                      ${shortText(w.content || w.document) ? `<div class="note">${escapeHtml(shortText(w.content || w.document))}</div>` : ''}</div></a>`,
-                  )
-                  .join('')}</div>`,
-            )
-            .join('')
-        : '<div class="empty">还没有词条</div>'
+      loose.length > 0
+        ? `${chapters.length > 0 ? '<h2 class="section-title">其它</h2>' : ''}
+           <div class="rows">${loose.map((node) => entryRow(node, 0)).join('')}</div>`
+        : ''
     }
+    ${worldTree.length === 0 ? '<div class="empty">还没有词条</div>' : ''}
   `
 
   const worldDetails = data.worldEntries.map((w) => {
+    const parent = w.parentId !== null && w.parentId !== undefined ? worldById.get(w.parentId) : undefined
     const refs = (w.references ?? [])
       .map((r) => {
         const route = ROUTE_BY_KIND[r.targetType] ?? 'world'
@@ -438,7 +452,7 @@ export function buildSite(data: SiteData, options: BuildOptions): string {
       <a class="crumb" href="#/world">← 词条</a>
       <h1 class="page-title">${escapeHtml(w.title || '未命名')}</h1>
       <div class="fields">
-        ${fieldRow('分类', escapeHtml(w.category))}
+        ${parent ? fieldRow('上级', `<a class="ref" href="#/world/${parent.id}">${escapeHtml(parent.title || '未命名')}</a>`) : ''}
         ${w.aliases?.length ? fieldRow('别名', escapeHtml(w.aliases.join('、'))) : ''}
         ${fieldRow('标签', tagChips(w.tags))}
         ${fieldRow('引用', refs.join('、'))}

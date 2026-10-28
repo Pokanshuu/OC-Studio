@@ -61,6 +61,7 @@ export default function Home() {
     handleSelectCharacter,
     handleSelectCountry,
     handleSelectEvent,
+    handleTimelineSelectCharacter,
     handleTimelineSelectEvent,
     handleWikiLinkClick,
     handleWorldCharCount,
@@ -189,7 +190,10 @@ export default function Home() {
         className="h-full section-fade overflow-y-auto max-md:pt-[calc(60px+var(--safe-top))] max-md:pb-[calc(60px+var(--safe-bottom))]"
         data-visible={showTimeline ? "true" : "false"}
       >
-        <TimelineView onSelectEvent={handleTimelineSelectEvent} />
+        <TimelineView
+          onSelectEvent={handleTimelineSelectEvent}
+          onSelectCharacter={handleTimelineSelectCharacter}
+        />
       </div>
 
       <div
@@ -254,7 +258,6 @@ export default function Home() {
           <AlertDialogFooter>
             <AlertDialogCancel>继续编辑</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-ink text-paper hover:bg-ink"
               onClick={() => {
                 leaveConfirm.onConfirm?.()
                 setLeaveConfirm({ open: false, onConfirm: null })

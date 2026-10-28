@@ -8,7 +8,8 @@ import type { WorldEntry } from '@/types'
 import { useEntryList, useEntry, useCreateEntry, useDeleteEntry } from '../hooks/useWorldEntries'
 import { renameEntry, reorderEntries, updateEntry } from '../services'
 import { TagPicker } from '@/features/tags'
-import { FIELD_LABEL, LIST_END, FIELD_ROW, FIELD_ROW_TOP, SECTION_TITLE } from '@/lib/ui-tokens'
+import { FIELD_LABEL, FIELD_ROW_TOP, ICON_BTN_MD, LIST_END, SECTION_TITLE } from '@/lib/ui-tokens'
+import { useFields } from '@/lib/fields'
 import type { WorldFormData } from '../types'
 import { useWorldEntryDraft } from '../hooks/useWorldEntryDraft'
 import { WorldTreePanel } from './WorldTreePanel'
@@ -29,8 +30,10 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
   const [showMobileTree, setShowMobileTree] = useState(false)
   const [treeCollapsed, setTreeCollapsed] = useState(false)
   const [treeQuery, setTreeQuery] = useState('')
-  const [category, setCategory] = useState('')
   const [tags, setTags] = useState<number[]>([])
+  // 词条的两行也受字段表管：删掉就不渲染（数据留在条目上）
+  const worldFields = useFields('worldEntry')
+  const showTags = worldFields.some((field) => field.id === 'tags')
   const { createEntry } = useCreateEntry()
   const { deleteEntry } = useDeleteEntry()
   const { isMobile } = useDevice()
@@ -62,12 +65,6 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
     selectedIdRef,
   } = useWorldEntryDraft({ selectedId, currentEntry, refresh, title, setTitle })
 
-  // 已有分类（去重，供输入建议 —— 防止「地理 / 地理志」这类分裂）
-  const categories = useMemo(
-    () => Array.from(new Set(entries.map((e) => e.category).filter(Boolean))).sort(),
-    [entries],
-  )
-
   // 被引用：哪些词条在正文里 [[链接]] 或 @ 引用了当前词条
   const backlinks = useMemo(() => {
     if (selectedId == null) return [] as { id: number; title: string }[]
@@ -90,12 +87,6 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
     [entries, treeQuery],
   )
 
-  const handleCategoryChange = useCallback((value: string) => {
-    setCategory(value)
-    if (selectedIdRef.current == null) return
-    void updateEntry(selectedIdRef.current, { category: value }).catch(() => {})
-  }, [selectedIdRef])
-
   const handleTagsChange = useCallback((ids: number[]) => {
     setTags(ids)
     if (selectedIdRef.current == null) return
@@ -107,7 +98,6 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
     await flushSave()
     setSelectedId(id)
     setTitle(entry.title)
-    setCategory(entry.category ?? '')
     setTags(entry.tags ?? [])
     setShowMobileTree(false)
   }, [flushSave, selectedIdRef])
@@ -117,7 +107,6 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
     const data: WorldFormData = {
       title: entryTitle,
       content: '',
-      category: 'concept',
       parentId,
       order: 0,
       isConcept: false,
@@ -126,7 +115,6 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
     const newId = await createEntry(data)
     setSelectedId(newId)
     setTitle(entryTitle)
-    setCategory('concept')
     setTags([])
     refresh()
   }, [flushSave, createEntry, refresh])
@@ -153,7 +141,6 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
     void flushSave().then(() => {
       setSelectedId(selectedEntryId)
       setTitle(entry.title)
-      setCategory(entry.category ?? '')
       setTags(entry.tags ?? [])
     })
   }, [selectedEntryId, entries, flushSave, selectedIdRef])
@@ -205,7 +192,7 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
                 {treeCollapsed && !isMobile ? (
                   <button
                     onClick={() => setTreeCollapsed(false)}
-                    className="flex h-8 w-8 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink"
+                    className={ICON_BTN_MD}
                     title="展开目录"
                   >
                     <Menu size={16} strokeWidth={2} />
@@ -224,29 +211,14 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
                 {/* 属性：分类 / 标签 / 被引用，与编辑器同一套字段行 */}
                 <section className="mt-8">
                   <div className={`grid grid-cols-1 gap-x-10 sm:grid-cols-2 ${LIST_END}`}>
-                    <div className={`${FIELD_ROW} sm:col-span-2`}>
-                      <span className={FIELD_LABEL}>分类</span>
-                      <input
-                        type="text"
-                        list="world-categories"
-                        value={category}
-                        onChange={(e) => handleCategoryChange(e.target.value)}
-                        placeholder="未分类"
-                        className="min-w-0 flex-1 bg-transparent text-sm text-ink placeholder:text-ink-faint focus:outline-none"
-                      />
-                      <datalist id="world-categories">
-                        {categories.map((c) => (
-                          <option key={c} value={c} />
-                        ))}
-                      </datalist>
-                    </div>
-
+                    {showTags ? (
                     <div className={`${FIELD_ROW_TOP} sm:col-span-2`}>
                       <span className={FIELD_LABEL}>标签</span>
                       <div className="min-w-0 flex-1">
                         <TagPicker selectedIds={tags} onChange={handleTagsChange} />
                       </div>
                     </div>
+                    ) : null}
 
                     {backlinks.length > 0 ? (
                       <div className={`${FIELD_ROW_TOP} sm:col-span-2`}>
@@ -259,7 +231,7 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
                                 const target = entries.find((e) => e.id === b.id)
                                 if (target) void handleSelect(b.id, target)
                               }}
-                              className="border-b border-transparent pb-px text-[13px] text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
+                              className="text-[13px] text-ink-muted underline-offset-2 transition-colors hover:text-ink hover:underline"
                             >
                               {b.title}
                             </button>
@@ -303,14 +275,14 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
               {isMobile ? (
                 <button
                   onClick={() => setShowMobileTree(true)}
-                  className="mx-auto mb-4 flex h-8 w-8 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink"
+                  className={`mx-auto mb-4 ${ICON_BTN_MD}`}
                 >
                   <Menu size={20} strokeWidth={2} />
                 </button>
               ) : treeCollapsed ? (
                 <button
                   onClick={() => setTreeCollapsed(false)}
-                  className="mx-auto mb-4 flex h-8 w-8 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink"
+                  className={`mx-auto mb-4 ${ICON_BTN_MD}`}
                 >
                   <Menu size={20} strokeWidth={2} />
                 </button>

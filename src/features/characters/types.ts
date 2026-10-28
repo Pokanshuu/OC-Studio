@@ -21,4 +21,6 @@ export interface CharacterFormData {
   avatars: AvatarImage[]
   tags: number[]
   isMajor?: boolean
+  /** 自定义字段的值（键 = 字段表里的 key）；内置字段走各自的列 */
+  custom?: Record<string, string>
 }

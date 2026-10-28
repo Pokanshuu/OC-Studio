@@ -134,11 +134,11 @@ export function ImageUploader({
         />
 
         {uploading ? (
-          <div className={`flex h-full w-full items-center justify-center border border-dashed border-line bg-paper-card ${shape === 'circle' ? 'rounded-full' : 'rounded-media'}`}>
+          <div className={`flex h-full w-full items-center justify-center border border-dashed border-line bg-paper-card ${shape === 'circle' ? 'rounded-full' : 'rounded-item'}`}>
             <Loader2 size={20} strokeWidth={2} className="animate-spin text-ink-muted" />
           </div>
         ) : currentSrc ? (
-          <div className={`group/image relative h-full w-full overflow-hidden ${shape === 'circle' ? 'rounded-full' : 'rounded-media'}`}>
+          <div className={`group/image relative h-full w-full overflow-hidden ${shape === 'circle' ? 'rounded-full' : 'rounded-item'}`}>
             <button
               type="button"
               onClick={handleClick}
@@ -157,7 +157,7 @@ export function ImageUploader({
                   e.stopPropagation()
                   onRemove()
                 }}
-                className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center bg-black/40 text-white/80 opacity-0 transition-opacity group-hover/image:opacity-100 hover:bg-black/60"
+                className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-full bg-black/40 text-white/80 opacity-0 transition-opacity group-hover/image:opacity-100 hover:bg-black/60"
                 title="删除"
               >
                 <Trash2 size={16} strokeWidth={2} />
@@ -168,7 +168,7 @@ export function ImageUploader({
           <button
             type="button"
             onClick={handleClick}
-            className={`flex h-full w-full flex-col items-center justify-center gap-1 border border-dashed border-line bg-paper-card transition-colors hover:border-line-hover ${shape === 'circle' ? 'rounded-full' : 'rounded-media'}`}
+            className={`flex h-full w-full flex-col items-center justify-center gap-1 border border-dashed border-line bg-paper-card transition-colors hover:border-line-hover ${shape === 'circle' ? 'rounded-full' : 'rounded-item'}`}
           >
             <ImageIcon size={16} strokeWidth={2} className="text-ink-faint" />
             <span className="text-xs text-ink-faint">{placeholderText}</span>

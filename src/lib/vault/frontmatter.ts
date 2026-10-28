@@ -253,7 +253,9 @@ export function emitScalar(value: unknown): string {
 /** 会与 YAML 语法或类型推断冲突的裸标量需要加引号 */
 function needsQuote(text: string): boolean {
   if (text === '') return true
-  if (/^\s|\s$/.test(text)) return true
+  if (/^[\s]|\s$/.test(text)) return true
+  // 多行：裸标量会被 YAML 读成折叠标量，直接破坏结构 —— 用 JSON.stringify 的双引号转义
+  if (/[\r\n]/.test(text)) return true
   // 会被 YAML 推断成别的类型
   if (/^(true|false|null|~|yes|no|on|off)$/i.test(text)) return true
   if (/^[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$/.test(text)) return true

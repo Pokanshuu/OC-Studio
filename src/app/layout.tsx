@@ -11,6 +11,8 @@ import { SeedData } from "@/components/shared/SeedData";
 import { VaultGate } from "@/features/vault";
 import { VaultProvider } from "@/lib/vault/vault-provider";
 import { OverlayRoot } from "@/components/layout/OverlayRoot";
+import { Toaster } from "@/components/shared/toaster";
+import { NativeMenuBlocker } from "@/components/shared/NativeMenuBlocker";
 import { KeyboardProvider } from "@/lib/KeyboardContext";
 import "./globals.css";
 
@@ -66,6 +68,10 @@ export default function RootLayout({
             </SettingsProvider>
             </KeyboardProvider>
           </VaultProvider>
+          {/* Toaster 必须在 VaultGate **外面**：闸门期间（还没绑定文件夹）也要能看见提示 */}
+          <Toaster />
+          {/* 同理：屏蔽 WebView 自带右键菜单也要在闸门外面，否则闸门里右键会弹出「刷新/另存为」 */}
+          <NativeMenuBlocker />
         </Providers>
       <OverlayRoot />
       </body>

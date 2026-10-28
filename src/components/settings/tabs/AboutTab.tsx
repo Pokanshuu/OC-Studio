@@ -1,10 +1,11 @@
 'use client'
 
-import { ExternalLink } from 'lucide-react'
+import { useState } from 'react'
+import { ArrowLeft, ChevronRight, ExternalLink } from 'lucide-react'
 
 import { APP_VERSION } from '@/lib/version'
 import { openExternal } from '@/lib/open-external'
-import { BTN_PRIMARY } from '@/lib/ui-tokens'
+import { BTN_PRIMARY, ICON_BTN } from '@/lib/ui-tokens'
 import { CREDIT_GROUPS, type CreditItem } from '../credits'
 
 const REPO_URL = 'https://github.com/Pokanshuu/OC-Studio'
@@ -27,6 +28,36 @@ function CreditRow({ item }: { item: CreditItem }) {
 }
 
 export function AboutTab() {
+  /** 二级界面：开源许可（一长串致谢不铺在一级页面上） */
+  const [panel, setPanel] = useState<'root' | 'credits'>('root')
+
+  if (panel === 'credits') {
+    return (
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setPanel('root')}
+            aria-label="返回"
+            className={ICON_BTN}
+          >
+            <ArrowLeft size={16} strokeWidth={2} />
+          </button>
+          <span className="text-sm text-ink">开源许可</span>
+        </div>
+
+        {CREDIT_GROUPS.map((group) => (
+          <div key={group.title}>
+            <h3 className="mb-1 text-[11px] tracking-[0.08em] text-ink-faint">{group.title}</h3>
+            {group.items.map((item) => (
+              <CreditRow key={item.name} item={item} />
+            ))}
+          </div>
+        ))}
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
@@ -42,39 +73,24 @@ export function AboutTab() {
         <span className="text-[11px] text-ink-faint">开发中</span>
       </button>
 
-      <div className="flex flex-col items-center gap-1.5">
-        <button
-          type="button"
-          onClick={() => void openExternal(REPO_URL)}
-          className={`${BTN_PRIMARY} w-full justify-center`}
-        >
-          <ExternalLink size={13} strokeWidth={2} />
-          访问 GitHub 项目
-        </button>
-        <span className="text-[11px] text-ink-faint">Pokanshuu / OC-Studio</span>
-      </div>
+      <button
+        type="button"
+        onClick={() => void openExternal(REPO_URL)}
+        className={`${BTN_PRIMARY} w-full justify-center`}
+      >
+        <ExternalLink size={13} strokeWidth={2} />
+        访问 GitHub 项目
+      </button>
 
-      <section className="border-t border-line pt-3">
-        <div className="mb-2 flex items-baseline justify-between">
-          <p className="text-sm text-ink">开源许可</p>
-        </div>
-
-        <div className="mt-3">
-          {CREDIT_GROUPS.map((group) => (
-            <div key={group.title} className="mb-3 last:mb-0">
-              <h3 className="mb-1 text-[11px] tracking-[0.08em] text-ink-faint">{group.title}</h3>
-              {group.items.map((item) => (
-                <CreditRow key={item.name} item={item} />
-              ))}
-            </div>
-          ))}
-        </div>
-
-      </section>
-
-      <p className="border-t border-line pt-3 text-xs text-ink-faint">
-        OC Studio — 原创角色与世界观创作工作台
-      </p>
+      {/* 二级界面入口：开源许可整份收进下一级 */}
+      <button
+        type="button"
+        onClick={() => setPanel('credits')}
+        className="flex items-center justify-between border-t border-line pt-4 text-sm text-ink transition-colors hover:bg-transparent hover:text-ink-muted"
+      >
+        <span>开源许可</span>
+        <ChevronRight size={16} strokeWidth={2} className="text-ink-faint" />
+      </button>
     </div>
   )
 }

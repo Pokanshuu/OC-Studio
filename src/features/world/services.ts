@@ -12,7 +12,8 @@ function buildDefaultEntry(data: WorldFormData, overrides: Partial<WorldEntry> =
   return {
     title: data.title,
     content: data.content ?? '',
-    category: data.category,
+    // 历史字段：界面已经不再编辑它（层级只由 parentId 表达），新条目一律空
+    category: '',
     parentId: data.parentId,
     order: data.order,
     isConcept: data.isConcept,
@@ -47,7 +48,7 @@ export async function updateEntry(id: number, data: Partial<WorldFormData>): Pro
   const now = Date.now()
   const updates: Partial<WorldEntry> = { updatedAt: now, ...pendingStamp(now) }
   type FieldKey = keyof WorldFormData
-  const fields: FieldKey[] = ['title', 'content', 'category', 'parentId', 'order', 'isConcept']
+  const fields: FieldKey[] = ['title', 'content', 'parentId', 'order', 'isConcept']
   for (const field of fields) {
     const newValue = data[field]
     if (newValue !== undefined) {

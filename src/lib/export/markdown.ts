@@ -63,7 +63,6 @@ export async function exportToMarkdown(): Promise<string> {
     lines.push('')
     for (const w of worldEntries) {
       lines.push(`### ${w.title}`)
-      if (w.category) lines.push(`- 分类：${w.category}`)
       if (w.content) { lines.push(''); lines.push(w.content) }
       lines.push('')
     }
@@ -128,7 +127,6 @@ export async function exportToTxt(): Promise<string> {
     lines.push('')
     for (const w of worldEntries) {
       lines.push(`  ${w.title}`)
-      if (w.category) lines.push(`  分类：${w.category}`)
       if (w.content) { lines.push(''); lines.push(`  ${w.content.replace(/\n/g, '\n  ')}`) }
       lines.push('')
     }

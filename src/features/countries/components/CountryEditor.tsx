@@ -8,7 +8,7 @@ import { useCountry, useUpdateCountry } from '../hooks/useCountries'
 import { useCountryForm, mergeCountrySections } from '../hooks/useCountryForm'
 import { ProfileBannerEditor } from '@/components/shared/ProfileBannerEditor'
 import { CountryRelationSection } from './CountryRelationSection'
-import { BTN_PRIMARY, BTN_QUIET, PAGE_TITLE, SECTION_TITLE } from '@/lib/ui-tokens'
+import { BTN_PRIMARY, BTN_QUIET, CENTER_STATE, EDITOR_BODY, EDITOR_HEADER, ICON_BTN_MD, PAGE_TITLE, SECTION_TITLE, TITLE_INPUT } from '@/lib/ui-tokens'
 
 interface CountryEditorProps {
   editCountryId: number
@@ -42,7 +42,7 @@ export function CountryEditor({
 
   if (error) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3">
+      <div className={CENTER_STATE}>
         <span className="text-sm text-error">{error}</span>
         <button
           onClick={onBack}
@@ -56,7 +56,7 @@ export function CountryEditor({
 
   if (!country) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3">
+      <div className={CENTER_STATE}>
         <span className="text-sm text-ink-muted">国家不存在</span>
         <button
           onClick={onBack}
@@ -107,12 +107,12 @@ function CountryEditorInner({
 
   return (
     <div className="flex flex-col min-h-full">
-      <div className="flex items-center justify-between max-md:fixed max-md:top-0 max-md:left-0 max-md:right-0 md:sticky md:top-0 z-10 border-b border-line px-4 max-md:h-[calc(60px+var(--safe-top))] md:h-12 max-md:pt-[var(--safe-top)] bg-paper/85 backdrop-blur-lg">
+      <div className={EDITOR_HEADER}>
         <div className="flex items-center gap-3">
           <button
             data-mobile-back
             onClick={onBack}
-            className="flex h-8 w-8 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink"
+            className={ICON_BTN_MD}
           >
             <ArrowLeft size={16} strokeWidth={2} />
           </button>
@@ -129,7 +129,7 @@ function CountryEditorInner({
         </button>
       </div>
 
-      <div className="flex-1 min-h-0 max-md:pt-[calc(60px+var(--safe-top))]">
+      <div className={EDITOR_BODY}>
         <div className="mx-auto w-full max-w-3xl px-4 py-3 space-y-8 md:px-8 md:py-6">
           {/* Profile header */}
           <section>
@@ -151,7 +151,7 @@ function CountryEditorInner({
               value={form.name}
               onChange={(e) => form.setName(e.target.value)}
               placeholder="国家/地区名称"
-              className="w-full bg-transparent font-serif text-lg text-ink placeholder:text-ink-faint focus:outline-none"
+              className={TITLE_INPUT}
             />
           </div>
 
@@ -169,7 +169,7 @@ function CountryEditorInner({
               onMentionClick={onMentionClick}
               onCharacterCount={onCharacterCount}
               onWikiLinkClick={onWikiLinkClick}
-              onDocChange={form.markDirty}
+              onDocChange={form.handleDocChange}
             />
           </section>
 

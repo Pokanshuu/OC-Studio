@@ -11,7 +11,7 @@ import { ImageGallery } from '@/components/shared/image-gallery/ImageGallery'
 import { ProfileBannerEditor } from '@/components/shared/ProfileBannerEditor'
 import { CharacterInfoSection } from './CharacterInfoSection'
 import { CharacterRelationSection } from './CharacterRelationSection'
-import { BTN_PRIMARY, BTN_QUIET, PAGE_TITLE, SECTION_TITLE } from '@/lib/ui-tokens'
+import { BTN_PRIMARY, BTN_QUIET, CENTER_STATE, EDITOR_BODY, EDITOR_HEADER, ICON_BTN_MD, PAGE_TITLE, SECTION_TITLE, TITLE_INPUT } from '@/lib/ui-tokens'
 
 interface CharacterEditorProps {
   editCharacterId: number
@@ -41,7 +41,7 @@ export function CharacterEditor({ editCharacterId, onBack, onNavigateToCharacter
 
   if (error) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3">
+      <div className={CENTER_STATE}>
         <span className="text-sm text-error">{error}</span>
         <button
           onClick={onBack}
@@ -55,7 +55,7 @@ export function CharacterEditor({ editCharacterId, onBack, onNavigateToCharacter
 
   if (!character) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3">
+      <div className={CENTER_STATE}>
         <span className="text-sm text-ink-muted">角色不存在</span>
         <button
           onClick={onBack}
@@ -107,12 +107,12 @@ function CharacterEditorInner({
 
   return (
     <div className="flex flex-col min-h-full">
-      <div className="flex items-center justify-between max-md:fixed max-md:top-0 max-md:left-0 max-md:right-0 md:sticky md:top-0 z-10 border-b border-line px-4 max-md:h-[calc(60px+var(--safe-top))] md:h-12 max-md:pt-[var(--safe-top)] bg-paper/85 backdrop-blur-lg">
+      <div className={EDITOR_HEADER}>
         <div className="flex items-center gap-3">
           <button
             data-mobile-back
             onClick={onBack}
-            className="flex h-8 w-8 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink"
+            className={ICON_BTN_MD}
           >
             <ArrowLeft size={16} strokeWidth={2} />
           </button>
@@ -129,17 +129,17 @@ function CharacterEditorInner({
         </button>
       </div>
 
-      <div className="flex-1 min-h-0 max-md:pt-[calc(60px+var(--safe-top))]">
+      <div className={EDITOR_BODY}>
         <div className="mx-auto w-full max-w-3xl px-4 py-3 md:px-8 md:py-6">
           {/* Profile header */}
           <section>
             <ProfileBannerEditor
               headerUrl={form.headerUrl}
               avatarUrl={form.avatarUrl}
-              onHeaderChange={(path) => { form.setHeaderUrl(path); form.markDirty() }}
-              onAvatarChange={(path) => { form.setAvatarUrl(path); form.markDirty() }}
-              onHeaderRemove={() => { form.setHeaderUrl(''); form.markDirty() }}
-              onAvatarRemove={() => { form.setAvatarUrl(''); form.markDirty() }}
+              onHeaderChange={form.setHeaderUrl}
+              onAvatarChange={form.setAvatarUrl}
+              onHeaderRemove={() => form.setHeaderUrl('')}
+              onAvatarRemove={() => form.setAvatarUrl('')}
             />
           </section>
 
@@ -151,9 +151,9 @@ function CharacterEditorInner({
                 <input
                   type="text"
                   value={form.name}
-                  onChange={(e) => { form.setName(e.target.value); form.markDirty() }}
+                  onChange={(e) => form.setName(e.target.value)}
                   placeholder="角色名称"
-                  className="w-full bg-transparent font-serif text-lg text-ink placeholder:text-ink-faint focus:outline-none"
+                  className={TITLE_INPUT}
                 />
                 {form.summaryLine ? (
                   <p className="text-sm text-ink-muted">{form.summaryLine}</p>
@@ -174,8 +174,8 @@ function CharacterEditorInner({
                   images={form.avatarUrls}
                   enableCrop
                   cropAspect={9 / 16}
-                  onAdd={(path) => { form.setAvatarUrls((prev) => [...prev, path]); form.markDirty() }}
-                  onRemove={(index) => { form.setAvatarUrls((prev) => prev.filter((_, i) => i !== index)); form.markDirty() }}
+                  onAdd={(path) => form.setAvatarUrls((prev) => [...prev, path])}
+                  onRemove={(index) => form.setAvatarUrls((prev) => prev.filter((_, i) => i !== index))}
                 />
               </section>
 
@@ -193,7 +193,7 @@ function CharacterEditorInner({
                   onMentionClick={onMentionClick}
                   onCharacterCount={onCharacterCount}
                   onWikiLinkClick={onWikiLinkClick}
-                  onDocChange={form.markDirty}
+                  onDocChange={form.handleDocChange}
                 />
               </section>
 
@@ -209,8 +209,8 @@ function CharacterEditorInner({
                 <ImageGallery
                   mode="grid"
                   images={form.galleryUrls}
-                  onAdd={(path) => { form.setGalleryUrls((prev) => [...prev, path]); form.markDirty() }}
-                  onRemove={(index) => { form.setGalleryUrls((prev) => prev.filter((_, i) => i !== index)); form.markDirty() }}
+                  onAdd={(path) => form.setGalleryUrls((prev) => [...prev, path])}
+                  onRemove={(index) => form.setGalleryUrls((prev) => prev.filter((_, i) => i !== index))}
                 />
               </section>
             </div>

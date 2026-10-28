@@ -1,7 +1,7 @@
 'use client'
 
 import { Plus, Menu, ChevronLeft, Search } from 'lucide-react'
-import { PAGE_TITLE } from '@/lib/ui-tokens'
+import { ICON_BTN_MD, PAGE_TITLE } from '@/lib/ui-tokens'
 import type { WorldEntry } from '@/types'
 import { WorldTree } from './WorldTree'
 
@@ -42,7 +42,7 @@ export function WorldTreePanel({
       <div className="flex h-12 items-center justify-between border-b border-line px-3">
         <div className="flex items-center gap-1">
           {isMobile ? (
-            <button onClick={onCloseMobileTree} className="flex h-8 w-8 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink">
+            <button onClick={onCloseMobileTree} className={ICON_BTN_MD}>
               <ChevronLeft size={16} strokeWidth={2} />
             </button>
           ) : null}
@@ -59,7 +59,7 @@ export function WorldTreePanel({
         </div>
         <button
           onClick={() => onCreate(null, '新词条')}
-          className="flex h-8 w-8 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink"
+          className={ICON_BTN_MD}
           title="新建词条"
         >
           <Plus size={16} strokeWidth={2} />

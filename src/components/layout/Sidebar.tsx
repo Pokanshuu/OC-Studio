@@ -61,7 +61,7 @@ export function Sidebar() {
   return (
     <aside
       data-sidebar
-      className="max-md:hidden flex h-full w-[140px] shrink-0 flex-col overflow-y-auto border-r border-line bg-transparent aside-scroll"
+      className="max-md:hidden flex h-full w-[140px] shrink-0 flex-col overflow-y-auto bg-transparent aside-scroll"
     >
       <nav className="flex flex-1 flex-col py-2">
         {/* 主页（概览）：activeItem 为 null 时显示 */}

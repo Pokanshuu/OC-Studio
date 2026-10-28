@@ -17,7 +17,7 @@ export function MenuBar() {
     <nav
       data-menubar
       data-tauri-drag-region
-      className="max-md:hidden relative flex h-8 shrink-0 items-center justify-between border-b border-line bg-transparent px-3"
+      className="max-md:hidden relative flex h-8 shrink-0 items-center justify-between bg-transparent px-3"
     >
       <div className="flex items-center gap-4">
         <button

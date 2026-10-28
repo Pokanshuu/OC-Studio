@@ -3,7 +3,7 @@
 import * as React from "react"
 import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog"
 import { cn } from "@/lib/utils"
-import { PAGE_TITLE } from "@/lib/ui-tokens"
+import { BTN_DANGER, FLOAT_SHADOW, PAGE_TITLE } from "@/lib/ui-tokens"
 
 function AlertDialog({
   ...props
@@ -59,7 +59,7 @@ function AlertDialogContent({
       <AlertDialogPrimitive.Content
         data-slot="alert-dialog-content"
         className={cn(
-          "pointer-events-auto fixed left-[50%] top-[50%] z-[99999] grid w-full max-w-lg max-md:max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 border border-line bg-paper/85 backdrop-blur-lg p-6 rounded-panel shadow-none duration-150 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+          `pointer-events-auto fixed left-[50%] top-[50%] z-[99999] grid w-full max-w-lg max-md:max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 border border-line bg-paper/85 backdrop-blur-lg ${FLOAT_SHADOW} p-6 rounded-panel duration-150 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95`,
           className,
         )}
         {...props}
@@ -120,7 +120,9 @@ function AlertDialogDescription({
   )
 }
 
-/* 按钮不带底色/文字色：由调用方给 bg-ink（主）或 bg-error（破坏性），避免工具类互相覆盖。 */
+/* 确认键 = 全局危险按钮（`BTN_DANGER`，灰调红实心）。
+   本项目的 AlertDialog 只用于「确认后数据就没了」：删除 / 永久删除 / 放弃未保存改动。
+   需要非破坏性的确认对话框时，别改这里 —— 在 Footer 里放普通 button + `BTN_PRIMARY`。 */
 function AlertDialogAction({
   className,
   ...props
@@ -128,10 +130,7 @@ function AlertDialogAction({
   return (
     <AlertDialogPrimitive.Action
       data-slot="alert-dialog-action"
-      className={cn(
-        "touch-feedback inline-flex h-8 items-center justify-center gap-1.5 px-3 text-[13px] transition-opacity hover:opacity-85 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-40",
-        className,
-      )}
+      className={cn(BTN_DANGER, className)}
       {...props}
     />
   )

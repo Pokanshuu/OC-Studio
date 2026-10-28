@@ -1,5 +1,30 @@
-import { isNativePlatform } from '../env'
+import { invoke } from '@tauri-apps/api/core'
+import { save as saveFileDialog } from '@tauri-apps/plugin-dialog'
+
+import { isNativePlatform, isTauri } from '../env'
 import { exportToMarkdown, exportToTxt } from './markdown'
+
+/**
+ * 桌面版走「系统保存对话框 + Rust 落盘」。
+ *
+ * 不能用 `<a download>`：WebView2 里那条路不可靠（下载被宿主接管），
+ * 表现就是「点了导出没反应」——旧版本的内置库备份按钮踩过这个坑。
+ * 浏览器预览（!isTauri）才走 blob 下载。
+ */
+async function saveWithDialog(content: string, filename: string, extensions: string[]): Promise<string | null> {
+  const path = await saveFileDialog({
+    defaultPath: filename,
+    filters: [{ name: '导出文件', extensions }],
+  })
+  if (path === null) return null
+  await invoke<number>('save_text', { path, content })
+  return path
+}
+
+function extensionOf(filename: string): string[] {
+  const dot = filename.lastIndexOf('.')
+  return dot === -1 ? [] : [filename.slice(dot + 1)]
+}
 
 export async function downloadJson(data: unknown, filename?: string): Promise<string> {
   const json = JSON.stringify(data, null, 2)
@@ -9,6 +34,12 @@ export async function downloadJson(data: unknown, filename?: string): Promise<st
   if (isNativePlatform()) {
     await downloadJsonCapacitor(json, name)
     return name
+  }
+
+  if (isTauri()) {
+    const saved = await saveWithDialog(json, name, extensionOf(name))
+    if (saved === null) throw new Error('已取消')
+    return saved
   }
 
   const blob = new Blob([json], { type: 'application/json' })
@@ -54,6 +85,12 @@ async function downloadJsonCapacitor(json: string, filename: string): Promise<vo
 export async function downloadText(content: string, filename: string, mimeType: string): Promise<void> {
   if (isNativePlatform()) {
     await downloadTextCapacitor(content, filename)
+    return
+  }
+
+  if (isTauri()) {
+    const saved = await saveWithDialog(content, filename, extensionOf(filename))
+    if (saved === null) throw new Error('已取消')
     return
   }
 

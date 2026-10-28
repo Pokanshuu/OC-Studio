@@ -48,10 +48,7 @@ function ConfirmDeleteDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>取消</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={onConfirm}
-            className="bg-error text-paper hover:bg-error"
-          >
+          <AlertDialogAction onClick={onConfirm}>
             永久删除
           </AlertDialogAction>
         </AlertDialogFooter>
@@ -131,7 +128,7 @@ export function TrashView({ onClose }: TrashViewProps) {
       onClick={(e) => { if (e.target === e.currentTarget) handleClose() }}
     >
       <div
-        className={`flex max-md:w-[calc(100%-2rem)] max-md:min-h-[40vh] max-md:max-h-[calc(100vh-4rem)] max-md:my-4 h-[80vh] w-[80vw] max-w-5xl flex-col overflow-auto border border-line bg-paper transition-opacity duration-150 ${ROUND_PANEL}`}
+        className={`flex max-md:w-[calc(100%-2rem)] max-md:min-h-[40vh] max-md:max-h-[calc(100vh-4rem)] max-md:my-4 h-[80vh] w-[80vw] max-w-5xl flex-col overflow-auto border border-line bg-paper float-shadow transition-opacity duration-150 ${ROUND_PANEL}`}
         style={{ opacity: visible ? 1 : 0 }}
       >
         <div className="flex h-12 shrink-0 items-center justify-between sticky top-0 z-10 border-b border-line px-4 bg-paper/85 backdrop-blur-lg">

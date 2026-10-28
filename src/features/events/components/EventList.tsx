@@ -20,10 +20,13 @@ import { useDevice } from '@/lib/use-device'
 import { MobileFab } from '@/components/layout/MobileFab'
 import { EventCard, EventRow } from './EventListItems'
 import { EventListToolbar } from './EventListToolbar'
-import { readViewPreference, writeViewPreference } from './event-list-utils'
+import { readViewPreference, writeViewPreference, SORT_STORAGE_KEY } from './event-list-utils'
 import type { SortKey } from './event-list-utils'
+import { readSortKey, writeSortKey } from '@/lib/sort-manual'
 import type { ViewMode } from '@/components/shared/SortViewControls'
-import { BTN_QUIET } from '@/lib/ui-tokens'
+import { SortableList, moveId } from '@/components/shared/list-dnd'
+import { useReorderEvents } from '../hooks/useEvents'
+import { BTN_QUIET, CENTER_STATE, EMPTY_HINT, LIST_GRID } from '@/lib/ui-tokens'
 
 interface EventListProps {
   events: Event[]
@@ -44,7 +47,7 @@ export function EventList({
 }: EventListProps) {
   const { isMobile } = useDevice()
   const handleSelect = useMemo(() => withTouchFeedback(onSelectEvent), [onSelectEvent])
-  const [sortKey, setSortKey] = useState<SortKey>('updatedAt')
+  const [sortKey, setSortKey] = useState<SortKey>(() => readSortKey(SORT_STORAGE_KEY, 'updatedAt'))
   const [viewMode, setViewMode] = useState<ViewMode>(readViewPreference)
   const [search, setSearch] = useState('')
   const [actionSheet, setActionSheet] = useState<{ open: boolean; title: string; actions: ActionItem[] }>({
@@ -77,10 +80,26 @@ export function EventList({
     return sortEvents(result, sortKey)
   }, [events, sortKey, search])
 
+  const handleSortChange = (key: SortKey) => {
+    setSortKey(key)
+    writeSortKey(SORT_STORAGE_KEY, key)
+  }
+
   const handleViewChange = (mode: ViewMode) => {
     setViewMode(mode)
     writeViewPreference(mode)
   }
+
+  const manual = sortKey === 'manual'
+  const reorderEvents = useReorderEvents()
+
+  const handleReorder = useCallback(
+    (activeId: number | string, overId: number | string) => {
+      const base = sortEvents(events, 'manual').map((e) => e.id)
+      void reorderEvents(moveId(base, Number(activeId), Number(overId)))
+    },
+    [events, reorderEvents],
+  )
 
   if (loading) {
     return (
@@ -92,7 +111,7 @@ export function EventList({
 
   if (error) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3">
+      <div className={CENTER_STATE}>
         <span className="text-sm text-error">{error}</span>
         <button
           onClick={onCreateEvent}
@@ -110,7 +129,7 @@ export function EventList({
         search={search}
         onSearchChange={setSearch}
         sortKey={sortKey}
-        onSortKeyChange={setSortKey}
+        onSortKeyChange={handleSortChange}
         viewMode={viewMode}
         onViewModeChange={handleViewChange}
         onCreateEvent={onCreateEvent}
@@ -123,38 +142,54 @@ export function EventList({
           <div className="flex-1 flex items-center justify-center">
             <button
               onClick={onCreateEvent}
-              className="font-serif text-sm text-ink-faint transition-colors hover:text-ink"
+              className={EMPTY_HINT}
             >
               暂无事件，点击创建第一个
             </button>
           </div>
         ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-            {filteredEvents.map((event) => (
-              <div key={event.id} className="[break-inside:avoid] mb-4">
-                <EventCard
+          <SortableList
+            ids={filteredEvents.map((e) => e.id)}
+            onReorder={handleReorder}
+            layout="grid"
+            disabled={!manual}
+          >
+            <div className={LIST_GRID}>
+              {filteredEvents.map((event) => (
+                <div key={event.id} className="[break-inside:avoid] mb-4">
+                  <EventCard
+                    event={event}
+                    onSelect={handleSelect}
+                    onDelete={onDeleteEvent}
+                    onLongPress={() => openActionSheet(event)}
+                    isMobile={isMobile}
+                    sortable={manual}
+                  />
+                </div>
+              ))}
+            </div>
+          </SortableList>
+        ) : (
+          <SortableList
+            ids={filteredEvents.map((e) => e.id)}
+            onReorder={handleReorder}
+            layout="list"
+            disabled={!manual}
+          >
+            <div className="flex flex-col rules-end">
+              {filteredEvents.map((event) => (
+                <EventRow
+                  key={event.id}
                   event={event}
                   onSelect={handleSelect}
                   onDelete={onDeleteEvent}
                   onLongPress={() => openActionSheet(event)}
                   isMobile={isMobile}
+                  sortable={manual}
                 />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="flex flex-col divide-y divide-line">
-            {filteredEvents.map((event) => (
-              <EventRow
-                key={event.id}
-                event={event}
-                onSelect={handleSelect}
-                onDelete={onDeleteEvent}
-                onLongPress={() => openActionSheet(event)}
-                isMobile={isMobile}
-              />
-            ))}
-          </div>
+              ))}
+            </div>
+          </SortableList>
         )}
         <MobileFab viewMode={viewMode} onViewModeChange={handleViewChange} />
       </div>

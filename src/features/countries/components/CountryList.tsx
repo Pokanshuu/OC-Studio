@@ -15,15 +15,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { useCountryList } from '../hooks/useCountries'
+import { useCountryList, useReorderCountries } from '../hooks/useCountries'
 import { useDevice } from '@/lib/use-device'
 import { MobileFab } from '@/components/layout/MobileFab'
 import { CountryCard, CountryRow } from './CountryListItems'
 import { CountryListToolbar } from './CountryListToolbar'
-import { readViewPreference, writeViewPreference, sortCountryList } from './country-list-utils'
+import { readViewPreference, writeViewPreference, sortCountryList, SORT_STORAGE_KEY } from './country-list-utils'
 import type { CountrySortKey } from './country-list-utils'
+import { readSortKey, writeSortKey } from '@/lib/sort-manual'
 import type { ViewMode } from '@/components/shared/SortViewControls'
-import { BTN_QUIET } from '@/lib/ui-tokens'
+import { SortableList, moveId } from '@/components/shared/list-dnd'
+import { BTN_QUIET, CENTER_STATE, EMPTY_HINT, LIST_GRID } from '@/lib/ui-tokens'
 
 interface CountryListProps {
   onSelectCountry: (id: number) => void
@@ -40,7 +42,7 @@ export function CountryList({
   const handleSelect = useMemo(() => withTouchFeedback(onSelectCountry), [onSelectCountry])
   const { countries, loading, error } = useCountryList()
   const [search, setSearch] = useState('')
-  const [sortKey, setSortKey] = useState<CountrySortKey>('updatedAt')
+  const [sortKey, setSortKey] = useState<CountrySortKey>(() => readSortKey(SORT_STORAGE_KEY, 'updatedAt'))
   const [viewMode, setViewMode] = useState<ViewMode>(readViewPreference)
   const [actionSheet, setActionSheet] = useState<{ open: boolean; title: string; actions: ActionItem[] }>({
     open: false, title: '', actions: [],
@@ -73,10 +75,26 @@ export function CountryList({
     return sortCountryList(result, sortKey)
   }, [countries, sortKey, search])
 
+  const handleSortChange = (key: CountrySortKey) => {
+    setSortKey(key)
+    writeSortKey(SORT_STORAGE_KEY, key)
+  }
+
   const handleViewChange = (mode: ViewMode) => {
     setViewMode(mode)
     writeViewPreference(mode)
   }
+
+  const manual = sortKey === 'manual'
+  const reorderCountries = useReorderCountries()
+
+  const handleReorder = useCallback(
+    (activeId: number | string, overId: number | string) => {
+      const base = sortCountryList(countries, 'manual').map((c) => c.id)
+      void reorderCountries(moveId(base, Number(activeId), Number(overId)))
+    },
+    [countries, reorderCountries],
+  )
 
   if (loading) {
     return (
@@ -88,7 +106,7 @@ export function CountryList({
 
   if (error) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3">
+      <div className={CENTER_STATE}>
         <span className="text-sm text-error">{error}</span>
         <button
           onClick={onCreateCountry}
@@ -106,7 +124,7 @@ export function CountryList({
         search={search}
         onSearchChange={setSearch}
         sortKey={sortKey}
-        onSortKeyChange={setSortKey}
+        onSortKeyChange={handleSortChange}
         viewMode={viewMode}
         onViewModeChange={handleViewChange}
         onCreateCountry={onCreateCountry}
@@ -119,38 +137,54 @@ export function CountryList({
           <div className="flex-1 flex items-center justify-center">
             <button
               onClick={onCreateCountry}
-              className="font-serif text-sm text-ink-faint transition-colors hover:text-ink"
+              className={EMPTY_HINT}
             >
               暂无国家，点击创建第一个
             </button>
           </div>
         ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-            {filtered.map((country) => (
-              <div key={country.id} className="[break-inside:avoid] mb-4">
-                <CountryCard
+          <SortableList
+            ids={filtered.map((c) => c.id)}
+            onReorder={handleReorder}
+            layout="grid"
+            disabled={!manual}
+          >
+            <div className={LIST_GRID}>
+              {filtered.map((country) => (
+                <div key={country.id} className="[break-inside:avoid] mb-4">
+                  <CountryCard
+                    country={country}
+                    onSelect={handleSelect}
+                    onDelete={onDeleteCountry}
+                    onLongPress={() => openActionSheet(country)}
+                    isMobile={isMobile}
+                    sortable={manual}
+                  />
+                </div>
+              ))}
+            </div>
+          </SortableList>
+        ) : (
+          <SortableList
+            ids={filtered.map((c) => c.id)}
+            onReorder={handleReorder}
+            layout="list"
+            disabled={!manual}
+          >
+            <div className="flex flex-col rules-end">
+              {filtered.map((country) => (
+                <CountryRow
+                  key={country.id}
                   country={country}
                   onSelect={handleSelect}
                   onDelete={onDeleteCountry}
                   onLongPress={() => openActionSheet(country)}
                   isMobile={isMobile}
+                  sortable={manual}
                 />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="flex flex-col divide-y divide-line">
-            {filtered.map((country) => (
-              <CountryRow
-                key={country.id}
-                country={country}
-                onSelect={handleSelect}
-                onDelete={onDeleteCountry}
-                onLongPress={() => openActionSheet(country)}
-                isMobile={isMobile}
-              />
-            ))}
-          </div>
+              ))}
+            </div>
+          </SortableList>
         )}
         <MobileFab viewMode={viewMode} onViewModeChange={handleViewChange} />
       </div>

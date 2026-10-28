@@ -3,6 +3,7 @@
 import { RelatedItemsSelector } from '@/components/shared/RelatedItemsSelector'
 import { TagPicker } from '@/features/tags'
 import { FIELD_LABEL, LIST_END, FIELD_ROW_TOP, SECTION_TITLE } from '@/lib/ui-tokens'
+import { useFields } from '@/lib/fields'
 import type { EventForm } from '../hooks/useEventForm'
 
 /** 关联：相关角色 / 相关国家 / 标签 */
@@ -13,6 +14,8 @@ export function EventRelationSection({
   form: EventForm
   onNavigateItem?: (id: number, type?: string) => void
 }) {
+  const fields = useFields('event')
+  const showTags = fields.some((field) => field.id === 'tags')
   return (
     <section>
       <h3 className={SECTION_TITLE}>关联</h3>
@@ -43,12 +46,14 @@ export function EventRelationSection({
           </div>
         </div>
 
-        <div className={FIELD_ROW_TOP}>
-          <span className={FIELD_LABEL}>标签</span>
-          <div className="min-w-0 flex-1">
-            <TagPicker selectedIds={form.tags} onChange={form.setTags} />
+        {showTags ? (
+          <div className={FIELD_ROW_TOP}>
+            <span className={FIELD_LABEL}>标签</span>
+            <div className="min-w-0 flex-1">
+              <TagPicker selectedIds={form.tags} onChange={form.setTags} />
+            </div>
           </div>
-        </div>
+        ) : null}
       </div>
     </section>
   )

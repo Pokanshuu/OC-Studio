@@ -3,13 +3,14 @@
 import { useMemo } from 'react'
 import { Plus } from 'lucide-react'
 import { Avatar } from '@/components/shared/Avatar'
-import { getImageUrl } from '@/lib/image-service'
+import { StretchyHeader } from '@/components/shared/StretchyHeader'
+import { getImageUrl, resolveImageUrl } from '@/lib/image-service'
 import { useProjectMeta } from '@/features/project'
 import { useCharacterList } from '@/features/characters/hooks/useCharacters'
 import { useEventList } from '@/features/events/hooks/useEvents'
 import { useCountryList } from '@/features/countries/hooks/useCountries'
 import { useEntryList } from '@/features/world/hooks/useWorldEntries'
-import { LIST_END, PAGE_TITLE, SECTION_TITLE } from '@/lib/ui-tokens'
+import { MEDIA_IMG, PAGE_TITLE, SECTION_TITLE } from '@/lib/ui-tokens'
 
 interface DashboardProps {
   /** 打开某个实体 */
@@ -49,6 +50,7 @@ function requestCreate(type: 'character' | 'event' | 'country') {
 /**
  * 概览（第一屏）。
  * 只呈现「世界是谁 + 有多少东西 + 最近在做什么」，不放图表不放卡片墙。
+ * 世界的封面（设置 → 世界）就是这一页的头图，没设封面时不占位、也不出灰块。
  */
 export function Dashboard({ onNavigate, onOpenSection }: DashboardProps) {
   const { meta } = useProjectMeta()
@@ -56,6 +58,8 @@ export function Dashboard({ onNavigate, onOpenSection }: DashboardProps) {
   const { events } = useEventList()
   const { countries } = useCountryList()
   const { entries } = useEntryList()
+
+  const coverSrc = meta.coverUrl.trim() ? resolveImageUrl(meta.coverUrl, 'header') : ''
 
   const majorCharacters = useMemo(
     () => characters.filter((c) => c.isMajor),
@@ -85,9 +89,21 @@ export function Dashboard({ onNavigate, onOpenSection }: DashboardProps) {
 
   return (
     <div className="flex min-h-full flex-col">
-      <div className="mx-auto w-full max-w-3xl px-6 py-12 md:px-8 md:py-16">
+      <div
+        className={`mx-auto w-full max-w-3xl px-6 md:px-8 ${
+          coverSrc ? 'pb-12 pt-6 md:pb-16 md:pt-8' : 'py-12 md:py-16'
+        }`}
+      >
+        {/* 世界封面 = 这一页的头图（与实体编辑器同一套弹性行为） */}
+        {coverSrc ? (
+          <StretchyHeader className="rounded-item bg-paper-card">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={coverSrc} alt="" className={MEDIA_IMG} />
+          </StretchyHeader>
+        ) : null}
+
         {/* 世界 */}
-        <header className="flex flex-col gap-2">
+        <header className={`flex flex-col gap-2 ${coverSrc ? 'mt-8 md:mt-10' : ''}`}>
           <span className="text-[11px] tracking-[0.14em] text-ink-faint">当前世界</span>
           <h1 className={PAGE_TITLE}>
             {meta.worldName.trim() || '未命名世界'}
@@ -103,7 +119,7 @@ export function Dashboard({ onNavigate, onOpenSection }: DashboardProps) {
             <button
               key={s.label}
               onClick={() => onOpenSection(s.item)}
-              className="group flex items-baseline justify-between border-b border-line px-2 py-2 text-left"
+              className="group row-rule flex items-baseline justify-between px-2 py-2 text-left transition-colors"
             >
               <span className="text-[13px] text-ink-muted transition-colors group-hover:text-ink">{s.label}</span>
               <span className="font-serif text-[15px] text-ink tabular-nums">{s.value}</span>
@@ -139,12 +155,12 @@ export function Dashboard({ onNavigate, onOpenSection }: DashboardProps) {
         <section className="mt-12">
           <h2 className={SECTION_TITLE}>最近更新</h2>
           {recent.length > 0 ? (
-            <div className={`-mx-2 flex flex-col ${LIST_END}`}>
+            <div className="-mx-2 flex flex-col rules-end">
               {recent.map((r) => (
                 <button
                   key={`${r.type}-${r.id}`}
                   onClick={() => onNavigate(r.id, r.type)}
-                  className="flex items-center gap-4 border-b border-line px-2 py-2 text-left transition-colors hover:bg-[var(--oc-hover)]"
+                  className="row-rule flex items-center gap-4 px-2 py-2 text-left transition-colors hover:bg-[var(--oc-hover)]"
                 >
                   <span className="w-8 shrink-0 text-[11px] text-ink-faint">{TYPE_LABEL[r.type]}</span>
                   <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{r.name}</span>
@@ -170,7 +186,7 @@ export function Dashboard({ onNavigate, onOpenSection }: DashboardProps) {
                 <button
                   key={a.type}
                   onClick={() => requestCreate(a.type)}
-                  className="flex items-center gap-1.5 border-b border-line px-1.5 py-1 text-[13px] text-ink-muted transition-colors hover:border-ink hover:text-ink"
+                  className="flex items-center gap-1.5 px-1.5 py-1 text-[13px] text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink"
                 >
                   <Plus size={13} strokeWidth={2} />
                   {a.label}

@@ -62,7 +62,7 @@ export function isVaultSupported(): boolean {
 
 function requireSupport(): void {
   if (!isVaultSupported()) {
-    throw new Error('仓库只在桌面版可用（需要访问本地文件夹）')
+    throw new Error('本地文件夹只在桌面版可用（需要访问本地文件系统）')
   }
 }
 

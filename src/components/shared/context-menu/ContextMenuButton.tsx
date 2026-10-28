@@ -20,7 +20,7 @@ export function ContextMenuButton({
       }}
       className={`${MENU_ITEM_BASE} ${
         item.danger
-          ? 'text-error hover:bg-error-light dark:hover:bg-red-950/30'
+          ? 'text-error hover:bg-error-light'
           : item.disabled
             ? 'text-ink-faint'
             : 'text-ink hover:bg-[var(--oc-hover)]'

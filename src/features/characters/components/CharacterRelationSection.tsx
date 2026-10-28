@@ -63,7 +63,6 @@ export function CharacterRelationSection({
                         const next = [...relatedCharacters]
                         next[idx] = { ...next[idx], relation: e.target.value }
                         setRelatedCharacters(next)
-                        form.markDirty()
                       }}
                       placeholder="关系"
                       className="w-32 bg-transparent text-right text-[13px] text-ink placeholder:text-ink-faint focus:outline-none"

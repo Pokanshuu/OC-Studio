@@ -103,7 +103,7 @@ registerEntityType({
         type: 'world',
         id: String(w.id),
         name: w.title,
-        keywords: [w.category].filter(Boolean),
+        keywords: w.aliases ?? [],
       }))
   },
 })

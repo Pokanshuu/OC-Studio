@@ -43,10 +43,43 @@ export async function getTimelineEvents(
     return a.time.localeCompare(b.time)
   })
 
-  return [
+  const events: TimelineEvent[] = [
     ...withTime.map(pickTimelineFields),
     ...withoutTime.map(pickTimelineFields),
   ]
+
+  // 角色生日合成「出生」节点：只有**年份能读出来**才上时间线（「不详」这类自由文本不上）。
+  const births = await getBirthNodes(filter)
+  if (births.length === 0) return events
+
+  return [...events, ...births].sort((a, b) => {
+    const aYear = parseYear(a.time) ?? 0
+    const bYear = parseYear(b.time) ?? 0
+    return aYear - bYear
+  })
+}
+
+/**
+ * 出生节点。id 取负数，与事件 id 分属两个空间 ——
+ * 时间线里所有回调都只认 id，负数前缀是「这是角色，不是事件」的唯一标记。
+ * 按国家筛选时不掺进来：出生没有国家归属。
+ */
+async function getBirthNodes(filter?: TimelineFilter): Promise<TimelineEvent[]> {
+  if (filter?.countryId !== undefined) return []
+
+  const characters = await db.characters.toArray()
+  return characters
+    .filter((c) => !c.deleted && parseYear(c.birthday) !== null)
+    .filter((c) => filter?.characterId === undefined || c.id === filter.characterId)
+    .map((c) => ({
+      id: -c.id,
+      title: `${c.name}出生`,
+      time: c.birthday,
+      summary: c.birthday,
+      isMajor: true,
+      kind: 'birth' as const,
+      characterId: c.id,
+    }))
 }
 
 export async function updateEventTime(

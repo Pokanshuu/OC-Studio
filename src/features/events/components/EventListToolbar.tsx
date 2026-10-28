@@ -3,7 +3,7 @@
 import { Search, Plus } from 'lucide-react'
 import { SortViewControls, SortSelect } from '@/components/shared/SortViewControls'
 import type { ViewMode } from '@/components/shared/SortViewControls'
-import { BTN_PRIMARY, PAGE_TITLE } from '@/lib/ui-tokens'
+import { BTN_PRIMARY, MOBILE_FILTER_BTN, PAGE_TITLE, SEARCH_ICON, SEARCH_INPUT, TOOLBAR } from '@/lib/ui-tokens'
 import { MobileFilterBar } from '@/components/layout/MobileFilterBar'
 import { SORT_OPTIONS } from './event-list-utils'
 import type { SortKey } from './event-list-utils'
@@ -30,21 +30,21 @@ export function EventListToolbar({
 }: EventListToolbarProps) {
   return (
     <>
-      <div className="max-md:hidden flex items-center justify-between sticky top-0 z-10 h-12 border-b border-line px-6 bg-paper/85 backdrop-blur-lg">
+      <div className={TOOLBAR}>
         <div className="flex items-center gap-4">
           <h2 className={PAGE_TITLE}>事件</h2>
           <div className="relative max-md:hidden md:block">
             <Search
               size={16}
               strokeWidth={2}
-              className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-faint"
+              className={SEARCH_ICON}
             />
             <input
               type="text"
               value={search}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder="搜索事件..."
-              className="h-8 w-44 border-b border-transparent bg-transparent pl-8 pr-2 text-[13px] text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none"
+              className={SEARCH_INPUT}
             />
           </div>
           <SortViewControls
@@ -72,7 +72,7 @@ export function EventListToolbar({
         />
         <button
           onClick={onCreateEvent}
-          className="touch-feedback flex items-center gap-1 bg-paper/85 px-2 py-1 text-[11px] text-ink-muted backdrop-blur transition-colors hover:text-ink"
+          className={MOBILE_FILTER_BTN}
         >
           <Plus size={14} strokeWidth={2} />
           <span>新建</span>

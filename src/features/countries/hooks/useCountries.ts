@@ -124,3 +124,12 @@ export function useDeleteCountry(): {
     deleting: mutation.isPending,
   }
 }
+
+/** 拖拽排序后写回顺序，并刷新列表 */
+export function useReorderCountries(): (ids: number[]) => Promise<void> {
+  const queryClient = useQueryClient()
+  return async (ids: number[]) => {
+    await countryService.reorderCountries(ids)
+    await queryClient.invalidateQueries({ queryKey: LIST_KEY })
+  }
+}

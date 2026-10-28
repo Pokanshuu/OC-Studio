@@ -1,4 +1,8 @@
 import { db } from '@/lib/db'
+import { loadFieldConfig } from '@/lib/fields/store'
+import { getFieldConfig } from '@/lib/fields/store'
+import { FIELD_KINDS } from '@/lib/fields/types'
+import { setCustomFieldKeys } from './vault-field-keys'
 import type { VaultScanResult, VaultStorableKind } from './types'
 import { scanVault } from './scan'
 import { vaultFs } from './vault-fs'
@@ -238,15 +242,29 @@ export async function applyDataset(scan: VaultScanResult): Promise<void> {
   })
 }
 
-/**
- * 打开一个 vault：读盘 → 整库替换 → 建立会话。
- * 返回装载结果以便 UI 展示扫描报告。
- */
+/** 把当前字段表里的自定义键登记给 scan / serialize（它们不 import 字段表，见 vault-field-keys） */
+function ensureCustomFieldKeys(): void {
+  const config = getFieldConfig()
+  const kinds: Partial<Record<'character' | 'event' | 'worldEntry', string[]>> = {}
+  for (const kind of FIELD_KINDS) {
+    const keys = config[kind]
+      .map((field) => field.key)
+      .filter((key): key is string => typeof key === 'string' && key !== '')
+    if (keys.length > 0) kinds[kind] = keys
+  }
+  setCustomFieldKeys(kinds)
+}
+
+/** 打开一个 vault：读盘 → 整库替换 → 建立会话。
+ *  返回装载结果以便 UI 展示扫描报告。 */
 export async function loadVault(root: string): Promise<VaultLoadResult> {
   resetVaultWriteState()
+  ensureCustomFieldKeys()
   const result = await readVault(root)
   await applyDataset(result.scan)
   setVaultSession(result.session)
+  // 字段表跟文件夹走：会话建立后才能知道读哪个 fields.json
+  await loadFieldConfig()
   return result
 }
 
@@ -254,4 +272,6 @@ export async function loadVault(root: string): Promise<VaultLoadResult> {
 export function closeVaultSession(): void {
   resetVaultWriteState()
   setVaultSession(null)
+  // 退回到内置库那份配置
+  void loadFieldConfig()
 }

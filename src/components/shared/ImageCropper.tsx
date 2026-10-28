@@ -7,7 +7,7 @@ import type { Area, Point } from 'react-easy-crop'
 import { RotateCcw, RotateCw, Check, X, ZoomOut, ZoomIn, Loader2 } from 'lucide-react'
 import { getCroppedBlob } from '@/lib/image-crop'
 import 'react-easy-crop/react-easy-crop.css'
-import { BTN_PRIMARY } from '@/lib/ui-tokens'
+import { BTN_PRIMARY, ICON_BTN_MD } from '@/lib/ui-tokens'
 
 interface ImageCropperProps {
   open: boolean
@@ -75,7 +75,7 @@ export function ImageCropper({
         <h2 className="text-base font-medium text-ink">裁剪图片</h2>
         <button
           onClick={onClose}
-          className="flex h-8 w-8 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink"
+          className={ICON_BTN_MD}
         >
           <X size={20} strokeWidth={2} />
         </button>
