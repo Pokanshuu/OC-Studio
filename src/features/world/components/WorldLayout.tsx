@@ -5,6 +5,7 @@ import { Menu } from 'lucide-react'
 import { EditorCore } from '@/components/editor/EditorCore'
 import { useDevice } from '@/lib/use-device'
 import type { WorldEntry } from '@/types'
+import { EntityHistoryButton } from '@/features/vault'
 import { useEntryList, useEntry, useCreateEntry, useDeleteEntry } from '../hooks/useWorldEntries'
 import { renameEntry, reorderEntries, updateEntry } from '../services'
 import { TagPicker } from '@/features/tags'
@@ -205,6 +206,7 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
                   placeholder="词条标题"
                   className="h-8 flex-1 min-w-0 bg-transparent font-serif text-lg text-ink placeholder:text-ink-faint focus:outline-none"
                 />
+                <EntityHistoryButton table="worldEntries" id={currentEntry.id} name={title} />
               </div>
 
               <div className="mx-auto w-full max-w-3xl px-4 md:px-8">

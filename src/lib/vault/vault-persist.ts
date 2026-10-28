@@ -2,6 +2,7 @@ import type { DBCoreMutateRequest } from 'dexie'
 
 import { db } from '@/lib/db'
 import { setBody, setFrontmatterKeys } from './frontmatter'
+import { appendJournal, type JournalDraft } from './journal'
 import { serializeEntity, type FrontmatterUpdates, type SerializeContext } from './serialize'
 import { allocateRelPath, normalizeRelPath, originalRelPathFromTrash, pickPreferredFolder, trashRelPath } from './vault-paths'
 import {
@@ -325,8 +326,18 @@ function mergeFrontmatter(
   return next
 }
 
-/** 某类型既有笔记所在目录（用于给新文件挑目录） */
-function foldersOfKind(session: NonNullable<ReturnType<typeof getVaultSession>>, kind: string): string[] {
+/** 实体的展示名（角色/国家/标签/时期用 name，其余用 title）—— 时间线里要用 */
+function titleOfRow(table: VaultTableName, entity: unknown): string {
+  const record = (entity ?? {}) as Record<string, unknown>
+  const name = record.name
+  const title = record.title
+  if (typeof name === 'string' && name.trim() !== '') return name
+  if (typeof title === 'string' && title.trim() !== '') return title
+  void table
+  return ''
+}
+
+/** 某类型既有笔记所在目录（用于给新文件挑目录） */function foldersOfKind(session: NonNullable<ReturnType<typeof getVaultSession>>, kind: string): string[] {
   const folders: string[] = []
   for (const state of session.entries.values()) {
     if (state.kind !== kind) continue
@@ -345,6 +356,11 @@ interface PlannedWrite {
   content: string
   expectedMtimeMs?: number
   nextState: VaultEntryState
+  /** 时间线用：实体标题、这次改到的键、写之前的原文（算上一版哈希）、是不是新建 */
+  title: string
+  changedKeys: string[]
+  prevContent: string
+  isNew: boolean
 }
 
 async function planTextWrite(
@@ -422,6 +438,10 @@ async function planTextWrite(
     content,
     expectedMtimeMs: state !== undefined && state.mtimeMs > 0 ? state.mtimeMs : undefined,
     nextState,
+    title,
+    changedKeys: [...Object.keys(updates), ...(bodyChanged ? ['body'] : [])],
+    prevContent: baseContent,
+    isNew,
   }
 }
 
@@ -549,8 +569,10 @@ export async function flushVaultWrites(): Promise<VaultFlushReport> {
 
     const texts: VaultWriteEntry[] = []
     const planned: PlannedWrite[] = []
-    const moves: { from: string; to: string; kind: 'trash' | 'restore' }[] = []
-    const removals: string[] = []
+    const moves: { from: string; to: string; kind: 'trash' | 'restore'; title: string }[] = []
+    const removals: { relPath: string; title: string }[] = []
+    /** 时间线：本轮真正写成功的改动 */
+    const journalDrafts: JournalDraft[] = []
 
     for (const item of batch) {
       const kind = KIND_BY_TABLE[item.table]
@@ -603,9 +625,9 @@ export async function flushVaultWrites(): Promise<VaultFlushReport> {
       if (row === undefined) {
         if (state === undefined) continue
         if (state.trashed) {
-          removals.push(state.relPath)
+          removals.push({ relPath: state.relPath, title: titleOfRow(state.table, state.entity) })
         } else if (state.relPath !== '') {
-          moves.push({ from: state.relPath, to: trashRelPath(state.relPath), kind: 'trash' })
+          moves.push({ from: state.relPath, to: trashRelPath(state.relPath), kind: 'trash', title: titleOfRow(state.table, state.entity) })
         }
         session.entries.delete(key)
         session.byPath.delete(state.relPath)
@@ -618,7 +640,7 @@ export async function flushVaultWrites(): Promise<VaultFlushReport> {
 
       if (nowTrashed && !wasTrashed && state !== undefined && state.relPath !== '') {
         const target = trashRelPath(state.relPath)
-        moves.push({ from: state.relPath, to: target, kind: 'trash' })
+        moves.push({ from: state.relPath, to: target, kind: 'trash', title: titleOfRow(state.table, row) })
         state.trashed = true
         state.entity = row
         session.byPath.delete(state.relPath)
@@ -632,7 +654,7 @@ export async function flushVaultWrites(): Promise<VaultFlushReport> {
       if (!nowTrashed && wasTrashed && state !== undefined) {
         const restored = originalRelPathFromTrash(state.relPath)
         if (restored !== null) {
-          moves.push({ from: state.relPath, to: restored, kind: 'restore' })
+          moves.push({ from: state.relPath, to: restored, kind: 'restore', title: titleOfRow(state.table, row) })
           session.byPath.delete(state.relPath)
           session.byPath.set(restored, key)
           session.occupied.delete(state.relPath)
@@ -675,17 +697,35 @@ export async function flushVaultWrites(): Promise<VaultFlushReport> {
         await withTimeout(vaultFs.move(session.root, move.from, move.to), `移动 ${move.from}`)
         if (move.kind === 'trash') report.movedToTrash += 1
         else report.restored += 1
+        // 历史永远记「规范路径」：进回收站也记原标题，否则还原之后这段就查不到了
+        journalDrafts.push({
+          kind: move.kind === 'trash' ? 'trash' : 'restore',
+          relPath: move.kind === 'trash' ? move.from : move.to,
+          title: move.title,
+          keys: [],
+          // 移动没有新内容，用「标题 + 时间」占位，让哈希仍能区分不同条目
+          content: `${move.to}@${Date.now()}`,
+          prevContent: '',
+        })
       } catch (err) {
         report.errors.push({ relPath: move.from, message: err instanceof Error ? err.message : String(err) })
       }
     }
 
-    for (const target of removals) {
+    for (const removal of removals) {
       try {
-        await withTimeout(vaultFs.remove(session.root, target), `删除 ${target}`)
+        await withTimeout(vaultFs.remove(session.root, removal.relPath), `删除 ${removal.relPath}`)
         report.removed += 1
+        journalDrafts.push({
+          kind: 'remove',
+          relPath: originalRelPathFromTrash(removal.relPath) ?? removal.relPath,
+          title: removal.title,
+          keys: [],
+          content: `${removal.relPath}@${Date.now()}`,
+          prevContent: '',
+        })
       } catch (err) {
-        report.errors.push({ relPath: target, message: err instanceof Error ? err.message : String(err) })
+        report.errors.push({ relPath: removal.relPath, message: err instanceof Error ? err.message : String(err) })
       }
     }
 
@@ -700,6 +740,14 @@ export async function flushVaultWrites(): Promise<VaultFlushReport> {
           session.entries.set(write.key, write.nextState)
           session.byPath.set(write.relPath, write.key)
           session.occupied.add(write.relPath)
+          journalDrafts.push({
+            kind: write.isNew ? 'create' : 'update',
+            relPath: write.relPath,
+            title: write.title,
+            keys: write.changedKeys,
+            content: write.content,
+            prevContent: write.prevContent,
+          })
           return
         }
         if (result.conflict) {
@@ -714,6 +762,13 @@ export async function flushVaultWrites(): Promise<VaultFlushReport> {
     }
 
     await withTimeout(flushTagMeta(report), '写入 tags.json')
+
+    // 时间线：只追加。**绝不能拖住保存** —— 即便 IPC 不返回也只等 20 秒就放弃（见 journal.ts）
+    try {
+      await withTimeout(appendJournal(journalDrafts), '写入时间线')
+    } catch (err) {
+      console.warn('[vault] 时间线写入超时，已跳过:', err)
+    }
 
     lastFlushedAt = Date.now()
     lastError =

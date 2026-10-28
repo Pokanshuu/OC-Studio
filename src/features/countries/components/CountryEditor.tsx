@@ -3,6 +3,7 @@
 import { Save, ArrowLeft } from 'lucide-react'
 import { DocumentEditor } from '@/components/editor/DocumentEditor'
 import type { Country } from '@/types'
+import { EntityHistoryButton } from '@/features/vault'
 import type { CountryFormData } from '../types'
 import { useCountry, useUpdateCountry } from '../hooks/useCountries'
 import { useCountryForm, mergeCountrySections } from '../hooks/useCountryForm'
@@ -118,7 +119,9 @@ function CountryEditorInner({
           </button>
           <h2 className={PAGE_TITLE}>编辑国家</h2>
         </div>
-        <button
+        <div className="flex items-center gap-1">
+          <EntityHistoryButton table="countries" id={country.id} name={form.name} />
+          <button
           onClick={form.handleSave}
           disabled={form.saving || !form.name.trim()}
           data-save-button
@@ -126,7 +129,8 @@ function CountryEditorInner({
         >
           <Save size={14} strokeWidth={2} />
           <span>{form.saving ? '保存中...' : '保存'}</span>
-        </button>
+          </button>
+        </div>
       </div>
 
       <div className={EDITOR_BODY}>

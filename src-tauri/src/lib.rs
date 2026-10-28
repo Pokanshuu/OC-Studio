@@ -1,6 +1,7 @@
 use std::sync::OnceLock;
 
 mod files;
+mod journal;
 mod open;
 mod vault;
 
@@ -155,6 +156,8 @@ pub fn run() {
       vault::vault_remove,
       vault::vault_mkdir,
       vault::vault_exists,
+      journal::journal_append,
+      journal::journal_tail,
       files::save_text
     ])
     .run(tauri::generate_context!())

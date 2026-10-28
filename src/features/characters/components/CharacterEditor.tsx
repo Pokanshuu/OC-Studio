@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { Save, ArrowLeft } from 'lucide-react'
 import { DocumentEditor } from '@/components/editor/DocumentEditor'
 import type { Character } from '@/types'
+import { EntityHistoryButton } from '@/features/vault'
 import type { CharacterFormData } from '../types'
 import { useCharacter, useUpdateCharacter } from '../hooks/useCharacters'
 import { useCharacterForm } from '../hooks/useCharacterForm'
@@ -118,15 +119,18 @@ function CharacterEditorInner({
           </button>
           <h2 className={PAGE_TITLE}>编辑角色</h2>
         </div>
-        <button
-          onClick={form.handleSave}
-          disabled={form.saving || !form.name.trim()}
-          data-save-button
-          className={BTN_PRIMARY}
-        >
-          <Save size={14} strokeWidth={2} />
-          <span>{form.saving ? '保存中...' : '保存'}</span>
-        </button>
+        <div className="flex items-center gap-1">
+          <EntityHistoryButton table="characters" id={character.id} name={form.name} />
+          <button
+            onClick={form.handleSave}
+            disabled={form.saving || !form.name.trim()}
+            data-save-button
+            className={BTN_PRIMARY}
+          >
+            <Save size={14} strokeWidth={2} />
+            <span>{form.saving ? '保存中...' : '保存'}</span>
+          </button>
+        </div>
       </div>
 
       <div className={EDITOR_BODY}>

@@ -126,7 +126,7 @@ fn now_ms() -> i64 {
 }
 
 /// 把 vault 根相对路径拼成绝对路径，并挡掉逃逸（绝对路径、`..`、盘符）。
-fn safe_join(root: &Path, rel: &str) -> Result<PathBuf, String> {
+pub(crate) fn safe_join(root: &Path, rel: &str) -> Result<PathBuf, String> {
     let normalized = rel.replace('\\', "/");
     if normalized.trim().is_empty() {
         return Err("相对路径为空".into());
@@ -487,7 +487,7 @@ fn write_atomic(path: &Path, contents: &[u8], expected_mtime_ms: Option<i64>) ->
 }
 
 /// 把阻塞 IO 挪出主线程。Tauri 的同步命令跑在主线程上，会卡死界面。
-async fn blocking<T, F>(f: F) -> Result<T, String>
+pub(crate) async fn blocking<T, F>(f: F) -> Result<T, String>
 where
     F: FnOnce() -> Result<T, String> + Send + 'static,
     T: Send + 'static,

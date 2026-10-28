@@ -117,4 +117,16 @@ export const vaultFs = {
     if (!isVaultSupported()) return false
     return invoke<boolean>('vault_exists', { path, relPath })
   },
+
+  /** 时间线：往 `.ocstudio/journal.jsonl` 只追加，绝不重写 */
+  async journalAppend(path: string, relPath: string, lines: string[]): Promise<void> {
+    requireSupport()
+    await invoke('journal_append', { root: path, relPath, lines })
+  },
+
+  /** 时间线：取最后 n 行（文件不存在返回空数组） */
+  async journalTail(path: string, relPath: string, maxLines: number): Promise<string[]> {
+    requireSupport()
+    return invoke<string[]>('journal_tail', { root: path, relPath, maxLines })
+  },
 }

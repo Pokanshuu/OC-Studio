@@ -4,6 +4,7 @@ import { Save, ArrowLeft } from 'lucide-react'
 import { DocumentEditor } from '@/components/editor/DocumentEditor'
 import { ProfileBannerEditor } from '@/components/shared/ProfileBannerEditor'
 import type { Event } from '@/types'
+import { EntityHistoryButton } from '@/features/vault'
 import type { EventFormData } from '../types'
 import { useEventForm } from '../hooks/useEventForm'
 import { EventInfoSection } from './EventInfoSection'
@@ -36,7 +37,9 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
           </button>
           <h2 className={PAGE_TITLE}>编辑事件</h2>
         </div>
-        <button
+        <div className="flex items-center gap-1">
+          <EntityHistoryButton table="events" id={event.id} name={form.title} />
+          <button
           onClick={form.handleSave}
           disabled={form.saving || !form.title.trim()}
           data-save-button
@@ -44,7 +47,8 @@ export function EventEditor({ event, onBack, onSave, onMentionClick, onNavigateI
         >
           <Save size={14} strokeWidth={2} />
           <span>{form.saving ? '保存中...' : '保存'}</span>
-        </button>
+          </button>
+        </div>
       </div>
 
       <div className={EDITOR_BODY}>
