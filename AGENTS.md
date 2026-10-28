@@ -29,7 +29,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ### 界面（设计令牌唯一源）
 - `src/lib/ui-tokens.ts` — **界面原子类唯一源**，改 UI 时从这里取，不要就地拼写。分八组：标题（PAGE_TITLE / SECTION_TITLE）· 页头（TOOLBAR / EDITOR_HEADER / EDITOR_BODY）· 按钮（BTN_PRIMARY / BTN_QUIET / **BTN_DANGER**（灰调红实心，破坏性确认唯一形态）/ ICON_BTN / ICON_BTN_MD / FILTER_TRIGGER）· 输入与字段行（INPUT_LINE / TITLE_INPUT / FIELD_INPUT / **DATE_INPUT**（年/月/日 三段）/ FIELD_ROW / FIELD_LABEL / FIELD_GRID / LIST_END / SEARCH_INPUT / SEARCH_ICON）· 浮层（PANEL / MENU / MENU_ITEM_BASE / MENU_ITEM / MENU_GROUP_LABEL）· 列表（LIST_GRID / ROW_ACTIONS / EMPTY_HINT / MOBILE_FILTER_BTN / CHIP）· 素材卡与节点（MEDIA_CARD / MEDIA_IMG / MEDIA_GRADIENT / MEDIA_FALLBACK / NODE_WRAPPER）· 圆角与空态（ROUND_ITEM / ROUND_CONTROL / ROUND_PANEL、EMPTY_STATE / CENTER_STATE / LOADING_TEXT）
-- `src/app/globals.css` — 设计令牌（`--oc-paper/ink/line/hover`、`--oc-danger`（危险按钮的灰调红底色））、**圆角三档**（`--radius-item: 4px` / `control: 6px` / `panel: 8px` → `rounded-item` 等工具类）、`--oc-hover`（全局控件悬停底色）、`--oc-ink-fixed/paper-fixed`（固定底色上的文字）、`.touch-feedback`、`.row-rule`+`.rules-end`（可点整行的直线分隔）
+- `src/app/globals.css` — 设计令牌（`--oc-paper/ink/line/hover`、`--oc-danger`（危险按钮的灰调红底色））、**圆角三档**（`--radius-item: 4px` / `control: 6px` / `panel: 8px` → `rounded-item` 等工具类）、`--oc-hover`（全局控件悬停底色）、`--oc-scrim`（弹窗遮罩，亮 .15 / 暗 .40）、`--oc-ink-fixed/paper-fixed`（固定底色上的文字）、`.touch-feedback`、`.row-rule`+`.rules-end`（可点整行的直线分隔）
 - `scripts/design-audit.ts` — **设计令牌体检**（`npm run audit:design`）：扫全项目找像素圆角 / Tailwind 原色 / 暗色十六进制 / 黑·白半透明底 / 阴影 / 粗描边 / ring 光晕，并列出「重复 ≥3 次、该收进 ui-tokens 的类名串」。确有例外就写 `// design-audit-allow <规则名> 理由`。**提交前跑一次，0 违规才算过**
 - `src/lib/sidebar-width.ts` — **侧边栏宽度唯一源**：默认 140px，可调范围 0.8–1.2 倍（112–168px），`clampSidebarWidth()` 负责夹取；宽度存在 settings 的 `sidebarWidth`（localStorage），拖动中只更新本地 state，松手才落盘
 
@@ -112,6 +112,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - `src/lib/vault/vault-paths.ts` — 路径分配（纯函数）：Windows 非法字符、保留设备名、撞名去重、回收站路径
 - `src/lib/vault/vault-session.ts` / `vault-registry.ts` / `vault-tags.ts` / `vault-marker.ts`
 - `src/lib/vault/vault-assets.ts` — 素材引用的改写原语（`planImageRewrites` / `allocateAssetPath`）。图片由落地迁移一起搬（字段 + 正文 + `data:` URI）；**没有**单独的「把旧图片收进文件夹」动作了，那半套只认字段，会搬一半
+- `src/lib/vault/journal.ts` — **创作时间线**（`.ocstudio/journal.jsonl`，只追加）：行格式、sha256、tail 解析、JSON 导出（`buildJournalExport`，带 version）。落盘 flush 里对每次真正写成功的改动追加一条（新建 / 保存 / 移入回收站 / 还原 / 彻底删除）；**只做仓库模式**，不做回滚 / diff / 全文快照。磁盘侧命令在 `src-tauri/src/journal.rs`（`journal_append` / `journal_tail`）
 - `src/lib/vault/vault-provider.tsx` — 上下文。状态是**派生**的（`useSyncExternalStore` 读环境）：`isVaultSupported()` 服务端为 false，直接做 useState 初值会造成水合不一致
 - `src/features/vault/` — UI（`VaultGate` 启动闸门 / `VaultWriteBanner` / `VaultMenuSection` / `VaultStatus` / `VaultSurfaces` / `VaultOverlay` / `VaultScanReportDialog` —— 界面上叫**概览**：一行「N 篇笔记 → 构成」，正常时只说「没有发现问题」，有异常才出现一条「未知 N 项」，点开才是文件清单）
 - `scripts/vault-analyze.ts` — 离线体检 + 内存往返验证
@@ -123,7 +124,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 **Vault 的验证口径（改这块代码前先跑一遍）**
 ```
-npx tsx scripts/vault-migrate-check.ts                        # 老数据迁移闭环，29 项断言
+npx tsx scripts/vault-migrate-check.ts                        # 老数据迁移闭环，31 项断言
+npx tsx scripts/journal-check.ts                               # 时间线行格式 + JSON 导出，19 项断言
 npx tsx scripts/vault-analyze.ts "<vault>" --roundtrip        # 内存往返，5 项
 npx tsx scripts/vault-frontmatter-check.ts "<vault>"          # 手术原语恒等
 npx tsx scripts/vault-write-acceptance.ts "<vault>"           # 真实文件落盘，非预期改动 0

@@ -86,6 +86,12 @@ const RULES: Rule[] = [
     test: /bg-black\/\d+ dark:bg-white\/\d+/,
   },
   {
+    name: 'scrim-literal',
+    why: '弹窗/抽屉遮罩只有一档 → bg-[var(--oc-scrim)]（值 = 旧的 bg-black/15 dark:bg-black/40）',
+    // 只逮「亮暗成对」的那串弹窗遮罩；图片 hover、全屏查看那种深色遮罩另属一类，不在此列
+    test: /bg-black\/15 dark:bg-black\/40/,
+  },
+  {
     name: 'shadow',
     why: '内容面零阴影；浮层只用唯一一档 → float-shadow（FLOAT_SHADOW）',
     test: /\bshadow-(xs|sm|md|lg|xl|2xl|inner)\b/,

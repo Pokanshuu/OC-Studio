@@ -92,7 +92,7 @@ export function MobileSearchOverlay({ open, onClose }: { open: boolean; onClose:
         className="fixed inset-0 z-40 flex flex-col pointer-events-auto"
         onClick={onClose}
       >
-        <div className="absolute inset-0 bg-black/15 dark:bg-black/40" />
+        <div className="absolute inset-0 bg-[var(--oc-scrim)]" />
         <div
           className="relative flex-1 overflow-auto px-4 pt-[calc(60px+var(--safe-top)+12px)]"
           style={{ paddingBottom: `${inputBarHeight + keyboardHeight}px` }}

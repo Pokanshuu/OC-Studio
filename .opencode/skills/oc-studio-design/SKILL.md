@@ -141,7 +141,7 @@ description: >
 ### 对话框 / 抽屉
 - 面板：`border border-line bg-paper/85 backdrop-blur-lg rounded-panel`，**无 ring**。
   `bg-paper/85` 自己就跟着主题走，**不要**再写 `dark:bg-[#1C1B1A]/85`（那串十六进制等于把令牌抄一遍）
-- 遮罩 `bg-black/15 dark:bg-black/40`
+- 遮罩 `bg-[var(--oc-scrim)]`（值 = 亮的 `rgba(0,0,0,.15)` / 暗的 `rgba(0,0,0,.40)`，定义在 `globals.css`；**组件里不要直接写 `bg-black/xx`**，`audit:design` 会拦）
 - 弹窗标题用 `PAGE_TITLE`（18px 衬线加粗），描述 13px `ink-muted`
 
 ### 通知 (Toast)
@@ -168,7 +168,7 @@ description: >
 - 行高：`px-3 py-1 text-[13px]`（约 27px）；分组标题 `px-3 py-1 text-[11px]`；分隔线 `mx-2 my-1`
 - **无 `ring` 光晕**；菜单项 hover 统一 `bg-[var(--oc-hover)]`（亮暗自适应的一档极低透明度墨色）
 - 危险操作：`text-error`
-- 遮罩：`bg-black/15 dark:bg-black/40`
+- 遮罩：`bg-[var(--oc-scrim)]`（值见 `globals.css`）
 
 ### 浮层内的按钮（历史方案已废弃）
 早期版本为「毛玻璃上按钮用 `bg-white/60` 隆起、`bg-black/5` 凹陷」的分层体系，**现已全部废弃**。
@@ -195,7 +195,7 @@ description: >
 - 危险操作：`text-error`
 
 ### 弹窗 (Dialog/AlertDialog)
-- 遮罩：`bg-black/15 dark:bg-black/40`（无 blur）
+- 遮罩：`bg-[var(--oc-scrim)]`（无 blur；值见 `globals.css`，与旧写法 `bg-black/15 dark:bg-black/40` 一致）
 - 面板：`border border-line bg-paper/85 backdrop-blur-lg rounded-panel`，**无 ring**
 - 按钮：确定 = `BTN_PRIMARY`（浅底实心），**破坏性操作 = `BTN_DANGER`**（灰调红实心），取消 = `BTN_QUIET`
   - `AlertDialogAction` 自带 `BTN_DANGER`：本项目里 AlertDialog 的确认动作都是破坏性的（删除 / 永久删除 / 放弃改动）。调用点**不要再传** `bg-ink` / `bg-error` 之类底色，传了只会互相覆盖

@@ -65,7 +65,7 @@ export function PeriodDialog({ open, period, onSave, onClose }: PeriodDialogProp
 
   const dialog = (
     <div
-      className="pointer-events-auto fixed inset-0 flex items-center justify-center bg-black/15 dark:bg-black/40"
+      className="pointer-events-auto fixed inset-0 flex items-center justify-center bg-[var(--oc-scrim)]"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       <div className={`w-[440px] max-md:w-[calc(100%-2rem)] p-6 ${PANEL}`}>
