@@ -59,11 +59,11 @@ export function AlbumTreePanel({
           </div>
         </div>
       )}
-      <div className="flex-1 overflow-auto p-3">
+      <div className="flex-1 overflow-auto py-3">
         <nav className="flex flex-col gap-1">
           <button
             onClick={() => { onSelectKey('all'); if (isMobile) onCloseMobileTree() }}
-            className={`flex w-full items-center rounded-item px-2 py-1.5 text-left text-[13px] transition-colors ${
+            className={`flex w-full items-center rounded-item px-3 py-1.5 text-left text-[13px] transition-colors ${
               selectedKey === 'all' ? 'bg-[var(--oc-hover)] text-ink' : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
             }`}
           >
@@ -78,7 +78,7 @@ export function AlbumTreePanel({
               <div key={top.key}>
                 <button
                   onClick={() => { onToggleExpand(top.key); onSelectKey(top.key) }}
-                  className={`flex w-full items-center gap-1 rounded-item px-2 py-1.5 text-left text-[13px] transition-colors ${
+                  className={`flex w-full items-center gap-1 rounded-item px-3 py-1.5 text-left text-[13px] transition-colors ${
                     isTopSelected ? 'bg-[var(--oc-hover)] text-ink' : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
                   }`}
                 >
@@ -94,7 +94,7 @@ export function AlbumTreePanel({
                       return (
                         <button key={sub.key}
                           onClick={() => { onSelectKey(sub.key); if (isMobile) onCloseMobileTree() }}
-                          className={`flex w-full items-center rounded-item py-1 pl-6 pr-2 text-left text-[12px] transition-colors ${
+                          className={`flex w-full items-center rounded-item py-1 pl-6 pr-3 text-left text-[12px] transition-colors ${
                             isSubSelected ? 'bg-[var(--oc-hover)] text-ink' : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
                           }`}
                         >

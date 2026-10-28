@@ -18,11 +18,8 @@ export function VaultStatus() {
   const failed = writeStatus.lastError !== null
 
   const Icon = failed ? CircleAlert : busy || pending > 0 ? Loader2 : CheckCircle
-  const iconClass = failed
-    ? 'text-warning'
-    : busy || pending > 0
-      ? 'animate-spin text-ink-muted'
-      : 'text-ink-faint'
+  // 颜色一律继承按钮（悬停时跟着一起变深），轻重只靠透明度表达 —— 写死 text-ink-faint 会让图标悬停时纹丝不动
+  const iconClass = failed ? 'text-warning' : busy || pending > 0 ? 'animate-spin opacity-70' : 'opacity-60'
   const label = failed
     ? '保存异常'
     : busy
@@ -40,7 +37,7 @@ export function VaultStatus() {
     >
       <FolderOpen size={12} strokeWidth={2} className="shrink-0" />
       <span className="max-w-[16ch] truncate">{name}</span>
-      <span className="text-ink-faint/60">·</span>
+      <span className="opacity-60">·</span>
       <Icon size={12} strokeWidth={2} className={`shrink-0 ${iconClass}`} />
       <span className="shrink-0">{label}</span>
     </button>

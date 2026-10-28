@@ -216,9 +216,6 @@ export function MenuBarMenus() {
               <DropdownMenuTrigger>视图</DropdownMenuTrigger>
             </span>
             <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => updateSetting("editMode", !settings.editMode)}>
-                {settings.editMode ? "浏览模式" : "编辑模式"}
-              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => updateSetting("sidebarVisible", !settings.sidebarVisible)}>
                 {settings.sidebarVisible ? "隐藏侧边栏" : "显示侧边栏"}
               </DropdownMenuItem>

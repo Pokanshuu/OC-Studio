@@ -20,13 +20,19 @@ export function StatusBar() {
 
   return (
     <footer data-statusbar className="max-md:hidden flex h-6 shrink-0 items-center justify-between bg-transparent px-3">
+      {/* 左边 = 笔记库同步状态；右边 = 「字数 → 已保存」 */}
       <div className="flex min-w-0 items-center gap-3">
         <VaultStatus />
-        <span className="text-[11px] text-ink-faint transparent-text">字数：<span className="tabular-nums">{wordCount}</span></span>
       </div>
-      <div className="flex items-center gap-1">
-        <SaveIcon size={12} strokeWidth={2} className={iconClass} />
-        <span className="text-[11px] text-ink-faint transparent-text">{saveLabel}</span>
+      <div className="flex shrink-0 items-center gap-1.5">
+        <span className="text-[11px] text-ink-faint transparent-text">
+          字数：<span className="tabular-nums">{wordCount}</span>
+        </span>
+        <span className="text-[11px] text-ink-faint opacity-60 transparent-text">·</span>
+        <div className="flex items-center gap-1">
+          <SaveIcon size={12} strokeWidth={2} className={iconClass} />
+          <span className="text-[11px] text-ink-faint transparent-text">{saveLabel}</span>
+        </div>
       </div>
     </footer>
   )

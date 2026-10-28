@@ -18,7 +18,6 @@ import { notifyDataUpdated } from '@/lib/data-events'
 import type { MergeStrategy } from '@/lib/import'
 import { setVaultImageContext } from '@/lib/image-service'
 import { exportLegacyToFolder } from './export-dir'
-import { migrateImagesIntoVault } from './vault-migrate'
 import { pickAssetsDir } from './vault-paths'
 import { loadVault, type VaultLoadResult } from './vault-load'
 import { isVaultSupported, vaultFs } from './vault-fs'
@@ -69,8 +68,6 @@ interface VaultContextValue {
   createFolder: (path?: string) => Promise<void>
   rescan: () => Promise<void>
   flush: () => Promise<void>
-  /** 把应用数据目录里的存量图片迁进 vault 并改写引用 */
-  migrateImages: () => Promise<void>
   /**
    * 把应用内（Dexie）的数据写进一个文件夹，然后打开它。
    * 文件夹可以已有笔记：`strategy` 决定同名怎么处理，**由用户在对话框里选**，这里不给默认值。
@@ -303,30 +300,6 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     }
   }, [openVault, pickFolder])
 
-  const migrateImages = useCallback(async () => {
-    try {
-      const report = await migrateImagesIntoVault()
-      if (report.candidates === 0) {
-        toast('没有需要迁移的图片', { description: '所有图片引用都已经在文件夹里。' })
-        return
-      }
-      const parts = [`已迁入 ${report.migrated} 张`]
-      if (report.rewrittenRows > 0) parts.push(`改写 ${report.rewrittenRows} 个实体的引用`)
-      if (report.skippedMissing.length > 0) {
-        parts.push(`${report.skippedMissing.length} 张在应用数据目录里找不到`)
-      }
-      if (report.failed.length > 0) parts.push(`${report.failed.length} 张失败`)
-
-      if (report.failed.length > 0 || report.migrated === 0) {
-        toast.error('图片迁移未完成', { description: parts.join('，') })
-      } else {
-        toast.success('图片迁移完成', { description: parts.join('，') })
-      }
-      refreshLists()
-    } catch (err) {
-      toast.error('图片迁移失败', { description: describeError(err) })
-    }
-  }, [refreshLists])
 
   // 是否该去装载：只看「上次打开过哪个文件夹」，不再额外要求一个开关位。
   // 没有内置库模式了，路径存在 = 该恢复；多一个 flag 就多一种「莫名回到欢迎页」。
@@ -356,7 +329,6 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       createFolder,
       rescan,
       flush,
-      migrateImages,
       migrateLegacy,
       showReport: () => setReportOpen(true),
       hideReport: () => setReportOpen(false),
@@ -375,7 +347,6 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       createFolder,
       rescan,
       flush,
-      migrateImages,
       migrateLegacy,
     ],
   )

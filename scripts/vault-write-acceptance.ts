@@ -24,7 +24,7 @@ import { applyDocumentBodies, createLinkSerializer, documentOfEntity, serializeB
 import { serializeEntity, type SerializeContext } from '../src/lib/vault/serialize'
 import { scanVault } from '../src/lib/vault/scan'
 import { allocateRelPath, normalizeRelPath, pickPreferredFolder } from '../src/lib/vault/vault-paths'
-import { allocateAssetPath, collectAppDataImages, planImageRewrites } from '../src/lib/vault/vault-migrate'
+import { allocateAssetPath, planImageRewrites, type ImageRows } from '../src/lib/vault/vault-assets'
 import type { VaultEntityKind, VaultFileEntry, VaultScanResult } from '../src/lib/vault/types'
 
 const SKIP_DIRS = new Set(['node_modules', '.git', '.ocstudio', '.trash'])
@@ -322,18 +322,14 @@ function main(): void {
     countries: [{ id: 2, flagUrl: 'images/e.png', headerUrl: 'images/f.png' }],
     events: [{ id: 3, headerUrl: 'images/g.png', images: [{ url: 'images/h.png', caption: '' }] }],
     meta: [{ id: 1, coverUrl: 'images/i.png' }, { id: 2, coverUrl: '附件/已在vault.png' }],
-  } as unknown as Parameters<typeof collectAppDataImages>[0]
+  } as unknown as ImageRows
 
-  const candidates = collectAppDataImages(rows)
-  const expectedCandidates = [
+  // 候选收集那一层已经并进落地迁移（`export-dir` 的 collectRefs 覆盖字段 + 正文），
+  // 这里只验它复用的两个纯函数：按映射改写引用、素材撞名去重。
+  const candidates = [
     'images/a.png', 'images/b.png', 'images/d.png', 'images/e.png',
     'images/f.png', 'images/g.png', 'images/h.png', 'images/i.png',
   ]
-  const candidatesOk =
-    candidates.length === expectedCandidates.length &&
-    expectedCandidates.every((item) => candidates.includes(item))
-  line(`  候选收集           ${candidatesOk ? '✓' : '✗'}  ${candidates.length} 个（vault 内的不算）`)
-  if (!candidatesOk) problems.push(`图片候选收集不正确：${candidates.join(', ')}`)
 
   const map = new Map(candidates.map((item) => [item, `附件/mig-${item.slice('images/'.length)}`]))
   const patches = planImageRewrites(rows, map)

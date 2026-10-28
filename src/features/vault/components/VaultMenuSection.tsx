@@ -1,6 +1,6 @@
 'use client'
 
-import { FolderInput, FolderOpen, FolderPlus, ImageDown, RefreshCw } from 'lucide-react'
+import { FolderInput, FolderOpen, FolderPlus, RefreshCw } from 'lucide-react'
 
 import { useVault } from '@/lib/vault/vault-provider'
 import {
@@ -14,9 +14,11 @@ import {
 /**
  * 桌面菜单栏「文件」顶部的本地文件夹分组。
  *
- * 只有三件事：换一个文件夹、看看文件夹里发生了什么、把旧图片收进去。
- * 「关闭文件夹」和「立即保存」都已经删掉 —— 没有第二套数据源，退出应用就是关闭；
- * 保存是防抖自动的，状态在状态栏看，不需要给用户一个「什么时候该保存」的按钮。
+ * 只有两件事：换一个文件夹、看看文件夹里发生了什么。
+ * 「关闭文件夹」「立即写盘」「把旧图片收进文件夹」都已经删掉 ——
+ * 没有第二套数据源，退出应用就是关闭；保存是防抖自动的，状态在状态栏看；
+ * 图片由落地迁移一起搬进来（字段 + 正文 + data URI 全覆盖），
+ * 单独留一个只认字段的半套动作只会搬一半。
  */
 export function VaultMenuSection() {
   const vault = useVault()
@@ -57,15 +59,11 @@ export function VaultMenuSection() {
       <DropdownMenuSeparator />
       <DropdownMenuItem disabled={!ready} onClick={() => void vault.rescan()}>
         <RefreshCw size={14} strokeWidth={2} />
-        重新载入
+        刷新
       </DropdownMenuItem>
       <DropdownMenuItem disabled={!ready} onClick={vault.showReport}>
         <FolderOpen size={14} strokeWidth={2} />
         概览…
-      </DropdownMenuItem>
-      <DropdownMenuItem disabled={!ready} onClick={() => void vault.migrateImages()}>
-        <ImageDown size={14} strokeWidth={2} />
-        把旧图片收进文件夹
       </DropdownMenuItem>
 
       <DropdownMenuSeparator />

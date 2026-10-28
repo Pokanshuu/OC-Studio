@@ -133,7 +133,7 @@ export function VaultScanReportDialog() {
         <>
           <button type="button" className={BTN_QUIET} onClick={() => void rescan()}>
             <RefreshCw size={13} strokeWidth={2} />
-            重新扫描
+            刷新
           </button>
           <button type="button" className={BTN_PRIMARY} onClick={hideReport}>
             关闭

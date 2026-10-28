@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react"
 import { invoke } from "@tauri-apps/api/core"
 import { isTauri } from "./env"
+import { DEFAULT_SIDEBAR_WIDTH, clampSidebarWidth } from "./sidebar-width"
 
 const STORAGE_KEY = "oc-studio-settings"
 
@@ -11,8 +12,8 @@ export interface Settings {
   cloudSyncEnabled: boolean
   syncServerUrl: string
   autoStart: boolean
-  editMode: boolean
   sidebarVisible: boolean
+  sidebarWidth: number
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -20,8 +21,8 @@ const DEFAULT_SETTINGS: Settings = {
   cloudSyncEnabled: false,
   syncServerUrl: "",
   autoStart: false,
-  editMode: true,
   sidebarVisible: true,
+  sidebarWidth: DEFAULT_SIDEBAR_WIDTH,
 }
 
 function loadSettings(): Settings {
@@ -30,7 +31,8 @@ function loadSettings(): Settings {
     const raw = window.localStorage.getItem(STORAGE_KEY)
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<Settings>
-      return { ...DEFAULT_SETTINGS, ...parsed }
+      const merged = { ...DEFAULT_SETTINGS, ...parsed }
+      return { ...merged, sidebarWidth: clampSidebarWidth(merged.sidebarWidth) }
     }
   } catch {
     // corrupted data, fall through

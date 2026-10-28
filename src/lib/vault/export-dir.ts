@@ -10,7 +10,7 @@ import { createLinkSerializer, documentOfEntity, serializeBody } from './markdow
 import { serializeEntity, type SerializeContext } from './serialize'
 import { TAG_META_REL_PATH } from './vault-session'
 import { DEFAULT_ASSETS_DIR, allocateRelPath, normalizeRelPath, pickPreferredFolder, sanitizeFileName, trashRelPath } from './vault-paths'
-import { allocateAssetPath, planImageRewrites } from './vault-migrate'
+import { allocateAssetPath, planImageRewrites } from './vault-assets'
 import { serializeTagMeta, tagMetaFromTags } from './vault-tags'
 import { MARKER_REL_PATH, buildMarkerContent } from './vault-marker'
 import { vaultFs } from './vault-fs'
