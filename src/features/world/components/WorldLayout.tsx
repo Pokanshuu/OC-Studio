@@ -4,6 +4,8 @@ import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { Menu } from 'lucide-react'
 import { useDevice } from '@/lib/use-device'
 import { useEditorLayout } from '@/lib/use-editor-layout'
+import { MiddlePaneResizer } from '@/components/editor/MiddlePaneResizer'
+import { useMiddlePaneWidth } from '@/components/editor/useMiddlePaneWidth'
 import type { WorldEntry } from '@/types'
 import { EntityHistoryButton } from '@/features/vault'
 import { useEntryList, useEntry, useCreateEntry, useDeleteEntry } from '../hooks/useWorldEntries'
@@ -42,6 +44,8 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
   const { setConfig } = useMobilePageHeader()
   const { section } = useMobileNavigation()
   const desiredLayout = useEditorLayout()
+  const splitRef = useRef<HTMLDivElement>(null)
+  const { width: middleWidth, startDrag: startMiddleDrag, reset: resetMiddleWidth } = useMiddlePaneWidth(splitRef)
 
   const editorContainerRef = useRef<HTMLDivElement>(null)
 
@@ -196,8 +200,11 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
       ) : null}
 
       {layout === 'multi' && !isMobile && selectedId !== null && currentEntry ? (
-        <div className="flex min-h-0 flex-1">
-          <section className="w-[340px] shrink-0 overflow-y-auto border-r border-line">
+        <div ref={splitRef} className="flex min-h-0 flex-1">
+          <section
+            className="shrink-0 overflow-y-auto border-r border-line"
+            style={{ width: middleWidth }}
+          >
             <div className="flex flex-col gap-4 p-4">
               <div className="flex items-center gap-2">
                 {treeCollapsed ? (
@@ -253,6 +260,7 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
               </div>
             </div>
           </section>
+          <MiddlePaneResizer onDragStart={startMiddleDrag} onReset={resetMiddleWidth} />
 
           <WorldEntryBody
             selectedId={selectedId}

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Save, ArrowLeft, ChevronLeft, Menu } from 'lucide-react'
+import { Save, ArrowLeft } from 'lucide-react'
 import { DocumentEditor } from '@/components/editor/DocumentEditor'
 import { ProfileBannerEditor } from '@/components/shared/ProfileBannerEditor'
 import type { Event } from '@/types'
@@ -38,49 +38,31 @@ export function EventEditor({ event, onBack, onSave, onNavigateToEvent, onMentio
     setLayout(desiredLayout)
   }, [desiredLayout, layout, form.docDirty])
 
+  const headerActions = (
+    <>
+      <EntityHistoryButton table="events" id={event.id} name={form.title} />
+      <button
+        onClick={form.handleSave}
+        disabled={form.saving || !form.title.trim()}
+        data-save-button
+        className={BTN_PRIMARY}
+      >
+        <Save size={14} strokeWidth={2} />
+        <span>{form.saving ? '保存中...' : '保存'}</span>
+      </button>
+    </>
+  )
+
   return (
     <div className={layout === 'multi' ? 'flex h-full min-h-0 flex-col' : 'flex min-h-full flex-col'}>
-      <div className={EDITOR_HEADER}>
-        <div className="flex items-center gap-3">
-          {layout === 'multi' ? (
-            <button
-              type="button"
-              onClick={() => setRailOpen((open) => !open)}
-              className={ICON_BTN_MD}
-              title={railOpen ? '收起列表' : '展开列表'}
-              aria-label={railOpen ? '收起列表' : '展开列表'}
-            >
-              {railOpen ? <ChevronLeft size={16} strokeWidth={2} /> : <Menu size={16} strokeWidth={2} />}
-            </button>
-          ) : null}
-          <button
-            data-mobile-back
-            onClick={onBack}
-            className={ICON_BTN_MD}
-          >
-            <ArrowLeft size={16} strokeWidth={2} />
-          </button>
-          <h2 className={PAGE_TITLE}>编辑事件</h2>
-        </div>
-        <div className="flex items-center gap-1">
-          <EntityHistoryButton table="events" id={event.id} name={form.title} />
-          <button
-          onClick={form.handleSave}
-          disabled={form.saving || !form.title.trim()}
-          data-save-button
-          className={BTN_PRIMARY}
-        >
-          <Save size={14} strokeWidth={2} />
-          <span>{form.saving ? '保存中...' : '保存'}</span>
-          </button>
-        </div>
-      </div>
-
       {layout === 'multi' ? (
         <EventEditorMulti
           event={event}
           form={form}
           railOpen={railOpen}
+          onBack={onBack}
+          onToggleRail={() => setRailOpen((open) => !open)}
+          headerRight={headerActions}
           onNavigateToEvent={onNavigateToEvent}
           onMentionClick={onMentionClick}
           onNavigateItem={onNavigateItem}
@@ -88,6 +70,21 @@ export function EventEditor({ event, onBack, onSave, onNavigateToEvent, onMentio
           onWikiLinkClick={onWikiLinkClick}
         />
       ) : (
+        <>
+        <div className={EDITOR_HEADER}>
+          <div className="flex items-center gap-3">
+            <button
+              data-mobile-back
+              onClick={onBack}
+              className={ICON_BTN_MD}
+            >
+              <ArrowLeft size={16} strokeWidth={2} />
+            </button>
+            <h2 className={PAGE_TITLE}>编辑事件</h2>
+          </div>
+          <div className="flex items-center gap-1">{headerActions}</div>
+        </div>
+
         <div className={EDITOR_BODY}>
         <div className="mx-auto w-full max-w-3xl px-4 py-3 md:px-8 md:py-6">
           {/* Profile header */}
@@ -135,6 +132,7 @@ export function EventEditor({ event, onBack, onSave, onNavigateToEvent, onMentio
           </div>
         </div>
         </div>
+        </>
       )}
     </div>
   )

@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import type { Editor } from '@tiptap/core'
 import { DocumentEditor } from '@/components/editor/DocumentEditor'
 import { EditorBodyPane } from '@/components/editor/EditorBodyPane'
+import { EditorToolbar } from '@/components/editor/EditorToolbar'
 import { MultiColumnEditor } from '@/components/shared/MultiColumnEditor'
 import { ImageGallery } from '@/components/shared/image-gallery/ImageGallery'
 import { ProfileBannerEditor } from '@/components/shared/ProfileBannerEditor'
@@ -19,6 +20,9 @@ interface CharacterEditorMultiProps {
   form: CharacterForm
   fallbackContent?: string
   railOpen: boolean
+  onBack: () => void
+  onToggleRail: () => void
+  headerRight: ReactNode
   onNavigateToCharacter?: (id: number) => void
   onNavigateToCountry?: (id: number) => void
   onMentionClick?: (id: string, entityType?: string) => void
@@ -37,6 +41,9 @@ export function CharacterEditorMulti({
   form,
   fallbackContent,
   railOpen,
+  onBack,
+  onToggleRail,
+  headerRight,
   onNavigateToCharacter,
   onNavigateToCountry,
   onMentionClick,
@@ -47,7 +54,16 @@ export function CharacterEditorMulti({
 
   return (
     <MultiColumnEditor
+      title="编辑角色"
+      onBack={onBack}
       railOpen={railOpen}
+      onToggleRail={onToggleRail}
+      headerRight={
+        <>
+          {bodyEditor ? <EditorToolbar editor={bodyEditor} embedded /> : null}
+          {headerRight}
+        </>
+      }
       rail={<CharacterEditorList currentId={character.id} onSelect={onNavigateToCharacter} />}
       meta={
         <div className="flex flex-col gap-6 p-4">
@@ -106,7 +122,7 @@ export function CharacterEditorMulti({
         </div>
       }
     >
-      <EditorBodyPane editor={bodyEditor}>
+      <EditorBodyPane editor={bodyEditor} showToolbar={false}>
         <DocumentEditor
           entityId={character.id}
           entityType="character"

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Save, ArrowLeft, ChevronLeft, Menu } from 'lucide-react'
+import { Save, ArrowLeft } from 'lucide-react'
 import { DocumentEditor } from '@/components/editor/DocumentEditor'
 import type { Country } from '@/types'
 import { EntityHistoryButton } from '@/features/vault'
@@ -124,50 +124,32 @@ function CountryEditorInner({
     setLayout(desiredLayout)
   }, [desiredLayout, layout, form.docDirty])
 
+  const headerActions = (
+    <>
+      <EntityHistoryButton table="countries" id={country.id} name={form.name} />
+      <button
+        onClick={form.handleSave}
+        disabled={form.saving || !form.name.trim()}
+        data-save-button
+        className={BTN_PRIMARY}
+      >
+        <Save size={14} strokeWidth={2} />
+        <span>{form.saving ? '保存中...' : '保存'}</span>
+      </button>
+    </>
+  )
+
   return (
     <div className={layout === 'multi' ? 'flex h-full min-h-0 flex-col' : 'flex min-h-full flex-col'}>
-      <div className={EDITOR_HEADER}>
-        <div className="flex items-center gap-3">
-          {layout === 'multi' ? (
-            <button
-              type="button"
-              onClick={() => setRailOpen((open) => !open)}
-              className={ICON_BTN_MD}
-              title={railOpen ? '收起列表' : '展开列表'}
-              aria-label={railOpen ? '收起列表' : '展开列表'}
-            >
-              {railOpen ? <ChevronLeft size={16} strokeWidth={2} /> : <Menu size={16} strokeWidth={2} />}
-            </button>
-          ) : null}
-          <button
-            data-mobile-back
-            onClick={onBack}
-            className={ICON_BTN_MD}
-          >
-            <ArrowLeft size={16} strokeWidth={2} />
-          </button>
-          <h2 className={PAGE_TITLE}>编辑国家</h2>
-        </div>
-        <div className="flex items-center gap-1">
-          <EntityHistoryButton table="countries" id={country.id} name={form.name} />
-          <button
-          onClick={form.handleSave}
-          disabled={form.saving || !form.name.trim()}
-          data-save-button
-          className={BTN_PRIMARY}
-        >
-          <Save size={14} strokeWidth={2} />
-          <span>{form.saving ? '保存中...' : '保存'}</span>
-          </button>
-        </div>
-      </div>
-
       {layout === 'multi' ? (
         <CountryEditorMulti
           country={country}
           form={form}
           fallbackContent={mergeCountrySections(country.system, country.geography, country.culture)}
           railOpen={railOpen}
+          onBack={onBack}
+          onToggleRail={() => setRailOpen((open) => !open)}
+          headerRight={headerActions}
           onNavigateToCountry={onNavigateToCountry}
           onNavigateToCharacter={onNavigateToCharacter}
           onNavigateToEvent={onNavigateToEvent}
@@ -176,6 +158,21 @@ function CountryEditorInner({
           onWikiLinkClick={onWikiLinkClick}
         />
       ) : (
+        <>
+        <div className={EDITOR_HEADER}>
+          <div className="flex items-center gap-3">
+            <button
+              data-mobile-back
+              onClick={onBack}
+              className={ICON_BTN_MD}
+            >
+              <ArrowLeft size={16} strokeWidth={2} />
+            </button>
+            <h2 className={PAGE_TITLE}>编辑国家</h2>
+          </div>
+          <div className="flex items-center gap-1">{headerActions}</div>
+        </div>
+
         <div className={EDITOR_BODY}>
         <div className="mx-auto w-full max-w-3xl px-4 py-3 space-y-8 md:px-8 md:py-6">
           {/* Profile header */}
@@ -230,6 +227,7 @@ function CountryEditorInner({
           />
         </div>
         </div>
+        </>
       )}
     </div>
   )

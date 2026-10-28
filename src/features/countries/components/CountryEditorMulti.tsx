@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import type { Editor } from '@tiptap/core'
 import { DocumentEditor } from '@/components/editor/DocumentEditor'
 import { EditorBodyPane } from '@/components/editor/EditorBodyPane'
+import { EditorToolbar } from '@/components/editor/EditorToolbar'
 import { MultiColumnEditor } from '@/components/shared/MultiColumnEditor'
 import { ProfileBannerEditor } from '@/components/shared/ProfileBannerEditor'
 import { TITLE_INPUT } from '@/lib/ui-tokens'
@@ -17,6 +18,9 @@ interface CountryEditorMultiProps {
   form: CountryForm
   fallbackContent?: string
   railOpen: boolean
+  onBack: () => void
+  onToggleRail: () => void
+  headerRight: ReactNode
   onNavigateToCountry?: (id: number) => void
   onNavigateToCharacter?: (id: number) => void
   onNavigateToEvent?: (id: number) => void
@@ -31,6 +35,9 @@ export function CountryEditorMulti({
   form,
   fallbackContent,
   railOpen,
+  onBack,
+  onToggleRail,
+  headerRight,
   onNavigateToCountry,
   onNavigateToCharacter,
   onNavigateToEvent,
@@ -42,7 +49,16 @@ export function CountryEditorMulti({
 
   return (
     <MultiColumnEditor
+      title="编辑国家"
+      onBack={onBack}
       railOpen={railOpen}
+      onToggleRail={onToggleRail}
+      headerRight={
+        <>
+          {bodyEditor ? <EditorToolbar editor={bodyEditor} embedded /> : null}
+          {headerRight}
+        </>
+      }
       rail={<CountryEditorList currentId={country.id} onSelect={onNavigateToCountry} />}
       meta={
         <div className="flex flex-col gap-6 p-4">
@@ -73,7 +89,7 @@ export function CountryEditorMulti({
         </div>
       }
     >
-      <EditorBodyPane editor={bodyEditor}>
+      <EditorBodyPane editor={bodyEditor} showToolbar={false}>
         <DocumentEditor
           entityId={country.id}
           entityType="country"

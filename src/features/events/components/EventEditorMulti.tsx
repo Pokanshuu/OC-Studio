@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import type { Editor } from '@tiptap/core'
 import { DocumentEditor } from '@/components/editor/DocumentEditor'
 import { EditorBodyPane } from '@/components/editor/EditorBodyPane'
+import { EditorToolbar } from '@/components/editor/EditorToolbar'
 import { MultiColumnEditor } from '@/components/shared/MultiColumnEditor'
 import { ProfileBannerEditor } from '@/components/shared/ProfileBannerEditor'
 import { TITLE_INPUT } from '@/lib/ui-tokens'
@@ -17,6 +18,9 @@ interface EventEditorMultiProps {
   event: Event
   form: EventForm
   railOpen: boolean
+  onBack: () => void
+  onToggleRail: () => void
+  headerRight: ReactNode
   onNavigateToEvent?: (id: number) => void
   onMentionClick?: (id: string, entityType?: string) => void
   onNavigateItem?: (id: number, type?: string) => void
@@ -29,6 +33,9 @@ export function EventEditorMulti({
   event,
   form,
   railOpen,
+  onBack,
+  onToggleRail,
+  headerRight,
   onNavigateToEvent,
   onMentionClick,
   onNavigateItem,
@@ -39,7 +46,16 @@ export function EventEditorMulti({
 
   return (
     <MultiColumnEditor
+      title="编辑事件"
+      onBack={onBack}
       railOpen={railOpen}
+      onToggleRail={onToggleRail}
+      headerRight={
+        <>
+          {bodyEditor ? <EditorToolbar editor={bodyEditor} embedded /> : null}
+          {headerRight}
+        </>
+      }
       rail={<EventEditorList currentId={event.id} onSelect={onNavigateToEvent} />}
       meta={
         <div className="flex flex-col gap-6 p-4">
@@ -64,7 +80,7 @@ export function EventEditorMulti({
         </div>
       }
     >
-      <EditorBodyPane editor={bodyEditor}>
+      <EditorBodyPane editor={bodyEditor} showToolbar={false}>
         <DocumentEditor
           entityId={event.id}
           entityType="event"

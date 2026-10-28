@@ -21,6 +21,7 @@ export function CharacterEditorList({ currentId, onSelect }: CharacterEditorList
   const { characters, loading, error } = useCharacterList()
   const { countries } = useCountryList()
   const [query, setQuery] = useState('')
+  const [searchFocused, setSearchFocused] = useState(false)
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set())
 
   const q = query.trim().toLowerCase()
@@ -91,12 +92,14 @@ export function CharacterEditorList({ currentId, onSelect }: CharacterEditorList
 
   return (
     <div className="flex h-full min-h-0 flex-col" aria-label="角色列表">
-      <div className="flex h-10 shrink-0 items-center gap-1 border-b border-line px-2">
+      <div className={`flex h-10 shrink-0 items-center gap-1 border-b px-2 transition-colors ${searchFocused ? 'border-line-hover' : 'border-line'}`}>
         <Search size={14} strokeWidth={2} className="text-ink-faint" />
         <input
           type="text"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
+          onFocus={() => setSearchFocused(true)}
+          onBlur={() => setSearchFocused(false)}
           placeholder="搜索"
           aria-label="搜索角色"
           className="min-w-0 flex-1 bg-transparent text-[12px] text-ink placeholder:text-ink-faint focus:outline-none"
