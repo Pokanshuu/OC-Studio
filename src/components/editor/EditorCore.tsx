@@ -20,6 +20,8 @@ import { buildEditorConfig, BLOCK_MENU_EVENT } from './editor-config'
 import { bindMobileEditorEvents } from './editor-mobile-events'
 import { useEditorBubbleMenu } from './useEditorBubbleMenu'
 import { useEditorMobileInput } from './useEditorMobileInput'
+import { FindReplaceBar } from './FindReplaceBar'
+import { LinkPopover } from './LinkPopover'
 
 interface EditorCoreProps {
   onReady: (editor: Editor) => void
@@ -38,6 +40,8 @@ export function EditorCore({
   const editorId = useId()
   const [blockMenuPosition, setBlockMenuPosition] = useState<{ x: number; y: number } | null>(null)
   const [blockMenuPos, setBlockMenuPos] = useState<number | undefined>(undefined)
+  const [findOpen, setFindOpen] = useState(false)
+  const [linkAnchor, setLinkAnchor] = useState<HTMLElement | null | undefined>(undefined)
   const editorRef = useRef<Editor | null>(null)
   const [isTableActive, setIsTableActive] = useState(false)
   const [toolbarTick, setToolbarTick] = useState(0)
@@ -131,6 +135,21 @@ export function EditorCore({
   // 桌面端气泡菜单显隐时机（点选后立即出现 / 输入中隐藏）
   const { isTypingRef } = useEditorBubbleMenu({ editor, isMobile, editorRef })
 
+  // Ctrl/Cmd+F / Ctrl/Cmd+H：只在编辑区聚焦时拦截，打开查找替换。
+  useEffect(() => {
+    if (!editor) return
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.altKey) return
+      const key = e.key.toLowerCase()
+      if (key !== 'f' && key !== 'h') return
+      if (!editor.isFocused) return
+      e.preventDefault()
+      setFindOpen(true)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [editor])
+
   // 移动端工具栏禁止长按弹出右键菜单（原生 DOM 监听，capture 阶段拦截，比 React 合成事件更可靠）
   useEffect(() => {
     if (!isMobile) return
@@ -165,7 +184,7 @@ export function EditorCore({
   }, [handleToolbarAction])
 
   const contextMenuItems = useMemo(
-    () => buildEditorContextMenu({ editor, isTableActive }),
+    () => buildEditorContextMenu({ editor, isTableActive, onFind: () => setFindOpen(true) }),
     [editor, isTableActive],
   )
   if (!editor) {
@@ -240,7 +259,7 @@ export function EditorCore({
           }}
           className={`flex gap-0.5 ${MENU} z-20 context-menu-fade context-menu-visible`}
         >
-          <BubbleMenuButtons editor={editor} />
+          <BubbleMenuButtons editor={editor} onLinkClick={(anchor) => setLinkAnchor(anchor)} />
         </BubbleMenu>
       )}
       <EditorContent editor={editor} />
@@ -261,10 +280,17 @@ export function EditorCore({
         setMobileBlockMenuOpen={setMobileBlockMenuOpen}
         handleToolbarPointerDown={handleToolbarPointerDown}
       />
-    )}    </ContextMenu>
+    )}
+
+    {findOpen ? (
+      <FindReplaceBar editor={editor} onClose={() => setFindOpen(false)} />
+    ) : null}
+    {linkAnchor !== undefined ? (
+      <LinkPopover editor={editor} anchor={linkAnchor} onClose={() => setLinkAnchor(undefined)} />
+    ) : null}
+    </ContextMenu>
   )
 }
-
 
 
 

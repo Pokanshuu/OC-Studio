@@ -339,6 +339,17 @@ html.tauri-mica [data-statusbar] {
   outline: none;
 }
 
+.tiptap a {
+  color: var(--color-ink);
+  text-decoration: underline;
+  text-decoration-color: var(--color-line-hover);
+  text-underline-offset: 2px;
+}
+
+.tiptap a:hover {
+  text-decoration-color: var(--color-ink-muted);
+}
+
 /* Task list checkbox */
 .ProseMirror [data-type="taskList"] {
   list-style: none !important;

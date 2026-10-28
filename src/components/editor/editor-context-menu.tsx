@@ -13,9 +13,11 @@ import type { ContextMenuItem } from '@/components/shared/ContextMenu'
 export function buildEditorContextMenu({
   editor,
   isTableActive,
+  onFind,
 }: {
   editor: Editor | null
   isTableActive: boolean
+  onFind?: () => void
 }): ContextMenuItem[] {
   return [    {
       label: '撤销',
@@ -61,6 +63,16 @@ export function buildEditorContextMenu({
       shortcut: 'Ctrl+A',
       onClick: () => editor?.chain().focus().selectAll().run(),
     },
+    ...(onFind
+      ? ([
+          { separator: true, label: '', onClick: () => {} },
+          {
+            label: '查找替换',
+            shortcut: 'Ctrl+F',
+            onClick: onFind,
+          },
+        ] as ContextMenuItem[])
+      : []),
     { separator: true, label: '', onClick: () => {} },
     {
       label: '插入',

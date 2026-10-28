@@ -14,6 +14,7 @@ import { DragHandle } from '@tiptap/extension-drag-handle'
 import type { Editor } from '@tiptap/core'
 import type { UseEditorOptions } from '@tiptap/react'
 import { searchAllEntitiesFlat } from '@/lib/reference-registry'
+import { openExternal } from '@/lib/open-external'
 import { ImageBlock } from './extensions/ImageBlock'
 import { SmallMark } from './extensions/SmallMark'
 import { SlashCommand } from './SlashCommandMenu'
@@ -74,6 +75,9 @@ export function buildEditorConfig({
         blockquote: {
           HTMLAttributes: { class: 'border-l-2 border-line pl-4 bg-paper-alt rounded-r-item italic text-ink-muted my-3 py-1' },
         },
+        // 链接由我们自己的浮层编辑；点击交给 handleClick 走系统浏览器，
+        // 不能让 WebView 自己导航（Tauri 里 target="_blank" 是死的）。
+        link: { openOnClick: false, autolink: true, linkOnPaste: true },
       }),
       Paragraph.extend({
         addAttributes() {
@@ -210,6 +214,23 @@ export function buildEditorConfig({
       }),
     ],
     editorProps: {
+      handleClick: (_view, _pos, event) => {
+        const target = event.target
+        if (!(target instanceof HTMLElement)) return false
+        const anchor = target.closest('a')
+        if (!anchor) return false
+        const href = anchor.getAttribute('href')
+        if (!href) return false
+        if (/^https?:\/\//i.test(href)) {
+          void openExternal(href)
+          return true
+        }
+        if (/^(mailto|tel):/i.test(href)) {
+          window.location.href = href
+          return true
+        }
+        return false
+      },
       handleScrollToSelection: () => {
         if (!isMobile) return false
         if (!isKeyboardVisible()) return true
