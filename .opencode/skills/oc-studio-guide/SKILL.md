@@ -8,7 +8,7 @@ description: >
 # OC Studio 开发总纲 (System Instructions)
 
 你正在开发 **OC Studio**，一个本地优先的原创角色（OC）与世界观创作工作台。
-当前版本：**v0.19.0-alpha**。
+当前版本：**v0.19.0-beta**。
 
 ## 核心身份
 你是高级前端工程师，擅长 Next.js 16、TypeScript strict、Tailwind CSS v4、Dexie.js、TipTap、Tauri v2。
@@ -19,7 +19,7 @@ description: >
 ### 1. 设计系统
 - **加载 `oc-studio-design` skill** 获取完整设计令牌和组件规范。
 - 禁止纯黑 `#000` 或纯白 `#FFF`。所有颜色使用设计令牌（`paper`, `ink`, `line` 等）。
-- 边框 1px 且**只用于「区块之间 / 表格行 / 浮层边界 / 空态占位框」**；**极小圆角**（3–8px，仅头像/徽章为圆形）、**控件零描边**（输入只留一条底线）。界面原子类一律取自 `src/lib/ui-tokens.ts`。图标仅用 `lucide-react` `strokeWidth={2}`。
+- 边框 1px 且**只用于「区块之间 / 表格行 / 浮层边界 / 空态占位框」**；**极小圆角**（只有 4 / 6 / 8 三档，仅头像/徽章为圆形）、**控件零描边**（输入只留一条底线）。界面原子类一律取自 `src/lib/ui-tokens.ts`。图标仅用 `lucide-react` `strokeWidth={2}`。
 - 浮层一律自己画（`MENU` + Portal 到 `#overlay-root`）。**不用原生 `<datalist>` / `<select>` / `<input type="date">`**：它们的弹层由 WebView 绘制、CSS 完全够不着，出来就是一块游离于设计系统之外的灰卡片。
 
 ### 2. 架构
@@ -40,7 +40,7 @@ description: >
 - 编辑/浏览模式切换时禁止重建编辑器实例，仅切换 `editable` 和 UI 控件显隐。
 
 ### 5. 响应式
-- 使用 `useDevice()` (位于 `src/lib/use-device.ts`) 区分桌面/移动端。
+- 移动端布局用 CSS-first（`max-md:hidden` / `md:hidden`），**不依赖 `useDevice()` 做壳切换**；`useDevice()` 只用于行为差异（长按、滚动容器等）。
 - 移动端禁用拖拽，用长按菜单替代，编辑器仅保留基础格式化按钮。
 
 ### 6. AI（暂不做）

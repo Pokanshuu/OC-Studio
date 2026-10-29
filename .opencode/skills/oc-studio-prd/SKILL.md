@@ -12,7 +12,7 @@ description: >
 - **核心价值**：一个本地优先、专注效率的原创角色（OC）与世界观创作工作台。
 - **产品形态**：PWA/App 混合，Tauri 桌面打包，支持导出静态展示网站。
 - **AI：暂不提供。** 2026-10 已把 AI 相关代码整体删除（`src/lib/ai/`、`EventAiSummary`、设置里的 AI 页签与字段、事件表单的概括逻辑）。要做得当成新功能重新设计 —— **不要恢复旧实现、不要留隐藏入口、不要在文案里承诺 AI 能力**。
-- **当前版本**：v0.19.0-alpha
+- **当前版本**：v0.19.0-beta
 
 ## 2. 技术栈约束
 
@@ -59,13 +59,13 @@ description: >
 ## 4. 功能模块详解
 
 ### 4.1 核心数据层（已完成）
-- 7 张 Dexie 表：`characters`、`events`、`countries`、`worldEntries`、`tags`、`operationLog`、`periods`
+- 8 张 Dexie 表：`characters`、`events`、`countries`、`worldEntries`、`tags`、`operationLog`、`periods`、`meta`（项目元信息单例）
 - 每条记录含 `_syncStatus`、`_lastModified`、`deleted` 字段
 - 操作日志自动记录字段变更，保留 60 天
 - 软删除：设置 `deleted: true`，在回收站保留 30 天
 
 ### 4.2 角色工坊（已完成）
-- 完整角色信息卡：基本信息、人物简介/生平（DocumentEditor 富文本）、立绘/Q版头像/方形头像/头图管理
+- 完整角色信息卡：基本信息、人物简介/生平（DocumentEditor 富文本）、立绘/方形头像/头图管理
 - 相关人物关联（含关系标注）、国籍关联国家、按国家筛选
 - ImageGallery 立绘 slider + grid、ProfileBanner 头图+头像重叠布局
 - **生日**：`年 / 月 / 日` 三段输入（与事件时间同一套 `parseTime`/`assembleTime`，年份可为负），落库仍是 `年-月-日` 一个字符串；年份可解析时会进时间线（见 §4.6）
@@ -305,7 +305,7 @@ description: >
 - 浮层 Portal 统一到 `#overlay-root`：dialog / alert-dialog / FullscreenViewer / ImageCropper / 编辑器弹层 ×4（mention、slash、移动端键盘工具栏+块面板、BlockTypeMenu）
 
 ### 已完成（v0.19.0-alpha · 界面重构 + 类型收紧）
-- **设计语言统一**：新增 `src/lib/ui-tokens.ts` 作为界面原子类唯一源；极小圆角 3–8px（仅头像/徽章为圆形）、控件零描边（输入改下划线，只有一条底线）；页头统一 48px、标题统一 18px 衬线加粗（`PAGE_TITLE`）、区块标题 15px（`SECTION_TITLE`）；菜单栏 40→32px、状态栏 32→24px；列表页视图切换改为图标（`LayoutGrid` / `List`，默认画廊 + 本地记忆）；浮层去圆角与 ring 光晕，全局按钮 hover 统一为 `var(--oc-hover)`
+- **设计语言统一**：新增 `src/lib/ui-tokens.ts` 作为界面原子类唯一源；极小圆角只有 4 / 6 / 8 三档（仅头像/徽章为圆形）、控件零描边（输入改下划线，只有一条底线）；页头统一 48px、标题统一 18px 衬线加粗（`PAGE_TITLE`）、区块标题 15px（`SECTION_TITLE`）；菜单栏 40→32px、状态栏 32→24px；列表页视图切换改为图标（`LayoutGrid` / `List`，默认画廊 + 本地记忆）；浮层去圆角与 ring 光晕，全局按钮 hover 统一为 `var(--oc-hover)`
 - **概览（主页）首屏** + 侧边栏「主页」入口（详见 4.18）
 - **项目元信息**：DB schema v6 新增 `meta` 单例表 + `src/features/project/` + 设置「世界」tab + 菜单栏显示世界名 + `.ocbak` 备份携带
 - **角色 `isMajor`** 主要角色标记（基本信息字段行）
@@ -330,7 +330,6 @@ description: >
 - **设置页签「通用」→「个性化」**（图标 `Cpu` → `Palette`）；新增 `DATE_INPUT` 令牌；**禁用原生 `<datalist>`**
 
 ### 待处理
-- [ ] 关系图谱节点位置持久化（localStorage）
 - [ ] 模板系统（模板切换/保存）
 - [ ] 旧数据迁移（bio/lifeStory/system 等旧字段清理）
 - [ ] 云同步服务端完善
@@ -346,6 +345,12 @@ description: >
 - [x] `id?: number` 精确类型化（实体 `id` 必填 + `EntityTable`；`Event.deleted` 经核查早已是 `boolean`，原记录有误）
 - [x] God 组件拆分：**已解耦收口** —— TimelineView / EditorCore / page.tsx 全部完成，且 `≥300 行` 名单里已无「真·God 组件」（剩下的都是抽出来的层或壳，不要为拆而拆）
 - [——] **AI：暂不做** —— 相关代码已整体删除；重启需作为新功能重新设计，不要恢复旧实现
+
+### 规划中（2026-10-29）
+
+- [ ] **自定义集合（L2）**：集合 = 轻量数据库，记录 = 有正文的页面；字段、关联、反向「所属」、关系图、vault。需求见 `docs/自定义分类-需求文档.md`；实现前先出 fork 冲突地图。
+- [ ] **近期计划**：图片导出模板系统、关系图重写、相册 / 图片组件原子化、网页导出模板设计 + 逻辑修复。详见 `docs/todo.md`「用户计划」。
+- [ ] **远期**：主题系统（自定义背景 / 强调色 / 背景图 + 社区主题）、可自定义导出模板 + 社区模板、社区插件（地图生成器等）。详见 `docs/todo.md`「远期计划」。
 
 ## 6. 已知坑与注意事项
 
@@ -414,7 +419,7 @@ cargo test --manifest-path src-tauri/Cargo.toml --lib         # 含 IPC 线格�
 关键验证项：
 - 角色/事件/国家/世界观 CRUD → 保存 → 刷新不丢失
 - 图片上传/删除/滑动 → 保存 → 刷新不丢失
-- Cmd+K 搜索：角色显示 Q版头像，国家显示 flag
+- Cmd+K 搜索：角色显示头像，国家显示 flag
 - 暗黑模式切换无闪烁
 - 关系图谱节点点击跳转编辑页
 - 下拉筛选器 hover 半透明效果

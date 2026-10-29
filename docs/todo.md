@@ -6,7 +6,46 @@
 ## 挂起（等外部条件，别提前动）
 
 - [ ] **小说 fork 合并**：合并后再做编辑器大纲（要对齐章节结构，现在的 `OutlinePanel` 只是雏形），并拍板 `Ctrl+B` / `Ctrl+K` 键位。
-- [ ] **自定义分类与字段扩展**：等基于 `0.18.0` 的 fork 提 PR。需求见 `docs/自定义分类-需求文档.md`。这是跨版本架构迁移（分类、字段、关系图一起动），先出冲突地图（`git merge-tree`）再动手，不要边合边改。
+- [ ] **自定义集合（L2）**：等基于 `0.18.0` 的 fork 提 PR。需求见 `docs/自定义分类-需求文档.md`（v0.2，文件名沿用；已从「分类」升级为「集合 = 轻量数据库」）。实现前先出冲突地图（`git merge-tree`），再按文档 P1–P4 分期，不要边合边改。
+
+## 用户计划（2026-10-29，先设计后实装）
+
+- [ ] **计划 1：图片导出模板系统 + 实装导出**：为不同界面/内容设计多套导出模板（角色卡、事件卡、国家卡、集合记录卡等），并实装导出图片。先出模板清单与设计稿；技术侧与下面 P2「图片导出技术底座」合并推进。
+- [ ] **计划 2：关系图重写**：现有图太丑、难维护、难扩展。目标：视觉/交互/性能/可测试性一起收口；抽成数据无关的原子组件（nodes/edges/config 输入），可在关系图、集合视图等复用；保留坐标持久化、筛选、移动端。先出组件 API 与视觉方案，再动代码。
+- [ ] **计划 3：相册 / 图片组件原子化（不是「是否复用」，是必须复用）**：
+  - 现状重复：`ImageGalleryGrid` 与 `GlobalAlbum` 各自实现网格 / 卡片 / 空态 / 删除 / 长按；`AlbumCard` 与画廊瓦片是两套；`FullscreenViewer` 虽共用但入参还是 `string[]`；上传/裁剪有 `useImageUpload`，但选图入口分散。
+  - 数据源缺口：`useAlbumData` 只扫角色/事件/国家的字段图；**不读 `document` / `content` 里的 `imageBlock.src`，也不扫词条，更不扫集合记录**。正文图片提取逻辑其实已在 `export-dir.ts` 的 `collectBodyRefs`（遍历四种实体的 document）里，抽成共享纯函数复用即可；完整数据源 = 字段图 + 正文图 + 词条 + 世界封面 + 集合记录（未来），分类树要补「正文图片」「词条」「世界」。
+  - 目标：一个 `PhotoItem` + `PhotoSource` 适配器；抽出 `PhotoCard` / `PhotoGrid` / `PhotoStrip`（slider）/ `PhotoViewer` / `PhotoPicker` / `PhotoField`；`ImageGallery` 与 `GlobalAlbum` 只做组合，不再各写一套网格。
+  - 全局照片选择器：`PhotoPicker` 作为唯一选择面；`GlobalAlbum` 可作为它的「浏览模式」。是否在所有图片字段默认弹「从相册选择」是产品决策，待商榷。
+  - 先出组件 API + 迁移清单；迁移按「先抽组件、后换调用点」，保留现有 slider / grid / addTile / externalAdd / crop / 长按 / 筛选行为。
+- [ ] **计划 4：网页导出模板设计 + 逻辑修复**：
+  - 现状：`src/lib/export/site/` 输出单文件 `index.html`；模板只有一套基础布局（侧栏 + 正文），集合/记录、移动端导航、空态与部分路由逻辑还不完整。
+  - 模板：先出视觉稿与内容清单（封面 / 导航 / 章节 / 卡片 / 详情 / 关系 / 时间线 / 词条树 / 集合 / 页脚 / 暗色 / 移动端 / 打印），保持单文件、hash 路由、图片内联、无外部依赖。
+  - 逻辑修复：先做一次「数据 → 路由 → HTML」审计并列 bug 清单；已知候选：`refLink` 对未知 kind 生成 `#/undefined/...`、只有 `endTime` 时时间标签变成「 ~ 2020」、`dateLabel` 用 `toISOString()` 在东八区可能少一天、集合/记录缺失、空实体与重复 id。
+  - 与集合功能 P4 的静态站章节合并，避免两套模板；加静态站验收（路由可进、内链不丢、图片全内联、移动端可读）。
+
+## 远期计划（不排期，先记方向；每项先出架构/安全评估）
+
+- [ ] **远期 1：主题系统（自定义背景 / 强调色 / 背景图 + 社区主题）**：
+  - 目标：亮/暗两套可自定义的界面令牌 —— 背景色、强调色、背景图；导入/导出社区主题。
+  - 范围：只开放安全令牌（paper / paper-alt / paper-card / line / ink / ink-muted / ink-faint / hover / scrim / danger 等），不开放任意 CSS/JS；背景图带可读性遮罩与明暗两套；主题先存应用设置，世界级覆盖后置。
+  - 强调色需要新增 `--oc-accent` 令牌并先定适用范围（链接 / 选中 / 按钮 / 图表？）；现有界面以墨色为主，不能直接把「强调色」套到所有控件上。
+  - 主题包：manifest（id / name / author / version / tokens / background / preview）+ 图片资源；导入校验颜色/对比度/资源；一键预览/应用/恢复默认。
+  - 前置：现有 `globals.css` 令牌 + `settings.tsx` 主题切换；不依赖集合功能。
+  - 风险：对比度/可读性、社区主题安全（禁止任意 CSS/JS）、Mica/移动端安全区、主题版本兼容。
+- [ ] **远期 2：可自定义导出图片 / 网站模板 + 社区模板导入**：
+  - 目标：用户可改图片卡（角色 / 事件 / 国家 / 集合记录）与静态站模板；导入社区模板包。
+  - 范围：声明式模板（布局 / 字段 / 颜色 / 字体 / 图片槽位）+ 受限 HTML/CSS；不执行任意 JS；图片导出 PNG，网站仍单文件 `index.html`。
+  - 模板包：manifest（kind=image/site、apiVersion、字段绑定、预览、作者/版本）+ 资源；导入校验 / 预览（sandbox iframe）/ 安装 / 卸载；内置模板保底。
+  - 前置：计划 1（图片导出技术底座）+ 计划 4（网页导出模板）；模板 API 先定版本。
+  - 风险：模板注入 / XSS、模板 API 漂移、图片体积、单文件站的自定义 JS 边界。
+- [ ] **远期 3：社区插件（如地图生成器）**：
+  - 目标：导入社区插件，扩展命令 / 面板 / 导出器 / 数据变换；地图生成器作为首个示例（读国家/词条 → 渲染 SVG/Canvas → 导出 PNG）。
+  - 架构：manifest（id / name / version / apiVersion / permissions / entry）+ 沙箱（iframe/Worker）+ 宿主 RPC；插件不直接碰 DOM/Dexie/Tauri，只能走白名单 API。
+  - 权限：读实体/集合、订阅变更、渲染容器、导出图片、网络（默认关）、文件（默认关）；用户逐项授权；插件级存储。
+  - 分发：先本地文件导入（zip），社区市场后置；版本 / 禁用 / 卸载 / 日志。
+  - 前置：稳定的内部数据 API + 导出管线 + 主题令牌；桌面优先，移动端能力另评估。
+  - 风险：安全（最高）、API 稳定性、Tauri/Capacitor 沙箱差异、社区维护成本；没有安全评估前不开放写权限 / 网络。
 
 ## P1
 
@@ -17,7 +56,7 @@
 
 - [ ] **字段自定义剩余四项**：字段行 hover `⋯` 快捷隐藏；自定义字段只支持单行文本；国家暂无字段表（体制 / 地理 / 文化已并进正文）；删掉的自定义字段缺「找回」入口（值还在数据里，设置里没有入口）。
 - [ ] **时间线世界级汇总**：现在只有单实体的「历史」弹层（`.ocstudio/journal.jsonl`），没有全库时间线视图。
-- [ ] **关系图导出**：角色卡 PNG（`html-to-image` + 隐藏的 800×1200 模板；Tauri 图片必须先转 data URL，否则 canvas 被污染）、整图导出（`getNodesBounds` + `getViewportForBounds`，对 `.react-flow__viewport` 出图而不是截当前视口）、`files.rs` 补 `save_bytes`、默认水印「Created with OC Studio」。
+- [ ] **图片导出技术底座（并入用户计划 1）**：角色卡 PNG（`html-to-image` + 隐藏的 800×1200 模板；Tauri 图片必须先转 data URL，否则 canvas 被污染）、整图导出（`getNodesBounds` + `getViewportForBounds`，对 `.react-flow__viewport` 出图而不是截当前视口）、`files.rs` 补 `save_bytes`、默认水印「Created with OC Studio」。
 - [ ] **仓储 create/update 模板**：`listActive` / `getById` / `softDelete` 已收敛，create/update 因字段级日志与引用同步差异仍各自手写。
 
 ## P3

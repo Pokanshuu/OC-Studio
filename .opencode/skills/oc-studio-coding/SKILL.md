@@ -78,7 +78,7 @@ description: >
 - **强制使用 Tailwind 类名**，禁止内联样式。例外：动态坐标/尺寸等无法用 Tailwind 表达的场景可用 `style`。
 - 颜色必须使用设计令牌，**禁止硬编码色值**。详细令牌见 `oc-studio-design` skill。
 - 下拉菜单/筛选面板选项 hover：`hover:bg-[var(--oc-hover)]`（全局统一的极低透明度墨色，亮暗自适应）
-- **极小圆角**（3–8px，仅头像/徽章为圆形，见 `oc-studio-design` skill 的四个语义名）、**全程无阴影**（不写 `shadow-*`，卡片悬停改底色）；控件的边框规则见 `oc-studio-design` skill
+- **极小圆角**（只有 4 / 6 / 8 三档，仅头像/徽章为圆形；见 `oc-studio-design` skill 的 item / control / panel）、**全程无阴影**（不写 `shadow-*`，卡片悬停改底色）；控件的边框规则见 `oc-studio-design` skill
 - 图标统一用 `lucide-react`，`strokeWidth={2}`，尺寸 16px(桌面)/20px(移动)
 - **旧内核 backdrop-blur 降级**：`isBelowTargetVersion()` 为 true 时 `AppShell.tsx` 设 `data-below-target-version` 属性到 `<html>`，`globals.css` 中 `[data-below-target-version] .backdrop-blur-lg` 统一禁用 `backdrop-filter` + 背景改不透明（亮 `#FEFCF8` paper / 暗 `#1C1B1A` dark-bg）。组件无需任何改动。
 - **图标语义规则**：返回/关闭 = `ArrowLeft`，折叠（收起侧边栏）= `ChevronLeft`，展开（打开侧边栏）= `Menu`。桌面端折叠按钮：树可见时 `ChevronLeft`，树隐藏时 `Menu`
@@ -87,7 +87,7 @@ description: >
 ## 5. 响应式与设备适配
 - 使用封装的 `useDevice()` hook（位于 `src/lib/use-device.ts`）判断 `isMobile`。
 - **布局壳切换采用 CSS-first 方案**：`max-md:hidden md:block`（桌面壳）/ `md:hidden`（移动壳），不依赖 `useDevice()` 做条件渲染。`useDevice()` 仅用于运行时行为（拖拽禁用、长按、触控热区）。
-- 桌面端：侧边栏固定 240px，面板分隔用 `border-r` / `border-l`。
+- 桌面端：侧边栏默认 140px，可拖 112–168px（常量在 `src/lib/sidebar-width.ts`）；外壳之间不画线，内容区只用 `border border-line` 的面板边界。
 - 移动端：禁用拖拽功能，用长按菜单或按钮替代；编辑器只保留加粗、斜体、标题按钮；侧边栏隐藏，通过底部导航或手势呼出。
 - **Tailwind v4 注意**：`hidden` 类可能不生成 CSS，用 `max-md:hidden` 替代。
 - **移动端布局层级**：MobileTopBar `fixed top-0` (z-20) → MobileFilterBar `fixed top-[60px]` (z-30) → 内容区 → MobileTabBar `fixed bottom-0` (z-30)
