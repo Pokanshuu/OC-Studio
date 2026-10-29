@@ -93,11 +93,10 @@ This version has breaking changes — APIs, conventions, and file structure may 
 ### Vault（文件夹设定集，仅桌面 Tauri）
 **文件是真源，且是唯一真源**：一个文件夹 = 一套设定集（界面上叫**「笔记库」**），词条存成 Markdown + frontmatter，可用 Obsidian 直接打开。
 文案分工：指代「你这个世界观」时叫**笔记库**（引导页 / 报错 / 设置）；让用户去点系统对话框时叫**本地文件夹**（`打开本地文件夹…` / `新建本地文件夹…`）。代码里仍然叫 vault，**两边只有这一条对应关系，别改标识符**。
-**没有第二种数据源**：Dexie 只是本次会话的工作缓存，退出即散；「内置数据库模式」已废弃（仅在浏览器里作为 Mock 预览保留，右下角有 `DEV · Mock` 标）。备份格式**只有 `.ocbak`**（原名沿用），新旧差异由文件里的 `version` 字段在后端判断，不做第二套格式。单真源迁移方案见 `docs/迁移计划.md`。
+**没有第二种数据源**：Dexie 只是本次会话的工作缓存，退出即散；「内置数据库模式」已废弃（仅在浏览器里作为 Mock 预览保留，右下角有 `DEV · Mock` 标）。备份格式**只有 `.ocbak`**（原名沿用），新旧差异由文件里的 `version` 字段在后端判断，不做第二套格式。单真源由 `src/lib/vault/` 实现。
 - `src-tauri/src/vault.rs` — 自建文件 IO 命令（probe/scan/write_texts/write_bytes/import_file/read_bytes/move/remove/mkdir/exists）。**不用 JS 的 fs 插件**：那要在运行时给 fs scope 授权并跨重启持久化。含原子写（临时文件 + rename）、mtime 乐观并发、路径逃逸拦截、BOM 剥离、`spawn_blocking`（同步命令会卡死主线程）。带 **6 个单测**（含 IPC 线格式契约 —— 字段名改错不报错，只会静默变 `undefined`）
 - `src-tauri/src/open.rs` — 用系统默认程序打开外链（`rundll32` / `open` / `xdg-open`，**不经过 shell**，只放行 http(s)），2 个单测
 - `src-tauri/src/files.rs` — 导出落盘命令 `save_text(path, content)`：WebView2 里 `<a download>` 不可靠（桌面版导出会「点了没反应」），所有导出改走「系统保存对话框拿绝对路径 → Rust 写入」，同目录临时文件 + rename，3 个单测
-- `docs/迁移计划.md` — 单真源迁移的施工蓝图（术语、备份只剩 `.ocbak`、老数据迁移的三个深坑、验收清单、已取消的 ocpack 方案）
 - `src/lib/vault/types.ts` — 扫描输入 / 笔记 / 数据集 / 索引 / 报告类型
 - `src/lib/vault/frontmatter.ts` — **外科式**读写：只替换我们拥有的键、只替换正文，键顺序与注释原样保留
 - `src/lib/vault/fields.ts` — frontmatter 词汇表**唯一源**（键链）。读与写共用，从结构上消除导入器/导出器漂移
@@ -205,4 +204,4 @@ npx tauri build   # Tauri 打包 (.exe/.msi)
 - 仓储层（`lib/repository.ts`）的 `Table<T, number, TInsert>` 第 3 个泛型位、实体 `id: number` 必填、`EntityTable` 的用法是**互相咬合**的：省掉第 3 个泛型位会让 `listActive` / `getById` 的返回值被推断成「id 可选」，从而在全项目催生 `as number` 断言。改动前先读 `src/lib/repository.ts` 顶部注释
 
 ## 待办与改进清单
-- 详见 `todo.md`（界面交互设计建议 / 技术重构 / 已知技术债，按 P0–P3 优先级维护）
+- 详见 `docs/todo.md`（只记没做的事：挂起项 / P1–P3；已完成的不留档）
