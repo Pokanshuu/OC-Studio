@@ -39,15 +39,18 @@ export function EntityEditorShell({
 
   return (
     <div className="flex h-full min-h-0 overflow-hidden">
-      {listOpen ? (
-        <aside
-          className="relative flex h-full shrink-0 flex-col overflow-hidden border-r border-line"
-          style={{ width: listWidth }}
-        >
-          {list}
-          <ListWidthResizer onDragStart={startListDrag} onReset={resetListWidth} />
-        </aside>
-      ) : null}
+      {/* 列表收起/展开用宽度过渡（与相册一致），不是直接卸载 */}
+      <aside
+        className={`relative flex h-full shrink-0 flex-col overflow-hidden transition-[width] duration-200 ease-in-out ${
+          listOpen ? 'border-r border-line' : 'border-r-0'
+        }`}
+        style={{ width: listOpen ? listWidth : 0 }}
+        aria-hidden={!listOpen}
+        inert={!listOpen}
+      >
+        {list}
+        {listOpen ? <ListWidthResizer onDragStart={startListDrag} onReset={resetListWidth} /> : null}
+      </aside>
 
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
         {/* 顶栏覆盖在滚动内容上（z-30），backdrop-blur 才有内容可模糊；内容在滚动容器内用 h-12 spacer 让出位置 */}
