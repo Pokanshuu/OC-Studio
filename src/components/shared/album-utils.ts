@@ -20,14 +20,14 @@ export const CATEGORY_TREE: TopCategory[] = [
     children: [
       { key: 'character:avatar', label: '头像', sourceType: 'character', category: 'avatar' },
       { key: 'character:fullbody', label: '立绘', sourceType: 'character', category: 'fullbody' },
-      { key: 'character:header', label: '头图', sourceType: 'character', category: 'header' },
+      { key: 'character:header', label: '封面', sourceType: 'character', category: 'header' },
       { key: 'character:gallery', label: '相册图片', sourceType: 'character', category: 'gallery' },
     ],
   },
   {
     key: 'event', label: '事件',
     children: [
-      { key: 'event:header', label: '头图', sourceType: 'event', category: 'header' },
+      { key: 'event:header', label: '封面', sourceType: 'event', category: 'header' },
       { key: 'event:gallery', label: '图片', sourceType: 'event', category: 'gallery' },
     ],
   },
@@ -35,7 +35,7 @@ export const CATEGORY_TREE: TopCategory[] = [
     key: 'country', label: '国家',
     children: [
       { key: 'country:flag', label: '标志', sourceType: 'country', category: 'flag' },
-      { key: 'country:header', label: '头图', sourceType: 'country', category: 'header' },
+      { key: 'country:header', label: '封面', sourceType: 'country', category: 'header' },
     ],
   },
 ]

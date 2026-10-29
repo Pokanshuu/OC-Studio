@@ -72,7 +72,7 @@ export function EntityEditorShell({
                 <ArrowLeft size={16} strokeWidth={2} />
               </button>
             ) : null}
-            <h2 className="truncate text-base font-medium text-ink">{title}</h2>
+            <h2 className="truncate text-base font-normal text-ink">{title}</h2>
           </div>
 
           <div

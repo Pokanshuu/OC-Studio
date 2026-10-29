@@ -60,10 +60,10 @@ export function EntityHistoryButton({ table, id, name }: EntityHistoryButtonProp
 
   useEffect(() => {
     if (!open) return
+    // 打开浮层时才读时间线；load 内部负责 loading/entries，这是外部数据订阅而非派生 state
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load()
   }, [open, load])
-
-  if (!available) return null
 
   const title = name !== undefined && name.trim() !== '' ? name : '这篇笔记'
 
@@ -78,6 +78,8 @@ export function EntityHistoryButton({ table, id, name }: EntityHistoryButtonProp
       if (message !== '已取消') toast.error('导出失败')
     }
   }, [entries, relPath, title])
+
+  if (!available) return null
 
   return (
     <>
@@ -179,7 +181,7 @@ const KEY_LABELS: Record<string, string> = {
   lifeStory: '人生故事',
   isMajor: '主要角色',
   avatar: '头像',
-  header: '头图',
+  header: '封面',
   gallery: '图集',
   avatars: '头像组',
   relations: '关系',

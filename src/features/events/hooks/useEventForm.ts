@@ -12,7 +12,7 @@ import { parseTime, assembleTime } from '../utils'
 import { useSaveStatus } from '@/components/layout/SaveStatusContext'
 import { toast } from 'sonner'
 import { useEditorDirty } from '@/components/layout/useEditorDirty'
-import { snapshotKey, useDirtySnapshot } from '@/lib/dirty'
+import { describeDocDiff, snapshotKey, useDirtySnapshot } from '@/lib/dirty'
 
 /** 表单里可编辑的全部字段 —— 装载、回灌、脏判断共用这一份形状 */
 interface EventValues {
@@ -105,6 +105,8 @@ export function useEventForm(
   const [saving, setSaving] = useState(false)
   const editorRef = useRef<Editor | null>(null)
   const docBaselineRef = useRef<Editor['state']['doc'] | null>(null)
+  /** 诊断：正文第一次变脏时把差异打一次 log，别每敲一个字都刷屏 */
+  const docDiffLoggedRef = useRef(false)
   const [docDirty, setDocDirty] = useState(false)
   const { markSaving, registerSaveHandler, reportDirty } = useSaveStatus()
   const prevUpdatedAtRef = useRef(event.updatedAt)
@@ -120,7 +122,7 @@ export function useEventForm(
   ])
 
   const snapshot = useMemo(() => valuesSnapshot(values), [values])
-  const { dirty: fieldsDirty, markClean: markFieldsClean } = useDirtySnapshot(snapshot)
+  const { dirty: fieldsDirty, diffSummary, markClean: markFieldsClean } = useDirtySnapshot(snapshot)
 
   // 外部改写（时间线拖拽 / 别处保存）后回灌，并把同一份值记为新的干净基线。
   // 自己刚保存的那份回读不回灌 —— 否则会把保存期间还在输入的字冲掉。
@@ -217,7 +219,16 @@ export function useEventForm(
     const editor = editorRef.current
     const baseline = docBaselineRef.current
     if (!editor || !baseline) return
-    setDocDirty(!editor.state.doc.eq(baseline))
+    const next = !editor.state.doc.eq(baseline)
+    if (next && !docDiffLoggedRef.current) {
+      docDiffLoggedRef.current = true
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[dirty] doc diff —— ' + describeDocDiff(editor.getJSON(), baseline.toJSON()))
+      }
+    } else if (!next) {
+      docDiffLoggedRef.current = false
+    }
+    setDocDirty(next)
   }, [])
 
   const handleSave = useCallback(async () => {
@@ -286,7 +297,13 @@ export function useEventForm(
     return () => registerSaveHandler('event', null)
   }, [handleSave, registerSaveHandler])
 
-  useEditorDirty('event', event.id, fieldsDirty || docDirty, saving)
+  useEditorDirty(
+    'event',
+    event.id,
+    fieldsDirty || docDirty,
+    saving,
+    [fieldsDirty ? `字段 ${diffSummary}` : '', docDirty ? '正文文档与基线不同' : ''].filter(Boolean).join(' + '),
+  )
 
   return {
     title, setTitle,

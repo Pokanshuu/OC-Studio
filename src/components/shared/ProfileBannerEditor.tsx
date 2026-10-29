@@ -146,14 +146,14 @@ export function ProfileBannerEditor({
                   className="pointer-events-auto flex items-center gap-1.5 bg-transparent hover:bg-transparent"
                 >
                   <Camera size={18} strokeWidth={2} />
-                  更换头图
+                  更换封面
                 </button>
               </div>
               {onHeaderRemove && headerUrl ? (
                 <button
                   onClick={(e) => { e.stopPropagation(); onHeaderRemove() }}
                   className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/40 text-white/80 opacity-0 transition-opacity group-hover/header:opacity-100 hover:bg-black/60"
-                  title="删除头图"
+                  title="删除封面"
                 >
                   <Trash2 size={16} strokeWidth={2} />
                 </button>

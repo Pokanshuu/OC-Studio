@@ -350,13 +350,18 @@ html.tauri-mica [data-statusbar] {
   text-decoration-color: var(--color-ink-muted);
 }
 
-/* Task list checkbox */
-.ProseMirror [data-type="taskList"] {
+/* 任务列表：复选框与正文首行同排、同高
+   - 用 `.tiptap` 而不是 `.ProseMirror`：TipTap 一定会在编辑器根节点上补这个类，
+     任务列表样式就不会因为根节点类名变化（或自定义 class 覆盖）而整段失效
+   - 复选框是 16px 方块，上下留白按首行行高补，所以文字换行后仍与首行对齐
+   - 文字列必须是块级 flex 子项：内联 div 里的 <p> 会把正文挤到复选框下一行
+   - 首尾段落去掉外边距：否则 <p> 的 0.5em 上边距把首行顶下去 */
+.tiptap [data-type="taskList"] {
   list-style: none !important;
   padding-left: 0 !important;
 }
 
-.ProseMirror [data-type="taskItem"] {
+.tiptap [data-type="taskItem"] {
   list-style: none !important;
   display: flex !important;
   align-items: flex-start !important;
@@ -364,47 +369,76 @@ html.tauri-mica [data-statusbar] {
   margin-bottom: 0.25em;
 }
 
-.ProseMirror [data-type="taskItem"] > label {
+.tiptap [data-type="taskItem"] > label {
+  position: relative !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
   width: 16px !important;
   height: 16px !important;
-  border: 1px solid #E7E3DC !important;
-  border-radius: 0 !important;
-  background-color: #F3EFE9 !important;
+  flex: 0 0 16px !important;
   margin-right: 0.5rem !important;
+  /* 首行行高 1.625 × 15px ≈ 24.4px，补 (行高 − 16px) / 2 */
+  margin-top: 4px;
+  margin-top: calc((1lh - 16px) / 2);
+  border: 1px solid var(--oc-line) !important;
+  border-radius: var(--radius-item) !important;
+  background-color: var(--oc-paper-card) !important;
   cursor: pointer !important;
-  flex-shrink: 0 !important;
-  margin-top: 3px;
+  transition: background-color var(--dur-fast) var(--ease-quiet),
+    border-color var(--dur-fast) var(--ease-quiet);
 }
 
-.ProseMirror [data-type="taskItem"][data-checked="true"] > label {
-  background-color: #E7E3DC !important;
+.tiptap [data-type="taskItem"] > label:hover {
+  border-color: var(--oc-line-hover) !important;
 }
 
-.ProseMirror [data-type="taskItem"][data-checked="true"] > label::after {
+/* 选中：暖灰墨实心 + 纸色勾 —— 和界面同一套暖色，替掉 WebView 的蓝色默认复选框 */
+.tiptap [data-type="taskItem"][data-checked="true"] > label {
+  border-color: var(--oc-ink-muted) !important;
+  background-color: var(--oc-ink-muted) !important;
+}
+
+.tiptap [data-type="taskItem"][data-checked="true"] > label::after {
   content: '';
   display: block;
   width: 5px;
-  height: 10px;
-  border-right: 2px solid #6E6A63;
-  border-bottom: 2px solid #6E6A63;
+  height: 9px;
+  border-right: 2px solid var(--oc-paper);
+  border-bottom: 2px solid var(--oc-paper);
   transform: rotate(45deg) translate(-1px, -1px);
 }
 
-.ProseMirror [data-type="taskItem"] > label input[type="checkbox"] {
-  opacity: 0 !important;
+/* 原生复选框铺满方框但不可见：命中区仍是真实 input（键盘可聚焦），
+   同时把 WebView 自带的蓝色方块彻底挡掉 */
+.tiptap [data-type="taskItem"] > label input[type="checkbox"] {
   position: absolute !important;
-  width: 1px !important;
-  height: 1px !important;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  opacity: 0 !important;
+  cursor: pointer !important;
 }
 
-.ProseMirror [data-type="taskItem"] > div {
-  display: inline;
+.tiptap [data-type="taskItem"] > label:has(input:focus-visible) {
+  border-color: var(--oc-ink-muted) !important;
+}
+
+.tiptap [data-type="taskItem"] > div {
+  display: block !important;
+  flex: 1 1 auto !important;
+  min-width: 0;
+}
+
+.tiptap [data-type="taskItem"] > div > p:first-child {
+  margin-top: 0 !important;
+}
+
+.tiptap [data-type="taskItem"] > div > p:last-child {
+  margin-bottom: 0 !important;
 }
 
 .tiptap h1 {

@@ -42,6 +42,10 @@ function canonical(value: unknown): unknown {
  */
 export function useDirtySnapshot(snapshot: unknown): {
   dirty: boolean
+  /** 第一层里与基线不同的键（诊断用：只写日志，不参与任何判断） */
+  changedKeys: string[]
+  /** 前几个差异的可读描述，形如 `birthday="" → "1990"`（诊断用） */
+  diffSummary: string
   markClean: (key?: string) => void
 } {
   const key = snapshotKey(snapshot)
@@ -51,5 +55,70 @@ export function useDirtySnapshot(snapshot: unknown): {
     setSavedKey(next ?? key)
   }, [key])
 
-  return { dirty: key !== savedKey, markClean }
+  const diff = key === savedKey ? EMPTY_DIFF : diffSnapshot(snapshot, parseKey(savedKey))
+
+  return { dirty: key !== savedKey, changedKeys: diff.keys, diffSummary: diff.summary, markClean }
+}
+
+const EMPTY_DIFF: { keys: string[]; summary: string } = { keys: [], summary: '' }
+
+function parseKey(key: string): Record<string, unknown> {
+  try {
+    const parsed: unknown = JSON.parse(key)
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {}
+  } catch {
+    return {}
+  }
+}
+
+/** 顶层键的差异（快照都是扁平对象，够用） */
+function diffSnapshot(current: unknown, baseline: Record<string, unknown>): { keys: string[]; summary: string } {
+  const now = canonical(current) as Record<string, unknown>
+  const keys = new Set([...Object.keys(now), ...Object.keys(baseline)])
+  const changed: string[] = []
+  for (const key of keys) {
+    if (JSON.stringify(now[key]) !== JSON.stringify(baseline[key])) changed.push(key)
+  }
+  changed.sort()
+  const summary = changed
+    .slice(0, 3)
+    .map((key) => `${key}: ${brief(baseline[key])} → ${brief(now[key])}`)
+    .join(' | ')
+  return { keys: changed, summary }
+}
+
+/** 诊断输出用：值太长会看不清，截断即可 */
+function brief(value: unknown): string {
+  const text = JSON.stringify(value) ?? 'undefined'
+  return text.length > 40 ? `${text.slice(0, 37)}…` : text
+}
+
+/**
+ * 诊断：两份文档 JSON 的第一处差异（路径 + 旧/新）。
+ * 只用于回答「正文没动，为什么算脏」—— 例如 `doc.content[2].attrs.placeholder: null → "…"`。
+ */
+export function describeDocDiff(a: unknown, b: unknown, path = 'doc', depth = 0): string {
+  if (depth > 10) return `${path}: …`
+  if (a === b) return ''
+  if (typeof a !== typeof b || Array.isArray(a) !== Array.isArray(b)) {
+    return `${path}: ${brief(a)} → ${brief(b)}`
+  }
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return `${path}.length: ${a.length} → ${b.length}`
+    for (let i = 0; i < a.length; i++) {
+      const inner = describeDocDiff(a[i], b[i], `${path}[${i}]`, depth + 1)
+      if (inner) return inner
+    }
+    return ''
+  }
+  if (a && b && typeof a === 'object' && typeof b === 'object') {
+    const left = a as Record<string, unknown>
+    const right = b as Record<string, unknown>
+    for (const key of new Set([...Object.keys(left), ...Object.keys(right)])) {
+      const inner = describeDocDiff(left[key], right[key], `${path}.${key}`, depth + 1)
+      if (inner) return inner
+    }
+    return ''
+  }
+  return `${path}: ${brief(a)} → ${brief(b)}`
 }
