@@ -112,6 +112,7 @@ function CountryEditorInner({
   onWikiLinkClick?: (id: string) => void
 }) {
   const form = useCountryForm(country, onSave)
+  const { handleSave, docDirty } = form
   const { isMobile } = useDevice()
   const [listOpen, setListOpen] = useState(!isMobile)
   const [bodyEditor, setBodyEditor] = useState<Editor | null>(null)
@@ -120,10 +121,19 @@ function CountryEditorInner({
 
   useEffect(() => {
     if (desiredLayout === layout) return
-    if (form.docDirty) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLayout(desiredLayout)
-  }, [desiredLayout, layout, form.docDirty])
+    if (!docDirty) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setLayout(desiredLayout)
+      return
+    }
+    let cancelled = false
+    void handleSave().then(() => {
+      if (!cancelled) setLayout(desiredLayout)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [desiredLayout, layout, docDirty, handleSave])
 
   const headerActions = (
     <>
@@ -132,10 +142,11 @@ function CountryEditorInner({
         onClick={form.handleSave}
         disabled={form.saving || !form.name.trim()}
         data-save-button
+        aria-label={form.saving ? '保存中' : '保存'}
+        title={form.saving ? '保存中' : '保存'}
         className={BTN_PRIMARY}
       >
         <Save size={14} strokeWidth={2} />
-        <span>{form.saving ? '保存中...' : '保存'}</span>
       </button>
     </>
   )

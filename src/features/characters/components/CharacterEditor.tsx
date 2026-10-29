@@ -103,20 +103,30 @@ function CharacterEditorInner({
   onWikiLinkClick?: (id: string) => void
 }) {
   const form = useCharacterForm(character, onSave)
+  const { handleSave, docDirty } = form
   const { isMobile } = useDevice()
   const [listOpen, setListOpen] = useState(!isMobile)
   const [bodyEditor, setBodyEditor] = useState<Editor | null>(null)
   const desiredLayout = useEditorLayout()
   const [layout, setLayout] = useState<'multi' | 'full'>(desiredLayout)
 
-  // 布局实时跟随设置/窗口；正文有未保存改动时先不切 —— 切布局会重挂 TipTap。
+  // 布局实时跟随设置/窗口；正文有未保存改动时先自动保存，再切布局（切布局会重挂 TipTap）。
   useEffect(() => {
     if (desiredLayout === layout) return
-    if (form.docDirty) return
-    // 布局是设置/窗口的派生状态；正文脏时冻结是刻意的。
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLayout(desiredLayout)
-  }, [desiredLayout, layout, form.docDirty])
+    if (!docDirty) {
+      // 布局是设置/窗口的派生状态。
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setLayout(desiredLayout)
+      return
+    }
+    let cancelled = false
+    void handleSave().then(() => {
+      if (!cancelled) setLayout(desiredLayout)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [desiredLayout, layout, docDirty, handleSave])
 
   const headerActions = (
     <>
@@ -125,10 +135,11 @@ function CharacterEditorInner({
         onClick={form.handleSave}
         disabled={form.saving || !form.name.trim()}
         data-save-button
+        aria-label={form.saving ? '保存中' : '保存'}
+        title={form.saving ? '保存中' : '保存'}
         className={BTN_PRIMARY}
       >
         <Save size={14} strokeWidth={2} />
-        <span>{form.saving ? '保存中...' : '保存'}</span>
       </button>
     </>
   )
