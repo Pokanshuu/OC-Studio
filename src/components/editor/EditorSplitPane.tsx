@@ -24,10 +24,9 @@ export function EditorSplitPane({ meta, children }: EditorSplitPaneProps) {
         {meta}
       </section>
       <MiddlePaneResizer onDragStart={startDrag} onReset={reset} />
-      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
-        <div className="h-12 shrink-0" aria-hidden />
-        {children}
-      </div>
+      {/* 右栏不自己滚动、也不放 48px 占位：正文由 EditorBodyPane 自己持有滚动容器和顶栏占位，
+          两处都加会让顶栏下方多空出一整条 */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">{children}</div>
     </div>
   )
 }

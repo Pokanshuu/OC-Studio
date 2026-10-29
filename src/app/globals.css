@@ -339,6 +339,11 @@ html.tauri-mica [data-statusbar] {
   outline: none;
 }
 
+/* 首块不带外边距：正文上方已经有一条 48px 的顶栏占位，再叠标题的 1.25em 会空出一大截 */
+.tiptap > :first-child {
+  margin-top: 0;
+}
+
 .tiptap a {
   color: var(--color-ink);
   text-decoration: underline;

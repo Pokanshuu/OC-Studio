@@ -199,7 +199,7 @@ function CharacterEditorInner({
           }
         >
           <EditorBodyPane editor={bodyEditor} showToolbar={false}>
-            <div className="mx-auto w-full max-w-3xl px-4 py-6 md:px-8">{body}</div>
+            {body}
           </EditorBodyPane>
         </EditorSplitPane>
       ) : (
