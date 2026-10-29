@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Save } from 'lucide-react'
 import type { Editor } from '@tiptap/core'
 import { EntityDocumentBody } from '@/components/editor/EntityDocumentBody'
@@ -38,6 +38,11 @@ export function EventEditor({ event, onBack, onCreate, onSave, onNavigateToEvent
   const desiredLayout = useEditorLayout()
   const [layout, setLayout] = useState<'multi' | 'full'>(desiredLayout)
 
+  const saveRef = useRef(handleSave)
+  useEffect(() => {
+    saveRef.current = handleSave
+  }, [handleSave])
+
   useEffect(() => {
     if (desiredLayout === layout) return
     if (!docDirty) {
@@ -46,13 +51,13 @@ export function EventEditor({ event, onBack, onCreate, onSave, onNavigateToEvent
       return
     }
     let cancelled = false
-    void handleSave().then(() => {
+    void saveRef.current().then(() => {
       if (!cancelled) setLayout(desiredLayout)
     })
     return () => {
       cancelled = true
     }
-  }, [desiredLayout, layout, docDirty, handleSave])
+  }, [desiredLayout, layout, docDirty])
 
   const headerActions = (
     <>

@@ -97,7 +97,8 @@ export function EditorCore({
   useEffect(() => {
     if (!editor) return
     const updateTableState = () => {
-      setIsTableActive(editor.isActive('table'))
+      const next = editor.isActive('table')
+      setIsTableActive((prev) => (prev === next ? prev : next))
     }
     editor.on('selectionUpdate', updateTableState)
     editor.on('transaction', updateTableState)

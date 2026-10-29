@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Save } from 'lucide-react'
 import type { Editor } from '@tiptap/core'
 import type { Country } from '@/types'
@@ -119,6 +119,11 @@ function CountryEditorInner({
   const desiredLayout = useEditorLayout()
   const [layout, setLayout] = useState<'multi' | 'full'>(desiredLayout)
 
+  const saveRef = useRef(handleSave)
+  useEffect(() => {
+    saveRef.current = handleSave
+  }, [handleSave])
+
   useEffect(() => {
     if (desiredLayout === layout) return
     if (!docDirty) {
@@ -127,13 +132,13 @@ function CountryEditorInner({
       return
     }
     let cancelled = false
-    void handleSave().then(() => {
+    void saveRef.current().then(() => {
       if (!cancelled) setLayout(desiredLayout)
     })
     return () => {
       cancelled = true
     }
-  }, [desiredLayout, layout, docDirty, handleSave])
+  }, [desiredLayout, layout, docDirty])
 
   const headerActions = (
     <>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Save } from 'lucide-react'
 import type { Editor } from '@tiptap/core'
 import { EntityDocumentBody } from '@/components/editor/EntityDocumentBody'
@@ -110,6 +110,12 @@ function CharacterEditorInner({
   const desiredLayout = useEditorLayout()
   const [layout, setLayout] = useState<'multi' | 'full'>(desiredLayout)
 
+  // 保存函数身份会随表单变化；用 ref 拿最新值，避免 auto-save effect 被反复触发。
+  const saveRef = useRef(handleSave)
+  useEffect(() => {
+    saveRef.current = handleSave
+  }, [handleSave])
+
   // 布局实时跟随设置/窗口；正文有未保存改动时先自动保存，再切布局（切布局会重挂 TipTap）。
   useEffect(() => {
     if (desiredLayout === layout) return
@@ -120,13 +126,13 @@ function CharacterEditorInner({
       return
     }
     let cancelled = false
-    void handleSave().then(() => {
+    void saveRef.current().then(() => {
       if (!cancelled) setLayout(desiredLayout)
     })
     return () => {
       cancelled = true
     }
-  }, [desiredLayout, layout, docDirty, handleSave])
+  }, [desiredLayout, layout, docDirty])
 
   const headerActions = (
     <>
