@@ -324,7 +324,7 @@ export function EditorToolbar({
         aria-label="格式工具"
         className={`flex items-center gap-0.5 px-2 max-md:hidden ${
           embedded
-            ? 'h-full min-w-0 flex-1 bg-transparent'
+            ? 'h-full w-full bg-transparent'
             : `${sticky ? 'sticky top-12' : ''} z-10 h-10 border-b border-line bg-paper/85 backdrop-blur-lg`
         }`}
       >

@@ -1,6 +1,6 @@
 export const MIDDLE_PANE_STORAGE_KEY = 'oc-editor-middle-width'
 export const MIDDLE_PANE_MIN = 280
-export const MIDDLE_PANE_DEFAULT = 340
+export const MIDDLE_PANE_DEFAULT = 420
 
 export function clampMiddlePaneWidth(width: number, max: number): number {
   const upper = Math.max(MIDDLE_PANE_MIN, Math.round(max))

@@ -59,7 +59,7 @@ export function AlbumTreePanel({
           </div>
         </div>
       )}
-      <div className="flex-1 overflow-auto py-3">
+      <div className="flex-1 overflow-y-auto overscroll-contain py-3">
         <nav className="flex flex-col gap-1">
           <button
             onClick={() => { onSelectKey('all'); if (isMobile) onCloseMobileTree() }}

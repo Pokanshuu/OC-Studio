@@ -1,20 +1,22 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Save, ArrowLeft } from 'lucide-react'
-import { DocumentEditor } from '@/components/editor/DocumentEditor'
+import { Save } from 'lucide-react'
+import type { Editor } from '@tiptap/core'
+import { EntityDocumentBody } from '@/components/editor/EntityDocumentBody'
+import { EditorBodyPane } from '@/components/editor/EditorBodyPane'
+import { EditorSplitPane } from '@/components/editor/EditorSplitPane'
+import { EntityEditorShell } from '@/components/shared/EntityEditorShell'
 import type { Character } from '@/types'
 import { EntityHistoryButton } from '@/features/vault'
 import { useEditorLayout } from '@/lib/use-editor-layout'
+import { useDevice } from '@/lib/use-device'
 import type { CharacterFormData } from '../types'
 import { useCharacter, useUpdateCharacter } from '../hooks/useCharacters'
 import { useCharacterForm } from '../hooks/useCharacterForm'
-import { ImageGallery } from '@/components/shared/image-gallery/ImageGallery'
-import { ProfileBannerEditor } from '@/components/shared/ProfileBannerEditor'
-import { CharacterInfoSection } from './CharacterInfoSection'
-import { CharacterRelationSection } from './CharacterRelationSection'
-import { CharacterEditorMulti } from './CharacterEditorMulti'
-import { BTN_PRIMARY, BTN_QUIET, CENTER_STATE, EDITOR_BODY, EDITOR_HEADER, ICON_BTN_MD, PAGE_TITLE, SECTION_TITLE, TITLE_INPUT } from '@/lib/ui-tokens'
+import { CharacterEditorList } from './CharacterEditorList'
+import { CharacterFrontmatter } from './CharacterFrontmatter'
+import { BTN_PRIMARY, BTN_QUIET, CENTER_STATE } from '@/lib/ui-tokens'
 
 interface CharacterEditorProps {
   editCharacterId: number
@@ -46,12 +48,7 @@ export function CharacterEditor({ editCharacterId, onBack, onNavigateToCharacter
     return (
       <div className={CENTER_STATE}>
         <span className="text-sm text-error">{error}</span>
-        <button
-          onClick={onBack}
-          className={BTN_QUIET}
-        >
-          返回
-        </button>
+        <button onClick={onBack} className={BTN_QUIET}>返回</button>
       </div>
     )
   }
@@ -60,12 +57,7 @@ export function CharacterEditor({ editCharacterId, onBack, onNavigateToCharacter
     return (
       <div className={CENTER_STATE}>
         <span className="text-sm text-ink-muted">角色不存在</span>
-        <button
-          onClick={onBack}
-          className={BTN_QUIET}
-        >
-          返回
-        </button>
+        <button onClick={onBack} className={BTN_QUIET}>返回</button>
       </div>
     )
   }
@@ -107,11 +99,13 @@ function CharacterEditorInner({
   onWikiLinkClick?: (id: string) => void
 }) {
   const form = useCharacterForm(character, onSave)
-  const [railOpen, setRailOpen] = useState(true)
+  const { isMobile } = useDevice()
+  const [listOpen, setListOpen] = useState(!isMobile)
+  const [bodyEditor, setBodyEditor] = useState<Editor | null>(null)
   const desiredLayout = useEditorLayout()
   const [layout, setLayout] = useState<'multi' | 'full'>(desiredLayout)
+
   // 布局实时跟随设置/窗口；正文有未保存改动时先不切 —— 切布局会重挂 TipTap。
-  // 保存后 docDirty 变 false，effect 会再把布局补上。
   useEffect(() => {
     if (desiredLayout === layout) return
     if (form.docDirty) return
@@ -135,131 +129,71 @@ function CharacterEditorInner({
     </>
   )
 
+  const handleBodyReady = (editor: Editor) => {
+    setBodyEditor(editor)
+    form.handleDocReady(editor)
+  }
+
+  const body = (
+    <EntityDocumentBody
+      entityId={character.id}
+      entityType="character"
+      fallbackContent={mergeBioLifeStory(character.bio, character.lifeStory)}
+      onReady={handleBodyReady}
+      placeholder="编写角色简介..."
+      onMentionClick={onMentionClick}
+      onCharacterCount={onCharacterCount}
+      onWikiLinkClick={onWikiLinkClick}
+      onDocChange={form.handleDocChange}
+    />
+  )
+
   return (
-    <div className={layout === 'multi' ? 'flex h-full min-h-0 flex-col' : 'flex min-h-full flex-col'}>
-      {layout === 'multi' ? (
-        <CharacterEditorMulti
-          character={character}
-          form={form}
-          fallbackContent={mergeBioLifeStory(character.bio, character.lifeStory)}
-          railOpen={railOpen}
-          onBack={onBack}
-          onToggleRail={() => setRailOpen((open) => !open)}
-          headerRight={headerActions}
-          onNavigateToCharacter={onNavigateToCharacter}
-          onNavigateToCountry={onNavigateToCountry}
-          onMentionClick={onMentionClick}
-          onCharacterCount={onCharacterCount}
-          onWikiLinkClick={onWikiLinkClick}
+    <EntityEditorShell
+      title="编辑角色"
+      onBack={onBack}
+      listOpen={listOpen}
+      onToggleList={() => setListOpen((open) => !open)}
+      list={
+        <CharacterEditorList
+          currentId={character.id}
+          onSelect={onNavigateToCharacter}
+          onCollapse={() => setListOpen(false)}
         />
-      ) : (
-        <>
-        <div className={EDITOR_HEADER}>
-          <div className="flex items-center gap-3">
-            <button
-              data-mobile-back
-              onClick={onBack}
-              className={ICON_BTN_MD}
-            >
-              <ArrowLeft size={16} strokeWidth={2} />
-            </button>
-            <h2 className={PAGE_TITLE}>编辑角色</h2>
-          </div>
-          <div className="flex items-center gap-1">{headerActions}</div>
-        </div>
-
-        <div className={EDITOR_BODY}>
-        <div className="mx-auto w-full max-w-3xl px-4 py-3 md:px-8 md:py-6">
-          {/* Profile header */}
-          <section>
-            <ProfileBannerEditor
-              headerUrl={form.headerUrl}
-              avatarUrl={form.avatarUrl}
-              onHeaderChange={form.setHeaderUrl}
-              onAvatarChange={form.setAvatarUrl}
-              onHeaderRemove={() => form.setHeaderUrl('')}
-              onAvatarRemove={() => form.setAvatarUrl('')}
+      }
+      editor={bodyEditor}
+      headerRight={headerActions}
+    >
+      {layout === 'multi' ? (
+        <EditorSplitPane
+          meta={
+            <CharacterFrontmatter
+              form={form}
+              compact
+              onNavigateToCharacter={onNavigateToCharacter}
+              onNavigateToCountry={onNavigateToCountry}
             />
-          </section>
-
-          {/* ── 内容 ── */}
-          <div className="mt-8">
-            <div className="flex flex-col gap-8">
-              {/* 身份区：名字 / 摘要（头像在头图上） */}
-              <div className="flex min-w-0 flex-col gap-1">
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={(e) => form.setName(e.target.value)}
-                  placeholder="角色名称"
-                  className={TITLE_INPUT}
-                />
-                {form.summaryLine ? (
-                  <p className="text-sm text-ink-muted">{form.summaryLine}</p>
-                ) : null}
-              </div>
-
-              <CharacterInfoSection form={form} onNavigateToCountry={onNavigateToCountry} />
-
-              <div className="border-t border-line" />
-
-              {/* 立绘 */}
-              <section>
-                <h3 className={SECTION_TITLE}>立绘</h3>
-                <ImageGallery
-                  mode="grid"
-                  gridAspect="portrait"
-                  addTile
-                  images={form.avatarUrls}
-                  enableCrop
-                  cropAspect={9 / 16}
-                  onAdd={(path) => form.setAvatarUrls((prev) => [...prev, path])}
-                  onRemove={(index) => form.setAvatarUrls((prev) => prev.filter((_, i) => i !== index))}
-                />
-              </section>
-
-              <div className="border-t border-line" />
-
-              {/* Bio + LifeStory (merged into one document) */}
-              <section>
-                <h3 className={SECTION_TITLE}>人物详情</h3>
-                <DocumentEditor
-                  entityId={character.id}
-                  entityType="character"
-                  fallbackContent={mergeBioLifeStory(character.bio, character.lifeStory)}
-                  onReady={form.handleDocReady}
-                  placeholder="编写角色简介..."
-                  onMentionClick={onMentionClick}
-                  onCharacterCount={onCharacterCount}
-                  onWikiLinkClick={onWikiLinkClick}
-                  onDocChange={form.handleDocChange}
-                />
-              </section>
-
-              <div className="border-t border-line" />
-
-              <CharacterRelationSection form={form} onNavigateToCharacter={onNavigateToCharacter} />
-
-              <div className="border-t border-line" />
-
-              {/* Gallery */}
-              <section>
-                <h3 className={SECTION_TITLE}>相册</h3>
-                <ImageGallery
-                  mode="grid"
-                  images={form.galleryUrls}
-                  onAdd={(path) => form.setGalleryUrls((prev) => [...prev, path])}
-                  onRemove={(index) => form.setGalleryUrls((prev) => prev.filter((_, i) => i !== index))}
-                />
-              </section>
-            </div>
+          }
+        >
+          <EditorBodyPane editor={bodyEditor} showToolbar={false}>
+            <div className="mx-auto w-full max-w-3xl px-4 py-6 md:px-8">{body}</div>
+          </EditorBodyPane>
+        </EditorSplitPane>
+      ) : (
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="mx-auto w-full max-w-3xl px-4 py-3 md:px-8 md:py-6">
+            <CharacterFrontmatter
+              form={form}
+              compact={false}
+              onNavigateToCharacter={onNavigateToCharacter}
+              onNavigateToCountry={onNavigateToCountry}
+            />
+            <div className="mt-8 border-t border-line" />
+            <div className="mt-8">{body}</div>
           </div>
         </div>
-        </div>
-        </>
       )}
-
-    </div>
+    </EntityEditorShell>
   )
 }
 
@@ -273,4 +207,3 @@ function mergeBioLifeStory(bio: string, lifeStory: string): string | undefined {
   }
   return parts.join('\n')
 }
-

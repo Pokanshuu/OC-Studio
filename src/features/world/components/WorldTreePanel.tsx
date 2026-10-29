@@ -38,7 +38,7 @@ export function WorldTreePanel({
   onCloseMobileTree,
 }: WorldTreePanelProps) {
   return (
-    <div className="flex h-full flex-col border-r border-line bg-paper-alt max-md:pt-[var(--safe-top)]">
+    <div className="flex h-full flex-col bg-paper-alt max-md:pt-[var(--safe-top)]">
       <div className="flex h-12 items-center justify-between border-b border-line px-3">
         <div className="flex items-center gap-1">
           {isMobile ? (
@@ -80,7 +80,7 @@ export function WorldTreePanel({
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-y-auto overscroll-contain">
         <WorldTree
           entries={entries}
           selectedId={selectedId}

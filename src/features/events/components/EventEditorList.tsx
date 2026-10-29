@@ -1,18 +1,19 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Search } from 'lucide-react'
-import { ROUND_ITEM } from '@/lib/ui-tokens'
+import { ChevronLeft, Search } from 'lucide-react'
+import { ICON_BTN_MD, PAGE_TITLE, ROUND_ITEM, SEARCH_ICON } from '@/lib/ui-tokens'
 import type { Event } from '@/types'
 import { useEventList } from '../hooks/useEvents'
 
 interface EventEditorListProps {
   currentId: number
   onSelect?: (id: number) => void
+  onCollapse: () => void
 }
 
 /** 三栏左栏：搜索 + 事件行（标题 + 时间/地点）。不复制列表页的卡片/视图切换。 */
-export function EventEditorList({ currentId, onSelect }: EventEditorListProps) {
+export function EventEditorList({ currentId, onSelect, onCollapse }: EventEditorListProps) {
   const { events, loading, error } = useEventList()
   const [query, setQuery] = useState('')
   const [searchFocused, setSearchFocused] = useState(false)
@@ -35,8 +36,8 @@ export function EventEditorList({ currentId, onSelect }: EventEditorListProps) {
         key={event.id}
         type="button"
         onClick={() => onSelect?.(event.id)}
-        className={`flex w-full items-center gap-2 px-2 py-1.5 text-left transition-colors ${ROUND_ITEM} ${
-          event.id === currentId ? 'bg-[var(--oc-hover)]' : 'hover:bg-[var(--oc-hover)]'
+        className={`flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors ${ROUND_ITEM} ${
+          event.id === currentId ? 'bg-[var(--oc-hover)] text-ink' : 'text-ink hover:bg-[var(--oc-hover)]'
         }`}
       >
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-line bg-paper-card font-serif text-[13px] text-ink-muted">
@@ -51,30 +52,42 @@ export function EventEditorList({ currentId, onSelect }: EventEditorListProps) {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col" aria-label="事件列表">
-      <div className="border-b border-line px-3 py-1.5">
-        <div className={`flex items-center gap-2 border-b transition-colors ${searchFocused ? 'border-line-hover' : 'border-transparent'}`}>
-          <Search size={13} strokeWidth={2} className="shrink-0 text-ink-faint" />
+    <div className="flex h-full min-h-0 flex-col bg-paper-alt" aria-label="事件列表">
+      <div className="flex h-12 shrink-0 items-center gap-4 border-b border-line px-6">
+        <h2 className={PAGE_TITLE}>事件</h2>
+        <div className="relative min-w-0 flex-1">
+          <Search size={16} strokeWidth={2} className={SEARCH_ICON} />
           <input
             type="text"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onFocus={() => setSearchFocused(true)}
             onBlur={() => setSearchFocused(false)}
-            placeholder="搜索"
+            placeholder="搜索事件…"
             aria-label="搜索事件"
-            className="h-6 w-full bg-transparent text-[13px] text-ink placeholder:text-ink-faint focus:outline-none"
+            className={`h-8 w-full border-b bg-transparent pl-8 pr-2 text-[13px] text-ink placeholder:text-ink-faint transition-colors focus:outline-none ${
+              searchFocused ? 'border-line-hover' : 'border-transparent'
+            }`}
           />
         </div>
+        <button
+          type="button"
+          onClick={onCollapse}
+          className={ICON_BTN_MD}
+          title="收起列表"
+          aria-label="收起列表"
+        >
+          <ChevronLeft size={16} strokeWidth={2} />
+        </button>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-1">
-        {loading ? <p className="px-2 py-3 text-[12px] text-ink-faint">加载中…</p> : null}
-        {error ? <p className="px-2 py-3 text-[12px] text-error">{error}</p> : null}
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-3">
+        {loading ? <p className="px-3 py-3 text-[12px] text-ink-faint">加载中…</p> : null}
+        {error ? <p className="px-3 py-3 text-[12px] text-error">{error}</p> : null}
         {!loading && !error && filtered.length === 0 ? (
-          <p className="px-2 py-6 text-center text-[12px] text-ink-faint">没有匹配的事件</p>
+          <p className="px-3 py-6 text-center text-[12px] text-ink-faint">没有匹配的事件</p>
         ) : null}
-        {filtered.map(renderRow)}
+        <nav className="flex flex-col gap-1">{filtered.map(renderRow)}</nav>
       </div>
     </div>
   )
