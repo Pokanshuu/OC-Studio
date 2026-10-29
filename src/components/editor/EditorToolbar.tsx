@@ -87,16 +87,16 @@ function ToolbarTrigger({
       type="button"
       aria-haspopup="menu"
       aria-label={label}
+      title={label}
       onPointerDown={(e) => e.preventDefault()}
       onClick={(e) => onClick(e.currentTarget)}
-      className={`flex h-8 shrink-0 items-center gap-1 px-1.5 text-[12px] transition-colors ${ROUND_CONTROL} ${
+      className={`flex h-8 shrink-0 items-center gap-0.5 px-1.5 transition-colors ${ROUND_CONTROL} ${
         active
           ? 'bg-[var(--oc-hover)] text-ink'
           : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
       }`}
     >
       {icon}
-      <span>{label}</span>
       <ChevronDown size={12} strokeWidth={2} className="text-ink-faint" />
     </button>
   )
