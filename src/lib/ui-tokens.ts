@@ -88,6 +88,13 @@ export const BTN_QUIET =
   'flex h-8 shrink-0 items-center gap-1.5 px-1.5 text-[13px] text-ink-muted transition-colors hover:text-ink'
 
 /**
+ * 区块标题右侧的「＋ 添加」：纯文字、和标题同排，不另占一整行。
+ * 关系表 / 立绘 / 相册共用 —— 空区块只留标题行，内容出现后再撑开。
+ */
+export const ADD_ACTION =
+  'flex shrink-0 items-center gap-1 py-[3px] pr-1 text-[12px] text-ink-faint transition-colors hover:text-ink'
+
+/**
  * 危险按钮 —— **全局唯一形态**：灰调实心红（`--oc-danger`）。
  *
  * 只给「点下去数据就没了」的确认动作：删除 / 永久删除 / 放弃未保存改动 / 清空并导入。

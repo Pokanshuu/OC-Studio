@@ -1,8 +1,10 @@
 'use client'
 
-import { ImageGallery } from '@/components/shared/image-gallery/ImageGallery'
+import { useRef } from 'react'
+import { Plus } from 'lucide-react'
+import { ImageGallery, type ImageGalleryHandle } from '@/components/shared/image-gallery/ImageGallery'
 import { ProfileBannerEditor } from '@/components/shared/ProfileBannerEditor'
-import { SECTION_TITLE, TITLE_INPUT } from '@/lib/ui-tokens'
+import { ADD_ACTION, SECTION_TITLE_BARE, TITLE_INPUT } from '@/lib/ui-tokens'
 import type { CharacterForm } from '../hooks/useCharacterForm'
 import { CharacterInfoSection } from './CharacterInfoSection'
 import { CharacterRelationSection } from './CharacterRelationSection'
@@ -25,6 +27,8 @@ export function CharacterFrontmatter({
   onNavigateToCountry,
 }: CharacterFrontmatterProps) {
   const columns = compact ? 3 : 4
+  const portraitGallery = useRef<ImageGalleryHandle>(null)
+  const photoGallery = useRef<ImageGalleryHandle>(null)
 
   return (
     <div className={compact ? 'flex flex-col gap-6 p-4' : 'flex flex-col gap-8'}>
@@ -52,12 +56,23 @@ export function CharacterFrontmatter({
 
       <div className="border-t border-line" />
       <section>
-        <h3 className={SECTION_TITLE}>立绘</h3>
+        <div className="mb-3 flex items-center justify-between gap-4">
+          <h3 className={SECTION_TITLE_BARE}>立绘</h3>
+          <button
+            type="button"
+            onClick={() => portraitGallery.current?.add()}
+            className={ADD_ACTION}
+          >
+            <Plus size={12} strokeWidth={2} />
+            <span>添加</span>
+          </button>
+        </div>
         <ImageGallery
+          ref={portraitGallery}
           mode="grid"
           columns={columns}
           gridAspect="portrait"
-          addTile
+          externalAdd
           images={form.avatarUrls}
           enableCrop
           cropAspect={9 / 16}
@@ -71,10 +86,22 @@ export function CharacterFrontmatter({
 
       <div className="border-t border-line" />
       <section>
-        <h3 className={SECTION_TITLE}>相册</h3>
+        <div className="mb-3 flex items-center justify-between gap-4">
+          <h3 className={SECTION_TITLE_BARE}>相册</h3>
+          <button
+            type="button"
+            onClick={() => photoGallery.current?.add()}
+            className={ADD_ACTION}
+          >
+            <Plus size={12} strokeWidth={2} />
+            <span>添加</span>
+          </button>
+        </div>
         <ImageGallery
+          ref={photoGallery}
           mode="grid"
           columns={columns}
+          externalAdd
           images={form.galleryUrls}
           onAdd={(path) => form.setGalleryUrls((prev) => [...prev, path])}
           onRemove={(index) => form.setGalleryUrls((prev) => prev.filter((_, i) => i !== index))}

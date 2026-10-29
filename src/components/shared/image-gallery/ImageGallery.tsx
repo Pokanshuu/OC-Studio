@@ -1,11 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useImperativeHandle, useState, type Ref } from 'react'
 import { FullscreenViewer } from '../FullscreenViewer'
 import { ImageCropper } from '../ImageCropper'
 import { useImageUpload } from './useImageUpload'
 import { ImageGallerySlider } from './ImageGallerySlider'
 import { ImageGalleryGrid } from './ImageGalleryGrid'
+
+/** 外部触发选图的句柄：区块标题右侧的「添加」用它，不再在网格里占一个瓦片 */
+export interface ImageGalleryHandle {
+  add: () => void
+}
 
 interface ImageGalleryProps {
   images: string[]
@@ -19,6 +24,9 @@ interface ImageGalleryProps {
   gridAspect?: 'square' | 'portrait'
   /** 把「添加」做成网格里的一个瓦片（比整条虚线按钮更轻） */
   addTile?: boolean
+  /** 添加入口由调用方放在区块标题里：网格不再渲染瓦片、底部按钮与空态 */
+  externalAdd?: boolean
+  ref?: Ref<ImageGalleryHandle>
 }
 
 /**
@@ -35,6 +43,8 @@ export function ImageGallery({
   cropAspect,
   gridAspect = 'square',
   addTile = false,
+  externalAdd = false,
+  ref,
 }: ImageGalleryProps) {
   const [viewerIndex, setViewerIndex] = useState<number | null>(null)
   const {
@@ -47,30 +57,35 @@ export function ImageGallery({
     handleCropperClose,
   } = useImageUpload({ onAdd, enableCrop })
 
+  useImperativeHandle(ref, () => ({ add: triggerFileUpload }), [triggerFileUpload])
+
+  // 标题里已有「添加」：没有图片时整块不渲染，别留一个空的虚线框
+  const showGrid = !(externalAdd && images.length === 0)
+
   return (
     <>
       {mode === 'slider' ? (
         <ImageGallerySlider
           images={images}
-          onAdd={onAdd}
+          onAdd={externalAdd ? undefined : onAdd}
           onRemove={onRemove}
           onViewImage={setViewerIndex}
           uploading={uploading}
           onUploadClick={triggerFileUpload}
         />
-      ) : (
+      ) : showGrid ? (
         <ImageGalleryGrid
           images={images}
           columns={columns}
           gridAspect={gridAspect}
-          addTile={addTile}
-          onAdd={onAdd}
+          addTile={externalAdd ? false : addTile}
+          onAdd={externalAdd ? undefined : onAdd}
           onRemove={onRemove}
           onViewImage={setViewerIndex}
           uploading={uploading}
           onUploadClick={triggerFileUpload}
         />
-      )}
+      ) : null}
 
       {viewerIndex !== null ? (
         <FullscreenViewer

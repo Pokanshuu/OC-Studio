@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { Plus, X } from 'lucide-react'
-import { CHIP, MENU, MENU_ITEM_BASE } from '@/lib/ui-tokens'
+import { CHIP, MENU, MENU_ITEM_BASE, ADD_ACTION } from '@/lib/ui-tokens'
 
 export interface RelatedItem {
   id: number
@@ -207,7 +207,7 @@ export function RelatedItemsSelector({
         <button
           type="button"
           onClick={handleAddClick}
-          className="flex shrink-0 items-center gap-1 py-[3px] pr-1 text-[12px] text-ink-faint transition-colors hover:text-ink"
+          className={ADD_ACTION}
         >
           <Plus size={12} strokeWidth={2} />
           <span>{isFull ? '更换' : maxItems === 1 ? '选择' : '添加'}</span>
