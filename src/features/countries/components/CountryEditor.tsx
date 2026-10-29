@@ -147,6 +147,7 @@ function CountryEditorInner({
         className={BTN_PRIMARY}
       >
         <Save size={14} strokeWidth={2} />
+        <span>{form.saving ? '保存中...' : '保存'}</span>
       </button>
     </>
   )
