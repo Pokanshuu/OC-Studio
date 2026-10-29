@@ -9,7 +9,7 @@ import { useEventList } from '@/features/events/hooks/useEvents'
 import { useSaveStatus } from '@/components/layout/SaveStatusContext'
 import { toast } from 'sonner'
 import { useEditorDirty } from '@/components/layout/useEditorDirty'
-import { describeDocDiff, snapshotKey, useDirtySnapshot } from '@/lib/dirty'
+import { describeDocDiff, sameDocIgnoringTrailingSpacer, snapshotKey, useDirtySnapshot } from '@/lib/dirty'
 import type { RelatedItem } from '@/components/shared/RelatedItemsSelector'
 
 /** 政治制度 / 地理环境 / 人文风貌三段合并成一份正文文档 */
@@ -119,7 +119,9 @@ export function useCountryForm(
     const editor = docEditorRef.current
     const baseline = docBaselineRef.current
     if (!editor || !baseline) return
-    const next = !editor.state.doc.eq(baseline)
+    let next = !editor.state.doc.eq(baseline)
+    // TipTap 的 TrailingNode 会给「以分割线/图片/表格结尾」的正文补一个空段落 —— 那不是改动
+    if (next) next = !sameDocIgnoringTrailingSpacer(editor.getJSON(), baseline.toJSON())
     if (next && !docDiffLoggedRef.current) {
       docDiffLoggedRef.current = true
       if (process.env.NODE_ENV !== 'production') {

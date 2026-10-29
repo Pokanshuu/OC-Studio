@@ -94,6 +94,31 @@ function brief(value: unknown): string {
 }
 
 /**
+ * 文档等价比较：**忽略末尾的空段落**。
+ *
+ * TipTap 的 `TrailingNode`（StarterKit 默认开启）会在挂载后给「以分割线 / 图片 / 表格 /
+ * 代码块结尾」的正文补一个可输入的段落 —— 那是编辑器自己的规范化，不是用户改的。
+ * 文档末尾的空段落不承载内容，不该被算成「未保存的更改」。
+ */
+export function sameDocIgnoringTrailingSpacer(a: unknown, b: unknown): boolean {
+  return snapshotKey(dropTrailingEmptyParagraphs(a)) === snapshotKey(dropTrailingEmptyParagraphs(b))
+}
+
+function dropTrailingEmptyParagraphs(doc: unknown): unknown {
+  if (!doc || typeof doc !== 'object') return doc
+  const source = doc as { content?: unknown }
+  if (!Array.isArray(source.content)) return doc
+  const content = [...source.content]
+  while (content.length > 0) {
+    const last = content[content.length - 1] as { type?: string; content?: unknown[] } | undefined
+    const empty = last?.type === 'paragraph' && (!Array.isArray(last.content) || last.content.length === 0)
+    if (!empty) break
+    content.pop()
+  }
+  return { ...(doc as Record<string, unknown>), content }
+}
+
+/**
  * 诊断：两份文档 JSON 的第一处差异（路径 + 旧/新）。
  * 只用于回答「正文没动，为什么算脏」—— 例如 `doc.content[2].attrs.placeholder: null → "…"`。
  */

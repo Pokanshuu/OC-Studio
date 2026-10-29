@@ -197,7 +197,7 @@ npx tauri build   # Tauri 打包 (.exe/.msi)
    - 标题下不加副标题句、设置项下不加说明、按钮里不加第二行小字；禁用态已由 `opacity-50` / `cursor-not-allowed` 表达，不再补「不可用 / 桌面端支持」；placeholder 不复述标签
    - 只有四类说明可留，且必须**一句话 ≤ 20 字、紧跟被说明的元素**：破坏性后果 / 数据口径 / 隐私安全 / 功能未开放（「开发中」）
    - 不写「注：」「说明：」「提示：」这类散文前缀；`npm run audit:design` 的 `prose-prefix` 规则会拦。完整规则与四问审查表见 `oc-studio-design` skill §9
-14. **未保存状态**：唯一口径是「当前值 ≠ 已保存值」（`src/lib/dirty.ts` 的快照签名），表单只**上报** `reportDirty(boolean)`，**不要再手工 `markDirty()`**。手工置位是个只进不出的闩——「输入一个字再删掉」「Ctrl+Z 回到原样」「保存后值被规范化（`3` → `03`）」都会留下抹不掉的脏标记，返回时就弹「有未保存的更改」。正文用 ProseMirror 文档与基线文档 `doc.eq()` 比对，不做文本序列化比较
+14. **未保存状态**：唯一口径是「当前值 ≠ 已保存值」（`src/lib/dirty.ts` 的快照签名），表单只**上报** `reportDirty(boolean)`，**不要再手工 `markDirty()`**。手工置位是个只进不出的闩——「输入一个字再删掉」「Ctrl+Z 回到原样」「保存后值被规范化（`3` → `03`）」都会留下抹不掉的脏标记，返回时就弹「有未保存的更改」。正文先用 ProseMirror 文档与基线文档 `doc.eq()` 快速比对，不等时再用 `sameDocIgnoringTrailingSpacer()` 复核 —— **末尾的空段落不算改动**：StarterKit 默认开启的 `TrailingNode` 会给「以分割线 / 图片 / 表格 / 代码块结尾」的正文自动补一个可输入段落（旧数据大量是这种结尾），不忽略它就会「点进去什么都没做也提示未保存」
 15. **AI：暂不做，相关代码已删除**（2026-10）：`src/lib/ai/`、`EventAiSummary`、设置里的 `AiTab`、`settings.tsx` 的 `ai*` 字段、`useEventForm` 的概括逻辑**全部移除**，没有开关、没有隐藏入口。**不要再加 AI 入口、不要恢复旧代码、不要在文案里承诺 AI 能力**；要做得当成新功能重新设计。产品口径见 `oc-studio-prd` skill §1
 
 ## 已知差异（技术债，待后续修复）

@@ -12,7 +12,7 @@ import { parseTime, assembleTime } from '../utils'
 import { useSaveStatus } from '@/components/layout/SaveStatusContext'
 import { toast } from 'sonner'
 import { useEditorDirty } from '@/components/layout/useEditorDirty'
-import { describeDocDiff, snapshotKey, useDirtySnapshot } from '@/lib/dirty'
+import { describeDocDiff, sameDocIgnoringTrailingSpacer, snapshotKey, useDirtySnapshot } from '@/lib/dirty'
 
 /** 表单里可编辑的全部字段 —— 装载、回灌、脏判断共用这一份形状 */
 interface EventValues {
@@ -219,7 +219,9 @@ export function useEventForm(
     const editor = editorRef.current
     const baseline = docBaselineRef.current
     if (!editor || !baseline) return
-    const next = !editor.state.doc.eq(baseline)
+    let next = !editor.state.doc.eq(baseline)
+    // TipTap 的 TrailingNode 会给「以分割线/图片/表格结尾」的正文补一个空段落 —— 那不是改动
+    if (next) next = !sameDocIgnoringTrailingSpacer(editor.getJSON(), baseline.toJSON())
     if (next && !docDiffLoggedRef.current) {
       docDiffLoggedRef.current = true
       if (process.env.NODE_ENV !== 'production') {
