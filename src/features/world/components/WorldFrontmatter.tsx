@@ -32,7 +32,7 @@ export function WorldFrontmatter({
         value={title}
         onChange={onTitleChange}
         placeholder="词条标题"
-        className="h-8 min-w-0 w-full bg-transparent font-serif text-lg text-ink placeholder:text-ink-faint focus:outline-none"
+        className="h-8 min-w-0 w-full bg-transparent font-serif text-lg font-semibold text-ink placeholder:text-ink-faint focus:outline-none"
       />
 
       <div className={`flex flex-col ${LIST_END}`}>

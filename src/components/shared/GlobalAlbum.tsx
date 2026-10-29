@@ -14,6 +14,8 @@ import { SortSelect } from '@/components/shared/SortViewControls'
 import { AlbumCard } from './AlbumCard'
 import { FilterSelect } from './FilterSelect'
 import { AlbumTreePanel } from './AlbumTreePanel'
+import { ListWidthResizer } from '@/components/editor/ListWidthResizer'
+import { useListWidth } from '@/components/editor/useListWidth'
 import { CATEGORY_TREE } from './album-utils'
 
 interface GlobalAlbumProps {
@@ -27,6 +29,7 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
   const [viewerIndex, setViewerIndex] = useState<number | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [treeCollapsed, setTreeCollapsed] = useState(false)
+  const { width: listWidth, startDrag: startListDrag, reset: resetListWidth } = useListWidth()
   const [showMobileTree, setShowMobileTree] = useState(false)
   const [tagFilter, setTagFilter] = useState<number | 'all'>('all')
   const [sortByTime, setSortByTime] = useState(false)
@@ -140,8 +143,14 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
     <div className="flex h-full">
       {/* Desktop sidebar */}
       {!isMobile ? (
-        <div className={`shrink-0 overflow-hidden transition-[width] duration-200 ease-in-out ${treeCollapsed ? 'w-0' : 'w-[200px]'}`}>
+        <div
+          className="relative shrink-0 overflow-hidden transition-[width] duration-200 ease-in-out"
+          style={{ width: treeCollapsed ? 0 : listWidth }}
+        >
           {treePanel}
+          {!treeCollapsed ? (
+            <ListWidthResizer onDragStart={startListDrag} onReset={resetListWidth} />
+          ) : null}
         </div>
       ) : null}
 

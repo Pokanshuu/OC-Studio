@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
-import { ChevronRight, ChevronDown, FileText, GripVertical } from 'lucide-react'
+import { ChevronRight, FileText, GripVertical } from 'lucide-react'
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { DeleteButton } from '@/components/shared/DeleteButton'
@@ -168,7 +168,11 @@ export function SortableTreeItem({
             onClick={(e) => { e.stopPropagation(); toggleExpand(entryId) }}
             className="flex h-4 w-4 shrink-0 items-center justify-center text-ink-faint"
           >
-            {isExpanded ? <ChevronDown size={13} strokeWidth={2} /> : <ChevronRight size={13} strokeWidth={2} />}
+            <ChevronRight
+              size={13}
+              strokeWidth={2}
+              className={`transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+            />
           </button>
         ) : (
           <span className="w-4 shrink-0" />
@@ -205,27 +209,31 @@ export function SortableTreeItem({
       </div>
       </ContextMenu>
 
-      {isExpanded && hasChildren ? (
-        <SortableContext items={childIds} strategy={verticalListSortingStrategy}>
-          {node.children.map((child) => (
-            <SortableTreeItem
-              key={child.entry.id}
-              node={child}
-              depth={depth + 1}
-              selectedId={selectedId}
-              onSelect={onSelect}
-              onDelete={onDelete}
-              onRename={onRename}
-              editingId={editingId}
-              setEditingId={setEditingId}
-              expandedIds={expandedIds}
-              setExpandedIds={setExpandedIds}
-              isMobile={isMobile}
-              onLongPress={onLongPress}
-            />
-          ))}
-        </SortableContext>
-      ) : null}
+      <div className={`grid transition-[grid-template-rows] duration-200 ease-out ${isExpanded && hasChildren ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
+        <div className="min-h-0 overflow-hidden">
+          {isExpanded && hasChildren ? (
+            <SortableContext items={childIds} strategy={verticalListSortingStrategy}>
+              {node.children.map((child) => (
+                <SortableTreeItem
+                  key={child.entry.id}
+                  node={child}
+                  depth={depth + 1}
+                  selectedId={selectedId}
+                  onSelect={onSelect}
+                  onDelete={onDelete}
+                  onRename={onRename}
+                  editingId={editingId}
+                  setEditingId={setEditingId}
+                  expandedIds={expandedIds}
+                  setExpandedIds={setExpandedIds}
+                  isMobile={isMobile}
+                  onLongPress={onLongPress}
+                />
+              ))}
+            </SortableContext>
+          ) : null}
+        </div>
+      </div>
     </div>
   )
 }

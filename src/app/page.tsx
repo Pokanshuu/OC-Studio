@@ -93,6 +93,7 @@ export default function Home() {
             key={selectedEvent.id}
             event={selectedEvent}
             onBack={handleBackToList}
+            onCreate={handleCreateEvent}
             onSave={handleSaveEvent}
             onNavigateToEvent={handleSelectEvent}
             onMentionClick={handleMentionClick}
@@ -127,6 +128,7 @@ export default function Home() {
           <CharacterEditor
             editCharacterId={characterView.characterId}
             onBack={handleBackToCharacterList}
+            onCreate={handleCreateCharacter}
             onNavigateToCharacter={(id) => handleRelatedItemNavigate(id, 'character')}
             onNavigateToCountry={(id) => handleRelatedItemNavigate(id, 'country')}
             onMentionClick={handleMentionClick}
@@ -161,6 +163,7 @@ export default function Home() {
             key={countryView.countryId}
             editCountryId={countryView.countryId}
             onBack={handleBackToCountryList}
+            onCreate={handleCreateCountry}
             onNavigateToCountry={handleSelectCountry}
             onNavigateToCharacter={(id) => handleRelatedItemNavigate(id, 'character')}
             onNavigateToEvent={(id) => handleRelatedItemNavigate(id, 'event')}

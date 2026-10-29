@@ -59,7 +59,7 @@ export const EDITOR_BODY = 'flex-1 min-h-0 max-md:pt-[calc(60px+var(--safe-top))
 
 /** 实体名输入（18px 衬线，与 PAGE_TITLE 同档） */
 export const TITLE_INPUT =
-  'w-full bg-transparent font-serif text-lg text-ink placeholder:text-ink-faint focus:outline-none'
+  'w-full bg-transparent font-serif text-lg font-semibold text-ink placeholder:text-ink-faint focus:outline-none'
 
 /** 字段行里的行内输入（零描边，占满剩余宽度） */
 export const FIELD_INPUT =

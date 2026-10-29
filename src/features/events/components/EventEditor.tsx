@@ -20,6 +20,7 @@ import { BTN_PRIMARY } from '@/lib/ui-tokens'
 interface EventEditorProps {
   event: Event
   onBack: () => void
+  onCreate?: () => void
   onSave: (id: number, data: Partial<EventFormData>) => Promise<void>
   onNavigateToEvent?: (id: number) => void
   onMentionClick?: (id: string, entityType?: string) => void
@@ -28,7 +29,7 @@ interface EventEditorProps {
   onWikiLinkClick?: (id: string) => void
 }
 
-export function EventEditor({ event, onBack, onSave, onNavigateToEvent, onMentionClick, onNavigateItem, onCharacterCount, onWikiLinkClick }: EventEditorProps) {
+export function EventEditor({ event, onBack, onCreate, onSave, onNavigateToEvent, onMentionClick, onNavigateItem, onCharacterCount, onWikiLinkClick }: EventEditorProps) {
   const form = useEventForm(event, onSave)
   const { isMobile } = useDevice()
   const [listOpen, setListOpen] = useState(!isMobile)
@@ -88,6 +89,7 @@ export function EventEditor({ event, onBack, onSave, onNavigateToEvent, onMentio
           currentId={event.id}
           onSelect={onNavigateToEvent}
           onCollapse={() => setListOpen(false)}
+          onCreate={onCreate}
         />
       }
       editor={bodyEditor}

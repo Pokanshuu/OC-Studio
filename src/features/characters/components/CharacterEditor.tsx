@@ -21,6 +21,7 @@ import { BTN_PRIMARY, BTN_QUIET, CENTER_STATE } from '@/lib/ui-tokens'
 interface CharacterEditorProps {
   editCharacterId: number
   onBack: () => void
+  onCreate?: () => void
   onNavigateToCharacter?: (id: number) => void
   onNavigateToCountry?: (id: number) => void
   onMentionClick?: (id: string, entityType?: string) => void
@@ -28,7 +29,7 @@ interface CharacterEditorProps {
   onWikiLinkClick?: (id: string) => void
 }
 
-export function CharacterEditor({ editCharacterId, onBack, onNavigateToCharacter, onNavigateToCountry, onMentionClick, onCharacterCount, onWikiLinkClick }: CharacterEditorProps) {
+export function CharacterEditor({ editCharacterId, onBack, onCreate, onNavigateToCharacter, onNavigateToCountry, onMentionClick, onCharacterCount, onWikiLinkClick }: CharacterEditorProps) {
   const { character, loading, error, refresh } = useCharacter(editCharacterId)
   const { updateCharacter } = useUpdateCharacter()
 
@@ -67,6 +68,7 @@ export function CharacterEditor({ editCharacterId, onBack, onNavigateToCharacter
       key={character.id}
       character={character}
       onBack={onBack}
+      onCreate={onCreate}
       onNavigateToCharacter={onNavigateToCharacter}
       onNavigateToCountry={onNavigateToCountry}
       onMentionClick={onMentionClick}
@@ -82,6 +84,7 @@ export function CharacterEditor({ editCharacterId, onBack, onNavigateToCharacter
 function CharacterEditorInner({
   character,
   onBack,
+  onCreate,
   onSave,
   onNavigateToCharacter,
   onNavigateToCountry,
@@ -91,6 +94,7 @@ function CharacterEditorInner({
 }: {
   character: Character
   onBack: () => void
+  onCreate?: () => void
   onSave: (id: number, data: Partial<CharacterFormData>) => Promise<void>
   onNavigateToCharacter?: (id: number) => void
   onNavigateToCountry?: (id: number) => void
@@ -159,6 +163,7 @@ function CharacterEditorInner({
           currentId={character.id}
           onSelect={onNavigateToCharacter}
           onCollapse={() => setListOpen(false)}
+          onCreate={onCreate}
         />
       }
       editor={bodyEditor}

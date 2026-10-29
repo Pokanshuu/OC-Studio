@@ -1,9 +1,9 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, Search } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Search } from 'lucide-react'
 import { Avatar } from '@/components/shared/Avatar'
-import { ICON_BTN_MD, PAGE_TITLE, ROUND_ITEM, SEARCH_ICON } from '@/lib/ui-tokens'
+import { ICON_BTN_MD, PAGE_TITLE, ROUND_ITEM } from '@/lib/ui-tokens'
 import { useCountryList } from '@/features/countries/hooks/useCountries'
 import type { Character } from '@/types'
 import { useCharacterList } from '../hooks/useCharacters'
@@ -12,13 +12,14 @@ interface CharacterEditorListProps {
   currentId: number
   onSelect?: (id: number) => void
   onCollapse: () => void
+  onCreate?: () => void
 }
 
 /**
  * 三栏左栏：搜索 + 按国家分组。
  * 只做「换人」，不复制列表页的卡片 / 视图切换 / 删除 / 拖拽。
  */
-export function CharacterEditorList({ currentId, onSelect, onCollapse }: CharacterEditorListProps) {
+export function CharacterEditorList({ currentId, onSelect, onCollapse, onCreate }: CharacterEditorListProps) {
   const { characters, loading, error } = useCharacterList()
   const { countries } = useCountryList()
   const [query, setQuery] = useState('')
@@ -94,10 +95,35 @@ export function CharacterEditorList({ currentId, onSelect, onCollapse }: Charact
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-paper-alt" aria-label="角色列表">
-      <div className="flex h-12 shrink-0 items-center gap-4 border-b border-line px-6">
-        <h2 className={PAGE_TITLE}>角色</h2>
-        <div className="relative min-w-0 flex-1">
-          <Search size={16} strokeWidth={2} className={SEARCH_ICON} />
+      <div className="flex h-12 shrink-0 items-center justify-between border-b border-line px-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={onCollapse}
+            className={ICON_BTN_MD}
+            title="收起列表"
+            aria-label="收起列表"
+          >
+            <ChevronLeft size={16} strokeWidth={2} />
+          </button>
+          <h2 className={PAGE_TITLE}>角色</h2>
+        </div>
+        {onCreate ? (
+          <button
+            type="button"
+            onClick={onCreate}
+            className={ICON_BTN_MD}
+            title="新建角色"
+            aria-label="新建角色"
+          >
+            <Plus size={16} strokeWidth={2} />
+          </button>
+        ) : null}
+      </div>
+
+      <div className="shrink-0 border-b border-line px-3 py-1.5">
+        <div className={`flex items-center gap-2 border-b transition-colors ${searchFocused ? 'border-line-hover' : 'border-transparent'}`}>
+          <Search size={13} strokeWidth={2} className="shrink-0 text-ink-faint" />
           <input
             type="text"
             value={query}
@@ -106,20 +132,9 @@ export function CharacterEditorList({ currentId, onSelect, onCollapse }: Charact
             onBlur={() => setSearchFocused(false)}
             placeholder="搜索角色…"
             aria-label="搜索角色"
-            className={`h-8 w-full border-b bg-transparent pl-8 pr-2 text-[13px] text-ink placeholder:text-ink-faint transition-colors focus:outline-none ${
-              searchFocused ? 'border-line-hover' : 'border-transparent'
-            }`}
+            className="h-6 w-full bg-transparent text-[13px] text-ink placeholder:text-ink-faint focus:outline-none"
           />
         </div>
-        <button
-          type="button"
-          onClick={onCollapse}
-          className={ICON_BTN_MD}
-          title="收起列表"
-          aria-label="收起列表"
-        >
-          <ChevronLeft size={16} strokeWidth={2} />
-        </button>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-3">
@@ -148,9 +163,11 @@ export function CharacterEditorList({ currentId, onSelect, onCollapse }: Charact
                   <span className="flex-1 truncate">{group.name}</span>
                   <span className="text-[11px] text-ink-faint">{group.items.length}</span>
                 </button>
-                {isCollapsed ? null : (
-                  <div className="mt-0.5 flex flex-col gap-0.5">{group.items.map(renderRow)}</div>
-                )}
+                <div className={`grid transition-[grid-template-rows] duration-200 ease-out ${isCollapsed ? 'grid-rows-[0fr]' : 'grid-rows-[1fr]'}`}>
+                  <div className="min-h-0 overflow-hidden">
+                    <div className="mt-0.5 flex flex-col gap-0.5">{group.items.map(renderRow)}</div>
+                  </div>
+                </div>
               </div>
             )
           })}

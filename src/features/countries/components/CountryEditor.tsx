@@ -21,6 +21,7 @@ import { BTN_PRIMARY, BTN_QUIET, CENTER_STATE } from '@/lib/ui-tokens'
 interface CountryEditorProps {
   editCountryId: number
   onBack: () => void
+  onCreate?: () => void
   onNavigateToCountry?: (id: number) => void
   onNavigateToCharacter?: (id: number) => void
   onNavigateToEvent?: (id: number) => void
@@ -32,6 +33,7 @@ interface CountryEditorProps {
 export function CountryEditor({
   editCountryId,
   onBack,
+  onCreate,
   onNavigateToCountry,
   onNavigateToCharacter,
   onNavigateToEvent,
@@ -72,6 +74,7 @@ export function CountryEditor({
     <CountryEditorInner
       country={country}
       onBack={onBack}
+      onCreate={onCreate}
       onSave={async (id, data) => {
         await updateCountry(id, data)
       }}
@@ -88,6 +91,7 @@ export function CountryEditor({
 function CountryEditorInner({
   country,
   onBack,
+  onCreate,
   onSave,
   onNavigateToCountry,
   onNavigateToCharacter,
@@ -98,6 +102,7 @@ function CountryEditorInner({
 }: {
   country: Country
   onBack: () => void
+  onCreate?: () => void
   onSave: (id: number, data: Partial<CountryFormData>) => Promise<void>
   onNavigateToCountry?: (id: number) => void
   onNavigateToCharacter?: (id: number) => void
@@ -165,6 +170,7 @@ function CountryEditorInner({
           currentId={country.id}
           onSelect={onNavigateToCountry}
           onCollapse={() => setListOpen(false)}
+          onCreate={onCreate}
         />
       }
       editor={bodyEditor}

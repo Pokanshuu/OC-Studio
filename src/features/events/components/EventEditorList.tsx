@@ -1,8 +1,8 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { ChevronLeft, Search } from 'lucide-react'
-import { ICON_BTN_MD, PAGE_TITLE, ROUND_ITEM, SEARCH_ICON } from '@/lib/ui-tokens'
+import { ChevronLeft, Plus, Search } from 'lucide-react'
+import { ICON_BTN_MD, PAGE_TITLE, ROUND_ITEM } from '@/lib/ui-tokens'
 import type { Event } from '@/types'
 import { useEventList } from '../hooks/useEvents'
 
@@ -10,10 +10,11 @@ interface EventEditorListProps {
   currentId: number
   onSelect?: (id: number) => void
   onCollapse: () => void
+  onCreate?: () => void
 }
 
 /** 三栏左栏：搜索 + 事件行（标题 + 时间/地点）。不复制列表页的卡片/视图切换。 */
-export function EventEditorList({ currentId, onSelect, onCollapse }: EventEditorListProps) {
+export function EventEditorList({ currentId, onSelect, onCollapse, onCreate }: EventEditorListProps) {
   const { events, loading, error } = useEventList()
   const [query, setQuery] = useState('')
   const [searchFocused, setSearchFocused] = useState(false)
@@ -53,10 +54,35 @@ export function EventEditorList({ currentId, onSelect, onCollapse }: EventEditor
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-paper-alt" aria-label="事件列表">
-      <div className="flex h-12 shrink-0 items-center gap-4 border-b border-line px-6">
-        <h2 className={PAGE_TITLE}>事件</h2>
-        <div className="relative min-w-0 flex-1">
-          <Search size={16} strokeWidth={2} className={SEARCH_ICON} />
+      <div className="flex h-12 shrink-0 items-center justify-between border-b border-line px-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={onCollapse}
+            className={ICON_BTN_MD}
+            title="收起列表"
+            aria-label="收起列表"
+          >
+            <ChevronLeft size={16} strokeWidth={2} />
+          </button>
+          <h2 className={PAGE_TITLE}>事件</h2>
+        </div>
+        {onCreate ? (
+          <button
+            type="button"
+            onClick={onCreate}
+            className={ICON_BTN_MD}
+            title="新建事件"
+            aria-label="新建事件"
+          >
+            <Plus size={16} strokeWidth={2} />
+          </button>
+        ) : null}
+      </div>
+
+      <div className="shrink-0 border-b border-line px-3 py-1.5">
+        <div className={`flex items-center gap-2 border-b transition-colors ${searchFocused ? 'border-line-hover' : 'border-transparent'}`}>
+          <Search size={13} strokeWidth={2} className="shrink-0 text-ink-faint" />
           <input
             type="text"
             value={query}
@@ -65,20 +91,9 @@ export function EventEditorList({ currentId, onSelect, onCollapse }: EventEditor
             onBlur={() => setSearchFocused(false)}
             placeholder="搜索事件…"
             aria-label="搜索事件"
-            className={`h-8 w-full border-b bg-transparent pl-8 pr-2 text-[13px] text-ink placeholder:text-ink-faint transition-colors focus:outline-none ${
-              searchFocused ? 'border-line-hover' : 'border-transparent'
-            }`}
+            className="h-6 w-full bg-transparent text-[13px] text-ink placeholder:text-ink-faint focus:outline-none"
           />
         </div>
-        <button
-          type="button"
-          onClick={onCollapse}
-          className={ICON_BTN_MD}
-          title="收起列表"
-          aria-label="收起列表"
-        >
-          <ChevronLeft size={16} strokeWidth={2} />
-        </button>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-3">

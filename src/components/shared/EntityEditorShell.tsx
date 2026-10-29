@@ -4,7 +4,9 @@ import type { ReactNode } from 'react'
 import type { Editor } from '@tiptap/core'
 import { ArrowLeft, Menu } from 'lucide-react'
 import { EditorToolbar } from '@/components/editor/EditorToolbar'
-import { ICON_BTN_MD, PAGE_TITLE } from '@/lib/ui-tokens'
+import { ListWidthResizer } from '@/components/editor/ListWidthResizer'
+import { useListWidth } from '@/components/editor/useListWidth'
+import { ICON_BTN_MD } from '@/lib/ui-tokens'
 
 interface EntityEditorShellProps {
   title: string
@@ -33,14 +35,22 @@ export function EntityEditorShell({
   headerRight,
   children,
 }: EntityEditorShellProps) {
+  const { width: listWidth, startDrag: startListDrag, reset: resetListWidth } = useListWidth()
+
   return (
     <div className="flex h-full min-h-0 overflow-hidden">
       {listOpen ? (
-        <aside className="flex h-full w-[325px] shrink-0 flex-col overflow-hidden border-r border-line">{list}</aside>
+        <aside
+          className="relative flex h-full shrink-0 flex-col overflow-hidden border-r border-line"
+          style={{ width: listWidth }}
+        >
+          {list}
+          <ListWidthResizer onDragStart={startListDrag} onReset={resetListWidth} />
+        </aside>
       ) : null}
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <div className="flex h-12 shrink-0 items-center border-b border-line bg-paper/85 px-4 backdrop-blur-lg">
+        <div className="flex h-12 shrink-0 items-center border-b border-line bg-paper/85 px-3 backdrop-blur-lg">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             {!listOpen ? (
               <button
@@ -58,7 +68,7 @@ export function EntityEditorShell({
                 <ArrowLeft size={16} strokeWidth={2} />
               </button>
             ) : null}
-            <h2 className={`${PAGE_TITLE} truncate`}>{title}</h2>
+            <h2 className="truncate text-base font-medium text-ink">{title}</h2>
           </div>
 
           <div

@@ -248,6 +248,16 @@ export function useEntityWorkspace() {  const { activeItem: desktopActiveItem, s
   const restoreCrossBack = useCallback(() => {
     const saved = crossBackRef.current
     if (!saved) return false
+    // 返回键只回“上一级页面”，不回上一个角色/事件：
+    // 若来源本身是另一个实体编辑器（通过关系/@/内链跳转），这次返回落到当前列表即可。
+    const fromOtherEditor =
+      saved.eventView.sub === 'editor' ||
+      saved.characterView.sub === 'editor' ||
+      saved.countryView.sub === 'editor'
+    if (fromOtherEditor) {
+      crossBackRef.current = null
+      return false
+    }
     crossBackRef.current = null
     setEventView(saved.eventView)
     setCharacterView(saved.characterView)

@@ -161,15 +161,14 @@ export function EditorToolbar({
     },
   })
 
-  const wide = width >= 960
   const medium = width >= 640
   const show = {
-    redo: medium,
-    code: wide,
-    heading: medium,
-    list: medium,
-    link: wide,
-    image: wide,
+    redo: embedded || medium,
+    code: embedded || medium,
+    heading: embedded || medium,
+    list: embedded || medium,
+    link: embedded || medium,
+    image: embedded || medium,
   }
 
   const chain = () => editor.chain().focus()
@@ -324,7 +323,7 @@ export function EditorToolbar({
         aria-label="格式工具"
         className={`flex items-center gap-0.5 px-2 max-md:hidden ${
           embedded
-            ? 'h-full w-full bg-transparent'
+            ? 'h-full w-full justify-center bg-transparent'
             : `${sticky ? 'sticky top-12' : ''} z-10 h-10 border-b border-line bg-paper/85 backdrop-blur-lg`
         }`}
       >
@@ -412,7 +411,6 @@ export function EditorToolbar({
           </IconButton>
         ) : null}
 
-        <span className="grow" />
         <button
           type="button"
           title="更多"

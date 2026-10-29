@@ -86,25 +86,27 @@ export function AlbumTreePanel({
                   <span className="flex-1">{top.label}</span>
                   {topCount > 0 ? <span className="text-[11px] text-ink-faint">{topCount}</span> : null}
                 </button>
-                {isExpanded ? (
-                  <div className="mt-0.5 flex flex-col gap-0.5">
-                    {top.children.map((sub) => {
-                      const subCount = getSubCount(entries, sub)
-                      const isSubSelected = selectedKey === sub.key
-                      return (
-                        <button key={sub.key}
-                          onClick={() => { onSelectKey(sub.key); if (isMobile) onCloseMobileTree() }}
-                          className={`flex w-full items-center rounded-item py-1 pl-6 pr-3 text-left text-[12px] transition-colors ${
-                            isSubSelected ? 'bg-[var(--oc-hover)] text-ink' : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
-                          }`}
-                        >
-                          <span className="flex-1">{sub.label}</span>
-                          {subCount > 0 ? <span className="text-[10px] text-ink-faint">{subCount}</span> : null}
-                        </button>
-                      )
-                    })}
+                <div className={`grid transition-[grid-template-rows] duration-200 ease-out ${isExpanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
+                  <div className="min-h-0 overflow-hidden">
+                    <div className="mt-0.5 flex flex-col gap-0.5">
+                      {top.children.map((sub) => {
+                        const subCount = getSubCount(entries, sub)
+                        const isSubSelected = selectedKey === sub.key
+                        return (
+                          <button key={sub.key}
+                            onClick={() => { onSelectKey(sub.key); if (isMobile) onCloseMobileTree() }}
+                            className={`flex w-full items-center rounded-item py-1 pl-6 pr-3 text-left text-[12px] transition-colors ${
+                              isSubSelected ? 'bg-[var(--oc-hover)] text-ink' : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
+                            }`}
+                          >
+                            <span className="flex-1">{sub.label}</span>
+                            {subCount > 0 ? <span className="text-[10px] text-ink-faint">{subCount}</span> : null}
+                          </button>
+                        )
+                      })}
+                    </div>
                   </div>
-                ) : null}
+                </div>
               </div>
             )
           })}
