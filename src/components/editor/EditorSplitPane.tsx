@@ -20,10 +20,14 @@ export function EditorSplitPane({ meta, children }: EditorSplitPaneProps) {
         className="shrink-0 overflow-y-auto border-r border-line"
         style={{ width: middleWidth }}
       >
+        <div className="h-12 shrink-0" aria-hidden />
         {meta}
       </section>
       <MiddlePaneResizer onDragStart={startDrag} onReset={reset} />
-      <div className="flex min-h-0 min-w-0 flex-1">{children}</div>
+      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+        <div className="h-12 shrink-0" aria-hidden />
+        {children}
+      </div>
     </div>
   )
 }

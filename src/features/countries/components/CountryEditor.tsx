@@ -193,6 +193,7 @@ function CountryEditorInner({
         </EditorSplitPane>
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="h-12 shrink-0" aria-hidden />
           <div className="mx-auto w-full max-w-3xl px-4 py-3 md:px-8 md:py-6">
             <CountryFrontmatter
               form={form}

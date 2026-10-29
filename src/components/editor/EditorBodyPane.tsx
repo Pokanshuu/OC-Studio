@@ -20,6 +20,7 @@ export function EditorBodyPane({ editor, children, showToolbar = true }: EditorB
     <section className="flex min-h-0 min-w-0 flex-1 flex-col">
       {showToolbar && editor ? <EditorToolbar editor={editor} sticky={false} /> : null}
       <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="h-12 shrink-0" aria-hidden />
         <div className="mx-auto w-full max-w-3xl px-4 py-6 md:px-8">{children}</div>
       </div>
     </section>

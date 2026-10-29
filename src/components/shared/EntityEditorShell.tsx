@@ -49,8 +49,9 @@ export function EntityEditorShell({
         </aside>
       ) : null}
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <div className="flex h-12 shrink-0 items-center border-b border-line bg-paper/85 px-3 backdrop-blur-lg">
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+        {/* 顶栏覆盖在滚动内容上（z-30），backdrop-blur 才有内容可模糊；内容在滚动容器内用 h-12 spacer 让出位置 */}
+        <div className="absolute inset-x-0 top-0 z-30 flex h-12 shrink-0 items-center border-b border-line bg-paper/85 px-3 backdrop-blur-lg">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             {!listOpen ? (
               <button
