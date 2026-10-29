@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useId, useRef, useMemo } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import { BubbleMenu } from '@tiptap/react/menus'
+import type { BubbleMenuProps } from '@tiptap/react/menus'
 import type { Editor } from '@tiptap/core'
 import React from 'react'
 
@@ -36,6 +37,18 @@ interface EditorCoreProps {
   onWikiLinkClick?: (id: string) => void
   plain?: boolean
 }
+
+/**
+ * 气泡菜单定位：编辑器顶上是浮在正文上的 48px 毛玻璃条，
+ * 气泡默认往上弹会被它盖住一半。flip 的 padding 把顶部 56px 划成禁区，
+ * 选区贴顶时自动翻到下方；常量放在模块级，避免每次渲染换身份触发 updateOptions。
+ */
+const BUBBLE_MENU_OPTIONS = {
+  placement: 'top',
+  offset: 8,
+  flip: { padding: { top: 56, bottom: 8, left: 8, right: 8 } },
+  shift: { padding: 8 },
+} satisfies NonNullable<BubbleMenuProps['options']>
 
 export function EditorCore({
   onReady, onCharacterCount, onContentChange, content, placeholder, onMentionClick, onWikiLinkClick, plain,
@@ -262,6 +275,7 @@ export function EditorCore({
         <BubbleMenu
           editor={editor}
           updateDelay={0}
+          options={BUBBLE_MENU_OPTIONS}
           shouldShow={({ editor }) => {
             return editor.isFocused && !isTypingRef.current
           }}
