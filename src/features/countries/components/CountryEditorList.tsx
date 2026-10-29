@@ -38,7 +38,6 @@ export function CountryEditorList({ currentId, onSelect }: CountryEditorListProp
       <Avatar src={country.flagUrl} type="flag" shape="square" size="md" className="shrink-0" />
       <span className="flex min-w-0 flex-col gap-0.5">
         <span className="truncate text-[13px] font-medium text-ink">{country.name}</span>
-        <span className="text-[11px] text-ink-muted">国家</span>
       </span>
     </button>
   )

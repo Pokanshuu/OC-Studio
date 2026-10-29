@@ -71,24 +71,25 @@ export function CharacterEditorList({ currentId, onSelect }: CharacterEditorList
     })
   }
 
-  const renderRow = (character: Character) => (
-    <button
-      key={character.id}
-      type="button"
-      onClick={() => onSelect?.(character.id)}
-      className={`flex w-full items-center gap-2 text-left transition-colors ${ROUND_ITEM} px-2 py-1.5 ${
-        character.id === currentId ? 'bg-[var(--oc-hover)]' : 'hover:bg-[var(--oc-hover)]'
-      }`}
-    >
-      <Avatar src={character.avatarUrl} size="md" className="shrink-0" />
-      <span className="flex min-w-0 flex-col gap-0.5">
-        <span className="truncate text-[13px] font-medium text-ink">{character.name}</span>
-        <span className="truncate text-[11px] text-ink-muted">
-          {[character.race, character.occupation].filter(Boolean).join(' · ') || '—'}
+  const renderRow = (character: Character) => {
+    const subtitle = [character.race, character.occupation].filter(Boolean).join(' · ')
+    return (
+      <button
+        key={character.id}
+        type="button"
+        onClick={() => onSelect?.(character.id)}
+        className={`flex w-full items-center gap-2 text-left transition-colors ${ROUND_ITEM} px-2 py-1.5 ${
+          character.id === currentId ? 'bg-[var(--oc-hover)]' : 'hover:bg-[var(--oc-hover)]'
+        }`}
+      >
+        <Avatar src={character.avatarUrl} size="md" className="shrink-0" />
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="truncate text-[13px] font-medium text-ink">{character.name}</span>
+          {subtitle ? <span className="truncate text-[11px] text-ink-muted">{subtitle}</span> : null}
         </span>
-      </span>
-    </button>
-  )
+      </button>
+    )
+  }
 
   return (
     <div className="flex h-full min-h-0 flex-col" aria-label="角色列表">

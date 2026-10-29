@@ -28,26 +28,27 @@ export function EventEditorList({ currentId, onSelect }: EventEditorListProps) {
     )
   }, [events, q])
 
-  const renderRow = (event: Event) => (
-    <button
-      key={event.id}
-      type="button"
-      onClick={() => onSelect?.(event.id)}
-      className={`flex w-full items-center gap-2 px-2 py-1.5 text-left transition-colors ${ROUND_ITEM} ${
-        event.id === currentId ? 'bg-[var(--oc-hover)]' : 'hover:bg-[var(--oc-hover)]'
-      }`}
-    >
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-line bg-paper-card font-serif text-[13px] text-ink-muted">
-        {event.title.slice(0, 1)}
-      </span>
-      <span className="flex min-w-0 flex-col gap-0.5">
-        <span className="truncate text-[13px] font-medium text-ink">{event.title}</span>
-        <span className="truncate text-[11px] text-ink-muted">
-          {[event.time, event.location].filter(Boolean).join(' · ') || '—'}
+  const renderRow = (event: Event) => {
+    const subtitle = [event.time, event.location].filter(Boolean).join(' · ')
+    return (
+      <button
+        key={event.id}
+        type="button"
+        onClick={() => onSelect?.(event.id)}
+        className={`flex w-full items-center gap-2 px-2 py-1.5 text-left transition-colors ${ROUND_ITEM} ${
+          event.id === currentId ? 'bg-[var(--oc-hover)]' : 'hover:bg-[var(--oc-hover)]'
+        }`}
+      >
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-line bg-paper-card font-serif text-[13px] text-ink-muted">
+          {event.title.slice(0, 1)}
         </span>
-      </span>
-    </button>
-  )
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="truncate text-[13px] font-medium text-ink">{event.title}</span>
+          {subtitle ? <span className="truncate text-[11px] text-ink-muted">{subtitle}</span> : null}
+        </span>
+      </button>
+    )
+  }
 
   return (
     <div className="flex h-full min-h-0 flex-col" aria-label="事件列表">
