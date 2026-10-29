@@ -283,11 +283,11 @@ export function EditorToolbar({
   }
 
   const blockGroups: ToolbarMenuGroup[] = [
-    { items: [paragraphItem, headingItem(1), headingItem(2), headingItem(3)] },
+    { items: [paragraphItem, headingItem(1), headingItem(2), headingItem(3), headingItem(4), quoteItem, codeBlockItem] },
   ]
 
   const listGroups: ToolbarMenuGroup[] = [
-    { items: [bulletItem, orderedItem] },
+    { items: [bulletItem, orderedItem, taskItem] },
   ]
 
   const moreGroups: ToolbarMenuGroup[] = []
@@ -295,15 +295,16 @@ export function EditorToolbar({
   if (!show.code) textItems.push(codeItem)
   moreGroups.push({ label: '文本格式', items: textItems })
 
+  // 块格式 / 列表：能放下时全部收进块/列表下拉，窄屏才回落到「更多」。
   const blockItems: ToolbarMenuItem[] = []
-  if (!show.heading) blockItems.push(paragraphItem, headingItem(1), headingItem(2), headingItem(3))
-  blockItems.push(headingItem(4), quoteItem, codeBlockItem)
-  moreGroups.push({ label: '块格式', items: blockItems })
+  if (!show.heading) {
+    blockItems.push(paragraphItem, headingItem(1), headingItem(2), headingItem(3), headingItem(4), quoteItem, codeBlockItem)
+  }
+  if (blockItems.length) moreGroups.push({ label: '块格式', items: blockItems })
 
   const listItems: ToolbarMenuItem[] = []
-  if (!show.list) listItems.push(bulletItem, orderedItem)
-  listItems.push(taskItem)
-  moreGroups.push({ label: '列表', items: listItems })
+  if (!show.list) listItems.push(bulletItem, orderedItem, taskItem)
+  if (listItems.length) moreGroups.push({ label: '列表', items: listItems })
 
   const insertItems: ToolbarMenuItem[] = []
   if (!show.link) insertItems.push(linkItem)
