@@ -16,7 +16,10 @@ import { FilterSelect } from './FilterSelect'
 import { AlbumTreePanel } from './AlbumTreePanel'
 import { ListWidthResizer } from '@/components/editor/ListWidthResizer'
 import { useListWidth } from '@/components/editor/useListWidth'
-import { CATEGORY_TREE } from './album-utils'
+import { CATEGORY_TREE, albumSourceLabel, albumSourceType, collectAlbumSources, matchesAlbumCategory } from './album-utils'
+
+/** 相册页头里的筛选触发按钮（比 ui-tokens 的 FILTER_TRIGGER 更紧一点） */
+const ALBUM_FILTER_TRIGGER = 'touch-feedback flex h-8 items-center gap-1 px-2 text-[13px] text-ink transition-colors hover:bg-[var(--oc-hover)]'
 
 interface GlobalAlbumProps {
   onNavigate?: (id: number, type: string) => void
@@ -32,6 +35,8 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
   const { width: listWidth, startDrag: startListDrag, reset: resetListWidth } = useListWidth()
   const [showMobileTree, setShowMobileTree] = useState(false)
   const [tagFilter, setTagFilter] = useState<number | 'all'>('all')
+  /** 按来源实体筛选（角色 / 事件 / 国家）；分类变了就复位 */
+  const [sourceFilter, setSourceFilter] = useState<number | 'all'>('all')
   const [sortByTime, setSortByTime] = useState(false)
   const { tags } = useTags()
   const [actionSheet, setActionSheet] = useState<{ open: boolean; title: string; actions: ActionItem[] }>({
@@ -50,10 +55,27 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
 
   const { entries, loading, refresh } = useAlbumData()
 
+  // 「按来源筛选」只对具体分类有意义：'全部' 下没有单一实体类型可筛
+  const sourceType = useMemo(() => albumSourceType(selectedKey), [selectedKey])
+  const sources = useMemo(
+    () =>
+      sourceType === null
+        ? []
+        : collectAlbumSources(entries.filter((e) => matchesAlbumCategory(e, selectedKey)), sourceType),
+    [entries, selectedKey, sourceType],
+  )
+  // 选中的实体被删 / 换了分类就退化成「全部」，不用 effect 清理状态
+  const activeSourceFilter = sources.some((s) => s.id === sourceFilter) ? sourceFilter : 'all'
+
   function handleRefresh() {
     setRefreshing(true)
     void refresh().finally(() => setRefreshing(false))
   }
+
+  const handleSelectKey = useCallback((key: string) => {
+    setSelectedKey(key)
+    setSourceFilter('all')
+  }, [])
 
   const toggleExpand = useCallback((key: string) => {
     setExpanded((prev) => {
@@ -74,23 +96,7 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
   }, [onNavigate])
 
   const filtered = useMemo(() => {
-    let result = entries
-    if (selectedKey !== 'all') {
-      const top = CATEGORY_TREE.find((t) => t.key === selectedKey)
-      if (top) {
-        result = result.filter((e) =>
-          top.children.some((sub) => sub.sourceType === e.sourceType && sub.category === e.category)
-        )
-      } else {
-        for (const t of CATEGORY_TREE) {
-          const sub = t.children.find((s) => s.key === selectedKey)
-          if (sub) {
-            result = result.filter((e) => e.sourceType === sub.sourceType && e.category === sub.category)
-            break
-          }
-        }
-      }
-    }
+    let result = entries.filter((e) => matchesAlbumCategory(e, selectedKey))
     if (search.trim()) {
       const q = search.trim().toLowerCase()
       result = result.filter((e) =>
@@ -100,11 +106,14 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
     if (tagFilter !== 'all') {
       result = result.filter((e) => e.tags.includes(tagFilter))
     }
+    if (sourceType !== null && activeSourceFilter !== 'all') {
+      result = result.filter((e) => e.sourceType === sourceType && e.sourceId === activeSourceFilter)
+    }
     if (sortByTime) {
       result = [...result].sort((a, b) => b.updatedAt - a.updatedAt)
     }
     return result
-  }, [entries, selectedKey, search, tagFilter, sortByTime])
+  }, [entries, selectedKey, search, tagFilter, sourceType, activeSourceFilter, sortByTime])
 
   const allUrls = useMemo(() => filtered.map((e) => e.url), [filtered])
 
@@ -128,7 +137,7 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
     <AlbumTreePanel
       entries={entries}
       selectedKey={selectedKey}
-      onSelectKey={setSelectedKey}
+      onSelectKey={handleSelectKey}
       expanded={expanded}
       onToggleExpand={toggleExpand}
       isMobile={isMobile}
@@ -192,6 +201,20 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
                   className="h-8 w-48 border-b border-transparent bg-transparent pl-7 pr-2 text-[13px] text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none"
                 />
               </div>
+              {/* 按来源筛选：只在具体分类下出现（角色 / 事件 / 国家） */}
+              {sourceType !== null && sources.length > 0 ? (
+                <FilterSelect
+                  value={activeSourceFilter}
+                  onChange={setSourceFilter}
+                  options={[
+                    { value: 'all', label: `全部${albumSourceLabel(sourceType)}` },
+                    ...sources.map((s) => ({ value: s.id, label: s.name })),
+                  ]}
+                  fallbackLabel={`全部${albumSourceLabel(sourceType)}`}
+                  labelClassName="max-w-[9rem] truncate"
+                  triggerClassName={ALBUM_FILTER_TRIGGER}
+                />
+              ) : null}
               <FilterSelect
                 value={tagFilter}
                 onChange={setTagFilter}
@@ -202,7 +225,7 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
                     .map((t) => ({ value: t.id, label: t.name })),
                 ]}
                 fallbackLabel="全部标签"
-                triggerClassName="touch-feedback flex h-8 items-center gap-1 px-2 text-[13px] text-ink transition-colors hover:bg-[var(--oc-hover)]"
+                triggerClassName={ALBUM_FILTER_TRIGGER}
               />
               <SortSelect
                 sortKey={sortByTime ? 'time' : 'default'}

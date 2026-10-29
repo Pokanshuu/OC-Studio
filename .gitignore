@@ -91,3 +91,6 @@ app-icon.png
 *.msixupload
 *.appx
 MSIX_Package/
+
+# 设计参考 demo（三栏编辑原型），不随产品提交
+sample/

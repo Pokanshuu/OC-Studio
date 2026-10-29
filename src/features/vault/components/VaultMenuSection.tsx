@@ -30,7 +30,7 @@ export function VaultMenuSection() {
   return (
     <>
       <DropdownMenuItem disabled className="text-ink-faint">
-        {ready ? `当前文件夹：${vault.name ?? ''}` : busy ? '正在载入文件夹…' : '还没有选择文件夹'}
+        {ready ? `当前笔记库：${vault.name ?? ''}` : busy ? '正在载入文件夹…' : '还没有选择文件夹'}
       </DropdownMenuItem>
       <DropdownMenuItem onClick={() => void vault.openFolder()}>
         <FolderInput size={14} strokeWidth={2} />
