@@ -71,7 +71,7 @@ export function EntityEditorShell({
           <div className="flex min-w-0 flex-1 items-center justify-end gap-1">{headerRight}</div>
         </div>
 
-        <div className="min-h-0 flex-1">{children}</div>
+        <div className="flex min-h-0 flex-1 flex-col">{children}</div>
       </div>
     </div>
   )
