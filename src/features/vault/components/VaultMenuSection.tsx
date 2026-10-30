@@ -1,6 +1,6 @@
 'use client'
 
-import { FileInput, FolderInput, FolderOpen, FolderPlus, RefreshCw } from 'lucide-react'
+import { FolderInput, FolderOpen, FolderPlus, RefreshCw } from 'lucide-react'
 
 import { useVault } from '@/lib/vault/vault-provider'
 import {
@@ -14,17 +14,16 @@ import {
 /**
  * 桌面菜单栏「文件」顶部的本地文件夹分组。
  *
- * 只有几件事：换一个文件夹、看看文件夹里发生了什么、把旧版本数据搬进来。
+ * 只有几件事：换一个文件夹、看看文件夹里发生了什么。
  * 「关闭文件夹」「立即写盘」「把旧图片收进文件夹」都已经删掉 ——
  * 没有第二套数据源，退出应用就是关闭；保存是防抖自动的，状态在状态栏看；
  * 图片由落地迁移一起搬进来（字段 + 正文 + data URI 全覆盖），
  * 单独留一个只认字段的半套动作只会搬一半。
  *
- * 「导入旧版本数据」在启动闸门里出现过，进了主界面不能就此消失。
- * 对话框由调用方持有：下拉关闭时 `DropdownMenuContent` 会整棵卸载，
- * 挂在这里会在点击的瞬间跟着消失，所以只负责触发。
+ * 「导入旧版本数据」只留在启动闸门：这里的菜单只有在已经绑定笔记库后才会出现，
+ * 那时 Dexie 里装的就是这个库本身，再叫「旧版本数据」只会让人以为还有一份没搬的东西。
  */
-export function VaultMenuSection({ onImportLegacy }: { onImportLegacy: () => void }) {
+export function VaultMenuSection() {
   const vault = useVault()
   if (!vault.supported) return null
 
@@ -68,10 +67,6 @@ export function VaultMenuSection({ onImportLegacy }: { onImportLegacy: () => voi
       <DropdownMenuItem disabled={!ready} onClick={vault.showReport}>
         <FolderOpen size={14} strokeWidth={2} />
         概览…
-      </DropdownMenuItem>
-      <DropdownMenuItem disabled={busy} onClick={onImportLegacy}>
-        <FileInput size={14} strokeWidth={2} />
-        备份旧版本数据并导入到…
       </DropdownMenuItem>
 
       <DropdownMenuSeparator />

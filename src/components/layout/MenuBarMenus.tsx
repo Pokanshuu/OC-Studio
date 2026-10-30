@@ -9,7 +9,7 @@ import { useImportExport } from '@/components/shared/ImportExportUI'
 import { downloadMarkdown, downloadTxt, downloadFullBackup, exportStaticSite } from '@/lib/export'
 import { toast } from 'sonner'
 import { useActiveEditor } from '@/lib/editor-context'
-import { VaultMenuSection, useLegacyImport } from '@/features/vault'
+import { VaultMenuSection } from '@/features/vault'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -31,7 +31,6 @@ export function MenuBarMenus() {
   const { settings, updateSetting } = useSettings()
   const { openSettings } = useSettingsTrigger()
   const { handleImportClick, dialog: importExportDialog } = useImportExport()
-  const { start: startLegacyImport, dialog: legacyImportDialog } = useLegacyImport()
   const { activeEditor } = useActiveEditor()
 
   const handleUndo = useCallback(() => {
@@ -116,7 +115,7 @@ export function MenuBarMenus() {
               <DropdownMenuTrigger>文件</DropdownMenuTrigger>
             </span>
             <DropdownMenuContent>
-              <VaultMenuSection onImportLegacy={() => void startLegacyImport()} />
+              <VaultMenuSection />
               <DropdownMenuItem onClick={handleImportClick}>
                 导入...
               </DropdownMenuItem>
@@ -258,7 +257,6 @@ export function MenuBarMenus() {
           </DropdownMenu>
         </div>
       {importExportDialog}
-      {legacyImportDialog}
     </>
   )
 }
