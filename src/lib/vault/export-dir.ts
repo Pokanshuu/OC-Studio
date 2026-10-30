@@ -15,6 +15,12 @@ import { serializeTagMeta, tagMetaFromTags } from './vault-tags'
 import { MARKER_REL_PATH, buildMarkerContent } from './vault-marker'
 import { vaultFs } from './vault-fs'
 import type { MergeStrategy } from '@/lib/import'
+import {
+  collectCharacterImageRefs,
+  collectCountryImageRefs,
+  collectEventImageRefs,
+  collectWorldEntryImageRefs,
+} from '@/lib/image-refs'
 import type { VaultEntityKind, VaultStorableKind } from './types'
 
 // ── 老数据 → 文件夹（全量物化） ──────────────────────────────────────────
@@ -218,34 +224,6 @@ function isLocalImageRef(value: string): boolean {
   return /^[A-Za-z]:[\\/]/.test(value) || value.startsWith('\\\\')
 }
 
-/** 正文（Tiptap 文档）里的 imageBlock.src 也一并收集 —— 只搬字段不搬正文，图还是会丢 */
-function collectBodyRefs(rows: LegacyRows, push: (value: string) => void): void {
-  const visit = (node: unknown): void => {
-    if (node === null || typeof node !== 'object') return
-    if (Array.isArray(node)) {
-      for (const item of node) visit(item)
-      return
-    }
-    const record = node as Record<string, unknown>
-    if (record.type === 'imageBlock') {
-      const attrs = record.attrs
-      if (attrs !== null && typeof attrs === 'object') {
-        const src = (attrs as Record<string, unknown>).src
-        if (typeof src === 'string' && src !== '') push(src)
-      }
-    }
-    for (const value of Object.values(record)) visit(value)
-  }
-
-  const docs: { kind: VaultStorableKind; row: unknown }[] = [
-    ...rows.characters.map((row) => ({ kind: 'character' as const, row })),
-    ...rows.countries.map((row) => ({ kind: 'country' as const, row })),
-    ...rows.events.map((row) => ({ kind: 'event' as const, row })),
-    ...rows.worldEntries.map((row) => ({ kind: 'worldEntry' as const, row })),
-  ]
-  for (const item of docs) visit(documentOfEntity(item.kind, item.row))
-}
-
 /** 收集所有实体里指向「本地文件 / data URI」的图片引用（字段 + 正文） */
 function collectRefs(rows: LegacyRows): string[] {
   const found = new Set<string>()
@@ -255,24 +233,32 @@ function collectRefs(rows: LegacyRows): string[] {
   }
 
   for (const character of rows.characters) {
-    push(character.avatarUrl)
-    push(character.headerUrl)
-    for (const item of character.gallery ?? []) push(item?.url)
-    for (const item of character.avatars ?? []) push(item?.url)
+    for (const ref of collectCharacterImageRefs(character)) push(ref.url)
   }
   for (const country of rows.countries) {
-    push(country.flagUrl)
-    push(country.headerUrl)
+    for (const ref of collectCountryImageRefs(country)) push(ref.url)
   }
   for (const event of rows.events) {
-    push(event.headerUrl)
-    for (const item of event.images ?? []) push(item?.url)
+    for (const ref of collectEventImageRefs(event)) push(ref.url)
+  }
+  for (const entry of rows.worldEntries) {
+    for (const ref of collectWorldEntryImageRefs(entry)) push(ref.url)
   }
   if (rows.meta !== null) push(rows.meta.coverUrl)
 
-  collectBodyRefs(rows, push)
-
   return [...found]
+}
+
+/**
+ * 老数据里的图片引用 → 磁盘上的源文件（`data:` 引用不走这里）。
+ *
+ * `LocalAdapter.upload()` 存进实体的值是 `images/<file>`，字节在
+ * `<appData>/images/<file>`。这条拼接**曾经少掉中间那层目录**：把 `images/`
+ * 裁掉直接接 appData，于是每一张都 `exists() === false`，全被记成「找不到原件」——
+ * 笔记照写、图全丢，提示还只有一行字。`scripts/vault-migrate-check.ts` 现在钉住了它。
+ */
+export function legacyImageSourcePath(raw: string, appData: string): string {
+  return raw.startsWith('images/') ? `${appData}/${raw}` : raw
 }
 
 /** 把图片引用变成目标文件夹里的素材文件，并返回 旧引用 → 新相对路径 */
@@ -301,7 +287,9 @@ async function materializeImages(
       continue
     }
 
-    const source = raw.startsWith('images/') ? `${appData}/${raw.slice('images/'.length)}` : raw
+    // 老数据的图片引用是 `images/<file>`，字节在 `<appData>/images/<file>`，
+    // 拼接规则见 legacyImageSourcePath（那条路径曾被裁掉一层目录过）。
+    const source = legacyImageSourcePath(raw, appData)
     try {
       if (!(await exists(source))) {
         report.missingImages.push(raw)

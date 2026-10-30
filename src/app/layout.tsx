@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { AppShell } from "@/components/layout/AppShell";
+import { BlurEffect } from "@/components/layout/BlurEffect";
 import { NavigationProvider } from "@/components/layout/NavigationContext";
 import { WordCountProvider } from "@/components/layout/WordCountContext";
 import { EntityNavigateProvider } from "@/components/layout/EntityNavigateContext";
@@ -55,6 +56,7 @@ export default function RootLayout({
                 <WordCountProvider>
                   <NavigationProvider>
                     <NavigationSourceProvider>
+                    <BlurEffect />
                     <VaultGate>
                       <AppShell>
                         {children}

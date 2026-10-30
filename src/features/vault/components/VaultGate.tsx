@@ -1,31 +1,19 @@
 'use client'
 
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
-import { ChevronDown, FolderInput, FolderOpen, FolderPlus, Loader2, RefreshCw } from 'lucide-react'
-import { toast } from 'sonner'
+import { useEffect, useState, type ReactNode } from 'react'
+import { ChevronDown, FolderInput, FolderOpen, FolderPlus, Loader2, RefreshCw, TriangleAlert } from 'lucide-react'
 
 import { useVault } from '@/lib/vault/vault-provider'
-import { vaultFs } from '@/lib/vault/vault-fs'
-import type { MergeStrategy } from '@/lib/import'
 import { db } from '@/lib/db'
 import { useImportExport } from '@/components/shared/ImportExportUI'
-import { MergeStrategyPicker } from '@/components/shared/merge-strategy'
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { BTN_DANGER, BTN_PRIMARY, BTN_QUIET, LOADING_TEXT, ROUND_CONTROL } from '@/lib/ui-tokens'
+import { BTN_PRIMARY, BTN_QUIET, LOADING_TEXT, ROUND_CONTROL } from '@/lib/ui-tokens'
+import { useLegacyImport } from '../hooks/useLegacyImport'
 
 /**
  * 启动闸门。
@@ -39,55 +27,14 @@ import { BTN_DANGER, BTN_PRIMARY, BTN_QUIET, LOADING_TEXT, ROUND_CONTROL } from 
  * 浏览器环境（不支持本地文件夹）直接透传，只用于开发时看界面。
  */
 export function VaultGate({ children }: { children: ReactNode }) {
-  const { supported, status, name, error, openFolder, createFolder, pickFolder, migrateLegacy } =
-    useVault()
+  const { supported, status, name, error, openFolder, createFolder, migrateLegacy } = useVault()
   const [orphanCount, setOrphanCount] = useState(0)
-  const [migrating, setMigrating] = useState(false)
-  /** 文件夹里已有笔记时，先问策略再写（不给默认值） */
-  const [pendingFolder, setPendingFolder] = useState<string | null>(null)
-  const [strategy, setStrategy] = useState<MergeStrategy>('skip')
-
-  const runMigration = useCallback(
-    async (path: string, chosen?: MergeStrategy) => {
-      setMigrating(true)
-      try {
-        await migrateLegacy({ path, strategy: chosen })
-      } finally {
-        setMigrating(false)
-      }
-    },
-    [migrateLegacy],
-  )
-
-  /** 主按钮：选文件夹 → 里面已有笔记就先问策略 → 再写 */
-  const startLegacy = useCallback(async () => {
-    const target = await pickFolder()
-    if (target === null) return
-
-    let hasNotes = false
-    try {
-      const existing = await vaultFs.scan(target)
-      hasNotes = existing.files.some(
-        (file) => /\.md$/i.test(file.relPath) && !file.relPath.startsWith('.ocstudio/'),
-      )
-    } catch (err) {
-      toast.error('读不到这个文件夹', {
-        description: err instanceof Error ? err.message : String(err),
-      })
-      return
-    }
-
-    if (!hasNotes) {
-      await runMigration(target)
-      return
-    }
-    setStrategy('skip')
-    setPendingFolder(target)
-  }, [pickFolder, runMigration])
+  const { start: startLegacy, dialog: legacyDialog, migrating } = useLegacyImport()
 
   // 从备份文件导入：导完接着落地成文件夹。
   // 只导入不落地 = 数据只在 Dexie 里，下次打开文件夹就被整库替换掉（这是最容易踩的坑）。
   const {
+    handleExport,
     handleImportClick,
     dialog: importDialog,
   } = useImportExport({
@@ -157,81 +104,78 @@ export function VaultGate({ children }: { children: ReactNode }) {
   // idle：还没有绑定文件夹
   return (
     <div className="flex h-full flex-1 flex-col items-center justify-center gap-5 px-6">
-      <div className="flex flex-col items-center gap-2">
-        <p className="font-serif text-lg font-bold text-ink">选择一个文件夹作为笔记库</p>
-      </div>
+      <p className="font-serif text-lg font-bold text-ink">选择一个文件夹作为笔记库</p>
 
-      <div className="flex flex-col items-center gap-2">
-        <button type="button" className={BTN_PRIMARY} onClick={() => void openFolder()}>
-          <FolderOpen size={14} strokeWidth={2} />
-          打开已有 OC Studio 笔记库
-        </button>
-        <button type="button" className={BTN_QUIET} onClick={() => void createFolder()}>
-          <FolderPlus size={14} strokeWidth={2} />
-          新建文件夹…
-        </button>
-      </div>
-
-      {orphanCount > 0 ? (
-        <div className="flex max-w-md flex-col items-center gap-3 border-t border-line pt-4">
-          <p className="text-[12px] text-ink-muted">
-            检测到 {orphanCount} 条旧版本数据
-          </p>
-          <div
-            className={`flex h-8 shrink-0 items-stretch overflow-hidden bg-paper-card text-[13px] text-ink ${ROUND_CONTROL}`}
-          >
-            <button
-              type="button"
-              className="touch-feedback flex items-center gap-1.5 px-3 transition-colors hover:bg-line"
-              onClick={() => void startLegacy()}
+      {/* 单列网格：所有内容都落在同一条 288px 的列上，左右边缘对齐 */}
+      <div className="flex w-72 flex-col gap-3">
+        {orphanCount > 0 ? (
+          <div className="flex flex-col gap-2">
+            {/* 抬头行：文字与链接并在一起居中 */}
+            <div className="flex items-center justify-center gap-3">
+              <p className="truncate text-[12px] text-ink-muted">
+                检测到 {orphanCount} 条旧版本数据
+              </p>
+              <button
+                type="button"
+                className="shrink-0 text-[12px] text-ink-muted underline-offset-4 transition-colors hover:text-ink hover:underline"
+                onClick={() => void handleExport()}
+              >
+                导出备份
+              </button>
+            </div>
+            <div
+              className={`flex h-8 w-full items-stretch overflow-hidden bg-paper-card text-[13px] text-ink ${ROUND_CONTROL}`}
             >
-              <FolderInput size={14} strokeWidth={2} />
-              导入旧版本数据到…
-            </button>
-            <span className="my-1.5 w-px shrink-0 bg-line" />
-            <DropdownMenu>
-              <DropdownMenuTrigger className="px-2 hover:bg-line">
-                <ChevronDown size={13} strokeWidth={2} />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem onClick={handleImportClick}>导入旧版本备份</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+              <button
+                type="button"
+                className="touch-feedback flex min-w-0 flex-1 items-center justify-center gap-1.5 px-3 transition-colors hover:bg-line"
+                onClick={() => void startLegacy()}
+              >
+                <FolderInput size={14} strokeWidth={2} />
+                <span className="truncate">备份旧版本数据并导入到…</span>
+              </button>
+              <span className="my-1.5 w-px shrink-0 bg-line" />
+              <DropdownMenu>
+                <DropdownMenuTrigger className="flex w-8 shrink-0 items-center justify-center transition-colors hover:bg-line">
+                  <ChevronDown size={13} strokeWidth={2} />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem onClick={handleImportClick}>导入旧版本备份</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
+        ) : null}
+
+        <div className="flex flex-col gap-2">
+          <button
+            type="button"
+            className={`${BTN_PRIMARY} w-full justify-center`}
+            onClick={() => void openFolder()}
+          >
+            <FolderOpen size={14} strokeWidth={2} />
+            打开已有 OC Studio 笔记库
+          </button>
+          <button
+            type="button"
+            className={`${BTN_QUIET} w-full justify-center`}
+            onClick={() => void createFolder()}
+          >
+            <FolderPlus size={14} strokeWidth={2} />
+            新建文件夹…
+          </button>
         </div>
-      ) : null}
+
+        {orphanCount > 0 ? (
+          <p className="flex items-center justify-center gap-1.5 text-[12px] text-warning">
+            <TriangleAlert size={12} strokeWidth={2} />
+            打开或新建文件夹会替换掉旧版数据
+          </p>
+        ) : null}
+      </div>
+
       {importDialog}
-
-      <AlertDialog
-        open={pendingFolder !== null}
-        onOpenChange={(open) => {
-          if (!open) setPendingFolder(null)
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>合并到已有笔记</AlertDialogTitle>
-            <AlertDialogDescription>这个文件夹里已经有笔记</AlertDialogDescription>
-          </AlertDialogHeader>
-
-          <MergeStrategyPicker value={strategy} onChange={setStrategy} label="同名笔记怎么处理" />
-
-          <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <button
-              type="button"
-              className={strategy === 'replace' ? BTN_DANGER : BTN_PRIMARY}
-              onClick={() => {
-                const target = pendingFolder
-                setPendingFolder(null)
-                if (target !== null) void runMigration(target, strategy)
-              }}
-            >
-              开始写入
-            </button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {legacyDialog}
     </div>
   )
 }

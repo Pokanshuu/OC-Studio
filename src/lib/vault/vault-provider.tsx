@@ -18,6 +18,7 @@ import { notifyDataUpdated } from '@/lib/data-events'
 import type { MergeStrategy } from '@/lib/import'
 import { setVaultImageContext } from '@/lib/image-service'
 import { exportLegacyToFolder } from './export-dir'
+import { backupLegacyData } from './legacy-backup'
 import { pickAssetsDir } from './vault-paths'
 import { loadVault, type VaultLoadResult } from './vault-load'
 import { isVaultSupported, vaultFs } from './vault-fs'
@@ -144,11 +145,29 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   }, [queryClient])
 
   const openVault = useCallback(
-    async (path: string, options?: { boot?: boolean; announce?: boolean }) => {
+    async (
+      path: string,
+      options?: { boot?: boolean; announce?: boolean; backupLegacy?: boolean },
+    ) => {
       try {
         const probe = await vaultFs.probe(path)
         if (!probe.exists) throw new Error('文件夹不存在，可能已被移动或删除')
         if (!probe.isDir) throw new Error('选择的路径不是文件夹')
+
+        // 首次绑定笔记库：这次开库会整库替换 Dexie，内置库里那份旧数据就此消失
+        // （「新建文件夹」尤其危险，空文件夹进去，旧的换不回来）。
+        // 所以先导一份 .ocbak 落进目标文件夹；写不出来就中止 —— 宁可打不开，也不能白清。
+        // 从旧数据主动落地（migrateLegacy）时跳过：数据本来就已经写进那个文件夹了。
+        if (options?.backupLegacy !== false && lastVaultPath() === null) {
+          try {
+            const backup = await backupLegacyData(path)
+            if (backup !== null) {
+              toast.info('旧版本数据已备份到笔记库', { description: backup })
+            }
+          } catch (err) {
+            throw new Error(`旧版本数据备份失败，已取消打开：${describeError(err)}`)
+          }
+        }
 
         const result = await loadVault(path)
         const loadedRoot = result.session.root
@@ -281,7 +300,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     setError(null)
     try {
       const result = await exportLegacyToFolder(target, { strategy: options?.strategy })
-      await openVault(target, { boot: true, announce: false })
+      await openVault(target, { boot: true, announce: false, backupLegacy: false })
 
       const parts = [`新建 ${result.created} 篇`]
       if (result.overwritten > 0) parts.push(`更新 ${result.overwritten} 篇`)

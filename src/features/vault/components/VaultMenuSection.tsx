@@ -1,6 +1,6 @@
 'use client'
 
-import { FolderInput, FolderOpen, FolderPlus, RefreshCw } from 'lucide-react'
+import { FileInput, FolderInput, FolderOpen, FolderPlus, RefreshCw } from 'lucide-react'
 
 import { useVault } from '@/lib/vault/vault-provider'
 import {
@@ -14,13 +14,17 @@ import {
 /**
  * 桌面菜单栏「文件」顶部的本地文件夹分组。
  *
- * 只有两件事：换一个文件夹、看看文件夹里发生了什么。
+ * 只有几件事：换一个文件夹、看看文件夹里发生了什么、把旧版本数据搬进来。
  * 「关闭文件夹」「立即写盘」「把旧图片收进文件夹」都已经删掉 ——
  * 没有第二套数据源，退出应用就是关闭；保存是防抖自动的，状态在状态栏看；
  * 图片由落地迁移一起搬进来（字段 + 正文 + data URI 全覆盖），
  * 单独留一个只认字段的半套动作只会搬一半。
+ *
+ * 「导入旧版本数据」在启动闸门里出现过，进了主界面不能就此消失。
+ * 对话框由调用方持有：下拉关闭时 `DropdownMenuContent` 会整棵卸载，
+ * 挂在这里会在点击的瞬间跟着消失，所以只负责触发。
  */
-export function VaultMenuSection() {
+export function VaultMenuSection({ onImportLegacy }: { onImportLegacy: () => void }) {
   const vault = useVault()
   if (!vault.supported) return null
 
@@ -64,6 +68,10 @@ export function VaultMenuSection() {
       <DropdownMenuItem disabled={!ready} onClick={vault.showReport}>
         <FolderOpen size={14} strokeWidth={2} />
         概览…
+      </DropdownMenuItem>
+      <DropdownMenuItem disabled={busy} onClick={onImportLegacy}>
+        <FileInput size={14} strokeWidth={2} />
+        备份旧版本数据并导入到…
       </DropdownMenuItem>
 
       <DropdownMenuSeparator />

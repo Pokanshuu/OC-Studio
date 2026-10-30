@@ -28,6 +28,7 @@ export const CATEGORY_TREE: TopCategory[] = [
       { key: 'character:fullbody', label: '立绘', sourceType: 'character', category: 'fullbody' },
       { key: 'character:header', label: '封面', sourceType: 'character', category: 'header' },
       { key: 'character:gallery', label: '相册图片', sourceType: 'character', category: 'gallery' },
+      { key: 'character:body', label: '正文图片', sourceType: 'character', category: 'body' },
     ],
   },
   {
@@ -35,6 +36,7 @@ export const CATEGORY_TREE: TopCategory[] = [
     children: [
       { key: 'event:header', label: '封面', sourceType: 'event', category: 'header' },
       { key: 'event:gallery', label: '图片', sourceType: 'event', category: 'gallery' },
+      { key: 'event:body', label: '正文图片', sourceType: 'event', category: 'body' },
     ],
   },
   {
@@ -42,6 +44,19 @@ export const CATEGORY_TREE: TopCategory[] = [
     children: [
       { key: 'country:flag', label: '标志', sourceType: 'country', category: 'flag' },
       { key: 'country:header', label: '封面', sourceType: 'country', category: 'header' },
+      { key: 'country:body', label: '正文图片', sourceType: 'country', category: 'body' },
+    ],
+  },
+  {
+    key: 'worldEntry', label: '词条',
+    children: [
+      { key: 'worldEntry:body', label: '正文图片', sourceType: 'worldEntry', category: 'body' },
+    ],
+  },
+  {
+    key: 'world', label: '世界',
+    children: [
+      { key: 'world:cover', label: '封面', sourceType: 'world', category: 'cover' },
     ],
   },
 ]
@@ -104,6 +119,7 @@ export function getEntryImageUrl(entry: AlbumEntry): string {
   const typeMap: Record<string, string> = {
     avatar: 'avatar', fullbody: 'avatar',
     header: 'avatar', gallery: 'avatar', flag: 'flag',
+    body: 'avatar', cover: 'avatar',
   }
   const url = resolveImageUrl(entry.url)
   if (url.includes('/defaults/')) return url

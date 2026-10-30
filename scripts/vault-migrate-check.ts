@@ -12,7 +12,8 @@
  * 真正写盘（含图片、tags.json、fields.json、oc-studio.json）由 Tauri 命令承担，
  * 那部分是 `vault_write_texts` / `vault_write_bytes` 的既有覆盖范围。
  */
-import { buildContext, composeNote, type LegacyRows } from '../src/lib/vault/export-dir'
+import { buildContext, composeNote, legacyImageSourcePath, type LegacyRows } from '../src/lib/vault/export-dir'
+import { collectBodyImageRefs, collectWorldEntryImageRefs, inlineBodyImageRefs } from '../src/lib/image-refs'
 import { applyDocumentBodies } from '../src/lib/vault/markdown-bridge'
 import { scanVault } from '../src/lib/vault/scan'
 import { applyTagMeta, parseTagMeta, serializeTagMeta, tagMetaFromTags } from '../src/lib/vault/vault-tags'
@@ -341,6 +342,68 @@ check('生成的 frontmatter 没有脏值', dirty.length === 0, dirty.map((file)
 // 每个文件都该以换行结尾、都该有 frontmatter 块
 const malformed = files.filter((file) => !file.content.endsWith('\n') || !file.content.startsWith('---\n'))
 check('文件头尾格式', malformed.length === 0, malformed.map((file) => file.relPath).join(', '))
+
+// ── 图片引用 → 磁盘源文件 ────────────────────────────────────────────────
+// 实体里存的是 `images/<file>`（LocalAdapter.upload 的返回值），字节在
+// `<appData>/images/<file>`。这条拼接曾经少掉一层目录，导致迁移时**所有图片**
+// 都被判成「找不到原件」：笔记写进文件夹了，图一张都没带过去。
+const appData = 'C:/Users/x/AppData/Roaming/com.ocstudio.ocstudio'
+eq(
+  '图片引用：images/ 前缀必须保留',
+  legacyImageSourcePath('images/avatar-1.png', appData),
+  `${appData}/images/avatar-1.png`,
+)
+eq(
+  '图片引用：绝对路径原样透传',
+  legacyImageSourcePath('C:/pics/a.png', appData),
+  'C:/pics/a.png',
+)
+eq(
+  '图片引用：vault 内相对路径原样透传',
+  legacyImageSourcePath('附件/a.png', appData),
+  '附件/a.png',
+)
+
+// ── 正文图片：收集与内联 ────────────────────────────────────────────────
+// 相册、`.ocbak`、文件夹落地三处共用 `lib/image-refs`。字段图只是封面/头像/图集，
+// 作者大量插图在正文，漏掉它 = 相册看不到、备份带不走。
+const bodyDoc = {
+  type: 'doc',
+  content: [
+    { type: 'paragraph' },
+    { type: 'imageBlock', attrs: { src: 'images/body-1.png' } },
+    { type: 'imageBlock', attrs: { src: '附件/x.png' } },
+  ],
+}
+eq('正文图片：按出现顺序收集', collectBodyImageRefs(bodyDoc), ['images/body-1.png', '附件/x.png'])
+
+const bodyMap = new Map([['images/body-1.png', 'data:image/png;base64,AAA']])
+const inlinedDoc = inlineBodyImageRefs(bodyDoc, bodyMap) as { content: { attrs?: { src?: string } }[] }
+eq('正文图片：命中映射的 src 被替换', inlinedDoc.content[1]?.attrs?.src, 'data:image/png;base64,AAA')
+eq('正文图片：未命中的保持原样', inlinedDoc.content[2]?.attrs?.src, '附件/x.png')
+
+const inlinedString = inlineBodyImageRefs(JSON.stringify(bodyDoc), bodyMap)
+check('正文图片：字符串化文档仍返回字符串', typeof inlinedString === 'string')
+check(
+  '正文图片：字符串化文档里的 src 也被替换',
+  String(inlinedString).includes('data:image/png;base64,AAA'),
+)
+
+eq(
+  '正文图片：词条读 content 里的图片',
+  collectWorldEntryImageRefs({
+    id: 1,
+    title: '词条',
+    content: JSON.stringify(bodyDoc),
+    category: '',
+    parentId: null,
+    order: 0,
+    isConcept: false,
+    references: [],
+    tags: [],
+  } as never).map((ref) => ref.url),
+  ['images/body-1.png', '附件/x.png'],
+)
 
 // ── 结果 ────────────────────────────────────────────────────────────────
 

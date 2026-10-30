@@ -188,23 +188,6 @@ export function AppShell({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  useEffect(() => {
-    if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) return
-    const init = async () => {
-      try {
-        const { invoke } = await import('@tauri-apps/api/core')
-        const enabled = localStorage.getItem('blur-effect-enabled') === 'true'
-        const isDark = document.documentElement.classList.contains('dark')
-        invoke<boolean>('init_blur', { enabled, isDark })
-          .then((applied) => {
-            document.documentElement.classList.toggle('tauri-mica', applied)
-          })
-          .catch(() => {})
-      } catch { /* 非 Tauri 环境静默跳过 */ }
-    }
-    requestIdleCallback(() => { void init() })
-  }, [])
-
   return (
     <GlobalContextMenu>
       <SettingsTriggerContext.Provider value={{ openSettings, closeSettings }}>

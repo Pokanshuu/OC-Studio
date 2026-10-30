@@ -1,6 +1,14 @@
 import { db } from '@/lib/db'
 import { downloadJson } from './download'
 import { resolveImageUrl } from '../image-service'
+import {
+  collectBodyImageRefs,
+  collectCharacterImageRefs,
+  collectCountryImageRefs,
+  collectEventImageRefs,
+  collectWorldEntryImageRefs,
+  inlineBodyImageRefs,
+} from '../image-refs'
 
 export interface ExportPayload {
   version: 1
@@ -52,25 +60,6 @@ type ImageRecord = {
   images?: unknown[]
 }
 
-function pushUrl(url: unknown, set: Set<string>): void {
-  if (typeof url === 'string' && url && !url.startsWith('data:')) set.add(url)
-}
-
-function collectImageUrls(records: unknown[]): Set<string> {
-  const urls = new Set<string>()
-  for (const item of records) {
-    const r = item as ImageRecord
-    pushUrl(r.avatarUrl, urls)
-    pushUrl(r.headerUrl, urls)
-    pushUrl(r.flagUrl, urls)
-    pushUrl(r.coverUrl, urls)
-    for (const a of r.avatars ?? []) pushUrl(typeof a === 'string' ? a : (a as { url?: string }).url, urls)
-    for (const g of r.gallery ?? []) pushUrl(typeof g === 'string' ? g : (g as { url?: string }).url, urls)
-    for (const img of r.images ?? []) pushUrl(typeof img === 'string' ? img : (img as { url?: string }).url, urls)
-  }
-  return urls
-}
-
 function blobToDataUri(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -116,15 +105,21 @@ function inlineImageUrls(records: unknown[], map: Map<string, string>): void {
 /** 完整备份：导出数据 + 将图片内联为 data URI（可移植，导入后图片不失效）。 */
 export async function exportFullBackup(): Promise<ExportPayload> {
   const payload = await exportAllData()
+  // 图片引用的收集规则与相册、文件夹落地共用 `lib/image-refs`：
+  // 字段图（头像/头图/图集/旗帜/封面）**和正文 imageBlock** 都要算进来，
+  // 只内联字段图的话，换台机器导入后正文里的图全是死链。
   const urls = new Set<string>([
-    ...collectImageUrls(payload.data.characters),
-    ...collectImageUrls(payload.data.events),
-    ...collectImageUrls(payload.data.countries),
-    ...collectImageUrls(payload.data.meta),
+    ...collectCharacterImageRefs(payload.data.characters as never).map((ref) => ref.url),
+    ...collectEventImageRefs(payload.data.events as never).map((ref) => ref.url),
+    ...collectCountryImageRefs(payload.data.countries as never).map((ref) => ref.url),
+    ...collectWorldEntryImageRefs(payload.data.worldEntries as never).map((ref) => ref.url),
   ])
+  const cover = (payload.data.meta[0] as { coverUrl?: string } | undefined)?.coverUrl
+  if (typeof cover === 'string' && cover !== '') urls.add(cover)
 
   const map = new Map<string, string>()
   for (const url of urls) {
+    if (url.startsWith('data:')) continue
     const dataUri = await urlToDataUri(url)
     if (dataUri) map.set(url, dataUri)
   }
@@ -133,7 +128,25 @@ export async function exportFullBackup(): Promise<ExportPayload> {
   inlineImageUrls(payload.data.events, map)
   inlineImageUrls(payload.data.countries, map)
   inlineImageUrls(payload.data.meta, map)
+  inlineBodies(payload.data.characters, map)
+  inlineBodies(payload.data.events, map)
+  inlineBodies(payload.data.countries, map)
+  inlineBodies(payload.data.worldEntries, map)
   return payload
+}
+
+/** 把正文里的 `imageBlock.src` 也换成 data URI（词条的正文是字符串化的文档，原样写回） */
+function inlineBodies(records: unknown[], map: Map<string, string>): void {
+  if (map.size === 0) return
+  for (const item of records) {
+    const row = item as { document?: unknown; content?: string }
+    if (row.document !== undefined && collectBodyImageRefs(row.document).length > 0) {
+      row.document = inlineBodyImageRefs(row.document, map)
+    }
+    if (typeof row.content === 'string' && collectBodyImageRefs(row.content).length > 0) {
+      row.content = inlineBodyImageRefs(row.content, map) as string
+    }
+  }
 }
 
 export async function downloadFullBackup(): Promise<string> {
