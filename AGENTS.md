@@ -210,5 +210,12 @@ npx tauri build   # Tauri 打包 (.exe/.msi)
 - 仓储层（`lib/repository.ts`）的 `Table<T, number, TInsert>` 第 3 个泛型位、实体 `id: number` 必填、`EntityTable` 的用法是**互相咬合**的：省掉第 3 个泛型位会让 `listActive` / `getById` 的返回值被推断成「id 可选」，从而在全项目催生 `as number` 断言。改动前先读 `src/lib/repository.ts` 顶部注释
 
 ## 待办与改进清单
-- 详见 `docs/todo.md`（挂起项 / P1–P3 / 用户计划 / 远期计划；已完成的不留档）
-- 自定义集合（L2）需求见 `docs/自定义分类-需求文档.md`；**未实现**，实现前先出 fork 冲突地图（`git merge-tree`）
+- 详见 `docs/todo.md`（按领域分节，与下面六份文档一一对应；已完成的不留档）
+- 六份领域文档（每个领域一份，改动前先读对应的那份）：
+  - `docs/模板.md` — 组件化模板（组件分级、文件格式、视觉契约、模板/导出/标签管理界面）
+  - `docs/时间线.md` — 参与者轨道、事件连线、关键节点
+  - `docs/关系图.md` — 静态手摆（**实时物理已放弃**）、正交边、节点形态
+  - `docs/相册.md` — 图片组件原子化（**方向未定**）
+  - `docs/插件.md` — 社区插件（沙箱 + 白名单 RPC）
+  - `docs/主题.md` — 自定义令牌与主题包
+- 自定义集合（L2）需求见 `docs/自定义分类-需求文档.md`（**已被 `docs/模板.md` 取代**，仅作参考）；**未实现**，实现前先出 fork 冲突地图（`git merge-tree`）
