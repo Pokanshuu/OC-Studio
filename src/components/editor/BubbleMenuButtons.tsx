@@ -27,7 +27,7 @@ export function BubbleMenuButtons({ editor, onLinkClick }: BubbleMenuButtonsProp
   })
 
   const base = 'flex h-8 w-8 items-center justify-center rounded-item transition-colors'
-  const active = 'bg-ink text-paper'
+  const active = 'bg-[var(--oc-hover)] text-ink'
   const inactive = 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
 
   return (

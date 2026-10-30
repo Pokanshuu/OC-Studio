@@ -38,9 +38,10 @@ export const DraggableNode = memo(function DraggableNode({
   const barWidth = isRange ? Math.max(width, minBarWidth) : undefined
 
   return (
+    // 不加 touch-feedback：拖动本体 / 拖右边缘调时长时按下去会整体缩一圈，跟手势冲突
     <div
       ref={bodyDrag.setNodeRef}
-      className={`touch-feedback absolute flex items-center gap-1.5 rounded-item border border-line bg-paper-card px-2 py-1 text-sm text-ink transition-colors hover:border-line-hover ${isRange ? 'bg-ink-muted/10' : ''}`}
+      className={`absolute flex items-center gap-1.5 rounded-item border border-line bg-paper-card px-2 py-1 text-sm text-ink transition-colors hover:border-line-hover ${isRange ? 'bg-ink-muted/10' : ''}`}
       style={{
         left: x + dragDelta,
         top: y,

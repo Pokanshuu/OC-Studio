@@ -203,7 +203,7 @@ export function BlockTypeMenu({ editor, position, onClose, blockPos }: BlockType
           onMouseDown={(e) => e.preventDefault()}
           className={`flex h-7 w-7 items-center justify-center transition-colors ${ROUND_ITEM} ${
             btn.isActive()
-              ? 'bg-ink text-paper'
+              ? 'bg-[var(--oc-hover)] text-ink'
               : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
           }`}
         >

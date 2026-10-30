@@ -64,7 +64,7 @@ function IconButton({ label, active, disabled, onActivate, children }: IconButto
       onClick={(e) => {
         if (e.detail === 0) fire(e.currentTarget)
       }}
-      className={`${ICON_BTN_MD} shrink-0 disabled:opacity-30 ${active ? 'bg-ink text-paper' : ''}`}
+      className={`${ICON_BTN_MD} shrink-0 disabled:opacity-30 ${active ? 'bg-[var(--oc-hover)] text-ink' : ''}`}
     >
       {children}
     </button>

@@ -64,28 +64,28 @@ export function MobileEditorToolbar({
           <button
             type="button"
             onPointerDown={(e) => handleToolbarPointerDown(e, () => editor?.chain().focus().toggleBold().run())}
-            className={`touch-feedback flex h-8 w-8 shrink-0 items-center justify-center transition-colors ${editor?.isActive('bold') ? 'bg-ink text-paper' : 'text-ink-muted'}`}
+            className={`touch-feedback flex h-8 w-8 shrink-0 items-center justify-center transition-colors ${editor?.isActive('bold') ? 'bg-[var(--oc-hover)] text-ink' : 'text-ink-muted'}`}
           >
             <Bold size={16} strokeWidth={2} />
           </button>
           <button
             type="button"
             onPointerDown={(e) => handleToolbarPointerDown(e, () => editor?.chain().focus().toggleItalic().run())}
-            className={`touch-feedback flex h-8 w-8 shrink-0 items-center justify-center transition-colors ${editor?.isActive('italic') ? 'bg-ink text-paper' : 'text-ink-muted'}`}
+            className={`touch-feedback flex h-8 w-8 shrink-0 items-center justify-center transition-colors ${editor?.isActive('italic') ? 'bg-[var(--oc-hover)] text-ink' : 'text-ink-muted'}`}
           >
             <Italic size={16} strokeWidth={2} />
           </button>
           <button
             type="button"
             onPointerDown={(e) => handleToolbarPointerDown(e, () => editor?.chain().focus().toggleUnderline().run())}
-            className={`touch-feedback flex h-8 w-8 shrink-0 items-center justify-center transition-colors ${editor?.isActive('underline') ? 'bg-ink text-paper' : 'text-ink-muted'}`}
+            className={`touch-feedback flex h-8 w-8 shrink-0 items-center justify-center transition-colors ${editor?.isActive('underline') ? 'bg-[var(--oc-hover)] text-ink' : 'text-ink-muted'}`}
           >
             <UnderlineIcon size={16} strokeWidth={2} />
           </button>
           <button
             type="button"
             onPointerDown={(e) => handleToolbarPointerDown(e, () => editor?.chain().focus().insertContent(' @').run())}
-            className={`touch-feedback flex h-8 w-8 shrink-0 items-center justify-center transition-colors ${editor?.isActive('mention') ? 'bg-ink text-paper' : 'text-ink-muted'}`}
+            className={`touch-feedback flex h-8 w-8 shrink-0 items-center justify-center transition-colors ${editor?.isActive('mention') ? 'bg-[var(--oc-hover)] text-ink' : 'text-ink-muted'}`}
           >
             <AtSign size={16} strokeWidth={2} />
           </button>
@@ -139,7 +139,7 @@ export function MobileEditorToolbar({
                   key={item.label}
                   type="button"
                   onPointerDown={(e) => handleToolbarPointerDown(e, () => { item.action(); setMobileBlockMenuOpen(false) })}
-                  className={`touch-feedback flex items-center gap-1.5 px-2.5 py-1.5 text-[13px] transition-colors ${ROUND_ITEM} ${item.active() ? 'bg-ink text-paper' : 'text-ink-muted'}`}
+                  className={`touch-feedback flex items-center gap-1.5 px-2.5 py-1.5 text-[13px] transition-colors ${ROUND_ITEM} ${item.active() ? 'bg-[var(--oc-hover)] text-ink' : 'text-ink-muted'}`}
                 >
                   {item.icon}
                   {item.label}

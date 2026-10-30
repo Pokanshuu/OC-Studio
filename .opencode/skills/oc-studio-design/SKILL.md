@@ -129,7 +129,7 @@ description: >
 - **行列表不留尾线**：行用 `border-b` 画行间线，容器加 `LIST_END`（`[&>*:last-child]:border-b-0`）；两列网格用 `FIELD_GRID`（最后两格都去掉）。区块底部那条线什么都不分隔，只会让每个 section 看起来被方框围住
 - **列表行（目录视图）**：行底色的悬停 / 选中块是**小档圆角**（`rounded-item`），行间线用 `.row-rule` + 容器 `.rules-end` —— 用 `border-b` 的话线会跟着 4px 圆角拐弯，看着像括号/尾巴
 - **例外：侧栏 / 目录树的行是「满宽条」**（主 `Sidebar`、相册分类树）：悬停 / 选中块从面板左边缘铺到右边缘，**容器不留左右内边距**，内边距只由行自己给（`px-3`，二级 `pl-6 pr-3`）；圆角仍是小档 `rounded-item`（4px，满宽时只在两端切个很小的角）。它们是导航条，不是列表卡片
-- **选中态只有两种形态，按元素定、不许混**：**页签（Tabs）→ 2px 墨色下划线**（压在列表的 1px 底线上，详见「页签」一节）；其余（菜单项 / 分段项 / 卡片 / chip）→ 浅底块 `bg-[var(--oc-hover)]` 或 `bg-paper-card`。下划线**不要**画在圆角块下面：圆角会让线在两端拐弯、还多出一截尾巴
+- **选中态只有两种形态，按元素定、不许混**：**页签（Tabs）→ 2px 墨色下划线**（压在列表的 1px 底线上，详见「页签」一节）；其余（菜单项 / 分段项 / 卡片 / chip / 工具栏的格式开）→ 浅底块 `bg-[var(--oc-hover)]` 或 `bg-paper-card`。下划线**不要**画在圆角块下面：圆角会让线在两端拐弯、还多出一截尾巴
 - 浮层内部的菜单分组线可以继续用 `Separator`（`mx-2 my-1 h-px bg-line`）—— 两端内缩，与满宽 hover 形成对比
 - 竖分隔线（`Separator orientation="vertical"`）已从所有页头/工具栏移除
 
@@ -177,7 +177,7 @@ description: >
 - 次操作：`BTN_QUIET`（纯文字 `text-ink-muted hover:text-ink`）
 - 图标按钮：无边框，hover `bg-[var(--oc-hover)]`
 
-实心墨色 `bg-ink text-paper` 只用于**选中态**（气泡菜单当前格式、块类型当前项、chip 选中）。
+实心墨色 `bg-ink text-paper` 只用于**少量互斥**的选中态（如 `CHIP_ON`）；工具栏 / 气泡菜单的「格式开」用浅底块 `bg-[var(--oc-hover)] text-ink` —— 格式栏会同时亮起好几枚，实心墨块连成一排黑格子，抢走正文的注意力。
 
 不再使用 `bg-white/*` 遮罩、不再用「隆起/凹陷」表达可用性；也不再用 `bg-black/5 dark:bg-white/5` 当「抬起/选中」底色 —— 那是 `bg-[var(--oc-hover)]`。
 
