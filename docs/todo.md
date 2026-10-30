@@ -14,7 +14,7 @@
 - [ ] **计划 2：关系图重写**：现有图太丑、难维护、难扩展。目标：视觉/交互/性能/可测试性一起收口；抽成数据无关的原子组件（nodes/edges/config 输入），可在关系图、集合视图等复用；保留坐标持久化、筛选、移动端。先出组件 API 与视觉方案，再动代码。
 - [ ] **计划 3：相册 / 图片组件原子化（不是「是否复用」，是必须复用）**：
   - 现状重复：`ImageGalleryGrid` 与 `GlobalAlbum` 各自实现网格 / 卡片 / 空态 / 删除 / 长按；`AlbumCard` 与画廊瓦片是两套；`FullscreenViewer` 虽共用但入参还是 `string[]`；上传/裁剪有 `useImageUpload`，但选图入口分散。
-  - 数据源缺口：`useAlbumData` 只扫角色/事件/国家的字段图；**不读 `document` / `content` 里的 `imageBlock.src`，也不扫词条，更不扫集合记录**。正文图片提取逻辑其实已在 `export-dir.ts` 的 `collectBodyRefs`（遍历四种实体的 document）里，抽成共享纯函数复用即可；完整数据源 = 字段图 + 正文图 + 词条 + 世界封面 + 集合记录（未来），分类树要补「正文图片」「词条」「世界」。
+  - ~~数据源缺口~~ **已完成（0.19.1）**：抽成 `lib/image-refs.ts`（字段图 + 正文 `imageBlock` 的唯一收集器），相册 / `.ocbak` / 老数据落地共用；相册数据源补齐正文图、词条、世界封面，分类树新增「正文图片」「词条」「世界」。**剩余**：集合记录（未来）与「从相册选择」的跨实体联想。
   - 目标：一个 `PhotoItem` + `PhotoSource` 适配器；抽出 `PhotoCard` / `PhotoGrid` / `PhotoStrip`（slider）/ `PhotoViewer` / `PhotoPicker` / `PhotoField`；`ImageGallery` 与 `GlobalAlbum` 只做组合，不再各写一套网格。
   - 全局照片选择器：`PhotoPicker` 作为唯一选择面；`GlobalAlbum` 可作为它的「浏览模式」。是否在所有图片字段默认弹「从相册选择」是产品决策，待商榷。
   - 先出组件 API + 迁移清单；迁移按「先抽组件、后换调用点」，保留现有 slider / grid / addTile / externalAdd / crop / 长按 / 筛选行为。

@@ -32,6 +32,7 @@ description: >
 - **绝不静默删除文件**：`deleteRange`（`clear()`）一律忽略 —— 批量导入的 `replace` 会 clear 全表。单个删除只走「移入回收站」，真正删文件仅发生在「回收站里彻底删除」。
 - **未改动就不写 / 从不整体重写**：写回按**文档结构**比较（带装载快照），不是按正文文本比较；这是「不弄脏用户文件」的关键。
 - **frontmatter 必须外科式**（`lib/vault/frontmatter.ts`）：只替换我们拥有的键、只替换正文，键顺序与注释原样保留；键名**跟文件已有的走**（保留 `阵营`/`所属国家` 这类中文键）。键链唯一源是 `lib/vault/fields.ts`（读与写共用）。
+- **图片引用只走 `lib/image-refs.ts`**：字段图（头像 / 立绘 / 封面 / 图集 / 旗帜 / 世界封面）与正文 `imageBlock.src` 都由它收集，相册、`.ocbak` 备份、老数据落地三处共用。**不要在任何地方再手写遍历文档找 `imageBlock`** —— 三处各写一套的直接后果是「相册看不见正文图 / 备份少一半图」，而且不报错。
 - **整库替换要包 `suspend`**：装载 vault、批量导入这类操作必须包起来，否则成千上万次中间态会写进用户文件夹。
 - 正文位置：**词条在 `content`，其余实体在 `document`**；只有 `lib/vault/markdown-bridge.ts` 知道这件事。
 - Vault 是**跨域基础设施**，因此放 `src/lib/vault/`（不是 `features/`）；界面在 `src/features/vault/`。

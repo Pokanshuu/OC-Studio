@@ -12,7 +12,7 @@ description: >
 - **核心价值**：一个本地优先、专注效率的原创角色（OC）与世界观创作工作台。
 - **产品形态**：PWA/App 混合，Tauri 桌面打包，支持导出静态展示网站。
 - **AI：暂不提供。** 2026-10 已把 AI 相关代码整体删除（`src/lib/ai/`、`EventAiSummary`、设置里的 AI 页签与字段、事件表单的概括逻辑）。要做得当成新功能重新设计 —— **不要恢复旧实现、不要留隐藏入口、不要在文案里承诺 AI 能力**。
-- **当前版本**：v0.19.0-beta
+- **当前版本**：v0.19.1-beta
 
 ## 2. 技术栈约束
 
@@ -199,7 +199,8 @@ description: >
 - **落盘队列**（`vault-persist.ts`，656 行）：挂在 Dexie `dbcore` 中间件上，`dbcore.table().mutate` 是所有写入的唯一入口，一处接线覆盖全部写入路径；只在事务外做 IO；`deleteRange` 一律忽略（**绝不静默删除文件**）
 - **正文桥**（`lib/vault/markdown/`）：Tiptap JSON ⇄ Markdown 双向；无法无损表达的节点附 ` ```oc-document ` 兜底块。`markdown-bridge.ts` 是唯一知道「哪种实体的正文在哪个字段」的地方（**词条在 `content`，其余在 `document`**）
 - **启动闸门与界面**（`features/vault/`）：`VaultGate`（装载完成前不渲染主界面，避免空库闪一帧）、`VaultWriteBanner`（写盘冲突非模态提示 + 重试 / 以磁盘为准重载）、`VaultStatus`（状态栏）、`VaultMenuSection`（菜单栏）、`VaultScanReportDialog`（**概览**：一行「N 篇笔记 → 角色 x、国家 y」，正常时只说「没有发现问题」；有异常才出现一条「未知 N 项」，点开才是文件清单）、`VaultSurfaces`、`VaultOverlay`
-- **存量图片迁移**（`vault-migrate.ts`）：把应用数据目录里的图片迁进 vault 并改写引用；**显式动作**（菜单里点），不自动执行
+- **欢迎页与旧数据**（0.19.1）：单列 288px 网格，旧数据组（检测到 N 条 + 导出备份 / 备份旧版本数据并导入到…）排在主按钮**上方**，下方一行提醒「打开或新建文件夹会替换掉旧版数据」；旧数据组只在 `orphanCount > 0` 时出现。同一入口也在「文件」菜单里（`useLegacyImport` 两处共用）。**首次绑定笔记库前自动备份**：内置库非空时先导 `.ocbak` 到 `<目标文件夹>/.ocstudio/`，写不出来就中止开库
+- **图片引用**（`lib/image-refs.ts`）：字段图 + 正文 `imageBlock` 的唯一收集器，相册 / `.ocbak` / 老数据落地三处共用。相册数据源 = 字段图 + 正文图 + 词条 + 世界封面（分类树含「正文图片」「词条」「世界」）。**没有**独立的「把旧图片收进文件夹」动作：落地迁移会把字段、正文、`data:` URI 一起搬
 - **配套编辑器能力**：`SmallMark`（`<small>` 行内标记，vault 里唯一用到的行内 HTML，实测 32 处）、标题支持 H4（实测 21 个，5/6 级降级到 4）、表格 `rawSeparator`（保留 `|------|` 紧凑写法）、WikiLink `raw` 属性（原文另存以逐字还原）
 - **验收脚本**（`scripts/`）：`vault-analyze`（内存往返）+ `vault-frontmatter-check`（逐字节恒等）+ `vault-write-acceptance`（真实文件夹三处改动，sha256 全目录比对，非预期改动必须 0）+ `vault-markdown-check`（正文桥 72 项断言）+ `vault-body-diff`（差异归因）
 - **已知规范化边界**（已向用户披露）：被编辑的那一篇块间空行归一到一行、表格单元格内空白、`**A**B**C**` 嵌套 strong 的定界符位置；**未编辑的笔记零改动**

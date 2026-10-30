@@ -6,7 +6,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 # OC Studio
 
-**v0.19.0-beta** — 本地优先的原创角色（OC）与世界观创作工作台。
+**v0.19.1-beta** — 本地优先的原创角色（OC）与世界观创作工作台。
 
 ## 项目身份
 - Next.js 16 (App Router) + TypeScript strict + Tailwind CSS v4 + shadcn/ui
@@ -26,6 +26,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - `src/lib/version.ts` — 版本号单源（读 package.json）
 - `src/lib/open-external.ts` — 用系统浏览器打开外链（桌面走自建命令 `open_external`，见 `src-tauri/src/open.rs`；浏览器/Capacitor 走 `window.open`）。**Tauri 里 `target="_blank"` 是死的**，别再直接写 `<a>`
 - `src/lib/tag-colors.ts` — 标签预设色板唯一源（`pickTagColor` / `normalizeTagColor`；`TagBadge` 按色值映射到**完整字面量**类名，Tailwind JIT 不能拼接）
+- `src/lib/image-refs.ts` — **图片引用收集唯一源**（`collectBodyImageRefs` / `collect{Character,Event,Country,WorldEntry}ImageRefs` / `inlineBodyImageRefs`）。相册（`useAlbumData`）、`.ocbak` 备份（`export/payload`）、老数据落地（`vault/export-dir`）三处共用；字段图（头像/立绘/封面/图集/旗帜）**和正文 `imageBlock`** 都算，词条读 `content`（JSON 字符串）优先、回落 `document`。别再在任何一处手写遍历
+- `src/components/layout/BlurEffect.tsx` — 窗口模糊（Mica / vibrancy）唯一入口，挂在 `VaultGate` **外面**：欢迎页会替代 `AppShell` 渲染，效果写在 AppShell 里首屏就永远拿不到
 
 ### 界面（设计令牌唯一源）
 - `src/lib/ui-tokens.ts` — **界面原子类唯一源**，改 UI 时从这里取，不要就地拼写。分八组：标题（PAGE_TITLE / SECTION_TITLE）· 页头（TOOLBAR / EDITOR_HEADER / EDITOR_BODY）· 按钮（BTN_PRIMARY / BTN_QUIET / **BTN_DANGER**（灰调红实心，破坏性确认唯一形态）/ ICON_BTN / ICON_BTN_MD / FILTER_TRIGGER）· 输入与字段行（INPUT_LINE / TITLE_INPUT / FIELD_INPUT / **DATE_INPUT**（年/月/日 三段）/ FIELD_ROW / FIELD_LABEL / FIELD_GRID / LIST_END / SEARCH_INPUT / SEARCH_ICON）· 浮层（PANEL / MENU / MENU_ITEM_BASE / MENU_ITEM / MENU_GROUP_LABEL）· 列表（LIST_GRID / ROW_ACTIONS / EMPTY_HINT / MOBILE_FILTER_BTN / CHIP）· 素材卡与节点（MEDIA_CARD / MEDIA_IMG / MEDIA_GRADIENT / MEDIA_FALLBACK / NODE_WRAPPER）· 圆角与空态（ROUND_ITEM / ROUND_CONTROL / ROUND_PANEL、EMPTY_STATE / CENTER_STATE / LOADING_TEXT）
@@ -113,7 +115,11 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - `src/lib/vault/vault-assets.ts` — 素材引用的改写原语（`planImageRewrites` / `allocateAssetPath`）。图片由落地迁移一起搬（字段 + 正文 + `data:` URI）；**没有**单独的「把旧图片收进文件夹」动作了，那半套只认字段，会搬一半
 - `src/lib/vault/journal.ts` — **创作时间线**（`.ocstudio/journal.jsonl`，只追加）：行格式、sha256、tail 解析、JSON 导出（`buildJournalExport`，带 version）。落盘 flush 里对每次真正写成功的改动追加一条（新建 / 保存 / 移入回收站 / 还原 / 彻底删除）；**只做仓库模式**，不做回滚 / diff / 全文快照。磁盘侧命令在 `src-tauri/src/journal.rs`（`journal_append` / `journal_tail`）
 - `src/lib/vault/vault-provider.tsx` — 上下文。状态是**派生**的（`useSyncExternalStore` 读环境）：`isVaultSupported()` 服务端为 false，直接做 useState 初值会造成水合不一致
+- `src/lib/vault/legacy-backup.ts` — **首次绑定笔记库前的自动备份**：`lastVaultPath() === null` 且内置库非空时，先把整库导成 `<目标文件夹>/.ocstudio/legacy-backup-<时间>.ocbak` 再 `loadVault`；写不出来就抛错中止开库（宁可打不开，也不白清）。`migrateLegacy` 传 `backupLegacy: false` 跳过（数据本来就已经写进那个文件夹）
 - `src/features/vault/` — UI（`VaultGate` 启动闸门 / `VaultWriteBanner` / `VaultMenuSection` / `VaultStatus` / `VaultSurfaces` / `VaultOverlay` / `VaultScanReportDialog` —— 界面上叫**概览**：一行「N 篇笔记 → 构成」，正常时只说「没有发现问题」，有异常才出现一条「未知 N 项」，点开才是文件清单）
+  - 欢迎页（`VaultGate` 的 idle 分支）= 单列 288px 网格：标题 → 旧数据组（「检测到 N 条旧版本数据」+ 导出备份 / 备份旧版本数据并导入到…）→ 打开已有 / 新建文件夹 → 一行黄色提醒。旧数据组只在 `orphanCount > 0` 时渲染，且**排在主按钮上方**（压在最下面时用户会先点按钮、把旧数据顶掉）
+  - `hooks/useLegacyImport.tsx` — 「备份旧版本数据并导入到…」的唯一实现，欢迎页与「文件」菜单共用。对话框由**调用方**渲染：`DropdownMenuContent` 关闭时整棵卸载，挂在下拉里会跟着消失
+  - `components/shared/SeedData.tsx` — 桌面版**不播种**（判 `isVaultSupported()`，不能只判 `isVaultEnabled()`：那个标记首次绑定后才置位，全新安装会先塞 10 条示例，再在欢迎页当成「旧版本数据」）
 - `scripts/vault-analyze.ts` — 离线体检 + 内存往返验证
 - `scripts/vault-frontmatter-check.ts` — 外科式读写原语的**逐字节恒等**检查
 - `scripts/vault-body-diff.ts` — 正文往返差异归因（按签名聚合）
@@ -123,7 +129,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 **Vault 的验证口径（改这块代码前先跑一遍）**
 ```
-npx tsx scripts/vault-migrate-check.ts                        # 老数据迁移闭环，31 项断言
+npx tsx scripts/vault-migrate-check.ts                        # 老数据迁移闭环，40 项断言
 npx tsx scripts/journal-check.ts                               # 时间线行格式 + JSON 导出，19 项断言
 npx tsx scripts/vault-analyze.ts "<vault>" --roundtrip        # 内存往返，5 项
 npx tsx scripts/vault-frontmatter-check.ts "<vault>"          # 手术原语恒等
