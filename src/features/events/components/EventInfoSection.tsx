@@ -2,8 +2,7 @@
 
 import { Checkbox } from '@/components/ui/checkbox'
 import { DATE_INPUT, FIELD_GRID, FIELD_INPUT, FIELD_LABEL, FIELD_ROW, SECTION_TITLE } from '@/lib/ui-tokens'
-import { BUILTIN_FIELDS, replaceFields, useFields, type FieldDef } from '@/lib/fields'
-import { defaultFields } from '@/lib/fields/defaults'
+import { useFields, type FieldDef } from '@/lib/fields'
 import type { EventForm } from '../hooks/useEventForm'
 
 /**
@@ -20,9 +19,6 @@ export function EventInfoSection({
   compact?: boolean
 }) {
   const fields = useFields('event')
-  const hiddenBuiltins = BUILTIN_FIELDS.event.filter(
-    (builtin) => !fields.some((field) => field.id === builtin.id),
-  )
 
   const renderRow = (field: FieldDef) => {
     if (field.id === 'time' || field.id === 'endTime') {
@@ -89,11 +85,6 @@ export function EventInfoSection({
     )
   }
 
-  const restoreHidden = () => {
-    const custom = fields.filter((field) => !BUILTIN_FIELDS.event.some((b) => b.id === field.id))
-    void replaceFields('event', [...defaultFields('event'), ...custom])
-  }
-
   return (
     <section>
       <h3 className={SECTION_TITLE}>基本信息</h3>
@@ -106,18 +97,6 @@ export function EventInfoSection({
       >
         {fields.map(renderRow)}
       </div>
-      {hiddenBuiltins.length > 0 ? (
-        <p className="mt-2 flex items-center gap-2 text-[12px] text-ink-faint">
-          <span>已隐藏：{hiddenBuiltins.map((field) => field.label).join('、')}</span>
-          <button
-            type="button"
-            onClick={restoreHidden}
-            className="text-[12px] text-ink-muted transition-colors hover:text-ink"
-          >
-            全部显示
-          </button>
-        </p>
-      ) : null}
     </section>
   )
 }
