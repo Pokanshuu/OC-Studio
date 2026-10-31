@@ -203,19 +203,24 @@ npx tauri build   # Tauri 打包 (.exe/.msi)
    - 只有四类说明可留，且必须**一句话 ≤ 20 字、紧跟被说明的元素**：破坏性后果 / 数据口径 / 隐私安全 / 功能未开放（「开发中」）
    - 不写「注：」「说明：」「提示：」这类散文前缀；`npm run audit:design` 的 `prose-prefix` 规则会拦。完整规则与四问审查表见 `oc-studio-design` skill §9
 14. **未保存状态**：唯一口径是「当前值 ≠ 已保存值」（`src/lib/dirty.ts` 的快照签名），表单只**上报** `reportDirty(boolean)`，**不要再手工 `markDirty()`**。手工置位是个只进不出的闩——「输入一个字再删掉」「Ctrl+Z 回到原样」「保存后值被规范化（`3` → `03`）」都会留下抹不掉的脏标记，返回时就弹「有未保存的更改」。正文先用 ProseMirror 文档与基线文档 `doc.eq()` 快速比对，不等时再用 `sameDocIgnoringTrailingSpacer()` 复核 —— **末尾的空段落不算改动**：StarterKit 默认开启的 `TrailingNode` 会给「以分割线 / 图片 / 表格 / 代码块结尾」的正文自动补一个可输入段落（旧数据大量是这种结尾），不忽略它就会「点进去什么都没做也提示未保存」
-15. **AI：暂不做，相关代码已删除**（2026-10）：`src/lib/ai/`、`EventAiSummary`、设置里的 `AiTab`、`settings.tsx` 的 `ai*` 字段、`useEventForm` 的概括逻辑**全部移除**，没有开关、没有隐藏入口。**不要再加 AI 入口、不要恢复旧代码、不要在文案里承诺 AI 能力**；要做得当成新功能重新设计。产品口径见 `oc-studio-prd` skill §1
+15. **AI：不做内置功能，只做能力层**（2026-10 删除内置 AI；2026-10-31 定方向）
+   - **已删除，不要恢复**：`src/lib/ai/`、`EventAiSummary`、设置里的 `AiTab`、`settings.tsx` 的 `ai*` 字段、`useEventForm` 的概括逻辑
+   - **不做内置用例**（摘要 / 一键生成 / 内置对话）：它们绑死模型与提示词，而通用 agent 能力覆盖了这些用例
+   - **做的是能力层**：把库以只读（默认）或受限写入的方式开放给外部 agent（MCP 优先）与插件；写入必须走落盘链路，journal 要带 `actor`。设计见 `docs/Agent接入.md`
+   - 界面上**不出现「AI」字样**、不承诺 AI 能力；产品口径见 `oc-studio-prd` skill §1
 
 ## 已知差异（技术债，待后续修复）
 - **解耦已收口**：无「真·God 组件」。`≥300 行` 仅剩已抽出的层/壳：`lib/use-entity-workspace.ts`（编排层）、`features/timeline/components/TimelineView.tsx`（壳+画布 JSX）、`features/world/components/WorldLayout.tsx`（壳+编辑区 JSX）、`features/timeline/hooks/useTimelineViewport.ts`、`lib/seed/index.ts`（播种脚本）—— **再拆就是为拆而拆，不要动**
 - 仓储层（`lib/repository.ts`）的 `Table<T, number, TInsert>` 第 3 个泛型位、实体 `id: number` 必填、`EntityTable` 的用法是**互相咬合**的：省掉第 3 个泛型位会让 `listActive` / `getById` 的返回值被推断成「id 可选」，从而在全项目催生 `as number` 断言。改动前先读 `src/lib/repository.ts` 顶部注释
 
 ## 待办与改进清单
-- 详见 `docs/todo.md`（按领域分节，与下面六份文档一一对应；已完成的不留档）
-- 六份领域文档（每个领域一份，改动前先读对应的那份）：
+- 详见 `docs/todo.md`（按领域分节，与下面七份文档一一对应；已完成的不留档）
+- 七份领域文档（每个领域一份，改动前先读对应的那份）：
   - `docs/模板.md` — 组件化模板（组件分级、文件格式、视觉契约、模板/导出/标签管理界面）
   - `docs/时间线.md` — 参与者轨道、事件连线、关键节点
   - `docs/关系图.md` — 静态手摆（**实时物理已放弃**）、正交边、节点形态
   - `docs/相册.md` — 图片组件原子化（**方向未定**）
   - `docs/插件.md` — 社区插件（沙箱 + 白名单 RPC）
-  - `docs/主题.md` — 自定义令牌与主题包
+  - `docs/主题.md` — 自定义令牌与主题包（三层 + 两级作用域）
+  - `docs/Agent接入.md` — 库 API + MCP/插件适配器、权限分级、`actor` 留痕
 - 自定义集合（L2）需求见 `docs/自定义分类-需求文档.md`（**已被 `docs/模板.md` 取代**，仅作参考）；**未实现**，实现前先出 fork 冲突地图（`git merge-tree`）
