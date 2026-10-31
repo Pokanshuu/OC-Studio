@@ -270,7 +270,14 @@ export function scanVault(options: ScanOptions): VaultScanResult {
   for (const slot of mapped) {
     const target = byPath.get(slot.note.relPath)
     if (target === undefined) continue
+    // 同一个实体登记三种键 —— 仓库里这三种写法真实共存：
+    //   1. 文件名（Obsidian 的解析规则；`02.元素与生命树`）
+    //   2. frontmatter 标题（应用在编辑器里插入 [[ ]] 时写的就是标题；`元素与生命树`）
+    //   3. 去掉 `NN.` 序号的文件名（人手写链接时通常不带序号；`元素与生命树`）
+    // 只登记文件名会让「明明有笔记」的链接被判成未知，正文里还会退化成纯文本。
     addKey(normalizeLinkKey(slot.note.basename), target)
+    addKey(normalizeLinkKey(stripOrderPrefix(slot.note.basename).label), target)
+    addKey(normalizeLinkKey(noteTitle(slot.note)), target)
     for (const alias of noteAliases(slot.note)) {
       const key = normalizeLinkKey(alias)
       addKey(key, target)

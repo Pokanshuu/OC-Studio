@@ -19,7 +19,7 @@ import { safeHref } from '@/lib/safe-href'
 import { ImageBlock } from './extensions/ImageBlock'
 import { SmallMark } from './extensions/SmallMark'
 import { SlashCommand } from './SlashCommandMenu'
-import { WikiLinkExtension } from './WikiLinkExtension'
+import { createWikiLinkExtension } from './WikiLinkExtension'
 import { createMentionRender, type ExtendedReferableEntity } from './mention-render'
 
 /** 拖拽把手 → 块类型菜单的自定义事件名（dispatch 在本模块的 DragHandle render 里，监听在 EditorCore） */
@@ -141,7 +141,7 @@ export function buildEditorConfig({
       ImageBlock,
       SmallMark,
       SlashCommand,
-      WikiLinkExtension,
+      createWikiLinkExtension(),
       ...(isMobile ? [] : [
         DragHandle.configure({
         render: () => {

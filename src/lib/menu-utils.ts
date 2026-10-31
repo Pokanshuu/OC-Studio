@@ -24,14 +24,14 @@ export function adjustSuggestionPosition(
     x = GAP
   }
 
-  // vertical overflow: try above cursor first
+  // vertical overflow: try above cursor first, otherwise pin inside the viewport
+  // （以前直接甩到 GAP，光标贴底时菜单会「闪到左上角」）
   if (y + popupHeight > vh - GAP) {
     const aboveY = rect.top - popupHeight - 4
-    if (aboveY >= GAP) {
-      y = aboveY
-    } else {
-      y = GAP
-    }
+    y = aboveY >= GAP ? aboveY : Math.max(GAP, vh - popupHeight - GAP)
+  }
+  if (y < GAP) {
+    y = GAP
   }
 
   return { x, y }

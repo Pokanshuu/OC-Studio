@@ -36,6 +36,7 @@ export default function Home() {
     charactersLoading,
     characterView,
     charSlide,
+    clearWorldSelectedEntry,
     countrySlide,
     countryView,
     events,
@@ -190,7 +191,7 @@ export default function Home() {
         className="h-full section-fade overflow-y-auto section-fade-no-gutter"
         data-visible={showWorld ? "true" : "false"}
       >
-        <WorldLayout onMentionClick={handleMentionClick} onCharacterCount={handleWorldCharCount} selectedEntryId={worldSelectedEntryId} onWikiLinkClick={handleWikiLinkClick} />
+        <WorldLayout onMentionClick={handleMentionClick} onCharacterCount={handleWorldCharCount} selectedEntryId={worldSelectedEntryId} onSelectedEntryConsumed={clearWorldSelectedEntry} onWikiLinkClick={handleWikiLinkClick} />
       </div>
 
       <div

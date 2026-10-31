@@ -358,6 +358,13 @@ html.tauri-mica [data-statusbar] {
 /* 任务列表：复选框与正文首行同排、同高
    - 用 `.tiptap` 而不是 `.ProseMirror`：TipTap 一定会在编辑器根节点上补这个类，
      任务列表样式就不会因为根节点类名变化（或自定义 class 覆盖）而整段失效
+   - **TipTap v3 的 TaskItem 是 NodeView**，真实 DOM 是
+       <ul data-type="taskList"><li data-checked><label contenteditable="false"><input><span></label><div>…</div></li>
+     `<li>` 上**没有** `data-type="taskItem"`（v2 才有）。只认旧选择器的话这一整段全是死规则：
+     li 留着列表圆点、label 成内联、div 块级换行 → 复选框和正文分两行，
+     复选框还会露出 WebView 的蓝色默认样式（这正是「一直不在同一行」的由来）。
+     所以两类选择器并排：`[data-type="taskList"] > li` 覆盖编辑器（NodeView），
+     `[data-type="taskItem"]` 覆盖静态站导出 / 只读渲染（走 renderHTML，属性是真的）。
    - 复选框是 16px 方块，上下留白按首行行高补，所以文字换行后仍与首行对齐
    - 文字列必须是块级 flex 子项：内联 div 里的 <p> 会把正文挤到复选框下一行
    - 首尾段落去掉外边距：否则 <p> 的 0.5em 上边距把首行顶下去 */
@@ -366,6 +373,7 @@ html.tauri-mica [data-statusbar] {
   padding-left: 0 !important;
 }
 
+.tiptap [data-type="taskList"] > li,
 .tiptap [data-type="taskItem"] {
   list-style: none !important;
   display: flex !important;
@@ -374,6 +382,7 @@ html.tauri-mica [data-statusbar] {
   margin-bottom: 0.25em;
 }
 
+.tiptap [data-type="taskList"] > li > label,
 .tiptap [data-type="taskItem"] > label {
   position: relative !important;
   display: inline-flex !important;
@@ -394,16 +403,20 @@ html.tauri-mica [data-statusbar] {
     border-color var(--dur-fast) var(--ease-quiet);
 }
 
+.tiptap [data-type="taskList"] > li > label:hover,
 .tiptap [data-type="taskItem"] > label:hover {
   border-color: var(--oc-line-hover) !important;
 }
 
-/* 选中：暖灰墨实心 + 纸色勾 —— 和界面同一套暖色，替掉 WebView 的蓝色默认复选框 */
+/* 选中：墨色实心 + 纸色勾 —— 与设置里的开关、Tab 下划线是同一枚「选中」色，
+   替掉 WebView 自带的蓝色复选框（那是唯一一处不在设计系统里的强调色）。 */
+.tiptap [data-type="taskList"] > li[data-checked="true"] > label,
 .tiptap [data-type="taskItem"][data-checked="true"] > label {
   border-color: var(--oc-ink-muted) !important;
   background-color: var(--oc-ink-muted) !important;
 }
 
+.tiptap [data-type="taskList"] > li[data-checked="true"] > label::after,
 .tiptap [data-type="taskItem"][data-checked="true"] > label::after {
   content: '';
   display: block;
@@ -416,6 +429,7 @@ html.tauri-mica [data-statusbar] {
 
 /* 原生复选框铺满方框但不可见：命中区仍是真实 input（键盘可聚焦），
    同时把 WebView 自带的蓝色方块彻底挡掉 */
+.tiptap [data-type="taskList"] > li > label input[type="checkbox"],
 .tiptap [data-type="taskItem"] > label input[type="checkbox"] {
   position: absolute !important;
   inset: 0 !important;
@@ -428,20 +442,24 @@ html.tauri-mica [data-statusbar] {
   cursor: pointer !important;
 }
 
+.tiptap [data-type="taskList"] > li > label:has(input:focus-visible),
 .tiptap [data-type="taskItem"] > label:has(input:focus-visible) {
   border-color: var(--oc-ink-muted) !important;
 }
 
+.tiptap [data-type="taskList"] > li > div,
 .tiptap [data-type="taskItem"] > div {
   display: block !important;
   flex: 1 1 auto !important;
   min-width: 0;
 }
 
+.tiptap [data-type="taskList"] > li > div > p:first-child,
 .tiptap [data-type="taskItem"] > div > p:first-child {
   margin-top: 0 !important;
 }
 
+.tiptap [data-type="taskList"] > li > div > p:last-child,
 .tiptap [data-type="taskItem"] > div > p:last-child {
   margin-bottom: 0 !important;
 }

@@ -36,18 +36,34 @@ export function createMentionRender() {
     return (editor as unknown as { view: { composing: boolean } }).view?.composing ?? false
   }
 
+  /** 关弹层的唯一入口：节点与「点外部关闭」监听一起收，避免只 abort 监听、节点留成孤儿 */
+  const closePopup = () => {
+    ac?.abort()
+    ac = null
+    if (popup) {
+      popup.remove()
+      popup = null
+    }
+  }
+
+  const isDegenerateRect = (rect: DOMRect): boolean =>
+    rect.width === 0 && rect.height === 0
+
   return () => ({
     onStart: (props: SuggestionProps<ReferableEntity>) => {
       if (!props.clientRect || props.items.length === 0) return
       if (isComposing(props.editor)) return
-      ac?.abort()
+      const startRect = props.clientRect()
+      if (!startRect || isDegenerateRect(startRect)) return
+      closePopup()
       ac = new AbortController()
       currentItems = props.items
       currentCommand = props.command
       selectedIndex = 0
       popup = document.createElement('div')
+      popup.dataset.ocPopup = 'mention'
       popup.className = `pointer-events-auto fixed z-50 max-h-56 overflow-auto min-w-[200px] ${MENU}`
-      const rect = props.clientRect()
+      const rect = startRect
       if (rect) {
         popup.style.left = `${rect.left}px`
         popup.style.top = `${rect.bottom + 4}px`
@@ -55,11 +71,7 @@ export function createMentionRender() {
       renderMentionGroups(popup, props.items, props.command, 0)
       ;(document.getElementById('overlay-root') ?? document.body).appendChild(popup)
       document.addEventListener('pointerdown', (e) => {
-        if (popup && !popup.contains(e.target as Node)) {
-          popup.remove()
-          popup = null
-          ac?.abort()
-        }
+        if (popup && !popup.contains(e.target as Node)) closePopup()
       }, { signal: ac.signal, capture: true })
       if (rect) {
         requestAnimationFrame(() => {
@@ -72,11 +84,12 @@ export function createMentionRender() {
     },
     onUpdate: (props: SuggestionProps<ReferableEntity>) => {
       if (isComposing(props.editor)) return
-      if (!popup || props.items.length === 0) { popup?.remove(); popup = null; ac?.abort(); return }
+      if (!popup || props.items.length === 0) { closePopup(); return }
+      const rect = props.clientRect?.()
+      if (!rect || isDegenerateRect(rect)) { closePopup(); return }
       currentItems = props.items
       currentCommand = props.command
       selectedIndex = Math.min(selectedIndex, props.items.length - 1)
-      const rect = props.clientRect?.()
       if (rect) {
         popup.style.left = `${rect.left}px`
         popup.style.top = `${rect.bottom + 4}px`
@@ -89,15 +102,11 @@ export function createMentionRender() {
         popup.style.top = `${adjusted.y}px`
       }
     },
-    onExit: (props: SuggestionProps<ReferableEntity>) => {
-      if (isComposing(props.editor)) return
-      ac?.abort()
-      ac = null
-      popup?.remove()
-      popup = null
+    onExit: () => {
+      closePopup()
     },
     onKeyDown: (props: SuggestionKeyDownProps) => {
-      if (props.event.key === 'Escape') { popup?.remove(); popup = null; ac?.abort(); return true }
+      if (props.event.key === 'Escape') { closePopup(); return true }
       if (props.event.key === 'ArrowDown') {
         selectedIndex = Math.min(selectedIndex + 1, currentItems.length - 1)
         if (popup) {

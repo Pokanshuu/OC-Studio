@@ -534,6 +534,10 @@ export function useEntityWorkspace() {  const { activeItem: desktopActiveItem, s
     handleRelatedItemNavigate(numId, 'world')
   }, [handleRelatedItemNavigate])
 
+  const clearWorldSelectedEntry = useCallback(() => {
+    setWorldSelectedEntryId(null)
+  }, [])
+
   const showEvents = activeItem === '事件'
   const showCharacters = activeItem === '角色'
   const showCountries = activeItem === '国家'
@@ -606,6 +610,7 @@ export function useEntityWorkspace() {  const { activeItem: desktopActiveItem, s
     handleBackToCharacterList,
     handleBackToCountryList,
     handleBackToList,
+    clearWorldSelectedEntry,
     handleCharacterCharCount,
     handleCountryCharCount,
     handleCreateCharacter,

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useMemo, useEffect } from 'react'
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { useDevice } from '@/lib/use-device'
 import type { WorldEntry } from '@/types'
 import type { Editor } from '@tiptap/core'
@@ -22,10 +22,12 @@ interface WorldLayoutProps {
   onMentionClick?: (id: string, entityType?: string) => void
   onCharacterCount?: (count: number) => void
   selectedEntryId?: number | null
+  /** 内链/引用跳进来的一次性指令，消费后通知上层清空，避免下次列表刷新时重放 */
+  onSelectedEntryConsumed?: () => void
   onWikiLinkClick?: (id: string) => void
 }
 
-export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId, onWikiLinkClick }: WorldLayoutProps) {
+export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId, onSelectedEntryConsumed, onWikiLinkClick }: WorldLayoutProps) {
   const { entries, loading, error, refresh } = useEntryList()
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [title, setTitle] = useState('')
@@ -34,6 +36,7 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
   const [treeQuery, setTreeQuery] = useState('')
   const [tags, setTags] = useState<number[]>([])
   const [bodyEditor, setBodyEditor] = useState<Editor | null>(null)
+  const handledNavRef = useRef<number | null>(null)
   const worldFields = useFields('worldEntry')
   const showTags = worldFields.some((field) => field.id === 'tags')
   const { createEntry } = useCreateEntry()
@@ -135,15 +138,27 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
   }, [refresh])
 
   useEffect(() => {
-    if (selectedEntryId == null || selectedEntryId === selectedIdRef.current) return
+    if (selectedEntryId == null) return
+    // 导航意图只消费一次：worldSelectedEntryId 是「跳到这里」的一次性指令，
+    // 一旦消费就把 handledNavRef 记下并通知上层清空。
+    // 这个 effect 的依赖里有 entries —— 自动保存后的 refresh() 会让它重跑；
+    // 若不做一次性判定，上次的内链跳转目标就会被反复重放，表现为「编辑着突然跳到别的词条」。
+    if (selectedEntryId === handledNavRef.current) return
+    if (selectedEntryId === selectedIdRef.current) {
+      handledNavRef.current = selectedEntryId
+      onSelectedEntryConsumed?.()
+      return
+    }
     const entry = entries.find((e) => e.id === selectedEntryId)
     if (!entry) return
+    handledNavRef.current = selectedEntryId
+    onSelectedEntryConsumed?.()
     void flushSave().then(() => {
       setSelectedId(selectedEntryId)
       setTitle(entry.title)
       setTags(entry.tags ?? [])
     })
-  }, [selectedEntryId, entries, flushSave, selectedIdRef])
+  }, [selectedEntryId, entries, flushSave, selectedIdRef, onSelectedEntryConsumed])
 
   const handleBodyReady = (editor: Editor) => {
     setBodyEditor(editor)

@@ -8,6 +8,15 @@ import { syncReferenceLabels } from '@/lib/reference-sync'
 import { parseEditorContent } from '../components/world-content-utils'
 
 /**
+ * 待写草稿：内容与它的归属词条 id 绑在一起，避免切换词条时写错地方。
+ */
+interface PendingSave {
+  entryId: number
+  title: string
+  content: string
+}
+
+/**
  * 词条正文与标题的「草稿 → 落库」管线。
  *
  * 三件事：编辑器实例里取 JSON；标题/正文变更合并成一次防抖写入（2s）；
@@ -29,7 +38,9 @@ export function useWorldEntryDraft({
 }) {
   const editorRef = useRef<Editor | null>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const pendingSaveRef = useRef<{ title: string; content: string } | null>(null)
+  // 待写内容连同「它属于哪条词条」一起存：写入目标只认这里记的 id，
+  // 不认 selectedIdRef —— 后者在 await 期间可能已经被用户切走，会张冠李戴。
+  const pendingSaveRef = useRef<PendingSave | null>(null)
   const selectedIdRef = useRef<number | null>(null)
   const saveEnabledRef = useRef(false)
   const currentEntryRef = useRef<WorldEntry | undefined>(undefined)
@@ -38,17 +49,18 @@ export function useWorldEntryDraft({
   useEffect(() => { currentEntryRef.current = currentEntry }, [currentEntry])
 
   const flushSave = useCallback(async () => {
-    if (!selectedIdRef.current || !pendingSaveRef.current) return
+    const pending = pendingSaveRef.current
+    if (!pending) return
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current)
       saveTimerRef.current = null
     }
-    const { title: t, content: c } = pendingSaveRef.current
     try {
-      const doc = JSON.parse(c) as Record<string, unknown>
+      const doc = JSON.parse(pending.content) as Record<string, unknown>
       const synced = await syncReferenceLabels(doc)
-      await saveEntryContent(selectedIdRef.current, t, JSON.stringify(synced))
-      pendingSaveRef.current = null
+      await saveEntryContent(pending.entryId, pending.title, JSON.stringify(synced))
+      // 期间若又攒了新草稿就别清掉它
+      if (pendingSaveRef.current === pending) pendingSaveRef.current = null
       refresh()
     } catch (err) {
       console.error(`[save] flushSave 写入失败:`, err)
@@ -56,9 +68,10 @@ export function useWorldEntryDraft({
   }, [refresh])
 
   const scheduleSave = useCallback((newTitle: string, json: object) => {
-    if (!selectedIdRef.current) return
+    const entryId = selectedIdRef.current
+    if (entryId == null) return
     const contentStr = JSON.stringify(json)
-    pendingSaveRef.current = { title: newTitle, content: contentStr }
+    pendingSaveRef.current = { entryId, title: newTitle, content: contentStr }
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => {
       void flushSave()
@@ -110,16 +123,12 @@ export function useWorldEntryDraft({
   // 关页面前尽量落库（此时不能 await，只能尽力而为）
   useEffect(() => {
     const handler = () => {
-      if (selectedIdRef.current && pendingSaveRef.current) {
-        if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-        void saveEntryContent(
-          selectedIdRef.current,
-          pendingSaveRef.current.title,
-          pendingSaveRef.current.content,
-        ).catch((err) => {
-          console.error(`[WorldLayout] beforeunload 保存失败:`, err)
-        })
-      }
+      const pending = pendingSaveRef.current
+      if (!pending) return
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      void saveEntryContent(pending.entryId, pending.title, pending.content).catch((err) => {
+        console.error(`[WorldLayout] beforeunload 保存失败:`, err)
+      })
     }
     window.addEventListener('beforeunload', handler)
     return () => window.removeEventListener('beforeunload', handler)

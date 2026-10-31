@@ -15,6 +15,7 @@ import {
 import { vaultFs, type VaultWriteEntry } from './vault-fs'
 import { serializeTagMeta } from './vault-tags'
 import { createLinkSerializer, documentOfEntity, serializeBody } from './markdown-bridge'
+import type { VaultEntityKind, VaultStorableKind } from './types'
 import type { Character, Country, Event, Tag, WorldEntry } from '@/types'
 
 // ── 落盘队列 ────────────────────────────────────────────────────────────
@@ -313,8 +314,32 @@ async function buildSerializeContext(): Promise<SerializeContext> {
   }
 }
 
-/** 把更新表合并进 frontmatter 快照（写成功后用它更新基准） */
-function mergeFrontmatter(
+/** 实体类型 → 表名（只为回查「这条引用在磁盘上叫什么文件」） */
+const TABLE_BY_KIND: Record<VaultStorableKind, VaultTableName> = {
+  character: 'characters',
+  event: 'events',
+  country: 'countries',
+  worldEntry: 'worldEntries',
+  tag: 'tags',
+  period: 'periods',
+}
+
+/**
+ * 目标实体在磁盘上的文件名（去掉 `.md`），取不到时返回 undefined。
+ *
+ * 写 `[[ ]]` 用它当目标、标题当别名 —— 词条文件常带 `00.` / `02.` 这类用户自己的排序前缀，
+ * 只写标题的话 Obsidian 解析不到（本应用靠 scan 的宽容键能认，Obsidian 不能）。
+ */
+function fileBaseOf(kind: VaultEntityKind, id: number): string | undefined {
+  const table = TABLE_BY_KIND[kind as VaultStorableKind]
+  if (table === undefined) return undefined
+  const state = getVaultSession()?.entries.get(entityKey(table, id))
+  if (state === undefined || state.relPath === '') return undefined
+  const name = state.relPath.slice(state.relPath.lastIndexOf('/') + 1)
+  return name.replace(/\.md$/i, '')
+}
+
+/** 把更新表合并进 frontmatter 快照（写成功后用它更新基准） */function mergeFrontmatter(
   current: Record<string, unknown>,
   updates: FrontmatterUpdates,
 ): Record<string, unknown> {
@@ -406,7 +431,14 @@ async function planTextWrite(
   const nowDocJson = JSON.stringify(documentOfEntity(kind, row) ?? null)
   const docChanged = isNew || nowDocJson !== (state?.bodyDoc ?? 'null')
   const body = docChanged
-    ? serializeBody(kind, row, createLinkSerializer((targetKind, targetId) => ctx.nameOf(targetKind, targetId)))
+    ? serializeBody(
+        kind,
+        row,
+        createLinkSerializer(
+          (targetKind, targetId) => ctx.nameOf(targetKind, targetId),
+          fileBaseOf,
+        ),
+      )
     : null
   const bodyChanged = body !== null && body.markdown !== prevBody
 

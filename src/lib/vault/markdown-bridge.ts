@@ -119,9 +119,15 @@ export function documentOfEntity(kind: VaultStorableKind, entity: unknown): unkn
  * 优先用节点上的 `raw`（装载时保留的原文），这样带锚点/别名的链接
  * （带锚点与别名的 `[[ ]]`）能**逐字**写回，不会被规范化成裸链接。
  * 编辑器里新插入的引用没有 `raw`，才回落到按名字拼。
+ *
+ * `fileBaseOfId` 是目标在磁盘上的文件名（已去 `NN.` 之外的扩展名）。
+ * vault 里词条文件常带 `00.` / `02.` 这类序号前缀（用户自己的排序习惯），
+ * 只写标题的话 Obsidian 根本解析不到 —— 于是写成 `[[02.元素与生命树|元素与生命树]]`：
+ * 目标可解析，显示名仍是标题。
  */
 export function createLinkSerializer(
   nameOfId: (kind: VaultEntityKind, id: number) => string | undefined,
+  fileBaseOfId?: (kind: VaultEntityKind, id: number) => string | undefined,
 ): (node: TiptapNode) => string | null {
   return (node) => {
     const raw = node.attrs?.raw
@@ -135,7 +141,13 @@ export function createLinkSerializer(
 
     const name = Number.isFinite(id) ? nameOfId(kind, id) : undefined
     const text = name ?? label
-    return text === '' ? null : `[[${text}]]`
+    if (text === '') return null
+
+    const fileBase = Number.isFinite(id) ? fileBaseOfId?.(kind, id) : undefined
+    if (fileBase !== undefined && fileBase !== '' && fileBase !== text) {
+      return `[[${fileBase}|${text}]]`
+    }
+    return `[[${text}]]`
   }
 }
 
