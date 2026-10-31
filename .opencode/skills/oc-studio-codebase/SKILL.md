@@ -399,3 +399,14 @@ vault 装载未完成前**不渲染主界面**（否则列表先按空库渲染�
 - **不进聚合桶**：`useTimelineLayout` 里 `buildBuckets` 的输入要滤掉 `kind === 'birth'`，否则桶被点开会打开一个同号事件。
 
 按国家筛选时不生成出生节点（出生没有国家归属）；`parseYear` 读不出来的生日（「不详」这类自由文本）不上时间线，也不报错。
+
+### 4.22 TipTap v3 的 NodeView 会吞掉 `renderHTML` 上的属性
+
+`TaskItem` 在 v3 里改成了 NodeView（`addNodeView`）：它自己造 `<li>`，只写 `dataset.checked` 和扩展的 `HTMLAttributes`，`renderHTML` 里的 `data-type="taskItem"` **不会出现在 `<li>` 上**（那是 v2 的 DOM）。于是 `globals.css` 里所有 `.tiptap [data-type="taskItem"] …` 对编辑器全部失效 —— 表现是任务列表复选框与正文分两行、左侧还留着圆点、复选框露出原生蓝框（一堆 `!important` 看着像写对了，实际一条没命中）。
+
+规矩：给 NodeView 节点写样式要认**它真实产出的标记**（`[data-type="taskList"] > li`），并保留 `[data-type="xxx"]` 那套覆盖静态站导出 / 只读渲染 —— 那条路径走 `renderHTML`，属性是真的。
+
+### 4.23 词条编辑器：切换与保存的两条时序约束
+
+- **导航意图是一次性的**：`worldSelectedEntryId` 只是「跳到这里」的指令，消费后必须清空（`handledNavRef` + `onSelectedEntryConsumed`）。那个导航 effect 的依赖里有 `entries`，而自动保存落库后会 `refresh()` 列表；不做一次性判定，上次内链的落点会在每次保存后被重放 —— 表现为「编辑着突然跳到别的词条」。
+- **草稿的写入目标绑 id，不绑「当前选中」**：`useWorldEntryDraft` 的 pending 存 `{ entryId, title, content }`。写入前 `await syncReferenceLabels()` 会让出执行权，这期间用户切走词条，再读 `selectedIdRef.current` 就会把 A 的正文写进 B。

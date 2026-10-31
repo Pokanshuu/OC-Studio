@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "OC Studio",
-  "version": "0.19.1-beta",
+  "version": "0.19.2-beta",
   "identifier": "com.ocstudio.ocstudio",
   "build": {
     "frontendDist": "../out",

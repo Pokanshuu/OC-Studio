@@ -330,9 +330,18 @@ description: >
 - **笔记库概览极简**（详见 4.19）：从「扫描报告」改成一个结论 + 一条「未知 N 项」，正常时只说「没有发现问题」
 - **设置页签「通用」→「个性化」**（图标 `Cpu` → `Palette`）；新增 `DATE_INPUT` 令牌；**禁用原生 `<datalist>`**
 
+### 已完成（v0.19.2-beta · 编辑稳定性修复）
+- **词条跳转只消费一次**：`worldSelectedEntryId` 作为一次性导航意图（`handledNavRef` + 消费后回写 `null`）。此前它只装填不清空，自动保存后的列表 `refresh()` 会让导航 effect 重放上次内链目标 —— 「编辑着突然跳到别的词条」的根因
+- **自动保存按归属写**：草稿连同 `entryId` 一起存，写入目标不再读「当前选中」（`await` 期间切词条会把 A 的正文写进 B）
+- **内链弹层**：`WikiLinkExtension` 改为每编辑器一份（原模块级单例共享 `popup` 状态，第二个菜单 `abort` 掉前一个的关闭监听、节点永久留在 DOM）；定位改 `fixed` + Portal 到 `#overlay-root`；`clientRect()` 退化成全 0 时不弹。`@` 引用同批加固
+- **任务列表排版**：TipTap v3 的 `TaskItem` 是 NodeView，`<li>` 上没有 `data-type="taskItem"`，旧选择器整段失效 → 复选框与正文分行、露出原生蓝框。改认 `[data-type="taskList"] > li`，选中色用 `--oc-ink-muted`
+- **笔记库链接索引**：解析键从「只认文件名」扩到「文件名 / 去 `NN.` 序号 / frontmatter 标题」；新写入的内链写成 `[[文件名|标题]]`，Obsidian 侧也能解析。真实 vault 1537 处链接 100% 解析（此前 5 条被判未知，且那些链接在装载时会退化成纯文本）
+
 ### 待处理
 - [ ] 模板系统（模板切换/保存）
 - [ ] 旧数据迁移（bio/lifeStory/system 等旧字段清理）
+- [ ] 重命名只写 frontmatter `title`，不移动文件（标题与文件名会分叉；`[[标题]]` 靠 scan 的宽容键才能解析）
+- [ ] 正文桥的既有归因失败（段落首行缩进空格 / `<small>` 内加粗被合并）—— `vault-markdown-check` 基线里一直存在，不是新回归
 - [ ] 云同步服务端完善
 - [x] 标签系统（标签表 CRUD + `TagPicker` / `TagBadge` + 删除时清理引用；颜色源见 `src/lib/tag-colors.ts`）
 - [ ] Vault 后续：Web / 移动端只读或同步（目前仅桌面 Tauri）

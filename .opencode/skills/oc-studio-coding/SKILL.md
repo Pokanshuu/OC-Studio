@@ -114,6 +114,8 @@ description: >
 - 新增内容模块时，禁止创建新的编辑器实例。必须复用 `src/components/editor/EditorCore`。
 - 通过 props（如 `onReady`、`content`、`placeholder`）适配不同模块的需求。
 - 特殊块：`[[` 触发词条内链、`@` 触发角色引用。
+- suggestion 渲染器（`@` / `[[` / `/`）**每个编辑器各建一份**：`popup` / `AbortController` 活在闭包里，模块级共享（把扩展提升成常量）会让第二个编辑器 `abort()` 掉前一个的关闭监听、节点永久留在 DOM。浮层 `fixed` + Portal 到 `#overlay-root`，关闭只走一个 `closePopup()`（节点与监听一起收）；`clientRect()` 退化成 0×0 时不要弹。
+- 有 `addNodeView` 的节点（如 `TaskItem`）在编辑器 DOM 里**没有** `renderHTML` 写的 `data-type` —— 给它写样式要认 NodeView 真实产出的标记（`[data-type="taskList"] > li`），并把 `[data-type="xxx"]` 那套留给静态站导出 / 只读渲染。
 - 编辑/浏览模式切换时，禁止重建编辑器实例，仅切换 `editable` 和 UI 控件显隐。
 
 ## 8. 通用原则

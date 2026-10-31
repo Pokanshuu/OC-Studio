@@ -6,7 +6,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 # OC Studio
 
-**v0.19.1-beta** — 本地优先的原创角色（OC）与世界观创作工作台。
+**v0.19.2-beta** — 本地优先的原创角色（OC）与世界观创作工作台。
 
 ## 项目身份
 - Next.js 16 (App Router) + TypeScript strict + Tailwind CSS v4 + shadcn/ui
@@ -40,7 +40,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - `src/components/editor/DocumentEditor.tsx` — 高级封装（加载 document 字段）
 - `src/components/editor/mention-render.ts` — `@` 引用下拉（**原生 DOM 渲染器**，挂在 suggestion 生命周期上，刻意不用 React）
 - `src/components/editor/BubbleMenuButtons.tsx` — 气泡菜单按钮组
-- `src/components/editor/WikiLinkExtension.ts` — [[ 词条内链
+- `src/components/editor/WikiLinkExtension.ts` — [[ 词条内链。**每个编辑器各建一份**（`createWikiLinkExtension()`），不要提升成模块常量：`popup` / `AbortController` 活在闭包里，模块级共享会让第二个编辑器把前一个弹层的「点外部关闭」监听 abort 掉、节点永久留在 DOM 里。弹层 `fixed` + Portal 到 `#overlay-root`，关闭只走 `closePopup()`（节点与监听一起收）
 - `src/components/editor/extensions/ImageBlock.tsx` — 自定义图片块
 - `src/components/editor/extensions/SmallMark.ts` — `<small>` 行内标记（vault 里唯一用到的行内 HTML，保住 Markdown 往返）
 
@@ -102,10 +102,10 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - `src/lib/vault/types.ts` — 扫描输入 / 笔记 / 数据集 / 索引 / 报告类型
 - `src/lib/vault/frontmatter.ts` — **外科式**读写：只替换我们拥有的键、只替换正文，键顺序与注释原样保留
 - `src/lib/vault/fields.ts` — frontmatter 词汇表**唯一源**（键链）。读与写共用，从结构上消除导入器/导出器漂移
-- `src/lib/vault/scan.ts` — 文件集 → 数据集 + 解析索引 + 体检报告（纯函数，不动磁盘）
+- `src/lib/vault/scan.ts` — 文件集 → 数据集 + 解析索引 + 体检报告（纯函数，不动磁盘）。链接解析键登记**三种**：文件名 / 去掉 `NN.` 序号的文件名 / frontmatter 标题 —— 仓库里三种写法真实共存（`02.元素与生命树.md` ← `[[元素与生命树]]`；`新词条.md` 的 `title: 苟利国家生死以`），只认文件名会把有笔记的链接判成「未知」
 - `src/lib/vault/serialize.ts` — 实体 → frontmatter 更新。三条硬规则：**未改动就不写**（带装载快照）、**跟文件已有的键名走**（保留 `阵营`/`所属国家` 这类中文键）、**从不整体重写**
 - `src/lib/vault/markdown/` — Tiptap JSON ⇄ Markdown 双向桥（`doc` / `to-tiptap` / `to-markdown`）。无法无损表达的节点附 ` ```oc-document ` 兜底块
-- `src/lib/vault/markdown-bridge.ts` — 解析层与 Markdown 层的粘合剂；唯一知道「哪种实体的正文在哪个字段」的地方（**词条在 `content`，其余在 `document`**）
+- `src/lib/vault/markdown-bridge.ts` — 解析层与 Markdown 层的粘合剂；唯一知道「哪种实体的正文在哪个字段」的地方（**词条在 `content`，其余在 `document`**）。链接写回：节点上有 `raw` 就逐字还原；编辑器里新插入的引用按 `[[文件名|标题]]` 写（文件名带 `NN.` 序号时只有这样才能让 Obsidian 也解析得到）
 - `src/lib/vault/vault-fs.ts` — Tauri 命令的 TS 门面（含 `isVaultSupported()`）
 - `src/lib/vault/vault-load.ts` — 读盘 + 建会话 + 整库替换 Dexie（**挂起落盘**）
 - `src/lib/vault/vault-persist.ts` — 落盘队列：挂在 **Dexie dbcore 中间件**上，`dbcore.table().mutate` 是所有写入的唯一入口，一处接线覆盖全部写入路径；只在事务外做 IO；**绝不静默删除文件**（`deleteRange` 一律忽略）。主键要**同时**看 request 的 `keys` 与 response 的 `results` —— 不带 id 的 `add`/`bulkAdd` 只有在 response 里才拿得到自增主键，漏了它新行永不落盘；单条序列化失败只记错并把该行留在队列，不连坐整批

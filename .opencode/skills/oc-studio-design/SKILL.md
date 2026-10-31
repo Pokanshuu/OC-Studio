@@ -151,6 +151,7 @@ description: >
 ### 复选框 / 单选框 / 开关
 - 复选框 `rounded-item`（3px）；单选框、开关滑块保持**圆形/方块**语义（勾选与开关滑块不使用 `rounded-*` 之外的造型）
 - 复选框：`h-4 w-4 border border-line bg-paper-card`，勾为 `ink-muted` 的 `strokeWidth={2}` 折线
+- **正文任务列表的复选框**（编辑器内）：16px 方块 `rounded-item`，未选 `border-line bg-paper-card`，选中 `bg-ink-muted` 实心 + 纸色勾。原生 `<input type="checkbox">` 必须 `appearance:none; opacity:0` 铺满命中区 —— 否则会露出 WebView 的蓝色默认样式，那是界面上唯一一处不在令牌里的颜色
 - 单选框 / 主题选择：`h-4 w-4 rounded-full border`，选中为内部 8px **圆点**（`bg-ink-muted rounded-full`）
 - 开关：**胶囊**轨道 `h-5 w-9 rounded-full border`（on: `border-line-hover bg-ink-muted`）+ **圆形**滑块 `h-3.5 w-3.5 rounded-full`（`SWITCH_CLASSES` / `SWITCH_DOT`）
 - 滑杆（时间线缩放、裁剪缩放）：轨道与拇指都用 `rounded-full`
