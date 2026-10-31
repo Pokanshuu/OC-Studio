@@ -24,7 +24,6 @@ import { useEditorMobileInput } from './useEditorMobileInput'
 import { useImagePasteDrop } from './useImagePasteDrop'
 import { FindReplaceBar } from './FindReplaceBar'
 import { OutlinePanel } from './OutlinePanel'
-import { LinkPopover } from './LinkPopover'
 import { OPEN_FIND_EVENT, OPEN_OUTLINE_EVENT, type OpenFindEventDetail, type OpenOutlineEventDetail } from './editor-events'
 
 interface EditorCoreProps {
@@ -58,7 +57,6 @@ export function EditorCore({
   const [blockMenuPos, setBlockMenuPos] = useState<number | undefined>(undefined)
   const [findOpen, setFindOpen] = useState(false)
   const [outlineOpen, setOutlineOpen] = useState(false)
-  const [linkAnchor, setLinkAnchor] = useState<HTMLElement | null | undefined>(undefined)
   const editorRef = useRef<Editor | null>(null)
   const [isTableActive, setIsTableActive] = useState(false)
   const [toolbarTick, setToolbarTick] = useState(0)
@@ -308,7 +306,7 @@ export function EditorCore({
           }}
           className={`flex gap-0.5 ${MENU} z-20 context-menu-fade context-menu-visible`}
         >
-          <BubbleMenuButtons editor={editor} onLinkClick={(anchor) => setLinkAnchor(anchor)} />
+          <BubbleMenuButtons editor={editor} />
         </BubbleMenu>
       )}
       <EditorContent editor={editor} />
@@ -342,9 +340,6 @@ export function EditorCore({
     ) : null}
     {outlineOpen ? (
       <OutlinePanel editor={editor} onClose={() => setOutlineOpen(false)} />
-    ) : null}
-    {linkAnchor !== undefined ? (
-      <LinkPopover editor={editor} anchor={linkAnchor} onClose={() => setLinkAnchor(undefined)} />
     ) : null}
     </ContextMenu>
   )

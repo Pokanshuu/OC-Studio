@@ -2,17 +2,15 @@
 
 /** 气泡菜单（选中文本时浮动）里的按钮组。 */
 
-import { Bold, Italic, Underline as UnderlineIcon, Strikethrough, Code, Link, AtSign, Link2 } from 'lucide-react'
+import { Bold, Italic, Underline as UnderlineIcon, Strikethrough, AtSign, Link2 } from 'lucide-react'
 import { useEditorState } from '@tiptap/react'
 import type { Editor } from '@tiptap/core'
 
 interface BubbleMenuButtonsProps {
   editor: Editor
-  /** 打开链接浮层；锚点传触发按钮，浮层贴它落下。 */
-  onLinkClick?: (anchor: HTMLElement) => void
 }
 
-export function BubbleMenuButtons({ editor, onLinkClick }: BubbleMenuButtonsProps) {
+export function BubbleMenuButtons({ editor }: BubbleMenuButtonsProps) {
   const state = useEditorState({
     editor,
     selector: ({ editor: e }) => ({
@@ -20,8 +18,6 @@ export function BubbleMenuButtons({ editor, onLinkClick }: BubbleMenuButtonsProp
       italic: e.isActive('italic'),
       underline: e.isActive('underline'),
       strike: e.isActive('strike'),
-      code: e.isActive('code'),
-      link: e.isActive('link'),
       mention: e.isActive('mention'),
     }),
   })
@@ -67,25 +63,6 @@ export function BubbleMenuButtons({ editor, onLinkClick }: BubbleMenuButtonsProp
         aria-label="删除线"
       >
         <Strikethrough size={16} strokeWidth={2} />
-      </button>
-      <button
-        type="button"
-        onPointerDown={(e) => { e.preventDefault(); editor.chain().focus().toggleCode().run() }}
-        className={`${base} ${state.code ? active : inactive}`}
-        title="行内代码"
-        aria-label="行内代码"
-      >
-        <Code size={16} strokeWidth={2} />
-      </button>
-      <button
-        type="button"
-        onPointerDown={(e) => { e.preventDefault() }}
-        onClick={(e) => onLinkClick?.(e.currentTarget)}
-        className={`${base} ${state.link ? active : inactive}`}
-        title="链接"
-        aria-label="链接"
-      >
-        <Link size={16} strokeWidth={2} />
       </button>
       <button
         type="button"
