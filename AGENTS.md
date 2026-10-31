@@ -214,13 +214,15 @@ npx tauri build   # Tauri 打包 (.exe/.msi)
 - 仓储层（`lib/repository.ts`）的 `Table<T, number, TInsert>` 第 3 个泛型位、实体 `id: number` 必填、`EntityTable` 的用法是**互相咬合**的：省掉第 3 个泛型位会让 `listActive` / `getById` 的返回值被推断成「id 可选」，从而在全项目催生 `as number` 断言。改动前先读 `src/lib/repository.ts` 顶部注释
 
 ## 待办与改进清单
-- 详见 `docs/todo.md`（按领域分节，与下面七份文档一一对应；已完成的不留档）
-- 七份领域文档（每个领域一份，改动前先读对应的那份）：
+- 详见 `docs/todo.md`（按领域分节，与下面九份文档一一对应；已完成的不留档）
+- 九份领域文档（每个领域一份，改动前先读对应的那份）：
   - `docs/模板.md` — 组件化模板（组件分级、文件格式、视觉契约、模板/导出/标签管理界面）
   - `docs/时间线.md` — 参与者轨道、事件连线、关键节点
   - `docs/关系图.md` — 静态手摆（**实时物理已放弃**）、正交边、节点形态
   - `docs/相册.md` — 图片组件原子化（**方向未定**）
-  - `docs/插件.md` — 社区插件（沙箱 + 白名单 RPC）
+  - `docs/插件.md` — 社区插件（沙箱 + 白名单 RPC）、两个官方插件、skill
   - `docs/主题.md` — 自定义令牌与主题包（三层 + 两级作用域）
   - `docs/Agent接入.md` — 库 API + MCP/插件适配器、权限分级、`actor` 留痕
+  - `docs/小说.md` — 章节 = 笔记、大纲用 `parentId`、导出器
+  - `docs/地图.md` — 地图是视图不是实体；锚点归一化存在实体上
 - 自定义集合（L2）需求见 `docs/自定义分类-需求文档.md`（**已被 `docs/模板.md` 取代**，仅作参考）；**未实现**，实现前先出 fork 冲突地图（`git merge-tree`）
