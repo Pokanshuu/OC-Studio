@@ -108,7 +108,8 @@ Next.js 16 · TypeScript · Tailwind CSS v4 · Tiptap · Dexie.js (IndexedDB) ·
 2. 从最新的 `main` 新建分支
 
    ```bash
-   git switch -c fix/xxx
+   git switch -c fix/xxx      # 修 bug
+   git switch -c feature/xxx  # 加功能
    ```
 
 3. 提交前自检
