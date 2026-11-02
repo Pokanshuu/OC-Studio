@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useCallback, useState, useRef } from 'react'
-import { createPortal } from 'react-dom'
 import { X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { resolveImageUrl } from '@/lib/image-service'
 
@@ -94,11 +93,9 @@ export function FullscreenViewer({ images, initialIndex, onClose }: FullscreenVi
 
   if (images.length === 0) return null
 
-  if (typeof document === 'undefined') return null
-
-  return createPortal(
+  return (
     <div
-      className="pointer-events-auto fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 overflow-hidden pt-[var(--safe-top)] pb-[var(--safe-bottom)] transition-opacity duration-150"
+      className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 overflow-hidden pt-[var(--safe-top)] pb-[var(--safe-bottom)] transition-opacity duration-150"
       style={{ opacity: visible ? 1 : 0 }}
       onClick={(e) => { if (e.target === e.currentTarget) handleClose() }}
     >
@@ -128,7 +125,7 @@ export function FullscreenViewer({ images, initialIndex, onClose }: FullscreenVi
             <ChevronRight size={20} strokeWidth={2} />
           </button>
           <div
-            className="absolute left-1/2 -translate-x-1/2 rounded-item bg-black/50 px-3 py-1 text-sm text-white"
+            className="absolute left-1/2 -translate-x-1/2 rounded bg-black/50 px-3 py-1 text-sm text-white"
             style={{ bottom: `calc(1rem + var(--safe-bottom, 0px))` }}
           >
             {index + 1} / {images.length}
@@ -152,7 +149,6 @@ export function FullscreenViewer({ images, initialIndex, onClose }: FullscreenVi
         onMouseLeave={handleMouseUp}
         draggable={false}
       />
-    </div>,
-    document.getElementById('overlay-root') ?? document.body,
+    </div>
   )
 }

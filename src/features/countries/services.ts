@@ -1,9 +1,9 @@
 import { db } from '@/lib/db'
-import { logOperation, pendingStamp } from '@/lib/sync'
-import { listActive, getById, softDelete } from '@/lib/repository'
+import { logOperation } from '@/lib/sync'
 import { updateReferencesAfterRename, syncReferenceLabels } from '@/lib/reference-sync'
-import { syncCountryCharacters, syncCountryEvents } from '@/lib/membership'
+import { syncRelationLabelFromEntity } from '@/features/relations/services'
 import type { Country } from '@/types'
+import { pickAccentColor } from '@/lib/entity-accent'
 import type { CountryFormData } from './types'
 
 const TABLE = 'countries'
@@ -12,6 +12,7 @@ function buildDefaultCountry(data: CountryFormData, overrides: Partial<Country> 
   const now = Date.now()
   return {
     name: data.name,
+    accentColor: data.accentColor ?? pickAccentColor(),
     parentId: data.parentId,
     description: data.description,
     system: data.system,
@@ -19,26 +20,31 @@ function buildDefaultCountry(data: CountryFormData, overrides: Partial<Country> 
     culture: data.culture,
     characters: data.characters ?? [],
     events: data.events ?? [],
+    relatedNations: data.relatedNations ?? [],
+    relatedNationLabels: data.relatedNationLabels ?? {},
+    relatedEventLabels: data.relatedEventLabels ?? {},
     tags: data.tags ?? [],
     createdAt: now,
     updatedAt: now,
     deleted: false,
-    ...pendingStamp(now),
+    _syncStatus: 'pending',
+    _lastModified: now,
     ...overrides,
   }
 }
 
 export async function getCountries(): Promise<Country[]> {
-  return listActive(db.countries, 'name')
+  const all = await db.countries.orderBy('name').toArray()
+  return all.filter((c) => !c.deleted)
 }
 
 export async function getCountry(id: number): Promise<Country | undefined> {
-  return getById(db.countries, id)
+  return db.countries.get(id)
 }
 
 export async function createCountry(data: CountryFormData): Promise<number> {
   const country = buildDefaultCountry(data)
-  const id = await db.countries.add(country)
+  const id = await db.countries.add(country as Country)
 
   await logOperation(TABLE, id, 'name', '', data.name)
   if (data.description) {
@@ -57,11 +63,12 @@ export async function updateCountry(id: number, data: Partial<CountryFormData>):
   const now = Date.now()
   const updates: Partial<Country> = {
     updatedAt: now,
-    ...pendingStamp(now),
+    _syncStatus: 'pending',
+    _lastModified: now,
   }
 
   type FieldKey = keyof CountryFormData
-  const fields: FieldKey[] = ['name', 'parentId', 'description', 'system', 'geography', 'culture', 'flagUrl', 'headerUrl']
+  const fields: FieldKey[] = ['name', 'accentColor', 'parentId', 'description', 'system', 'geography', 'culture', 'flagUrl', 'headerUrl']
 
   for (const field of fields) {
     const newValue = data[field]
@@ -79,6 +86,25 @@ export async function updateCountry(id: number, data: Partial<CountryFormData>):
   if (data.events !== undefined) {
     ;(updates as Record<string, unknown>).events = data.events
     await logOperation(TABLE, id, 'events', JSON.stringify(existing.events), JSON.stringify(data.events))
+  }
+
+  if (data.relatedNations !== undefined) {
+    ;(updates as Record<string, unknown>).relatedNations = data.relatedNations
+    await logOperation(
+      TABLE,
+      id,
+      'relatedNations',
+      JSON.stringify(existing.relatedNations ?? []),
+      JSON.stringify(data.relatedNations),
+    )
+  }
+
+  if (data.relatedNationLabels !== undefined) {
+    ;(updates as Record<string, unknown>).relatedNationLabels = data.relatedNationLabels
+  }
+
+  if (data.relatedEventLabels !== undefined) {
+    ;(updates as Record<string, unknown>).relatedEventLabels = data.relatedEventLabels
   }
 
   if (data.tags !== undefined) {
@@ -99,13 +125,32 @@ export async function updateCountry(id: number, data: Partial<CountryFormData>):
 
   await db.countries.update(id, updates)
 
-  // 国家侧的成员名单是镜像：相关角色 ⇄ 角色的国籍、相关事件 ⇄ 事件的相关国家。
-  // 不反向同步的话，从国家这边删掉一条，关系图上那条边还会因为国籍/事件侧而留着。
-  if (data.characters !== undefined) {
-    await syncCountryCharacters(id, existing.characters ?? [], data.characters, now)
+  if (data.relatedNationLabels !== undefined) {
+    for (const [nationId, label] of Object.entries(data.relatedNationLabels)) {
+      const numericId = Number(nationId)
+      if (Number.isFinite(numericId)) {
+        await syncRelationLabelFromEntity('nation', 'country', id, 'country', numericId, label)
+      }
+    }
   }
-  if (data.events !== undefined) {
-    await syncCountryEvents(id, existing.events ?? [], data.events, now)
+  if (data.relatedEventLabels !== undefined) {
+    for (const [eventId, label] of Object.entries(data.relatedEventLabels)) {
+      const numericId = Number(eventId)
+      if (Number.isFinite(numericId)) {
+        await syncRelationLabelFromEntity(
+          'event-country',
+          'event',
+          numericId,
+          'country',
+          id,
+          label,
+        )
+      }
+    }
+  }
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('data-updated'))
   }
 
   if (data.name !== undefined) {
@@ -113,26 +158,23 @@ export async function updateCountry(id: number, data: Partial<CountryFormData>):
   }
 }
 
-export async function deleteCountry(id: number): Promise<void> {
-  await softDelete(db.countries, id, TABLE)
+export async function saveDocument(id: number, document: unknown): Promise<void> {
+  const now = Date.now()
+  await db.countries.update(id, {
+    document,
+    updatedAt: now,
+    _syncStatus: 'pending',
+    _lastModified: now,
+  })
 }
 
-/**
- * 手动排序：把 `country` 的顺序写成 0..n-1。
- * 只写真的变了的行；**不碰 updatedAt**（排序不是编辑，别让它窜到「按编辑时间」前面）。
- */
-export async function reorderCountries(ids: number[]): Promise<void> {
-  const rows = await db.countries.bulkGet(ids)
-  const changes: { id: number; order: number }[] = []
-  ids.forEach((id, index) => {
-    const row = rows[index]
-    if (row && row.order !== index) changes.push({ id, order: index })
-  })
-  if (changes.length === 0) return
+export async function deleteCountry(id: number): Promise<void> {
   const now = Date.now()
-  await db.transaction('rw', db.countries, async () => {
-    for (const change of changes) {
-      await db.countries.update(change.id, { order: change.order, ...pendingStamp(now) })
-    }
+  await db.countries.update(id, {
+    deleted: true,
+    _syncStatus: 'pending',
+    _lastModified: now,
   })
+
+  await logOperation(TABLE, id, 'deleted', 'false', 'true')
 }

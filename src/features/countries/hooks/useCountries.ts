@@ -1,15 +1,14 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useCallback } from 'react'
+import { useEffect } from 'react'
 import type { Country } from '@/types'
 import type { CountryFormData } from '../types'
 import * as countryService from '../services'
-import { DATA_UPDATED_EVENT } from '@/lib/data-events'
 
 const LIST_KEY = ['countries']
 
-function makeCountryKey(id: number | null) {
+function makeCountryKey(id: number) {
   return ['country', id]
 }
 
@@ -25,21 +24,19 @@ export function useCountryList(): {
     staleTime: 30_000,
   })
 
-  const refresh = useCallback(() => {
-    void refetch()
-  }, [refetch])
-
   useEffect(() => {
     const handler = () => { void refetch() }
-    window.addEventListener(DATA_UPDATED_EVENT, handler)
-    return () => window.removeEventListener(DATA_UPDATED_EVENT, handler)
+    window.addEventListener('data-updated', handler)
+    return () => window.removeEventListener('data-updated', handler)
   }, [refetch])
 
   return {
     countries: data ?? [],
     loading: isLoading,
     error: error instanceof Error ? error.message : null,
-    refresh,
+    refresh: () => {
+      void refetch()
+    },
   }
 }
 
@@ -50,21 +47,27 @@ export function useCountry(id: number | null): {
   refresh: () => void
 } {
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: makeCountryKey(id),
-    queryFn: async () => (id === null ? undefined : countryService.getCountry(id)),
+    queryKey: makeCountryKey(id as number),
+    queryFn: () => countryService.getCountry(id as number),
     enabled: id !== null,
     staleTime: 30_000,
   })
 
-  const refresh = useCallback(() => {
-    void refetch()
+  useEffect(() => {
+    const handler = () => {
+      void refetch()
+    }
+    window.addEventListener('data-updated', handler)
+    return () => window.removeEventListener('data-updated', handler)
   }, [refetch])
 
   return {
     country: id === null ? undefined : data?.id === id ? data : undefined,
     loading: id === null ? false : isLoading,
     error: error instanceof Error ? error.message : null,
-    refresh,
+    refresh: () => {
+      void refetch()
+    },
   }
 }
 
@@ -122,14 +125,5 @@ export function useDeleteCountry(): {
   return {
     deleteCountry: async (id: number) => mutation.mutateAsync(id),
     deleting: mutation.isPending,
-  }
-}
-
-/** 拖拽排序后写回顺序，并刷新列表 */
-export function useReorderCountries(): (ids: number[]) => Promise<void> {
-  const queryClient = useQueryClient()
-  return async (ids: number[]) => {
-    await countryService.reorderCountries(ids)
-    await queryClient.invalidateQueries({ queryKey: LIST_KEY })
   }
 }

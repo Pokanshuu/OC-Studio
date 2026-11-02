@@ -1,13 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createPortal } from 'react-dom'
 import Cropper from 'react-easy-crop'
 import type { Area, Point } from 'react-easy-crop'
 import { RotateCcw, RotateCw, Check, X, ZoomOut, ZoomIn, Loader2 } from 'lucide-react'
 import { getCroppedBlob } from '@/lib/image-crop'
 import 'react-easy-crop/react-easy-crop.css'
-import { BTN_PRIMARY, ICON_BTN_MD } from '@/lib/ui-tokens'
 
 interface ImageCropperProps {
   open: boolean
@@ -50,8 +48,6 @@ export function ImageCropper({
 
   if (!open) return null
 
-  if (typeof document === 'undefined') return null
-
   const handleConfirm = async () => {
     if (!croppedAreaPixels) return
     try {
@@ -68,14 +64,14 @@ export function ImageCropper({
     setRotation(0)
   }
 
-  return createPortal(
-    <div className="pointer-events-auto fixed inset-0 z-[99999] flex flex-col bg-paper pt-[var(--safe-top)] pb-[var(--safe-bottom)]">
+  return (
+    <div className="fixed inset-0 z-[99999] flex flex-col bg-paper pt-[var(--safe-top)] pb-[var(--safe-bottom)]">
       {/* Header bar */}
       <div className="flex shrink-0 items-center justify-between border-b border-line px-4 py-3">
         <h2 className="text-base font-medium text-ink">裁剪图片</h2>
         <button
           onClick={onClose}
-          className={ICON_BTN_MD}
+          className="flex h-9 w-9 items-center justify-center rounded text-ink-muted transition-colors hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8"
         >
           <X size={20} strokeWidth={2} />
         </button>
@@ -113,21 +109,21 @@ export function ImageCropper({
           <button
             type="button"
             onClick={() => setRotation((r) => r - 90)}
-            className="touch-feedback flex h-8 items-center gap-1.5 px-3 text-[13px] text-ink-muted transition-colors hover:text-ink"
+            className="touch-feedback flex h-9 items-center gap-1.5 rounded border border-line bg-paper-card px-3 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
           >
             <RotateCcw size={16} strokeWidth={2} />
           </button>
           <button
             type="button"
             onClick={() => setRotation((r) => r + 90)}
-            className="touch-feedback flex h-8 items-center gap-1.5 px-3 text-[13px] text-ink-muted transition-colors hover:text-ink"
+            className="touch-feedback flex h-9 items-center gap-1.5 rounded border border-line bg-paper-card px-3 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
           >
             <RotateCw size={16} strokeWidth={2} />
           </button>
           <button
             type="button"
             onClick={handleReset}
-            className="touch-feedback flex h-8 items-center gap-1.5 px-3 text-[13px] text-ink-muted transition-colors hover:text-ink"
+            className="touch-feedback flex h-9 items-center gap-1.5 rounded border border-line bg-paper-card px-3 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
           >
             重置
           </button>
@@ -144,7 +140,7 @@ export function ImageCropper({
             onChange={(e) => setZoom(Number(e.target.value))}
             className="h-8 w-32 cursor-pointer appearance-none bg-transparent
               [&::-webkit-slider-runnable-track]:h-1
-              [&::-webkit-slider-runnable-track]:rounded-item
+              [&::-webkit-slider-runnable-track]:rounded
               [&::-webkit-slider-runnable-track]:bg-line-hover
               [&::-webkit-slider-thumb]:appearance-none
               [&::-webkit-slider-thumb]:-mt-1
@@ -155,7 +151,7 @@ export function ImageCropper({
               [&::-webkit-slider-thumb]:border
               [&::-webkit-slider-thumb]:border-line
               [&::-moz-range-track]:h-1
-              [&::-moz-range-track]:rounded-item
+              [&::-moz-range-track]:rounded
               [&::-moz-range-track]:bg-line-hover
               [&::-moz-range-thumb]:h-3.5
               [&::-moz-range-thumb]:w-3.5
@@ -170,14 +166,14 @@ export function ImageCropper({
           <button
             type="button"
             onClick={onClose}
-            className="touch-feedback flex h-8 items-center gap-1.5 px-3 text-[13px] text-ink-muted transition-colors hover:text-ink"
+            className="touch-feedback flex h-9 items-center gap-1.5 rounded border border-line bg-paper-card px-3 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
           >
             取消
           </button>
           <button
             type="button"
             onClick={handleConfirm}
-            className={BTN_PRIMARY}
+            className="touch-feedback flex h-9 items-center gap-1.5 rounded bg-ink px-4 text-sm text-paper transition-colors hover:bg-ink/90"
           >
             <Check size={16} strokeWidth={2} />
             <span>确认</span>
@@ -198,7 +194,7 @@ export function ImageCropper({
             onChange={(e) => setZoom(Number(e.target.value))}
             className="h-8 w-full cursor-pointer appearance-none bg-transparent
               [&::-webkit-slider-runnable-track]:h-1
-              [&::-webkit-slider-runnable-track]:rounded-item
+              [&::-webkit-slider-runnable-track]:rounded
               [&::-webkit-slider-runnable-track]:bg-line-hover
               [&::-webkit-slider-thumb]:appearance-none
               [&::-webkit-slider-thumb]:-mt-1
@@ -209,7 +205,7 @@ export function ImageCropper({
               [&::-webkit-slider-thumb]:border
               [&::-webkit-slider-thumb]:border-line
               [&::-moz-range-track]:h-1
-              [&::-moz-range-track]:rounded-item
+              [&::-moz-range-track]:rounded
               [&::-moz-range-track]:bg-line-hover
               [&::-moz-range-thumb]:h-3.5
               [&::-moz-range-thumb]:w-3.5
@@ -225,21 +221,21 @@ export function ImageCropper({
             <button
               type="button"
               onClick={() => setRotation((r) => r - 90)}
-              className="touch-feedback flex h-8 items-center gap-1.5 px-3 text-[13px] text-ink-muted transition-colors hover:text-ink"
+              className="touch-feedback flex h-9 items-center gap-1.5 rounded border border-line bg-paper-card px-3 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
             >
               <RotateCcw size={16} strokeWidth={2} />
             </button>
             <button
               type="button"
               onClick={() => setRotation((r) => r + 90)}
-              className="touch-feedback flex h-8 items-center gap-1.5 px-3 text-[13px] text-ink-muted transition-colors hover:text-ink"
+              className="touch-feedback flex h-9 items-center gap-1.5 rounded border border-line bg-paper-card px-3 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
             >
               <RotateCw size={16} strokeWidth={2} />
             </button>
             <button
               type="button"
               onClick={handleReset}
-              className="touch-feedback flex h-8 items-center gap-1.5 px-3 text-[13px] text-ink-muted transition-colors hover:text-ink"
+              className="touch-feedback flex h-9 items-center gap-1.5 rounded border border-line bg-paper-card px-3 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
             >
               重置
             </button>
@@ -248,14 +244,14 @@ export function ImageCropper({
             <button
               type="button"
               onClick={onClose}
-              className="touch-feedback flex h-8 items-center gap-1.5 px-3 text-[13px] text-ink-muted transition-colors hover:text-ink"
+              className="touch-feedback flex h-9 items-center gap-1.5 rounded border border-line bg-paper-card px-3 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
             >
               取消
             </button>
             <button
               type="button"
               onClick={handleConfirm}
-              className={BTN_PRIMARY}
+              className="touch-feedback flex h-9 items-center gap-1.5 rounded bg-ink px-4 text-sm text-paper transition-colors hover:bg-ink/90"
             >
               <Check size={16} strokeWidth={2} />
               <span>确认</span>
@@ -263,7 +259,6 @@ export function ImageCropper({
           </div>
         </div>
       </div>
-    </div>,
-    document.getElementById('overlay-root') ?? document.body,
+    </div>
   )
 }

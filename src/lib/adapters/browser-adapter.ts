@@ -1,5 +1,14 @@
 import { convertHeifToJpeg } from '../image-heif'
 
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result ?? ''))
+    reader.onerror = () => reject(reader.error ?? new Error('读取图片失败'))
+    reader.readAsDataURL(blob)
+  })
+}
+
 export class BrowserAdapter {
   async upload(_type: string): Promise<string> {
     return new Promise<string>((resolve, reject) => {
@@ -11,7 +20,7 @@ export class BrowserAdapter {
         if (file) {
           // HEIF → JPEG 转换，确保浏览器可解码
           const converted = await convertHeifToJpeg(file)
-          resolve(URL.createObjectURL(converted))
+          resolve(await blobToDataUrl(converted))
         } else {
           reject(new Error('未选择文件'))
         }

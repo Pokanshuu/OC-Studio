@@ -1,9 +1,5 @@
-'use client'
-
-import { useCallback, useState } from 'react'
 import type { Editor } from '@tiptap/core'
 import { EditorCore } from '@/components/editor/EditorCore'
-import { EditorToolbar } from '@/components/editor/EditorToolbar'
 import { useDocument } from '@/hooks/useDocument'
 
 type EntityType = 'character' | 'event' | 'country' | 'worldEntry'
@@ -16,10 +12,7 @@ interface DocumentEditorProps {
   onCharacterCount?: (count: number) => void
   onMentionClick?: (id: string, entityType?: string) => void
   onWikiLinkClick?: (id: string) => void
-  onDocChange?: () => void
   placeholder?: string
-  /** 三栏右栏自己渲染工具条时置 false，避免出现两条 */
-  showToolbar?: boolean
 }
 
 export function DocumentEditor({
@@ -30,25 +23,14 @@ export function DocumentEditor({
   onCharacterCount,
   onMentionClick,
   onWikiLinkClick,
-  onDocChange,
   placeholder,
-  showToolbar = true,
 }: DocumentEditorProps) {
   const { document, loading, error } = useDocument(entityId, entityType)
-  const [editor, setEditor] = useState<Editor | null>(null)
-
-  const handleReady = useCallback(
-    (ready: Editor) => {
-      setEditor(ready)
-      onReady(ready)
-    },
-    [onReady],
-  )
 
   if (loading) {
     return (
       <div className="flex py-8 items-center justify-center">
-        <span className="text-[13px] text-ink-faint">加载中…</span>
+        <span className="text-sm text-ink-muted">加载中...</span>
       </div>
     )
   }
@@ -64,19 +46,15 @@ export function DocumentEditor({
   const content = document ?? fallbackContent ?? getDefaultDocument(entityType)
 
   return (
-    <div>
-      {showToolbar && editor ? <EditorToolbar editor={editor} /> : null}
-      <EditorCore
-        plain
-        content={content}
-        onReady={handleReady}
-        onCharacterCount={onCharacterCount}
-        onMentionClick={onMentionClick}
-        onWikiLinkClick={onWikiLinkClick}
-        onContentChange={onDocChange ? () => onDocChange() : undefined}
-        placeholder={placeholder}
-      />
-    </div>
+    <EditorCore
+      plain
+      content={content}
+      onReady={onReady}
+      onCharacterCount={onCharacterCount}
+      onMentionClick={onMentionClick}
+      onWikiLinkClick={onWikiLinkClick}
+      placeholder={placeholder}
+    />
   )
 }
 
@@ -93,11 +71,7 @@ function getDefaultDocument(type: EntityType): DocNode {
     case 'character':
       return {
         type: 'doc',
-        content: [
-          h2b('人物简介'), pp('编写角色简介...'),
-          hr(),
-          h2b('人物生平'), pp('编写角色生平...'),
-        ],
+        content: [pp('自定义内容，添加你的描述')],
       }
     case 'event':
       return { type: 'doc', content: [pp('开始编写事件内容...')] }

@@ -1,30 +1,213 @@
 'use client'
 
 import { useState, useEffect, useCallback, useId, useRef, useMemo } from 'react'
-import { useEditor, EditorContent } from '@tiptap/react'
+import { tauriReadClipboard } from '@/lib/tauri-clipboard'
+import { useEditor, useEditorState, EditorContent } from '@tiptap/react'
 import { BubbleMenu } from '@tiptap/react/menus'
-import type { BubbleMenuProps } from '@tiptap/react/menus'
+import StarterKit from '@tiptap/starter-kit'
+import Paragraph from '@tiptap/extension-paragraph'
+import Placeholder from '@tiptap/extension-placeholder'
+import TaskList from '@tiptap/extension-task-list'
+import TaskItem from '@tiptap/extension-task-item'
+import { Table } from '@tiptap/extension-table'
+import { TableRow } from '@tiptap/extension-table-row'
+import { TableCell } from '@tiptap/extension-table-cell'
+import { TableHeader } from '@tiptap/extension-table-header'
+import Mention from '@tiptap/extension-mention'
+import { PluginKey } from '@tiptap/pm/state'
+import { DragHandle } from '@tiptap/extension-drag-handle'
+import type { SuggestionProps, SuggestionKeyDownProps } from '@tiptap/suggestion'
 import type { Editor } from '@tiptap/core'
+import { Bold, Italic, Underline as UnderlineIcon, AtSign, Pilcrow, Heading1, Heading2, Heading3, List, ListOrdered, ListTodo, Quote, Scissors, Image, Table as TableIcon, ChevronDown, Link2, Undo2, Redo2 } from 'lucide-react'
 import React from 'react'
+import { ImageBlock } from './extensions/ImageBlock'
 
 import { BlockTypeMenu } from './BlockTypeMenu'
+import { SlashCommand } from './SlashCommandMenu'
+import { WikiLinkExtension } from './WikiLinkExtension'
+import { searchAllEntitiesFlat } from '@/lib/reference-registry'
+import { adjustSuggestionPosition } from '@/lib/menu-utils'
+import { db } from '@/lib/db'
+import type { ReferableEntity } from '@/lib/reference-registry'
+import { getImageUrl, getDefaultImage } from '@/lib/image-service'
 import { useDevice } from '@/lib/use-device'
 import { useActiveEditor } from '@/lib/editor-context'
-import { MENU } from '@/lib/ui-tokens'
 import { useKeyboard } from '@/lib/KeyboardContext'
+import { isBelowTargetVersion } from '@/lib/browser-compat'
 import { ContextMenu } from '@/components/shared/ContextMenu'
-import { BubbleMenuButtons } from './BubbleMenuButtons'
-import { buildEditorContextMenu } from './editor-context-menu'
-import { MobileEditorToolbar } from './MobileEditorToolbar'
+import type { ContextMenuItem } from '@/components/shared/ContextMenu'
 
-import { buildEditorConfig, BLOCK_MENU_EVENT } from './editor-config'
-import { bindMobileEditorEvents } from './editor-mobile-events'
-import { useEditorBubbleMenu } from './useEditorBubbleMenu'
-import { useEditorMobileInput } from './useEditorMobileInput'
-import { useImagePasteDrop } from './useImagePasteDrop'
-import { FindReplaceBar } from './FindReplaceBar'
-import { OutlinePanel } from './OutlinePanel'
-import { OPEN_FIND_EVENT, OPEN_OUTLINE_EVENT, type OpenFindEventDetail, type OpenOutlineEventDetail } from './editor-events'
+const BLOCK_MENU_EVENT = 'editor-block-menu'
+
+interface ExtendedReferableEntity extends ReferableEntity {
+  label: string
+}
+
+const ENTITY_TYPE_LABELS: Record<string, string> = {
+  character: '角色',
+  event: '事件',
+  country: '国家',
+  world: '词条',
+}
+
+function createMentionRender() {
+  let popup: HTMLElement | null = null
+  let ac: AbortController | null = null
+  let selectedIndex = 0
+  let currentItems: ReferableEntity[] = []
+  let currentCommand: ((item: ReferableEntity) => void) | null = null
+
+  const isComposing = (editor: Editor): boolean => {
+    return (editor as unknown as { view: { composing: boolean } }).view?.composing ?? false
+  }
+
+  return () => ({
+    onStart: (props: SuggestionProps<ReferableEntity>) => {
+      if (!props.clientRect) return
+      if (isComposing(props.editor)) return
+      ac?.abort()
+      ac = new AbortController()
+      currentItems = props.items
+      currentCommand = props.command
+      selectedIndex = 0
+      popup = document.createElement('div')
+      popup.className = 'absolute z-50 max-h-56 overflow-auto rounded-md border border-line bg-paper/85 dark:bg-paper/85 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 min-w-[200px]'
+      const rect = props.clientRect()
+      if (rect) {
+        popup.style.left = `${rect.left}px`
+        popup.style.top = `${rect.bottom + 4}px`
+      }
+      renderMentionGroups(popup, props.items, props.command, 0)
+      document.body.appendChild(popup)
+      document.addEventListener('pointerdown', (e) => {
+        if (popup && !popup.contains(e.target as Node)) {
+          popup.remove()
+          popup = null
+          ac?.abort()
+        }
+      }, { signal: ac.signal, capture: true })
+      if (rect) {
+        requestAnimationFrame(() => {
+          if (!popup) return
+          const adjusted = adjustSuggestionPosition(rect, popup.offsetWidth, popup.offsetHeight)
+          popup.style.left = `${adjusted.x}px`
+          popup.style.top = `${adjusted.y}px`
+        })
+      }
+    },
+    onUpdate: (props: SuggestionProps<ReferableEntity>) => {
+      if (isComposing(props.editor)) return
+      if (!popup) return
+      if (props.items.length === 0) {
+        popup.innerHTML = '<div class="px-3 py-2 text-xs text-ink-faint">没有匹配的内容</div>'
+        return
+      }
+      currentItems = props.items
+      currentCommand = props.command
+      selectedIndex = Math.min(selectedIndex, props.items.length - 1)
+      const rect = props.clientRect?.()
+      if (rect) {
+        popup.style.left = `${rect.left}px`
+        popup.style.top = `${rect.bottom + 4}px`
+      }
+      popup.innerHTML = ''
+      renderMentionGroups(popup, props.items, props.command, selectedIndex)
+      if (rect) {
+        const adjusted = adjustSuggestionPosition(rect, popup.offsetWidth, popup.offsetHeight)
+        popup.style.left = `${adjusted.x}px`
+        popup.style.top = `${adjusted.y}px`
+      }
+    },
+    onExit: (props: SuggestionProps<ReferableEntity>) => {
+      if (isComposing(props.editor)) return
+      ac?.abort()
+      ac = null
+      popup?.remove()
+      popup = null
+    },
+    onKeyDown: (props: SuggestionKeyDownProps) => {
+      if (props.event.key === 'Escape') { popup?.remove(); popup = null; ac?.abort(); return true }
+      if (props.event.key === 'ArrowDown') {
+        selectedIndex = Math.min(selectedIndex + 1, currentItems.length - 1)
+        if (popup) {
+          popup.innerHTML = ''
+          renderMentionGroups(popup, currentItems, currentCommand!, selectedIndex)
+        }
+        return true
+      }
+      if (props.event.key === 'ArrowUp') {
+        selectedIndex = Math.max(selectedIndex - 1, 0)
+        if (popup) {
+          popup.innerHTML = ''
+          renderMentionGroups(popup, currentItems, currentCommand!, selectedIndex)
+        }
+        return true
+      }
+      if (props.event.key === 'Enter') {
+        const item = currentItems[selectedIndex]
+        if (item && currentCommand) {
+          currentCommand(item)
+          return true
+        }
+      }
+      return false
+    },
+  })
+}
+
+function renderMentionGroups(
+  container: HTMLElement,
+  items: ReferableEntity[],
+  command: (item: ReferableEntity) => void,
+  selectedIndex = -1,
+) {
+  let globalIdx = 0
+  const groups: Record<string, ReferableEntity[]> = {}
+  for (const item of items) {
+    if (!groups[item.type]) groups[item.type] = []
+    groups[item.type].push(item)
+  }
+  const orderedTypes = Object.keys(groups).sort()
+  for (const type of orderedTypes) {
+    if (orderedTypes.length > 1) {
+      const hdr = document.createElement('div')
+      hdr.className = 'px-3 py-1.5 text-xs font-medium text-ink-faint'
+      hdr.textContent = ENTITY_TYPE_LABELS[type] ?? type
+      container.appendChild(hdr)
+    }
+    for (const item of groups[type]) {
+      const isSelected = globalIdx === selectedIndex
+      globalIdx++
+      const btn = document.createElement('button')
+      btn.type = 'button'
+      btn.className = `flex w-full items-center gap-2 rounded-sm px-3 py-1.5 text-left text-sm transition-colors hover:bg-black/5 dark:hover:bg-white/5 ${isSelected ? 'bg-black/5 dark:bg-white/5 text-ink' : 'text-ink'}`
+
+      if (item.type === 'character' || item.type === 'country') {
+        const avatarType = item.type === 'country' ? 'flag' : 'avatar'
+        const img = document.createElement('img')
+        img.src = getImageUrl(item.avatarUrl, avatarType)
+        img.alt = ''
+        img.className = 'w-5 h-5 rounded-full object-cover shrink-0 border border-line'
+        img.onerror = () => { img.src = getDefaultImage(avatarType) }
+        btn.appendChild(img)
+      }
+
+      const nameSpan = document.createElement('span')
+      nameSpan.className = 'truncate'
+      nameSpan.textContent = item.name
+      btn.appendChild(nameSpan)
+
+      const typeSpan = document.createElement('span')
+      typeSpan.className = 'ml-auto shrink-0 text-xs text-ink-faint'
+      typeSpan.textContent = ENTITY_TYPE_LABELS[item.type] ?? item.type
+      btn.appendChild(typeSpan)
+
+      btn.addEventListener('click', () => command(item))
+      btn.addEventListener('mousedown', (e) => e.preventDefault())
+      container.appendChild(btn)
+    }
+  }
+}
 
 interface EditorCoreProps {
   onReady: (editor: Editor) => void
@@ -35,28 +218,54 @@ interface EditorCoreProps {
   onMentionClick?: (id: string, entityType?: string) => void
   onWikiLinkClick?: (id: string) => void
   plain?: boolean
+  /** Hides the selection bubble menu; used by the novel page toolbar. */
+  hideBubbleMenu?: boolean
+  /** Hides the custom right-click menu; used by the novel page. */
+  hideContextMenu?: boolean
 }
 
-/**
- * 气泡菜单定位：编辑器顶上是浮在正文上的 48px 毛玻璃条，
- * 气泡默认往上弹会被它盖住一半。flip 的 padding 把顶部 56px 划成禁区，
- * 选区贴顶时自动翻到下方；常量放在模块级，避免每次渲染换身份触发 updateOptions。
- */
-const BUBBLE_MENU_OPTIONS = {
-  placement: 'top',
-  offset: 8,
-  flip: { padding: { top: 56, bottom: 8, left: 8, right: 8 } },
-  shift: { padding: 8 },
-} satisfies NonNullable<BubbleMenuProps['options']>
+function BubbleMenuButtons({ editor }: { editor: Editor }) {
+  const state = useEditorState({
+    editor,
+    selector: ({ editor: e }) => ({
+      bold: e.isActive('bold'),
+      italic: e.isActive('italic'),
+      underline: e.isActive('underline'),
+      mention: e.isActive('mention'),
+    }),
+  })
+
+  const base = 'flex h-8 w-8 items-center justify-center rounded transition-colors'
+  const active = 'bg-black/10 dark:bg-white/10 text-ink'
+  const inactive = 'text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 hover:text-ink'
+
+  return (
+    <>
+      <button onPointerDown={(e) => { e.preventDefault(); editor.chain().focus().toggleBold().run() }} className={`${base} ${state.bold ? active : inactive}`}>
+        <Bold size={16} strokeWidth={2} />
+      </button>
+      <button onPointerDown={(e) => { e.preventDefault(); editor.chain().focus().toggleItalic().run() }} className={`${base} ${state.italic ? active : inactive}`}>
+        <Italic size={16} strokeWidth={2} />
+      </button>
+      <button onPointerDown={(e) => { e.preventDefault(); editor.chain().focus().toggleUnderline().run() }} className={`${base} ${state.underline ? active : inactive}`}>
+        <UnderlineIcon size={16} strokeWidth={2} />
+      </button>
+      <button onPointerDown={(e) => { e.preventDefault(); editor.chain().focus().insertContent(' @').run() }} className={`${base} ${state.mention ? active : inactive}`} title="@ 引用设定中的角色、国家、事件、词条">
+        <AtSign size={16} strokeWidth={2} />
+      </button>
+      <button onPointerDown={(e) => { e.preventDefault(); editor.chain().focus().insertContent(' [[').run() }} className={`${base} ${inactive}`} title="[[ 引用世界观词条">
+        <Link2 size={16} strokeWidth={2} />
+      </button>
+    </>
+  )
+}
 
 export function EditorCore({
-  onReady, onCharacterCount, onContentChange, content, placeholder, onMentionClick, onWikiLinkClick, plain,
+  onReady, onCharacterCount, onContentChange, content, placeholder, onMentionClick, onWikiLinkClick, plain, hideBubbleMenu, hideContextMenu,
 }: EditorCoreProps) {
   const editorId = useId()
   const [blockMenuPosition, setBlockMenuPosition] = useState<{ x: number; y: number } | null>(null)
   const [blockMenuPos, setBlockMenuPos] = useState<number | undefined>(undefined)
-  const [findOpen, setFindOpen] = useState(false)
-  const [outlineOpen, setOutlineOpen] = useState(false)
   const editorRef = useRef<Editor | null>(null)
   const [isTableActive, setIsTableActive] = useState(false)
   const [toolbarTick, setToolbarTick] = useState(0)
@@ -67,11 +276,37 @@ export function EditorCore({
   const mobileToolbarRef = useRef<HTMLDivElement>(null)
   const mobileBlockMenuRef = useRef<HTMLDivElement>(null)
   const selectionRef = useRef<{ from: number; to: number } | null>(null)
+  const isPointerDownRef = useRef(false)
+  const isTypingRef = useRef(false)
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout>>(null)
   const keyboardVisibleRef = useRef(keyboardVisible)
-  useEffect(() => {
-    keyboardVisibleRef.current = keyboardVisible
-  }, [keyboardVisible])
+  keyboardVisibleRef.current = keyboardVisible
   const lastClickRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+
+  useEffect(() => {
+    const down = (e: PointerEvent) => {
+      const el = editorRef.current?.view.dom
+      if (el && el.contains(e.target as Node)) {
+        isPointerDownRef.current = true
+      }
+    }
+    const up = () => {
+      const wasDown = isPointerDownRef.current
+      isPointerDownRef.current = false
+      if (wasDown) {
+        const ed = editorRef.current
+        if (ed && !ed.isDestroyed) {
+          ed.view.dispatch(ed.view.state.tr.setMeta('bubbleMenu', 'show'))
+        }
+      }
+    }
+    document.addEventListener('pointerdown', down)
+    document.addEventListener('pointerup', up)
+    return () => {
+      document.removeEventListener('pointerdown', down)
+      document.removeEventListener('pointerup', up)
+    }
+  }, [])
 
   const handleBlockMenuEvent = useCallback((e: Event) => {
     const detail = (e as CustomEvent).detail
@@ -88,28 +323,232 @@ export function EditorCore({
     return () => window.removeEventListener(BLOCK_MENU_EVENT, handleBlockMenuEvent)
   }, [handleBlockMenuEvent])
 
-  // 仅把「取值器」交给配置模块（.current 一律在事件处理器里才读，render 期不读）。
-  // 规则在 render 表达式里看到存在 .current 的闭包即报，无法区分是否真的读取 —— 属误报。
-  // eslint-disable-next-line react-hooks/refs
-  const editor = useEditor(buildEditorConfig({
-    placeholder,
-    plain,
-    content,
-    isMobile,
-    editorId,
-    getEditor: () => editorRef.current,
-    isKeyboardVisible: () => keyboardVisibleRef.current,
-    setEditor: (ed) => { editorRef.current = ed },
-    setActiveEditor,
-    onReady,
-    onCharacterCount,
-    onContentChange,
-  }))
+  const editor = useEditor({
+    immediatelyRender: false,
+    extensions: [
+      StarterKit.configure({
+        heading: { levels: [1, 2, 3] },
+        paragraph: false,
+        blockquote: {
+          HTMLAttributes: { class: 'border-l-2 border-line pl-4 bg-paper-alt rounded-r-sm italic text-ink-muted my-3 py-1' },
+        },
+      }),
+      Paragraph.extend({
+        addAttributes() {
+          return {
+            placeholder: {
+              default: null,
+              parseHTML: (element) => element.getAttribute('data-placeholder'),
+              renderHTML: (attrs) => {
+                if (!attrs.placeholder) return {}
+                return { 'data-placeholder': attrs.placeholder }
+              },
+            },
+          }
+        },
+      }),
+      Placeholder.configure({
+        placeholder: ({ node }) => {
+          if (node.type.name === 'paragraph') {
+            return (node.attrs.placeholder as string | null) ?? placeholder ?? '开始创作你的世界...'
+          }
+          return placeholder ?? '开始创作你的世界...'
+        },
+      }),
+      TaskList, TaskItem.configure({ nested: true }),
+      Table.configure({
+        resizable: true,
+        HTMLAttributes: { class: 'w-full border-collapse rounded-md overflow-hidden' },
+      }),
+      TableRow.configure({
+        HTMLAttributes: { class: 'border-b border-line' },
+      }),
+      TableCell.configure({
+        HTMLAttributes: { class: 'border border-line px-3 py-2 text-sm text-ink' },
+      }),
+      TableHeader.configure({
+        HTMLAttributes: { class: 'border border-line bg-paper-alt px-3 py-2 text-sm font-medium text-ink text-left' },
+      }),
+      ImageBlock,
+      SlashCommand,
+      WikiLinkExtension,
+      ...(isMobile ? [] : [
+        // eslint-disable-next-line react-hooks/refs
+        DragHandle.configure({
+        render: () => {
+          const handle = document.createElement('div')
+          handle.className = 'flex h-5 w-5 items-center justify-center cursor-grab rounded text-ink-faint opacity-0 transition-opacity hover:opacity-100 group-hover:opacity-100'
+          handle.innerHTML = `<svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><circle cx="2" cy="2" r="1"/><circle cx="6" cy="2" r="1"/><circle cx="10" cy="2" r="1"/><circle cx="2" cy="6" r="1"/><circle cx="6" cy="6" r="1"/><circle cx="10" cy="6" r="1"/><circle cx="2" cy="10" r="1"/><circle cx="6" cy="10" r="1"/><circle cx="10" cy="10" r="1"/></svg>`
+          handle.title = '拖拽排序'
+          handle.dataset.blockHandle = 'true'
+          handle.addEventListener('click', (e) => {
+            e.stopPropagation()
+            const ed = editorRef.current
+            const rect = handle.getBoundingClientRect()
+            const blockPos = ed ? ed.view.posAtCoords({ left: e.clientX, top: e.clientY })?.pos : undefined
+            window.dispatchEvent(new CustomEvent(BLOCK_MENU_EVENT, { detail: { editorId, rect, blockPos } }))
+          })
+          return handle
+        },
+        nested: true,
+      })]),
+      Mention.extend({
+        addAttributes() {
+          return {
+            ...this.parent?.(),
+            entityType: {
+              default: '',
+              parseHTML: (element) => element.getAttribute('data-entity-type') || '',
+              renderHTML: (attributes) => ({ 'data-entity-type': attributes.entityType }),
+            },
+          }
+        },
+      }).configure({
+        HTMLAttributes: {
+          class: 'inline-flex bg-paper-alt border border-line rounded px-1.5 text-sm text-ink cursor-pointer',
+        },
+        renderHTML: ({ options, node }) => {
+          const cls = options.HTMLAttributes?.class ?? ''
+          const label = (node.attrs.label as string) ?? ''
+          return ['span', {
+            class: cls,
+            'data-type': 'mention',
+            'data-id': node.attrs.id as string ?? '',
+            'data-label': label,
+            'data-entity-type': node.attrs.entityType as string ?? '',
+          }, `@${label}`]
+        },
+        suggestion: {
+          pluginKey: new PluginKey('mention-suggestion'),
+          char: '@',
+          allowedPrefixes: null,
+          items: async ({ query }) => {
+            const q = query.trim().toLowerCase()
+            const match = (name: string, keywords: string[] = []): boolean =>
+              !q ||
+              name.toLowerCase().includes(q) ||
+              keywords.some((keyword) => keyword.toLowerCase().includes(q))
+            try {
+              const entities = await searchAllEntitiesFlat(query)
+              if (entities.length > 0) {
+                return entities.map((e) => ({ ...e, label: e.name }))
+              }
+            } catch (error) {
+              console.error('[mention] reference registry failed', error)
+            }
+            // Fallback: query the local tables directly so @ always works even
+            // if a dynamically registered reference provider fails.
+            const [characters, countries, events, entries] = await Promise.all([
+              db.characters.toArray(),
+              db.countries.toArray(),
+              db.events.toArray(),
+              db.worldEntries.toArray(),
+            ])
+            return [
+              ...characters
+                .filter((row) => !row.deleted && match(row.name, row.aliases ?? []))
+                .map((row) => ({
+                  type: 'character',
+                  id: String(row.id),
+                  name: row.name,
+                  label: row.name,
+                  keywords: row.aliases ?? [],
+                  avatarUrl: row.qAvatarUrl || row.avatarUrl,
+                })),
+              ...countries
+                .filter((row) => !row.deleted && match(row.name))
+                .map((row) => ({
+                  type: 'country',
+                  id: String(row.id),
+                  name: row.name,
+                  label: row.name,
+                  keywords: [],
+                  avatarUrl: row.flagUrl,
+                })),
+              ...events
+                .filter((row) => !row.deleted && match(row.title, [row.location]))
+                .map((row) => ({
+                  type: 'event',
+                  id: String(row.id),
+                  name: row.title,
+                  label: row.title,
+                  keywords: [row.location],
+                })),
+              ...entries
+                .filter((row) => !row.deleted && match(row.title, [row.category]))
+                .map((row) => ({
+                  type: 'world',
+                  id: String(row.id),
+                  name: row.title,
+                  label: row.title,
+                  keywords: [row.category],
+                })),
+            ]
+          },
+          render: createMentionRender(),
+          command: ({ editor, range, props }) => {
+            const p = props as ExtendedReferableEntity
+            editor
+              .chain()
+              .focus()
+              .deleteRange(range)
+              .insertContent({
+                type: 'mention',
+                attrs: {
+                  id: p.id,
+                  label: p.label ?? p.name,
+                  entityType: p.type,
+                },
+              })
+              .run()
+          },
+        },
+      }),
+    ],
+    editorProps: {
+      handleScrollToSelection: () => {
+        if (!isMobile) return false
+        if (!keyboardVisibleRef.current) return true
+        const ed = editorRef.current
+        if (!ed) return true
+        const { selection } = ed.state
+        if (selection.empty) {
+          const coords = ed.view.coordsAtPos(selection.head)
+          const toolbarH = 56
+          const vvBottom = document.documentElement.clientHeight
+          const overflow = coords.bottom + toolbarH - vvBottom
+          if (overflow > 0) {
+            const scroller = ed.view.dom.closest('.section-fade') as HTMLElement | null
+            if (scroller) scroller.scrollTop += overflow
+          }
+        }
+        return true
+      },
+      attributes: {
+        class: plain
+          ? 'tiptap max-w-none pl-0 pr-0 py-0 text-[15px] leading-relaxed focus:outline-none min-h-[2em]'
+          : 'tiptap max-w-none pl-8 pr-4 py-2 text-[15px] leading-relaxed focus:outline-none min-h-[2em]',
+        ...(isMobile ? { /* virtualkeyboardpolicy removed — system handles keyboard natively */ } : {}),
+      },
+    },
+    content: content ?? '',
+    onCreate({ editor: readyEditor }) {
+      editorRef.current = readyEditor as Editor
+      setActiveEditor(readyEditor as Editor)
+      onReady(readyEditor as Editor)
+      onCharacterCount?.(readyEditor.getText().length)
+      onContentChange?.(readyEditor.getHTML())
+    },
+    onUpdate({ editor: updatedEditor }) {
+      onCharacterCount?.(updatedEditor.getText().length)
+      onContentChange?.(updatedEditor.getHTML())
+    },
+  })
+
   useEffect(() => {
     if (!editor) return
     const updateTableState = () => {
-      const next = editor.isActive('table')
-      setIsTableActive((prev) => (prev === next ? prev : next))
+      setIsTableActive(editor.isActive('table'))
     }
     editor.on('selectionUpdate', updateTableState)
     editor.on('transaction', updateTableState)
@@ -126,11 +565,154 @@ export function EditorCore({
     return () => { editor.off('focus', handleFocus) }
   }, [editor, setActiveEditor])
 
+  // 桌面端 BubbleMenu：聚焦/失焦时主动触发显示/隐藏
+  useEffect(() => {
+    if (!editor || isMobile) return
+    const onFocus = () => {
+      requestAnimationFrame(() => {
+        const ed = editorRef.current
+        if (ed && !ed.isDestroyed && ed.isFocused) {
+          ed.view.dispatch(ed.view.state.tr.setMeta('bubbleMenu', 'show'))
+        }
+      })
+    }
+    const onBlur = () => {
+      const ed = editorRef.current
+      if (ed && !ed.isDestroyed) {
+        ed.view.dispatch(ed.view.state.tr.setMeta('bubbleMenu', 'hide'))
+      }
+    }
+    editor.on('focus', onFocus)
+    editor.on('blur', onBlur)
+    return () => {
+      editor.off('focus', onFocus)
+      editor.off('blur', onBlur)
+    }
+  }, [editor, isMobile])
+
+  // 桌面端 BubbleMenu：输入时隐藏，停止输入 200ms 后显示
+  useEffect(() => {
+    if (!editor) return
+    const dom = editor.view.dom
+    const onKeyDown = () => {
+      isTypingRef.current = true
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
+      typingTimerRef.current = setTimeout(() => {
+        isTypingRef.current = false
+        const ed = editorRef.current
+        if (ed && !ed.isDestroyed && ed.isFocused) {
+          ed.view.dispatch(ed.view.state.tr.setMeta('bubbleMenu', 'show'))
+        }
+      }, 200)
+    }
+    dom.addEventListener('keydown', onKeyDown)
+    return () => {
+      dom.removeEventListener('keydown', onKeyDown)
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
+    }
+  }, [editor])
+
+  useEffect(() => {
+    if (!isMobile || !editor) return
+    const dom = editor.view.dom
+    let timer: ReturnType<typeof setTimeout> | null = null
+    let startPos: { x: number; y: number } | null = null
+    let wasLongPress = false
+    let wasScroll = false
+
+    const onTouchStart = (e: TouchEvent) => {
+      const touch = e.touches[0]
+      startPos = { x: touch.clientX, y: touch.clientY }
+      wasLongPress = false
+      wasScroll = false
+      timer = setTimeout(() => {
+        wasLongPress = true
+      }, 320)
+    }
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (!startPos) return
+      const touch = e.touches[0]
+      if (Math.abs(touch.clientX - startPos.x) > 8 || Math.abs(touch.clientY - startPos.y) > 8) {
+        if (timer) { clearTimeout(timer); timer = null }
+        wasScroll = true
+      }
+    }
+
+    const onTouchEnd = () => {
+      if (timer) { clearTimeout(timer); timer = null }
+      if (wasScroll || wasLongPress) {
+        startPos = null
+        return
+      }
+      // 延迟聚焦：让浏览器原生的 touch→click 管线先完成光标定位，
+      // 仅在编辑器确实没聚焦时才补救（例如点击在 padding 区域）
+      setTimeout(() => {
+        if (!editor.isFocused) {
+          editor.view.dom.focus()
+        }
+      })
+      startPos = null
+    }
+
+    dom.addEventListener('touchstart', onTouchStart, { passive: true })
+    dom.addEventListener('touchmove', onTouchMove, { passive: true })
+    dom.addEventListener('touchend', onTouchEnd)
+    dom.addEventListener('touchcancel', onTouchEnd)
+    return () => {
+      dom.removeEventListener('touchstart', onTouchStart)
+      dom.removeEventListener('touchmove', onTouchMove)
+      dom.removeEventListener('touchend', onTouchEnd)
+      dom.removeEventListener('touchcancel', onTouchEnd)
+    }
+  }, [isMobile, editor])
+
   // 移动端工具栏自定义事件（MobileTextSelectionBar → EditorCore）
   useEffect(() => {
     if (!isMobile || !editor) return
-    return bindMobileEditorEvents(editor)
+    const dom = editor.view.dom
+    const handlers: Record<string, () => void> = {
+      'mobile:insert-image': () => editor.chain().focus().insertContent({ type: 'imageBlock' }).run(),
+      'mobile:insert-table': () => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
+      'mobile:insert-link': () => editor.chain().focus().toggleLink({ href: '' }).run(),
+      'mobile:insert-code': () => editor.chain().focus().toggleCodeBlock().run(),
+      'mobile:insert-divider': () => editor.chain().focus().setHorizontalRule().run(),
+      'mobile:table-add-row-before': () => editor.chain().focus().addRowBefore().run(),
+      'mobile:table-add-row-after': () => editor.chain().focus().addRowAfter().run(),
+      'mobile:table-add-col-before': () => editor.chain().focus().addColumnBefore().run(),
+      'mobile:table-add-col-after': () => editor.chain().focus().addColumnAfter().run(),
+      'mobile:table-delete': () => editor.chain().focus().deleteTable().run(),
+      'mobile:table-delete-row': () => editor.chain().focus().deleteRow().run(),
+      'mobile:table-delete-col': () => editor.chain().focus().deleteColumn().run(),
+    }
+    for (const [name, fn] of Object.entries(handlers)) {
+      dom.addEventListener(name, fn)
+    }
+    return () => {
+      for (const [name, fn] of Object.entries(handlers)) {
+        dom.removeEventListener(name, fn)
+      }
+    }
   }, [isMobile, editor])
+
+  // 移动端键盘弹出后检查光标是否被遮挡并滚动到位
+  useEffect(() => {
+    if (!isMobile || !keyboardVisible) return
+    const ed = editorRef.current
+    if (!ed || !ed.isFocused) return
+    const id = setTimeout(() => {
+      if (!editorRef.current || editorRef.current.isDestroyed) return
+      const coords = editorRef.current.view.coordsAtPos(editorRef.current.state.selection.head)
+      const toolbarH = 56
+      const vvBottom = document.documentElement.clientHeight
+      const overflow = coords.bottom + toolbarH - vvBottom
+      if (overflow > 0) {
+        const scroller = editorRef.current.view.dom.closest('.section-fade') as HTMLElement | null
+        if (scroller) scroller.scrollTop += overflow
+      }
+    }, 30)
+    return () => clearTimeout(id)
+  }, [isMobile, keyboardVisible])
 
   // 移动端：缓存最近一次文本选择，防止工具栏按钮点击时丢失选择
   useEffect(() => {
@@ -147,53 +729,17 @@ export function EditorCore({
     return () => { editor.off('selectionUpdate', handle) }
   }, [editor, isMobile])
 
-  // 移动端：触摸补焦 / 键盘遮挡 / 选区缓存
-  useEditorMobileInput({ editor, isMobile, keyboardVisible, editorRef })
-
-  // 桌面端气泡菜单显隐时机（点选后立即出现 / 输入中隐藏）
-  const { isTypingRef } = useEditorBubbleMenu({ editor, isMobile, editorRef })
-
-  // Ctrl/Cmd+F / Ctrl/Cmd+H：只在编辑区聚焦时拦截，打开查找替换。
-  useEffect(() => {
+  // 移动端工具栏按钮：先恢复选择再执行操作
+  const handleToolbarAction = useCallback((action: () => void) => {
     if (!editor) return
-    const onKey = (e: KeyboardEvent) => {
-      if (!(e.metaKey || e.ctrlKey) || e.altKey) return
-      if (!editor.isFocused) return
-      const key = e.key.toLowerCase()
-      if (key === 'o' && e.shiftKey) {
-        e.preventDefault()
-        setOutlineOpen(true)
-        return
-      }
-      if (key !== 'f' && key !== 'h') return
-      e.preventDefault()
-      setFindOpen(true)
+    if (isMobile && selectionRef.current) {
+      const { from, to } = selectionRef.current
+      editor.chain().setTextSelection({ from, to }).run()
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [editor])
-
-  // 工具栏的「查找替换」入口（工具栏与 EditorCore 是兄弟节点，用事件只开对应实例）。
-  useEffect(() => {
-    if (!editor) return
-    const onOpenFind = (e: Event) => {
-      const detail = (e as CustomEvent<OpenFindEventDetail>).detail
-      if (detail?.editor === editor) setFindOpen(true)
-    }
-    window.addEventListener(OPEN_FIND_EVENT, onOpenFind)
-    return () => window.removeEventListener(OPEN_FIND_EVENT, onOpenFind)
-  }, [editor])
-
-  // 工具栏的「大纲」入口（同上，事件只开对应实例）。
-  useEffect(() => {
-    if (!editor) return
-    const onOpenOutline = (e: Event) => {
-      const detail = (e as CustomEvent<OpenOutlineEventDetail>).detail
-      if (detail?.editor === editor) setOutlineOpen(true)
-    }
-    window.addEventListener(OPEN_OUTLINE_EVENT, onOpenOutline)
-    return () => window.removeEventListener(OPEN_OUTLINE_EVENT, onOpenOutline)
-  }, [editor])
+    editor.commands.focus()
+    action()
+    setToolbarTick(v => v + 1)
+  }, [isMobile, editor])
 
   // 移动端工具栏禁止长按弹出右键菜单（原生 DOM 监听，capture 阶段拦截，比 React 合成事件更可靠）
   useEffect(() => {
@@ -209,18 +755,6 @@ export function EditorCore({
     }
   }, [isMobile, keyboardVisible, mobileBlockMenuOpen])
 
-  // 移动端工具栏按钮：先恢复选择再执行操作
-  const handleToolbarAction = useCallback((action: () => void) => {
-    if (!editor) return
-    if (isMobile && selectionRef.current) {
-      const { from, to } = selectionRef.current
-      editor.chain().setTextSelection({ from, to }).run()
-    }
-    editor.commands.focus()
-    action()
-    setToolbarTick(v => v + 1)
-  }, [isMobile, editor, setToolbarTick])
-
   // 移动端工具栏统一 onPointerDown 入口：preventDefault + stopPropagation + 执行命令
   const handleToolbarPointerDown = useCallback((e: React.PointerEvent, action: () => void) => {
     e.preventDefault()
@@ -228,21 +762,162 @@ export function EditorCore({
     handleToolbarAction(action)
   }, [handleToolbarAction])
 
-  const contextMenuItems = useMemo(
-    () => buildEditorContextMenu({ editor, isTableActive, onFind: () => setFindOpen(true) }),
-    [editor, isTableActive],
-  )
-  const { dragging } = useImagePasteDrop(editor)
+  const contextMenuItems = useMemo((): ContextMenuItem[] => [
+    {
+      label: '撤销',
+      shortcut: 'Ctrl+Z',
+      onClick: () => editor?.chain().focus().undo().run(),
+    },
+    {
+      label: '重做',
+      shortcut: 'Ctrl+Shift+Z',
+      onClick: () => editor?.chain().focus().redo().run(),
+    },
+    { separator: true, label: '', onClick: () => {} },
+    {
+      label: '剪切',
+      shortcut: 'Ctrl+X',
+      onClick: () => {
+        editor?.view.focus()
+        try { document.execCommand('cut') } catch { /* noop */ }
+      },
+    },
+    {
+      label: '复制',
+      shortcut: 'Ctrl+C',
+      onClick: () => {
+        editor?.view.focus()
+        try { document.execCommand('copy') } catch { /* noop */ }
+      },
+    },
+    {
+      label: '粘贴',
+      shortcut: 'Ctrl+V',
+      onClick: () => {
+        if (!editor) return
+        editor.view.focus()
+        tauriReadClipboard()
+          .then((text) => { editor.chain().focus().insertContent(text).run() })
+          .catch(() => {})
+      },
+    },
+    { separator: true, label: '', onClick: () => {} },
+    {
+      label: '全选',
+      shortcut: 'Ctrl+A',
+      onClick: () => editor?.chain().focus().selectAll().run(),
+    },
+    { separator: true, label: '', onClick: () => {} },
+    {
+      label: '插入',
+      children: [
+        {
+          label: '表格',
+          onClick: () => {
+            if (!editor) return
+            const chain = editor.chain().focus()
+            chain.insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+          },
+        },
+        {
+          label: '图片',
+          onClick: () => {
+            if (!editor) return
+            editor.chain().focus().insertContent({ type: 'imageBlock' }).run()
+          },
+        },
+        {
+          label: '分割线',
+          onClick: () => {
+            if (!editor) return
+            const chain = editor.chain().focus()
+            chain.setHorizontalRule().run()
+          },
+        },
+      ],
+    },
+    ...(isTableActive
+      ? [
+          { separator: true, label: '', onClick: () => {} } as ContextMenuItem,
+          {
+            label: '表格',
+            children: [
+              {
+                label: '在上方插入行',
+                onClick: () => {
+                  if (!editor) return
+                  const chain = editor.chain().focus()
+                  chain.addRowBefore().run()
+                },
+              },
+              {
+                label: '在下方插入行',
+                onClick: () => {
+                  if (!editor) return
+                  const chain = editor.chain().focus()
+                  chain.addRowAfter().run()
+                },
+              },
+              {
+                label: '在左侧插入列',
+                onClick: () => {
+                  if (!editor) return
+                  const chain = editor.chain().focus()
+                  chain.addColumnBefore().run()
+                },
+              },
+              {
+                label: '在右侧插入列',
+                onClick: () => {
+                  if (!editor) return
+                  const chain = editor.chain().focus()
+                  chain.addColumnAfter().run()
+                },
+              },
+              { separator: true, label: '', onClick: () => {} } as ContextMenuItem,
+              {
+                label: '删除当前行',
+                danger: true,
+                onClick: () => {
+                  if (!editor) return
+                  const chain = editor.chain().focus()
+                  chain.deleteRow().run()
+                },
+              },
+              {
+                label: '删除当前列',
+                danger: true,
+                onClick: () => {
+                  if (!editor) return
+                  const chain = editor.chain().focus()
+                  chain.deleteColumn().run()
+                },
+              },
+              {
+                label: '删除整个表格',
+                danger: true,
+                onClick: () => {
+                  if (!editor) return
+                  const chain = editor.chain().focus()
+                  chain.deleteTable().run()
+                },
+              },
+            ],
+          },
+        ]
+      : []),
+  ], [editor, isTableActive])
+
   if (!editor) {
     return <div className="flex h-32 items-center justify-center text-sm text-ink-muted">编辑器加载中...</div>
   }
 
   return (
-    <ContextMenu items={contextMenuItems}>
+    <ContextMenu items={contextMenuItems} enabled={!hideContextMenu}>
     <div
       className={plain
         ? 'relative'
-        : 'relative rounded-item border border-transparent bg-paper transition-colors hover:border-line focus-within:border-line-hover'
+        : 'relative rounded-md border border-transparent bg-paper transition-colors hover:border-line focus-within:border-line-hover'
       }
       onMouseDown={(e) => {
         lastClickRef.current = { x: e.clientX, y: e.clientY }
@@ -269,11 +944,10 @@ export function EditorCore({
         }
       }}
     >
-      {!isMobile && (
+      {!isMobile && !hideBubbleMenu && (
         <BubbleMenu
           editor={editor}
           updateDelay={0}
-          options={BUBBLE_MENU_OPTIONS}
           shouldShow={({ editor }) => {
             return editor.isFocused && !isTypingRef.current
           }}
@@ -304,54 +978,135 @@ export function EditorCore({
               ),
             }
           }}
-          className={`flex gap-0.5 ${MENU} z-20 context-menu-fade context-menu-visible`}
+          className="flex gap-0.5 rounded-md border border-line bg-paper/85 dark:bg-paper/85 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 z-20 context-menu-fade context-menu-visible"
         >
           <BubbleMenuButtons editor={editor} />
         </BubbleMenu>
       )}
       <EditorContent editor={editor} />
-      {dragging ? (
-        <div
-          className="pointer-events-none absolute inset-0 z-10 rounded-item border border-dashed border-line-hover"
-          aria-hidden
-        />
-      ) : null}
       {!isMobile && (
         <BlockTypeMenu editor={editor} position={blockMenuPosition} onClose={closeBlockMenu} blockPos={blockMenuPos} />
       )}
     </div>
 
     {/* 移动端键盘工具栏 */}
-    {isMobile && keyboardVisible && editor?.isFocused && typeof document !== 'undefined' && (
-      <MobileEditorToolbar
-        editor={editor}
-        keyboardHeight={keyboardHeight}
-        toolbarTick={toolbarTick}
-        mobileToolbarRef={mobileToolbarRef}
-        mobileBlockMenuRef={mobileBlockMenuRef}
-        mobileBlockMenuOpen={mobileBlockMenuOpen}
-        setMobileBlockMenuOpen={setMobileBlockMenuOpen}
-        handleToolbarPointerDown={handleToolbarPointerDown}
-      />
-    )}
+    {isMobile && keyboardVisible && editor?.isFocused && (
+      <>
+        {mobileBlockMenuOpen && (
+          <div
+            className="fixed inset-0 z-30"
+            onPointerDown={() => setMobileBlockMenuOpen(false)}
+          />
+        )}
+        <div
+          ref={mobileToolbarRef}
+          className="fixed left-0 right-0 z-30 flex items-center gap-2 px-3 py-2 bg-paper/85 backdrop-blur-lg border-t border-line"
+          style={{ bottom: `${keyboardHeight}px`, ...(isBelowTargetVersion() ? { paddingBottom: 'var(--safe-bottom, 0px)' } : {}) }}
+          data-tick={toolbarTick}
+        >
+          <button
+            type="button"
+            onPointerDown={(e) => handleToolbarPointerDown(e, () => {
+              if (!editor) return
+              editor.chain().focus().run()
+              setMobileBlockMenuOpen(!mobileBlockMenuOpen)
+            })}
+            className="touch-feedback h-9 px-3 rounded flex items-center gap-1 bg-black/5 dark:bg-white/5 border border-line text-sm text-ink shrink-0"
+          >
+            <Pilcrow size={14} strokeWidth={2} />
+            <ChevronDown size={14} strokeWidth={2} />
+          </button>
+          <button
+            type="button"
+            onPointerDown={(e) => handleToolbarPointerDown(e, () => editor?.chain().focus().toggleBold().run())}
+            className={`touch-feedback h-9 w-9 flex items-center justify-center rounded border border-line shrink-0 ${editor?.isActive('bold') ? 'bg-black/15 dark:bg-white/30' : 'bg-black/5 dark:bg-white/5'}`}
+          >
+            <Bold size={16} strokeWidth={2} />
+          </button>
+          <button
+            type="button"
+            onPointerDown={(e) => handleToolbarPointerDown(e, () => editor?.chain().focus().toggleItalic().run())}
+            className={`touch-feedback h-9 w-9 flex items-center justify-center rounded border border-line shrink-0 ${editor?.isActive('italic') ? 'bg-black/15 dark:bg-white/30' : 'bg-black/5 dark:bg-white/5'}`}
+          >
+            <Italic size={16} strokeWidth={2} />
+          </button>
+          <button
+            type="button"
+            onPointerDown={(e) => handleToolbarPointerDown(e, () => editor?.chain().focus().toggleUnderline().run())}
+            className={`touch-feedback h-9 w-9 flex items-center justify-center rounded border border-line shrink-0 ${editor?.isActive('underline') ? 'bg-black/15 dark:bg-white/30' : 'bg-black/5 dark:bg-white/5'}`}
+          >
+            <UnderlineIcon size={16} strokeWidth={2} />
+          </button>
+          <button
+            type="button"
+            onPointerDown={(e) => handleToolbarPointerDown(e, () => editor?.chain().focus().insertContent(' @').run())}
+            className={`touch-feedback h-9 w-9 flex items-center justify-center rounded border border-line shrink-0 ${editor?.isActive('mention') ? 'bg-black/15 dark:bg-white/30' : 'bg-black/5 dark:bg-white/5'}`}
+            title="@ 引用设定中的角色、国家、事件、词条"
+          >
+            <AtSign size={16} strokeWidth={2} />
+          </button>
+          <button
+            type="button"
+            onPointerDown={(e) => handleToolbarPointerDown(e, () => editor?.chain().focus().insertContent(' [[').run())}
+            className="touch-feedback h-9 w-9 flex items-center justify-center rounded border border-line shrink-0 bg-black/5 dark:bg-white/5"
+            title="[[ 引用世界观词条"
+          >
+            <Link2 size={16} strokeWidth={2} />
+          </button>
+          <button
+            type="button"
+            onPointerDown={(e) => handleToolbarPointerDown(e, () => editor?.chain().focus().undo().run())}
+            disabled={!editor?.can().undo()}
+            className="h-9 w-9 flex items-center justify-center rounded shrink-0 ml-auto text-ink-muted active:bg-black/8 dark:active:bg-white/8 disabled:opacity-30"
+          >
+            <Undo2 size={16} strokeWidth={2} />
+          </button>
+          <button
+            type="button"
+            onPointerDown={(e) => handleToolbarPointerDown(e, () => editor?.chain().focus().redo().run())}
+            disabled={!editor?.can().redo()}
+            className="h-9 w-9 flex items-center justify-center rounded shrink-0 text-ink-muted active:bg-black/8 dark:active:bg-white/8 disabled:opacity-30"
+          >
+            <Redo2 size={16} strokeWidth={2} />
+          </button>
+        </div>
 
-    {findOpen ? (
-      <FindReplaceBar editor={editor} onClose={() => setFindOpen(false)} />
-    ) : null}
-    {outlineOpen ? (
-      <OutlinePanel editor={editor} onClose={() => setOutlineOpen(false)} />
-    ) : null}
+        {/* 移动端块类型选择面板 */}
+        {mobileBlockMenuOpen && (
+          <div
+            ref={mobileBlockMenuRef}
+            className="fixed left-0 right-0 z-40 p-3 bg-paper/85 backdrop-blur-lg border-t border-line"
+            style={{ bottom: `${isBelowTargetVersion() ? keyboardHeight + 52 : keyboardHeight + 44}px`, ...(isBelowTargetVersion() ? { paddingBottom: 'var(--safe-bottom, 0px)' } : {}) }}
+          >
+            <div className="flex flex-wrap gap-2">
+              {[
+                { label: '段落', icon: <Pilcrow size={16} strokeWidth={2} />, action: () => editor?.chain().focus().setParagraph().run(), active: () => editor?.isActive('paragraph') ?? false },
+                { label: 'H1', icon: <Heading1 size={16} strokeWidth={2} />, action: () => editor?.chain().focus().toggleHeading({ level: 1 }).run(), active: () => editor?.isActive('heading', { level: 1 }) },
+                { label: 'H2', icon: <Heading2 size={16} strokeWidth={2} />, action: () => editor?.chain().focus().toggleHeading({ level: 2 }).run(), active: () => editor?.isActive('heading', { level: 2 }) },
+                { label: 'H3', icon: <Heading3 size={16} strokeWidth={2} />, action: () => editor?.chain().focus().toggleHeading({ level: 3 }).run(), active: () => editor?.isActive('heading', { level: 3 }) },
+                { label: '无序列表', icon: <List size={16} strokeWidth={2} />, action: () => editor?.chain().focus().toggleBulletList().run(), active: () => editor?.isActive('bulletList') ?? false },
+                { label: '有序列表', icon: <ListOrdered size={16} strokeWidth={2} />, action: () => editor?.chain().focus().toggleOrderedList().run(), active: () => editor?.isActive('orderedList') ?? false },
+                { label: '任务列表', icon: <ListTodo size={16} strokeWidth={2} />, action: () => editor?.chain().focus().toggleTaskList().run(), active: () => editor?.isActive('taskList') ?? false },
+                { label: '引用', icon: <Quote size={16} strokeWidth={2} />, action: () => editor?.chain().focus().toggleBlockquote().run(), active: () => editor?.isActive('blockquote') ?? false },
+                { label: '分割线', icon: <Scissors size={16} strokeWidth={2} />, action: () => editor?.chain().focus().setHorizontalRule().run(), active: () => false },
+                { label: '图片', icon: <Image size={16} strokeWidth={2} />, action: () => editor?.chain().focus().insertContent({ type: 'imageBlock' }).run(), active: () => false },
+                { label: '表格', icon: <TableIcon size={16} strokeWidth={2} />, action: () => editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(), active: () => false },
+              ].map((item) => (
+                <button
+                  key={item.label}
+                  type="button"
+                  onPointerDown={(e) => handleToolbarPointerDown(e, () => { item.action(); setMobileBlockMenuOpen(false) })}
+                  className={`touch-feedback flex items-center gap-1.5 rounded border border-line px-3 py-2 text-sm transition-colors ${item.active() ? 'bg-black/15 dark:bg-white/30 text-ink' : 'bg-black/5 dark:bg-white/5 text-ink-muted'}`}
+                >
+                  {item.icon}
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </>
+    )}
     </ContextMenu>
   )
 }
-
-
-
-
-
-
-
-
-
-
-

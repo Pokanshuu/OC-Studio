@@ -1,33 +1,14 @@
 import { BrowserAdapter } from './adapters/browser-adapter'
 import type { LocalAdapter } from './adapters/local-adapter'
 import { convertHeifToJpeg } from './image-heif'
-import { isTauri, isNativePlatform } from './env'
-import { vaultFs } from './vault/vault-fs'
 
 let adapter: BrowserAdapter | LocalAdapter = new BrowserAdapter()
 let tauriAppDataDir = ''
 let tauriConvertFileSrc: ((path: string) => string) | null = null
 
-// ── vault 模式 ──────────────────────────────────────────────────────────
-// 打开 vault 时，素材必须落在 **vault 里**，否则把文件夹拷走会缺图。
-// 约定：相对路径（`附件/x.png`）一律相对 vault 根解析；绝对路径与 http/data
-// 仍按原样处理，历史数据（`images/x.png` 落在 appData）在关闭 vault 后照旧可用。
-
-let vaultRoot: string | null = null
-let vaultAssetsDir = '附件'
-
-/** 由 VaultProvider 在装载/关闭 vault 时调用 */
-export function setVaultImageContext(root: string | null, assetsDir = '附件'): void {
-  vaultRoot = root === null ? null : root.replace(/\\/g, '/').replace(/\/+$/, '')
-  vaultAssetsDir = assetsDir.replace(/^\/+|\/+$/g, '') || '附件'
-}
-
-export function getVaultImageContext(): { root: string; assetsDir: string } | null {
-  return vaultRoot === null ? null : { root: vaultRoot, assetsDir: vaultAssetsDir }
-}
-
 const DEFAULT_IMAGES: Record<string, string> = {
   avatar: '/images/defaults/character-avatar.svg',
+  'avatar-q': '/images/defaults/character-avatar-q.svg',
   flag: '/images/defaults/country-emblem.svg',
   header: '/images/defaults/header-placeholder.svg',
 }
@@ -36,10 +17,29 @@ export function getDefaultImage(type: string): string {
   return DEFAULT_IMAGES[type] || DEFAULT_IMAGES.avatar
 }
 
+function isTauri(): boolean {
+  return typeof window !== 'undefined' && !!window.__TAURI_INTERNALS__
+}
+
+function isCapacitor(): boolean {
+  if (typeof window === 'undefined' || isTauri()) return false
+  // The Capacitor runtime is bundled into the web build too. Only treat it as
+  // native when it actually reports a native platform; WebView2 reports "web".
+  const cap = (window as unknown as {
+    Capacitor?: {
+      isNativePlatform?: () => boolean
+      getPlatform?: () => string
+    }
+  }).Capacitor
+  if (!cap) return false
+  if (typeof cap.isNativePlatform === 'function') return cap.isNativePlatform()
+  return typeof cap.getPlatform === 'function' && cap.getPlatform() !== 'web'
+}
+
 let capacitorConvertFileSrc: ((path: string) => string) | null = null
 
 async function ensureCapacitorConvertFileSrc(): Promise<void> {
-  if (!capacitorConvertFileSrc && isNativePlatform()) {
+  if (!capacitorConvertFileSrc && isCapacitor()) {
     const { Capacitor } = await import('@capacitor/core')
     capacitorConvertFileSrc = Capacitor.convertFileSrc
   }
@@ -48,7 +48,7 @@ async function ensureCapacitorConvertFileSrc(): Promise<void> {
 export async function initImageService(): Promise<void> {
   if (isTauri()) {
     await ensureTauriAppDataDir()
-  } else if (isNativePlatform()) {
+  } else if (isCapacitor()) {
     await ensureCapacitorConvertFileSrc()
   }
 }
@@ -64,37 +64,6 @@ async function ensureTauriAppDataDir(): Promise<string> {
 }
 
 export async function uploadImage(type: string): Promise<string> {
-  // vault 模式：把用户选的文件读成 Blob，交给 saveBlobToDisk 统一处理
-  // （HEIF 转换、裁剪流水线、落到 vault 素材目录都由它负责）
-  if (vaultRoot !== null && isTauri()) {
-    try {
-      const { open } = await import('@tauri-apps/plugin-dialog')
-      const picked = await open({
-        multiple: false,
-        filters: [{ name: '图片', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'heic', 'heif'] }],
-      })
-      if (picked === null || typeof picked !== 'string') return ''
-      const { readFile } = await import('@tauri-apps/plugin-fs')
-      const bytes = await readFile(picked)
-      const ext = (picked.split('.').pop() ?? '').toLowerCase()
-      const mime =
-        ext === 'jpg' || ext === 'jpeg'
-          ? 'image/jpeg'
-          : ext === 'webp'
-            ? 'image/webp'
-            : ext === 'gif'
-              ? 'image/gif'
-              : ext === 'svg'
-                ? 'image/svg+xml'
-                : ext === 'heic' || ext === 'heif'
-                  ? 'image/heic'
-                  : 'image/png'
-      return await saveBlobToDisk(new Blob([bytes], { type: mime }), type)
-    } catch (err) {
-      console.error('[uploadImage] vault 素材导入失败，回落到内置数据库路径:', err)
-    }
-  }
-
   if (isTauri()) {
     try {
       const { LocalAdapter: LA } = await import('./adapters/local-adapter')
@@ -110,7 +79,7 @@ export async function uploadImage(type: string): Promise<string> {
     }
   }
 
-  if (isNativePlatform()) {
+  if (isCapacitor()) {
     try {
       const { CapacitorAdapter: CA } = await import('./adapters/capacitor-adapter')
       const ca = new CA()
@@ -126,16 +95,15 @@ export async function uploadImage(type: string): Promise<string> {
 
 export function resolveImageUrl(path: string | undefined, type: string = 'avatar'): string {
   if (!path) return getDefaultImage(type)
-  if (path.startsWith('https://') || path.startsWith('http://') || path.startsWith('data:') || path.startsWith('blob:')) return path
-  if (path.startsWith('/')) return path
-
-  // vault 模式：相对路径就是 vault 内的素材，直接相对 vault 根解析
-  if (vaultRoot !== null && isTauri()) {
-    const base = vaultRoot.replace(/\/+$/, '')
-    const normalized = path.replace(/\\/g, '/').replace(/^\/+/, '')
-    const toSrc = tauriConvertFileSrc
-    if (toSrc !== null) return toSrc(`${base}/${normalized}`)
+  // 硬约束：不加载任何远程图片。导入数据中的 http(s) URL 在此直接降级为本地占位图。
+  if (path.startsWith('https://') || path.startsWith('http://') || path.startsWith('//')) {
+    return getDefaultImage(type)
   }
+  if (path.startsWith('data:')) return path
+  // Blob URLs and legacy Capacitor virtual paths do not survive in WebView2.
+  if (path.startsWith('blob:')) return getDefaultImage(type)
+  if (path.startsWith('/DATA/') || path.startsWith('file://')) return getDefaultImage(type)
+  if (path.startsWith('/')) return path
 
   if (isTauri() && tauriAppDataDir && tauriConvertFileSrc) {
     const base = tauriAppDataDir.replace(/\/+$/, '').replace(/\\/g, '/')
@@ -143,7 +111,7 @@ export function resolveImageUrl(path: string | undefined, type: string = 'avatar
     return tauriConvertFileSrc(`${base}/${normalizedPath}`)
   }
 
-  if (isNativePlatform() && capacitorConvertFileSrc && path.startsWith('file://')) {
+  if (isCapacitor() && capacitorConvertFileSrc && path.startsWith('file://')) {
     return capacitorConvertFileSrc(path)
   }
 
@@ -154,7 +122,8 @@ export function getImageUrl(path: string | undefined, type: string): string {
   return resolveImageUrl(path, type)
 }
 
-async function writeBlobToCapacitorFs(blob: Blob, fileName: string): Promise<string> {  const { Filesystem, Directory } = await import('@capacitor/filesystem')
+async function writeBlobToCapacitorFs(blob: Blob, fileName: string): Promise<string> {
+  const { Filesystem, Directory } = await import('@capacitor/filesystem')
   const arrayBuffer = await blob.arrayBuffer()
   const bytes = new Uint8Array(arrayBuffer)
   const base64 = btoa(
@@ -173,11 +142,24 @@ async function writeBlobToCapacitorFs(blob: Blob, fileName: string): Promise<str
   return uri
 }
 
-function imageExtension(mime: string): string {
-  if (mime === 'image/jpeg') return 'jpg'
-  if (mime === 'image/webp') return 'webp'
-  if (mime === 'image/gif') return 'gif'
-  if (mime === 'image/svg+xml') return 'svg'
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result ?? ''))
+    reader.onerror = () => reject(reader.error ?? new Error('读取图片失败'))
+    reader.readAsDataURL(blob)
+  })
+}
+
+function fileExtensionFor(blob: Blob): string {
+  const type = blob.type.toLowerCase()
+  if (type.includes('jpeg')) return 'jpg'
+  if (type.includes('webp')) return 'webp'
+  if (type.includes('gif')) return 'gif'
+  if (type.includes('svg')) return 'svg'
+  if (type.includes('mp4')) return 'mp4'
+  if (type.includes('webm')) return 'webm'
+  if (type.includes('quicktime')) return 'mov'
   return 'png'
 }
 
@@ -185,17 +167,18 @@ export async function saveBlobToDisk(blob: Blob, type: string): Promise<string> 
   try {
     // HEIF → JPEG 转换（覆盖非裁剪直接上传路径）
     const converted = await convertHeifToJpeg(blob)
-    const extension = imageExtension(converted.type)
 
-    if (isNativePlatform()) {
-      const timestamp = Date.now()
-      const fileName = `${type}-${timestamp}.${extension}`
-      await ensureCapacitorConvertFileSrc()
-      return await writeBlobToCapacitorFs(converted, fileName)
+    // Browser / WebView2: blob URLs are session-only. Persist a data URL so
+    // avatars, flags and headers survive an app restart.
+    if (!isTauri() && !isCapacitor()) {
+      return await blobToDataUrl(converted)
     }
 
-    if (!isTauri()) {
-      return URL.createObjectURL(converted)
+    if (isCapacitor()) {
+      const timestamp = Date.now()
+      const fileName = `${type}-${timestamp}.${fileExtensionFor(converted)}`
+      await ensureCapacitorConvertFileSrc()
+      return await writeBlobToCapacitorFs(converted, fileName)
     }
 
     const basePath = (await ensureTauriAppDataDir()).replace(/\/+$/, '')
@@ -213,7 +196,7 @@ export async function saveBlobToDisk(blob: Blob, type: string): Promise<string> 
 
     const imagesDir = `${basePath}/images`
     const timestamp = Date.now()
-    const fileName = `${type}-${timestamp}.${extension}`
+    const fileName = `${type}-${timestamp}.${fileExtensionFor(converted)}`
     const destPath = `${imagesDir}/${fileName}`
 
     try {
@@ -222,26 +205,11 @@ export async function saveBlobToDisk(blob: Blob, type: string): Promise<string> 
       // directory may already exist
     }
 
-    const arrayBuffer = await converted.arrayBuffer()
+    const arrayBuffer = await blob.arrayBuffer()
     const bytes = new Uint8Array(arrayBuffer)
     await writeFile(destPath, bytes)
 
-    const appDataRel = `images/${fileName}`
-
-    // vault 模式：再原生复制进 vault 的素材目录，返回值改为 vault 相对路径。
-    // 不直接把字节过 IPC —— Tauri 的 invoke 会把 number[] 序列化成 JSON，
-    // 一张 2MB 的图会变成几 MB 的文本；先落 appData 再原生复制，代价小得多。
-    if (vaultRoot !== null) {
-      const relPath = `${vaultAssetsDir}/${fileName}`
-      try {
-        await vaultFs.importFile(vaultRoot, destPath, relPath)
-        return relPath
-      } catch (err) {
-        console.error('[saveBlobToDisk] 复制进 vault 失败，回落到 appData 路径:', err)
-      }
-    }
-
-    return appDataRel
+    return `images/${fileName}`
   } catch (err) {
     console.error('[saveBlobToDisk] FAILED, falling back to blob URL:', err)
     return URL.createObjectURL(blob)

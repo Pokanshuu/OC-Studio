@@ -1,124 +1,137 @@
 'use client'
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import type { WorldEntry } from '@/types'
 import type { WorldFormData } from '../types'
+import { registerEntityType } from '@/lib/reference-registry'
 import * as service from '../services'
-import { DATA_UPDATED_EVENT } from '@/lib/data-events'
 
 const LIST_KEY = ['worldEntries']
+let worldRegistered = false
 
-function makeEntryKey(id: number | null) {
-  return ['worldEntry', id]
-}
-
-export function useEntryList(): {
-  entries: WorldEntry[]
-  loading: boolean
-  error: string | null
-  refresh: () => void
-} {
-  const { data, isLoading, error, refetch } = useQuery({
-    queryKey: LIST_KEY,
-    queryFn: () => service.getEntries(),
-    staleTime: 30_000,
-  })
-
-  const refresh = useCallback(() => {
-    void refetch()
-  }, [refetch])
+export function useEntryList() {
+  const [entries, setEntries] = useState<WorldEntry[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [refreshKey, setRefreshKey] = useState(0)
+  const refresh = useCallback(() => setRefreshKey((k) => k + 1), [])
 
   useEffect(() => {
-    const handler = () => {
-      void refetch()
+    let cancelled = false
+    const load = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const data = await service.getEntries()
+        if (!cancelled) {
+          setEntries(data)
+          if (!worldRegistered) {
+            worldRegistered = true
+            registerEntityType({
+              type: 'world',
+              label: '词条',
+              load: async () => {
+                const entries = await service.getEntries()
+                return entries.map((e) => ({
+                  type: 'world' as const,
+                  id: String(e.id),
+                  name: e.title,
+                  keywords: [e.category].filter(Boolean) as string[],
+                }))
+              },
+            })
+          }
+        }
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : '加载失败')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
     }
-    window.addEventListener(DATA_UPDATED_EVENT, handler)
-    return () => window.removeEventListener(DATA_UPDATED_EVENT, handler)
-  }, [refetch])
+    void load()
+    return () => { cancelled = true }
+  }, [refreshKey])
 
-  return {
-    entries: data ?? [],
-    loading: isLoading,
-    error: error instanceof Error ? error.message : null,
-    refresh,
-  }
+  useEffect(() => {
+    const handler = () => refresh()
+    window.addEventListener('data-updated', handler)
+    return () => window.removeEventListener('data-updated', handler)
+  }, [refresh])
+
+  return { entries, loading, error, refresh }
 }
 
-export function useEntry(id: number | null): {
-  entry: WorldEntry | undefined
-  loading: boolean
-  error: string | null
-} {
-  const { data, isLoading, error } = useQuery({
-    queryKey: makeEntryKey(id),
-    queryFn: async () => (id === null ? undefined : service.getEntry(id)),
-    enabled: id !== null,
-    // 详情始终取最新：WorldLayout 自动保存（saveEntryContent）直连 service、不走 mutation，
-    // 缓存过久会导致切换词条后读到旧内容
-    staleTime: 0,
-  })
-
-  return {
-    entry: id === null ? undefined : data?.id === id ? data : undefined,
-    loading: id === null ? false : isLoading,
-    error: error instanceof Error ? error.message : null,
-  }
-}
-
-export function useCreateEntry(): {
-  createEntry: (data: WorldFormData) => Promise<number>
-  creating: boolean
-} {
+export function useEntry(id: number | null) {
+  const [entry, setEntry] = useState<WorldEntry | undefined>(undefined)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const queryClient = useQueryClient()
-  const mutation = useMutation({
-    mutationFn: (data: WorldFormData) => service.createEntry(data),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: LIST_KEY })
-    },
-  })
 
-  return {
-    createEntry: async (data: WorldFormData) => mutation.mutateAsync(data),
-    creating: mutation.isPending,
-  }
+  useEffect(() => {
+    if (id === null) return
+    let cancelled = false
+    const load = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const data = await service.getEntry(id)
+        if (!cancelled) {
+          if (data) queryClient.setQueryData(['worldEntry', id], data)
+          else queryClient.invalidateQueries({ queryKey: ['worldEntry', id] })
+          setEntry(data)
+        }
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : '加载失败')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    void load()
+    return () => { cancelled = true }
+  }, [id, queryClient])
+
+  return { entry, loading, error }
 }
 
-export function useUpdateEntry(): {
-  updateEntry: (id: number, data: Partial<WorldFormData>) => Promise<void>
-  updating: boolean
-} {
+export function useCreateEntry() {
+  const [creating, setCreating] = useState(false)
   const queryClient = useQueryClient()
-  const mutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<WorldFormData> }) =>
-      service.updateEntry(id, data),
-    onSuccess: (_result, variables) => {
-      void queryClient.invalidateQueries({ queryKey: makeEntryKey(variables.id) })
+  const create = useCallback(async (data: WorldFormData) => {
+    setCreating(true)
+    try {
+      const id = await service.createEntry(data)
       void queryClient.invalidateQueries({ queryKey: LIST_KEY })
-    },
-  })
-
-  return {
-    updateEntry: async (id: number, data: Partial<WorldFormData>) =>
-      mutation.mutateAsync({ id, data }),
-    updating: mutation.isPending,
-  }
+      return id
+    } finally { setCreating(false) }
+  }, [queryClient])
+  return { createEntry: create, creating }
 }
 
-export function useDeleteEntry(): {
-  deleteEntry: (id: number) => Promise<void>
-  deleting: boolean
-} {
+export function useUpdateEntry() {
+  const [updating, setUpdating] = useState(false)
   const queryClient = useQueryClient()
-  const mutation = useMutation({
-    mutationFn: (id: number) => service.deleteEntry(id),
-    onSuccess: () => {
+  const update = useCallback(async (id: number, data: Partial<WorldFormData>) => {
+    setUpdating(true)
+    try {
+      await service.updateEntry(id, data)
+      void queryClient.invalidateQueries({ queryKey: ['worldEntry', id] })
       void queryClient.invalidateQueries({ queryKey: LIST_KEY })
-    },
-  })
-
-  return {
-    deleteEntry: async (id: number) => mutation.mutateAsync(id),
-    deleting: mutation.isPending,
-  }
+    } finally { setUpdating(false) }
+  }, [queryClient])
+  return { updateEntry: update, updating }
 }
+
+export function useDeleteEntry() {
+  const [deleting, setDeleting] = useState(false)
+  const queryClient = useQueryClient()
+  const remove = useCallback(async (id: number) => {
+    setDeleting(true)
+    try {
+      await service.deleteEntry(id)
+      void queryClient.invalidateQueries({ queryKey: LIST_KEY })
+    } finally { setDeleting(false) }
+  }, [queryClient])
+  return { deleteEntry: remove, deleting }
+}
+

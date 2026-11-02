@@ -1,15 +1,14 @@
 'use client'
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import type { Character } from '@/types'
 import type { CharacterFormData } from '../types'
 import * as characterService from '../services'
-import { DATA_UPDATED_EVENT } from '@/lib/data-events'
 
 const LIST_KEY = ['characters']
 
-function makeCharacterKey(id: number | null) {
+function makeCharacterKey(id: number) {
   return ['character', id]
 }
 
@@ -19,30 +18,51 @@ export function useCharacterList(): {
   error: string | null
   refresh: () => void
 } {
-  const { data, isLoading, error, refetch } = useQuery({
-    queryKey: LIST_KEY,
-    queryFn: () => characterService.getCharacters(),
-    staleTime: 30_000,
-  })
+  const [characters, setCharacters] = useState<Character[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   const refresh = useCallback(() => {
-    void refetch()
-  }, [refetch])
+    setRefreshKey((k) => k + 1)
+  }, [])
 
   useEffect(() => {
-    const handler = () => {
-      void refetch()
-    }
-    window.addEventListener(DATA_UPDATED_EVENT, handler)
-    return () => window.removeEventListener(DATA_UPDATED_EVENT, handler)
-  }, [refetch])
+    let cancelled = false
 
-  return {
-    characters: data ?? [],
-    loading: isLoading,
-    error: error instanceof Error ? error.message : null,
-    refresh,
-  }
+    async function load(): Promise<void> {
+      setLoading(true)
+      setError(null)
+      try {
+        const data = await characterService.getCharacters()
+        if (!cancelled) {
+          setCharacters(data)
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : '加载失败')
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      }
+    }
+
+    void load()
+
+    return () => {
+      cancelled = true
+    }
+  }, [refreshKey])
+
+  useEffect(() => {
+    const handler = () => refresh()
+    window.addEventListener('data-updated', handler)
+    return () => window.removeEventListener('data-updated', handler)
+  }, [refresh])
+
+  return { characters, loading, error, refresh }
 }
 
 export function useCharacter(id: number | null): {
@@ -51,22 +71,63 @@ export function useCharacter(id: number | null): {
   error: string | null
   refresh: () => void
 } {
-  const { data, isLoading, error, refetch } = useQuery({
-    queryKey: makeCharacterKey(id),
-    queryFn: async () => (id === null ? undefined : characterService.getCharacter(id)),
-    enabled: id !== null,
-    // 详情始终取最新（编辑器显式保存后失效重取，跨模块写入也依赖挂载时重取）
-    staleTime: 0,
-  })
+  const [character, setCharacter] = useState<Character | undefined>(undefined)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [refreshKey, setRefreshKey] = useState(0)
+  const queryClient = useQueryClient()
 
   const refresh = useCallback(() => {
-    void refetch()
-  }, [refetch])
+    setRefreshKey((k) => k + 1)
+  }, [])
+
+  useEffect(() => {
+    if (id === null) return
+
+    let cancelled = false
+    const characterId = id
+
+    async function load(): Promise<void> {
+      setLoading(true)
+      setError(null)
+      try {
+        const data = await characterService.getCharacter(characterId)
+        if (!cancelled) {
+          if (data) {
+            queryClient.setQueryData(makeCharacterKey(characterId), data)
+          } else {
+            queryClient.invalidateQueries({ queryKey: makeCharacterKey(characterId) })
+          }
+          setCharacter(data)
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : '加载失败')
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      }
+    }
+
+    void load()
+
+    return () => {
+      cancelled = true
+    }
+  }, [id, queryClient, refreshKey])
+
+  useEffect(() => {
+    const handler = () => refresh()
+    window.addEventListener('data-updated', handler)
+    return () => window.removeEventListener('data-updated', handler)
+  }, [refresh])
 
   return {
-    character: id === null ? undefined : data?.id === id ? data : undefined,
-    loading: id === null ? false : isLoading,
-    error: error instanceof Error ? error.message : null,
+    character: id === null ? undefined : character?.id === id ? character : undefined,
+    loading: id === null ? false : loading,
+    error: id === null ? null : error,
     refresh,
   }
 }
@@ -75,64 +136,64 @@ export function useCreateCharacter(): {
   createCharacter: (data: CharacterFormData) => Promise<number>
   creating: boolean
 } {
+  const [creating, setCreating] = useState(false)
   const queryClient = useQueryClient()
-  const mutation = useMutation({
-    mutationFn: (data: CharacterFormData) => characterService.createCharacter(data),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: LIST_KEY })
-    },
-  })
 
-  return {
-    createCharacter: async (data: CharacterFormData) => mutation.mutateAsync(data),
-    creating: mutation.isPending,
-  }
+  const create = useCallback(async (data: CharacterFormData): Promise<number> => {
+    setCreating(true)
+    try {
+      const id = await characterService.createCharacter(data)
+      void queryClient.invalidateQueries({ queryKey: LIST_KEY })
+      return id
+    } finally {
+      setCreating(false)
+    }
+  }, [queryClient])
+
+  return { createCharacter: create, creating }
 }
 
 export function useUpdateCharacter(): {
   updateCharacter: (id: number, data: Partial<CharacterFormData>) => Promise<void>
   updating: boolean
 } {
+  const [updating, setUpdating] = useState(false)
   const queryClient = useQueryClient()
-  const mutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<CharacterFormData> }) =>
-      characterService.updateCharacter(id, data),
-    onSuccess: (_result, variables) => {
-      void queryClient.invalidateQueries({ queryKey: makeCharacterKey(variables.id) })
-      void queryClient.invalidateQueries({ queryKey: LIST_KEY })
-    },
-  })
 
-  return {
-    updateCharacter: async (id: number, data: Partial<CharacterFormData>) =>
-      mutation.mutateAsync({ id, data }),
-    updating: mutation.isPending,
-  }
+  const update = useCallback(
+    async (id: number, data: Partial<CharacterFormData>): Promise<void> => {
+      setUpdating(true)
+      try {
+        await characterService.updateCharacter(id, data)
+        queryClient.invalidateQueries({ queryKey: makeCharacterKey(id) })
+        void queryClient.invalidateQueries({ queryKey: LIST_KEY })
+      } finally {
+        setUpdating(false)
+      }
+    },
+    [queryClient],
+  )
+
+  return { updateCharacter: update, updating }
 }
 
 export function useDeleteCharacter(): {
   deleteCharacter: (id: number) => Promise<void>
   deleting: boolean
 } {
+  const [deleting, setDeleting] = useState(false)
   const queryClient = useQueryClient()
-  const mutation = useMutation({
-    mutationFn: (id: number) => characterService.deleteCharacter(id),
-    onSuccess: () => {
+
+  const remove = useCallback(async (id: number): Promise<void> => {
+    setDeleting(true)
+    try {
+      await characterService.deleteCharacter(id)
+      queryClient.invalidateQueries({ queryKey: makeCharacterKey(id) })
       void queryClient.invalidateQueries({ queryKey: LIST_KEY })
-    },
-  })
+    } finally {
+      setDeleting(false)
+    }
+  }, [queryClient])
 
-  return {
-    deleteCharacter: async (id: number) => mutation.mutateAsync(id),
-    deleting: mutation.isPending,
-  }
-}
-
-/** 拖拽排序后写回顺序，并刷新列表 */
-export function useReorderCharacters(): (ids: number[]) => Promise<void> {
-  const queryClient = useQueryClient()
-  return async (ids: number[]) => {
-    await characterService.reorderCharacters(ids)
-    await queryClient.invalidateQueries({ queryKey: LIST_KEY })
-  }
+  return { deleteCharacter: remove, deleting }
 }

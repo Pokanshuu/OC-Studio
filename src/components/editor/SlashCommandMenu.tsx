@@ -2,7 +2,6 @@ import { Extension, type Editor } from '@tiptap/core'
 import Suggestion from '@tiptap/suggestion'
 import type { SuggestionProps, SuggestionKeyDownProps } from '@tiptap/suggestion'
 import { adjustSuggestionPosition } from '@/lib/menu-utils'
-import { MENU, MENU_ITEM_BASE } from '@/lib/ui-tokens'
 
 interface SlashCommandItem {
   title: string
@@ -87,8 +86,8 @@ function renderItems(
   items.forEach((item, index) => {
     const btn = document.createElement('button')
     btn.type = 'button'
-    btn.className = `${MENU_ITEM_BASE} ${
-      index === selected ? 'bg-[var(--oc-hover)] text-ink' : 'text-ink'
+    btn.className = `flex w-full items-center rounded-sm px-3 py-1.5 text-left text-sm transition-colors hover:bg-black/5 dark:hover:bg-white/5 ${
+      index === selected ? 'bg-black/5 dark:bg-white/5 text-ink' : 'text-ink'
     }`
     btn.textContent = item.title
     btn.addEventListener('click', () => command(item))
@@ -135,7 +134,7 @@ export const SlashCommand = Extension.create({
 
             popup = document.createElement('div')
             popup.className =
-              `pointer-events-auto fixed z-50 max-h-[60vh] overflow-auto min-w-[180px] ${MENU}`
+              'absolute z-50 max-h-[60vh] overflow-auto rounded-md border border-line bg-paper/85 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 min-w-[180px]'
 
             const rect = props.clientRect?.()
             if (rect) {
@@ -145,7 +144,7 @@ export const SlashCommand = Extension.create({
 
             selectedIndex = 0
             renderItems(popup, currentItems, selectedIndex, props.command)
-            ;(document.getElementById('overlay-root') ?? document.body).appendChild(popup)
+            document.body.appendChild(popup)
             document.addEventListener('pointerdown', (e) => {
               if (popup && !popup.contains(e.target as Node)) {
                 popup.remove()

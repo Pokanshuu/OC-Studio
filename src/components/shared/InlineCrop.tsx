@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import ReactCrop, { type Crop } from 'react-image-crop'
 import { Check, X } from 'lucide-react'
 import { getCroppedDataUrl } from '@/lib/image-crop'
@@ -21,28 +21,7 @@ export function InlineCrop({
 }: InlineCropProps) {
   const [crop, setCrop] = useState<Crop>()
   const [completedCrop, setCompletedCrop] = useState<Crop | null>(null)
-  const [safeSrc, setSafeSrc] = useState<string>(src)
   const imgRef = useRef<HTMLImageElement>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    let blobUrl: string | null = null
-    fetch(src)
-      .then((r) => r.blob())
-      .then((blob) => {
-        if (!cancelled) {
-          blobUrl = URL.createObjectURL(blob)
-          setSafeSrc(blobUrl)
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setSafeSrc(src)
-      })
-    return () => {
-      cancelled = true
-      if (blobUrl) URL.revokeObjectURL(blobUrl)
-    }
-  }, [src])
 
   function handleConfirm() {
     if (!completedCrop || !imgRef.current) {
@@ -63,7 +42,7 @@ export function InlineCrop({
   }
 
   return (
-    <div className="overflow-hidden rounded-item bg-paper-card">
+    <div className="overflow-hidden rounded-md bg-paper-card">
       <ReactCrop
         crop={crop}
         onChange={(_, percentCrop) => setCrop(percentCrop)}
@@ -74,14 +53,14 @@ export function InlineCrop({
         minHeight={20}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img ref={imgRef} src={safeSrc} alt="" className="max-w-full" draggable={false} />
+        <img ref={imgRef} src={src} alt="" className="max-w-full" draggable={false} />
       </ReactCrop>
 
       <div className="flex items-center justify-end gap-2 border-t border-line px-3 py-2">
         <button
           type="button"
           onClick={onCancel}
-          className="flex h-8 items-center gap-1.5 px-3 text-[13px] text-ink-muted transition-colors hover:text-ink"
+          className="flex h-9 items-center gap-1.5 rounded border border-line bg-paper-card px-3 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
         >
           <X size={16} strokeWidth={2} />
           <span>取消</span>
@@ -89,7 +68,7 @@ export function InlineCrop({
         <button
           type="button"
           onClick={handleConfirm}
-          className="flex h-8 items-center gap-1.5 bg-ink px-3 text-[13px] text-paper transition-opacity hover:bg-ink hover:opacity-85"
+          className="flex h-9 items-center gap-1.5 rounded bg-ink px-4 text-sm text-paper transition-colors hover:bg-ink/90"
         >
           <Check size={16} strokeWidth={2} />
           <span>确认</span>

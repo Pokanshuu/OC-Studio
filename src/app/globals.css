@@ -15,37 +15,6 @@
   --oc-ink-faint: #A5A098;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
-
-  /* 动效令牌（统一时长与缓动） */
-  --dur-fast: 150ms;
-  --dur-base: 200ms;
-  --ease-quiet: cubic-bezier(0.2, 0.6, 0.2, 1);
-
-  /* 控件悬停底色（界面无色：只用墨色极低透明度） */
-  --oc-hover: rgba(43, 43, 43, 0.045);
-
-  /* 弹窗遮罩（scrim）—— 与原来写死的 g-black/15 dark:bg-black/40 **取值完全一致**，
-     只是收成一处：以后要调只改这里。组件里不要再直接写 bg-black/xx。 */
-  --oc-scrim: rgba(0, 0, 0, 0.15);
-
-  /* 固定墨色 —— **不随主题翻转**。只给「底色固定」的色块用（如时间线的时期条）：
-     底色不跟着主题走，文字就不能跟着翻，否则暗色下浅底会配上浅字。 */
-  --oc-ink-fixed: #2B2B2B;
-  --oc-paper-fixed: #FEFCF8;
-
-  /* 危险操作的浅底（hover / 选中）：亮色是极淡的粉，暗色是极淡的同一枚红 */
-  --oc-error-light: #FBF2EF;
-
-  /* 危险按钮的实心底色 —— **灰调红**（比 --color-error 低饱和一档，压在纸上不刺眼、
-     压在暗底上也不糊）。只给「点下去数据就没了」的确认键：删除 / 永久删除 / 放弃未保存改动。
-     底色在亮暗两套里都用这一枚（同 --color-error），所以上面的字用固定纸白，不随主题翻转。 */
-  --oc-danger: #9C5F4D;
-  --oc-danger-hover: #8A5344;
-  --oc-danger-ink: #FBF7F1;
-
-  /* 浮层阴影（**唯一一档**）：只给浮在内容之上的东西 —— 菜单 / 下拉 / 右键 / 弹窗 / 抽屉 / 通知。
-     小、淡、两层：近处一圈收边 + 远处一圈柔光。内容面（卡片 / 按钮 / 输入）仍然是零阴影。 */
-  --oc-shadow-float: 0 1px 2px rgba(43, 43, 43, 0.05), 0 6px 16px -6px rgba(43, 43, 43, 0.12);
 }
 
 .dark {
@@ -57,11 +26,6 @@
   --oc-ink: #E3DFD8;
   --oc-ink-muted: #A5A098;
   --oc-ink-faint: #6E6A63;
-  --oc-hover: rgba(227, 223, 216, 0.06);
-  --oc-scrim: rgba(0, 0, 0, 0.40);
-  --oc-error-light: rgba(179, 102, 81, 0.18);
-  /* 暗色下浮层的「浮起」全靠阴影：底色更深，收边用更实的黑 */
-  --oc-shadow-float: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 20px -8px rgba(0, 0, 0, 0.55);
 }
 
 @theme inline {
@@ -73,15 +37,10 @@
   --color-ink: var(--oc-ink);
   --color-ink-muted: var(--oc-ink-muted);
   --color-ink-faint: var(--oc-ink-faint);
-  --color-ink-fixed: var(--oc-ink-fixed);
-  --color-paper-fixed: var(--oc-paper-fixed);
   --color-error: #B36651;
   --color-warning: #C68D44;
   --color-success: #A5A098;
-  --color-error-light: var(--oc-error-light);
-  --color-danger: var(--oc-danger);
-  --color-danger-hover: var(--oc-danger-hover);
-  --color-danger-ink: var(--oc-danger-ink);
+  --color-error-light: #FBF2EF;
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans SC', sans-serif;
   --font-mono: 'Courier New', Courier, monospace;
   --font-serif: 'Noto Serif SC', 'Times New Roman', serif;
@@ -117,20 +76,13 @@
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
-  /* ── 圆角：只有三档（唯一源，改这里等于全局改圆角）──────────────────
-     界面语言是「极小圆角」，所以三档全在 4–8px，没有 12px 以上的"卡片大圆角"。
-
-       小 rounded-item      4px   —— 贴内容的小件：chip / 菜单行 / 复选 / 缩略图 / 图片 / 卡片
-       中 rounded-control   6px   —— 一个能点的控件：按钮 / 图标按钮 / 菜单容器 / 浮层
-       大 rounded-panel     8px   —— 一块浮起来的容器：弹窗 / 面板 / 底部抽屉
-
-     另外只有两种非档位形态：rounded-full（圆形：头像 / 徽章 / 色点 / 开关滑杆 / 浮在图上的圆钮）
-     与 rounded-none（贴边整条 / 线段）。**不再有** media / menu 两个名字（已并入 item / control），
-     也没有 shadcn 那套 --radius-sm/md/lg 梯子（`rounded-sm|md|lg` 一律禁用，audit 会拦）。
-     元素 → 档位的完整对照表：.opencode/skills/oc-studio-design/SKILL.md「圆角」一节。 */
-  --radius-item: 4px;
-  --radius-control: 6px;
-  --radius-panel: 8px;
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
 @layer base {
@@ -154,6 +106,7 @@
     --border: #E7E3DC;
     --input: #E7E3DC;
     --ring: #D6D0C4;
+    --radius: 0.75rem;
     --shadow: none;
     --sidebar: #FAF7F2;
     --sidebar-foreground: #2B2B2B;
@@ -191,6 +144,7 @@
     --border: #38352F;
     --input: #38352F;
     --ring: #38352F;
+    --radius: 0.75rem;
     --shadow: none;
     --sidebar: #242321;
     --sidebar-foreground: #E3DFD8;
@@ -215,24 +169,10 @@
   html {
     @apply font-sans;
   }
-  /* 按钮默认带 `--radius-control`（6px）。全局 `button:hover` 会给**任何**按钮铺一块底色，
-     漏写 rounded-* 的那一个就会是个方块 —— 这里兜住，免得靠人记得写。
-     显式写了圆角类的以显式值为准（utilities 层在 base 之后）。 */
   button {
-    border-radius: var(--radius-control);
-    transition: background-color var(--dur-fast) ease-out, color var(--dur-fast) ease-out,
-      border-color var(--dur-fast) ease-out;
-  }
-  button:hover {
-    background-color: var(--oc-hover);
+    @apply hover:bg-paper-alt dark:hover:bg-white/5;
   }
 }
-
-/* 全局极小圆角 —— 界面语言：除圆形（头像/徽章/色点/开关）外，只有 4 / 6 / 8 三档。
-   三档定义在 @theme（`--radius-item/control/panel` → `rounded-item` 等工具类），
-   取类名请走 `lib/ui-tokens.ts` 的 `ROUND_*`；不要就地写 `rounded-[6px]`，
-   也不要用 `rounded-sm|md|lg`（Tailwind/shadcn 固定值，会和三档打架）。
-   每个元素归哪一档，见 .opencode/skills/oc-studio-design/SKILL.md「圆角」一节的对照表。 */
 
 /* Degradation: opaque background by default (browser dev / Linux) */
 body {
@@ -266,6 +206,26 @@ html.tauri-mica body {
   background: transparent !important;
 }
 
+/* 无边框窗口：顶部导航同时作为 Titlebar。
+   Tauri/Electron 可使用 app-region；WebView2 由宿主消息桥负责原生拖动。
+   所有交互控件必须显式 no-drag，否则点击会被窗口拖动吞掉。 */
+.app-titlebar {
+  -webkit-app-region: drag;
+  app-region: drag;
+  user-select: none;
+}
+
+.app-titlebar button,
+.app-titlebar a,
+.app-titlebar input,
+.app-titlebar select,
+.app-titlebar textarea,
+.app-titlebar [contenteditable="true"],
+.app-titlebar [data-no-drag] {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
 .transparent-text {
   text-shadow: none;
 }
@@ -279,15 +239,13 @@ html.tauri-mica.dark .transparent-text {
 }
 
 /* Degradation: layout shells restore standard bg */
-html:not(.tauri-mica) [data-app-shell],
 html:not(.tauri-mica) [data-sidebar],
 html:not(.tauri-mica) [data-menubar],
 html:not(.tauri-mica) [data-statusbar] {
   background: var(--color-paper-alt);
 }
 
-/* Mica active: layout shells transparent —— 外壳和 chrome 都不能铺底色，否则毛玻璃被盖死 */
-html.tauri-mica [data-app-shell],
+/* Mica active: layout shells transparent */
 html.tauri-mica [data-sidebar],
 html.tauri-mica [data-menubar],
 html.tauri-mica [data-statusbar] {
@@ -339,42 +297,13 @@ html.tauri-mica [data-statusbar] {
   outline: none;
 }
 
-/* 首块不带外边距：正文上方已经有一条 48px 的顶栏占位，再叠标题的 1.25em 会空出一大截 */
-.tiptap > :first-child {
-  margin-top: 0;
-}
-
-.tiptap a {
-  color: var(--color-ink);
-  text-decoration: underline;
-  text-decoration-color: var(--color-line-hover);
-  text-underline-offset: 2px;
-}
-
-.tiptap a:hover {
-  text-decoration-color: var(--color-ink-muted);
-}
-
-/* 任务列表：复选框与正文首行同排、同高
-   - 用 `.tiptap` 而不是 `.ProseMirror`：TipTap 一定会在编辑器根节点上补这个类，
-     任务列表样式就不会因为根节点类名变化（或自定义 class 覆盖）而整段失效
-   - **TipTap v3 的 TaskItem 是 NodeView**，真实 DOM 是
-       <ul data-type="taskList"><li data-checked><label contenteditable="false"><input><span></label><div>…</div></li>
-     `<li>` 上**没有** `data-type="taskItem"`（v2 才有）。只认旧选择器的话这一整段全是死规则：
-     li 留着列表圆点、label 成内联、div 块级换行 → 复选框和正文分两行，
-     复选框还会露出 WebView 的蓝色默认样式（这正是「一直不在同一行」的由来）。
-     所以两类选择器并排：`[data-type="taskList"] > li` 覆盖编辑器（NodeView），
-     `[data-type="taskItem"]` 覆盖静态站导出 / 只读渲染（走 renderHTML，属性是真的）。
-   - 复选框是 16px 方块，上下留白按首行行高补，所以文字换行后仍与首行对齐
-   - 文字列必须是块级 flex 子项：内联 div 里的 <p> 会把正文挤到复选框下一行
-   - 首尾段落去掉外边距：否则 <p> 的 0.5em 上边距把首行顶下去 */
-.tiptap [data-type="taskList"] {
+/* Task list checkbox */
+.ProseMirror [data-type="taskList"] {
   list-style: none !important;
   padding-left: 0 !important;
 }
 
-.tiptap [data-type="taskList"] > li,
-.tiptap [data-type="taskItem"] {
+.ProseMirror [data-type="taskItem"] {
   list-style: none !important;
   display: flex !important;
   align-items: flex-start !important;
@@ -382,90 +311,51 @@ html.tauri-mica [data-statusbar] {
   margin-bottom: 0.25em;
 }
 
-.tiptap [data-type="taskList"] > li > label,
-.tiptap [data-type="taskItem"] > label {
-  position: relative !important;
+.ProseMirror [data-type="taskItem"] > label {
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
   width: 16px !important;
   height: 16px !important;
-  flex: 0 0 16px !important;
+  border: 1px solid #E7E3DC !important;
+  border-radius: 4px !important;
+  background-color: #F3EFE9 !important;
   margin-right: 0.5rem !important;
-  /* 首行行高 1.625 × 15px ≈ 24.4px，补 (行高 − 16px) / 2 */
-  margin-top: 4px;
-  margin-top: calc((1lh - 16px) / 2);
-  border: 1px solid var(--oc-line) !important;
-  border-radius: var(--radius-item) !important;
-  background-color: var(--oc-paper-card) !important;
   cursor: pointer !important;
-  transition: background-color var(--dur-fast) var(--ease-quiet),
-    border-color var(--dur-fast) var(--ease-quiet);
+  flex-shrink: 0 !important;
+  margin-top: 3px;
 }
 
-.tiptap [data-type="taskList"] > li > label:hover,
-.tiptap [data-type="taskItem"] > label:hover {
-  border-color: var(--oc-line-hover) !important;
+.ProseMirror [data-type="taskItem"][data-checked="true"] > label {
+  background-color: #E7E3DC !important;
 }
 
-/* 选中：墨色实心 + 纸色勾 —— 与设置里的开关、Tab 下划线是同一枚「选中」色，
-   替掉 WebView 自带的蓝色复选框（那是唯一一处不在设计系统里的强调色）。 */
-.tiptap [data-type="taskList"] > li[data-checked="true"] > label,
-.tiptap [data-type="taskItem"][data-checked="true"] > label {
-  border-color: var(--oc-ink-muted) !important;
-  background-color: var(--oc-ink-muted) !important;
-}
-
-.tiptap [data-type="taskList"] > li[data-checked="true"] > label::after,
-.tiptap [data-type="taskItem"][data-checked="true"] > label::after {
+.ProseMirror [data-type="taskItem"][data-checked="true"] > label::after {
   content: '';
   display: block;
   width: 5px;
-  height: 9px;
-  border-right: 2px solid var(--oc-paper);
-  border-bottom: 2px solid var(--oc-paper);
+  height: 10px;
+  border-right: 2px solid #6E6A63;
+  border-bottom: 2px solid #6E6A63;
   transform: rotate(45deg) translate(-1px, -1px);
 }
 
-/* 原生复选框铺满方框但不可见：命中区仍是真实 input（键盘可聚焦），
-   同时把 WebView 自带的蓝色方块彻底挡掉 */
-.tiptap [data-type="taskList"] > li > label input[type="checkbox"],
-.tiptap [data-type="taskItem"] > label input[type="checkbox"] {
-  position: absolute !important;
-  inset: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-  margin: 0 !important;
-  appearance: none !important;
-  -webkit-appearance: none !important;
+.ProseMirror [data-type="taskItem"] > label input[type="checkbox"] {
   opacity: 0 !important;
-  cursor: pointer !important;
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
-.tiptap [data-type="taskList"] > li > label:has(input:focus-visible),
-.tiptap [data-type="taskItem"] > label:has(input:focus-visible) {
-  border-color: var(--oc-ink-muted) !important;
-}
-
-.tiptap [data-type="taskList"] > li > div,
-.tiptap [data-type="taskItem"] > div {
-  display: block !important;
-  flex: 1 1 auto !important;
-  min-width: 0;
-}
-
-.tiptap [data-type="taskList"] > li > div > p:first-child,
-.tiptap [data-type="taskItem"] > div > p:first-child {
-  margin-top: 0 !important;
-}
-
-.tiptap [data-type="taskList"] > li > div > p:last-child,
-.tiptap [data-type="taskItem"] > div > p:last-child {
-  margin-bottom: 0 !important;
+.ProseMirror [data-type="taskItem"] > div {
+  display: inline;
 }
 
 .tiptap h1 {
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-size: 1.5rem;
   font-weight: 400;
   line-height: 1.4;
@@ -474,7 +364,7 @@ html.tauri-mica [data-statusbar] {
 }
 
 .tiptap h2 {
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-size: 1.25rem;
   font-weight: 400;
   line-height: 1.4;
@@ -483,7 +373,6 @@ html.tauri-mica [data-statusbar] {
 }
 
 .tiptap h3 {
-  font-family: var(--font-serif);
   font-size: 1.1rem;
   font-weight: 500;
   line-height: 1.4;
@@ -532,7 +421,7 @@ html.tauri-mica [data-statusbar] {
 
 .tiptap code {
   background: var(--color-paper-card);
-  border-radius: 0;
+  border-radius: 3px;
   padding: 0.15em 0.4em;
   font-family: var(--font-mono);
   font-size: 0.9em;
@@ -541,7 +430,7 @@ html.tauri-mica [data-statusbar] {
 .tiptap pre {
   background: var(--color-paper-card);
   border: 1px solid var(--color-line);
-  border-radius: 0;
+  border-radius: 4px;
   padding: 0.75em 1em;
   margin-top: 0.75em;
   margin-bottom: 0.75em;
@@ -638,33 +527,6 @@ html.tauri-mica [data-statusbar] {
   transform: scale(0.96);
 }
 
-/* 浮层阴影 —— 唯一一档（值见 :root / .dark 的 --oc-shadow-float）。
-   只给浮在内容之上的东西用：菜单 / 下拉 / 右键 / 弹窗 / 抽屉 / 通知。
-   用法：loat-shadow（ui-tokens 里的 FLOAT_SHADOW）。内容面仍然零阴影。 */
-@utility float-shadow {
-  box-shadow: var(--oc-shadow-float);
-}
-/* 行分隔线（可 hover 的整行用）
-   行自己带 `border-b` 时，圆角会把线的两端向上带弯 —— 线跟着圆角走，看着像括号。
-   这里把线画成行内部的一条 1px 直线、两端各缩 8px：直线就是直线，圆角只管底色。
-   容器加 `.rules-end` 去掉最后一行的线（那条线什么都不分隔）。 */
-.row-rule {
-  position: relative;
-}
-.row-rule::after {
-  content: '';
-  position: absolute;
-  left: 0.5rem;
-  right: 0.5rem;
-  bottom: 0;
-  height: 1px;
-  background: var(--oc-line);
-  pointer-events: none;
-}
-.rules-end > *:last-child::after {
-  content: none;
-}
-
 /* Section stacking — CSS Grid so all sections occupy the same cell.
    Combined with display:none + allow-discrete, hidden sections don't
    affect the grid. During transitions both sections overlap for crossfade. */
@@ -685,10 +547,6 @@ html.tauri-mica [data-statusbar] {
   transition: opacity 150ms ease-out, display 150ms ease-out;
   transition-behavior: allow-discrete;
   scrollbar-gutter: stable;
-  /* 弹性头图（StretchyHeader）折叠时逐帧改头图高度，正文会被带着上移。
-     滚动锚定会为了「钉住视口里的元素」反向调整 scrollTop，和折叠量打架（来回跳），
-     这里关掉：各 section 里的图片框都有固定比例，本来也不需要锚定。 */
-  overflow-anchor: none;
 }
 .section-fade-no-gutter {
   scrollbar-gutter: auto;
@@ -788,24 +646,6 @@ html.tauri-mica [data-statusbar] {
   opacity: 1;
 }
 
-/* 模态浮层进场。
-   刻意只用进场动画、不做退出：面板关闭即卸载，省掉一套 mounted/visible 状态机
-   （那套状态机必须在 effect 里同步 setState 才能启动过渡，会触发 cascading render）。 */
-@keyframes overlay-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-@keyframes overlay-panel-in {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.overlay-backdrop {
-  animation: overlay-in 140ms ease-out;
-}
-.overlay-panel {
-  animation: overlay-panel-in 160ms ease-out;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .section-fade,
   .section-fade[data-visible="false"] {
@@ -814,13 +654,127 @@ html.tauri-mica [data-statusbar] {
   .section-fade[data-animate] {
     animation: none;
   }
-  /* 全局兜底：关闭所有过渡与动画（含 touch-feedback 缩放） */
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
+}
+
+
+/* Unified rounded controls across the app. */
+@layer base {
+  button:not([class*="rounded-full"]),
+  input:not([type="range"]):not([type="color"]):not([type="checkbox"]),
+  select,
+  textarea {
+    border-radius: 0.65rem !important;
   }
 }
 
+/* Subtle press feedback for all interactive buttons. */
+@media (prefers-reduced-motion: no-preference) {
+  button:not(:disabled) {
+    transition-property: color, background-color, border-color, opacity, transform;
+    transition-duration: 140ms;
+    transition-timing-function: ease;
+  }
+  button:not(:disabled):active {
+    transform: scale(0.97);
+  }
+}
+
+/* Relation handles are invisible hotspots over the avatar; the visible dot is removed. */
+.react-flow__handle.relation-handle-hidden {
+  opacity: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.react-flow__handle.relation-handle-hidden:hover {
+  opacity: 0 !important;
+}
+
+/* 节点右侧的“+”连线手柄：平时半透明，悬停/选中时高亮。 */
+.react-flow__handle.relation-connect-handle {
+  opacity: 0.35;
+  transition: opacity 140ms ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+.react-flow__node:hover .react-flow__handle.relation-connect-handle,
+.react-flow__node.selected .react-flow__handle.relation-connect-handle {
+  opacity: 1;
+}
+@media (hover: none) {
+  .react-flow__handle.relation-connect-handle {
+    opacity: 0.85;
+  }
+}
+
+/* Newly created relation-graph node highlight. */
+@keyframes relation-node-highlight {
+  0%, 100% { box-shadow: 0 0 0 2px #B36651, 0 0 0 5px rgba(179, 102, 81, 0.12); }
+  50% { box-shadow: 0 0 0 2px #B36651, 0 0 0 9px rgba(179, 102, 81, 0.04); }
+}
+.react-flow__node {
+  outline: none !important;
+}
+.react-flow__node.selected {
+  box-shadow: none !important;
+}
+.react-flow__node.relation-node-highlight {
+  z-index: 20;
+  border-radius: 16px;
+  animation: none;
+  box-shadow: none;
+}
+.react-flow__node.relation-node-highlight > div {
+  border-color: #b36651 !important;
+  box-shadow: 0 0 0 1px rgba(179, 102, 81, 0.55);
+}
+
+/* Character detail editor: keep its headings and spacing aligned with the
+   surrounding basic-info sections instead of looking like a separate article. */
+.character-detail .tiptap h2 {
+  margin: 0.9rem 0 0.25rem;
+  color: var(--color-ink-muted);
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.5;
+}
+.character-detail .tiptap h2:first-child {
+  margin-top: 0;
+}
+.character-detail .tiptap p {
+  margin: 0.25rem 0;
+}
+.character-detail .tiptap hr {
+  margin: 0.75rem 0;
+}
+
+/* Novel editor: a quiet Word-like sheet instead of a bordered form field. */
+.novel-paper-editor .tiptap {
+  min-height: 46vh;
+  color: #3b3227;
+  font-family: var(--font-serif);
+  font-size: 16px;
+  line-height: 2;
+}
+.novel-paper-editor .tiptap p {
+  margin: 0.35em 0;
+}
+.novel-paper-editor .tiptap h1,
+.novel-paper-editor .tiptap h2,
+.novel-paper-editor .tiptap h3 {
+  color: #3b3227;
+  font-family: var(--font-serif);
+  font-weight: 600;
+}
+.novel-paper-editor .tiptap h1 { font-size: 1.5rem; margin: 1.2em 0 0.5em; }
+.novel-paper-editor .tiptap h2 { font-size: 1.25rem; margin: 1.1em 0 0.45em; }
+.novel-paper-editor .tiptap h3 { font-size: 1.05rem; margin: 1em 0 0.4em; }
+.novel-paper-editor .tiptap blockquote {
+  border-left-color: #b9a184;
+  color: #6b5b47;
+}
+.novel-paper-editor .tiptap hr {
+  border-top-color: #d9c9b4;
+}
+.novel-paper-editor .tiptap ::selection {
+  background: rgba(179, 102, 81, 0.16);
+}

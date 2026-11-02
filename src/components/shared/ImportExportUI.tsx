@@ -12,21 +12,22 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogCancel,
+  AlertDialogAction,
 } from '@/components/ui/alert-dialog'
 
-import { downloadFullBackup } from '@/lib/export'
+import { exportAllData, exportAllDataZip, downloadJson } from '@/lib/export'
 import { validateImportData, importData } from '@/lib/import'
-import type { ImportResult, ImportSummary, MergeStrategy } from '@/lib/import'
-import { notifyDataUpdated } from '@/lib/data-events'
-import { BTN_DANGER, BTN_PRIMARY } from '@/lib/ui-tokens'
-import { MergeStrategyPicker } from './merge-strategy'
+import type { ImportSummary, MergeStrategy } from '@/lib/import'
+import { readZip } from '@/lib/zip'
 
-/** 导入导出。备份格式只有一种：`.ocbak`（可被 `.json` 后缀兼容），版本字段由 `validateImportData` 判定 */
-export function useImportExport(options?: {
-  /** 导入成功后的回调：启动闸门用它接着把数据落到文件夹里 */
-  onImported?: (result: ImportResult, strategy: MergeStrategy) => void
-}) {
-  const onImported = options?.onImported
+const MERGE_OPTIONS: { value: MergeStrategy; label: string; description: string }[] = [
+  { value: 'skip', label: '跳过重复', description: '仅添加不重名的数据，已有记录保持不变' },
+  { value: 'overwrite', label: '覆盖重复', description: '用导入数据替换本地同名记录' },
+  { value: 'keep-both', label: '保留两者', description: '导入数据作为新条目，生成新 ID' },
+  { value: 'replace', label: '清空并导入', description: '清除所有数据后导入，等同于覆盖替换' },
+]
+
+export function useImportExport() {
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [pendingJson, setPendingJson] = useState<unknown>(null)
@@ -40,13 +41,24 @@ export function useImportExport(options?: {
     if (exporting) return
     setExporting(true)
     try {
-      // 备份只有一种：完整备份（.ocbak，图片内联）。不再提供「不含图片的 JSON」
-      // —— 那是个更弱、更容易丢东西的第二格式。
-      const name = await downloadFullBackup()
-      toast.success(`完整备份导出成功：${name}`)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : ''
-      if (message !== '已取消') toast.error('导出失败')
+      const data = await exportAllData()
+      const name = downloadJson(data)
+      toast.success(`导出成功：${name}`)
+    } catch {
+      toast.error('导出失败')
+    } finally {
+      setExporting(false)
+    }
+  }, [exporting])
+
+  const handleExportZip = useCallback(async () => {
+    if (exporting) return
+    setExporting(true)
+    try {
+      const result = await exportAllDataZip()
+      toast.success(`ZIP 备份已导出：${result.name}`)
+    } catch {
+      toast.error('导出 ZIP 失败')
     } finally {
       setExporting(false)
     }
@@ -56,29 +68,36 @@ export function useImportExport(options?: {
     fileInputRef.current?.click()
   }, [])
 
-  const handleFileSelected = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelected = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
+    e.target.value = ''
     if (!file) return
 
-    const reader = new FileReader()
-    reader.onload = () => {
-      try {
-        const json = JSON.parse(reader.result as string)
-        const s = validateImportData(json)
-        setPendingJson(json)
-        setSummary(s)
-        setStrategy('skip')
-        setConfirmOpen(true)
-      } catch (err) {
-        const message = err instanceof Error ? err.message : '无效的数据格式'
-        toast.error(message)
+    try {
+      const buffer = await file.arrayBuffer()
+      const head = new Uint8Array(buffer.slice(0, 4))
+      const isZip = head[0] === 0x50 && head[1] === 0x4b
+      let text: string
+      if (isZip) {
+        const entries = await readZip(buffer)
+        const dataEntry =
+          entries.get('oc-data.json') ??
+          [...entries.entries()].find(([name]) => name.toLowerCase().endsWith('.json'))?.[1]
+        if (!dataEntry) throw new Error('ZIP 中未找到 oc-data.json')
+        text = new TextDecoder().decode(dataEntry)
+      } else {
+        text = new TextDecoder().decode(new Uint8Array(buffer))
       }
+      const json = JSON.parse(text)
+      const s = validateImportData(json)
+      setPendingJson(json)
+      setSummary(s)
+      setStrategy('skip')
+      setConfirmOpen(true)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '无效的数据格式'
+      toast.error(message)
     }
-    reader.onerror = () => {
-      toast.error('文件读取失败')
-    }
-    reader.readAsText(file)
-    e.target.value = ''
   }, [])
 
   const handleConfirmImport = useCallback(async () => {
@@ -86,7 +105,7 @@ export function useImportExport(options?: {
     setImporting(true)
     try {
       const result = await importData(pendingJson, strategy, queryClient)
-      notifyDataUpdated()
+      window.dispatchEvent(new CustomEvent('data-updated'))
 
       const parts: string[] = []
       if (result.added > 0) parts.push(`新增 ${result.added} 条`)
@@ -97,13 +116,12 @@ export function useImportExport(options?: {
       setConfirmOpen(false)
       setPendingJson(null)
       setSummary(null)
-      onImported?.(result, strategy)
     } catch {
       toast.error('导入失败')
     } finally {
       setImporting(false)
     }
-  }, [pendingJson, strategy, queryClient, onImported])
+  }, [pendingJson, strategy, queryClient])
 
   const handleCancel = useCallback(() => {
     setConfirmOpen(false)
@@ -112,7 +130,7 @@ export function useImportExport(options?: {
   }, [])
 
   const summaryText = summary
-    ? `角色 ${summary.characters} 条，事件 ${summary.events} 条，国家 ${summary.countries} 条，词条 ${summary.worldEntries} 条，标签 ${summary.tags} 条，时期 ${summary.periods} 条`
+    ? `角色 ${summary.characters} 条，事件 ${summary.events} 条，国家 ${summary.countries} 条，词条 ${summary.worldEntries} 条，标签 ${summary.tags} 条，地图 ${summary.maps} 张`
     : ''
 
   const dialog = (
@@ -120,7 +138,7 @@ export function useImportExport(options?: {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".ocbak,.json"
+        accept=".ocbak,.json,.zip"
         className="hidden"
         onChange={handleFileSelected}
       />
@@ -135,23 +153,51 @@ export function useImportExport(options?: {
             </AlertDialogDescription>
           </AlertDialogHeader>
 
-          <MergeStrategyPicker value={strategy} onChange={setStrategy} />
+          <div className="flex flex-col gap-2 py-2">
+            <span className="text-sm text-ink-muted">重复记录处理策略</span>
+            {MERGE_OPTIONS.map((opt) => (
+              <label
+                key={opt.value}
+                className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors ${
+                  strategy === opt.value
+                    ? 'border-line-hover bg-paper-card'
+                    : 'border-line hover:border-line-hover'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="merge-strategy"
+                  value={opt.value}
+                  checked={strategy === opt.value}
+                  onChange={() => setStrategy(opt.value)}
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded-full border-line bg-paper-card text-ink accent-ink"
+                />
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-sm text-ink">{opt.label}</span>
+                  <span className="text-xs text-ink-muted">{opt.description}</span>
+                  {opt.value === 'keep-both' && strategy === 'keep-both' ? (
+                    <span className="text-xs text-error pt-0.5">
+                      注意：关联关系（如 relatedCharacters）可能需要手动修复
+                    </span>
+                  ) : null}
+                </div>
+              </label>
+            ))}
+          </div>
 
           <AlertDialogFooter>
             <AlertDialogCancel onClick={handleCancel}>取消</AlertDialogCancel>
-            <button
-              type="button"
+            <AlertDialogAction
               onClick={handleConfirmImport}
               disabled={importing}
-              className={strategy === 'replace' ? BTN_DANGER : BTN_PRIMARY}
             >
               {importing ? '导入中...' : '确认导入'}
-            </button>
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </>
   )
 
-  return { handleExport, handleImportClick, dialog }
+  return { handleExport, handleExportZip, handleImportClick, dialog }
 }

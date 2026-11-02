@@ -5,11 +5,6 @@ import { Menu } from "@base-ui/react/menu"
 
 import { cn } from "@/lib/utils"
 
-import { MENU, MENU_ITEM } from "@/lib/ui-tokens"
-
-const PANEL = `z-[99999] min-w-[160px] pointer-events-none ${MENU}`
-const ITEM = `${MENU_ITEM} cursor-pointer outline-none pointer-events-auto data-highlighted:bg-[var(--oc-hover)]`
-
 function DropdownMenu(props: Menu.Root.Props) {
   return <Menu.Root {...props} />
 }
@@ -22,7 +17,7 @@ function DropdownMenuTrigger({
     <Menu.Trigger
       {...props}
       className={cn(
-        "inline-flex items-center justify-center px-2 py-1 text-[13px] text-ink-muted transition-colors hover:text-ink data-open:text-ink transparent-text",
+        "inline-flex items-center justify-center rounded-lg px-2.5 py-1.5 text-[13px] text-ink-muted outline-none transition-colors hover:bg-black/5 hover:text-ink focus-visible:bg-black/5 data-open:bg-black/5 data-open:text-ink dark:hover:bg-white/5 dark:focus-visible:bg-white/5 dark:data-open:bg-white/5 transparent-text",
         className
       )}
     />
@@ -37,7 +32,13 @@ function DropdownMenuContent({
   return (
     <Menu.Portal container={typeof document !== 'undefined' ? document.getElementById('overlay-root') || document.body : undefined}>
       <Menu.Positioner sideOffset={4} align="start" positionMethod="fixed">
-        <Menu.Popup className={cn(PANEL, className)} {...props}>
+        <Menu.Popup
+          className={cn(
+            "z-[99999] min-w-[180px] rounded-xl border border-line bg-paper/95 p-1.5 shadow-[0_18px_50px_rgba(40,32,24,0.16)] outline-none backdrop-blur-lg dark:bg-paper/95 pointer-events-none",
+            className
+          )}
+          {...props}
+        >
           {children}
         </Menu.Popup>
       </Menu.Positioner>
@@ -49,7 +50,15 @@ function DropdownMenuItem({
   className,
   ...props
 }: Menu.Item.Props) {
-  return <Menu.Item className={cn(ITEM, className)} {...props} />
+  return (
+    <Menu.Item
+      className={cn(
+        "flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] text-ink outline-none transition-colors data-highlighted:bg-black/5 dark:data-highlighted:bg-white/5 data-highlighted:text-ink disabled:pointer-events-none disabled:text-ink-faint pointer-events-auto",
+        className
+      )}
+      {...props}
+    />
+  )
 }
 
 function DropdownMenuSeparator({
@@ -58,7 +67,7 @@ function DropdownMenuSeparator({
 }: React.ComponentProps<"div">) {
   return (
     <Menu.Separator
-      className={cn("mx-2 my-1 h-px bg-line", className)}
+      className={cn("-mx-1 my-1 h-px bg-line", className)}
       {...props}
     />
   )
@@ -70,7 +79,7 @@ function DropdownMenuLabel({
 }: React.ComponentProps<"div">) {
   return (
     <div
-      className={cn("px-3 py-1 text-[11px] tracking-[0.14em] text-ink-faint", className)}
+      className={cn("px-3 py-1.5 text-xs font-medium text-ink-faint", className)}
       {...props}
     />
   )
@@ -98,7 +107,13 @@ function DropdownMenuRadioItem({
   ...props
 }: Menu.RadioItem.Props) {
   return (
-    <Menu.RadioItem className={cn(ITEM, className)} {...props}>
+    <Menu.RadioItem
+      className={cn(
+        "relative flex cursor-pointer items-center gap-2 rounded-sm px-3 py-1.5 text-sm text-ink outline-none transition-colors data-highlighted:bg-black/5 dark:data-highlighted:bg-white/5 data-highlighted:text-ink pointer-events-auto",
+        className
+      )}
+      {...props}
+    >
       {children}
       <Menu.RadioItemIndicator className="absolute left-1 flex h-3.5 w-3.5 items-center justify-center">
         <div className="h-1.5 w-1.5 rounded-full bg-ink" />
@@ -113,7 +128,13 @@ function DropdownMenuCheckboxItem({
   ...props
 }: Menu.CheckboxItem.Props) {
   return (
-    <Menu.CheckboxItem className={cn(ITEM, className)} {...props}>
+    <Menu.CheckboxItem
+      className={cn(
+        "relative flex cursor-pointer items-center gap-2 rounded-sm px-3 py-1.5 text-sm text-ink outline-none transition-colors data-highlighted:bg-black/5 dark:data-highlighted:bg-white/5 data-highlighted:text-ink pointer-events-auto",
+        className
+      )}
+      {...props}
+    >
       {children}
       <Menu.CheckboxItemIndicator className="absolute left-1 flex h-3.5 w-3.5 items-center justify-center">
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -137,7 +158,13 @@ function DropdownMenuSubTrigger({
   ...props
 }: Menu.SubmenuTrigger.Props) {
   return (
-    <Menu.SubmenuTrigger className={cn(ITEM, className)} {...props}>
+    <Menu.SubmenuTrigger
+      className={cn(
+        "flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] text-ink outline-none transition-colors data-highlighted:bg-black/5 dark:data-highlighted:bg-white/5 data-highlighted:text-ink pointer-events-auto",
+        className
+      )}
+      {...props}
+    >
       {children}
       <svg className="ml-auto h-3 w-3 text-ink-faint" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <polyline points="9 6 15 12 9 18" />
@@ -154,7 +181,13 @@ function DropdownMenuSubContent({
   return (
     <Menu.Portal container={typeof document !== 'undefined' ? document.getElementById('overlay-root') || document.body : undefined}>
       <Menu.Positioner sideOffset={4} alignOffset={-4} align="start" positionMethod="fixed">
-        <Menu.Popup className={cn(PANEL, className)} {...props}>
+        <Menu.Popup
+          className={cn(
+            "z-[99999] min-w-[180px] rounded-xl border border-line bg-paper/95 p-1.5 shadow-[0_18px_50px_rgba(40,32,24,0.16)] outline-none backdrop-blur-lg dark:bg-paper/95 pointer-events-none",
+            className
+          )}
+          {...props}
+        >
           {children}
         </Menu.Popup>
       </Menu.Positioner>

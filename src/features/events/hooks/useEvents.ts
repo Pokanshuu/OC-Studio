@@ -1,18 +1,12 @@
 'use client'
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import type { Event } from '@/types'
 import type { EventFormData } from '../types'
 import * as eventService from '../services'
-import { DATA_UPDATED_EVENT } from '@/lib/data-events'
 
-const LIST_KEY = ['events']
 const TIMELINE_KEY = ['timeline-events']
-
-function makeEventKey(id: number | null) {
-  return ['event', id]
-}
 
 export function useEventList(): {
   events: Event[]
@@ -20,30 +14,51 @@ export function useEventList(): {
   error: string | null
   refresh: () => void
 } {
-  const { data, isLoading, error, refetch } = useQuery({
-    queryKey: LIST_KEY,
-    queryFn: () => eventService.getEvents(),
-    staleTime: 30_000,
-  })
+  const [events, setEvents] = useState<Event[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   const refresh = useCallback(() => {
-    void refetch()
-  }, [refetch])
+    setRefreshKey((k) => k + 1)
+  }, [])
 
   useEffect(() => {
-    const handler = () => {
-      void refetch()
-    }
-    window.addEventListener(DATA_UPDATED_EVENT, handler)
-    return () => window.removeEventListener(DATA_UPDATED_EVENT, handler)
-  }, [refetch])
+    let cancelled = false
 
-  return {
-    events: data ?? [],
-    loading: isLoading,
-    error: error instanceof Error ? error.message : null,
-    refresh,
-  }
+    async function load(): Promise<void> {
+      setLoading(true)
+      setError(null)
+      try {
+        const data = await eventService.getEvents()
+        if (!cancelled) {
+          setEvents(data)
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : '加载失败')
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      }
+    }
+
+    void load()
+
+    return () => {
+      cancelled = true
+    }
+  }, [refreshKey])
+
+  useEffect(() => {
+    const handler = () => refresh()
+    window.addEventListener('data-updated', handler)
+    return () => window.removeEventListener('data-updated', handler)
+  }, [refresh])
+
+  return { events, loading, error, refresh }
 }
 
 export function useEvent(id: number | null): {
@@ -52,22 +67,54 @@ export function useEvent(id: number | null): {
   error: string | null
   refresh: () => void
 } {
-  const { data, isLoading, error, refetch } = useQuery({
-    queryKey: makeEventKey(id),
-    queryFn: async () => (id === null ? undefined : eventService.getEvent(id)),
-    enabled: id !== null,
-    // 详情始终取最新：时间线拖拽等跨模块写入后，重新挂载编辑器时必须读到新值
-    staleTime: 0,
-  })
+  const [event, setEvent] = useState<Event | undefined>(undefined)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [refreshKey, setRefreshKey] = useState(0)
 
-  const refresh = useCallback(() => {
-    void refetch()
-  }, [refetch])
+  const refresh = useCallback(() => setRefreshKey((k) => k + 1), [])
+
+  useEffect(() => {
+    if (id === null) return
+
+    let cancelled = false
+
+    async function load(): Promise<void> {
+      setLoading(true)
+      setError(null)
+      try {
+        const data = await eventService.getEvent(id as number)
+        if (!cancelled) {
+          setEvent(data)
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : '加载失败')
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      }
+    }
+
+    void load()
+
+    return () => {
+      cancelled = true
+    }
+  }, [id, refreshKey])
+
+  useEffect(() => {
+    const handler = () => refresh()
+    window.addEventListener('data-updated', handler)
+    return () => window.removeEventListener('data-updated', handler)
+  }, [refresh])
 
   return {
-    event: id === null ? undefined : data?.id === id ? data : undefined,
-    loading: id === null ? false : isLoading,
-    error: error instanceof Error ? error.message : null,
+    event: id === null ? undefined : event?.id === id ? event : undefined,
+    loading: id === null ? false : loading,
+    error: id === null ? null : error,
     refresh,
   }
 }
@@ -76,68 +123,64 @@ export function useCreateEvent(): {
   createEvent: (data: EventFormData) => Promise<number>
   creating: boolean
 } {
+  const [creating, setCreating] = useState(false)
   const queryClient = useQueryClient()
-  const mutation = useMutation({
-    mutationFn: (data: EventFormData) => eventService.createEvent(data),
-    onSuccess: (id) => {
-      void queryClient.invalidateQueries({ queryKey: LIST_KEY })
-      void queryClient.invalidateQueries({ queryKey: TIMELINE_KEY })
-      void queryClient.invalidateQueries({ queryKey: makeEventKey(id) })
-    },
-  })
 
-  return {
-    createEvent: async (data: EventFormData) => mutation.mutateAsync(data),
-    creating: mutation.isPending,
-  }
+  const create = useCallback(async (data: EventFormData): Promise<number> => {
+    setCreating(true)
+    try {
+      const id = await eventService.createEvent(data)
+      void queryClient.invalidateQueries({ queryKey: TIMELINE_KEY })
+      void queryClient.invalidateQueries({ queryKey: ['event', id] })
+      return id
+    } finally {
+      setCreating(false)
+    }
+  }, [queryClient])
+
+  return { createEvent: create, creating }
 }
 
 export function useUpdateEvent(): {
   updateEvent: (id: number, data: Partial<EventFormData>) => Promise<void>
   updating: boolean
 } {
+  const [updating, setUpdating] = useState(false)
   const queryClient = useQueryClient()
-  const mutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<EventFormData> }) =>
-      eventService.updateEvent(id, data),
-    onSuccess: (_result, variables) => {
-      void queryClient.invalidateQueries({ queryKey: LIST_KEY })
-      void queryClient.invalidateQueries({ queryKey: TIMELINE_KEY })
-      void queryClient.invalidateQueries({ queryKey: makeEventKey(variables.id) })
-    },
-  })
 
-  return {
-    updateEvent: async (id: number, data: Partial<EventFormData>) =>
-      mutation.mutateAsync({ id, data }),
-    updating: mutation.isPending,
-  }
+  const update = useCallback(
+    async (id: number, data: Partial<EventFormData>): Promise<void> => {
+      setUpdating(true)
+      try {
+        await eventService.updateEvent(id, data)
+        void queryClient.invalidateQueries({ queryKey: TIMELINE_KEY })
+        void queryClient.invalidateQueries({ queryKey: ['event', id] })
+      } finally {
+        setUpdating(false)
+      }
+    },
+    [queryClient],
+  )
+
+  return { updateEvent: update, updating }
 }
 
 export function useDeleteEvent(): {
   deleteEvent: (id: number) => Promise<void>
   deleting: boolean
 } {
+  const [deleting, setDeleting] = useState(false)
   const queryClient = useQueryClient()
-  const mutation = useMutation({
-    mutationFn: (id: number) => eventService.deleteEvent(id),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: LIST_KEY })
+
+  const remove = useCallback(async (id: number): Promise<void> => {
+    setDeleting(true)
+    try {
+      await eventService.deleteEvent(id)
       void queryClient.invalidateQueries({ queryKey: TIMELINE_KEY })
-    },
-  })
+    } finally {
+      setDeleting(false)
+    }
+  }, [queryClient])
 
-  return {
-    deleteEvent: async (id: number) => mutation.mutateAsync(id),
-    deleting: mutation.isPending,
-  }
-}
-
-/** 拖拽排序后写回顺序，并刷新列表 */
-export function useReorderEvents(): (ids: number[]) => Promise<void> {
-  const queryClient = useQueryClient()
-  return async (ids: number[]) => {
-    await eventService.reorderEvents(ids)
-    await queryClient.invalidateQueries({ queryKey: LIST_KEY })
-  }
+  return { deleteEvent: remove, deleting }
 }

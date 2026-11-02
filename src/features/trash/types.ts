@@ -1,4 +1,4 @@
-export type TrashItemType = 'character' | 'event' | 'country' | 'worldEntry'
+export type TrashItemType = 'character' | 'event' | 'country' | 'worldEntry' | 'map'
 
 export interface TrashItem {
   id: number

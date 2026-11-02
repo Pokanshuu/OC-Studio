@@ -1,49 +1,50 @@
 'use client'
 
-import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
+import { Plus, Menu, ChevronLeft } from 'lucide-react'
+import type { Editor } from '@tiptap/core'
+import { EditorCore } from '@/components/editor/EditorCore'
 import { useDevice } from '@/lib/use-device'
 import type { WorldEntry } from '@/types'
-import type { Editor } from '@tiptap/core'
-import { EntityHistoryButton } from '@/features/vault'
-import { EntityEditorShell } from '@/components/shared/EntityEditorShell'
 import { useEntryList, useEntry, useCreateEntry, useDeleteEntry } from '../hooks/useWorldEntries'
-import { renameEntry, reorderEntries, updateEntry } from '../services'
-import { useFields } from '@/lib/fields'
+import { saveEntryContent, renameEntry, reorderEntries } from '../services'
+import { syncReferenceLabels } from '@/lib/reference-sync'
 import type { WorldFormData } from '../types'
-import { useWorldEntryDraft } from '../hooks/useWorldEntryDraft'
-import { WorldFrontmatter } from './WorldFrontmatter'
-import { WorldTreePanel } from './WorldTreePanel'
-import { WorldEntryBody } from './WorldEntryBody'
-import { docHasRef, filterEntriesWithAncestors } from './world-content-utils'
+import { WorldTree } from './WorldTree'
 import { useMobilePageHeader } from '@/components/layout/MobilePageHeaderContext'
 import { useMobileNavigation } from '@/components/layout/MobileNavigationContext'
+
+function parseEditorContent(content: string): object | string {
+  if (!content) return ''
+  try {
+    const parsed = JSON.parse(content) as unknown
+    if (parsed && typeof parsed === 'object') return parsed as object
+    return content
+  } catch {
+    return content
+  }
+}
 
 interface WorldLayoutProps {
   onMentionClick?: (id: string, entityType?: string) => void
   onCharacterCount?: (count: number) => void
   selectedEntryId?: number | null
-  /** 内链/引用跳进来的一次性指令，消费后通知上层清空，避免下次列表刷新时重放 */
-  onSelectedEntryConsumed?: () => void
   onWikiLinkClick?: (id: string) => void
 }
 
-export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId, onSelectedEntryConsumed, onWikiLinkClick }: WorldLayoutProps) {
+export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId, onWikiLinkClick }: WorldLayoutProps) {
   const { entries, loading, error, refresh } = useEntryList()
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [title, setTitle] = useState('')
   const [showMobileTree, setShowMobileTree] = useState(false)
   const [treeCollapsed, setTreeCollapsed] = useState(false)
-  const [treeQuery, setTreeQuery] = useState('')
-  const [tags, setTags] = useState<number[]>([])
-  const [bodyEditor, setBodyEditor] = useState<Editor | null>(null)
-  const handledNavRef = useRef<number | null>(null)
-  const worldFields = useFields('worldEntry')
-  const showTags = worldFields.some((field) => field.id === 'tags')
   const { createEntry } = useCreateEntry()
   const { deleteEntry } = useDeleteEntry()
   const { isMobile } = useDevice()
   const { setConfig } = useMobilePageHeader()
   const { section } = useMobileNavigation()
+
+  const editorContainerRef = useRef<HTMLDivElement>(null)
 
   // Set page title — only when this section is active
   useEffect(() => {
@@ -58,58 +59,77 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
     return () => window.removeEventListener('worldToggle', handler)
   }, [])
 
+  const editorRef = useRef<Editor | null>(null)
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingSaveRef = useRef<{ title: string; content: string } | null>(null)
+  const selectedIdRef = useRef<number | null>(null)
+  const saveEnabledRef = useRef(false)
+  const currentEntryRef = useRef<WorldEntry | undefined>(undefined)
+
+  useEffect(() => { selectedIdRef.current = selectedId }, [selectedId])
+
   const { entry: currentEntry } = useEntry(selectedId)
+  useEffect(() => { currentEntryRef.current = currentEntry }, [currentEntry])
 
-  const {
-    handleContentChange,
-    handleTitleChange,
-    handleEditorReady,
-    flushSave,
-    selectedIdRef,
-  } = useWorldEntryDraft({ selectedId, currentEntry, refresh, title, setTitle })
-
-  // 被引用：哪些词条在正文里 [[链接]] 或 @ 引用了当前词条
-  const backlinks = useMemo(() => {
-    if (selectedId == null) return [] as { id: number; title: string }[]
-    const idStr = String(selectedId)
-    const found: { id: number; title: string }[] = []
-    for (const e of entries) {
-      if (e.id == null || e.id === selectedId) continue
-      if (typeof e.content !== 'string' || !e.content.includes(idStr)) continue
-      try {
-        if (docHasRef(JSON.parse(e.content), idStr)) found.push({ id: e.id, title: e.title })
-      } catch {
-        // 旧数据可能不是 JSON，忽略
-      }
+  const flushSave = useCallback(async () => {
+    if (!selectedIdRef.current || !pendingSaveRef.current) return
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current)
+      saveTimerRef.current = null
     }
-    return found
-  }, [entries, selectedId])
+    const { title: t, content: c } = pendingSaveRef.current
+    try {
+      const doc = JSON.parse(c) as Record<string, unknown>
+      const synced = await syncReferenceLabels(doc)
+      await saveEntryContent(selectedIdRef.current, t, JSON.stringify(synced))
+      pendingSaveRef.current = null
+      refresh()
+    } catch (err) {
+      console.error(`[save] flushSave 写入失败:`, err)
+    }
+  }, [refresh])
 
-  const visibleEntries = useMemo(
-    () => filterEntriesWithAncestors(entries, treeQuery),
-    [entries, treeQuery],
-  )
+  const scheduleSave = useCallback((newTitle: string, json: object) => {
+    if (!selectedIdRef.current) return
+    const contentStr = JSON.stringify(json)
+    pendingSaveRef.current = { title: newTitle, content: contentStr }
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(() => {
+      void flushSave()
+    }, 2000)
+  }, [flushSave])
 
-  const handleTagsChange = useCallback((ids: number[]) => {
-    setTags(ids)
-    if (selectedIdRef.current == null) return
-    void updateEntry(selectedIdRef.current, { tags: ids }).catch(() => {})
-  }, [selectedIdRef])
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const handleContentChange = useCallback((_html: string) => {
+    if (!saveEnabledRef.current) return
+    if (!editorRef.current) return
+    const json = editorRef.current.getJSON()
+    scheduleSave(title, json)
+  }, [title, scheduleSave])
+
+  const handleTitleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTitle = e.target.value
+    setTitle(newTitle)
+    if (editorRef.current) {
+      const json = editorRef.current.getJSON()
+      scheduleSave(newTitle, json)
+    }
+  }, [scheduleSave])
 
   const handleSelect = useCallback(async (id: number, entry: WorldEntry) => {
     if (selectedIdRef.current === id) return
     await flushSave()
     setSelectedId(id)
     setTitle(entry.title)
-    setTags(entry.tags ?? [])
     setShowMobileTree(false)
-  }, [flushSave, selectedIdRef])
+  }, [flushSave])
 
   const handleCreate = useCallback(async (parentId: number | null, entryTitle: string) => {
     await flushSave()
     const data: WorldFormData = {
       title: entryTitle,
       content: '',
+      category: 'concept',
       parentId,
       order: 0,
       isConcept: false,
@@ -118,7 +138,6 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
     const newId = await createEntry(data)
     setSelectedId(newId)
     setTitle(entryTitle)
-    setTags([])
     refresh()
   }, [flushSave, createEntry, refresh])
 
@@ -138,61 +157,133 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
   }, [refresh])
 
   useEffect(() => {
-    if (selectedEntryId == null) return
-    // 导航意图只消费一次：worldSelectedEntryId 是「跳到这里」的一次性指令，
-    // 一旦消费就把 handledNavRef 记下并通知上层清空。
-    // 这个 effect 的依赖里有 entries —— 自动保存后的 refresh() 会让它重跑；
-    // 若不做一次性判定，上次的内链跳转目标就会被反复重放，表现为「编辑着突然跳到别的词条」。
-    if (selectedEntryId === handledNavRef.current) return
-    if (selectedEntryId === selectedIdRef.current) {
-      handledNavRef.current = selectedEntryId
-      onSelectedEntryConsumed?.()
-      return
+    const handler = () => {
+      if (selectedIdRef.current && pendingSaveRef.current) {
+        if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+        void saveEntryContent(
+          selectedIdRef.current,
+          pendingSaveRef.current.title,
+          pendingSaveRef.current.content,
+        ).catch((err) => {
+          console.error(`[WorldLayout] beforeunload 保存失败:`, err)
+        })
+      }
     }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (selectedEntryId == null || selectedEntryId === selectedIdRef.current) return
     const entry = entries.find((e) => e.id === selectedEntryId)
     if (!entry) return
-    handledNavRef.current = selectedEntryId
-    onSelectedEntryConsumed?.()
     void flushSave().then(() => {
       setSelectedId(selectedEntryId)
       setTitle(entry.title)
-      setTags(entry.tags ?? [])
     })
-  }, [selectedEntryId, entries, flushSave, selectedIdRef, onSelectedEntryConsumed])
+  }, [selectedEntryId, entries, flushSave])
 
-  const handleBodyReady = (editor: Editor) => {
-    setBodyEditor(editor)
-    handleEditorReady(editor)
-  }
-
-  const handleToggleList = () => {
-    if (isMobile) {
-      setShowMobileTree((open) => !open)
-      return
+  const handleEditorReady = useCallback((editor: Editor) => {
+    editorRef.current = editor
+    saveEnabledRef.current = false
+    const entry = currentEntryRef.current
+    if (entry && entry.id === selectedIdRef.current && entry.content) {
+      const raw = parseEditorContent(entry.content)
+      void (async () => {
+        const content =
+          raw && typeof raw === 'object'
+            ? await syncReferenceLabels(raw as Record<string, unknown>)
+            : raw
+        if (entry.id !== selectedIdRef.current) return
+        editor.commands.setContent(content)
+        setTimeout(() => {
+          saveEnabledRef.current = true
+        }, 300)
+      })()
     }
-    setTreeCollapsed((collapsed) => !collapsed)
-  }
+  }, [])
 
-  const treePanel = (
-    <WorldTreePanel
-      entries={visibleEntries}
-      selectedId={selectedId}
-      onSelect={handleSelect}
-      onCreate={handleCreate}
-      onDelete={handleDelete}
-      onRename={handleRename}
-      onReorder={handleReorder}
-      treeQuery={treeQuery}
-      onTreeQueryChange={setTreeQuery}
-      treeCollapsed={treeCollapsed}
-      onToggleTreeCollapsed={() => setTreeCollapsed((collapsed) => !collapsed)}
-      isMobile={isMobile}
-      onCloseMobileTree={() => setShowMobileTree(false)}
-    />
+  useEffect(() => {
+    if (currentEntry && editorRef.current && currentEntry.id === selectedId) {
+      saveEnabledRef.current = false
+      let cancelled = false
+      const raw = parseEditorContent(currentEntry.content)
+      void (async () => {
+        const content =
+          raw && typeof raw === 'object'
+            ? await syncReferenceLabels(raw as Record<string, unknown>)
+            : raw
+        if (cancelled || !editorRef.current || currentEntry.id !== selectedId) return
+        editorRef.current.commands.setContent(content)
+        setTimeout(() => {
+          saveEnabledRef.current = true
+        }, 300)
+      })()
+      return () => {
+        cancelled = true
+      }
+    }
+    return undefined
+  }, [currentEntry, selectedId])
+
+   const treePanel = (
+    <div className="flex h-full flex-col border-r border-line bg-paper-alt max-md:pt-[var(--safe-top)]">
+      <div className="flex items-center justify-between border-b border-line px-3 py-3">
+        <div className="flex items-center gap-2">
+          {isMobile ? (
+            <button onClick={() => setShowMobileTree(false)} className="flex h-9 w-9 items-center justify-center rounded text-ink-muted transition-colors hover:text-ink active:bg-black/8 dark:active:bg-white/8">
+              <ChevronLeft size={16} strokeWidth={2} />
+            </button>
+          ) : null}
+          {!isMobile ? (
+            <button
+              onClick={() => setTreeCollapsed(!treeCollapsed)}
+              className="flex h-9 w-9 items-center justify-center rounded text-ink-faint hover:text-ink transition-colors active:bg-black/8 dark:active:bg-white/8"
+              title={treeCollapsed ? '展开目录' : '折叠目录'}
+            >
+              {treeCollapsed ? <Menu size={16} strokeWidth={2} /> : <ChevronLeft size={16} strokeWidth={2} />}
+            </button>
+          ) : null}
+          <h2 className="text-lg text-ink font-serif font-bold">世界观</h2>
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => handleCreate(null, '新词条')}
+            className="flex h-9 w-9 items-center justify-center rounded text-ink-muted transition-colors hover:text-ink hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8"
+          >
+            <Plus size={16} strokeWidth={2} />
+          </button>
+        </div>
+      </div>
+      <div className="flex-1 overflow-auto">
+        <WorldTree
+          entries={entries}
+          selectedId={selectedId}
+          onSelect={handleSelect}
+          onCreate={handleCreate}
+          onDelete={handleDelete}
+          onRename={handleRename}
+          onReorder={handleReorder}
+          isMobile={isMobile}
+        />
+      </div>
+    </div>
   )
 
   return (
-    <>
+    <div className="flex h-full">
+      {!isMobile ? (
+        <div className={`shrink-0 overflow-hidden transition-[width] duration-200 ease-in-out ${treeCollapsed ? 'w-0' : 'w-[200px]'}`}>
+          {treePanel}
+        </div>
+      ) : null}
+
       {isMobile ? (
         <div className={`fixed inset-0 z-50 transition-all duration-200 ${showMobileTree ? 'pointer-events-auto' : 'pointer-events-none'}`}>
           <div className={`absolute inset-0 bg-black/20 transition-opacity duration-200 ${showMobileTree ? 'opacity-100' : 'opacity-0'}`} onClick={() => setShowMobileTree(false)} />
@@ -202,65 +293,82 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
         </div>
       ) : null}
 
-      <EntityEditorShell
-        title="编辑词条"
-        listOpen={!isMobile && !treeCollapsed}
-        onToggleList={handleToggleList}
-        list={treePanel}
-        editor={bodyEditor}
-        headerRight={
-          currentEntry ? (
-            <EntityHistoryButton table="worldEntries" id={currentEntry.id} name={title} />
-          ) : null
-        }
+      <div
+        className="flex flex-1 flex-col min-w-0 overflow-auto max-md:overflow-visible"
+        ref={editorContainerRef}
       >
+        <div className="md:hidden h-[calc(60px+var(--safe-top))] flex-shrink-0" />
         {selectedId !== null && currentEntry ? (
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            <div className="h-12 shrink-0" aria-hidden />
-            <div className="mx-auto w-full max-w-3xl px-4 py-3 md:px-8 md:py-6">
-              <WorldFrontmatter
-                title={title}
-                onTitleChange={handleTitleChange}
-                tags={tags}
-                onTagsChange={handleTagsChange}
-                showTags={showTags}
-                backlinks={backlinks}
-                onSelectBacklink={(id) => {
-                  const target = entries.find((e) => e.id === id)
-                  if (target) void handleSelect(id, target)
-                }}
-                compact={false}
-              />
-              <div className="mt-8 border-t border-line" />
-              <div className="mt-8">
-                <WorldEntryBody
-                  selectedId={selectedId}
-                  pane={false}
-                  onReady={handleBodyReady}
-                  onContentChange={handleContentChange}
-                  onMentionClick={onMentionClick}
-                  onCharacterCount={onCharacterCount}
-                  onWikiLinkClick={onWikiLinkClick}
+          <>
+            <div className="flex-1">
+      <div className="flex items-center justify-between sticky top-0 max-md:top-[calc(60px+var(--safe-top))] z-10 border-b border-line px-4 py-3 h-[60px] bg-paper/85 dark:bg-[#1C1B1A]/85 backdrop-blur-lg">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                {treeCollapsed && !isMobile ? (
+                  <button
+                    onClick={() => setTreeCollapsed(false)}
+                    className="flex h-9 w-9 items-center justify-center rounded text-ink-muted hover:text-ink transition-colors active:bg-black/8 dark:active:bg-white/8"
+                    title="展开目录"
+                  >
+                    <Menu size={16} strokeWidth={2} />
+                  </button>
+                ) : null}
+                <input
+                  type="text"
+                  value={title}
+                  onChange={handleTitleChange}
+                  placeholder="词条标题"
+                  className="flex-1 min-w-0 bg-transparent text-lg text-ink placeholder:text-ink-faint focus:outline-none h-9"
                 />
               </div>
             </div>
-          </div>
+              <div className="px-4 py-2 md:px-8 md:pb-2 pb-24 md:pb-2">
+              <EditorCore
+                plain
+                key={selectedId}
+                onReady={handleEditorReady}
+                content=""
+                placeholder="编写词条内容... 输入 @ 引用角色/事件/国家，输入 / 插入块"
+                onContentChange={handleContentChange}
+                onMentionClick={onMentionClick}
+                onCharacterCount={onCharacterCount}
+                onWikiLinkClick={onWikiLinkClick}
+              />
+            </div>
+            </div>
+          </>
         ) : loading ? (
-          <div className="flex h-full items-center justify-center">
-            <span className="text-[13px] text-ink-faint">加载中…</span>
+          <div className="flex flex-1 items-center justify-center">
+            <span className="text-sm text-ink-muted">加载中...</span>
           </div>
         ) : error ? (
-          <div className="flex h-full items-center justify-center">
+          <div className="flex flex-1 items-center justify-center">
             <span className="text-sm text-error">{error}</span>
           </div>
         ) : (
-          <div className="flex h-full items-center justify-center">
-            <p className="text-sm text-ink-muted">
-              {entries.length === 0 ? '暂无词条，从左侧创建' : '选择一个词条或新建词条'}
-            </p>
+          <div className="flex flex-1 items-center justify-center">
+            <div className="text-center">
+              {isMobile ? (
+                <button
+                  onClick={() => setShowMobileTree(true)}
+                  className="mb-4 flex h-8 w-8 mx-auto items-center justify-center rounded text-ink-muted hover:text-ink active:bg-black/8 dark:active:bg-white/8"
+                >
+                  <Menu size={20} strokeWidth={2} />
+                </button>
+              ) : treeCollapsed ? (
+                <button
+                  onClick={() => setTreeCollapsed(false)}
+                  className="mb-4 flex h-8 w-8 mx-auto items-center justify-center rounded text-ink-muted hover:text-ink active:bg-black/8 dark:active:bg-white/8"
+                >
+                  <Menu size={20} strokeWidth={2} />
+                </button>
+              ) : null}
+              <p className="text-sm text-ink-muted">
+                {entries.length === 0 ? '暂无词条，从左侧创建' : '选择一个词条或新建词条'}
+              </p>
+            </div>
           </div>
         )}
-      </EntityEditorShell>
-    </>
+      </div>
+    </div>
   )
 }

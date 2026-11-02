@@ -1,28 +1,122 @@
 'use client'
 
 import { useState, useMemo, useCallback, useEffect } from 'react'
-import { Search, RefreshCw, Menu, ExternalLink } from 'lucide-react'
-import { ICON_BTN_MD, LOADING_TEXT, PAGE_TITLE } from '@/lib/ui-tokens'
+import { Search, RefreshCw, ChevronRight, ChevronLeft, Menu, ExternalLink } from 'lucide-react'
+import { Separator } from '@/components/ui/separator'
+import { resolveImageUrl, getDefaultImage } from '@/lib/image-service'
 import { FullscreenViewer } from './FullscreenViewer'
 import { useAlbumData, type AlbumEntry } from './useAlbumData'
 import { useDevice } from '@/lib/use-device'
 import { useMobilePageHeader } from '@/components/layout/MobilePageHeaderContext'
 import { useMobileNavigation } from '@/components/layout/MobileNavigationContext'
+import { useLongPress } from '@/lib/useLongPress'
 import { MobileActionSheet, type ActionItem } from '@/components/shared/MobileActionSheet'
-import { useTags } from '@/features/tags'
-import { SortSelect } from '@/components/shared/SortViewControls'
-import { AlbumCard } from './AlbumCard'
-import { FilterSelect } from './FilterSelect'
-import { AlbumTreePanel } from './AlbumTreePanel'
-import { ListWidthResizer } from '@/components/editor/ListWidthResizer'
-import { useListWidth } from '@/components/editor/useListWidth'
-import { CATEGORY_TREE, albumSourceLabel, albumSourceType, collectAlbumSources, matchesAlbumCategory } from './album-utils'
 
-/** 相册页头里的筛选触发按钮（比 ui-tokens 的 FILTER_TRIGGER 更紧一点） */
-const ALBUM_FILTER_TRIGGER = 'touch-feedback flex h-8 items-center gap-1 px-2 text-[13px] text-ink transition-colors hover:bg-[var(--oc-hover)]'
+interface SubCategory {
+  key: string
+  label: string
+  sourceType: string
+  category: string
+}
+
+interface TopCategory {
+  key: string
+  label: string
+  children: SubCategory[]
+}
+
+const CATEGORY_TREE: TopCategory[] = [
+  {
+    key: 'character', label: '角色',
+    children: [
+      { key: 'character:avatar', label: '头像', sourceType: 'character', category: 'avatar' },
+      { key: 'character:qAvatar', label: 'Q版头像', sourceType: 'character', category: 'qAvatar' },
+      { key: 'character:fullbody', label: '立绘', sourceType: 'character', category: 'fullbody' },
+      { key: 'character:header', label: '头图', sourceType: 'character', category: 'header' },
+      { key: 'character:gallery', label: '相册图片', sourceType: 'character', category: 'gallery' },
+    ],
+  },
+  {
+    key: 'event', label: '事件',
+    children: [
+      { key: 'event:header', label: '头图', sourceType: 'event', category: 'header' },
+      { key: 'event:gallery', label: '图片', sourceType: 'event', category: 'gallery' },
+    ],
+  },
+  {
+    key: 'country', label: '国家',
+    children: [
+      { key: 'country:flag', label: '标志', sourceType: 'country', category: 'flag' },
+      { key: 'country:header', label: '头图', sourceType: 'country', category: 'header' },
+    ],
+  },
+]
+
+function getTopCount(entries: AlbumEntry[], top: TopCategory): number {
+  return entries.filter((e) =>
+    top.children.some((sub) => sub.sourceType === e.sourceType && sub.category === e.category)
+  ).length
+}
+
+function getSubCount(entries: AlbumEntry[], sub: SubCategory): number {
+  return entries.filter((e) => e.sourceType === sub.sourceType && e.category === sub.category).length
+}
 
 interface GlobalAlbumProps {
   onNavigate?: (id: number, type: string) => void
+}
+
+function getEntryImageUrl(entry: AlbumEntry): string {
+  const typeMap: Record<string, string> = {
+    avatar: 'avatar', qAvatar: 'avatar', fullbody: 'avatar',
+    header: 'avatar', gallery: 'avatar', flag: 'flag',
+  }
+  const url = resolveImageUrl(entry.url)
+  if (url.includes('/defaults/')) return url
+  return url || getDefaultImage(typeMap[entry.category] || 'avatar')
+}
+
+function AlbumCard({
+  entry,
+  isMobile,
+  onNavigate,
+  onLongPress,
+  onViewImage,
+}: {
+  entry: AlbumEntry
+  isMobile: boolean
+  onNavigate?: (id: number, type: string) => void
+  onLongPress?: () => void
+  onViewImage: () => void
+}) {
+  const longPress = useLongPress({
+    onLongPress: onLongPress ?? (() => {}),
+    enabled: isMobile,
+  })
+
+  return (
+    <div className="group relative" {...longPress}>
+      <img
+        src={getEntryImageUrl(entry)}
+        alt={entry.sourceName}
+        className="touch-feedback aspect-square w-full cursor-pointer rounded-md border border-line object-cover transition-shadow hover:shadow-[0_1px_3px_rgba(0,0,0,0.03)]"
+        onClick={onViewImage}
+      />
+      <div className="mt-1 truncate text-xs text-ink-faint">
+        {entry.sourceName}
+        {onNavigate && !isMobile ? (
+          <span className="opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={(e) => { e.stopPropagation(); onNavigate(entry.sourceId, entry.sourceType) }}
+              className="ml-1 text-ink-muted hover:text-ink active:bg-black/8 dark:active:bg-white/8 rounded"
+            >
+              跳转
+            </button>
+          </span>
+        ) : null}
+      </div>
+    </div>
+  )
 }
 
 export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
@@ -32,13 +126,7 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
   const [viewerIndex, setViewerIndex] = useState<number | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [treeCollapsed, setTreeCollapsed] = useState(false)
-  const { width: listWidth, startDrag: startListDrag, reset: resetListWidth } = useListWidth()
   const [showMobileTree, setShowMobileTree] = useState(false)
-  const [tagFilter, setTagFilter] = useState<number | 'all'>('all')
-  /** 按来源实体筛选（角色 / 事件 / 国家）；分类变了就复位 */
-  const [sourceFilter, setSourceFilter] = useState<number | 'all'>('all')
-  const [sortByTime, setSortByTime] = useState(false)
-  const { tags } = useTags()
   const [actionSheet, setActionSheet] = useState<{ open: boolean; title: string; actions: ActionItem[] }>({
     open: false, title: '', actions: [],
   })
@@ -55,27 +143,10 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
 
   const { entries, loading, refresh } = useAlbumData()
 
-  // 「按来源筛选」只对具体分类有意义：'全部' 下没有单一实体类型可筛
-  const sourceType = useMemo(() => albumSourceType(selectedKey), [selectedKey])
-  const sources = useMemo(
-    () =>
-      sourceType === null
-        ? []
-        : collectAlbumSources(entries.filter((e) => matchesAlbumCategory(e, selectedKey)), sourceType),
-    [entries, selectedKey, sourceType],
-  )
-  // 选中的实体被删 / 换了分类就退化成「全部」，不用 effect 清理状态
-  const activeSourceFilter = sources.some((s) => s.id === sourceFilter) ? sourceFilter : 'all'
-
   function handleRefresh() {
     setRefreshing(true)
     void refresh().finally(() => setRefreshing(false))
   }
-
-  const handleSelectKey = useCallback((key: string) => {
-    setSelectedKey(key)
-    setSourceFilter('all')
-  }, [])
 
   const toggleExpand = useCallback((key: string) => {
     setExpanded((prev) => {
@@ -96,24 +167,31 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
   }, [onNavigate])
 
   const filtered = useMemo(() => {
-    let result = entries.filter((e) => matchesAlbumCategory(e, selectedKey))
+    let result = entries
+    if (selectedKey !== 'all') {
+      const top = CATEGORY_TREE.find((t) => t.key === selectedKey)
+      if (top) {
+        result = result.filter((e) =>
+          top.children.some((sub) => sub.sourceType === e.sourceType && sub.category === e.category)
+        )
+      } else {
+        for (const t of CATEGORY_TREE) {
+          const sub = t.children.find((s) => s.key === selectedKey)
+          if (sub) {
+            result = result.filter((e) => e.sourceType === sub.sourceType && e.category === sub.category)
+            break
+          }
+        }
+      }
+    }
     if (search.trim()) {
       const q = search.trim().toLowerCase()
       result = result.filter((e) =>
         e.sourceName.toLowerCase().includes(q) || e.category.toLowerCase().includes(q)
       )
     }
-    if (tagFilter !== 'all') {
-      result = result.filter((e) => e.tags.includes(tagFilter))
-    }
-    if (sourceType !== null && activeSourceFilter !== 'all') {
-      result = result.filter((e) => e.sourceType === sourceType && e.sourceId === activeSourceFilter)
-    }
-    if (sortByTime) {
-      result = [...result].sort((a, b) => b.updatedAt - a.updatedAt)
-    }
     return result
-  }, [entries, selectedKey, search, tagFilter, sourceType, activeSourceFilter, sortByTime])
+  }, [entries, selectedKey, search])
 
   const allUrls = useMemo(() => filtered.map((e) => e.url), [filtered])
 
@@ -134,32 +212,93 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
   }, [isMobile, section, selectedLabel, setConfig])
 
   const treePanel = (
-    <AlbumTreePanel
-      entries={entries}
-      selectedKey={selectedKey}
-      onSelectKey={handleSelectKey}
-      expanded={expanded}
-      onToggleExpand={toggleExpand}
-      isMobile={isMobile}
-      refreshing={refreshing}
-      onRefresh={handleRefresh}
-      onCloseMobileTree={() => setShowMobileTree(false)}
-      onCollapseTree={() => setTreeCollapsed(true)}
-    />
+    <div className="flex h-full flex-col border-r border-line bg-paper-alt max-md:pt-[var(--safe-top)]">
+      {isMobile ? (
+        <div className="flex items-center justify-between border-b border-line px-3 py-3">
+          <button onClick={() => setShowMobileTree(false)} className="flex h-9 w-9 items-center justify-center rounded text-ink-muted transition-colors hover:text-ink active:bg-black/8 dark:active:bg-white/8">
+            <ChevronLeft size={16} strokeWidth={2} />
+          </button>
+          <button onClick={handleRefresh} disabled={refreshing}
+            className={`flex h-9 w-9 items-center justify-center rounded text-ink-muted transition-colors hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8 ${refreshing ? 'animate-spin' : ''}`}
+            title="刷新"
+          >
+            <RefreshCw size={16} strokeWidth={2} />
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between border-b border-line px-3 py-3">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setTreeCollapsed(true)}
+              className="flex h-9 w-9 items-center justify-center rounded text-ink-muted transition-colors hover:text-ink active:bg-black/8 dark:active:bg-white/8"
+              title="折叠目录"
+            >
+              <ChevronLeft size={16} strokeWidth={2} />
+            </button>
+            <h2 className="text-lg text-ink font-serif font-bold">相册</h2>
+          </div>
+        </div>
+      )}
+      <div className="flex-1 overflow-auto p-3">
+        <nav className="flex flex-col gap-1">
+          <button
+            onClick={() => { setSelectedKey('all'); if (isMobile) setShowMobileTree(false) }}
+            className={`flex w-full items-center rounded px-3 py-1.5 text-left text-sm transition-colors ${
+              selectedKey === 'all' ? 'bg-paper-card text-ink' : 'text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8'
+            }`}
+          >
+            <span className="flex-1">全部</span>
+            {entries.length > 0 ? <span className="text-xs text-ink-faint">{entries.length}</span> : null}
+          </button>
+          {CATEGORY_TREE.map((top) => {
+            const topCount = getTopCount(entries, top)
+            const isExpanded = expanded.has(top.key)
+            const isTopSelected = selectedKey === top.key
+            return (
+              <div key={top.key}>
+                <button
+                  onClick={() => { toggleExpand(top.key); setSelectedKey(top.key) }}
+                  className={`flex w-full items-center gap-1 rounded px-3 py-1.5 text-left text-sm transition-colors ${
+                    isTopSelected ? 'bg-paper-card text-ink' : 'text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8'
+                  }`}
+                >
+                  <ChevronRight size={14} strokeWidth={2} className={`shrink-0 text-ink-muted transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                  <span className="flex-1">{top.label}</span>
+                  {topCount > 0 ? <span className="text-xs text-ink-faint">{topCount}</span> : null}
+                </button>
+                {isExpanded ? (
+                  <div className="flex flex-col gap-0.5 mt-0.5">
+                    {top.children.map((sub) => {
+                      const subCount = getSubCount(entries, sub)
+                      const isSubSelected = selectedKey === sub.key
+                      return (
+                        <button key={sub.key}
+                          onClick={() => { setSelectedKey(sub.key); if (isMobile) setShowMobileTree(false) }}
+                          className={`flex w-full items-center rounded pl-7 pr-3 py-1 text-left text-xs transition-colors ${
+                            isSubSelected ? 'bg-paper-card text-ink' : 'text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8'
+                          }`}
+                        >
+                          <span className="flex-1">{sub.label}</span>
+                          {subCount > 0 ? <span className="text-[10px] text-ink-faint">{subCount}</span> : null}
+                        </button>
+                      )
+                    })}
+                  </div>
+                ) : null}
+              </div>
+            )
+          })}
+        </nav>
+      </div>
+    </div>
   )
 
   return (
     <div className="flex h-full">
       {/* Desktop sidebar */}
       {!isMobile ? (
-        <div
-          className="relative shrink-0 overflow-hidden transition-[width] duration-200 ease-in-out"
-          style={{ width: treeCollapsed ? 0 : listWidth }}
-        >
+        <div className={`shrink-0 overflow-hidden transition-[width] duration-200 ease-in-out ${treeCollapsed ? 'w-0' : 'w-[200px]'}`}>
           {treePanel}
-          {!treeCollapsed ? (
-            <ListWidthResizer onDragStart={startListDrag} onReset={resetListWidth} />
-          ) : null}
         </div>
       ) : null}
 
@@ -179,67 +318,35 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
         {/* Grid — scroll container, header inside for blur */}
         <div className="flex-1">
           {/* Desktop header */}
-          <div className="max-md:hidden sticky top-0 z-10 flex items-center border-b border-line px-4 h-12 bg-paper/85 backdrop-blur-lg">
+          <div className="max-md:hidden sticky top-0 z-10 border-b border-line px-4 py-3 h-[60px] bg-paper/85 dark:bg-[#1C1B1A]/85 backdrop-blur-lg">
             <div className="flex items-center gap-3">
               {treeCollapsed ? (
                 <>
                   <button
                     onClick={() => setTreeCollapsed(false)}
-                    className={ICON_BTN_MD}
+                    className="flex h-9 w-9 items-center justify-center rounded text-ink-muted transition-colors hover:text-ink active:bg-black/8 dark:active:bg-white/8"
                     title="展开目录"
                   >
                     <Menu size={16} strokeWidth={2} />
                   </button>
-                  <h2 className={PAGE_TITLE}>{selectedLabel}</h2>
+                  <h2 className="text-lg text-ink font-serif font-bold">{selectedLabel}</h2>
+                  <Separator orientation="vertical" className="h-4 !self-center" />
                 </>
               ) : null}
               <div className="relative">
-                <Search size={14} strokeWidth={2} className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-ink-faint" />
+                <Search size={16} strokeWidth={2} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-faint" />
                 <input
                   type="text" value={search} onChange={(e) => setSearch(e.target.value)}
                   placeholder="搜索..."
-                  className="h-8 w-48 border-b border-transparent bg-transparent pl-7 pr-2 text-[13px] text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none"
+                  className="h-9 w-48 rounded border border-line bg-paper-card/60 pl-9 pr-3 text-sm text-ink placeholder:text-ink-faint focus:border-line-hover focus:outline-none focus:bg-paper-card/80"
                 />
               </div>
-              {/* 按来源筛选：只在具体分类下出现（角色 / 事件 / 国家） */}
-              {sourceType !== null && sources.length > 0 ? (
-                <FilterSelect
-                  value={activeSourceFilter}
-                  onChange={setSourceFilter}
-                  options={[
-                    { value: 'all', label: `全部${albumSourceLabel(sourceType)}` },
-                    ...sources.map((s) => ({ value: s.id, label: s.name })),
-                  ]}
-                  fallbackLabel={`全部${albumSourceLabel(sourceType)}`}
-                  labelClassName="max-w-[9rem] truncate"
-                  triggerClassName={ALBUM_FILTER_TRIGGER}
-                />
-              ) : null}
-              <FilterSelect
-                value={tagFilter}
-                onChange={setTagFilter}
-                options={[
-                  { value: 'all', label: '全部标签' },
-                  ...tags
-                    .filter((t) => t.id !== undefined)
-                    .map((t) => ({ value: t.id, label: t.name })),
-                ]}
-                fallbackLabel="全部标签"
-                triggerClassName={ALBUM_FILTER_TRIGGER}
-              />
-              <SortSelect
-                sortKey={sortByTime ? 'time' : 'default'}
-                onChange={(key) => setSortByTime(key === 'time')}
-                options={[
-                  { label: '默认顺序', value: 'default' },
-                  { label: '最近更新', value: 'time' },
-                ]}
-              />
+              <Separator orientation="vertical" className="h-4 !self-center" />
               <button onClick={handleRefresh} disabled={refreshing}
-                className={`${ICON_BTN_MD} ${refreshing ? 'animate-spin' : ''}`}
+                className={`flex h-9 w-9 items-center justify-center rounded text-ink-muted transition-colors hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8 ${refreshing ? 'animate-spin' : ''}`}
                 title="刷新"
               >
-                <RefreshCw size={15} strokeWidth={2} />
+                <RefreshCw size={16} strokeWidth={2} />
               </button>
             </div>
           </div>
@@ -247,9 +354,9 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
           {/* Grid content */}
           <div className="flex flex-1 flex-col px-4 pt-4 pb-24 md:pb-4">
           {loading ? (
-            <div className="flex flex-1 items-center justify-center"><span className={LOADING_TEXT}>加载中…</span></div>
+            <div className="flex flex-1 items-center justify-center"><span className="text-sm text-ink-muted">加载中...</span></div>
           ) : filtered.length === 0 ? (
-            <div className="flex min-h-[40vh] flex-1 items-center justify-center"><span className="font-serif text-sm text-ink-faint">暂无图片</span></div>
+            <div className="flex flex-1 items-center justify-center min-h-[40vh]"><span className="text-sm text-ink-faint">暂无图片</span></div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
               {filtered.map((entry, idx) => (
@@ -281,7 +388,3 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
     </div>
   )
 }
-
-
-
-

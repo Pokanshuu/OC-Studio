@@ -1,6 +1,7 @@
 import { open } from '@tauri-apps/plugin-dialog'
 import { readFile, writeFile, mkdir } from '@tauri-apps/plugin-fs'
 import { appDataDir } from '@tauri-apps/api/path'
+import { convertFileSrc } from '@tauri-apps/api/core'
 
 export class LocalAdapter {
   private appDataDirPath = ''
@@ -54,5 +55,18 @@ export class LocalAdapter {
     }
 
     return `images/${fileName}`
+  }
+
+  getUrl(path: string): string {
+    if (!path) {
+      return '/images/defaults/character-avatar.svg'
+    }
+    if (path.startsWith('asset://')) {
+      return path
+    }
+    if (this.appDataDirPath) {
+      return convertFileSrc(`${this.appDataDirPath}/${path}`)
+    }
+    return path
   }
 }

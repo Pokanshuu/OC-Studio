@@ -3,29 +3,24 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { Plus, X, Trash2 } from 'lucide-react'
 import { useTags, useTagMutations } from '../hooks/useTags'
+import { TagBadge } from './TagBadge'
 import { useDevice } from '@/lib/use-device'
 import { useKeyboard } from '@/lib/KeyboardContext'
 import { useLongPress } from '@/lib/useLongPress'
 import { MobileActionSheet } from '@/components/shared/MobileActionSheet'
-import { MENU, MENU_ITEM, ROUND_ITEM } from '@/lib/ui-tokens'
 import type { Tag } from '@/types'
 
 const DEFAULT_COLORS = ['#4ECDC4', '#45B7D1', '#FF6B6B', '#96CEB4', '#DDA0DD', '#F7DC6F', '#BB8FCE', '#85C1E9']
 
-/** 候选列表上限：命中很多时也只渲染这么多行（标签库可能有几百个） */
-const MAX_CANDIDATES = 40
-
-/** 小圆角 chip，与 RelatedItemsSelector 的 chip 同一套：低对比底色 + 墨色文字，不用强调色 */
-const CHIP = `inline-flex items-center gap-1 bg-paper-alt px-2 py-[3px] text-[12px] text-ink transition-colors ${ROUND_ITEM}`
-
-/** 单个标签 chip：右侧 × 移除（移动端常显）；移动端长按弹出「从标签库删除」 */
-function TagChip({ tag, onRemove, onLongPress, isMobile }: {
+function TagRow({ tag, onAdd, onDelete, onLongPress, isMobile }: {
   tag: Tag
-  onRemove: () => void
+  onAdd: (id: number) => void
+  onDelete: () => void
   onLongPress: () => void
   isMobile: boolean
 }) {
   const didLongPress = useRef(false)
+
   const longPress = useLongPress({
     onLongPress: () => {
       didLongPress.current = true
@@ -34,25 +29,36 @@ function TagChip({ tag, onRemove, onLongPress, isMobile }: {
     enabled: isMobile,
   })
 
+  function handleClick() {
+    if (didLongPress.current) {
+      didLongPress.current = false
+      return
+    }
+    if (tag.id != null) onAdd(tag.id)
+  }
+
   return (
-    <span className={CHIP} {...longPress}>
-      <span>{tag.name}</span>
-      <button
-        type="button"
-        aria-label={`移除标签 ${tag.name}`}
-        title="移除标签"
-        onClick={() => {
-          if (didLongPress.current) {
-            didLongPress.current = false
-            return
-          }
-          onRemove()
-        }}
-        className="shrink-0 text-ink-faint transition-colors hover:text-error"
-      >
-        <X size={11} strokeWidth={2} />
-      </button>
-    </span>
+    <div
+      role="button"
+      tabIndex={0}
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={handleClick}
+      onKeyDown={(e) => { if (e.key === 'Enter' && tag.id != null) onAdd(tag.id) }}
+      className="flex w-full items-center gap-2 rounded-sm px-3 py-1.5 text-left text-sm text-ink hover:bg-black/5 dark:hover:bg-white/5 transition-colors group cursor-pointer"
+      {...longPress}
+    >
+      <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: tag.color || '#999' }} />
+      <span className="flex-1">{tag.name}</span>
+      {!isMobile ? (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onDelete() }}
+          className="rounded-full p-0.5 transition-colors hover:text-error opacity-0 group-hover:opacity-100"
+        >
+          <X size={12} strokeWidth={2} />
+        </button>
+      ) : null}
+    </div>
   )
 }
 
@@ -62,9 +68,9 @@ interface TagPickerProps {
 }
 
 export function TagPicker({ selectedIds, onChange }: TagPickerProps) {
-  const { tags, refresh, optimisticAdd } = useTags()
+  const { tags, loading, refresh, optimisticAdd } = useTags()
   const { createTag, deleteTag } = useTagMutations()
-  const [panelOpen, setPanelOpen] = useState(false)
+  const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [creating, setCreating] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -73,15 +79,16 @@ export function TagPicker({ selectedIds, onChange }: TagPickerProps) {
   const { viewportHeight: keyboardHeight } = useKeyboard()
   const [actionSheet, setActionSheet] = useState<{ open: boolean; tagId: number | null }>({ open: false, tagId: null })
 
-  // 只在面板打开时订阅「点外面关闭」。查询词的清空放在打开处（onFocus）的
-  // 事件里而不是这里 —— 在 effect 里 setState 会触发 React 的级联渲染告警。
   useEffect(() => {
-    if (!panelOpen) return
+    if (!open) {
+      setQuery('')
+      return
+    }
     function handler(e: MouseEvent) {
       const overlayRoot = document.getElementById('overlay-root')
       if (overlayRoot && overlayRoot.contains(e.target as Node)) return
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setPanelOpen(false)
+        setOpen(false)
       }
     }
     const id = setTimeout(() => {
@@ -91,39 +98,36 @@ export function TagPicker({ selectedIds, onChange }: TagPickerProps) {
       clearTimeout(id)
       document.removeEventListener('click', handler)
     }
-  }, [panelOpen])
+  }, [open])
 
-  const selectedTags = useMemo(
-    () => tags.filter((t) => t.id != null && selectedIds.includes(t.id)),
-    [tags, selectedIds],
-  )
+  useEffect(() => {
+    if (open) {
+      setTimeout(() => searchInputRef.current?.focus(), 50)
+    }
+  }, [open])
 
-  /** 候选只在**输入关键词之后**才算：标签可能有几百个，空查询时列出全部等于噪音 */
-  const candidates = useMemo(() => {
+  const selectedTags = tags.filter((t) => selectedIds.includes(t.id!))
+
+  const availableTags = useMemo(() => {
+    const unselected = tags.filter((t) => !selectedIds.includes(t.id!))
+    if (!query.trim()) return unselected
     const q = query.trim().toLowerCase()
-    if (!q) return []
-    return tags
-      .filter((t) => !selectedIds.includes(t.id!))
-      .filter((t) => t.name.toLowerCase().includes(q))
-      .slice(0, MAX_CANDIDATES)
+    return unselected.filter((t) => t.name.toLowerCase().includes(q))
   }, [tags, selectedIds, query])
-
-  const hasExactMatch = useMemo(
-    () => tags.some((t) => t.name.toLowerCase() === query.trim().toLowerCase()),
-    [tags, query],
-  )
-
-  /** 输入了关键词且没有同名标签时，面板里给一条「新建」入口 */
-  const canCreate = query.trim().length > 0 && !hasExactMatch
 
   function addTag(id: number) {
     if (!selectedIds.includes(id)) {
       onChange([...selectedIds, id])
     }
+    setOpen(false)
   }
 
   function removeTag(id: number) {
     onChange(selectedIds.filter((i) => i !== id))
+  }
+
+  function handleAddClick() {
+    setOpen(true)
   }
 
   async function handleDeleteTag(id: number) {
@@ -148,7 +152,7 @@ export function TagPicker({ selectedIds, onChange }: TagPickerProps) {
       const id = await createTag({ name, category: '', color })
       optimisticAdd({ id, name, category: '', color })
       onChange([...selectedIds, id])
-      setQuery('')
+      setOpen(false)
       refresh()
     } finally {
       setCreating(false)
@@ -156,109 +160,73 @@ export function TagPicker({ selectedIds, onChange }: TagPickerProps) {
   }
 
   return (
-    <div ref={containerRef} className="relative">
-      <div className="flex flex-wrap items-center gap-1.5">
-        {/* 只显示这个角色身上的标签；其它标签靠输入关键词在面板里找，不在这里铺开 */}
-        {selectedTags.map((tag) => (
-          <TagChip
-            key={tag.id}
-            tag={tag}
-            onRemove={() => { if (tag.id != null) removeTag(tag.id) }}
-            onLongPress={() => { if (tag.id != null) handleLongPress(tag.id) }}
-            isMobile={isMobile}
-          />
-        ))}
-
-        {/* 输入与「＋」合并为一个 chip */}
-        <div className="relative flex items-center gap-1 bg-paper-alt px-2 py-[3px] text-[12px] transition-colors focus-within:bg-paper-card">
-          <input
-            ref={searchInputRef}
-            type="text"
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value)
-              setPanelOpen(true)
-            }}
-            onFocus={() => {
-              // 每次重新打开都从空查询开始（清空动作放在事件里，见上面的 useEffect 注释）
-              if (!panelOpen) setQuery('')
-              setPanelOpen(true)
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                void handleCreate()
-              }
-              if (e.key === 'Escape') {
-                setPanelOpen(false)
-                searchInputRef.current?.blur()
-              }
-            }}
-            placeholder="标签"
-            className="w-10 bg-transparent text-[12px] text-ink placeholder:text-ink-faint focus:outline-none"
-          />
-          <button
-            type="button"
-            onClick={handleCreate}
-            disabled={creating || !query.trim() || hasExactMatch}
-            title={hasExactMatch ? '已存在同名标签' : '新建标签'}
-            className="flex shrink-0 items-center text-ink-faint transition-colors hover:text-ink disabled:opacity-30"
-          >
-            <Plus size={12} strokeWidth={2} />
-          </button>
-
-          {/* 面板挂在输入 chip 上：跟着输入框走，不会被前面的标签挤到行首 */}
-          {panelOpen ? (
-            <div className={`absolute left-0 z-50 max-h-48 min-w-[180px] overflow-auto ${MENU} ${keyboardHeight > 0 ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
-              {!query.trim() ? (
-                <div className="px-3 py-2 text-[13px] text-ink-faint">输入关键词查找标签</div>
-              ) : (
-                <>
-                  {candidates.map((tag) => (
-                    <div
-                      key={tag.id}
-                      role="button"
-                      tabIndex={0}
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => { if (tag.id != null) { addTag(tag.id); setQuery('') } }}
-                      onKeyDown={(e) => { if (e.key === 'Enter' && tag.id != null) { addTag(tag.id); setQuery('') } }}
-                      className={`group cursor-pointer ${MENU_ITEM}`}
-                    >
-                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: tag.color || 'var(--oc-ink-faint)' }} />
-                      <span className="flex-1">{tag.name}</span>
-                      {!isMobile ? (
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); if (tag.id != null) void handleDeleteTag(tag.id) }}
-                          className={`p-0.5 opacity-0 transition-colors hover:text-error group-hover:opacity-100 ${ROUND_ITEM}`}
-                        >
-                          <X size={12} strokeWidth={2} />
-                        </button>
-                      ) : null}
-                    </div>
-                  ))}
-
-                  {canCreate ? (
-                    <button
-                      type="button"
-                      onClick={() => void handleCreate()}
-                      disabled={creating}
-                      className={`${MENU_ITEM} text-ink-muted disabled:opacity-40`}
-                    >
-                      <Plus size={12} strokeWidth={2} className="shrink-0" />
-                      <span>新建「{query.trim()}」</span>
-                    </button>
-                  ) : null}
-
-                  {candidates.length === 0 && !canCreate ? (
-                    <div className="px-3 py-2 text-[13px] text-ink-faint">没有匹配的标签</div>
-                  ) : null}
-                </>
-              )}
-            </div>
-          ) : null}
+    <div ref={containerRef} className="space-y-2">
+      {selectedTags.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {selectedTags.map((tag) => (
+            <TagBadge
+              key={tag.id}
+              tag={tag}
+              onRemove={() => { if (tag.id != null) removeTag(tag.id) }}
+            />
+          ))}
         </div>
-      </div>
+      ) : null}
+
+      {open ? (
+        <div className="relative">
+          <div className="flex items-center gap-1 h-8 rounded border border-line bg-paper-card px-3 focus-within:border-line-hover transition-colors">
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); handleCreate() }
+                if (e.key === 'Escape') { setOpen(false) }
+              }}
+              placeholder="搜索或新建标签..."
+              className="flex-1 bg-transparent text-sm text-ink placeholder:text-ink-faint outline-none"
+            />
+            <button
+              onClick={handleCreate}
+              disabled={creating || !query.trim()}
+              className="flex items-center justify-center h-6 w-6 shrink-0 rounded text-ink-muted hover:text-ink disabled:opacity-30 transition-colors"
+            >
+              <Plus size={14} strokeWidth={2} />
+            </button>
+          </div>
+          <div className={`absolute left-0 z-50 w-full rounded-md border border-line bg-paper/60 dark:bg-paper/70 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 max-h-48 overflow-auto ${keyboardHeight > 0 ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
+            {loading ? (
+              <div className="px-3 py-2 text-sm text-ink-muted">加载中...</div>
+            ) : availableTags.length > 0 ? (
+              availableTags.map((tag) => (
+                <TagRow
+                  key={tag.id}
+                  tag={tag}
+                  onAdd={addTag}
+                  onDelete={() => { if (tag.id != null) handleDeleteTag(tag.id) }}
+                  onLongPress={() => { if (tag.id != null) handleLongPress(tag.id) }}
+                  isMobile={isMobile}
+                />
+              ))
+            ) : query.trim() ? (
+              <div className="px-3 py-2 text-sm text-ink-faint">按 Enter 或点 + 新建</div>
+            ) : (
+              <div className="px-3 py-2 text-sm text-ink-faint">没有更多标签</div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={handleAddClick}
+          className="flex h-8 items-center gap-1 text-sm text-ink-muted transition-colors hover:text-ink"
+        >
+          <Plus size={16} strokeWidth={2} />
+          <span>添加</span>
+        </button>
+      )}
 
       <MobileActionSheet
         open={actionSheet.open}
@@ -271,7 +239,7 @@ export function TagPicker({ selectedIds, onChange }: TagPickerProps) {
             icon: <Trash2 size={18} strokeWidth={2} />,
             destructive: true,
             onPress: () => {
-              if (actionSheet.tagId != null) void handleDeleteTag(actionSheet.tagId)
+              if (actionSheet.tagId != null) handleDeleteTag(actionSheet.tagId)
             },
           },
         ]}

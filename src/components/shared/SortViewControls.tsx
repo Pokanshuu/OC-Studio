@@ -2,8 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { ChevronDown, LayoutGrid, List } from 'lucide-react'
-import { FILTER_TRIGGER, MENU, MENU_ITEM_BASE, ROUND_ITEM } from '@/lib/ui-tokens'
+import { LayoutGrid, List, ChevronDown } from 'lucide-react'
 
 export interface SortOption {
   label: string
@@ -66,7 +65,7 @@ export function SortSelect({
       <button
         ref={triggerRef}
         onClick={() => setOpen(!open)}
-        className={FILTER_TRIGGER}
+        className="touch-feedback flex md:h-9 h-7 items-center gap-1 rounded border border-line bg-paper-card/60 md:px-3 px-2 md:text-sm text-[11px] text-ink transition-colors hover:border-line-hover"
       >
         <span>{getSortLabel(options, sortKey)}</span>
         <ChevronDown size={16} strokeWidth={2} />
@@ -76,7 +75,7 @@ export function SortSelect({
         ? createPortal(
             <div
               ref={panelRef}
-              className={`fixed z-30 mt-1 flex flex-col ${MENU} pointer-events-auto`}
+              className="fixed z-30 mt-1 flex flex-col rounded-md border border-line bg-paper/85 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 pointer-events-auto"
               style={{ left: pos.x, top: pos.y }}
             >
               {options.map((opt) => (
@@ -86,10 +85,10 @@ export function SortSelect({
                     onChange(opt.value)
                     setOpen(false)
                   }}
-                  className={`${MENU_ITEM_BASE} ${
+                  className={`rounded-sm px-3 py-1.5 text-left text-sm transition-colors ${
                     sortKey === opt.value
-                      ? 'text-ink bg-[var(--oc-hover)]'
-                      : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
+                      ? 'bg-black/5 dark:bg-white/5 text-ink'
+                      : 'text-ink hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8'
                   }`}
                 >
                   {opt.label}
@@ -121,29 +120,24 @@ export function SortViewControls({
   return (
     <>
       <SortSelect sortKey={sortKey} onChange={onSortChange} options={sortOptions} />
-      {/* 视图切换：图标（画廊 / 目录），当前项用墨色，另一项淡出 */}
-      <div className="flex items-center">
-        <button
-          onClick={() => onViewModeChange('grid')}
-          aria-label="画廊视图"
-          title="画廊"
-          className={`flex h-8 w-8 items-center justify-center ${ROUND_ITEM} transition-colors ${
-            viewMode === 'grid' ? 'text-ink' : 'text-ink-faint hover:text-ink-muted'
-          }`}
-        >
-          <LayoutGrid size={16} strokeWidth={2} />
-        </button>
-        <button
-          onClick={() => onViewModeChange('list')}
-          aria-label="目录视图"
-          title="目录"
-          className={`flex h-8 w-8 items-center justify-center ${ROUND_ITEM} transition-colors ${
-            viewMode === 'list' ? 'text-ink' : 'text-ink-faint hover:text-ink-muted'
-          }`}
-        >
-          <List size={16} strokeWidth={2} />
-        </button>
-      </div>
+      <button
+        onClick={() => onViewModeChange('grid')}
+        className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${
+          viewMode === 'grid' ? 'text-ink bg-black/5 dark:bg-white/5' : 'text-ink-muted hover:text-ink hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8'
+        }`}
+        title="网格视图"
+      >
+        <LayoutGrid size={16} strokeWidth={2} />
+      </button>
+      <button
+        onClick={() => onViewModeChange('list')}
+        className={`flex h-8 w-8 items-center justify-center rounded transition-colors ${
+          viewMode === 'list' ? 'text-ink bg-black/5 dark:bg-white/5' : 'text-ink-muted hover:text-ink hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8'
+        }`}
+        title="列表视图"
+      >
+        <List size={16} strokeWidth={2} />
+      </button>
     </>
   )
 }

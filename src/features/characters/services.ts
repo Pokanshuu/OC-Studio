@@ -1,10 +1,10 @@
 import { db } from '@/lib/db'
-import { logOperation, pendingStamp } from '@/lib/sync'
-import { listActive, getById, softDelete } from '@/lib/repository'
+import { logOperation } from '@/lib/sync'
 import { updateReferencesAfterRename, syncReferenceLabels } from '@/lib/reference-sync'
-import { syncCharacterCountry } from '@/lib/membership'
+import { syncRelationLabelFromEntity } from '@/features/relations/services'
 import type { Character } from '@/types'
 import type { CharacterFormData } from './types'
+import { pickAccentColor } from '@/lib/entity-accent'
 
 const TABLE = 'characters'
 
@@ -15,43 +15,71 @@ function buildDefaultCharacter(
   const now = Date.now()
   return {
     name: data.name,
+    entityKind: data.entityKind ?? 'character',
+    accentColor: data.accentColor ?? pickAccentColor(),
+    customFields: data.customFields ?? [],
+    folderId: data.folderId ?? null,
+    hiddenFields: data.hiddenFields ?? [],
+    animationUrl: data.animationUrl ?? '',
+    animationType: data.animationType ?? 'video',
     aliases: data.aliases,
     race: data.race,
     element: data.element,
     occupation: data.occupation,
-    faction: data.faction,
     nationalityLegacy: data.nationalityLegacy,
-    countryId: data.countryId,
+    countryId: undefined,
     height: data.height,
     birthday: data.birthday,
+    gender: data.gender ?? '',
+    orientation: data.orientation ?? '',
+    age: data.age ?? '',
+    weight: data.weight ?? '',
+    bloodType: data.bloodType ?? '',
+    hairColor: data.hairColor ?? '',
+    eyeColor: data.eyeColor ?? '',
+    birthplace: data.birthplace ?? '',
+    residence: data.residence ?? '',
+    personality: data.personality ?? '',
+    hobbies: data.hobbies ?? '',
+    skills: data.skills ?? '',
+    affiliation: data.affiliation ?? '',
+    weapon: data.weapon ?? '',
+    pet: data.pet ?? '',
+    ability: data.ability ?? '',
+    status: data.status ?? '',
     avatarUrl: data.avatarUrl,
     bio: data.bio,
     lifeStory: data.lifeStory,
+    relationships: [],
     relatedCharacters: data.relatedCharacters,
+    relatedNations: data.relatedNations ?? [],
+    relatedNationLabels: data.relatedNationLabels ?? {},
+    relatedEvents: data.relatedEvents ?? [],
+    relatedEventLabels: data.relatedEventLabels ?? {},
     gallery: data.gallery,
     avatars: data.avatars,
     tags: data.tags ?? [],
-    isMajor: data.isMajor ?? false,
-    custom: data.custom ?? {},
     createdAt: now,
     updatedAt: now,
     deleted: false,
-    ...pendingStamp(now),
+    _syncStatus: 'pending',
+    _lastModified: now,
     ...overrides,
   }
 }
 
 export async function getCharacters(): Promise<Character[]> {
-  return listActive(db.characters, 'name')
+  const all = await db.characters.orderBy('name').toArray()
+  return all.filter((c) => !c.deleted)
 }
 
 export async function getCharacter(id: number): Promise<Character | undefined> {
-  return getById(db.characters, id)
+  return db.characters.get(id)
 }
 
 export async function createCharacter(data: CharacterFormData): Promise<number> {
   const character = buildDefaultCharacter(data)
-  const id = await db.characters.add(character)
+  const id = await db.characters.add(character as Character)
 
   await logOperation(TABLE, id, 'name', '', data.name)
 
@@ -70,25 +98,49 @@ export async function updateCharacter(
   const now = Date.now()
   const updates: Partial<Character> = {
     updatedAt: now,
-    ...pendingStamp(now),
+    _syncStatus: 'pending',
+    _lastModified: now,
   }
 
   type FieldKey = keyof CharacterFormData
   const fields: FieldKey[] = [
     'name',
+    'entityKind',
+    'accentColor',
+    'customFields',
+    'folderId',
+    'hiddenFields',
+    'animationUrl',
+    'animationType',
     'aliases',
     'race',
     'element',
     'occupation',
-    'faction',
     'nationalityLegacy',
     'height',
     'birthday',
+    'gender',
+    'orientation',
+    'age',
+    'weight',
+    'bloodType',
+    'hairColor',
+    'eyeColor',
+    'birthplace',
+    'residence',
+    'personality',
+    'hobbies',
+    'skills',
+    'affiliation',
+    'weapon',
+    'pet',
+    'ability',
+    'status',
     'avatarUrl',
+    'qAvatarUrl',
     'headerUrl',
     'bio',
     'lifeStory',
-    'isMajor',
   ]
 
   for (const field of fields) {
@@ -100,17 +152,6 @@ export async function updateCharacter(
     }
   }
 
-  if (data.custom !== undefined) {
-    ;(updates as Record<string, unknown>).custom = data.custom
-    await logOperation(
-      TABLE,
-      id,
-      'custom',
-      JSON.stringify(existing.custom ?? {}),
-      JSON.stringify(data.custom),
-    )
-  }
-
   if (data.relatedCharacters !== undefined) {
     ;(updates as Record<string, unknown>).relatedCharacters = data.relatedCharacters
     await logOperation(
@@ -120,6 +161,36 @@ export async function updateCharacter(
       JSON.stringify(existing.relatedCharacters),
       JSON.stringify(data.relatedCharacters),
     )
+  }
+
+  if (data.relatedNations !== undefined) {
+    ;(updates as Record<string, unknown>).relatedNations = data.relatedNations
+    await logOperation(
+      TABLE,
+      id,
+      'relatedNations',
+      JSON.stringify(existing.relatedNations ?? []),
+      JSON.stringify(data.relatedNations),
+    )
+  }
+
+  if (data.relatedNationLabels !== undefined) {
+    ;(updates as Record<string, unknown>).relatedNationLabels = data.relatedNationLabels
+  }
+
+  if (data.relatedEvents !== undefined) {
+    ;(updates as Record<string, unknown>).relatedEvents = data.relatedEvents
+    await logOperation(
+      TABLE,
+      id,
+      'relatedEvents',
+      JSON.stringify(existing.relatedEvents ?? []),
+      JSON.stringify(data.relatedEvents),
+    )
+  }
+
+  if (data.relatedEventLabels !== undefined) {
+    ;(updates as Record<string, unknown>).relatedEventLabels = data.relatedEventLabels
   }
 
   if (data.gallery !== undefined) {
@@ -173,13 +244,54 @@ export async function updateCharacter(
 
   await db.characters.update(id, updates)
 
-  // 国籍变了 → 国家侧的「相关角色」跟着增删（成员关系两边都写，与关系图拖拽同一口径）
-  if (data.countryId !== undefined) {
-    const previousCountryId = existing.countryId ?? null
-    const nextCountryId = data.countryId ?? null
-    if (previousCountryId !== nextCountryId) {
-      await syncCharacterCountry(id, previousCountryId, nextCountryId, now)
+  if (data.relatedCharacters !== undefined) {
+    for (const related of data.relatedCharacters) {
+      if (related.characterId !== undefined) {
+        await syncRelationLabelFromEntity(
+          'character',
+          'character',
+          id,
+          'character',
+          related.characterId,
+          related.relation || '相关',
+          related.relationId,
+        )
+      }
     }
+  }
+  if (data.relatedNationLabels !== undefined) {
+    for (const [countryId, label] of Object.entries(data.relatedNationLabels)) {
+      const numericId = Number(countryId)
+      if (Number.isFinite(numericId)) {
+        await syncRelationLabelFromEntity(
+          'membership',
+          'character',
+          id,
+          'country',
+          numericId,
+          label,
+        )
+      }
+    }
+  }
+  if (data.relatedEventLabels !== undefined) {
+    for (const [eventId, label] of Object.entries(data.relatedEventLabels)) {
+      const numericId = Number(eventId)
+      if (Number.isFinite(numericId)) {
+        await syncRelationLabelFromEntity(
+          'event-character',
+          'event',
+          numericId,
+          'character',
+          id,
+          label,
+        )
+      }
+    }
+  }
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('data-updated'))
   }
 
   if (data.name !== undefined) {
@@ -187,26 +299,68 @@ export async function updateCharacter(
   }
 }
 
-export async function deleteCharacter(id: number): Promise<void> {
-  await softDelete(db.characters, id, TABLE)
+export async function saveDocument(id: number, document: unknown): Promise<void> {
+  const now = Date.now()
+  await db.characters.update(id, {
+    document,
+    updatedAt: now,
+    _syncStatus: 'pending',
+    _lastModified: now,
+  })
 }
 
-/**
- * 手动排序：把 `character` 的顺序写成 0..n-1。
- * 只写真的变了的行；**不碰 updatedAt**（排序不是编辑，别让它窜到「按编辑时间」前面）。
- */
-export async function reorderCharacters(ids: number[]): Promise<void> {
-  const rows = await db.characters.bulkGet(ids)
-  const changes: { id: number; order: number }[] = []
-  ids.forEach((id, index) => {
-    const row = rows[index]
-    if (row && row.order !== index) changes.push({ id, order: index })
-  })
-  if (changes.length === 0) return
+export async function deleteCharacter(id: number): Promise<void> {
   const now = Date.now()
-  await db.transaction('rw', db.characters, async () => {
-    for (const change of changes) {
-      await db.characters.update(change.id, { order: change.order, ...pendingStamp(now) })
-    }
+  await db.characters.update(id, {
+    deleted: true,
+    _syncStatus: 'pending',
+    _lastModified: now,
   })
+
+  // 同步清理其他角色中指向它的关系投影，避免关系图删了人、面板里还留着。
+  const others = await db.characters.filter((item) => !item.deleted && item.id !== id).toArray()
+  await Promise.all(
+    others.map((character) => {
+      if (character.id === undefined) return Promise.resolve()
+      const current = character.relatedCharacters ?? []
+      const next = current.filter((item) => item.characterId !== id)
+      if (next.length === current.length) return Promise.resolve()
+      return db.characters.update(character.id, {
+        relatedCharacters: next,
+        updatedAt: now,
+        _syncStatus: 'pending',
+      })
+    }),
+  )
+
+  // 国家/事件面板里也可能保留该角色的投影，一并清理。
+  const [linkedCountries, linkedEvents] = await Promise.all([
+    db.countries.filter((item) => !item.deleted && (item.characters ?? []).includes(id)).toArray(),
+    db.events.filter((item) => !item.deleted && (item.characters ?? []).includes(id)).toArray(),
+  ])
+  await Promise.all([
+    ...linkedCountries.map((country) =>
+      country.id === undefined
+        ? Promise.resolve()
+        : db.countries.update(country.id, {
+            characters: (country.characters ?? []).filter((item) => item !== id),
+            updatedAt: now,
+            _syncStatus: 'pending',
+          }),
+    ),
+    ...linkedEvents.map((event) =>
+      event.id === undefined
+        ? Promise.resolve()
+        : db.events.update(event.id, {
+            characters: (event.characters ?? []).filter((item) => item !== id),
+            updatedAt: now,
+            _syncStatus: 'pending',
+          }),
+    ),
+  ])
+
+  await logOperation(TABLE, id, 'deleted', 'false', 'true')
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('data-updated'))
+  }
 }

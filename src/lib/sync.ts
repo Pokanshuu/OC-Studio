@@ -1,10 +1,26 @@
 import { db } from './db'
 import type { OperationLog } from '@/types'
 
-// 实体写入的统一「待同步」时间戳：各 service 的 _syncStatus/_lastModified 一律经由此处生成，
-// 避免手写漂移（保留 now 入参以与 updatedAt/createdAt 保持同一时间点）
-export function pendingStamp(now: number): { _syncStatus: 'pending'; _lastModified: number } {
-  return { _syncStatus: 'pending', _lastModified: now }
+type SyncableTable = 'characters' | 'events' | 'countries' | 'worldEntries'
+
+export async function markAsPending(id: number, table: SyncableTable): Promise<void> {
+  await db.table(table).update(id, {
+    _syncStatus: 'pending',
+    _lastModified: Date.now(),
+  })
+}
+
+export async function getPendingItems(table: SyncableTable): Promise<Record<string, unknown>[]> {
+  return db.table(table)
+    .filter((item) => item._syncStatus === 'pending')
+    .toArray()
+}
+
+export async function markAsSynced(id: number, table: SyncableTable): Promise<void> {
+  await db.table(table).update(id, {
+    _syncStatus: 'synced',
+    _lastModified: Date.now(),
+  })
 }
 
 export async function logOperation(

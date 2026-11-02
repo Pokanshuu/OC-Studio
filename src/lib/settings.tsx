@@ -2,31 +2,26 @@
 
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react"
 import { invoke } from "@tauri-apps/api/core"
-import { isTauri } from "./env"
-import { DEFAULT_SIDEBAR_WIDTH, clampSidebarWidth } from "./sidebar-width"
-import type { EditorLayout } from "./editor-layout"
 
 const STORAGE_KEY = "oc-studio-settings"
 
 export interface Settings {
   theme: "light" | "dark" | "auto"
-  cloudSyncEnabled: boolean
-  syncServerUrl: string
+  autoDarkMode: boolean
   autoStart: boolean
+  editMode: boolean
   sidebarVisible: boolean
-  sidebarWidth: number
-  /** 编辑界面样式；默认「自动」（≥1280 多栏，否则全屏） */
-  editorLayout: EditorLayout
+  /** 关系图鼠标模式：右键平移+左键框选，或左键平移+Shift 框选。 */
+  mouseMode: "right-pan" | "left-pan"
 }
 
 const DEFAULT_SETTINGS: Settings = {
   theme: "auto",
-  cloudSyncEnabled: false,
-  syncServerUrl: "",
+  autoDarkMode: false,
   autoStart: false,
+  editMode: true,
   sidebarVisible: true,
-  sidebarWidth: DEFAULT_SIDEBAR_WIDTH,
-  editorLayout: "auto",
+  mouseMode: "left-pan",
 }
 
 function loadSettings(): Settings {
@@ -35,8 +30,7 @@ function loadSettings(): Settings {
     const raw = window.localStorage.getItem(STORAGE_KEY)
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<Settings>
-      const merged = { ...DEFAULT_SETTINGS, ...parsed }
-      return { ...merged, sidebarWidth: clampSidebarWidth(merged.sidebarWidth) }
+      return { ...DEFAULT_SETTINGS, ...parsed }
     }
   } catch {
     // corrupted data, fall through
@@ -83,7 +77,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       root.classList.toggle("dark", isDark)
       root.setAttribute("data-theme", isDark ? "dark" : "light")
 
-      if (isTauri()) {
+      if (typeof window !== "undefined" && ("__TAURI_INTERNALS__" in window || "__TAURI__" in window)) {
         try {
           const enabled = window.localStorage.getItem("blur-effect-enabled") === "true"
           invoke<boolean>("update_blur_effect", { enabled, isDark })

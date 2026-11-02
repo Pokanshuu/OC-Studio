@@ -1,378 +1,1000 @@
 import { db } from '@/lib/db'
-import { logOperation, pendingStamp } from '@/lib/sync'
-import { addCountryCharacter, addCountryEvent, removeCountryCharacter } from '@/lib/membership'
-import type { GraphNode, GraphEdge, RelationEndpoint, RelationNodeType } from './types'
+import type {
+  Character,
+  Country,
+  Event,
+  RelationEntityType,
+  RelationKind,
+  RelationRecord,
+} from '@/types'
+import type { GraphEdge, GraphNode } from './types'
+import type { RelationArrow } from './style'
 
-export type CreateRelationResult =
-  | { ok: true }
-  | { ok: false; reason: 'unsupported' | 'duplicate' | 'missing' }
+const MANAGED_KINDS: RelationKind[] = [
+  'character',
+  'membership',
+  'event-character',
+  'event-country',
+  'event-event',
+  'nation',
+]
+
+const DEFAULT_LABELS: Record<RelationKind, string> = {
+  character: '相关',
+  membership: '属于',
+  'event-character': '参与',
+  'event-country': '发生于',
+  'event-event': '相关',
+  nation: '关系',
+  custom: '相关',
+}
+
+export function relationId(
+  sourceType: RelationEntityType,
+  sourceId: number,
+  targetType: RelationEntityType,
+  targetId: number,
+): string {
+  return `${sourceType}:${sourceId}->${targetType}:${targetId}`
+}
+
+export function inferRelationKind(
+  sourceType: RelationEntityType,
+  targetType: RelationEntityType,
+): RelationKind {
+  if (sourceType === 'character' && targetType === 'character') return 'character'
+  if (sourceType === 'country' && targetType === 'country') return 'nation'
+  if (sourceType === 'event' && targetType === 'event') return 'event-event'
+  if (sourceType === 'event' || targetType === 'event') {
+    if (sourceType === 'character' || targetType === 'character') return 'event-character'
+    return 'event-country'
+  }
+  return 'membership'
+}
+
+function normalizeEndpoints(
+  sourceType: RelationEntityType,
+  sourceId: number,
+  targetType: RelationEntityType,
+  targetId: number,
+  kind: RelationKind,
+): {
+  sourceType: RelationEntityType
+  sourceId: number
+  targetType: RelationEntityType
+  targetId: number
+} {
+  let nextSourceType = sourceType
+  let nextTargetType = targetType
+  let nextSourceId = sourceId
+  let nextTargetId = targetId
+
+  // 事件边统一为 event → character/country；角色归属统一为 character → country。
+  if (kind === 'event-character' || kind === 'event-country') {
+    if (sourceType !== 'event') {
+      nextSourceType = targetType
+      nextTargetType = sourceType
+      nextSourceId = targetId
+      nextTargetId = sourceId
+    }
+  } else if (kind === 'membership') {
+    if (sourceType !== 'character') {
+      nextSourceType = targetType
+      nextTargetType = sourceType
+      nextSourceId = targetId
+      nextTargetId = sourceId
+    }
+  } else if (kind === 'nation' || kind === 'character' || kind === 'event-event') {
+    if (nextSourceId > nextTargetId) {
+      const swapId = nextSourceId
+      nextSourceId = nextTargetId
+      nextTargetId = swapId
+    }
+  }
+
+  return {
+    sourceType: nextSourceType,
+    sourceId: nextSourceId,
+    targetType: nextTargetType,
+    targetId: nextTargetId,
+  }
+}
+
+async function readEntities(): Promise<{
+  characters: Character[]
+  countries: Country[]
+  events: Event[]
+}> {
+  const [charactersRaw, countriesRaw, eventsRaw] = await Promise.all([
+    db.characters.toArray(),
+    db.countries.toArray(),
+    db.events.toArray(),
+  ])
+  return {
+    characters: charactersRaw.filter((item) => !item.deleted),
+    countries: countriesRaw.filter((item) => !item.deleted),
+    events: eventsRaw.filter((item) => !item.deleted),
+  }
+}
+
+function collectProjectedRelations(
+  characters: Character[],
+  countries: Country[],
+  events: Event[],
+): Map<string, RelationRecord> {
+  const now = Date.now()
+  const characterIds = new Set(characters.map((item) => item.id).filter((id): id is number => id !== undefined))
+  const countryIds = new Set(countries.map((item) => item.id).filter((id): id is number => id !== undefined))
+  const rows = new Map<string, RelationRecord>()
+
+  const add = (
+    sourceType: RelationEntityType,
+    sourceId: number | undefined,
+    targetType: RelationEntityType,
+    targetId: number | undefined,
+    kind: RelationKind,
+    label: string,
+    existingId?: string,
+  ): void => {
+    if (
+      sourceId === undefined ||
+      targetId === undefined ||
+      (sourceType === targetType && sourceId === targetId)
+    ) {
+      return
+    }
+    const normalized = normalizeEndpoints(sourceType, sourceId, targetType, targetId, kind)
+    const id =
+      existingId ??
+      relationId(sourceType, normalized.sourceId, targetType, normalized.targetId)
+    if (rows.has(id)) return
+    rows.set(id, {
+      id,
+      sourceType,
+      sourceId: normalized.sourceId,
+      targetType,
+      targetId: normalized.targetId,
+      kind,
+      label: label.trim() || DEFAULT_LABELS[kind],
+      directed: kind !== 'nation' && kind !== 'character',
+      createdAt: now,
+      updatedAt: now,
+      deleted: false,
+    })
+  }
+
+  for (const character of characters) {
+    if (character.id === undefined) continue
+    for (const related of character.relatedCharacters ?? []) {
+      if (related.characterId && characterIds.has(related.characterId)) {
+        add(
+          'character',
+          character.id,
+          'character',
+          related.characterId,
+          'character',
+          related.relation,
+          related.relationId,
+        )
+      }
+    }
+    if (character.countryId && countryIds.has(character.countryId)) {
+      add(
+        'character',
+        character.id,
+        'country',
+        character.countryId,
+        'membership',
+        character.relatedNationLabels?.[character.countryId] ?? DEFAULT_LABELS.membership,
+      )
+    }
+    for (const nationId of character.relatedNations ?? []) {
+      if (countryIds.has(nationId)) {
+        add(
+          'character',
+          character.id,
+          'country',
+          nationId,
+          'membership',
+          character.relatedNationLabels?.[nationId] ?? DEFAULT_LABELS.membership,
+        )
+      }
+    }
+    for (const eventId of character.relatedEvents ?? []) {
+      if (events.some((event) => event.id === eventId)) {
+        add(
+          'event',
+          eventId,
+          'character',
+          character.id,
+          'event-character',
+          character.relatedEventLabels?.[eventId] ?? DEFAULT_LABELS['event-character'],
+        )
+      }
+    }
+  }
+
+  for (const country of countries) {
+    if (country.id === undefined) continue
+    for (const nationId of country.relatedNations ?? []) {
+      if (countryIds.has(nationId)) {
+        add(
+          'country',
+          country.id,
+          'country',
+          nationId,
+          'nation',
+          country.relatedNationLabels?.[nationId] ?? DEFAULT_LABELS.nation,
+        )
+      }
+    }
+    for (const characterId of country.characters ?? []) {
+      if (characterIds.has(characterId)) {
+        add('character', characterId, 'country', country.id, 'membership', DEFAULT_LABELS.membership)
+      }
+    }
+    for (const eventId of country.relatedEvents ?? []) {
+      if (events.some((event) => event.id === eventId)) {
+        add(
+          'event',
+          eventId,
+          'country',
+          country.id,
+          'event-country',
+          country.relatedEventLabels?.[eventId] ?? DEFAULT_LABELS['event-country'],
+        )
+      }
+    }
+    for (const eventId of country.events ?? []) {
+      if (events.some((event) => event.id === eventId)) {
+        add(
+          'event',
+          eventId,
+          'country',
+          country.id,
+          'event-country',
+          country.relatedEventLabels?.[eventId] ?? DEFAULT_LABELS['event-country'],
+        )
+      }
+    }
+  }
+
+  for (const event of events) {
+    if (event.id === undefined) continue
+    for (const related of event.relations ?? []) {
+      if (events.some((item) => item.id === related.targetId)) {
+        add(
+          'event',
+          event.id,
+          'event',
+          related.targetId,
+          'event-event',
+          related.relation,
+        )
+      }
+    }
+    for (const characterId of event.characters ?? []) {
+      if (characterIds.has(characterId)) {
+        add('event', event.id, 'character', characterId, 'event-character', DEFAULT_LABELS['event-character'])
+      }
+    }
+    for (const countryId of event.countries ?? []) {
+      if (countryIds.has(countryId)) {
+        add('event', event.id, 'country', countryId, 'event-country', DEFAULT_LABELS['event-country'])
+      }
+    }
+  }
+
+  return rows
+}
+
+function relationIsOneSided(
+  relation: RelationRecord,
+  characterById: Map<number, Character>,
+  countryById: Map<number, Country>,
+  eventById: Map<number, Event>,
+): boolean {
+  if (relation.kind === 'character') {
+    const source = characterById.get(relation.sourceId)
+    const target = characterById.get(relation.targetId)
+    if (!source || !target) return false
+    const sourceLink = (source.relatedCharacters ?? []).find(
+      (item) => item.characterId === target.id,
+    )
+    const targetLink = (target.relatedCharacters ?? []).find(
+      (item) => item.characterId === source.id,
+    )
+    return (
+      !sourceLink ||
+      !targetLink ||
+      sourceLink.relation !== relation.label ||
+      targetLink.relation !== relation.label
+    )
+  }
+
+  if (relation.kind === 'membership') {
+    const character = characterById.get(relation.sourceId)
+    const country = countryById.get(relation.targetId)
+    if (!character || !country) return false
+    return (
+      !(character.relatedNations ?? []).includes(country.id!) ||
+      !(country.characters ?? []).includes(character.id!) ||
+      character.relatedNationLabels?.[country.id!] !== relation.label
+    )
+  }
+
+  if (relation.kind === 'event-character') {
+    const event = eventById.get(relation.sourceId)
+    const character = characterById.get(relation.targetId)
+    if (!event || !character) return false
+    return (
+      !(event.characters ?? []).includes(character.id!) ||
+      !(character.relatedEvents ?? []).includes(event.id!) ||
+      character.relatedEventLabels?.[event.id!] !== relation.label
+    )
+  }
+
+  if (relation.kind === 'event-country') {
+    const event = eventById.get(relation.sourceId)
+    const country = countryById.get(relation.targetId)
+    if (!event || !country) return false
+    return (
+      !(event.countries ?? []).includes(country.id!) ||
+      !(country.relatedEvents ?? []).includes(event.id!) ||
+      country.relatedEventLabels?.[event.id!] !== relation.label
+    )
+  }
+
+  if (relation.kind === 'nation') {
+    const source = countryById.get(relation.sourceId)
+    const target = countryById.get(relation.targetId)
+    if (!source || !target) return false
+    return (
+      !(source.relatedNations ?? []).includes(target.id!) ||
+      !(target.relatedNations ?? []).includes(source.id!) ||
+      source.relatedNationLabels?.[target.id!] !== relation.label ||
+      target.relatedNationLabels?.[source.id!] !== relation.label
+    )
+  }
+
+  if (relation.kind === 'event-event') {
+    const source = eventById.get(relation.sourceId)
+    const target = eventById.get(relation.targetId)
+    if (!source || !target) return false
+    const sourceLink = (source.relations ?? []).find((item) => item.targetId === target.id)
+    const targetLink = (target.relations ?? []).find((item) => item.targetId === source.id)
+    return (
+      !sourceLink ||
+      !targetLink ||
+      sourceLink.relation !== relation.label ||
+      targetLink.relation !== relation.label
+    )
+  }
+
+  return false
+}
+
+/**
+ * 将旧实体数组中的关系投影合并进 relations 表。
+ * 数组仍然可以在旧面板中编辑；这里把它们作为输入，写回唯一真相源。
+ */
+export async function syncRelationsFromEntities(): Promise<RelationRecord[]> {
+  const entities = await readEntities()
+  const projected = collectProjectedRelations(entities.characters, entities.countries, entities.events)
+  const existing = new Map((await db.relations.toArray()).map((relation) => [relation.id, relation]))
+  const now = Date.now()
+  const changes: RelationRecord[] = []
+
+  const characterById = new Map(entities.characters.map((item) => [item.id!, item]))
+  const countryById = new Map(entities.countries.map((item) => [item.id!, item]))
+  const eventById = new Map(entities.events.map((item) => [item.id!, item]))
+  let repaired = false
+  for (const relation of projected.values()) {
+    if (!relationIsOneSided(relation, characterById, countryById, eventById)) continue
+    repaired = true
+    const canonical = existing.get(relation.id)
+    await applyProjectionAdd({
+      ...relation,
+      label: canonical && !canonical.deleted ? canonical.label : relation.label,
+    })
+  }
+  if (repaired && typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('data-updated'))
+  }
+
+  for (const relation of projected.values()) {
+    const current = existing.get(relation.id)
+    if (!current) {
+      changes.push(relation)
+      continue
+    }
+    // Canonical relation is the shared label authority. Panel edits update it
+    // through syncRelationLabelFromEntity; graph edits update it directly.
+    const nextLabel =
+      current && !current.deleted
+        ? current.label
+        : relation.label || current.label
+    if (
+      current.deleted ||
+      current.label !== nextLabel ||
+      current.kind !== relation.kind ||
+      current.directed !== relation.directed
+    ) {
+      changes.push({
+        ...current,
+        label: nextLabel,
+        kind: relation.kind,
+        directed: relation.directed,
+        deleted: false,
+        updatedAt: now,
+      })
+    }
+  }
+
+  // 已从面板移除的旧关系同步软删除；custom 边不在此清理，避免误删图编辑创建的关系。
+  // 新创建的边可能比数组投影晚 1-2 帧落库，给 3 秒宽限，避免“刚连线就被同步删掉”。
+  for (const current of existing.values()) {
+    if (projected.has(current.id) || current.deleted) continue
+    if (!MANAGED_KINDS.includes(current.kind)) continue
+    if (now - current.updatedAt < 3000) continue
+    changes.push({ ...current, deleted: true, updatedAt: now })
+  }
+
+  if (changes.length > 0) {
+    await db.relations.bulkPut(changes)
+  }
+
+  return [...projected.values()]
+}
+
+function uniquePush<T>(values: T[] | undefined, value: T): T[] {
+  const list = values ? [...values] : []
+  if (!list.includes(value)) list.push(value)
+  return list
+}
+
+function uniqueRemove<T>(values: T[] | undefined, value: T): T[] {
+  return (values ?? []).filter((item) => item !== value)
+}
+
+function withoutKey(record: Record<number, string> | undefined, key: number): Record<number, string> {
+  const next = { ...(record ?? {}) }
+  delete next[key]
+  return next
+}
+
+async function applyProjectionAdd(relation: RelationRecord): Promise<void> {
+  const { characters, countries, events } = await readEntities()
+  const characterById = new Map(characters.map((item) => [item.id, item]))
+  const countryById = new Map(countries.map((item) => [item.id, item]))
+  const eventById = new Map(events.map((item) => [item.id, item]))
+  const now = Date.now()
+
+  if (relation.kind === 'character') {
+    const source = characterById.get(relation.sourceId)
+    const target = characterById.get(relation.targetId)
+    if (source?.id !== undefined && target?.id !== undefined) {
+      const sourceRelations = (source.relatedCharacters ?? []).filter((item) =>
+        item.relationId
+          ? item.relationId !== relation.id
+          : item.characterId !== target.id,
+      )
+      sourceRelations.push({
+        relationId: relation.id,
+        characterId: target.id,
+        name: target.name,
+        relation: relation.label,
+      })
+      const targetRelations = (target.relatedCharacters ?? []).filter((item) =>
+        item.relationId
+          ? item.relationId !== relation.id
+          : item.characterId !== source.id,
+      )
+      targetRelations.push({
+        relationId: relation.id,
+        characterId: source.id,
+        name: source.name,
+        relation: relation.label,
+      })
+      await Promise.all([
+        db.characters.update(source.id, {
+          relatedCharacters: sourceRelations,
+          updatedAt: now,
+          _syncStatus: 'pending',
+        }),
+        db.characters.update(target.id, {
+          relatedCharacters: targetRelations,
+          updatedAt: now,
+          _syncStatus: 'pending',
+        }),
+      ])
+    }
+  } else if (relation.kind === 'membership') {
+    const character = characterById.get(relation.sourceId)
+    const country = countryById.get(relation.targetId)
+    if (character?.id !== undefined && country?.id !== undefined) {
+      await Promise.all([
+        db.characters.update(character.id, {
+          countryId: country.id,
+          relatedNations: uniquePush(character.relatedNations, country.id),
+          relatedNationLabels: {
+            ...(character.relatedNationLabels ?? {}),
+            [country.id]: relation.label,
+          },
+          updatedAt: now,
+          _syncStatus: 'pending',
+        }),
+        db.countries.update(country.id, {
+          characters: uniquePush(country.characters, character.id),
+          updatedAt: now,
+          _syncStatus: 'pending',
+        }),
+      ])
+    }
+  } else if (relation.kind === 'event-character') {
+    const event = eventById.get(relation.sourceId)
+    const character = characterById.get(relation.targetId)
+    if (event?.id !== undefined && character?.id !== undefined) {
+      await Promise.all([
+        db.events.update(event.id, {
+          characters: uniquePush(event.characters, character.id),
+          updatedAt: now,
+          _syncStatus: 'pending',
+        }),
+        db.characters.update(character.id, {
+          relatedEvents: uniquePush(character.relatedEvents, event.id),
+          relatedEventLabels: {
+            ...(character.relatedEventLabels ?? {}),
+            [event.id]: relation.label,
+          },
+          updatedAt: now,
+          _syncStatus: 'pending',
+        }),
+      ])
+    }
+  } else if (
+    relation.kind === 'event-event' ||
+    (relation.sourceType === 'event' && relation.targetType === 'event')
+  ) {
+    const source = eventById.get(relation.sourceId)
+    const target = eventById.get(relation.targetId)
+    const upsert = (
+      list: Event['relations'],
+      targetId: number,
+      label: string,
+    ): Event['relations'] => [
+      ...(list ?? []).filter((item) => item.targetId !== targetId),
+      { targetId, relation: label },
+    ]
+    if (source?.id !== undefined && target?.id !== undefined) {
+      await Promise.all([
+        db.events.update(source.id, {
+          relations: upsert(source.relations, target.id, relation.label),
+          updatedAt: now,
+          _syncStatus: 'pending',
+        }),
+        db.events.update(target.id, {
+          relations: upsert(target.relations, source.id, relation.label),
+          updatedAt: now,
+          _syncStatus: 'pending',
+        }),
+      ])
+    }
+  } else if (relation.kind === 'event-country') {
+    const event = eventById.get(relation.sourceId)
+    const country = countryById.get(relation.targetId)
+    if (event?.id !== undefined && country?.id !== undefined) {
+      await Promise.all([
+        db.events.update(event.id, {
+          countries: uniquePush(event.countries, country.id),
+          updatedAt: now,
+          _syncStatus: 'pending',
+        }),
+        db.countries.update(country.id, {
+          relatedEvents: uniquePush(country.relatedEvents, event.id),
+          relatedEventLabels: {
+            ...(country.relatedEventLabels ?? {}),
+            [event.id]: relation.label,
+          },
+          updatedAt: now,
+          _syncStatus: 'pending',
+        }),
+      ])
+    }
+  } else if (relation.kind === 'nation') {
+    const source = countryById.get(relation.sourceId)
+    const target = countryById.get(relation.targetId)
+    if (source?.id !== undefined && target?.id !== undefined) {
+      await Promise.all([
+        db.countries.update(source.id, {
+          relatedNations: uniquePush(source.relatedNations, target.id),
+          relatedNationLabels: {
+            ...(source.relatedNationLabels ?? {}),
+            [target.id]: relation.label,
+          },
+          updatedAt: now,
+          _syncStatus: 'pending',
+        }),
+        db.countries.update(target.id, {
+          relatedNations: uniquePush(target.relatedNations, source.id),
+          relatedNationLabels: {
+            ...(target.relatedNationLabels ?? {}),
+            [source.id]: relation.label,
+          },
+          updatedAt: now,
+          _syncStatus: 'pending',
+        }),
+      ])
+    }
+  }
+}
+
+async function applyProjectionRemove(relation: RelationRecord): Promise<void> {
+  const { characters, countries, events } = await readEntities()
+  const characterById = new Map(characters.map((item) => [item.id, item]))
+  const countryById = new Map(countries.map((item) => [item.id, item]))
+  const eventById = new Map(events.map((item) => [item.id, item]))
+  const now = Date.now()
+
+  if (relation.kind === 'character') {
+    const source = characterById.get(relation.sourceId)
+    const target = characterById.get(relation.targetId)
+    if (source?.id !== undefined && target?.id !== undefined) {
+      await Promise.all([
+        db.characters.update(source.id, {
+          relatedCharacters: (source.relatedCharacters ?? []).filter((item) =>
+            item.relationId
+              ? item.relationId !== relation.id
+              : item.characterId !== target.id,
+          ),
+          updatedAt: now,
+          _syncStatus: 'pending',
+        }),
+        db.characters.update(target.id, {
+          relatedCharacters: (target.relatedCharacters ?? []).filter((item) =>
+            item.relationId
+              ? item.relationId !== relation.id
+              : item.characterId !== source.id,
+          ),
+          updatedAt: now,
+          _syncStatus: 'pending',
+        }),
+      ])
+    }
+  } else if (relation.kind === 'membership') {
+    const character = characterById.get(relation.sourceId)
+    const country = countryById.get(relation.targetId)
+    if (character?.id !== undefined) {
+      await db.characters.update(character.id, {
+        countryId: character.countryId === country?.id ? undefined : character.countryId,
+        relatedNations: uniqueRemove(character.relatedNations, country?.id ?? -1),
+        relatedNationLabels: withoutKey(character.relatedNationLabels, country?.id ?? -1),
+        updatedAt: now,
+        _syncStatus: 'pending',
+      })
+    }
+    if (country?.id !== undefined) {
+      await db.countries.update(country.id, {
+        characters: uniqueRemove(country.characters, relation.sourceId),
+        updatedAt: now,
+        _syncStatus: 'pending',
+      })
+    }
+  } else if (relation.kind === 'event-character') {
+    const event = eventById.get(relation.sourceId)
+    const character = characterById.get(relation.targetId)
+    if (event?.id !== undefined) {
+      await db.events.update(event.id, {
+        characters: uniqueRemove(event.characters, relation.targetId),
+        updatedAt: now,
+        _syncStatus: 'pending',
+      })
+    }
+    if (character?.id !== undefined) {
+      await db.characters.update(character.id, {
+        relatedEvents: uniqueRemove(character.relatedEvents, relation.sourceId),
+        relatedEventLabels: withoutKey(character.relatedEventLabels, relation.sourceId),
+        updatedAt: now,
+        _syncStatus: 'pending',
+      })
+    }
+  } else if (
+    relation.kind === 'event-event' ||
+    (relation.sourceType === 'event' && relation.targetType === 'event')
+  ) {
+    const source = eventById.get(relation.sourceId)
+    const target = eventById.get(relation.targetId)
+    const remove = (list: Event['relations'], targetId: number): Event['relations'] =>
+      (list ?? []).filter((item) => item.targetId !== targetId)
+    if (source?.id !== undefined) {
+      await db.events.update(source.id, {
+        relations: remove(source.relations, relation.targetId),
+        updatedAt: now,
+        _syncStatus: 'pending',
+      })
+    }
+    if (target?.id !== undefined) {
+      await db.events.update(target.id, {
+        relations: remove(target.relations, relation.sourceId),
+        updatedAt: now,
+        _syncStatus: 'pending',
+      })
+    }
+  } else if (relation.kind === 'event-country') {
+    const event = eventById.get(relation.sourceId)
+    const country = countryById.get(relation.targetId)
+    if (event?.id !== undefined) {
+      await db.events.update(event.id, {
+        countries: uniqueRemove(event.countries, relation.targetId),
+        updatedAt: now,
+        _syncStatus: 'pending',
+      })
+    }
+    if (country?.id !== undefined) {
+      await db.countries.update(country.id, {
+        relatedEvents: uniqueRemove(country.relatedEvents, relation.sourceId),
+        relatedEventLabels: withoutKey(country.relatedEventLabels, relation.sourceId),
+        updatedAt: now,
+        _syncStatus: 'pending',
+      })
+    }
+  } else if (relation.kind === 'nation') {
+    const source = countryById.get(relation.sourceId)
+    const target = countryById.get(relation.targetId)
+    if (source?.id !== undefined) {
+      await db.countries.update(source.id, {
+        relatedNations: uniqueRemove(source.relatedNations, relation.targetId),
+        relatedNationLabels: withoutKey(source.relatedNationLabels, relation.targetId),
+        updatedAt: now,
+        _syncStatus: 'pending',
+      })
+    }
+    if (target?.id !== undefined) {
+      await db.countries.update(target.id, {
+        relatedNations: uniqueRemove(target.relatedNations, relation.sourceId),
+        relatedNationLabels: withoutKey(target.relatedNationLabels, relation.sourceId),
+        updatedAt: now,
+        _syncStatus: 'pending',
+      })
+    }
+  }
+}
+
+function notifyRelationsChanged(): void {
+  window.dispatchEvent(new Event('oc-relations-changed'))
+  window.dispatchEvent(new Event('data-updated'))
+}
+
+/**
+ * When a legacy entity panel changes a relation label, keep the canonical
+ * relation table in step. The entity projection is already written by the
+ * caller; this only updates the shared label used by the graph.
+ */
+export async function syncRelationLabelFromEntity(
+  kind: RelationKind,
+  sourceType: RelationEntityType,
+  sourceId: number,
+  targetType: RelationEntityType,
+  targetId: number,
+  label: string,
+  explicitId?: string,
+): Promise<void> {
+  if (sourceType === targetType && sourceId === targetId) return
+  const normalized = normalizeEndpoints(sourceType, sourceId, targetType, targetId, kind)
+  const id =
+    explicitId ??
+    relationId(
+      normalized.sourceType,
+      normalized.sourceId,
+      normalized.targetType,
+      normalized.targetId,
+    )
+  const current = await db.relations.get(id)
+  if (!current || current.deleted) return
+  const nextLabel = label.trim() || DEFAULT_LABELS[kind]
+  if (current.label === nextLabel) return
+  await db.relations.update(id, { label: nextLabel, updatedAt: Date.now() })
+}
+
+export async function updateRelationLabel(id: string, label: string): Promise<void> {
+  const relation = await db.relations.get(id)
+  if (!relation) return
+  const nextLabel = label.trim() || DEFAULT_LABELS[relation.kind]
+  await db.relations.update(id, { label: nextLabel, updatedAt: Date.now(), deleted: false })
+  await applyProjectionAdd({ ...relation, label: nextLabel })
+  notifyRelationsChanged()
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('data-updated'))
+  }
+}
+
+/** 更新关系线颜色/箭头，标签与连线共用同一个颜色。 */
+export async function updateRelationStyle(
+  id: string,
+  patch: { color?: string; arrow?: RelationArrow },
+): Promise<void> {
+  const relation = await db.relations.get(id)
+  if (!relation) return
+  const updates: Partial<RelationRecord> = { updatedAt: Date.now() }
+  if (patch.color !== undefined) updates.color = patch.color
+  if (patch.arrow !== undefined) updates.arrow = patch.arrow
+  await db.relations.update(id, updates)
+  notifyRelationsChanged()
+}
+
+export async function deleteRelation(id: string): Promise<void> {
+  const relation = await db.relations.get(id)
+  if (!relation) return
+  await db.relations.update(id, { deleted: true, updatedAt: Date.now() })
+  await applyProjectionRemove(relation)
+  notifyRelationsChanged()
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('data-updated'))
+  }
+}
+
+export async function createRelation(input: {
+  sourceType: RelationEntityType
+  sourceId: number
+  targetType: RelationEntityType
+  targetId: number
+  kind?: RelationKind
+  label?: string
+  /** 角色之间允许同一对节点存在多条关系；其他类型仍保持一对一。 */
+  allowDuplicate?: boolean
+}): Promise<RelationRecord | null> {
+  if (input.sourceType === input.targetType && input.sourceId === input.targetId) return null
+  const kind = input.kind ?? inferRelationKind(input.sourceType, input.targetType)
+  const normalized = normalizeEndpoints(
+    input.sourceType,
+    input.sourceId,
+    input.targetType,
+    input.targetId,
+    kind,
+  )
+  const now = Date.now()
+  const baseId = relationId(
+    normalized.sourceType,
+    normalized.sourceId,
+    normalized.targetType,
+    normalized.targetId,
+  )
+  const existing = await db.relations.get(baseId)
+  let id = baseId
+  if (existing && !existing.deleted) {
+    const canDuplicate =
+      Boolean(input.allowDuplicate) && kind === 'character' &&
+      normalized.sourceType === 'character' && normalized.targetType === 'character'
+    if (!canDuplicate) return existing
+    id = `${baseId}#${now.toString(36)}${Math.random().toString(36).slice(2, 6)}`
+  }
+  const record: RelationRecord = {
+    id,
+    sourceType: normalized.sourceType,
+    sourceId: normalized.sourceId,
+    targetType: normalized.targetType,
+    targetId: normalized.targetId,
+    kind,
+    label: input.label?.trim() || DEFAULT_LABELS[kind],
+    directed: kind !== 'nation' && kind !== 'character',
+    createdAt: now,
+    updatedAt: now,
+    deleted: false,
+  }
+  await db.relations.put(record)
+  await applyProjectionAdd(record)
+  notifyRelationsChanged()
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('data-updated'))
+  }
+  return record
+}
 
 export async function buildGraphData(): Promise<{ nodes: GraphNode[]; edges: GraphEdge[] }> {
-  const [charactersRaw, eventsRaw, countriesRaw] = await Promise.all([
+  // 只读：liveQuery 内不能写 Dexie。实体数组与 canonical relations 在内存中合并，
+  // 使面板编辑立即可见；持久化由 useGraphData 在写事务外调用 syncRelationsFromEntities。
+  const [charactersRaw, eventsRaw, countriesRaw, relationsRaw] = await Promise.all([
     db.characters.toArray(),
     db.events.toArray(),
     db.countries.toArray(),
+    db.relations.toArray(),
   ])
-
-  const characters = charactersRaw.filter((c) => !c.deleted)
-  const events = eventsRaw.filter((e) => !e.deleted)
-  const countries = countriesRaw.filter((c) => !c.deleted)
+  const characters = charactersRaw.filter((item) => !item.deleted)
+  const events = eventsRaw.filter((item) => !item.deleted)
+  const countries = countriesRaw.filter((item) => !item.deleted)
+  const relations = relationsRaw.filter((item) => !item.deleted)
+  const projected = collectProjectedRelations(characters, countries, events)
+  const mergedRelations = new Map(projected)
+  for (const relation of relations) {
+    const current = mergedRelations.get(relation.id)
+    // 有投影时以实体数组/标签映射为准；样式（颜色/箭头）始终以 canonical 为准。
+    if (!current) mergedRelations.set(relation.id, relation)
+    else {
+      mergedRelations.set(relation.id, {
+        ...current,
+        directed: relation.directed,
+        color: relation.color,
+        arrow: relation.arrow,
+      })
+    }
+  }
+  const edgesSource = [...mergedRelations.values()]
 
   const nodes: GraphNode[] = []
   const edges: GraphEdge[] = []
   const nodeIds = new Set<string>()
-  const edgeKeys = new Set<string>()
 
   function addNode(
     id: string,
     label: string,
-    type: 'character' | 'event' | 'country',
+    type: RelationEntityType,
     entityId: number,
     subtitle?: string,
-    position?: { x: number; y: number },
-  ) {
+  ): void {
     if (nodeIds.has(id)) return
     nodeIds.add(id)
     nodes.push({
       id,
       type: `${type}Node`,
-      // 实体里存过坐标就用它；没有就交给力导向布局（见 layout.ts）
-      position: position ?? { x: 0, y: 0 },
-      // `group`：连线手柄靠它做「悬停节点才显形」（见 NODE_HANDLE）
-      className: 'group',
+      position: { x: 0, y: 0 },
       data: { id, label, entityType: type, entityId, subtitle },
     })
   }
 
-  function addEdge(source: string, target: string, relation: string, incomplete = false) {
-    // 按无序节点对去重：同一对节点只保留一条边，避免「属于/所属」「发生于/发生地」等
-    // 在数据模型两侧同时表达时被重复绘制成两条反向边。
-    const key = [source, target].sort().join('||')
-    if (edgeKeys.has(key)) return
-    edgeKeys.add(key)
+  for (const character of characters) {
+    if (character.id === undefined) continue
+    const id = `character-${character.id}`
+    addNode(id, character.name, 'character', character.id, character.aliases?.join('、') || undefined)
+    const node = nodes.find((item) => item.id === id)
+    if (node) {
+      const data = node.data as Record<string, unknown>
+      data.avatarUrl = character.avatarUrl
+      data.qAvatarUrl = character.qAvatarUrl ?? ''
+      data.accentColor = character.accentColor ?? ''
+      data.entityKind = character.entityKind ?? 'character'
+    }
+  }
+  for (const event of events) {
+    if (event.id === undefined) continue
+    const id = `event-${event.id}`
+    addNode(id, event.title, 'event', event.id, event.time)
+    const node = nodes.find((item) => item.id === id)
+    if (node) {
+      const data = node.data as Record<string, unknown>
+      data.imageUrl = event.headerUrl || event.images?.[0]?.url || ''
+    }
+  }
+  for (const country of countries) {
+    if (country.id === undefined) continue
+    const id = `country-${country.id}`
+    addNode(id, country.name, 'country', country.id)
+    const node = nodes.find((item) => item.id === id)
+    if (node) {
+      const data = node.data as Record<string, unknown>
+      data.flagUrl = country.flagUrl ?? ''
+      data.accentColor = country.accentColor ?? ''
+    }
+  }
+
+  for (const relation of edgesSource) {
+    const source = `${relation.sourceType}-${relation.sourceId}`
+    const target = `${relation.targetType}-${relation.targetId}`
+    if (!nodeIds.has(source) || !nodeIds.has(target)) continue
     edges.push({
-      id: `${source}->${target}`,
+      id: relation.id,
       source,
       target,
       type: 'relationEdge',
-      data: incomplete ? { relation, incomplete: true } : { relation },
+      data: {
+        relation: relation.label,
+        relationId: relation.id,
+        kind: relation.kind,
+        directed: relation.directed,
+        color: relation.color,
+        arrow: relation.arrow,
+      },
     })
   }
 
-  // 成员关系在数据模型里是**两份列表**（角色侧国籍 / 国家侧相关角色、事件侧国家 / 国家侧相关事件）。
-  // 只有一侧有记录时，这条边是「不完整的」——关系图允许重新拖一次把它补全
-  // （见 RelationGraph 的 isValidConnection 与下面的 link* 系列）。
-  const membershipSides = new Map<string, number>()
-  function markMembership(a: string, b: string, side: 1 | 2) {
-    const key = [a, b].sort().join('||')
-    membershipSides.set(key, (membershipSides.get(key) ?? 0) | side)
-  }
-  function isMembershipComplete(a: string, b: string): boolean {
-    return (membershipSides.get([a, b].sort().join('||')) ?? 0) === 3
-  }
-
-  for (const c of characters) {
-    const id = `character-${c.id}`
-    const subtitle = c.aliases?.length > 0 ? c.aliases.join('、') : undefined
-    addNode(id, c.name, 'character', c.id, subtitle, c.graphPosition)
-    const node = nodes.find((n) => n.id === id)
-    if (node) {
-      const data = node.data as Record<string, unknown>
-      data.avatarUrl = c.avatarUrl
-    }
-  }
-
-  for (const e of events) {
-    addNode(`event-${e.id}`, e.title, 'event', e.id, e.time, e.graphPosition)
-  }
-
-  for (const c of countries) {
-    addNode(`country-${c.id}`, c.name, 'country', c.id, undefined, c.graphPosition)
-    const node = nodes.find((n) => n.id === `country-${c.id}`)
-    if (node) {
-      ;(node.data as Record<string, unknown>).flagUrl = c.flagUrl ?? ''
-    }
-  }
-
-  for (const c of characters) {
-    const sourceId = `character-${c.id}`
-    for (const rc of c.relatedCharacters ?? []) {
-      const targetId = `character-${rc.characterId}`
-      if (nodeIds.has(targetId)) {
-        addEdge(sourceId, targetId, rc.relation || '')
-      }
-    }
-  }
-
-  // 事件之间的关系（编辑器「相关事件」/ 关系图拖拽连线写的就是这个字段）
-  for (const e of events) {
-    const sourceId = `event-${e.id}`
-    for (const relation of e.relations ?? []) {
-      const targetId = `event-${relation.targetId}`
-      if (nodeIds.has(targetId)) {
-        addEdge(sourceId, targetId, relation.relation || '')
-      }
-    }
-  }
-
-  // 先把「两侧都有」的成员关系登记一遍，画边时据此判断这条边完不完整
-  for (const c of characters) {
-    if (c.countryId) markMembership(`character-${c.id}`, `country-${c.countryId}`, 1)
-  }
-  for (const c of countries) {
-    for (const charId of c.characters ?? []) markMembership(`country-${c.id}`, `character-${charId}`, 2)
-  }
-  for (const e of events) {
-    for (const countryId of e.countries ?? []) markMembership(`event-${e.id}`, `country-${countryId}`, 1)
-  }
-  for (const c of countries) {
-    for (const eventId of c.events ?? []) markMembership(`country-${c.id}`, `event-${eventId}`, 2)
-  }
-
-  for (const c of characters) {
-    if (c.countryId) {
-      const countryId = `country-${c.countryId}`
-      if (nodeIds.has(countryId)) {
-        addEdge(`character-${c.id}`, countryId, '属于', !isMembershipComplete(`character-${c.id}`, countryId))
-      }
-    }
-  }
-
-  for (const e of events) {
-    const eventId = `event-${e.id}`
-    for (const charId of e.characters ?? []) {
-      const charNodeId = `character-${charId}`
-      if (nodeIds.has(charNodeId)) {
-        addEdge(eventId, charNodeId, '参与')
-      }
-    }
-  }
-
-  for (const e of events) {
-    const eventId = `event-${e.id}`
-    for (const countryId of e.countries ?? []) {
-      const countryNodeId = `country-${countryId}`
-      if (nodeIds.has(countryNodeId)) {
-        addEdge(eventId, countryNodeId, '发生于', !isMembershipComplete(eventId, countryNodeId))
-      }
-    }
-  }
-
-  for (const c of countries) {
-    const countryId = `country-${c.id}`
-    for (const charId of c.characters ?? []) {
-      const charNodeId = `character-${charId}`
-      if (nodeIds.has(charNodeId)) {
-        addEdge(countryId, charNodeId, '所属', !isMembershipComplete(countryId, charNodeId))
-      }
-    }
-  }
-
-  for (const c of countries) {
-    const countryId = `country-${c.id}`
-    for (const eventId of c.events ?? []) {
-      const eventNodeId = `event-${eventId}`
-      if (nodeIds.has(eventNodeId)) {
-        addEdge(countryId, eventNodeId, '发生地', !isMembershipComplete(countryId, eventNodeId))
-      }
-    }
-  }
-
   return { nodes, edges }
-}
-
-/* ── 节点坐标 ─────────────────────────────────────────────── */
-
-/**
- * 把节点的新坐标写回实体（拖拽结束时调用）。
- *
- * 刻意**不动 `updatedAt`**：排个版不是内容编辑，不该让它窜到「最近更新」最前面
- * （与 `reorderEvents` 同一口径）。仓库模式下 `vault-persist` 挂在 Dexie 中间件上，
- * 所以这一下写入会自动把 frontmatter 的 `graph_position` 落盘。
- */
-export async function saveNodePosition(
-  entityType: RelationNodeType,
-  entityId: number,
-  x: number,
-  y: number,
-): Promise<void> {
-  if (!Number.isFinite(x) || !Number.isFinite(y)) return
-  const now = Date.now()
-  const updates = {
-    graphPosition: { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 },
-    ...pendingStamp(now),
-  }
-  switch (entityType) {
-    case 'character':
-      await db.characters.update(entityId, updates)
-      break
-    case 'event':
-      await db.events.update(entityId, updates)
-      break
-    case 'country':
-      await db.countries.update(entityId, updates)
-      break
-  }
-}
-
-/* ── 成员关系：两侧都写 ─────────────────────────────────────
-   角色的国籍（`character.countryId`）与国家的相关角色（`country.characters`）是**两份独立列表**；
-   事件的国家（`event.countries`）与国家的相关事件（`country.events`）同理。
-   只写一侧 → 另一侧编辑器里看不到这条关系（「拖完只在国家里出现、角色国籍仍为空」就是这么来的）。
-   所以成员关系一律**两边都写**。换国籍时把旧国家列表里的这一条摘掉，图上才不会还连着旧国家。
-   方向性关系（角色↔角色、事件↔事件）不镜像：师徒 / 前因这类是有方向的，只写在起手的那一端。 */
-
-async function linkCharacterToCountry(
-  characterId: number,
-  countryId: number,
-  now: number,
-): Promise<CreateRelationResult> {
-  const [character, country] = await Promise.all([
-    db.characters.get(characterId),
-    db.countries.get(countryId),
-  ])
-  if (!character || !country) return { ok: false, reason: 'missing' }
-
-  const previousCountryId = character.countryId ?? null
-  const listed = (country.characters ?? []).includes(character.id)
-  if (previousCountryId === country.id && listed) return { ok: false, reason: 'duplicate' }
-
-  // 国家侧：相关角色（补上目标国、从旧国摘掉 —— 国籍是单值，旧的那条已经不算数）
-  if (!listed) await addCountryCharacter(country.id, character.id, now)
-  if (previousCountryId !== null && previousCountryId !== country.id) {
-    await removeCountryCharacter(previousCountryId, character.id, now)
-  }
-
-  // 角色侧：国籍
-  if (previousCountryId !== country.id) {
-    await db.characters.update(character.id, { countryId: country.id, updatedAt: now, ...pendingStamp(now) })
-    await logOperation('characters', character.id, 'countryId', String(previousCountryId ?? ''), String(country.id))
-  }
-
-  return { ok: true }
-}
-
-async function linkEventToCountry(
-  eventId: number,
-  countryId: number,
-  now: number,
-): Promise<CreateRelationResult> {
-  const [event, country] = await Promise.all([
-    db.events.get(eventId),
-    db.countries.get(countryId),
-  ])
-  if (!event || !country) return { ok: false, reason: 'missing' }
-
-  const eventList = event.countries ?? []
-  const inEvent = eventList.includes(country.id)
-  const inCountry = (country.events ?? []).includes(event.id)
-  if (inEvent && inCountry) return { ok: false, reason: 'duplicate' }
-
-  // 事件侧：相关国家
-  if (!inEvent) {
-    const next = [...eventList, country.id]
-    await db.events.update(event.id, { countries: next, updatedAt: now, ...pendingStamp(now) })
-    await logOperation('events', event.id, 'countries', JSON.stringify(eventList), JSON.stringify(next))
-  }
-  // 国家侧：相关事件（幂等）
-  await addCountryEvent(country.id, event.id, now)
-
-  return { ok: true }
-}
-
-/** 角色参与事件：只有事件侧持有名单，角色没有反向列表 */
-async function linkCharacterToEvent(
-  eventId: number,
-  characterId: number,
-  now: number,
-): Promise<CreateRelationResult> {
-  const [event, character] = await Promise.all([
-    db.events.get(eventId),
-    db.characters.get(characterId),
-  ])
-  if (!event || !character) return { ok: false, reason: 'missing' }
-
-  const list = event.characters ?? []
-  if (list.includes(character.id)) return { ok: false, reason: 'duplicate' }
-  const next = [...list, character.id]
-  await db.events.update(event.id, { characters: next, updatedAt: now, ...pendingStamp(now) })
-  await logOperation('events', event.id, 'characters', JSON.stringify(list), JSON.stringify(next))
-  return { ok: true }
-}
-
-/**
- * 在关系图上拖一条线 → 落库。
- *
- * 映射表与 `relationPlan`（relation-graph-utils）一一对应：不新造关系表，
- * 直接写回实体字段，因此编辑器、vault frontmatter、导出站看到的都是同一份数据。
- * 成员关系两边都写（见上面的 link* 系列），方向性关系只写起手的那一端。
- */
-export async function createRelationBetween(
-  source: RelationEndpoint,
-  target: RelationEndpoint,
-  relation: string,
-): Promise<CreateRelationResult> {
-  if (source.entityType === target.entityType && source.entityId === target.entityId) {
-    return { ok: false, reason: 'unsupported' }
-  }
-
-  const now = Date.now()
-  const label = relation.trim()
-  const pair = `${source.entityType}:${target.entityType}`
-
-  switch (pair) {
-    case 'character:character': {
-      const [from, to] = await Promise.all([
-        db.characters.get(source.entityId),
-        db.characters.get(target.entityId),
-      ])
-      if (!from || !to) return { ok: false, reason: 'missing' }
-      const list = from.relatedCharacters ?? []
-      if (list.some((item) => item.characterId === to.id)) return { ok: false, reason: 'duplicate' }
-      const next = [...list, { characterId: to.id, name: to.name, relation: label }]
-      await db.characters.update(from.id, {
-        relatedCharacters: next,
-        updatedAt: now,
-        ...pendingStamp(now),
-      })
-      await logOperation('characters', from.id, 'relatedCharacters', JSON.stringify(list), JSON.stringify(next))
-      return { ok: true }
-    }
-
-    case 'character:event':
-      return linkCharacterToEvent(target.entityId, source.entityId, now)
-
-    case 'event:character':
-      return linkCharacterToEvent(source.entityId, target.entityId, now)
-
-    case 'character:country':
-      return linkCharacterToCountry(source.entityId, target.entityId, now)
-
-    case 'country:character':
-      return linkCharacterToCountry(target.entityId, source.entityId, now)
-
-    case 'event:event': {
-      const [from, to] = await Promise.all([
-        db.events.get(source.entityId),
-        db.events.get(target.entityId),
-      ])
-      if (!from || !to) return { ok: false, reason: 'missing' }
-      const list = from.relations ?? []
-      if (list.some((item) => item.targetId === to.id)) return { ok: false, reason: 'duplicate' }
-      const next = [...list, { targetId: to.id, relation: label }]
-      await db.events.update(from.id, { relations: next, updatedAt: now, ...pendingStamp(now) })
-      await logOperation('events', from.id, 'relations', JSON.stringify(list), JSON.stringify(next))
-      return { ok: true }
-    }
-
-    case 'event:country':
-      return linkEventToCountry(source.entityId, target.entityId, now)
-
-    case 'country:event':
-      return linkEventToCountry(target.entityId, source.entityId, now)
-
-    default:
-      // 国家之间没有对应字段（既没有父级外的关联表，也没有反向列表）
-      return { ok: false, reason: 'unsupported' }
-  }
 }

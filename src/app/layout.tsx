@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { AppShell } from "@/components/layout/AppShell";
-import { BlurEffect } from "@/components/layout/BlurEffect";
 import { NavigationProvider } from "@/components/layout/NavigationContext";
 import { WordCountProvider } from "@/components/layout/WordCountContext";
 import { EntityNavigateProvider } from "@/components/layout/EntityNavigateContext";
@@ -9,18 +8,17 @@ import { SettingsProvider } from "@/lib/settings";
 import { ActiveEditorProvider } from "@/lib/editor-context";
 import { Providers } from "./providers";
 import { SeedData } from "@/components/shared/SeedData";
-import { VaultGate } from "@/features/vault";
-import { VaultProvider } from "@/lib/vault/vault-provider";
 import { OverlayRoot } from "@/components/layout/OverlayRoot";
-import { Toaster } from "@/components/shared/toaster";
-import { NativeMenuBlocker } from "@/components/shared/NativeMenuBlocker";
 import { KeyboardProvider } from "@/lib/KeyboardContext";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "OC Studio",
   description: "原创角色与世界观创作工作台",
-  icons: { icon: "/favicon.svg" },
+  icons: {
+    icon: "/favicon.svg",
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export const viewport: Viewport = {
@@ -47,33 +45,24 @@ export default function RootLayout({
         </head>
         <body className="flex flex-col h-screen overflow-hidden">
         <Providers>
-          <VaultProvider>
-            <SeedData />
-            <KeyboardProvider>
-            <SettingsProvider>
-              <ActiveEditorProvider>
-              <EntityNavigateProvider>
-                <WordCountProvider>
-                  <NavigationProvider>
-                    <NavigationSourceProvider>
-                    <BlurEffect />
-                    <VaultGate>
-                      <AppShell>
-                        {children}
-                      </AppShell>
-                    </VaultGate>
-                    </NavigationSourceProvider>
-                  </NavigationProvider>
-                </WordCountProvider>
-              </EntityNavigateProvider>
-              </ActiveEditorProvider>
-            </SettingsProvider>
-            </KeyboardProvider>
-          </VaultProvider>
-          {/* Toaster 必须在 VaultGate **外面**：闸门期间（还没绑定文件夹）也要能看见提示 */}
-          <Toaster />
-          {/* 同理：屏蔽 WebView 自带右键菜单也要在闸门外面，否则闸门里右键会弹出「刷新/另存为」 */}
-          <NativeMenuBlocker />
+          <SeedData />
+          <KeyboardProvider>
+          <SettingsProvider>
+            <ActiveEditorProvider>
+            <EntityNavigateProvider>
+              <WordCountProvider>
+                <NavigationProvider>
+                  <NavigationSourceProvider>
+                  <AppShell>
+                    {children}
+                  </AppShell>
+                  </NavigationSourceProvider>
+                </NavigationProvider>
+              </WordCountProvider>
+            </EntityNavigateProvider>
+            </ActiveEditorProvider>
+          </SettingsProvider>
+          </KeyboardProvider>
         </Providers>
       <OverlayRoot />
       </body>

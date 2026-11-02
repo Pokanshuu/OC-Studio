@@ -1,5 +1,6 @@
 export interface CountryFormData {
   name: string
+  accentColor?: string
   parentId: number | null
   description: string
   document?: unknown
@@ -10,5 +11,8 @@ export interface CountryFormData {
   headerUrl?: string
   characters?: number[]
   events?: number[]
+  relatedNations?: number[]
+  relatedNationLabels?: Record<number, string>
+  relatedEventLabels?: Record<number, string>
   tags: number[]
 }

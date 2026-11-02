@@ -1,24 +1,34 @@
 'use client'
 
-import { Handle, Position, type NodeProps } from '@xyflow/react'
-import { NODE_HANDLE, NODE_WRAPPER } from '@/lib/ui-tokens'
+import type { NodeProps } from '@xyflow/react'
+import { CalendarDays } from 'lucide-react'
+import { getImageUrl } from '@/lib/image-service'
+import { RelationHandle } from './RelationHandle'
 
-/** 四向落点，见 CharacterNode 的说明 */
 export function EventNode({ data }: NodeProps) {
+  const imageUrl = data.imageUrl as string | undefined
+
   return (
     <>
-      <Handle id="top" type="source" position={Position.Top} className={NODE_HANDLE} />
-      <Handle id="right" type="source" position={Position.Right} className={NODE_HANDLE} />
-      <Handle id="bottom" type="source" position={Position.Bottom} className={NODE_HANDLE} />
-      <Handle id="left" type="source" position={Position.Left} className={NODE_HANDLE} />
-      <div className={NODE_WRAPPER}>
-        <div className="px-3 py-1.5 rounded-item border border-line bg-paper-card transition-colors hover:border-ink-muted">
-          <span className="text-xs text-ink">{data.label as string}</span>
-        </div>
+      <div className="group flex cursor-pointer flex-col items-center gap-1">
+        {imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={getImageUrl(imageUrl, 'header')}
+            alt=""
+            className="h-12 w-12 rounded-full border-2 border-line bg-paper-card object-cover shadow-sm transition-colors group-hover:border-ink-muted"
+          />
+        ) : (
+          <span className="flex h-7 w-7 items-center justify-center rounded-full border border-line-hover bg-paper-card text-ink-muted shadow-sm transition-colors group-hover:border-ink-muted group-hover:text-ink">
+            <CalendarDays size={14} strokeWidth={2} />
+          </span>
+        )}
+        <span className="max-w-[96px] truncate text-[10px] text-ink">{data.label as string}</span>
         {data.subtitle ? (
-          <span className="text-[10px] text-ink-faint">{data.subtitle as string}</span>
+          <span className="text-[9px] text-ink-faint">{data.subtitle as string}</span>
         ) : null}
       </div>
+      <RelationHandle centerY={52} size={20} />
     </>
   )
 }

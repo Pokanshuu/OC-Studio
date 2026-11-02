@@ -1,30 +1,37 @@
 'use client'
 
-import { Handle, Position, type NodeProps } from '@xyflow/react'
+import type { NodeProps } from '@xyflow/react'
+import { Sword, PawPrint } from 'lucide-react'
 import { Avatar } from '@/components/shared/Avatar'
 import { getImageUrl } from '@/lib/image-service'
-import { NODE_HANDLE, NODE_WRAPPER } from '@/lib/ui-tokens'
+import { RelationHandle } from './RelationHandle'
 
-/**
- * 四个方向都有落点：连线按「目标在哪个方位」选手柄（见 relation-graph-utils 的 routeEdges），
- * 否则所有线都从正下方挤出来，贴着节点糊成一束。
- * Loose 模式（RelationGraph 的 connectionMode），任一手柄都能起手也能落点。
- */
 export function CharacterNode({ data }: NodeProps) {
-  const src = data.avatarUrl as string | undefined
+  const qAvatarUrl = data.qAvatarUrl as string | undefined
+  const avatarUrl = data.avatarUrl as string | undefined
+  const src = qAvatarUrl || avatarUrl
+  const entityKind = data.entityKind as string | undefined
 
   return (
     <>
-      <Handle id="top" type="source" position={Position.Top} className={NODE_HANDLE} />
-      <Handle id="right" type="source" position={Position.Right} className={NODE_HANDLE} />
-      <Handle id="bottom" type="source" position={Position.Bottom} className={NODE_HANDLE} />
-      <Handle id="left" type="source" position={Position.Left} className={NODE_HANDLE} />
-      <div className={NODE_WRAPPER}>
-        <Avatar src={getImageUrl(src, 'avatar')} className="w-14 h-14" size="md" />
+      <div className="flex flex-col items-center gap-1 group cursor-pointer">
+        <div className="relative">
+          <Avatar src={getImageUrl(src, 'avatar')} className="h-14 w-14 border-2 border-paper" size="md" />
+          {entityKind === 'weapon' || entityKind === 'pet' ? (
+            <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border border-line bg-paper text-ink-muted shadow-sm">
+              {entityKind === 'weapon' ? (
+                <Sword size={10} strokeWidth={2} />
+              ) : (
+                <PawPrint size={10} strokeWidth={2} />
+              )}
+            </span>
+          ) : null}
+        </div>
         <span className="text-xs text-ink text-center max-w-[80px] truncate">
           {data.label as string}
         </span>
       </div>
+      <RelationHandle centerY={60} size={20} />
     </>
   )
 }

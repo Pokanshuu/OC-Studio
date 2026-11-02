@@ -1,5 +1,15 @@
-// 运行环境检测（实现已收敛到 lib/env.ts，此处保留再导出以兼容既有导入）
-export { isCapacitor, isTauri, isMobilePlatform, isNativePlatform } from './env'
+// 运行环境检测
+export function isCapacitor(): boolean {
+  return typeof window !== 'undefined' && !!window.Capacitor
+}
+
+export function isTauri(): boolean {
+  return typeof window !== 'undefined' && !!window.__TAURI_INTERNALS__
+}
+
+export function isMobilePlatform(): boolean {
+  return isCapacitor() && !isTauri()
+}
 
 // WebView 内核版本检测（Chromium 版本号）
 export function getChromiumVersion(): number | null {
@@ -15,8 +25,17 @@ export function isBelowTargetVersion(): boolean {
   return version !== null && version < MIN_CHROMIUM_VERSION
 }
 
+export function supportsTransitionBehavior(): boolean {
+  return typeof CSS !== 'undefined' && CSS.supports('transition-behavior', 'allow-discrete')
+}
 
+export function supportsStartingStyle(): boolean {
+  return typeof CSS !== 'undefined' && CSS.supports('at-rule', 'starting-style')
+}
 
+export function needsAnimationFallback(): boolean {
+  return !supportsTransitionBehavior() || !supportsStartingStyle()
+}
 
 // HarmonyOS / OpenHarmony 检测
 // ArkWeb UA 格式: ... OpenHarmony/<version> ... ArkWeb/<version> ...
@@ -32,7 +51,15 @@ export function getHarmonyOSVersion(): number | null {
   return match ? parseFloat(match[1]) : null
 }
 
+export function isHarmonyOS4(): boolean {
+  const version = getHarmonyOSVersion()
+  return version !== null && version >= 4 && version < 5
+}
 
+export function isHarmonyOSNext(): boolean {
+  const version = getHarmonyOSVersion()
+  return version !== null && version >= 5
+}
 
 // 安全区域估算 — 当 env(safe-area-inset-*) 返回 0 时使用
 // 注意：screen.height / screen.availHeight 已是 CSS pixels，无需 dpr 换算

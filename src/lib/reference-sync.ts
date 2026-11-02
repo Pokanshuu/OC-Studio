@@ -58,28 +58,28 @@ async function lookupNames(refs: RefInfo[]): Promise<Map<string, string>> {
   if (characterIds.length > 0) {
     queries.push(
       db.characters.where('id').anyOf(characterIds).toArray().then(chars => {
-        for (const c of chars) nameMap.set(String(c.id), c.name)
+        for (const c of chars) nameMap.set(`character:${String(c.id)}`, c.name)
       })
     )
   }
   if (eventIds.length > 0) {
     queries.push(
       db.events.where('id').anyOf(eventIds).toArray().then(events => {
-        for (const e of events) nameMap.set(String(e.id), e.title)
+        for (const e of events) nameMap.set(`event:${String(e.id)}`, e.title)
       })
     )
   }
   if (countryIds.length > 0) {
     queries.push(
       db.countries.where('id').anyOf(countryIds).toArray().then(countries => {
-        for (const c of countries) nameMap.set(String(c.id), c.name)
+        for (const c of countries) nameMap.set(`country:${String(c.id)}`, c.name)
       })
     )
   }
   if (worldIds.length > 0) {
     queries.push(
       db.worldEntries.where('id').anyOf(worldIds).toArray().then(entries => {
-        for (const e of entries) nameMap.set(String(e.id), e.title)
+        for (const e of entries) nameMap.set(`world:${String(e.id)}`, e.title)
       })
     )
   }
@@ -95,9 +95,20 @@ function walkAndUpdate(node: DocNode, nameMap: Map<string, string>): DocNode {
   let updated = node
 
   if ((isMention || isWikiLink) && node.attrs?.id) {
-    const currentName = nameMap.get(String(node.attrs.id))
-    if (currentName && node.attrs.label !== currentName) {
-      updated = { ...node, attrs: { ...node.attrs, label: currentName } }
+    const refType = isWikiLink ? 'world' : String(node.attrs.entityType ?? '')
+    const currentName = nameMap.get(`${refType}:${String(node.attrs.id)}`)
+    const fallback = isWikiLink
+      ? '已失效词条'
+      : refType === 'character'
+        ? '已失效角色'
+        : refType === 'event'
+          ? '已失效事件'
+          : refType === 'country'
+            ? '已失效国家'
+            : '已失效引用'
+    const nextLabel = currentName ?? fallback
+    if (node.attrs.label !== nextLabel) {
+      updated = { ...node, attrs: { ...node.attrs, label: nextLabel } }
     }
   }
 
@@ -123,8 +134,6 @@ export async function syncReferenceLabels(doc: Record<string, unknown>): Promise
   if (refs.length === 0) return doc
 
   const nameMap = await lookupNames(refs)
-  if (nameMap.size === 0) return doc
-
   const result = walkAndUpdate(doc as DocNode, nameMap)
   return result as Record<string, unknown>
 }

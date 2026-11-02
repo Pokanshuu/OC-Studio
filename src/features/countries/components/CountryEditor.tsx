@@ -1,28 +1,25 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import { Save } from 'lucide-react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
+import { Save, ArrowLeft } from 'lucide-react'
+import { TagPicker } from '@/features/tags'
 import type { Editor } from '@tiptap/core'
-import type { Country } from '@/types'
-import { EntityDocumentBody } from '@/components/editor/EntityDocumentBody'
-import { EditorBodyPane } from '@/components/editor/EditorBodyPane'
-import { EditorSplitPane } from '@/components/editor/EditorSplitPane'
-import { EntityEditorShell } from '@/components/shared/EntityEditorShell'
-import { EntityHistoryButton } from '@/features/vault'
-import { useEditorLayout } from '@/lib/use-editor-layout'
-import { useDevice } from '@/lib/use-device'
+import { DocumentEditor } from '@/components/editor/DocumentEditor'
+import type { Country, Character, Event } from '@/types'
 import type { CountryFormData } from '../types'
 import { useCountry, useUpdateCountry } from '../hooks/useCountries'
-import { useCountryForm, mergeCountrySections } from '../hooks/useCountryForm'
-import { CountryEditorList } from './CountryEditorList'
-import { CountryFrontmatter } from './CountryFrontmatter'
-import { BTN_PRIMARY, BTN_QUIET, CENTER_STATE } from '@/lib/ui-tokens'
+import { useCharacterList } from '@/features/characters/hooks/useCharacters'
+import { useEventList } from '@/features/events/hooks/useEvents'
+import { useCountryList } from '../hooks/useCountries'
+import { Separator } from '@/components/ui/separator'
+import { RelatedItemsSelector } from '@/components/shared/RelatedItemsSelector'
+import type { RelatedItem } from '@/components/shared/RelatedItemsSelector'
+import { ProfileBannerEditor } from '@/components/shared/ProfileBannerEditor'
+import { CustomEntryLinks } from '@/components/shared/CustomEntryLinks'
 
 interface CountryEditorProps {
   editCountryId: number
   onBack: () => void
-  onCreate?: () => void
-  onNavigateToCountry?: (id: number) => void
   onNavigateToCharacter?: (id: number) => void
   onNavigateToEvent?: (id: number) => void
   onMentionClick?: (id: string, entityType?: string) => void
@@ -33,39 +30,54 @@ interface CountryEditorProps {
 export function CountryEditor({
   editCountryId,
   onBack,
-  onCreate,
-  onNavigateToCountry,
   onNavigateToCharacter,
   onNavigateToEvent,
   onMentionClick,
   onCharacterCount,
   onWikiLinkClick,
 }: CountryEditorProps) {
-  const { country, loading, error } = useCountry(editCountryId)
+  const { country, loading, error, refresh } = useCountry(editCountryId)
   const { updateCountry } = useUpdateCountry()
+  const { characters: allCharacters } = useCharacterList()
+  const { events: allEvents } = useEventList()
+  const { countries: allCountries } = useCountryList()
 
-  if (loading) {
+  useEffect(() => {
+    refresh()
+  }, [editCountryId, refresh])
+
+  if (loading && !country) {
     return (
       <div className="flex h-full items-center justify-center">
-        <span className="text-[13px] text-ink-faint">加载中…</span>
+        <span className="text-sm text-ink-muted">加载中...</span>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className={CENTER_STATE}>
+      <div className="flex h-full flex-col items-center justify-center gap-3">
         <span className="text-sm text-error">{error}</span>
-        <button onClick={onBack} className={BTN_QUIET}>返回</button>
+        <button
+          onClick={onBack}
+          className="flex h-9 items-center rounded border border-line px-3 text-sm text-ink-muted transition-colors hover:text-ink"
+        >
+          返回
+        </button>
       </div>
     )
   }
 
   if (!country) {
     return (
-      <div className={CENTER_STATE}>
+      <div className="flex h-full flex-col items-center justify-center gap-3">
         <span className="text-sm text-ink-muted">国家不存在</span>
-        <button onClick={onBack} className={BTN_QUIET}>返回</button>
+        <button
+          onClick={onBack}
+          className="flex h-9 items-center rounded border border-line px-3 text-sm text-ink-muted transition-colors hover:text-ink"
+        >
+          返回
+        </button>
       </div>
     )
   }
@@ -73,12 +85,13 @@ export function CountryEditor({
   return (
     <CountryEditorInner
       country={country}
+      allCharacters={allCharacters}
+      allEvents={allEvents}
+      allCountries={allCountries}
       onBack={onBack}
-      onCreate={onCreate}
       onSave={async (id, data) => {
         await updateCountry(id, data)
       }}
-      onNavigateToCountry={onNavigateToCountry}
       onNavigateToCharacter={onNavigateToCharacter}
       onNavigateToEvent={onNavigateToEvent}
       onMentionClick={onMentionClick}
@@ -90,10 +103,11 @@ export function CountryEditor({
 
 function CountryEditorInner({
   country,
+  allCharacters,
+  allEvents,
+  allCountries,
   onBack,
-  onCreate,
   onSave,
-  onNavigateToCountry,
   onNavigateToCharacter,
   onNavigateToEvent,
   onMentionClick,
@@ -101,128 +115,328 @@ function CountryEditorInner({
   onWikiLinkClick,
 }: {
   country: Country
+  allCharacters: Character[]
+  allEvents: Event[]
+  allCountries: Country[]
   onBack: () => void
-  onCreate?: () => void
   onSave: (id: number, data: Partial<CountryFormData>) => Promise<void>
-  onNavigateToCountry?: (id: number) => void
   onNavigateToCharacter?: (id: number) => void
   onNavigateToEvent?: (id: number) => void
   onMentionClick?: (id: string, entityType?: string) => void
   onCharacterCount?: (count: number) => void
   onWikiLinkClick?: (id: string) => void
 }) {
-  const form = useCountryForm(country, onSave)
-  const { handleSave, docDirty } = form
-  const { isMobile } = useDevice()
-  const [listOpen, setListOpen] = useState(!isMobile)
-  const [bodyEditor, setBodyEditor] = useState<Editor | null>(null)
-  const desiredLayout = useEditorLayout()
-  const [layout, setLayout] = useState<'multi' | 'full'>(desiredLayout)
+  const [name, setName] = useState(country.name)
+  const [flagUrl, setFlagUrl] = useState(country.flagUrl ?? '')
+  const [headerUrl, setHeaderUrl] = useState(country.headerUrl ?? '')
+  const [saving, setSaving] = useState(false)
+  const [editableCharIds, setEditableCharIds] = useState<number[]>(country.characters)
+  const [editableEventIds, setEditableEventIds] = useState<number[]>(country.events)
+  const [relatedNations, setRelatedNations] = useState<number[]>(country.relatedNations ?? [])
+  const [relatedNationLabels, setRelatedNationLabels] = useState<Record<number, string>>(
+    country.relatedNationLabels ?? {},
+  )
+  const [relatedEventLabels, setRelatedEventLabels] = useState<Record<number, string>>(
+    country.relatedEventLabels ?? {},
+  )
+  const [tags, setTags] = useState<number[]>(country.tags ?? [])
 
-  const saveRef = useRef(handleSave)
-  useEffect(() => {
-    saveRef.current = handleSave
-  }, [handleSave])
+  // The graph writes relation labels/sets straight to the country record.
+  // Pull those external changes back into the open editor without disturbing
+  // normal typing (the snapshot only changes when the stored record changes).
+  const relationSnapshot = useMemo(
+    () =>
+      JSON.stringify({
+        characters: country.characters ?? [],
+        events: country.events ?? [],
+        nations: country.relatedNations ?? [],
+        nationLabels: country.relatedNationLabels ?? {},
+        eventLabels: country.relatedEventLabels ?? {},
+      }),
+    [
+      country.characters,
+      country.events,
+      country.relatedNations,
+      country.relatedNationLabels,
+      country.relatedEventLabels,
+    ],
+  )
+  const relationSnapshotRef = useRef(relationSnapshot)
 
   useEffect(() => {
-    if (desiredLayout === layout) return
-    if (!docDirty) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setLayout(desiredLayout)
+    if (relationSnapshotRef.current === relationSnapshot) return
+    relationSnapshotRef.current = relationSnapshot
+    setEditableCharIds(country.characters ?? [])
+    setEditableEventIds(country.events ?? [])
+    setRelatedNations(country.relatedNations ?? [])
+    setRelatedNationLabels(country.relatedNationLabels ?? {})
+    setRelatedEventLabels(country.relatedEventLabels ?? {})
+  }, [
+    relationSnapshot,
+    country.characters,
+    country.events,
+    country.relatedNations,
+    country.relatedNationLabels,
+    country.relatedEventLabels,
+  ])
+
+  const docEditorRef = useRef<Editor | null>(null)
+  const [docRevision, setDocRevision] = useState(0)
+  const skipInitialAutosaveRef = useRef(true)
+  const onSaveRef = useRef(onSave)
+
+  useEffect(() => {
+    onSaveRef.current = onSave
+  }, [onSave])
+
+  const handleDocReady = useCallback((editor: Editor) => {
+    docEditorRef.current = editor
+    editor.on('update', () => setDocRevision((value) => value + 1))
+  }, [])
+
+  const handleSave = useCallback(async () => {
+    setSaving(true)
+    try {
+      const document = docEditorRef.current?.getJSON()
+
+      await onSaveRef.current(country.id as number, {
+        name,
+        parentId: country.parentId,
+        description: '',
+        document,
+        system: country.system,
+        geography: country.geography,
+        culture: country.culture,
+        flagUrl,
+        headerUrl,
+        characters: editableCharIds,
+        events: editableEventIds,
+        relatedNations,
+        relatedNationLabels,
+        relatedEventLabels,
+        tags,
+      })
+    } finally {
+      setSaving(false)
+    }
+  }, [country.id, country.parentId, country.system, country.geography, country.culture, name, flagUrl, headerUrl, editableCharIds, editableEventIds, relatedNations, relatedNationLabels, relatedEventLabels, tags])
+
+  useEffect(() => {
+    if (skipInitialAutosaveRef.current) {
+      skipInitialAutosaveRef.current = false
       return
     }
-    let cancelled = false
-    void saveRef.current().then(() => {
-      if (!cancelled) setLayout(desiredLayout)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [desiredLayout, layout, docDirty])
+    if (!name.trim()) return
+    const timer = window.setTimeout(() => {
+      void handleSave()
+    }, 900)
+    return () => window.clearTimeout(timer)
+  }, [docRevision, handleSave, name])
 
-  const headerActions = (
-    <>
-      <EntityHistoryButton table="countries" id={country.id} name={form.name} />
-      <button
-        onClick={form.handleSave}
-        disabled={form.saving || !form.name.trim()}
-        data-save-button
-        aria-label={form.saving ? '保存中' : '保存'}
-        title={form.saving ? '保存中' : '保存'}
-        className={BTN_PRIMARY}
-      >
-        <Save size={14} strokeWidth={2} />
-        <span>{form.saving ? '保存中...' : '保存'}</span>
-      </button>
-    </>
+  const relatedCharacterItems: RelatedItem[] = useMemo(
+    () =>
+      allCharacters.map((c) => ({
+        id: c.id as number,
+        name: c.name,
+        subtitle: c.aliases.length > 0 ? c.aliases.join('、') : undefined,
+      })),
+    [allCharacters],
   )
 
-  const handleBodyReady = (editor: Editor) => {
-    setBodyEditor(editor)
-    form.handleDocReady(editor)
-  }
+  const relatedEventItems: RelatedItem[] = useMemo(
+    () =>
+      allEvents.map((e) => ({
+        id: e.id as number,
+        name: e.title,
+        subtitle: e.time,
+      })),
+    [allEvents],
+  )
 
-  const body = (
-    <EntityDocumentBody
-      entityId={country.id}
-      entityType="country"
-      fallbackContent={mergeCountrySections(country.system, country.geography, country.culture)}
-      onReady={handleBodyReady}
-      placeholder="政治制度、地理、文化..."
-      onMentionClick={onMentionClick}
-      onCharacterCount={onCharacterCount}
-      onWikiLinkClick={onWikiLinkClick}
-      onDocChange={form.handleDocChange}
-    />
+  const relatedCharacterIds = useMemo(
+    () => editableCharIds.filter((id) => typeof id === 'number'),
+    [editableCharIds],
+  )
+
+  const relatedEventIds = useMemo(
+    () => editableEventIds.filter((id) => typeof id === 'number'),
+    [editableEventIds],
+  )
+
+  const relatedNationItems: RelatedItem[] = useMemo(
+    () =>
+      allCountries
+        .filter((item) => item.id !== country.id)
+        .map((item) => ({ id: item.id as number, name: item.name })),
+    [allCountries, country.id],
   )
 
   return (
-    <EntityEditorShell
-      title="编辑国家"
-      onBack={onBack}
-      listOpen={listOpen}
-      onToggleList={() => setListOpen((open) => !open)}
-      list={
-        <CountryEditorList
-          currentId={country.id}
-          onSelect={onNavigateToCountry}
-          onCollapse={() => setListOpen(false)}
-          onCreate={onCreate}
-        />
-      }
-      editor={bodyEditor}
-      headerRight={headerActions}
-    >
-      {layout === 'multi' ? (
-        <EditorSplitPane
-          meta={
-            <CountryFrontmatter
-              form={form}
-              compact
-              onNavigateToCharacter={onNavigateToCharacter}
-              onNavigateToEvent={onNavigateToEvent}
-            />
-          }
-        >
-          <EditorBodyPane editor={bodyEditor} showToolbar={false}>
-            {body}
-          </EditorBodyPane>
-        </EditorSplitPane>
-      ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="h-12 shrink-0" aria-hidden />
-          <div className="mx-auto w-full max-w-3xl px-4 py-3 md:px-8 md:py-6">
-            <CountryFrontmatter
-              form={form}
-              compact={false}
-              onNavigateToCharacter={onNavigateToCharacter}
-              onNavigateToEvent={onNavigateToEvent}
-            />
-            <div className="mt-8 border-t border-line" />
-            <div className="mt-8">{body}</div>
-          </div>
+    <div className="flex flex-col min-h-full">
+      <div className="flex items-center justify-between max-md:fixed max-md:top-0 max-md:left-0 max-md:right-0 md:sticky md:top-0 z-10 border-b border-line px-4 max-md:h-[calc(60px+var(--safe-top))] md:h-[60px] max-md:pt-[var(--safe-top)] bg-paper/85 dark:bg-[#1C1B1A]/85 backdrop-blur-lg">
+        <div className="flex items-center gap-3">
+          <button
+            data-mobile-back
+            onClick={onBack}
+            className="flex h-9 w-9 items-center justify-center rounded text-ink-muted transition-colors hover:text-ink active:bg-black/8 dark:active:bg-white/8"
+          >
+            <ArrowLeft size={20} strokeWidth={2} />
+          </button>
+          <h2 className="text-lg text-ink">编辑国家</h2>
         </div>
-      )}
-    </EntityEditorShell>
+        <button
+          onClick={handleSave}
+          disabled={saving || !name.trim()}
+          data-save-button
+          className="touch-feedback flex h-9 items-center gap-1.5 rounded border border-line bg-paper-card/60 px-3 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink disabled:opacity-50"
+        >
+          <Save size={16} strokeWidth={2} />
+          <span>{saving ? '保存中...' : '保存'}</span>
+        </button>
+      </div>
+
+      <div className="flex-1 min-h-0 max-md:pt-[calc(60px+var(--safe-top))]">
+        <div className="mx-auto w-full px-4 py-3 md:py-6 space-y-5 md:space-y-8 md:max-w-3xl md:px-8">
+          {/* Profile header */}
+          <section>
+            <ProfileBannerEditor
+              headerUrl={headerUrl}
+              avatarUrl={flagUrl}
+              onHeaderChange={setHeaderUrl}
+              onAvatarChange={setFlagUrl}
+              onHeaderRemove={() => setHeaderUrl('')}
+              onAvatarRemove={() => setFlagUrl('')}
+              avatarType="flag"
+            />
+          </section>
+
+          {/* Name — below avatar with enough padding */}
+          <div>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="国家/地区名称"
+              className="w-full bg-transparent text-xl text-ink placeholder:text-ink-faint focus:outline-none"
+            />
+          </div>
+
+          <Separator />
+
+          {/* System + Geography + Culture (merged into one document) */}
+          <section>
+            <h3 className="text-base text-ink mb-3">国家详情</h3>
+            <DocumentEditor
+              entityId={country.id as number}
+              entityType="country"
+              fallbackContent={mergeCountrySections(country.system, country.geography, country.culture)}
+              onReady={handleDocReady}
+              placeholder="政治制度、地理、文化..."
+              onMentionClick={onMentionClick}
+              onCharacterCount={onCharacterCount}
+              onWikiLinkClick={onWikiLinkClick}
+            />
+          </section>
+
+          <Separator />
+
+          {/* Related Characters */}
+          <section>
+            <h3 className="text-base text-ink mb-3">相关角色</h3>
+            <RelatedItemsSelector
+              items={relatedCharacterItems}
+              selectedIds={relatedCharacterIds}
+              onChange={setEditableCharIds}
+              placeholder="搜索相关角色..."
+              onNavigateItem={onNavigateToCharacter}
+            /> 
+
+          </section>
+
+          <Separator />
+
+          {/* Related Events */}
+          <section>
+            <h3 className="text-base text-ink mb-3">相关事件</h3>
+            <RelatedItemsSelector
+              items={relatedEventItems}
+              selectedIds={relatedEventIds}
+              onChange={setEditableEventIds}
+              placeholder="搜索相关事件..."
+              onNavigateItem={onNavigateToEvent}
+            />
+            {relatedEventIds.length > 0 ? (
+              <div className="mt-3 space-y-2">
+                {relatedEventIds.map((id) => (
+                  <div key={id} className="flex items-center gap-2">
+                    <span className="w-20 shrink-0 truncate text-sm text-ink-muted">
+                      {allEvents.find((event) => event.id === id)?.title ?? `事件 #${id}`}
+                    </span>
+                    <input
+                      value={relatedEventLabels[id] ?? '发生于'}
+                      onChange={(event) =>
+                        setRelatedEventLabels((current) => ({ ...current, [id]: event.target.value }))
+                      }
+                      placeholder="发生于、见证..."
+                      className="h-9 flex-1 rounded border border-line bg-paper-card px-3 text-sm text-ink placeholder:text-ink-faint focus:border-line-hover focus:outline-none"
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </section>
+
+          <Separator />
+
+          <section>
+            <h3 className="text-base text-ink mb-3">相关国家</h3>
+            <RelatedItemsSelector
+              items={relatedNationItems}
+              selectedIds={relatedNations}
+              onChange={setRelatedNations}
+              placeholder="搜索相关国家..."
+            />
+            {relatedNations.length > 0 ? (
+              <div className="mt-3 space-y-2">
+                {relatedNations.map((id) => (
+                  <div key={id} className="flex items-center gap-2">
+                    <span className="w-20 shrink-0 truncate text-sm text-ink-muted">
+                      {allCountries.find((item) => item.id === id)?.name ?? `国家 #${id}`}
+                    </span>
+                    <input
+                      value={relatedNationLabels[id] ?? '关系'}
+                      onChange={(event) =>
+                        setRelatedNationLabels((current) => ({ ...current, [id]: event.target.value }))
+                      }
+                      placeholder="同盟、敌对..."
+                      className="h-9 flex-1 rounded border border-line bg-paper-card px-3 text-sm text-ink placeholder:text-ink-faint focus:border-line-hover focus:outline-none"
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </section>
+
+          <Separator />
+
+          {/* Tags */}
+          <CustomEntryLinks entityType="country" entityId={country.id as number} />
+
+          <section>
+            <h3 className="text-base text-ink mb-3">标签</h3>
+            <TagPicker selectedIds={tags} onChange={setTags} />
+          </section>
+        </div>
+      </div>
+    </div>
   )
+}
+
+function mergeCountrySections(system: string, geography: string, culture: string): string | undefined {
+  if (!system && !geography && !culture) return undefined
+  const parts: string[] = []
+  if (system) { parts.push('<h2>政治制度</h2>'); parts.push(system) }
+  if (geography) { parts.push('<h2>地理环境</h2>'); parts.push(geography) }
+  if (culture) { parts.push('<h2>人文风貌</h2>'); parts.push(culture) }
+  return parts.join('\n')
 }

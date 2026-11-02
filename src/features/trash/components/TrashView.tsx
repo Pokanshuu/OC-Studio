@@ -14,11 +14,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Separator } from "@/components/ui/separator"
-import { BTN_QUIET, EMPTY_STATE, ICON_BTN, LIST_END, LOADING_TEXT, PAGE_TITLE, ROUND_PANEL } from '@/lib/ui-tokens'
 import { useTrash } from "../hooks/useTrash"
 import * as trashService from "../services"
 import type { TrashItem, TrashItemType } from "../types"
-import { notifyDataUpdated } from '@/lib/data-events'
 
 function formatDeleteTime(timestamp: number): string {
   const d = new Date(timestamp)
@@ -48,7 +46,10 @@ function ConfirmDeleteDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>取消</AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm}>
+          <AlertDialogAction
+            onClick={onConfirm}
+            className="bg-transparent border border-error text-error hover:bg-red-50"
+          >
             永久删除
           </AlertDialogAction>
         </AlertDialogFooter>
@@ -64,13 +65,41 @@ interface TrashViewProps {
 export function TrashView({ onClose }: TrashViewProps) {
   const { items, loading, error, refresh } = useTrash()
   const [confirmTarget, setConfirmTarget] = useState<{ type: TrashItemType; id: number } | null>(null)
+  const [confirmAll, setConfirmAll] = useState(false)
   const [restoring, setRestoring] = useState<string | null>(null)
   const [visible, setVisible] = useState(false)
+  const [retentionDays, setRetentionDays] = useState(3)
 
   useEffect(() => {
     const raf = requestAnimationFrame(() => setVisible(true))
     return () => cancelAnimationFrame(raf)
   }, [])
+
+  useEffect(() => {
+    const saved = Number(window.localStorage.getItem(trashService.TRASH_RETENTION_KEY))
+    const days = Number.isFinite(saved) && saved >= 0 ? saved : 3
+    setRetentionDays(days)
+    if (days > 0) {
+      void trashService.purgeExpiredTrash(days).then((removed) => {
+        if (removed > 0) refresh()
+      })
+    }
+  }, [refresh])
+
+  const handleRetentionChange = useCallback(
+    async (days: number) => {
+      setRetentionDays(days)
+      window.localStorage.setItem(trashService.TRASH_RETENTION_KEY, String(days))
+      if (days > 0) {
+        const removed = await trashService.purgeExpiredTrash(days)
+        if (removed > 0) {
+          toast(`已清理 ${removed} 项过期回收站内容`)
+          refresh()
+        }
+      }
+    },
+    [refresh],
+  )
 
   const handleClose = useCallback(() => {
     setVisible(false)
@@ -85,7 +114,7 @@ export function TrashView({ onClose }: TrashViewProps) {
         await trashService.restoreItem(type, id)
         toast("已恢复")
         refresh()
-        notifyDataUpdated()
+        window.dispatchEvent(new CustomEvent('data-updated'))
       } catch {
         toast.error("恢复失败")
       } finally {
@@ -102,13 +131,25 @@ export function TrashView({ onClose }: TrashViewProps) {
         toast("已永久删除")
         setConfirmTarget(null)
         refresh()
-        notifyDataUpdated()
+        window.dispatchEvent(new CustomEvent('data-updated'))
       } catch {
         toast.error("删除失败")
       }
     },
     [refresh],
   )
+
+  const handlePermanentDeleteAll = useCallback(async () => {
+    try {
+      const removed = await trashService.permanentlyDeleteAll()
+      toast(`已永久删除 ${removed} 项`)
+      setConfirmAll(false)
+      refresh()
+      window.dispatchEvent(new CustomEvent('data-updated'))
+    } catch {
+      toast.error('删除失败')
+    }
+  }, [refresh])
 
   const grouped = useMemo(() => {
     const map: Record<string, TrashItem[]> = {}
@@ -123,73 +164,97 @@ export function TrashView({ onClose }: TrashViewProps) {
 
   return (
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-[var(--oc-scrim)] transition-opacity duration-150"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/15 dark:bg-black/40 transition-opacity duration-150"
       style={{ opacity: visible ? 1 : 0 }}
       onClick={(e) => { if (e.target === e.currentTarget) handleClose() }}
     >
       <div
-        className={`flex max-md:w-[calc(100%-2rem)] max-md:min-h-[40vh] max-md:max-h-[calc(100vh-4rem)] max-md:my-4 h-[80vh] w-[80vw] max-w-5xl flex-col overflow-auto border border-line bg-paper float-shadow transition-opacity duration-150 ${ROUND_PANEL}`}
+        className="flex max-md:w-[calc(100%-2rem)] max-md:min-h-[40vh] max-md:max-h-[calc(100vh-4rem)] max-md:my-4 h-[80vh] w-[80vw] max-w-5xl flex-col overflow-auto rounded-lg border border-line bg-paper ring-1 ring-black/5 transition-opacity duration-150"
         style={{ opacity: visible ? 1 : 0 }}
       >
-        <div className="flex h-12 shrink-0 items-center justify-between sticky top-0 z-10 border-b border-line px-4 bg-paper/85 backdrop-blur-lg">
+        <div className="flex items-center justify-between sticky top-0 z-10 border-b border-line max-md:px-3 max-md:py-2 px-5 py-3 bg-paper/85 dark:bg-[#1C1B1A]/85 backdrop-blur-lg">
           <div className="flex items-center gap-3">
-            <h2 className={PAGE_TITLE}>回收站</h2>
+            <h2 className="text-base text-ink font-serif font-bold">回收站</h2>
             {items.length > 0 ? (
-              <span className="text-[11px] text-ink-faint tabular-nums">
+              <span className="rounded border border-line px-2 py-0.5 text-xs text-ink-muted">
                 {items.length} 项
               </span>
             ) : null}
+            <select
+              value={retentionDays}
+              onChange={(event) => void handleRetentionChange(Number(event.target.value))}
+              className="h-7 rounded border border-line bg-paper px-1.5 text-[10px] text-ink-muted outline-none"
+              title="回收站自动清理周期"
+            >
+              <option value={1}>每天自动清理</option>
+              <option value={3}>每 3 天自动清理</option>
+              <option value={0}>不自动清理</option>
+            </select>
           </div>
-          <button onClick={handleClose} className={ICON_BTN} aria-label="关闭回收站">
-            <X size={16} strokeWidth={2} />
-          </button>
+          <div className="flex items-center gap-2">
+            {items.length > 0 ? (
+              <button
+                onClick={() => setConfirmAll(true)}
+                className="flex h-8 items-center gap-1 rounded border border-line px-2.5 text-xs text-ink-muted transition-colors hover:border-error hover:text-error"
+              >
+                <Trash2 size={14} strokeWidth={2} />
+                全部删除
+              </button>
+            ) : null}
+            <button
+              onClick={handleClose}
+              className="flex h-8 w-8 items-center justify-center rounded text-ink-muted hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8"
+            >
+              <X size={16} strokeWidth={2} />
+            </button>
+          </div>
         </div>
 
         {loading ? (
           <div className="flex flex-1 items-center justify-center">
-            <span className={LOADING_TEXT}>加载中…</span>
+            <span className="text-sm text-ink-muted">加载中...</span>
           </div>
         ) : error ? (
           <div className="flex flex-1 items-center justify-center">
             <span className="text-sm text-error">{error}</span>
           </div>
         ) : items.length === 0 ? (
-          <div className={EMPTY_STATE}>
-            <Trash2 size={28} strokeWidth={1.5} className="text-ink-faint" />
-            <p className="font-serif text-sm text-ink-faint">回收站为空</p>
+          <div className="flex flex-1 flex-col items-center justify-center gap-2">
+            <Trash2 size={32} strokeWidth={2} className="text-ink-faint" />
+            <p className="text-sm text-ink-muted">回收站为空</p>
           </div>
         ) : (
-          <div className="p-6">
-            <div className="flex flex-col gap-8">
+          <div className="max-md:p-4 p-6">
+            <div className="flex flex-col gap-6">
               {Object.entries(grouped).map(([typeLabel, groupItems]) => (
                 <div key={typeLabel}>
-                  <div className="mb-2 flex items-center gap-3">
-                    <span className="text-[11px] tracking-[0.08em] text-ink-faint">{typeLabel}</span>
+                  <div className="mb-2 flex items-center gap-2">
+                    <span className="text-xs font-medium text-ink-muted uppercase tracking-wider">{typeLabel}</span>
                     <Separator className="flex-1" />
                   </div>
-                  <div className={`flex flex-col ${LIST_END}`}>
-                    {groupItems.map((item) => (
+                  <div className="flex flex-col rounded-md border border-line overflow-hidden">
+                    {groupItems.map((item, idx) => (
                       <div key={item.type + "-" + item.id}
-                        className="flex items-center gap-4 border-b border-line px-1 py-2.5"
+                        className={(idx > 0 ? "border-t border-line " : "") + "flex items-center gap-4 max-md:px-3 max-md:py-2 px-4 py-3"}
                       >
                         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                           <span className="truncate text-sm text-ink">{item.name}</span>
-                          <span className="text-[11px] text-ink-faint">删除于 {formatDeleteTime(item.deletedAt)}</span>
+                          <span className="text-xs text-ink-faint">删除于 {formatDeleteTime(item.deletedAt)}</span>
                         </div>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-2">
                           <button
                             onClick={() => handleRestore(item.type, item.id)}
                             disabled={restoring === item.type + "-" + String(item.id)}
-                            className={BTN_QUIET}
+                            className="touch-feedback flex h-8 items-center gap-1 rounded border border-line px-2.5 text-xs text-ink-muted transition-colors hover:border-line-hover hover:text-ink disabled:opacity-50"
                           >
-                            <Undo2 size={13} strokeWidth={2} />
+                            <Undo2 size={14} strokeWidth={2} />
                             <span>恢复</span>
                           </button>
                           <button
                             onClick={() => setConfirmTarget({ type: item.type, id: item.id })}
-                            className="flex h-8 shrink-0 items-center gap-1.5 px-1.5 text-[13px] text-ink-muted transition-colors hover:text-error"
+                            className="touch-feedback flex h-8 items-center gap-1 rounded border border-line px-2.5 text-xs text-ink-muted transition-colors hover:border-error hover:text-error"
                           >
-                            <XCircle size={13} strokeWidth={2} />
+                            <XCircle size={14} strokeWidth={2} />
                             <span>永久删除</span>
                           </button>
                         </div>
@@ -201,6 +266,26 @@ export function TrashView({ onClose }: TrashViewProps) {
             </div>
           </div>
         )}
+
+        <AlertDialog open={confirmAll} onOpenChange={setConfirmAll}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>清空回收站</AlertDialogTitle>
+              <AlertDialogDescription>
+                确认永久删除回收站中的全部 {items.length} 项内容？此操作无法撤销。
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>取消</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => void handlePermanentDeleteAll()}
+                className="bg-transparent border border-error text-error hover:bg-red-50"
+              >
+                全部永久删除
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         <ConfirmDeleteDialog
           open={confirmTarget !== null}

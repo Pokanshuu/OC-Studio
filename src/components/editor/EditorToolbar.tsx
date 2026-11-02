@@ -1,443 +1,151 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
-import type { Editor } from '@tiptap/core'
-import { useEditorState } from '@tiptap/react'
 import {
   Bold,
   Italic,
+  Underline,
   Strikethrough,
-  Code,
-  Code2,
-  Quote,
   List,
   ListOrdered,
-  ListTodo,
-  Pilcrow,
-  Heading1,
-  Heading2,
-  Heading3,
-  Heading4,
-  Link as LinkIcon,
-  Image as ImageIcon,
-  Table as TableIcon,
+  Quote,
   Minus,
   Undo2,
   Redo2,
-  MoreHorizontal,
-  ChevronDown,
-  Search,
-  ListTree,
 } from 'lucide-react'
-import { ICON_BTN_MD, ROUND_CONTROL } from '@/lib/ui-tokens'
-import { LinkPopover } from './LinkPopover'
-import { ToolbarMenu, type ToolbarMenuGroup, type ToolbarMenuItem } from './ToolbarMenu'
-import { requestFind, requestOutline } from './editor-events'
+import { Separator } from '@/components/ui/separator'
+import type { Editor } from '@tiptap/core'
 
-type MenuKind = 'block' | 'list' | 'more'
-
-interface IconButtonProps {
-  label: string
-  active?: boolean
-  disabled?: boolean
-  onActivate: (anchor: HTMLButtonElement) => void
-  children: ReactNode
+interface EditorToolbarProps {
+  editor: Editor | null
 }
 
-/** 28/32px 工具按钮。鼠标在 pointerdown 执行（保住选区），键盘走 click(detail=0)。 */
-function IconButton({ label, active, disabled, onActivate, children }: IconButtonProps) {
-  const fire = (el: HTMLButtonElement) => {
-    if (!disabled) onActivate(el)
-  }
-  return (
-    <button
-      type="button"
-      title={label}
-      aria-label={label}
-      aria-pressed={active === undefined ? undefined : active}
-      disabled={disabled}
-      onPointerDown={(e) => {
-        e.preventDefault()
-        fire(e.currentTarget)
-      }}
-      onClick={(e) => {
-        if (e.detail === 0) fire(e.currentTarget)
-      }}
-      className={`${ICON_BTN_MD} shrink-0 disabled:opacity-30 ${active ? 'bg-[var(--oc-hover)] text-ink' : ''}`}
-    >
-      {children}
-    </button>
-  )
-}
+const headingOptions = [
+  { label: '正文', level: 0 },
+  { label: 'H1', level: 1 },
+  { label: 'H2', level: 2 },
+  { label: 'H3', level: 3 },
+] as const
 
-function ToolbarTrigger({
-  label,
-  icon,
-  active,
-  onClick,
-}: {
-  label: string
-  icon: ReactNode
-  active?: boolean
-  onClick: (anchor: HTMLButtonElement) => void
-}) {
-  return (
-    <button
-      type="button"
-      aria-haspopup="menu"
-      aria-label={label}
-      title={label}
-      onPointerDown={(e) => e.preventDefault()}
-      onClick={(e) => onClick(e.currentTarget)}
-      className={`flex h-8 shrink-0 items-center gap-0.5 px-1.5 transition-colors ${ROUND_CONTROL} ${
-        active
-          ? 'bg-[var(--oc-hover)] text-ink'
-          : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
-      }`}
-    >
-      {icon}
-      <ChevronDown size={12} strokeWidth={2} className="text-ink-faint" />
-    </button>
-  )
-}
-
-function headingIcon(level: number): ReactNode {
-  if (level === 1) return <Heading1 size={14} strokeWidth={2} />
-  if (level === 2) return <Heading2 size={14} strokeWidth={2} />
-  if (level === 3) return <Heading3 size={14} strokeWidth={2} />
-  if (level === 4) return <Heading4 size={14} strokeWidth={2} />
-  return <Pilcrow size={14} strokeWidth={2} />
-}
-
-/**
- * 正文常驻格式栏（桌面；移动端仍走 MobileEditorToolbar）。
- *
- * 最小集 + 组级溢出：宽/中/窄按**工具栏容器宽度**切换，不按窗口宽度。
- * 只挂 Markdown 桥能表达的节点与标记；颜色/字体/对齐不在这里。
- */
-export function EditorToolbar({
-  editor,
-  sticky = true,
-  embedded = false,
-}: {
-  editor: Editor
-  sticky?: boolean
-  embedded?: boolean
-}) {
-  const toolbarRef = useRef<HTMLDivElement>(null)
-  const [width, setWidth] = useState(0)
-  const [menu, setMenu] = useState<{ kind: MenuKind; anchor: HTMLButtonElement } | null>(null)
-  const [linkAnchor, setLinkAnchor] = useState<HTMLElement | null | undefined>(undefined)
-
-  useEffect(() => {
-    const el = toolbarRef.current
-    if (!el) return
-    const observer = new ResizeObserver((entries) => {
-      setWidth(entries[0]?.contentRect.width ?? 0)
-    })
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [])
-
-  const state = useEditorState({
-    editor,
-    selector: ({ editor: e }) => {
-      const level = ([1, 2, 3, 4] as const).find((l) => e.isActive('heading', { level: l })) ?? 0
-      return {
-        bold: e.isActive('bold'),
-        italic: e.isActive('italic'),
-        strike: e.isActive('strike'),
-        code: e.isActive('code'),
-        link: e.isActive('link'),
-        headingLevel: level,
-        block: e.isActive('blockquote') ? '引用' : e.isActive('codeBlock') ? '代码块' : level ? `标题 ${level}` : '正文',
-        bullet: e.isActive('bulletList'),
-        ordered: e.isActive('orderedList'),
-        task: e.isActive('taskList'),
-        canUndo: e.can().undo(),
-        canRedo: e.can().redo(),
-      }
-    },
-  })
-
-  const medium = width >= 640
-  const show = {
-    redo: embedded || medium,
-    code: embedded || medium,
-    heading: embedded || medium,
-    list: embedded || medium,
-    link: embedded || medium,
-    image: embedded || medium,
-  }
-
-  const chain = () => editor.chain().focus()
-
-  const paragraphItem: ToolbarMenuItem = {
-    label: '正文',
-    icon: <Pilcrow size={14} strokeWidth={2} />,
-    active: state.block === '正文',
-    onClick: () => chain().setParagraph().run(),
-  }
-
-  const headingItem = (level: 1 | 2 | 3 | 4): ToolbarMenuItem => ({
-    label: `标题 ${level}`,
-    icon: headingIcon(level),
-    active: state.headingLevel === level,
-    onClick: () => chain().setHeading({ level }).run(),
-  })
-
-  const bulletItem: ToolbarMenuItem = {
-    label: '无序列表',
-    icon: <List size={14} strokeWidth={2} />,
-    active: state.bullet,
-    onClick: () => chain().toggleBulletList().run(),
-  }
-
-  const orderedItem: ToolbarMenuItem = {
-    label: '有序列表',
-    icon: <ListOrdered size={14} strokeWidth={2} />,
-    active: state.ordered,
-    onClick: () => chain().toggleOrderedList().run(),
-  }
-
-  const taskItem: ToolbarMenuItem = {
-    label: '任务列表',
-    icon: <ListTodo size={14} strokeWidth={2} />,
-    active: state.task,
-    onClick: () => chain().toggleTaskList().run(),
-  }
-
-  const codeItem: ToolbarMenuItem = {
-    label: '行内代码',
-    icon: <Code size={14} strokeWidth={2} />,
-    active: state.code,
-    onClick: () => chain().toggleCode().run(),
-  }
-
-  const strikeItem: ToolbarMenuItem = {
-    label: '删除线',
-    icon: <Strikethrough size={14} strokeWidth={2} />,
-    active: state.strike,
-    onClick: () => chain().toggleStrike().run(),
-  }
-
-  const quoteItem: ToolbarMenuItem = {
-    label: '引用',
-    icon: <Quote size={14} strokeWidth={2} />,
-    active: state.block === '引用',
-    onClick: () => chain().toggleBlockquote().run(),
-  }
-
-  const codeBlockItem: ToolbarMenuItem = {
-    label: '代码块',
-    icon: <Code2 size={14} strokeWidth={2} />,
-    active: state.block === '代码块',
-    onClick: () => chain().toggleCodeBlock().run(),
-  }
-
-  const linkItem: ToolbarMenuItem = {
-    label: '链接',
-    icon: <LinkIcon size={14} strokeWidth={2} />,
-    active: state.link,
-    onClick: () => setLinkAnchor(null),
-  }
-
-  const imageItem: ToolbarMenuItem = {
-    label: '图片',
-    icon: <ImageIcon size={14} strokeWidth={2} />,
-    onClick: () => chain().insertContent({ type: 'imageBlock' }).run(),
-  }
-
-  const tableItem: ToolbarMenuItem = {
-    label: '表格',
-    icon: <TableIcon size={14} strokeWidth={2} />,
-    onClick: () => chain().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
-  }
-
-  const hrItem: ToolbarMenuItem = {
-    label: '分割线',
-    icon: <Minus size={14} strokeWidth={2} />,
-    onClick: () => chain().setHorizontalRule().run(),
-  }
-
-  const findItem: ToolbarMenuItem = {
-    label: '查找替换',
-    icon: <Search size={14} strokeWidth={2} />,
-    shortcut: 'Ctrl+F',
-    onClick: () => requestFind(editor),
-  }
-
-  const outlineItem: ToolbarMenuItem = {
-    label: '大纲',
-    icon: <ListTree size={14} strokeWidth={2} />,
-    shortcut: 'Ctrl+Shift+O',
-    onClick: () => requestOutline(editor),
-  }
-
-  const redoItem: ToolbarMenuItem = {
-    label: '重做',
-    icon: <Redo2 size={14} strokeWidth={2} />,
-    onClick: () => chain().redo().run(),
-  }
-
-  const blockGroups: ToolbarMenuGroup[] = [
-    { items: [paragraphItem, headingItem(1), headingItem(2), headingItem(3), headingItem(4), quoteItem, codeBlockItem] },
-  ]
-
-  const listGroups: ToolbarMenuGroup[] = [
-    { items: [bulletItem, orderedItem, taskItem] },
-  ]
-
-  const moreGroups: ToolbarMenuGroup[] = []
-  const textItems: ToolbarMenuItem[] = [strikeItem]
-  if (!show.code) textItems.push(codeItem)
-  moreGroups.push({ label: '文本格式', items: textItems })
-
-  // 块格式 / 列表：能放下时全部收进块/列表下拉，窄屏才回落到「更多」。
-  const blockItems: ToolbarMenuItem[] = []
-  if (!show.heading) {
-    blockItems.push(paragraphItem, headingItem(1), headingItem(2), headingItem(3), headingItem(4), quoteItem, codeBlockItem)
-  }
-  if (blockItems.length) moreGroups.push({ label: '块格式', items: blockItems })
-
-  const listItems: ToolbarMenuItem[] = []
-  if (!show.list) listItems.push(bulletItem, orderedItem, taskItem)
-  if (listItems.length) moreGroups.push({ label: '列表', items: listItems })
-
-  const insertItems: ToolbarMenuItem[] = []
-  if (!show.link) insertItems.push(linkItem)
-  if (!show.image) insertItems.push(imageItem)
-  insertItems.push(tableItem, hrItem)
-  moreGroups.push({ label: '插入', items: insertItems })
-
-  const editItems: ToolbarMenuItem[] = [findItem, outlineItem]
-  if (!show.redo) editItems.push(redoItem)
-  moreGroups.push({ label: '编辑', items: editItems })
-
-  return (
-    <>
-      <div
-        ref={toolbarRef}
-        role="toolbar"
-        aria-label="格式工具"
-        className={`flex items-center gap-0.5 px-2 max-md:hidden ${
-          embedded
-            ? 'h-full w-full justify-center bg-transparent'
-            : `${sticky ? 'sticky top-12' : ''} z-10 h-10 border-b border-line bg-paper/85 backdrop-blur-lg`
-        }`}
-      >
-        <IconButton
-          label="撤销"
-          disabled={!state.canUndo}
-          onActivate={() => chain().undo().run()}
-        >
-          <Undo2 size={16} strokeWidth={2} />
-        </IconButton>
-        {show.redo ? (
-          <IconButton
-            label="重做"
-            disabled={!state.canRedo}
-            onActivate={() => chain().redo().run()}
-          >
-            <Redo2 size={16} strokeWidth={2} />
-          </IconButton>
-        ) : null}
-
-        <span className="w-1" />
-        <IconButton
-          label="粗体"
-          active={state.bold}
-          onActivate={() => chain().toggleBold().run()}
-        >
-          <Bold size={16} strokeWidth={2} />
-        </IconButton>
-        <IconButton
-          label="斜体"
-          active={state.italic}
-          onActivate={() => chain().toggleItalic().run()}
-        >
-          <Italic size={16} strokeWidth={2} />
-        </IconButton>
-        {show.code ? (
-          <IconButton
-            label="行内代码"
-            active={state.code}
-            onActivate={() => chain().toggleCode().run()}
-          >
-            <Code size={16} strokeWidth={2} />
-          </IconButton>
-        ) : null}
-
-        {show.heading ? (
-          <ToolbarTrigger
-            label={state.block}
-            icon={
-              state.block === '引用'
-                ? <Quote size={14} strokeWidth={2} />
-                : state.block === '代码块'
-                  ? <Code2 size={14} strokeWidth={2} />
-                  : headingIcon(state.headingLevel)
-            }
-            active={state.headingLevel > 0}
-            onClick={(anchor) => setMenu({ kind: 'block', anchor })}
-          />
-        ) : null}
-        {show.list ? (
-          <ToolbarTrigger
-            label="列表"
-            icon={<List size={14} strokeWidth={2} />}
-            active={state.bullet || state.ordered || state.task}
-            onClick={(anchor) => setMenu({ kind: 'list', anchor })}
-          />
-        ) : null}
-
-        <span className="w-1" />
-        {show.link ? (
-          <IconButton
-            label="链接"
-            active={state.link}
-            onActivate={(anchor) => setLinkAnchor(anchor)}
-          >
-            <LinkIcon size={16} strokeWidth={2} />
-          </IconButton>
-        ) : null}
-        {show.image ? (
-          <IconButton
-            label="图片"
-            onActivate={() => chain().insertContent({ type: 'imageBlock' }).run()}
-          >
-            <ImageIcon size={16} strokeWidth={2} />
-          </IconButton>
-        ) : null}
-
-        <button
-          type="button"
-          title="更多"
-          aria-label="更多"
-          aria-haspopup="menu"
-          onPointerDown={(e) => e.preventDefault()}
-          onClick={(e) => setMenu({ kind: 'more', anchor: e.currentTarget })}
-          className={`${ICON_BTN_MD} shrink-0`}
-        >
-          <MoreHorizontal size={16} strokeWidth={2} />
-        </button>
+export function EditorToolbar({ editor }: EditorToolbarProps) {
+  if (!editor) {
+    return (
+      <div className="flex h-10 items-center border-b border-line bg-paper-alt px-2">
+        <span className="text-xs text-ink-faint">编辑器加载中...</span>
       </div>
+    )
+  }
 
-      {menu ? (
-        <ToolbarMenu
-          anchor={menu.anchor}
-          groups={menu.kind === 'block' ? blockGroups : menu.kind === 'list' ? listGroups : moreGroups}
-          onClose={() => setMenu(null)}
-        />
-      ) : null}
-      {linkAnchor !== undefined ? (
-        <LinkPopover
-          editor={editor}
-          anchor={linkAnchor}
-          onClose={() => setLinkAnchor(undefined)}
-        />
-      ) : null}
-    </>
+  const handleHeadingChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const level = Number(e.target.value)
+    if (level === 0) {
+      editor.chain().focus().setParagraph().run()
+    } else {
+      editor.chain().focus().toggleHeading({ level: level as 1 | 2 | 3 }).run()
+    }
+  }
+
+  const activeHeadingLevel = headingOptions.find(
+    (opt) => opt.level !== 0 && editor.isActive('heading', { level: opt.level }),
+  )?.level ?? 0
+
+  const btnClass =
+    'flex h-8 w-8 items-center justify-center rounded text-ink-muted transition-colors hover:text-ink'
+
+  const btnActiveClass =
+    'flex h-8 w-8 items-center justify-center rounded bg-paper-card text-ink transition-colors hover:text-ink'
+
+  return (
+    <div className="flex h-10 items-center border-b border-line bg-paper-alt px-2">
+      <button
+        onClick={() => editor.chain().focus().undo().run()}
+        className={btnClass}
+        title="撤销"
+      >
+        <Undo2 size={16} strokeWidth={2} />
+      </button>
+      <button
+        onClick={() => editor.chain().focus().redo().run()}
+        className={btnClass}
+        title="重做"
+      >
+        <Redo2 size={16} strokeWidth={2} />
+      </button>
+
+      <Separator orientation="vertical" className="h-4 !self-center" />
+
+      <select
+        value={activeHeadingLevel}
+        onChange={handleHeadingChange}
+        className="h-9 rounded border border-line bg-paper-card px-3 text-sm text-ink focus:border-line-hover focus:outline-none"
+      >
+        {headingOptions.map((opt) => (
+          <option key={opt.level} value={opt.level}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+
+      <Separator orientation="vertical" className="h-4 !self-center" />
+
+      <button
+        onClick={() => editor.chain().focus().toggleBold().run()}
+        className={editor.isActive('bold') ? btnActiveClass : btnClass}
+        title="加粗"
+      >
+        <Bold size={16} strokeWidth={2} />
+      </button>
+      <button
+        onClick={() => editor.chain().focus().toggleItalic().run()}
+        className={editor.isActive('italic') ? btnActiveClass : btnClass}
+        title="斜体"
+      >
+        <Italic size={16} strokeWidth={2} />
+      </button>
+      <button
+        onClick={() => editor.chain().focus().toggleUnderline().run()}
+        className={editor.isActive('underline') ? btnActiveClass : btnClass}
+        title="下划线"
+      >
+        <Underline size={16} strokeWidth={2} />
+      </button>
+      <button
+        onClick={() => editor.chain().focus().toggleStrike().run()}
+        className={editor.isActive('strike') ? btnActiveClass : btnClass}
+        title="删除线"
+      >
+        <Strikethrough size={16} strokeWidth={2} />
+      </button>
+
+      <Separator orientation="vertical" className="h-4 !self-center" />
+
+      <button
+        onClick={() => editor.chain().focus().toggleBulletList().run()}
+        className={editor.isActive('bulletList') ? btnActiveClass : btnClass}
+        title="无序列表"
+      >
+        <List size={16} strokeWidth={2} />
+      </button>
+      <button
+        onClick={() => editor.chain().focus().toggleOrderedList().run()}
+        className={editor.isActive('orderedList') ? btnActiveClass : btnClass}
+        title="有序列表"
+      >
+        <ListOrdered size={16} strokeWidth={2} />
+      </button>
+      <button
+        onClick={() => editor.chain().focus().toggleBlockquote().run()}
+        className={editor.isActive('blockquote') ? btnActiveClass : btnClass}
+        title="引用"
+      >
+        <Quote size={16} strokeWidth={2} />
+      </button>
+      <button
+        onClick={() => editor.chain().focus().setHorizontalRule().run()}
+        className={btnClass}
+        title="分隔线"
+      >
+        <Minus size={16} strokeWidth={2} />
+      </button>
+    </div>
   )
 }

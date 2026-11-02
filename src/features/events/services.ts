@@ -1,8 +1,10 @@
 import { db } from '@/lib/db'
-import { logOperation, pendingStamp } from '@/lib/sync'
-import { listActive, getById, softDelete } from '@/lib/repository'
+import { logOperation } from '@/lib/sync'
 import { updateReferencesAfterRename, syncReferenceLabels } from '@/lib/reference-sync'
-import { syncEventCountries } from '@/lib/membership'
+import {
+  syncRelationsFromEntities,
+  syncRelationLabelFromEntity,
+} from '@/features/relations/services'
 import type { Event } from '@/types'
 import type { EventFormData } from './types'
 
@@ -21,29 +23,30 @@ function buildDefaultEvent(data: EventFormData, overrides: Partial<Event> = {}):
     characters: data.characters ?? [],
     countries: data.countries ?? [],
     parentEventId: null,
-    relations: data.relations ?? [],
+    relations: [],
     tags: data.tags ?? [],
-    custom: data.custom ?? {},
     images: [],
     createdAt: now,
     updatedAt: now,
     deleted: false,
-    ...pendingStamp(now),
+    _syncStatus: 'pending',
+    _lastModified: now,
     ...overrides,
   }
 }
 
 export async function getEvents(): Promise<Event[]> {
-  return listActive(db.events, 'time')
+  const all = await db.events.orderBy('time').toArray()
+  return all.filter((e) => !e.deleted)
 }
 
 export async function getEvent(id: number): Promise<Event | undefined> {
-  return getById(db.events, id)
+  return db.events.get(id)
 }
 
 export async function createEvent(data: EventFormData): Promise<number> {
   const event = buildDefaultEvent(data)
-  const id = await db.events.add(event)
+  const id = await db.events.add(event as Event)
 
   await logOperation(TABLE, id, 'title', '', data.title)
   await logOperation(TABLE, id, 'time', '', data.time)
@@ -66,7 +69,8 @@ export async function updateEvent(id: number, data: Partial<EventFormData>): Pro
   const now = Date.now()
   const updates: Partial<Event> = {
     updatedAt: now,
-    ...pendingStamp(now),
+    _syncStatus: 'pending',
+    _lastModified: now,
   }
 
   type FieldKey = keyof EventFormData
@@ -79,17 +83,6 @@ export async function updateEvent(id: number, data: Partial<EventFormData>): Pro
       ;(updates as Record<string, unknown>)[field] = newValue
       await logOperation(TABLE, id, field, String(oldValue), String(newValue))
     }
-  }
-
-  if (data.custom !== undefined) {
-    ;(updates as Record<string, unknown>).custom = data.custom
-    await logOperation(
-      TABLE,
-      id,
-      'custom',
-      JSON.stringify(existing.custom ?? {}),
-      JSON.stringify(data.custom),
-    )
   }
 
   if (data.characters !== undefined) {
@@ -143,9 +136,51 @@ export async function updateEvent(id: number, data: Partial<EventFormData>): Pro
 
   await db.events.update(id, updates)
 
-  // 相关国家变了 → 国家侧的「相关事件」跟着增删（成员关系两边都写，与关系图拖拽同一口径）
-  if (data.countries !== undefined) {
-    await syncEventCountries(id, existing.countries ?? [], data.countries, now)
+  if (data.relations !== undefined) {
+    const previous = existing.relations ?? []
+    const next = data.relations
+    const previousIds = new Set(previous.map((item) => item.targetId))
+    const nextIds = new Set(next.map((item) => item.targetId))
+    const peers = new Set<number>([
+      ...previousIds,
+      ...nextIds,
+    ])
+    peers.delete(id)
+    for (const peerId of peers) {
+      const peer = await db.events.get(peerId)
+      if (!peer || peer.deleted) continue
+      const relation = next.find((item) => item.targetId === peerId)
+      const peerRelations = (peer.relations ?? []).filter((item) => item.targetId !== id)
+      if (relation) {
+        peerRelations.push({ targetId: id, relation: relation.relation })
+      }
+      await db.events.update(peerId, {
+        relations: peerRelations,
+        updatedAt: Date.now(),
+        _syncStatus: 'pending',
+      })
+    }
+
+    for (const relation of next) {
+      await syncRelationLabelFromEntity(
+        'event-event',
+        'event',
+        id,
+        'event',
+        relation.targetId,
+        relation.relation,
+      )
+    }
+  }
+
+  if (data.relations !== undefined) {
+    // Write the canonical relation rows immediately so the relationship graph
+    // sees event ↔ event changes without waiting for a later graph refresh.
+    await syncRelationsFromEntities()
+  }
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('data-updated'))
   }
 
   if (data.title !== undefined) {
@@ -153,26 +188,23 @@ export async function updateEvent(id: number, data: Partial<EventFormData>): Pro
   }
 }
 
-export async function deleteEvent(id: number): Promise<void> {
-  await softDelete(db.events, id, TABLE)
+export async function saveDocument(id: number, document: unknown): Promise<void> {
+  const now = Date.now()
+  await db.events.update(id, {
+    document,
+    updatedAt: now,
+    _syncStatus: 'pending',
+    _lastModified: now,
+  })
 }
 
-/**
- * 手动排序：把 `event` 的顺序写成 0..n-1。
- * 只写真的变了的行；**不碰 updatedAt**（排序不是编辑，别让它窜到「按编辑时间」前面）。
- */
-export async function reorderEvents(ids: number[]): Promise<void> {
-  const rows = await db.events.bulkGet(ids)
-  const changes: { id: number; order: number }[] = []
-  ids.forEach((id, index) => {
-    const row = rows[index]
-    if (row && row.order !== index) changes.push({ id, order: index })
-  })
-  if (changes.length === 0) return
+export async function deleteEvent(id: number): Promise<void> {
   const now = Date.now()
-  await db.transaction('rw', db.events, async () => {
-    for (const change of changes) {
-      await db.events.update(change.id, { order: change.order, ...pendingStamp(now) })
-    }
+  await db.events.update(id, {
+    deleted: true,
+    _syncStatus: 'pending',
+    _lastModified: now,
   })
+
+  await logOperation(TABLE, id, 'deleted', 'false', 'true')
 }

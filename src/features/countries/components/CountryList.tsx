@@ -2,8 +2,12 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import { withTouchFeedback } from '@/lib/animation'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2 } from 'lucide-react'
 import type { Country } from '@/types'
+import { stripHtml } from '@/lib/utils'
+import { extractCountryPreview } from '@/lib/document-utils'
+import { DeleteButton } from '@/components/shared/DeleteButton'
+import { useLongPress } from '@/lib/useLongPress'
 import { MobileActionSheet, type ActionItem } from '@/components/shared/MobileActionSheet'
 import {
   AlertDialog,
@@ -15,17 +19,158 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { useCountryList, useReorderCountries } from '../hooks/useCountries'
+import { Avatar } from '@/components/shared/Avatar'
+import { getImageUrl, resolveImageUrl } from '@/lib/image-service'
+import { accentGradient, resolveAccentColor } from '@/lib/entity-accent'
+import { Separator } from '@/components/ui/separator'
+import { useCountryList } from '../hooks/useCountries'
+import { SortViewControls, SortSelect } from '@/components/shared/SortViewControls'
+import type { SortOption, ViewMode } from '@/components/shared/SortViewControls'
 import { useDevice } from '@/lib/use-device'
+import { MobileFilterBar } from '@/components/layout/MobileFilterBar'
 import { MobileFab } from '@/components/layout/MobileFab'
-import { CountryCard, CountryRow } from './CountryListItems'
-import { CountryListToolbar } from './CountryListToolbar'
-import { readViewPreference, writeViewPreference, sortCountryList, SORT_STORAGE_KEY } from './country-list-utils'
-import type { CountrySortKey } from './country-list-utils'
-import { readSortKey, writeSortKey } from '@/lib/sort-manual'
-import type { ViewMode } from '@/components/shared/SortViewControls'
-import { SortableList, moveId } from '@/components/shared/list-dnd'
-import { BTN_QUIET, CENTER_STATE, EMPTY_HINT, LIST_GRID } from '@/lib/ui-tokens'
+
+function readViewPreference(): ViewMode {
+  if (typeof window === 'undefined') return 'grid'
+  return (localStorage.getItem('oc-countries-view') as ViewMode) ?? 'grid'
+}
+
+function writeViewPreference(mode: ViewMode): void {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('oc-countries-view', mode)
+  }
+}
+
+type CountrySortKey = 'name' | 'updatedAt' | 'createdAt'
+
+function sortCountryList(countries: Country[], key: CountrySortKey): Country[] {
+  return [...countries].sort((a, b) => {
+    if (key === 'name') return a.name.localeCompare(b.name, 'zh-Hans')
+    if (key === 'updatedAt') return b.updatedAt - a.updatedAt
+    return b.createdAt - a.createdAt
+  })
+}
+
+const COUNTRY_SORT_OPTIONS: SortOption[] = [
+  { label: '按名称', value: 'name' },
+  { label: '按编辑时间', value: 'updatedAt' },
+  { label: '按创建时间', value: 'createdAt' },
+]
+
+function CountryRow({
+  country,
+  onSelect,
+  onDelete,
+  onLongPress,
+  isMobile,
+}: {
+  country: Country
+  onSelect: (id: number) => void
+  onDelete: (id: number) => void
+  onLongPress?: () => void
+  isMobile: boolean
+}) {
+  const preview = extractCountryPreview(country.document) ?? stripHtml(country.system ?? '')
+  const accent = resolveAccentColor(country.accentColor, country.name)
+
+  const longPress = useLongPress({
+    onLongPress: onLongPress ?? (() => {}),
+    enabled: isMobile,
+  })
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      onSelect(country.id as number)
+    }
+  }
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onSelect(country.id as number)}
+      onKeyDown={handleKeyDown}
+      style={{ backgroundImage: accentGradient(accent) }}
+      className="group relative flex w-full cursor-pointer items-center gap-3 rounded-md px-4 py-3 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/5 active:bg-black/8 dark:active:bg-white/8"
+      {...longPress}
+    >
+      <span
+        className="absolute bottom-2 left-1 top-2 w-0.5 rounded-full"
+        style={{ backgroundColor: accent }}
+      />
+      <Avatar src={getImageUrl(country.flagUrl, 'flag')} size="md" type="flag" />
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <h3 className="truncate text-sm font-medium text-ink">{country.name}</h3>
+        {preview ? (
+          <span className="text-xs text-ink-muted truncate">{preview}</span>
+        ) : null}
+      </div>
+      {!isMobile ? (
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <DeleteButton onDelete={() => onDelete(country.id as number)} />
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function CountryCard({
+  country,
+  onSelect,
+  onDelete,
+  onLongPress,
+  isMobile,
+}: {
+  country: Country
+  onSelect: (id: number) => void
+  onDelete: (id: number) => void
+  onLongPress?: () => void
+  isMobile: boolean
+}) {
+  const preview = extractCountryPreview(country.document) ?? stripHtml(country.system ?? '')
+  const accent = resolveAccentColor(country.accentColor, country.name)
+
+  const longPress = useLongPress({
+    onLongPress: onLongPress ?? (() => {}),
+    enabled: isMobile,
+  })
+
+  return (
+    <div className="relative group touch-feedback" {...longPress}>
+      <button
+        onClick={() => onSelect(country.id as number)}
+        style={{ backgroundImage: accentGradient(accent), borderColor: `${accent}45` }}
+        className="flex w-full flex-col rounded-md border bg-paper-card overflow-hidden text-left transition-shadow hover:shadow-[0_1px_3px_rgba(0,0,0,0.03)]"
+      >
+        {country.headerUrl ? (
+          <div className="relative w-full aspect-[3/2] bg-paper-card">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={resolveImageUrl(country.headerUrl, 'header')}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+          </div>
+        ) : null}
+        <div className="flex items-start gap-3 p-3">
+          <Avatar src={country.flagUrl} size="md" type="flag" className="shrink-0" />
+          <div className="flex flex-col min-w-0 gap-0.5">
+            <h3 className="text-sm font-medium text-ink truncate">{country.name}</h3>
+            {preview ? (
+              <p className="text-xs text-ink-muted truncate">{preview}</p>
+            ) : null}
+          </div>
+        </div>
+      </button>
+
+      {!isMobile ? (
+        <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <DeleteButton onDelete={() => onDelete(country.id as number)} />
+        </div>
+      ) : null}
+    </div>
+  )
+}
 
 interface CountryListProps {
   onSelectCountry: (id: number) => void
@@ -42,7 +187,7 @@ export function CountryList({
   const handleSelect = useMemo(() => withTouchFeedback(onSelectCountry), [onSelectCountry])
   const { countries, loading, error } = useCountryList()
   const [search, setSearch] = useState('')
-  const [sortKey, setSortKey] = useState<CountrySortKey>(() => readSortKey(SORT_STORAGE_KEY, 'updatedAt'))
+  const [sortKey, setSortKey] = useState<CountrySortKey>('updatedAt')
   const [viewMode, setViewMode] = useState<ViewMode>(readViewPreference)
   const [actionSheet, setActionSheet] = useState<{ open: boolean; title: string; actions: ActionItem[] }>({
     open: false, title: '', actions: [],
@@ -54,11 +199,11 @@ export function CountryList({
       open: true,
       title: c.name,
       actions: [
-        { id: 'edit', label: '编辑', icon: <Pencil size={20} strokeWidth={2} />, onPress: () => onSelectCountry(c.id) },
-        { id: 'delete', label: '删除', icon: <Trash2 size={20} strokeWidth={2} />, destructive: true, onPress: () => setDeleteTarget(c.id) },
+        { id: 'edit', label: '编辑', icon: <Pencil size={20} strokeWidth={2} />, onPress: () => onSelectCountry(c.id as number) },
+        { id: 'delete', label: '删除', icon: <Trash2 size={20} strokeWidth={2} />, destructive: true, onPress: () => setDeleteTarget(c.id as number) },
       ],
     })
-  }, [onSelectCountry])
+  }, [onSelectCountry, onDeleteCountry])
 
   const filtered = useMemo(() => {
     let result = countries
@@ -75,42 +220,26 @@ export function CountryList({
     return sortCountryList(result, sortKey)
   }, [countries, sortKey, search])
 
-  const handleSortChange = (key: CountrySortKey) => {
-    setSortKey(key)
-    writeSortKey(SORT_STORAGE_KEY, key)
-  }
-
   const handleViewChange = (mode: ViewMode) => {
     setViewMode(mode)
     writeViewPreference(mode)
   }
 
-  const manual = sortKey === 'manual'
-  const reorderCountries = useReorderCountries()
-
-  const handleReorder = useCallback(
-    (activeId: number | string, overId: number | string) => {
-      const base = sortCountryList(countries, 'manual').map((c) => c.id)
-      void reorderCountries(moveId(base, Number(activeId), Number(overId)))
-    },
-    [countries, reorderCountries],
-  )
-
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <span className="text-[13px] text-ink-faint">加载中…</span>
+        <span className="text-sm text-ink-muted">加载中...</span>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className={CENTER_STATE}>
+      <div className="flex h-full flex-col items-center justify-center gap-3">
         <span className="text-sm text-error">{error}</span>
         <button
           onClick={onCreateCountry}
-          className={BTN_QUIET}
+          className="flex h-9 items-center rounded border border-line px-3 text-sm text-ink-muted transition-colors hover:text-ink"
         >
           重试
         </button>
@@ -120,15 +249,56 @@ export function CountryList({
 
   return (
     <div className="flex flex-col min-h-full">
-      <CountryListToolbar
-        search={search}
-        onSearchChange={setSearch}
-        sortKey={sortKey}
-        onSortKeyChange={handleSortChange}
-        viewMode={viewMode}
-        onViewModeChange={handleViewChange}
-        onCreateCountry={onCreateCountry}
-      />
+      <div className="max-md:hidden flex items-center justify-between sticky top-0 z-10 border-b border-line px-6 py-3 h-[60px] bg-paper/85 dark:bg-[#1C1B1A]/85 backdrop-blur-lg">
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg text-ink font-serif font-bold">国家</h2>
+          <Separator orientation="vertical" className="max-md:hidden md:flex h-4 !self-center" />
+          <div className="relative max-md:hidden md:block">
+            <Search
+              size={16}
+              strokeWidth={2}
+              className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-faint"
+            />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="搜索国家..."
+              className="h-9 w-48 rounded border border-line bg-paper-card/60 pl-9 pr-3 text-sm text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none focus:bg-paper-card/80"
+            />
+          </div>
+          <Separator orientation="vertical" className="max-md:hidden md:flex h-4 !self-center" />
+          <SortViewControls
+            sortKey={sortKey}
+            onSortChange={(key) => setSortKey(key as CountrySortKey)}
+            sortOptions={COUNTRY_SORT_OPTIONS}
+            viewMode={viewMode}
+            onViewModeChange={handleViewChange}
+          />
+        </div>
+        <button
+          onClick={onCreateCountry}
+          className="touch-feedback flex h-9 items-center gap-1.5 rounded border border-line bg-paper-card/60 px-3 text-sm text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
+        >
+          <Plus size={16} strokeWidth={2} />
+          <span>新建国家</span>
+        </button>
+      </div>
+
+      <MobileFilterBar>
+        <SortSelect
+          sortKey={sortKey}
+          onChange={(key) => setSortKey(key as CountrySortKey)}
+          options={COUNTRY_SORT_OPTIONS}
+        />
+        <button
+          onClick={onCreateCountry}
+          className="touch-feedback flex h-7 items-center gap-1 rounded border border-line bg-paper-card/60 px-2.5 text-[11px] text-ink-muted transition-colors hover:border-line-hover hover:text-ink"
+        >
+          <Plus size={14} strokeWidth={2} />
+          <span>新建</span>
+        </button>
+      </MobileFilterBar>
 
       <div className="max-md:h-10 flex-shrink-0" />
 
@@ -137,54 +307,38 @@ export function CountryList({
           <div className="flex-1 flex items-center justify-center">
             <button
               onClick={onCreateCountry}
-              className={EMPTY_HINT}
+              className="text-sm text-ink-muted transition-colors hover:text-ink"
             >
               暂无国家，点击创建第一个
             </button>
           </div>
         ) : viewMode === 'grid' ? (
-          <SortableList
-            ids={filtered.map((c) => c.id)}
-            onReorder={handleReorder}
-            layout="grid"
-            disabled={!manual}
-          >
-            <div className={LIST_GRID}>
-              {filtered.map((country) => (
-                <div key={country.id} className="[break-inside:avoid] mb-4">
-                  <CountryCard
-                    country={country}
-                    onSelect={handleSelect}
-                    onDelete={onDeleteCountry}
-                    onLongPress={() => openActionSheet(country)}
-                    isMobile={isMobile}
-                    sortable={manual}
-                  />
-                </div>
-              ))}
-            </div>
-          </SortableList>
-        ) : (
-          <SortableList
-            ids={filtered.map((c) => c.id)}
-            onReorder={handleReorder}
-            layout="list"
-            disabled={!manual}
-          >
-            <div className="flex flex-col rules-end">
-              {filtered.map((country) => (
-                <CountryRow
-                  key={country.id}
+          <div className="columns-2 sm:columns-3 xl:columns-4 2xl:columns-5 gap-4">
+            {filtered.map((country) => (
+              <div key={country.id} className="[break-inside:avoid] mb-4">
+                <CountryCard
                   country={country}
                   onSelect={handleSelect}
                   onDelete={onDeleteCountry}
                   onLongPress={() => openActionSheet(country)}
                   isMobile={isMobile}
-                  sortable={manual}
                 />
-              ))}
-            </div>
-          </SortableList>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col divide-y divide-line">
+            {filtered.map((country) => (
+              <CountryRow
+                key={country.id}
+                country={country}
+                onSelect={handleSelect}
+                onDelete={onDeleteCountry}
+                onLongPress={() => openActionSheet(country)}
+                isMobile={isMobile}
+              />
+            ))}
+          </div>
         )}
         <MobileFab viewMode={viewMode} onViewModeChange={handleViewChange} />
       </div>

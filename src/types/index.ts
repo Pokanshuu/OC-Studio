@@ -2,6 +2,8 @@ export interface RelatedCharacter {
   characterId?: number
   name: string
   relation: string
+  /** 指向具体关系记录；同一对角色可以有多条关系线。 */
+  relationId?: string
 }
 
 export interface GalleryImage {
@@ -14,60 +16,88 @@ export interface AvatarImage {
   type: 'portrait' | 'fullbody' | 'other'
 }
 
-/** 关系图坐标：用户把节点拖到哪里就记在哪里（仓库写 frontmatter 的 `graph_position`） */
-export interface GraphPosition {
-  x: number
-  y: number
+export interface CharacterCustomField {
+  id: string
+  label: string
+  value: string
 }
 
+export type CharacterKind = 'character' | 'weapon' | 'pet'
+
 export interface Character {
-  id: number
+  id?: number
   name: string
+  /** 复用角色模板的实体类型；旧数据没有该字段时按 character 处理。 */
+  entityKind?: CharacterKind
+  accentColor?: string
+  customFields?: CharacterCustomField[]
+  /** 所属角色文件夹；null/undefined 表示未分类。文件夹元数据存于本地。 */
+  folderId?: string | null
+  /** 被用户隐藏的内置基本信息字段 key。 */
+  hiddenFields?: string[]
+  /** 上传的 OC 动画（mp4/webm/gif/webp）。 */
+  animationUrl?: string
+  /** 动画类型，用于选择 video 或 img 预览。 */
+  animationType?: 'video' | 'image'
   aliases: string[]
   race: string
   element: string
   occupation: string
-  /** 阵营 / 立场（vault 侧 frontmatter 键：阵营 或 faction）。自由文本，不强制归一 */
-  faction: string
-  /**
-   * 阵营名解析到的实体 id（软引用）。
-   * 阵营值多为叙事性描述，磁盘上没有稳定标识，因此按**名字**解析：
-   * 命中同名文件名或别名即可跳转，未命中就保持纯文本并计入扫描报告。
-   */
-  factionId?: number
   nationalityLegacy: string
   countryId?: number
   height: string
   birthday: string
+  gender?: string
+  orientation?: string
+  age?: string
+  weight?: string
+  bloodType?: string
+  hairColor?: string
+  eyeColor?: string
+  birthplace?: string
+  residence?: string
+  personality?: string
+  hobbies?: string
+  skills?: string
+  affiliation?: string
+  weapon?: string
+  pet?: string
+  ability?: string
+  status?: string
   avatarUrl: string
+  qAvatarUrl?: string
   headerUrl?: string
   bio: string
   lifeStory: string
   document?: unknown
+  relationships: Relationship[]
   relatedCharacters: RelatedCharacter[]
+  /** 与国家的关系投影；国家面板与关系图共用。 */
+  relatedNations?: number[]
+  /** 与国家的边标签，供关系图/面板双向同步。 */
+  relatedNationLabels?: Record<number, string>
+  /** 与事件的关系投影；事件面板与关系图共用。 */
+  relatedEvents?: number[]
+  relatedEventLabels?: Record<number, string>
   gallery: GalleryImage[]
   avatars: AvatarImage[]
   tags: number[]
-  /** 主要角色标记（用于概览与导出首页精选） */
-  isMajor?: boolean
-  /** 手动排序位置（升序；缺省 = 排在已有项之后）。落盘到 frontmatter 的 `order` */
-  order?: number
-  /** 关系图里的坐标（用户拖过才有；落盘到 frontmatter 的 `graph_position`） */
-  graphPosition?: GraphPosition
   createdAt: number
-  /** 自定义字段的值（键 = 字段表里的 key；内置字段仍然走各自的列） */
-  custom?: Record<string, string>
   updatedAt: number
   deleted: boolean
   _syncStatus: string
   _lastModified: number
 }
 
+export interface Relationship {
+  targetId: number
+  targetType: string
+  relation: string
+}
+
 export interface Event {
-  id: number
+  id?: number
   title: string
-  /** 别名（vault 侧 [[ ]] 链接的解析键之一；改名时旧名会推进这里） */
-  aliases?: string[]
   time: string
   endTime?: string
   location: string
@@ -82,13 +112,7 @@ export interface Event {
   tags: number[]
   images: ImageEntry[]
   isMajor: boolean
-  /** 手动排序位置（升序；缺省 = 排在已有项之后） */
-  order?: number
-  /** 关系图里的坐标（用户拖过才有） */
-  graphPosition?: GraphPosition
   createdAt: number
-  /** 自定义字段的值（键 = 字段表里的 key；内置字段仍然走各自的列） */
-  custom?: Record<string, string>
   updatedAt: number
   deleted: boolean
   _syncStatus: string
@@ -106,10 +130,9 @@ export interface ImageEntry {
 }
 
 export interface Country {
-  id: number
+  id?: number
   name: string
-  /** 别名（vault 侧 [[ ]] 链接的解析键之一；改名时旧名会推进这里） */
-  aliases?: string[]
+  accentColor?: string
   parentId: number | null
   description: string
   document?: unknown
@@ -120,14 +143,14 @@ export interface Country {
   headerUrl?: string
   characters: number[]
   events: number[]
+  /** 国家之间的关系投影；关系图写入时同步。 */
+  relatedNations?: number[]
+  relatedNationLabels?: Record<number, string>
+  /** 国家与事件的关系投影；事件面板写入时同步。 */
+  relatedEvents?: number[]
+  relatedEventLabels?: Record<number, string>
   tags: number[]
-  /** 手动排序位置（升序；缺省 = 排在已有项之后） */
-  order?: number
-  /** 关系图里的坐标（用户拖过才有） */
-  graphPosition?: GraphPosition
   createdAt: number
-  /** 自定义字段的值（键 = 字段表里的 key；内置字段仍然走各自的列） */
-  custom?: Record<string, string>
   updatedAt: number
   deleted: boolean
   _syncStatus: string
@@ -135,24 +158,16 @@ export interface Country {
 }
 
 export interface WorldEntry {
-  id: number
+  id?: number
   title: string
-  /** 别名（vault 侧 [[ ]] 链接的解析键之一；改名时旧名会推进这里） */
-  aliases?: string[]
   content: string
   document?: unknown
-  /**
-   * 历史字段（已废弃）：层级只由 `parentId` 表达，界面不再编辑、新条目一律空。
-   * 保留是为了读得懂老数据和已有 vault 文件里的 `分类:` 键 —— 写回时也不再动它。
-   */
   category: string
   parentId: number | null
   order: number
   isConcept: boolean
   references: WorldReference[]
   tags: number[]
-  /** 自定义字段的值（键 = 字段表里的 key；内置字段仍然走各自的列） */
-  custom?: Record<string, string>
   createdAt: number
   updatedAt: number
   deleted: boolean
@@ -166,14 +181,14 @@ export interface WorldReference {
 }
 
 export interface Tag {
-  id: number
+  id?: number
   name: string
   category: string
   color: string
 }
 
 export interface OperationLog {
-  id: number
+  id?: number
   timestamp: number
   targetType: string
   targetId: number
@@ -183,7 +198,7 @@ export interface OperationLog {
 }
 
 export interface Period {
-  id: number
+  id?: number
   name: string
   startTime: string
   endTime: string
@@ -193,17 +208,134 @@ export interface Period {
   deleted?: boolean
 }
 
-/** 项目级元信息（单例记录，id 固定为 1）。用于应用标题与导出站点的标题/简介/封面。 */
-export interface ProjectMeta {
-  id: number
-  worldName: string
-  tagline: string
-  coverUrl: string
+export type WorldMapKind = 'world' | 'region'
+
+export type RelationEntityType = 'character' | 'country' | 'event'
+export type RelationKind =
+  | 'character'
+  | 'membership'
+  | 'event-character'
+  | 'event-country'
+  | 'event-event'
+  | 'nation'
+  | 'custom'
+
+/**
+ * 关系图的唯一真相源。
+ * 旧的角色/国家/事件数组保留为投影，供现有面板读取。
+ */
+export interface RelationRecord {
+  id: string
+  sourceType: RelationEntityType
+  sourceId: number
+  targetType: RelationEntityType
+  targetId: number
+  kind: RelationKind
+  label: string
+  directed: boolean
+  /** 关系线固定色板中的颜色；未设置为默认线色。 */
+  color?: string
+  /** 箭头方向：none / forward / reverse / both。 */
+  arrow?: 'none' | 'forward' | 'reverse' | 'both'
+  createdAt: number
   updatedAt: number
-  /** 字段表（没有文件夹时存这里；有文件夹时在 .ocstudio/fields.json） */
-  fields?: Record<string, unknown>
-  _syncStatus?: string
-  _lastModified?: number
+  deleted: boolean
+}
+
+export interface MapAnnotationPoint {
+  x: number
+  y: number
+}
+
+export interface MapAnnotation {
+  id: string
+  type: 'polygon' | 'city' | 'road'
+  name: string
+  color: string
+  points: MapAnnotationPoint[]
+  note?: string
+  linkedEntity?: {
+    type: 'country' | 'character' | 'event'
+    id: number
+  }
+}
+
+export type TerrainPreset = 'earth' | 'three-continents' | 'islands' | 'pangaea' | 'custom'
+
+export interface WorldMapParams {
+  kind: WorldMapKind
+  /** 大陆分布预设；旧地图没有该字段时按 earth 处理。 */
+  terrainPreset?: TerrainPreset
+  /** 生成宽高；世界地图默认 2048×1024，区域地图默认 1024×1024。 */
+  width: number
+  height: number
+  /** 旧版记录兼容字段；新生成逻辑使用 width/height。 */
+  size?: number
+  /** 目标陆地比例，0..1。 */
+  landCoverage: number
+  /** 山脉带强度，0..1。 */
+  mountainStrength: number
+  /** 高原/碰撞抬升强度，0..1。 */
+  plateauStrength: number
+  /** 平原偏置，-1..1；越高低地越平坦。 */
+  plainBias: number
+  /** 湖泊密度，0..1。 */
+  lakeDensity: number
+  /** 最小湖泊面积占地图总格数比例。 */
+  lakeMinArea: number
+  /** 最大湖泊面积占地图总格数比例。 */
+  lakeMaxArea: number
+  /** 全球温度偏移，摄氏度。 */
+  temperatureOffset: number
+  /** 降水偏置，-1..1。 */
+  moistureBias: number
+  /** 河流密度，0..1；越高阈值越低。 */
+  riverDensity: number
+  /** 地图覆盖的纬度范围（度），默认 150（南纬 75 到北纬 75）。 */
+  latitudeSpan: number
+}
+
+export interface WorldMapRecord {
+  id?: number
+  name: string
+  seed: number
+  params: WorldMapParams
+  createdAt: number
+  updatedAt: number
+  deleted: boolean
+  annotations?: MapAnnotation[]
+  thumbnail?: string
+  /** 完整地图 PNG；地图管理导出 PNG/JPG 与 .ocmap 时使用。 */
+  imageBlob?: Blob
+  /** 手绘修饰层（透明 PNG），覆盖在生成图之上。 */
+  paintBlob?: Blob
+  /** 生成/编辑后的国家、城市与归属网格。 */
+  political?: unknown
+  /** 用户明确采纳该地图的时间；保存不等于采纳。 */
+  acceptedAt?: number
+  isTemplate?: boolean
+  /** 区域地图叠放到世界地图时的父地图。 */
+  parentWorldId?: number
+  /** 地图关联的 OC 实体；仅保存引用，实体名称从对应表实时读取。 */
+  linkedEntities?: Array<{
+    type: 'country' | 'character' | 'event'
+    id: number
+  }>
+  /** 归一化位置/尺寸（0..1），相对世界地图。 */
+  placement?: {
+    x: number
+    y: number
+    width: number
+    height: number
+  }
+  /** 最近一次生成时的统计快照，便于导出与列表展示。 */
+  stats?: {
+    landRatio: number
+    maxElevation: number
+    riverCells: number
+    lakeCount: number
+    biomeCount: number
+  }
 }
 
 export const PERIOD_COLORS = [

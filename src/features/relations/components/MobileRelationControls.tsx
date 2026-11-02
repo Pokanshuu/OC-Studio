@@ -1,8 +1,8 @@
 'use client'
 
-import { Minus, Plus, Users, Calendar, Flag, RefreshCw } from 'lucide-react'
+import type { ReactNode } from 'react'
+import { Minus, Plus, Users, CalendarDays, Flag, Shapes, PlusCircle } from 'lucide-react'
 import { Panel } from '@xyflow/react'
-import { MIN_ZOOM } from './relation-graph-utils'
 
 interface RelationControlsProps {
   showCharacters: boolean
@@ -13,42 +13,85 @@ interface RelationControlsProps {
   onToggleCountries: () => void
   zoom: number
   onZoomChange: (value: number) => void
-  /** 重跑力导向布局（并把新坐标写回实体） */
-  onRelayout: () => void
+  sections: Array<{ id: string; name: string }>
+  hiddenSectionIds: Set<string>
+  onToggleSection: (id: string) => void
+  onCreateSection: () => void
+}
+
+function CategoryChip({
+  icon,
+  label,
+  active,
+  onClick,
+}: {
+  icon: ReactNode
+  label: string
+  active?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex h-7 shrink-0 items-center gap-1 rounded-lg border px-2 text-[11px] transition-all duration-150 active:rotate-3 active:scale-95 ${
+        active
+          ? 'border-line-hover bg-black/5 text-ink dark:bg-white/5'
+          : 'border-transparent text-ink-faint hover:-translate-y-0.5 hover:border-line hover:text-ink-muted'
+      }`}
+    >
+      {icon}
+      <span className="max-w-[88px] truncate">{label}</span>
+    </button>
+  )
 }
 
 function RelationFilterButtons({
-  showCharacters, showEvents, showCountries,
-  onToggleCharacters, onToggleEvents, onToggleCountries,
+  showCharacters,
+  showEvents,
+  showCountries,
+  onToggleCharacters,
+  onToggleEvents,
+  onToggleCountries,
+  sections,
+  hiddenSectionIds,
+  onToggleSection,
+  onCreateSection,
 }: Omit<RelationControlsProps, 'zoom' | 'onZoomChange'>) {
   return (
-    <div className="flex items-center gap-1">
-      <button
+    <div className="flex min-w-0 items-center gap-1 overflow-x-auto">
+      <CategoryChip
+        icon={<Users size={14} strokeWidth={2} />}
+        label="角色"
+        active={showCharacters}
         onClick={onToggleCharacters}
-        className={`flex items-center gap-1 md:px-2 px-1.5 md:py-0.5 py-0 rounded-item text-[11px] md:text-xs transition-colors h-7 md:h-auto ${
-          showCharacters ? 'bg-[var(--oc-hover)] border border-line-hover text-ink' : 'text-ink-faint hover:text-ink-muted'
-        }`}
-      >
-        <Users size={14} strokeWidth={2} />
-        <span>角色</span>
-      </button>
-      <button
+      />
+      <CategoryChip
+        icon={<CalendarDays size={14} strokeWidth={2} />}
+        label="事件"
+        active={showEvents}
         onClick={onToggleEvents}
-        className={`flex items-center gap-1 md:px-2 px-1.5 md:py-0.5 py-0 rounded-item text-[11px] md:text-xs transition-colors h-7 md:h-auto ${
-          showEvents ? 'bg-[var(--oc-hover)] border border-line-hover text-ink' : 'text-ink-faint hover:text-ink-muted'
-        }`}
-      >
-        <Calendar size={14} strokeWidth={2} />
-        <span>事件</span>
-      </button>
-      <button
+      />
+      <CategoryChip
+        icon={<Flag size={14} strokeWidth={2} />}
+        label="国家"
+        active={showCountries}
         onClick={onToggleCountries}
-        className={`flex items-center gap-1 md:px-2 px-1.5 md:py-0.5 py-0 rounded-item text-[11px] md:text-xs transition-colors h-7 md:h-auto ${
-          showCountries ? 'bg-[var(--oc-hover)] border border-line-hover text-ink' : 'text-ink-faint hover:text-ink-muted'
-        }`}
+      />
+      {sections.map((section) => (
+        <CategoryChip
+          key={section.id}
+          icon={<Shapes size={14} strokeWidth={2} />}
+          label={section.name}
+          active={!hiddenSectionIds.has(section.id)}
+          onClick={() => onToggleSection(section.id)}
+        />
+      ))}
+      <button
+        onClick={onCreateSection}
+        className="flex h-7 shrink-0 items-center gap-1 rounded-lg border border-dashed border-line px-2 text-[11px] text-ink-faint transition-all duration-150 hover:-translate-y-0.5 hover:border-line-hover hover:text-ink active:rotate-3 active:scale-95"
       >
-        <Flag size={14} strokeWidth={2} />
-        <span>国家</span>
+        <PlusCircle size={14} strokeWidth={2} />
+        新建分类
       </button>
     </div>
   )
@@ -58,8 +101,7 @@ function ZoomSlider({ zoom, onZoomChange }: { zoom: number; onZoomChange: (value
   const zoomValue = Math.round(zoom * 100)
 
   const handleZoom = (value: number) => {
-    const min = Math.round(MIN_ZOOM * 100)
-    const clamped = Math.max(min, Math.min(200, value))
+    const clamped = Math.max(10, Math.min(200, value))
     onZoomChange(clamped)
   }
 
@@ -67,29 +109,29 @@ function ZoomSlider({ zoom, onZoomChange }: { zoom: number; onZoomChange: (value
     <div className="flex items-center gap-1">
       <button
         onClick={() => handleZoom(zoomValue - 10)}
-        className="h-6 w-6 flex items-center justify-center rounded-item text-ink-faint hover:text-ink transition-colors"
+        className="h-6 w-6 flex items-center justify-center rounded text-ink-faint hover:text-ink transition-colors"
       >
         <Minus size={14} strokeWidth={2} />
       </button>
       <input
         type="range"
-        min={Math.round(MIN_ZOOM * 100)}
+        min={10}
         max={200}
         step={1}
         value={zoomValue}
         onChange={(e) => handleZoom(Number(e.target.value))}
         className="w-24 h-6 cursor-pointer appearance-none bg-transparent
-          [&::-webkit-slider-runnable-track]:h-1 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-line
+          [&::-webkit-slider-runnable-track]:h-1 [&::-webkit-slider-runnable-track]:rounded [&::-webkit-slider-runnable-track]:bg-line
           [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:-mt-1 [&::-webkit-slider-thumb]:h-3.5
           [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-ink-muted
           [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-line
-          [&::-moz-range-track]:h-1 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-line
+          [&::-moz-range-track]:h-1 [&::-moz-range-track]:rounded [&::-moz-range-track]:bg-line
           [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:rounded-full
           [&::-moz-range-thumb]:bg-ink-muted [&::-moz-range-thumb]:border-0"
       />
       <button
         onClick={() => handleZoom(zoomValue + 10)}
-        className="h-6 w-6 flex items-center justify-center rounded-item text-ink-faint hover:text-ink transition-colors"
+        className="h-6 w-6 flex items-center justify-center rounded text-ink-faint hover:text-ink transition-colors"
       >
         <Plus size={14} strokeWidth={2} />
       </button>
@@ -100,17 +142,7 @@ function ZoomSlider({ zoom, onZoomChange }: { zoom: number; onZoomChange: (value
 export function MobileRelationControls(props: RelationControlsProps) {
   return (
     <div className="md:hidden fixed top-[calc(60px+var(--safe-top))] left-0 right-0 z-30 flex h-10 items-center justify-between border-b border-line/50 bg-paper-alt/85 px-4 backdrop-blur-lg">
-      <div className="flex items-center gap-1">
-        <RelationFilterButtons {...props} />
-        <button
-          onClick={props.onRelayout}
-          aria-label="重新布局"
-          title="重新布局"
-          className="flex h-7 w-7 items-center justify-center rounded-item text-ink-faint transition-colors hover:text-ink"
-        >
-          <RefreshCw size={14} strokeWidth={2} />
-        </button>
-      </div>
+      <RelationFilterButtons {...props} />
       <ZoomSlider zoom={props.zoom} onZoomChange={props.onZoomChange} />
     </div>
   )
@@ -118,17 +150,9 @@ export function MobileRelationControls(props: RelationControlsProps) {
 
 export function DesktopRelationPanel(props: RelationControlsProps) {
   return (
-    <Panel position="top-left" className="max-md:hidden flex items-center gap-4 bg-paper/85 backdrop-blur-lg border border-line rounded-control px-3 py-2 m-3 float-shadow">
+    <Panel position="top-left" className="max-md:hidden flex max-w-[calc(100vw-2rem)] min-w-0 flex-wrap items-center gap-3 rounded-xl border border-line bg-paper/85 px-3 py-2 m-3 backdrop-blur-lg">
       <RelationFilterButtons {...props} />
       <ZoomSlider zoom={props.zoom} onZoomChange={props.onZoomChange} />
-      <button
-        onClick={props.onRelayout}
-        aria-label="重新布局"
-        title="重新布局"
-        className="flex h-7 w-7 items-center justify-center rounded-item text-ink-faint transition-colors hover:text-ink md:h-6 md:w-6"
-      >
-        <RefreshCw size={14} strokeWidth={2} />
-      </button>
     </Panel>
   )
 }

@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useRef, createContext, useContext, ty
 import { tauriReadClipboard } from '@/lib/tauri-clipboard'
 import { createPortal } from 'react-dom'
 import { Separator } from '@/components/ui/separator'
-import { MENU, MENU_ITEM } from '@/lib/ui-tokens'
 import { adjustContextMenuPosition } from '@/lib/menu-utils'
 
 interface InputMenuContextValue {
@@ -71,9 +70,6 @@ export function GlobalContextMenu({ children }: { children: ReactNode }) {
       : target instanceof HTMLTextAreaElement || target.isContentEditable
 
     if (!isEditableEl) {
-      // 非文本区一律吃掉系统菜单：WebView 自带的「刷新 / 另存为 / 检查」既用不上，
-      // 也不属于这套界面语言。关掉后右键在这些区域就是「没反应」，
-      // 需要菜单的地方自有应用的右键菜单接手。
       e.preventDefault()
       return
     }
@@ -133,14 +129,12 @@ export function GlobalContextMenu({ children }: { children: ReactNode }) {
     return () => document.removeEventListener('selectionchange', handler)
   }, [open])
 
-  // 用函数声明而不是 const 箭头函数：上面的 effect 里要用到它们，
-  // 函数声明会提升，避免「先使用后声明」（react-hooks/immutability）
-  function close() {
+  const close = () => {
     setVisible(false)
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
     closeTimerRef.current = setTimeout(() => setOpen(false), 150)
   }
-  function closeImmediate() {
+  const closeImmediate = () => {
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
     setOpen(false)
     setVisible(false)
@@ -197,28 +191,28 @@ export function GlobalContextMenu({ children }: { children: ReactNode }) {
     <div className="pointer-events-none fixed inset-0 z-50">
       <div
         ref={menuRef}
-        className={`pointer-events-auto absolute flex flex-col ${MENU} context-menu-fade ${visible ? 'context-menu-visible' : ''}`}
+        className={`pointer-events-auto absolute flex flex-col rounded-md border border-line bg-paper/85 dark:bg-paper/85 backdrop-blur-lg p-1 shadow-none ring-1 ring-black/5 context-menu-fade ${visible ? 'context-menu-visible' : ''}`}
         style={{
           left: adjPosition.x,
           top: adjPosition.y,
         }}
       >
-        <button onClick={handleCut} className={MENU_ITEM}>
+        <button onClick={handleCut} className="flex items-center gap-4 rounded-sm px-3 py-1.5 text-left text-sm text-ink hover:bg-black/5 dark:hover:bg-white/5">
           <span>剪切</span>
-          <span className="ml-auto text-[11px] text-ink-faint">Ctrl+X</span>
+          <span className="ml-auto text-xs text-ink-faint">Ctrl+X</span>
         </button>
-        <button onClick={handleCopy} className={MENU_ITEM}>
+        <button onClick={handleCopy} className="flex items-center gap-4 rounded-sm px-3 py-1.5 text-left text-sm text-ink hover:bg-black/5 dark:hover:bg-white/5">
           <span>复制</span>
-          <span className="ml-auto text-[11px] text-ink-faint">Ctrl+C</span>
+          <span className="ml-auto text-xs text-ink-faint">Ctrl+C</span>
         </button>
-        <button onClick={handlePaste} className={MENU_ITEM}>
+        <button onClick={handlePaste} className="flex items-center gap-4 rounded-sm px-3 py-1.5 text-left text-sm text-ink hover:bg-black/5 dark:hover:bg-white/5">
           <span>粘贴</span>
-          <span className="ml-auto text-[11px] text-ink-faint">Ctrl+V</span>
+          <span className="ml-auto text-xs text-ink-faint">Ctrl+V</span>
         </button>
-        <Separator className="mx-2 my-1" />
-        <button onClick={handleSelectAll} className={MENU_ITEM}>
+        <Separator className="my-1" />
+        <button onClick={handleSelectAll} className="flex items-center gap-4 rounded-sm px-3 py-1.5 text-left text-sm text-ink hover:bg-black/5 dark:hover:bg-white/5">
           <span>全选</span>
-          <span className="ml-auto text-[11px] text-ink-faint">Ctrl+A</span>
+          <span className="ml-auto text-xs text-ink-faint">Ctrl+A</span>
         </button>
       </div>
     </div>
