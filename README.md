@@ -91,6 +91,56 @@ Next.js 16 · TypeScript · Tailwind CSS v4 · Tiptap · Dexie.js (IndexedDB) ·
 
 ---
 
+## 贡献
+
+开发前先阅读 `AGENTS.md`。
+
+**提 PR**
+
+1. Fork 后克隆，装依赖（Node.js 20.9+）：
+
+   ```bash
+   git clone git@github.com:<你的用户名>/OC-Studio.git
+   cd OC-Studio
+   npm install
+   ```
+
+2. 从最新的 `main` 新建分支
+
+   ```bash
+   git switch -c fix/xxx
+   ```
+
+3. 提交前自检
+
+   ```bash
+   npx tsc --noEmit      # 类型检查
+   npm run lint          # ESLint（存量警告不算失败）
+   npm run audit:design  # 设计令牌检查
+   ```
+
+   改到笔记库（`src/lib/vault/`、`src-tauri/`）时，再跑一遍 `AGENTS.md` 里列的那组验收脚本。
+
+4. 提交信息 `类型(范围): 一句话`，中文描述；类型取 `feat` / `fix` / `refactor` / `docs` / `chore` / `style`。
+
+5. 推送到自己的 fork，开 PR 指向 `main`。说明里写清改了什么。
+
+请勿更改：
+
+`CHANGELOG.md`、`docs/todo.md`、`AGENTS.md` 由维护者在发版时统一更新。
+
+**冲突**
+
+分支落后于 `main` 时，维护者会在合并前把冲突解掉，您不用 rebase，也不用重新提 PR。
+
+**issue**
+
+新增模块、改数据层 schema、更改设计令牌、文档等，可以先开 issue 或者私信讨论。
+
+提交即视为同意以 MIT 许可发布。
+
+---
+
 ## 许可
 
 MIT
