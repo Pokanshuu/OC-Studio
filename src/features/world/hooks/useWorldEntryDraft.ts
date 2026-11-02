@@ -78,7 +78,6 @@ export function useWorldEntryDraft({
     }, 2000)
   }, [flushSave])
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleContentChange = useCallback((_html: string) => {
     if (!saveEnabledRef.current) return
     if (!editorRef.current) return

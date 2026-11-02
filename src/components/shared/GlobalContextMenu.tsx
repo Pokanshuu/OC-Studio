@@ -133,12 +133,14 @@ export function GlobalContextMenu({ children }: { children: ReactNode }) {
     return () => document.removeEventListener('selectionchange', handler)
   }, [open])
 
-  const close = () => {
+  // 用函数声明而不是 const 箭头函数：上面的 effect 里要用到它们，
+  // 函数声明会提升，避免「先使用后声明」（react-hooks/immutability）
+  function close() {
     setVisible(false)
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
     closeTimerRef.current = setTimeout(() => setOpen(false), 150)
   }
-  const closeImmediate = () => {
+  function closeImmediate() {
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
     setOpen(false)
     setVisible(false)
