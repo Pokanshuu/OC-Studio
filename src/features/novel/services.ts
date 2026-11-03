@@ -9,7 +9,8 @@ import { db } from '@/lib/db'
 import { logOperation, pendingStamp } from '@/lib/sync'
 import type { WorldEntry } from '@/types'
 
-export const NOVEL_CATEGORY = '小说'
+export { NOVEL_CATEGORY } from '@/lib/novel'
+import { NOVEL_CATEGORY } from '@/lib/novel'
 
 function baseRow(title: string, parentId: number | null, order: number): Omit<WorldEntry, 'id'> {
   const now = Date.now()
