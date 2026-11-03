@@ -21,13 +21,13 @@ export function LayoutRadio({
     <div className="flex gap-3">
       {EDITOR_LAYOUT_OPTIONS.map((opt) => (
         <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
-          <div
-            className={`relative flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
-              value === opt.value ? "border-line-hover" : "border-line"
-            } bg-[var(--oc-hover)]`}
+          <span
+            className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border ${
+              value === opt.value ? 'border-ink' : 'border-line'
+            }`}
           >
-            {value === opt.value && <div className="h-2 w-2 rounded-full bg-ink-muted" />}
-          </div>
+            {value === opt.value ? <span className="h-1.5 w-1.5 rounded-full bg-ink" /> : null}
+          </span>
           <input
             type="radio"
             name="editorLayout"
@@ -36,7 +36,7 @@ export function LayoutRadio({
             onChange={() => onChange(opt.value)}
             className="sr-only"
           />
-          <span className="text-sm text-ink">{opt.label}</span>
+          <span className="text-sm leading-none text-ink">{opt.label}</span>
         </label>
       ))}
     </div>
@@ -57,15 +57,13 @@ export function ThemeRadio({
           key={opt.value}
           className="flex items-center gap-2 cursor-pointer"
         >
-          <div
-            className={`relative flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
-              value === opt.value ? "border-line-hover" : "border-line"
-            } bg-[var(--oc-hover)]`}
+          <span
+            className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border ${
+              value === opt.value ? 'border-ink' : 'border-line'
+            }`}
           >
-            {value === opt.value && (
-              <div className="h-2 w-2 rounded-full bg-ink-muted" />
-            )}
-          </div>
+            {value === opt.value ? <span className="h-1.5 w-1.5 rounded-full bg-ink" /> : null}
+          </span>
           <input
             type="radio"
             name="theme"
@@ -74,7 +72,7 @@ export function ThemeRadio({
             onChange={() => onChange(opt.value)}
             className="sr-only"
           />
-          <span className="text-sm text-ink">{opt.label}</span>
+          <span className="text-sm leading-none text-ink">{opt.label}</span>
         </label>
       ))}
     </div>

@@ -67,8 +67,8 @@ export function WorldTab({ open }: { open: boolean }) {
             />
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <span className="text-sm text-ink">封面</span>
+          <div className="flex flex-col items-center gap-1.5">
+            <span className="self-start text-sm text-ink">封面</span>
             <ImageUploader
               value={coverUrl}
               onChange={(path) => {
