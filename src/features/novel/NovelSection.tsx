@@ -10,8 +10,10 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { BookPlus, ChevronRight } from 'lucide-react'
-import { BTN_PRIMARY, EMPTY_STATE, LIST_GRID, PAGE_TITLE, ROUND_ITEM } from '@/lib/ui-tokens'
+import { BTN_PRIMARY, BTN_QUIET, EMPTY_STATE, LIST_GRID, PAGE_TITLE, ROUND_ITEM } from '@/lib/ui-tokens'
 import { listNovelEntries, createNovelRoot } from './services'
+import { readLegacyNovels } from '@/lib/legacy/pr5-novels'
+import { importLegacyNovels } from '@/lib/legacy/pr5-novels-import'
 import { flattenNovel, countNovelWords } from './export'
 import { NovelTree } from './NovelTree'
 
@@ -26,6 +28,9 @@ export function NovelSection() {
   const [books, setBooks] = useState<BookSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [activeId, setActiveId] = useState<number | null>(null)
+  const [legacyCount, setLegacyCount] = useState(0)
+  const [importing, setImporting] = useState(false)
+  const [importNote, setImportNote] = useState<string | null>(null)
 
   const reload = useCallback(async () => {
     const entries = await listNovelEntries()
@@ -53,7 +58,22 @@ export function NovelSection() {
 
   useEffect(() => {
     void reload()
+    void readLegacyNovels().then((rows) => setLegacyCount(rows.length))
   }, [reload])
+
+  const handleImportLegacy = async () => {
+    setImporting(true)
+    const report = await importLegacyNovels()
+    await reload()
+    setLegacyCount(0)
+    setImporting(false)
+    const skipped = report.skippedCovers > 0 ? `，${report.skippedCovers} 张封面需要重设` : ''
+    setImportNote(
+      report.importedNovels > 0
+        ? `已导入 ${report.importedNovels} 本 / ${report.importedChapters} 章${skipped}`
+        : '没有可导入的旧版小说',
+    )
+  }
 
   const handleCreate = async () => {
     const id = await createNovelRoot()
@@ -81,6 +101,17 @@ export function NovelSection() {
       {books.length === 0 ? (
         <div className={EMPTY_STATE}>
           <p className="text-sm text-ink-muted">还没有小说</p>
+          {legacyCount > 0 ? (
+            <button
+              type="button"
+              onClick={() => void handleImportLegacy()}
+              disabled={importing}
+              className={BTN_QUIET}
+            >
+              {importing ? '正在导入…' : `导入旧版小说（${legacyCount} 本）`}
+            </button>
+          ) : null}
+          {importNote ? <p className="text-xs text-ink-faint">{importNote}</p> : null}
         </div>
       ) : (
         <div className={LIST_GRID}>
