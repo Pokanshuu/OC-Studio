@@ -29,18 +29,22 @@ export function EventCard({
   isMobile,
   sortable = false,
 }: EventItemProps) {
+  const { setNodeRef, style, attributes, listeners, longPress: longPressSort, cardAttributes, cardListeners } =
+    useSortableItem(event.id, !sortable)
+  // 长按拖动和「长按动作表」抢同一个手势：排序模式下让拖动赢
   const longPress = useLongPress({
     onLongPress: onLongPress ?? (() => {}),
-    enabled: isMobile,
+    enabled: isMobile && !longPressSort,
   })
-  const { setNodeRef, style, attributes, listeners } = useSortableItem(event.id, !sortable)
 
   return (
     <div
       ref={setNodeRef}
-      style={style}
-      className="relative group touch-feedback"
+      style={longPressSort ? { ...style, touchAction: 'none' } : style}
+      className={`relative group touch-feedback ${longPressSort ? 'touch-none' : ''}`}
       {...longPress}
+      {...cardAttributes}
+      {...cardListeners}
     >
       {sortable ? (
         <div className={DRAG_SLOT_CARD}>
@@ -110,11 +114,13 @@ export function EventRow({
   isMobile,
   sortable = false,
 }: EventItemProps) {
+  const { setNodeRef, style, attributes, listeners, longPress: longPressSort, cardAttributes, cardListeners } =
+    useSortableItem(event.id, !sortable)
+  // 长按拖动和「长按动作表」抢同一个手势：排序模式下让拖动赢
   const longPress = useLongPress({
     onLongPress: onLongPress ?? (() => {}),
-    enabled: isMobile,
+    enabled: isMobile && !longPressSort,
   })
-  const { setNodeRef, style, attributes, listeners } = useSortableItem(event.id, !sortable)
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -125,13 +131,15 @@ export function EventRow({
   return (
     <div
       ref={setNodeRef}
-      style={style}
+      style={longPressSort ? { ...style, touchAction: 'none' } : style}
       role="button"
       tabIndex={0}
       onClick={() => onSelect(event.id)}
       onKeyDown={handleKeyDown}
       className={`group relative row-rule flex w-full cursor-pointer items-center gap-4 rounded-item py-3 pr-4 text-left transition-colors hover:bg-[var(--oc-hover)] active:bg-[var(--oc-hover)] ${sortable ? 'pl-10' : 'pl-4'}`}
       {...longPress}
+      {...cardAttributes}
+      {...cardListeners}
     >
       {sortable ? (
         <div className={DRAG_SLOT_ROW}>

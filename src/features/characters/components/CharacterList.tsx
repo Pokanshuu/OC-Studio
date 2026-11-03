@@ -195,6 +195,7 @@ export function CharacterList({
           </div>
         ) : viewMode === 'grid' ? (
           <SortableList
+              activation="longPress"
             ids={filtered.map((c) => c.id)}
             onReorder={handleReorder}
             layout="grid"
@@ -218,6 +219,7 @@ export function CharacterList({
           </SortableList>
         ) : (
           <SortableList
+              activation="longPress"
             ids={filtered.map((c) => c.id)}
             onReorder={handleReorder}
             layout="list"
