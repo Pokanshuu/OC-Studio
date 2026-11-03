@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { db } from '@/lib/db'
-import { isNovelEntry } from '@/lib/novel'
+import { isCodexEntry } from '@/lib/entry-kinds'
 import {
   collectCharacterImageRefs,
   collectCountryImageRefs,
@@ -76,8 +76,8 @@ async function buildAlbumEntries(): Promise<AlbumEntry[]> {
     pushRefs(result, country, 'country', collectCountryImageRefs(country))
   }
 
-  // 小说章节同样是 worldEntries，但默认不进相册（docs/小说.md §6）
-  const worldEntries = (await db.worldEntries.toArray()).filter((e) => !e.deleted && !isNovelEntry(e))
+  // 小说章节与地图同样是 worldEntries，但默认不进相册
+  const worldEntries = (await db.worldEntries.toArray()).filter((e) => !e.deleted && isCodexEntry(e))
   for (const entry of worldEntries) {
     pushRefs(result, entry, 'worldEntry', collectWorldEntryImageRefs(entry))
   }

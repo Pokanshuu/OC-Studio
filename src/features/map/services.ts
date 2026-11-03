@@ -14,7 +14,7 @@ import type { MapLayerKind, MapAnchor } from './types'
 
 export type AnchorKind = Extract<MapLayerKind, 'country' | 'event' | 'worldEntry'>
 
-/** 主地图的 id（实体上 `mapId` 为空时视为它） */
+/** 主地图（实体上 `mapId` 为空时视为它）——空字符串代表「未指定」 */
 export const MAIN_MAP_ID = ''
 
 export interface AnchorPoint {
@@ -162,4 +162,85 @@ export async function listMapAssets(): Promise<MapAsset[]> {
   } catch {
     return []
   }
+}
+
+
+/* ── 地图作为实体（笔记） ─────────────────────────────────────────────── */
+
+import { MAP_CATEGORY, isMapEntry } from '@/lib/entry-kinds'
+import type { WorldEntry } from '@/types'
+
+export interface MapEntity {
+  id: number
+  name: string
+  /** 底图相对路径（库内），空 = 还没设底图 */
+  image?: string
+  width?: number
+  height?: number
+  updatedAt: number
+}
+
+/** 库里所有地图（按更新时间倒序） */
+export async function listMaps(): Promise<MapEntity[]> {
+  const rows = await db.worldEntries.filter((row) => !row.deleted && isMapEntry(row)).toArray()
+  return rows
+    .map((row) => ({
+      id: row.id,
+      name: row.title,
+      image: row.mapImage,
+      width: row.mapWidth,
+      height: row.mapHeight,
+      updatedAt: row.updatedAt ?? 0,
+    }))
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+}
+
+/** 新建一张地图（一条笔记；底图之后单独设） */
+export async function createMap(name = '新地图'): Promise<number> {
+  const now = Date.now()
+  const id = await db.worldEntries.add({
+    title: name,
+    content: '',
+    category: MAP_CATEGORY,
+    parentId: null,
+    order: await nextWorldOrder(),
+    isConcept: false,
+    references: [],
+    tags: [],
+    createdAt: now,
+    updatedAt: now,
+    deleted: false,
+    ...pendingStamp(now),
+  })
+  await logOperation('worldEntries', id, 'title', '', name)
+  return id
+}
+
+async function nextWorldOrder(): Promise<number> {
+  const rows = await db.worldEntries.filter((row) => !row.deleted && isMapEntry(row)).toArray()
+  return rows.reduce((max, row) => Math.max(max, row.order ?? 0), 0) + 1
+}
+
+/** 设底图（路径 + 像素尺寸）；传空路径 = 移除底图 */
+export async function setMapBackground(
+  id: number,
+  image: string | null,
+  size?: { width: number; height: number },
+): Promise<void> {
+  const now = Date.now()
+  await db.worldEntries.update(id, {
+    mapImage: image ?? undefined,
+    mapWidth: image ? size?.width : undefined,
+    mapHeight: image ? size?.height : undefined,
+    updatedAt: now,
+    ...pendingStamp(now),
+  })
+  await logOperation('worldEntries', id, 'map_image', '', image ?? '')
+}
+
+/** 给地图改名（同记录标题；锚点引用的是名字，改名后锚点会回落到主地图） */
+export async function renameMap(id: number, name: string): Promise<void> {
+  const now = Date.now()
+  await db.worldEntries.update(id, { title: name, updatedAt: now, ...pendingStamp(now) })
+  await logOperation('worldEntries', id, 'title', '', name)
 }

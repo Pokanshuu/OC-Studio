@@ -4,7 +4,7 @@ import { listActive, getById, softDelete } from '@/lib/repository'
 import { updateReferencesAfterRename, syncReferenceLabels } from '@/lib/reference-sync'
 import type { WorldEntry } from '@/types'
 import type { WorldFormData } from './types'
-import { isNovelEntry } from '@/lib/novel'
+import { isCodexEntry } from '@/lib/entry-kinds'
 
 const TABLE = 'worldEntries'
 
@@ -30,8 +30,8 @@ function buildDefaultEntry(data: WorldFormData, overrides: Partial<WorldEntry> =
 
 export async function getEntries(): Promise<WorldEntry[]> {
   const rows = await listActive(db.worldEntries, 'title')
-  // 小说章节也是 worldEntries（docs/小说.md §1），但默认不进世界观目录树
-  return rows.filter((row) => !isNovelEntry(row))
+  // 小说章节与地图也是 worldEntries，但默认不进世界观目录树（lib/entry-kinds）
+  return rows.filter((row) => isCodexEntry(row))
 }
 
 export async function getEntry(id: number): Promise<WorldEntry | undefined> {

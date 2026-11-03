@@ -184,6 +184,10 @@ export interface WorldEntry {
   novelNotes?: string
   /** 小说封面（2:3 槽位） */
   novelCover?: string
+  /** 地图：底图相对路径 + 像素尺寸（category=地图 才有） */
+  mapImage?: string
+  mapWidth?: number
+  mapHeight?: number
   /** 章节：大纲 / 备注（一行说明，不是正文） */
   chapterOutline?: string
   references: WorldReference[]

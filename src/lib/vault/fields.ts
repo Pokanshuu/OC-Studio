@@ -119,6 +119,10 @@ export const WORLD_KEYS = {
   novelNotes: chain('novel_notes', '作品笔记'),
   /** 封面（2:3 槽位，见 docs/小说.md §9） */
   novelCover: chain('novel_cover', '封面'),
+  /** 地图笔记：底图相对路径 + 像素尺寸（只有 category=地图 的条目会写） */
+  mapImage: chain('map_image', '底图'),
+  mapWidth: chain('map_width', '地图宽'),
+  mapHeight: chain('map_height', '地图高'),
   /** 章节大纲 / 备注（只有章节会写） */
   chapterOutline: chain('chapter_outline', '章节大纲'),
   tags: chain('tags'),

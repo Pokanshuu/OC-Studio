@@ -342,6 +342,9 @@ export function serializeWorldEntry(
   putIfChanged(out, existing, WORLD_KEYS.novelNotes, writeString(entity.novelNotes ?? ''), p === null ? null : writeString(p.novelNotes ?? ''))
   putIfChanged(out, existing, WORLD_KEYS.novelCover, writeString(entity.novelCover ?? ''), p === null ? null : writeString(p.novelCover ?? ''))
   putIfChanged(out, existing, WORLD_KEYS.chapterOutline, writeString(entity.chapterOutline ?? ''), p === null ? null : writeString(p.chapterOutline ?? ''))
+  putIfChanged(out, existing, WORLD_KEYS.mapImage, writeString(entity.mapImage ?? ''), p === null ? null : writeString(p.mapImage ?? ''))
+  putIfChanged(out, existing, WORLD_KEYS.mapWidth, writeNumber(entity.mapWidth), p === null ? null : writeNumber(p.mapWidth))
+  putIfChanged(out, existing, WORLD_KEYS.mapHeight, writeNumber(entity.mapHeight), p === null ? null : writeNumber(p.mapHeight))
   putIfChanged(out, existing, WORLD_KEYS.tags, tagNames(ctx, entity.tags), p === null ? null : tagNames(ctx, p.tags))
   putCustomFields(out, existing, 'worldEntry', entity.custom, p === null ? undefined : p.custom)
   return out
