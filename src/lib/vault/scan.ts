@@ -1,5 +1,6 @@
 import type {
   Character,
+  CharacterKind,
   Country,
   Event,
   Period,
@@ -111,6 +112,27 @@ function targetBasenameKey(target: VaultTarget): string {
 /** frontmatter 的 tags 字段 → 名字数组（键链由 fields.ts 提供，与写回保持同一张表） */
 function tagNamesOf(note: VaultNote, chain: KeyChain): string[] {
   return readStringList(note.frontmatter, chain)
+}
+
+/**
+ * 类别归一：`武器 / weapon` → weapon，`宠物 / pet` → pet，
+ * `角色 / character` / 空 / 非法值 → character。
+ *
+ * 手写 frontmatter 里中英文两种写法都真实存在，还常带全角空格与大小写差异，
+ * 所以先统一「去空白 + 小写」再认词。写回侧仍只写英文词汇（见 serialize.ts），
+ * 这里只负责读回来的那一步 —— 归一失败不该让实体消失，一律回落「角色」。
+ */
+export function normalizeCharacterKind(raw: string): CharacterKind {
+  switch (raw.replace(/[\s\u3000]/g, '').toLowerCase()) {
+    case '武器':
+    case 'weapon':
+      return 'weapon'
+    case '宠物':
+    case 'pet':
+      return 'pet'
+    default:
+      return 'character'
+  }
 }
 
 /** 按实体类型取它的 tags 键链 */
@@ -391,7 +413,7 @@ export function scanVault(options: ScanOptions): VaultScanResult {
         tags: tagIdsOf(note, CHARACTER_KEYS.tags),
         isMajor: readBool(fm, CHARACTER_KEYS.isMajor),
         folder: readString(fm, CHARACTER_KEYS.folder) || undefined,
-        kind: (readString(fm, CHARACTER_KEYS.kind) || undefined) as Character['kind'],
+        kind: normalizeCharacterKind(readString(fm, CHARACTER_KEYS.kind)),
         order: readNumber(fm, CHARACTER_KEYS.order),
         graphPosition: readPosition(fm, CHARACTER_KEYS.graphPosition),
         custom: readCustomFields(fm, 'character'),
@@ -522,6 +544,8 @@ export function scanVault(options: ScanOptions): VaultScanResult {
         mapImage: readString(fm, WORLD_KEYS.mapImage) || undefined,
         mapWidth: readNumber(fm, WORLD_KEYS.mapWidth),
         mapHeight: readNumber(fm, WORLD_KEYS.mapHeight),
+        mapSeed: readNumber(fm, WORLD_KEYS.mapSeed),
+        mapParams: readString(fm, WORLD_KEYS.mapParams) || undefined,
         references: [],
         tags: tagIdsOf(note, WORLD_KEYS.tags),
         custom: readCustomFields(fm, 'worldEntry'),

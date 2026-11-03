@@ -17,7 +17,7 @@
  *   选区变化自动收起、150ms 淡入淡出与 100/300ms 冷却，事件模型与这里不同；
  * - 其余「按点击坐标弹菜单」一律走这里，不要再复制 portal / measure / outside-click 代码。
  */
-import { useEffect, useLayoutEffect, useState, type AriaRole, type ReactNode } from 'react'
+import { useLayoutEffect, useState, type AriaRole, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { MENU } from '@/lib/ui-tokens'
 import { adjustContextMenuPosition } from '@/lib/menu-utils'
@@ -44,22 +44,19 @@ export function MenuSurface({
   width,
   ariaLabel,
 }: MenuSurfaceProps) {
-  const [mounted, setMounted] = useState(false)
   const [position, setPosition] = useState(at)
-  const panelRef = useDismissableLayer<HTMLDivElement>({ onClose, enabled: mounted })
-
-  useEffect(() => setMounted(true), [])
+  const panelRef = useDismissableLayer<HTMLDivElement>({ onClose })
 
   // 量出真实宽高再夹进视口：直接 left/top 会让右下角弹出的菜单飞出屏幕
   useLayoutEffect(() => {
-    if (!mounted) return
     const el = panelRef.current
     if (!el) return
     const rect = el.getBoundingClientRect()
     setPosition(adjustContextMenuPosition(at.x, at.y, rect.width, rect.height))
-  }, [mounted, at.x, at.y, panelRef])
+  }, [at.x, at.y, panelRef])
 
-  if (!mounted) return null
+  // 菜单只在用户点击后出现（`at` 有值），SSR / 水合时不会渲染
+  if (typeof document === 'undefined') return null
   const root = document.getElementById('overlay-root') ?? document.body
 
   return createPortal(

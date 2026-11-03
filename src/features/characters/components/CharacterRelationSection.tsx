@@ -15,7 +15,13 @@ export function CharacterRelationSection({
   form: CharacterForm
   onNavigateToCharacter?: (id: number) => void
 }) {
-  const { relatedCharacters, setRelatedCharacters, relatedCharacterIds, handleRelatedCharactersChange } = form
+  const {
+    relatedCharacters,
+    setRelatedCharacters,
+    relatedCharacterIds,
+    handleRelatedCharactersChange,
+    inboundRelations,
+  } = form
 
   return (
     <section>
@@ -84,6 +90,36 @@ export function CharacterRelationSection({
             ))}
           </tbody>
         </table>
+      ) : null}
+      {inboundRelations.length > 0 ? (
+        <div className="mt-4">
+          {/* 只读镜像：权威记录在发起方，这里不提供编辑（见 docs/关系图.md §2.1） */}
+          <h4 className="mb-2 text-[11px] tracking-[0.08em] text-ink-faint">来自</h4>
+          <table className="w-full border-collapse">
+            <thead>
+              <tr>
+                <th className={REL_TH}>来源角色</th>
+                <th className={`${REL_TH} text-right`}>关系</th>
+              </tr>
+            </thead>
+            <tbody>
+              {inboundRelations.map((rel, idx) => (
+                <tr key={`${rel.fromId}-${idx}`} className="border-t border-line">
+                  <td className="py-2 pr-4 font-serif text-[13px] text-ink">
+                    <button
+                      type="button"
+                      onClick={() => onNavigateToCharacter?.(rel.fromId)}
+                      className="transition-colors hover:text-ink-muted"
+                    >
+                      {rel.fromName}
+                    </button>
+                  </td>
+                  <td className="py-2 text-right text-[13px] text-ink-muted">{rel.relation}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       ) : null}
     </section>
   )

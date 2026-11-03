@@ -188,6 +188,9 @@ export interface WorldEntry {
   mapImage?: string
   mapWidth?: number
   mapHeight?: number
+  /** 生成用的种子与参数快照（JSON 字符串） */
+  mapSeed?: number
+  mapParams?: string
   /** 章节：大纲 / 备注（一行说明，不是正文） */
   chapterOutline?: string
   references: WorldReference[]

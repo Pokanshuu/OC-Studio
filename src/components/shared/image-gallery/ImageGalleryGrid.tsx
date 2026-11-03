@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Plus, Trash2, ImageIcon, Loader2 } from 'lucide-react'
 import { resolveImageUrl } from '@/lib/image-service'
 import { MediaContextMenu, type MediaMenuItem } from '@/components/shared/MediaContextMenu'
+import { OverlayIconButton } from '@/components/shared/OverlayIconButton'
 import { downloadMediaFile } from '@/lib/media-download'
 import { toast } from 'sonner'
 
@@ -82,12 +83,11 @@ export function ImageGalleryGrid({
                 }}
               />
               {onRemove ? (
-                <button
-                  onClick={() => onRemove(idx)}
-                  className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/40 text-white/80 opacity-100 md:opacity-0 md:transition-opacity md:group-hover:opacity-100 hover:bg-black/60"
-                >
-                  <Trash2 size={12} strokeWidth={2} />
-                </button>
+                <span className="absolute right-1 top-1 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
+                  <OverlayIconButton label="移除图片" onClick={() => onRemove(idx)}>
+                    <Trash2 size={12} strokeWidth={2} />
+                  </OverlayIconButton>
+                </span>
               ) : null}
             </div>
           ))}
@@ -117,6 +117,14 @@ export function ImageGalleryGrid({
           <Plus size={16} strokeWidth={2} />
           <span>添加图片</span>
         </button>
+      ) : null}
+
+      {menuAt ? (
+        <MediaContextMenu
+          at={{ x: menuAt.x, y: menuAt.y }}
+          items={menuItems(menuAt.index)}
+          onClose={() => setMenuAt(null)}
+        />
       ) : null}
     </div>
   )

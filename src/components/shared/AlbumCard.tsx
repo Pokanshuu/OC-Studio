@@ -3,10 +3,10 @@
 import { useLongPress } from '@/lib/useLongPress'
 import type { AlbumEntry } from './useAlbumData'
 import { useState } from 'react'
+import { getDefaultImage } from '@/lib/image-service'
 import { getEntryImageUrl } from './album-utils'
 import { MediaContextMenu, type MediaMenuItem } from './MediaContextMenu'
-import { downloadMediaFile } from '@/lib/media-download'
-import { toast } from 'sonner'
+import { useMediaDownload } from '@/lib/use-media-download'
 
 interface AlbumCardProps {
   entry: AlbumEntry
@@ -16,6 +16,12 @@ interface AlbumCardProps {
   onViewImage: () => void
 }
 
+/**
+ * 相册网格里的一张。
+ *
+ * 口径：**单击看大图，桌面右键出菜单，移动端长按出动作表**。
+ * 两边的动作顺序一致（查看 → 保存到… → 跳转），菜单项由这里给，动作表在 `GlobalAlbum`。
+ */
 export function AlbumCard({
   entry,
   isMobile,
@@ -29,17 +35,17 @@ export function AlbumCard({
   })
 
   const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null)
+  // 「保存到…」的唯一口：`saving` 防连点，失败自己 toast
+  const { save, saving } = useMediaDownload()
 
   const menuItems: MediaMenuItem[] = isMobile
     ? []
     : [
         { label: '查看', onSelect: onViewImage },
         {
-          label: '保存到…',
+          label: saving ? '保存中…' : '保存到…',
           onSelect: () => {
-            void downloadMediaFile(entry.url, entry.sourceName).catch((err: unknown) => {
-              toast.error('保存失败', { description: err instanceof Error ? err.message : String(err) })
-            })
+            void save(entry.url, entry.sourceName)
           },
         },
         ...(onNavigate
@@ -49,7 +55,7 @@ export function AlbumCard({
 
   return (
     <div
-      className="group relative"
+      className="relative"
       onContextMenu={
         menuItems.length > 0
           ? (event) => {
@@ -60,25 +66,23 @@ export function AlbumCard({
       }
       {...longPress}
     >
-      <img
-        src={getEntryImageUrl(entry)}
-        alt={entry.sourceName}
-        className="touch-feedback aspect-square w-full cursor-pointer object-cover transition-opacity hover:opacity-90"
-        onClick={onViewImage}
-      />
-      <div className="mt-1 truncate text-xs text-ink-faint">
-        {entry.sourceName}
-        {onNavigate && !isMobile ? (
-          <span className="opacity-0 transition-opacity group-hover:opacity-100">
-            <button
-              onClick={(e) => { e.stopPropagation(); onNavigate(entry.sourceId, entry.sourceType) }}
-              className="ml-1 text-ink-muted hover:text-ink"
-            >
-              跳转
-            </button>
-          </span>
-        ) : null}
+      <div className="touch-feedback overflow-hidden rounded-item">
+        <img
+          src={getEntryImageUrl(entry)}
+          alt={entry.sourceName}
+          className="aspect-square w-full cursor-pointer object-cover transition-opacity hover:opacity-90"
+          onClick={onViewImage}
+          onError={(event) => {
+            const img = event.currentTarget
+            // 源图丢了就回落到占位图：**不要把 alt 文字露出来**（兜底图也失败时才留白）
+            if (img.dataset.fallback === '1') return
+            img.dataset.fallback = '1'
+            img.alt = ''
+            img.src = getDefaultImage('avatar')
+          }}
+        />
       </div>
+      <div className="mt-1 truncate text-xs text-ink-faint">{entry.sourceName}</div>
 
       {menuAt ? (
         <MediaContextMenu at={menuAt} items={menuItems} onClose={() => setMenuAt(null)} />

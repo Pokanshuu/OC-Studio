@@ -34,6 +34,7 @@ export {
   type BiomeId,
   type GenerateRequest,
   type GeneratedMessage,
+  type GeneratedMeta,
   type MapPoint,
   type MapPolygon,
   type MapRiverPath,

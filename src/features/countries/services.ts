@@ -2,7 +2,7 @@ import { db } from '@/lib/db'
 import { logOperation, pendingStamp } from '@/lib/sync'
 import { listActive, getById, softDelete } from '@/lib/repository'
 import { updateReferencesAfterRename, syncReferenceLabels } from '@/lib/reference-sync'
-import { syncCountryCharacters, syncCountryEvents } from '@/lib/membership'
+import { purgeCountryReferences, syncCountryCharacters, syncCountryEvents } from '@/lib/membership'
 import type { Country } from '@/types'
 import type { CountryFormData } from './types'
 
@@ -115,6 +115,7 @@ export async function updateCountry(id: number, data: Partial<CountryFormData>):
 
 export async function deleteCountry(id: number): Promise<void> {
   await softDelete(db.countries, id, TABLE)
+  await purgeCountryReferences(id, Date.now())
 }
 
 /**

@@ -7,6 +7,10 @@ export interface GraphNodeData extends Record<string, unknown> {
   entityId: number
   subtitle?: string
   avatarUrl?: string
+  /** 国家旗帜（服务端筛出来的 `country.flagUrl`，导出与画布共用） */
+  flagUrl?: string
+  /** 事件封面（`event.headerUrl`），没有就走首字占位 */
+  imageUrl?: string
 }
 
 export type GraphNode = Node<GraphNodeData>

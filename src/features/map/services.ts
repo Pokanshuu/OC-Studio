@@ -168,7 +168,6 @@ export async function listMapAssets(): Promise<MapAsset[]> {
 /* ── 地图作为实体（笔记） ─────────────────────────────────────────────── */
 
 import { MAP_CATEGORY, isMapEntry } from '@/lib/entry-kinds'
-import type { WorldEntry } from '@/types'
 
 export interface MapEntity {
   id: number
@@ -198,8 +197,9 @@ export async function listMaps(): Promise<MapEntity[]> {
 /** 新建一张地图（一条笔记；底图之后单独设） */
 export async function createMap(name = '新地图'): Promise<number> {
   const now = Date.now()
+  const title = await allocateMapName(name)
   const id = await db.worldEntries.add({
-    title: name,
+    title,
     content: '',
     category: MAP_CATEGORY,
     parentId: null,
@@ -212,7 +212,7 @@ export async function createMap(name = '新地图'): Promise<number> {
     deleted: false,
     ...pendingStamp(now),
   })
-  await logOperation('worldEntries', id, 'title', '', name)
+  await logOperation('worldEntries', id, 'title', '', title)
   return id
 }
 
@@ -221,26 +221,117 @@ async function nextWorldOrder(): Promise<number> {
   return rows.reduce((max, row) => Math.max(max, row.order ?? 0), 0) + 1
 }
 
+/** 地图名要唯一：锚点用名字（不是会话内 id）指回地图，重名会让归属变成掷硬币 */
+async function allocateMapName(base: string): Promise<string> {
+  const root = base.trim() || '新地图'
+  const rows = await db.worldEntries.filter((row) => !row.deleted && isMapEntry(row)).toArray()
+  const existing = new Set(rows.map((row) => row.title))
+  if (!existing.has(root)) return root
+
+  let counter = 2
+  while (existing.has(`${root} ${counter}`)) counter += 1
+  return `${root} ${counter}`
+}
+
+async function mapNameTaken(name: string, exceptId: number): Promise<boolean> {
+  const rows = await db.worldEntries.filter((row) => !row.deleted && isMapEntry(row) && row.id !== exceptId).toArray()
+  return rows.some((row) => row.title === name)
+}
+
 /** 设底图（路径 + 像素尺寸）；传空路径 = 移除底图 */
 export async function setMapBackground(
   id: number,
   image: string | null,
   size?: { width: number; height: number },
+  generation?: { seed: number; params: unknown },
 ): Promise<void> {
   const now = Date.now()
   await db.worldEntries.update(id, {
     mapImage: image ?? undefined,
     mapWidth: image ? size?.width : undefined,
     mapHeight: image ? size?.height : undefined,
+    mapSeed: image && generation ? generation.seed : undefined,
+    mapParams: image && generation ? JSON.stringify(generation.params) : undefined,
     updatedAt: now,
     ...pendingStamp(now),
   })
   await logOperation('worldEntries', id, 'map_image', '', image ?? '')
 }
 
-/** 给地图改名（同记录标题；锚点引用的是名字，改名后锚点会回落到主地图） */
+/**
+ * 给地图改名（同记录标题）。
+ *
+ * 锚点的 `map_id` 存的是**地图名字**（id 只在本次会话有效），所以改名必须
+ * 把 `map_id === 旧名` 的实体一起回写；只改标题会让这些锚点静默回落到主地图。
+ */
 export async function renameMap(id: number, name: string): Promise<void> {
+  const next = name.trim()
+  if (next.length === 0) throw new Error('地图名不能为空')
+
+  const row = await db.worldEntries.get(id)
+  if (!row || row.deleted || !isMapEntry(row)) throw new Error('地图不存在')
+
+  const previous = row.title
+  if (previous === next) return
+  if (await mapNameTaken(next, id)) throw new Error('已存在同名地图')
+
   const now = Date.now()
-  await db.worldEntries.update(id, { title: name, updatedAt: now, ...pendingStamp(now) })
-  await logOperation('worldEntries', id, 'title', '', name)
+  const stamp = pendingStamp(now)
+
+  await db.transaction('rw', db.worldEntries, db.countries, db.events, async () => {
+    await db.worldEntries.update(id, { title: next, updatedAt: now, ...stamp })
+
+    const countries = await db.countries.filter((item) => item.mapId === previous).toArray()
+    for (const item of countries) {
+      await db.countries.update(item.id, { mapId: next, updatedAt: now, ...stamp })
+    }
+
+    const events = await db.events.filter((item) => item.mapId === previous).toArray()
+    for (const item of events) {
+      await db.events.update(item.id, { mapId: next, updatedAt: now, ...stamp })
+    }
+
+    const entries = await db.worldEntries.filter((item) => item.id !== id && item.mapId === previous).toArray()
+    for (const item of entries) {
+      await db.worldEntries.update(item.id, { mapId: next, updatedAt: now, ...stamp })
+    }
+  })
+
+  await logOperation('worldEntries', id, 'title', previous, next)
+}
+
+/**
+ * 删除一张地图（软删）。
+ *
+ * 地图上的锚点不清坐标，只清 `map_id` —— 它们回到主地图的同一归一化位置，
+ * 不会因为删了一张图就把作者摆过的位置丢掉。
+ */
+export async function deleteMap(id: number): Promise<void> {
+  const row = await db.worldEntries.get(id)
+  if (!row || row.deleted || !isMapEntry(row)) throw new Error('地图不存在')
+
+  const mapName = row.title
+  const now = Date.now()
+  const stamp = pendingStamp(now)
+
+  await db.transaction('rw', db.worldEntries, db.countries, db.events, async () => {
+    await db.worldEntries.update(id, { deleted: true, updatedAt: now, ...stamp })
+
+    const countries = await db.countries.filter((item) => item.mapId === mapName).toArray()
+    for (const item of countries) {
+      await db.countries.update(item.id, { mapId: undefined, updatedAt: now, ...stamp })
+    }
+
+    const events = await db.events.filter((item) => item.mapId === mapName).toArray()
+    for (const item of events) {
+      await db.events.update(item.id, { mapId: undefined, updatedAt: now, ...stamp })
+    }
+
+    const entries = await db.worldEntries.filter((item) => item.id !== id && item.mapId === mapName).toArray()
+    for (const item of entries) {
+      await db.worldEntries.update(item.id, { mapId: undefined, updatedAt: now, ...stamp })
+    }
+  })
+
+  await logOperation('worldEntries', id, 'deleted', 'false', 'true')
 }

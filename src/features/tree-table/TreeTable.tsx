@@ -6,6 +6,8 @@
  * 口径（`docs/todo.md` §1、`docs/模板.md` §1.4）：
  * **只做渲染层** —— 词条的层级一律由 `lib/world-tree.ts#buildEntryTree` 决定，
  * 这里不再写第二套排序；其它三类是平表（它们没有层级）。
+ *
+ * 一行 = 一个实体：整行可点（进入对应编辑器），展开箭头只负责展开/收起。
  */
 import { useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight, Plus, RotateCw, Search } from 'lucide-react'
@@ -16,7 +18,10 @@ import { useEventList } from '@/features/events/hooks/useEvents'
 import { createEntry } from '@/features/world/services'
 import { buildEntryTree, type WorldTreeNode } from '@/lib/world-tree'
 import { notifyDataUpdated } from '@/lib/data-events'
-import { BTN_QUIET, PAGE_TITLE, ROUND_ITEM, SEARCH_ICON, SEARCH_INPUT } from '@/lib/ui-tokens'
+import { BTN_QUIET, ICON_BTN, ROUND_ITEM, SEARCH_ICON, SEARCH_INPUT } from '@/lib/ui-tokens'
+import { PageToolbar } from '@/components/shared/PageToolbar'
+import { ListEmptyState } from '@/components/shared/ListEmptyState'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import type { WorldEntry } from '@/types'
 
 type Tab = 'entry' | 'country' | 'character' | 'event'
@@ -28,8 +33,12 @@ const TABS: Array<{ value: Tab; label: string }> = [
   { value: 'event', label: '事件' },
 ]
 
+export type TreeTableKind = 'world' | 'country' | 'character' | 'event'
+
 interface Row {
   id: string
+  entityId: number
+  entityType: TreeTableKind
   name: string
   depth: number
   hasChildren: boolean
@@ -51,6 +60,8 @@ export function flattenTree(nodes: WorldTreeNode[], expanded: Set<number>, depth
     const hasChildren = node.children.length > 0
     rows.push({
       id: `entry-${node.entry.id}`,
+      entityId: node.entry.id,
+      entityType: 'world',
       name: node.entry.title,
       depth,
       hasChildren,
@@ -65,7 +76,12 @@ export function flattenTree(nodes: WorldTreeNode[], expanded: Set<number>, depth
   return rows
 }
 
-export function TreeTable() {
+export function TreeTable({
+  onNavigate,
+}: {
+  /** 点一行 → 打开对应编辑器（由工作区编排层提供） */
+  onNavigate?: (id: number, type: TreeTableKind) => void
+}) {
   const [tab, setTab] = useState<Tab>('entry')
   const [search, setSearch] = useState('')
   const [expanded, setExpanded] = useState<Set<number>>(() => new Set())
@@ -84,6 +100,8 @@ export function TreeTable() {
     if (tab === 'country') {
       return countryList.countries.map((item) => ({
         id: `country-${item.id}`,
+        entityId: item.id,
+        entityType: 'country' as const,
         name: item.name,
         depth: 0,
         hasChildren: false,
@@ -95,6 +113,8 @@ export function TreeTable() {
     if (tab === 'character') {
       return characterList.characters.map((item) => ({
         id: `character-${item.id}`,
+        entityId: item.id,
+        entityType: 'character' as const,
         name: item.name,
         depth: 0,
         hasChildren: false,
@@ -105,6 +125,8 @@ export function TreeTable() {
     }
     return eventList.events.map((item) => ({
       id: `event-${item.id}`,
+      entityId: item.id,
+      entityType: 'event' as const,
       name: item.title,
       depth: 0,
       hasChildren: false,
@@ -114,11 +136,11 @@ export function TreeTable() {
     }))
   }, [tab, entryRows, countryList.countries, characterList.characters, eventList.events])
 
-  const filtered = useMemo(() => {
-    const keyword = search.trim().toLowerCase()
-    if (!keyword) return rows
-    return rows.filter((row) => row.name.toLowerCase().includes(keyword))
-  }, [rows, search])
+  const keyword = search.trim().toLowerCase()
+  const filtered = useMemo(
+    () => (keyword ? rows.filter((row) => row.name.toLowerCase().includes(keyword)) : rows),
+    [rows, keyword],
+  )
 
   const handleCreate = async () => {
     await createEntry({ title: '新词条', content: '', parentId: null, order: 0, isConcept: false, tags: [] })
@@ -126,70 +148,80 @@ export function TreeTable() {
     entryList.refresh()
   }
 
+  const handleRefresh = () => {
+    entryList.refresh()
+    characterList.refresh()
+    countryList.refresh()
+    eventList.refresh()
+  }
+
+  const toggleRow = (id: number) => {
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="flex items-end justify-between gap-4 px-6 pt-4">
-        <h1 className={PAGE_TITLE}>树形表格</h1>
-        <nav className="flex items-center gap-4">
-          {TABS.map((item) => (
-            <button
-              key={item.value}
-              type="button"
-              onClick={() => setTab(item.value)}
-              className={`relative pb-1 text-[13px] transition-colors ${
-                tab === item.value ? 'text-ink' : 'text-ink-muted hover:text-ink'
-              }`}
-            >
-              {item.label}
-              {tab === item.value ? (
-                <span className="absolute inset-x-0 -bottom-px h-0.5 bg-ink" aria-hidden />
-              ) : null}
+      <div className="md:hidden h-[calc(60px+var(--safe-top))]" aria-hidden />
+
+      <PageToolbar
+        title="树形表格"
+        className="md:px-6"
+        actions={
+          <>
+            <div className="relative">
+              <Search size={14} strokeWidth={2} className={SEARCH_ICON} />
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="搜索当前视图…"
+                className={SEARCH_INPUT}
+              />
+            </div>
+            <span className="ml-1 hidden text-xs tabular-nums text-ink-faint sm:inline">
+              {filtered.length} / {rows.length}
+            </span>
+            <button type="button" onClick={handleRefresh} className={`${ICON_BTN} ml-1`} title="刷新" aria-label="刷新">
+              <RotateCw size={14} strokeWidth={2} />
             </button>
+            {tab === 'entry' ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setExpanded(new Set(entries.map((entry) => entry.id)))}
+                  className={BTN_QUIET}
+                >
+                  展开全部
+                </button>
+                <button type="button" onClick={() => setExpanded(new Set())} className={BTN_QUIET}>
+                  折叠全部
+                </button>
+                <button type="button" onClick={() => void handleCreate()} className={BTN_QUIET}>
+                  <Plus size={14} strokeWidth={2} />
+                  新增
+                </button>
+              </>
+            ) : null}
+          </>
+        }
+      />
+
+      <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)} className="shrink-0 gap-0">
+        <TabsList className="grid grid-cols-4 px-4 md:px-6">
+          {TABS.map((item) => (
+            <TabsTrigger key={item.value} value={item.value} className="w-full">
+              {item.label}
+            </TabsTrigger>
           ))}
-        </nav>
-      </header>
+        </TabsList>
+      </Tabs>
 
-      <div className="flex items-center gap-1 border-b border-line px-6 py-2">
-        <div className="relative">
-          <Search size={14} strokeWidth={2} className={SEARCH_ICON} />
-          <input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="搜索当前视图…"
-            className={SEARCH_INPUT}
-          />
-        </div>
-        <span className="ml-2 text-xs text-ink-faint tabular-nums">
-          {filtered.length} / {rows.length}
-        </span>
-
-        <div className="ml-auto flex items-center gap-1">
-          <button type="button" onClick={() => entryList.refresh()} className={BTN_QUIET} title="刷新">
-            <RotateCw size={14} strokeWidth={2} />
-          </button>
-          {tab === 'entry' ? (
-            <>
-              <button
-                type="button"
-                onClick={() => setExpanded(new Set(entries.map((entry) => entry.id)))}
-                className={BTN_QUIET}
-              >
-                展开全部
-              </button>
-              <button type="button" onClick={() => setExpanded(new Set())} className={BTN_QUIET}>
-                折叠全部
-              </button>
-              <button type="button" onClick={() => void handleCreate()} className={BTN_QUIET}>
-                <Plus size={14} strokeWidth={2} />
-                新增
-              </button>
-            </>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <table className="w-full border-collapse text-left text-[13px]">
+      <div className="min-h-0 flex-1 overflow-auto">
+        <table className="w-full min-w-[640px] border-collapse text-left text-[13px]">
           <thead className="sticky top-0 bg-paper">
             <tr className="border-b border-line text-ink-faint">
               <th className="py-2 pl-6 font-normal">名称</th>
@@ -203,29 +235,42 @@ export function TreeTable() {
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={4} className="py-10 text-center text-ink-faint">
-                  没有匹配的条目
+                <td colSpan={4} className="py-12">
+                  {keyword ? (
+                    <ListEmptyState
+                      message="没有匹配的条目"
+                      action={{ label: '清除搜索', onClick: () => setSearch('') }}
+                    />
+                  ) : (
+                    <ListEmptyState message="还没有内容" />
+                  )}
                 </td>
               </tr>
             ) : (
               filtered.map((row) => {
-                const numericId = Number(row.id.replace('entry-', ''))
-                const open = expanded.has(numericId)
+                const open = expanded.has(row.entityId)
                 return (
-                  <tr key={row.id} className="row-rule transition-colors hover:bg-[var(--oc-hover)]">
+                  <tr
+                    key={row.id}
+                    tabIndex={0}
+                    onClick={() => onNavigate?.(row.entityId, row.entityType)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault()
+                        onNavigate?.(row.entityId, row.entityType)
+                      }
+                    }}
+                    className="row-rule cursor-pointer transition-colors hover:bg-[var(--oc-hover)] focus:outline-none focus-visible:bg-[var(--oc-hover)]"
+                  >
                     <td className="py-1.5 pl-6">
                       <span className="flex items-center gap-1" style={{ paddingLeft: row.depth * 18 }}>
                         {row.hasChildren ? (
                           <button
                             type="button"
-                            onClick={() =>
-                              setExpanded((prev) => {
-                                const next = new Set(prev)
-                                if (next.has(numericId)) next.delete(numericId)
-                                else next.add(numericId)
-                                return next
-                              })
-                            }
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              toggleRow(row.entityId)
+                            }}
                             className={`flex h-5 w-5 items-center justify-center text-ink-faint hover:text-ink ${ROUND_ITEM}`}
                             aria-label={open ? '折叠' : '展开'}
                           >

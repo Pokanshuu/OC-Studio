@@ -4,11 +4,27 @@
  * 角色列表的文件夹条（W6 UI）。
  *
  * 口径（`docs/待设计决策清单.md` §8.1）：文件夹只是角色上的一个名字，
- * 所以这里能做的只有「建 / 改名 / 删」——**删文件夹不删角色**，角色回到未分组。
+ * 没有文件夹表，所以这里只做「筛选 / 改名 / 删」——
+ * **删文件夹不删角色**，角色回到未分组。
+ *
+ * 「新建」不在这里：空文件夹在这个模型里不可能存在，唯一有意义的建法是
+ * 「把这个角色移进一个新名字」，入口在卡片 / 行的「移到文件夹」菜单里
+ * （`MoveToFolderMenu` 的「新建文件夹…」）。
  */
 import { useState } from 'react'
-import { Check, MoreHorizontal, Plus, X } from 'lucide-react'
-import { BTN_QUIET, CHIP, INPUT_LINE, MENU, MENU_ITEM } from '@/lib/ui-tokens'
+import { MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
+import { CHIP, CHIP_ON, ICON_BTN, INLINE_INPUT } from '@/lib/ui-tokens'
+import { MediaContextMenu } from '@/components/shared/MediaContextMenu'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import type { CharacterFolder } from '../folders'
 
 export type FolderFilter = 'all' | 'ungrouped' | string
@@ -19,7 +35,6 @@ export function CharacterFolderBar({
   total,
   value,
   onChange,
-  onCreate,
   onRename,
   onDelete,
 }: {
@@ -28,24 +43,13 @@ export function CharacterFolderBar({
   total: number
   value: FolderFilter
   onChange: (next: FolderFilter) => void
-  onCreate: (name: string) => Promise<void>
   onRename: (from: string, to: string) => Promise<void>
   onDelete: (name: string) => Promise<void>
 }) {
-  const [creating, setCreating] = useState(false)
-  const [draft, setDraft] = useState('')
-  const [menuFor, setMenuFor] = useState<string | null>(null)
+  const [menu, setMenu] = useState<{ name: string; at: { x: number; y: number } } | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
   const [renameDraft, setRenameDraft] = useState('')
-
-  const commitCreate = async () => {
-    const name = draft.trim()
-    setCreating(false)
-    setDraft('')
-    if (name.length === 0) return
-    await onCreate(name)
-    onChange(name)
-  }
+  const [deleting, setDeleting] = useState<CharacterFolder | null>(null)
 
   const commitRename = async (from: string) => {
     const name = renameDraft.trim()
@@ -57,19 +61,23 @@ export function CharacterFolderBar({
 
   return (
     <div className="flex flex-wrap items-center gap-1.5 px-6 pb-3">
-      <button type="button" onClick={() => onChange('all')} className={`${CHIP} ${value === 'all' ? 'text-ink' : 'text-ink-muted'}`}>
+      <button
+        type="button"
+        onClick={() => onChange('all')}
+        className={value === 'all' ? CHIP_ON : `${CHIP} transition-colors hover:text-ink`}
+      >
         全部 {total}
       </button>
       <button
         type="button"
         onClick={() => onChange('ungrouped')}
-        className={`${CHIP} ${value === 'ungrouped' ? 'text-ink' : 'text-ink-muted'}`}
+        className={value === 'ungrouped' ? CHIP_ON : `${CHIP} transition-colors hover:text-ink`}
       >
         未分组 {ungrouped}
       </button>
 
       {folders.map((folder) => (
-        <span key={folder.name} className="relative flex items-center">
+        <span key={folder.name} className="flex items-center">
           {renaming === folder.name ? (
             <input
               autoFocus
@@ -80,78 +88,88 @@ export function CharacterFolderBar({
                 if (event.key === 'Enter') void commitRename(folder.name)
                 if (event.key === 'Escape') setRenaming(null)
               }}
-              className={INPUT_LINE}
+              className={INLINE_INPUT}
             />
           ) : (
             <button
               type="button"
               onClick={() => onChange(folder.name)}
-              className={`${CHIP} ${value === folder.name ? 'text-ink' : 'text-ink-muted'}`}
+              className={value === folder.name ? CHIP_ON : `${CHIP} transition-colors hover:text-ink`}
             >
               {folder.name} {folder.count}
             </button>
           )}
           <button
             type="button"
-            onClick={() => setMenuFor(menuFor === folder.name ? null : folder.name)}
-            className="ml-0.5 flex h-5 w-5 items-center justify-center text-ink-faint hover:text-ink"
+            onClick={(event) => {
+              const rect = event.currentTarget.getBoundingClientRect()
+              setMenu({
+                name: folder.name,
+                at: { x: Math.max(8, rect.right - 128), y: rect.bottom + 4 },
+              })
+            }}
+            className={`${ICON_BTN} ml-0.5`}
             aria-label={`${folder.name} 的更多操作`}
           >
-            <MoreHorizontal size={12} strokeWidth={2} />
+            <MoreHorizontal size={14} strokeWidth={2} />
           </button>
-          {menuFor === folder.name ? (
-            <div className={`${MENU} absolute left-0 top-7 z-20 min-w-32`}>
-              <button
-                type="button"
-                className={MENU_ITEM}
-                onClick={() => {
-                  setRenaming(folder.name)
-                  setRenameDraft(folder.name)
-                  setMenuFor(null)
-                }}
-              >
-                <Check size={12} strokeWidth={2} />
-                重命名
-              </button>
-              <button
-                type="button"
-                className={MENU_ITEM}
-                onClick={() => {
-                  setMenuFor(null)
-                  void onDelete(folder.name).then(() => {
-                    if (value === folder.name) onChange('all')
-                  })
-                }}
-              >
-                <X size={12} strokeWidth={2} />
-                删除文件夹
-              </button>
-            </div>
+          {menu && menu.name === folder.name ? (
+            <MediaContextMenu
+              at={menu.at}
+              onClose={() => setMenu(null)}
+              items={[
+                {
+                  label: '重命名',
+                  icon: <Pencil size={13} strokeWidth={2} />,
+                  onSelect: () => {
+                    setRenaming(folder.name)
+                    setRenameDraft(folder.name)
+                  },
+                },
+                {
+                  label: '删除文件夹',
+                  danger: true,
+                  icon: <Trash2 size={13} strokeWidth={2} />,
+                  onSelect: () => setDeleting(folder),
+                },
+              ]}
+            />
           ) : null}
         </span>
       ))}
 
-      {creating ? (
-        <input
-          autoFocus
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          onBlur={() => void commitCreate()}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') void commitCreate()
-            if (event.key === 'Escape') {
-              setCreating(false)
-              setDraft('')
-            }
-          }}
-          placeholder="文件夹名"
-          className={INPUT_LINE}
-        />
-      ) : (
-        <button type="button" onClick={() => setCreating(true)} className={BTN_QUIET} title="新建文件夹">
-          <Plus size={12} strokeWidth={2} />
-        </button>
-      )}
+      <AlertDialog open={deleting !== null} onOpenChange={(open) => { if (!open) setDeleting(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>删除文件夹「{deleting?.name}」</AlertDialogTitle>
+            <AlertDialogDescription>
+              里面的 {deleting?.count ?? 0} 个角色回到未分组，角色本身不会被删除。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const name = deleting?.name
+                setDeleting(null)
+                if (!name) return
+                void onDelete(name).then(() => {
+                  if (value === name) onChange('all')
+                })
+              }}
+            >
+              删除文件夹
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
+}
+
+/** 放在列表里给「筛选到空」用的空态（不属于文件夹条，但文案要跟着它走） */
+export function folderEmptyHint(value: FolderFilter): string {
+  if (value === 'ungrouped') return '未分组里还没有角色'
+  if (value !== 'all') return `「${value}」里还没有角色`
+  return '还没有角色'
 }

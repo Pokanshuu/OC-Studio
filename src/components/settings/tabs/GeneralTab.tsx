@@ -5,7 +5,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { useSettings } from '@/lib/settings'
 import { useDevice } from '@/lib/use-device'
 import { isTauri as isTauriEnv } from '@/lib/env'
-import { ThemeRadio, LayoutRadio, CoverTintRadio, MouseModeRadio, SWITCH_CLASSES, SWITCH_DOT } from '../controls'
+import { ThemeRadio, LayoutRadio, CoverTintRadio, MouseModeRadio, EdgeStyleRadio, SWITCH_CLASSES, SWITCH_DOT } from '../controls'
 export function GeneralTab() {
   const { settings, updateSetting } = useSettings()
   const { isMobile } = useDevice()
@@ -95,6 +95,22 @@ export function GeneralTab() {
                   <CoverTintRadio
                     value={settings.coverTintMode}
                     onChange={(v) => updateSetting("coverTintMode", v)}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <span className="text-sm text-ink">关系图鼠标</span>
+                  <MouseModeRadio
+                    value={settings.mouseMode}
+                    onChange={(v) => updateSetting("mouseMode", v)}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <span className="text-sm text-ink">关系图连线</span>
+                  <EdgeStyleRadio
+                    value={settings.edgeStyle}
+                    onChange={(v) => updateSetting("edgeStyle", v)}
                   />
                 </div>
 

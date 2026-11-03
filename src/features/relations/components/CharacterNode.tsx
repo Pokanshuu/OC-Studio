@@ -1,28 +1,57 @@
 'use client'
 
+import { useState } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
-import { Avatar } from '@/components/shared/Avatar'
 import { getImageUrl } from '@/lib/image-service'
+import { useSettings } from '@/lib/settings'
 import { NODE_HANDLE, NODE_WRAPPER } from '@/lib/ui-tokens'
+import { NODE_AVATAR_SIZE, NODE_SIZE } from '../layout'
 
 /**
- * 四个方向都有落点：连线按「目标在哪个方位」选手柄（见 relation-graph-utils 的 routeEdges），
- * 否则所有线都从正下方挤出来，贴着节点糊成一束。
- * Loose 模式（RelationGraph 的 connectionMode），任一手柄都能起手也能落点。
+ * 角色节点（docs/关系图.md §4）：**56px 圆头像 + 12px 名字**，尺寸写死在 `NODE_SIZE`。
+ *
+ * 四个方向都有落点（正交模式按「目标在哪个方位」选手柄，见 relation-graph-utils 的 routeEdges）；
+ * 曲线模式下线从头像圆的边缘发散，手柄收成不可见（不能删 —— 拖拽建边还要靠它起手）。
  */
-export function CharacterNode({ data }: NodeProps) {
+export function CharacterNode({ data, selected }: NodeProps) {
+  const edgeStyle = useSettings().settings.edgeStyle
+  const [failedSrc, setFailedSrc] = useState<string | null>(null)
+  const label = String(data.label ?? '')
   const src = data.avatarUrl as string | undefined
+  const url = src ? getImageUrl(src, 'avatar') : ''
+  const showImage = Boolean(url) && url !== failedSrc
+  const size = NODE_SIZE.character
+  const handleStyle = edgeStyle === 'curve' ? { opacity: 0 } : undefined
 
   return (
     <>
-      <Handle id="top" type="source" position={Position.Top} className={NODE_HANDLE} />
-      <Handle id="right" type="source" position={Position.Right} className={NODE_HANDLE} />
-      <Handle id="bottom" type="source" position={Position.Bottom} className={NODE_HANDLE} />
-      <Handle id="left" type="source" position={Position.Left} className={NODE_HANDLE} />
-      <div className={NODE_WRAPPER}>
-        <Avatar src={getImageUrl(src, 'avatar')} className="w-14 h-14" size="md" />
-        <span className="text-xs text-ink text-center max-w-[80px] truncate">
-          {data.label as string}
+      <Handle id="top" type="source" position={Position.Top} className={NODE_HANDLE} style={handleStyle} />
+      <Handle id="right" type="source" position={Position.Right} className={NODE_HANDLE} style={handleStyle} />
+      <Handle id="bottom" type="source" position={Position.Bottom} className={NODE_HANDLE} style={handleStyle} />
+      <Handle id="left" type="source" position={Position.Left} className={NODE_HANDLE} style={handleStyle} />
+      <div className={`${NODE_WRAPPER} relative`} style={{ width: size.w, height: size.h }}>
+        <div
+          style={{ width: NODE_AVATAR_SIZE, height: NODE_AVATAR_SIZE }}
+          className={`shrink-0 overflow-hidden rounded-full border bg-paper-card transition-colors ${
+            selected ? 'border-ink' : 'border-line group-hover:border-line-hover'
+          }`}
+        >
+          {showImage ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={url}
+              alt=""
+              onError={() => setFailedSrc(url)}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <span className="grid h-full w-full place-items-center font-serif text-xl text-ink-faint">
+              {label.slice(0, 1)}
+            </span>
+          )}
+        </div>
+        <span className="block max-w-[80px] truncate whitespace-nowrap text-center text-xs leading-4 text-ink">
+          {label}
         </span>
       </div>
     </>

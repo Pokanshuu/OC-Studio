@@ -1,8 +1,10 @@
 'use client'
 
 import { useState, useMemo, useCallback, useEffect } from 'react'
-import { Download, ExternalLink, Menu, RefreshCw, Search } from 'lucide-react'
-import { ICON_BTN_MD, LOADING_TEXT, PAGE_TITLE } from '@/lib/ui-tokens'
+import { Download, ExternalLink, Eye, Menu, RefreshCw, Search } from 'lucide-react'
+import { ICON_BTN_MD, LOADING_TEXT } from '@/lib/ui-tokens'
+import { PageToolbar } from './PageToolbar'
+import { ListEmptyState } from './ListEmptyState'
 import { FullscreenViewer } from './FullscreenViewer'
 import { useAlbumData, type AlbumEntry } from './useAlbumData'
 import { useDevice } from '@/lib/use-device'
@@ -14,8 +16,7 @@ import { SortSelect } from '@/components/shared/SortViewControls'
 import { AlbumCard } from './AlbumCard'
 import { FilterSelect } from './FilterSelect'
 import { AlbumTreePanel } from './AlbumTreePanel'
-import { downloadMediaFile } from '@/lib/media-download'
-import { toast } from 'sonner'
+import { useMediaDownload } from '@/lib/use-media-download'
 import { ListWidthResizer } from '@/components/editor/ListWidthResizer'
 import { useListWidth } from '@/components/editor/useListWidth'
 import { CATEGORY_TREE, albumSourceLabel, albumSourceType, collectAlbumSources, matchesAlbumCategory } from './album-utils'
@@ -47,6 +48,8 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
   const { isMobile } = useDevice()
   const { setConfig } = useMobilePageHeader()
   const { section } = useMobileNavigation()
+  // 「保存到…」的唯一口：防连点 + 失败 toast 都在 hook 里
+  const { save, saving } = useMediaDownload()
 
   // Listen for mobile top bar toggle event
   useEffect(() => {
@@ -87,25 +90,42 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
     })
   }, [])
 
-  const openActionSheet = useCallback((entry: AlbumEntry) => {
+  /**
+   * 移动端长按动作表。**顺序与桌面右键一致**（查看 → 保存到… → 跳转），
+   * 且不挂在 `onNavigate` 是否存在上：没有跳转目标时只是少一项，查看与保存照旧。
+   */
+  const openActionSheet = useCallback((entry: AlbumEntry, index: number) => {
     setActionSheet({
       open: true,
       title: entry.sourceName,
       actions: [
-        { id: 'navigate', label: '跳转', icon: <ExternalLink size={20} strokeWidth={2} />, onPress: () => onNavigate?.(entry.sourceId, entry.sourceType) },
+        {
+          id: 'view',
+          label: '查看',
+          icon: <Eye size={20} strokeWidth={2} />,
+          onPress: () => setViewerIndex(index),
+        },
         {
           id: 'download',
-          label: '保存到…',
+          label: saving ? '保存中…' : '保存到…',
           icon: <Download size={20} strokeWidth={2} />,
           onPress: () => {
-            void downloadMediaFile(entry.url, entry.sourceName).catch((err: unknown) => {
-              toast.error('保存失败', { description: err instanceof Error ? err.message : String(err) })
-            })
+            void save(entry.url, entry.sourceName)
           },
         },
+        ...(onNavigate === undefined
+          ? []
+          : [
+              {
+                id: 'navigate',
+                label: '跳转',
+                icon: <ExternalLink size={20} strokeWidth={2} />,
+                onPress: () => onNavigate(entry.sourceId, entry.sourceType),
+              },
+            ]),
       ],
     })
-  }, [onNavigate])
+  }, [onNavigate, save, saving])
 
   const filtered = useMemo(() => {
     let result = entries.filter((e) => matchesAlbumCategory(e, selectedKey))
@@ -191,77 +211,79 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
         {/* Grid — scroll container, header inside for blur */}
         <div className="flex-1">
           {/* Desktop header */}
-          <div className="max-md:hidden sticky top-0 z-10 flex items-center border-b border-line px-4 h-12 bg-paper/85 backdrop-blur-lg">
-            <div className="flex items-center gap-3">
-              {treeCollapsed ? (
-                <>
-                  <button
-                    onClick={() => setTreeCollapsed(false)}
-                    className={ICON_BTN_MD}
-                    title="展开目录"
-                  >
-                    <Menu size={16} strokeWidth={2} />
-                  </button>
-                  <h2 className={PAGE_TITLE}>{selectedLabel}</h2>
-                </>
-              ) : null}
-              <div className="relative">
-                <Search size={14} strokeWidth={2} className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-ink-faint" />
-                <input
-                  type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-                  placeholder="搜索..."
-                  className="h-8 w-48 border-b border-transparent bg-transparent pl-7 pr-2 text-[13px] text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none"
-                />
-              </div>
-              {/* 按来源筛选：只在具体分类下出现（角色 / 事件 / 国家） */}
-              {sourceType !== null && sources.length > 0 ? (
+          <PageToolbar
+            title={selectedLabel}
+            className="max-md:hidden"
+            actions={
+              <>
+                <div className="relative">
+                  <Search size={14} strokeWidth={2} className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-ink-faint" />
+                  <input
+                    type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+                    placeholder="搜索..."
+                    className="h-8 w-48 border-b border-transparent bg-transparent pl-7 pr-2 text-[13px] text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none"
+                  />
+                </div>
+                {/* 按来源筛选：只在具体分类下出现（角色 / 事件 / 国家） */}
+                {sourceType !== null && sources.length > 0 ? (
+                  <FilterSelect
+                    value={activeSourceFilter}
+                    onChange={setSourceFilter}
+                    options={[
+                      { value: 'all', label: `全部${albumSourceLabel(sourceType)}` },
+                      ...sources.map((s) => ({ value: s.id, label: s.name })),
+                    ]}
+                    fallbackLabel={`全部${albumSourceLabel(sourceType)}`}
+                    labelClassName="max-w-[9rem] truncate"
+                    triggerClassName={ALBUM_FILTER_TRIGGER}
+                  />
+                ) : null}
                 <FilterSelect
-                  value={activeSourceFilter}
-                  onChange={setSourceFilter}
+                  value={tagFilter}
+                  onChange={setTagFilter}
                   options={[
-                    { value: 'all', label: `全部${albumSourceLabel(sourceType)}` },
-                    ...sources.map((s) => ({ value: s.id, label: s.name })),
+                    { value: 'all', label: '全部标签' },
+                    ...tags
+                      .filter((t) => t.id !== undefined)
+                      .map((t) => ({ value: t.id, label: t.name })),
                   ]}
-                  fallbackLabel={`全部${albumSourceLabel(sourceType)}`}
-                  labelClassName="max-w-[9rem] truncate"
+                  fallbackLabel="全部标签"
                   triggerClassName={ALBUM_FILTER_TRIGGER}
                 />
-              ) : null}
-              <FilterSelect
-                value={tagFilter}
-                onChange={setTagFilter}
-                options={[
-                  { value: 'all', label: '全部标签' },
-                  ...tags
-                    .filter((t) => t.id !== undefined)
-                    .map((t) => ({ value: t.id, label: t.name })),
-                ]}
-                fallbackLabel="全部标签"
-                triggerClassName={ALBUM_FILTER_TRIGGER}
-              />
-              <SortSelect
-                sortKey={sortByTime ? 'time' : 'default'}
-                onChange={(key) => setSortByTime(key === 'time')}
-                options={[
-                  { label: '默认顺序', value: 'default' },
-                  { label: '最近更新', value: 'time' },
-                ]}
-              />
-              <button onClick={handleRefresh} disabled={refreshing}
-                className={`${ICON_BTN_MD} ${refreshing ? 'animate-spin' : ''}`}
-                title="刷新"
+                <SortSelect
+                  sortKey={sortByTime ? 'time' : 'default'}
+                  onChange={(key) => setSortByTime(key === 'time')}
+                  options={[
+                    { label: '默认顺序', value: 'default' },
+                    { label: '最近更新', value: 'time' },
+                  ]}
+                />
+                <button onClick={handleRefresh} disabled={refreshing}
+                  className={`${ICON_BTN_MD} ${refreshing ? 'animate-spin' : ''}`}
+                  title="刷新"
+                >
+                  <RefreshCw size={15} strokeWidth={2} />
+                </button>
+              </>
+            }
+          >
+            {treeCollapsed ? (
+              <button
+                onClick={() => setTreeCollapsed(false)}
+                className={ICON_BTN_MD}
+                title="展开目录"
               >
-                <RefreshCw size={15} strokeWidth={2} />
+                <Menu size={16} strokeWidth={2} />
               </button>
-            </div>
-          </div>
+            ) : null}
+          </PageToolbar>
 
           {/* Grid content */}
           <div className="flex flex-1 flex-col px-4 pt-4 pb-24 md:pb-4">
           {loading ? (
             <div className="flex flex-1 items-center justify-center"><span className={LOADING_TEXT}>加载中…</span></div>
           ) : filtered.length === 0 ? (
-            <div className="flex min-h-[40vh] flex-1 items-center justify-center"><span className="font-serif text-sm text-ink-faint">暂无图片</span></div>
+            <ListEmptyState message="暂无图片" className="min-h-[40vh]" />
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
               {filtered.map((entry, idx) => (
@@ -270,7 +292,7 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
                   entry={entry}
                   isMobile={isMobile}
                   onNavigate={onNavigate}
-                  onLongPress={onNavigate ? () => openActionSheet(entry) : undefined}
+                  onLongPress={() => openActionSheet(entry, idx)}
                   onViewImage={() => setViewerIndex(idx)}
                 />
               ))}

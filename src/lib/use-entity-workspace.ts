@@ -13,6 +13,10 @@ import { useEventList, useEvent, useCreateEvent, useUpdateEvent, useDeleteEvent 
 import { useCharacterList, useCreateCharacter, useDeleteCharacter } from '@/features/characters/hooks/useCharacters'
 import { useCreateCountry, useDeleteCountry } from '@/features/countries/hooks/useCountries'
 import type { EventFormData } from '@/features/events/types'
+import type { WorldEntry } from '@/types'
+import { toast } from 'sonner'
+import { db } from '@/lib/db'
+import { isMapEntry, isNovelEntry } from '@/lib/entry-kinds'
 
 export type EventView = { sub: 'list' } | { sub: 'editor'; eventId: number }
 export type CharacterView = { sub: 'list' } | { sub: 'editor'; characterId: number }
@@ -38,6 +42,10 @@ export function useEntityWorkspace() {  const { activeItem: desktopActiveItem, s
         : mobileNav.section === 'timeline' ? '时间线'
         : mobileNav.section === 'relations' ? '关系图'
         : mobileNav.section === 'album' ? '相册'
+        : mobileNav.section === 'novel' ? '小说'
+        : mobileNav.section === 'map' ? '地图'
+        : mobileNav.section === 'tree' ? '树表'
+        : mobileNav.section === 'home' ? null
         : desktopActiveItem)
     : desktopActiveItem
   const mobileSetSection = mobileNav.setSection
@@ -46,6 +54,12 @@ export function useEntityWorkspace() {  const { activeItem: desktopActiveItem, s
   const [characterView, setCharacterView] = useState<CharacterView>({ sub: 'list' })
   const [countryView, setCountryView] = useState<CountryView>({ sub: 'list' })
   const [worldSelectedEntryId, setWorldSelectedEntryId] = useState<number | null>(null)
+  // `[[章节]]` / `[[小说]]` 的目标：小说分区收到后沿 parentId 找书根、打开书并选中该章。
+  // nonce 让「连续点同一章」也能再次触发定位（id 不变时 state 不会重渲染）。
+  const [novelEntryTarget, setNovelEntryTarget] = useState<{
+    entryId: number
+    nonce: number
+  } | null>(null)
 
   const crossBackRef = useRef<{
     activeItem: string | null
@@ -528,11 +542,61 @@ export function useEntityWorkspace() {  const { activeItem: desktopActiveItem, s
     handleRelatedItemNavigate(numId, entityType)
   }, [handleRelatedItemNavigate])
 
-  const handleWikiLinkClick = useCallback((id: string) => {
-    const numId = Number(id)
-    if (Number.isNaN(numId)) return
-    handleRelatedItemNavigate(numId, 'world')
-  }, [handleRelatedItemNavigate])
+  const wikiLinkNonceRef = useRef(0)
+
+  /**
+   * `[[内链]]` 统一入口：先查这条笔记是什么，再决定去哪个分区。
+   *
+   * 章节 / 小说根、地图也是 `worldEntries` 的行 —— 早先一律当「世界观词条」打开，
+   * 结果落到一个空的目录树里。目标行不在（已被彻底删除 / 指向了不存在的 id）时
+   * 必须给一句话，不能静默什么都不发生。
+   */
+  const handleWikiLinkClick = useCallback(
+    async (id: string) => {
+      const numId = Number(id)
+      if (!Number.isInteger(numId) || numId <= 0) {
+        toast.error('条目不存在')
+        return
+      }
+      let entry: WorldEntry | undefined = undefined
+      try {
+        entry = await db.worldEntries.get(numId)
+      } catch {
+        entry = undefined
+      }
+      if (!entry || entry.deleted) {
+        toast.error('条目不存在')
+        return
+      }
+
+      if (isNovelEntry(entry)) {
+        wikiLinkNonceRef.current += 1
+        setNovelEntryTarget({ entryId: numId, nonce: wikiLinkNonceRef.current })
+        setActiveItem('小说')
+        if (isMobile) mobileSetSection('novel')
+        clearSource()
+        return
+      }
+
+      if (isMapEntry(entry)) {
+        setActiveItem('地图')
+        if (isMobile) mobileSetSection('map')
+        clearSource()
+        return
+      }
+
+      handleRelatedItemNavigate(numId, 'world')
+    },
+    [
+      clearSource,
+      handleRelatedItemNavigate,
+      isMobile,
+      mobileSetSection,
+      setActiveItem,
+    ],
+  )
+
+  const clearNovelEntryTarget = useCallback(() => setNovelEntryTarget(null), [])
 
   const clearWorldSelectedEntry = useCallback(() => {
     setWorldSelectedEntryId(null)
@@ -614,6 +678,7 @@ export function useEntityWorkspace() {  const { activeItem: desktopActiveItem, s
     handleBackToCountryList,
     handleBackToList,
     clearWorldSelectedEntry,
+    clearNovelEntryTarget,
     handleCharacterCharCount,
     handleCountryCharCount,
     handleCreateCharacter,
@@ -634,6 +699,7 @@ export function useEntityWorkspace() {  const { activeItem: desktopActiveItem, s
     handleWikiLinkClick,
     handleWorldCharCount,
     leaveConfirm,
+    novelEntryTarget,
     placeholderText,
     selectedEvent,
     setActiveItem,

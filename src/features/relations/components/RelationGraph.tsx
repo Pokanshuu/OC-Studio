@@ -6,6 +6,7 @@ import {
   Background,
   MiniMap,
   Panel,
+  SelectionMode,
   useNodesState,
   useEdgesState,
   BackgroundVariant,
@@ -20,12 +21,15 @@ import '@xyflow/react/dist/style.css'
 import { toast } from 'sonner'
 
 import type { RelationArrow } from '@/lib/relation-colors'
+import type { EdgeStyle } from '@/lib/edge-style'
 import { useSettings } from '@/lib/settings'
+import { useDevice } from '@/lib/use-device'
 import { useGraphData } from '../hooks/useGraphData'
 import { updateEdgeStyle } from '../services'
 import { EdgeStylePanel, type EdgeStyleSelection } from './EdgeStylePanel'
 import { createRelationBetween, saveNodePosition } from '../services'
 import { computeForceLayout } from '../layout'
+import { exportRelationGraphPng } from '../export-graph'
 import { MobileRelationControls, DesktopRelationPanel } from './MobileRelationControls'
 import { FitViewOnLoad, ZoomReader } from './RelationGraphHelpers'
 import { RelationCreateDialog } from './RelationCreateDialog'
@@ -59,8 +63,10 @@ export function RelationGraph({
   visible,
 }: RelationGraphProps) {
   const { nodes: rawNodes, edges: rawEdges, loading, error, refresh } = useGraphData()
-  const { settings } = useSettings()
+  const { settings, updateSetting } = useSettings()
+  const { isMobile } = useDevice()
   const mouseMode = settings.mouseMode
+  const edgeStyle = settings.edgeStyle
   const prevVisible = useRef(false)
 
   const [showCharacters, setShowCharacters] = useState(true)
@@ -70,8 +76,20 @@ export function RelationGraph({
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
   const [draft, setDraft] = useState<RelationDraft | null>(null)
   const [savingRelation, setSavingRelation] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [savingLayout, setSavingLayout] = useState(false)
   const [edgePanel, setEdgePanel] = useState<{ selection: EdgeStyleSelection; anchor: { x: number; y: number } } | null>(null)
   const rfRef = useRef<ReactFlowInstance | null>(null)
+
+  // 面板已经自带外点/取消失败的收口；这里再兜一层 Esc，画布上按 Esc 等价于点空白
+  useEffect(() => {
+    if (!edgePanel) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setEdgePanel(null)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [edgePanel])
 
   const handleZoomChange = useCallback((value: number) => {
     rfRef.current?.zoomTo(value / 100, { duration: 0 })
@@ -89,6 +107,12 @@ export function RelationGraph({
     const isVisible = visible ?? false
     if (isVisible && !prevVisible.current) {
       void refresh()
+    }
+    // 离开关系图时把浮层收掉：面板 Portal 在 #overlay-root，不随画布卸载，
+    // 否则切到别的分区还能看见一个「关系线样式」飘在那里
+    if (!isVisible) {
+      setEdgePanel(null)
+      setDraft(null)
     }
     prevVisible.current = isVisible
   }, [visible, refresh])
@@ -163,13 +187,49 @@ export function RelationGraph({
     }))
   }, [nodes, hoveredNodeId, neighborNodeIds])
 
+  /**
+   * 打开某条边的样式面板（颜色 / 箭头）。点线与点线上的文字标签共用这一条路径，
+   * 所以两者打开的永远是同一个面板、同一套数据。
+   */
+  const openEdgePanel = useCallback((edge: Edge, point: { x: number; y: number }) => {
+    const [sourceType, sourceIdRaw] = edge.source.split('-')
+    const [targetType, targetIdRaw] = edge.target.split('-')
+    if (sourceType !== 'character' && sourceType !== 'event') return
+    if (sourceType !== targetType) return
+    const sourceId = Number(sourceIdRaw)
+    const targetId = Number(targetIdRaw)
+    if (!Number.isFinite(sourceId) || !Number.isFinite(targetId)) return
+    const data = edge.data as { relation?: string; color?: string; arrow?: RelationArrow } | undefined
+    setEdgePanel({
+      selection: {
+        sourceType,
+        sourceId,
+        targetType,
+        targetId,
+        relation: data?.relation ?? '',
+        color: data?.color,
+        arrow: data?.arrow,
+      },
+      anchor: point,
+    })
+  }, [])
+
   const displayEdges = useMemo(() => {
-    if (!hoveredNodeId) return routedEdges
-    return routedEdges.map((e) => ({
-      ...e,
-      style: { ...(e.style as Record<string, unknown>), opacity: connectedEdgeIds.has(e.id) ? 1 : 0.1 },
-    }))
-  }, [routedEdges, hoveredNodeId, connectedEdgeIds])
+    return routedEdges.map((edge) => {
+      const opacity = hoveredNodeId ? (connectedEdgeIds.has(edge.id) ? 1 : 0.1) : null
+      return {
+        ...edge,
+        // 标签在 EdgeLabelRenderer 里渲染，拿不到画布的 onEdgeClick —— 把回调挂到边上
+        data: {
+          ...edge.data,
+          onLabelClick: (point: { x: number; y: number }) => openEdgePanel(edge, point),
+        },
+        ...(opacity === null
+          ? {}
+          : { style: { ...(edge.style as Record<string, unknown>), opacity } }),
+      }
+    })
+  }, [routedEdges, hoveredNodeId, connectedEdgeIds, openEdgePanel])
 
   const handleNodeClick = useCallback(
     (event: React.MouseEvent, node: Node) => {
@@ -205,9 +265,19 @@ export function RelationGraph({
   /**
    * 重新布局：无视已有坐标，整张图重跑力导向，并把新坐标写回实体。
    * 显式动作，所以覆盖用户之前的摆位是符合预期的；不写回的话下次打开又会弹回旧位置。
+   * **整理前先记一次坐标快照**，整理后给一个「撤销」（会话内一次，见 docs/关系图.md §6.1）。
    */
   const handleRelayout = useCallback(() => {
     if (filteredNodes.length === 0) return
+
+    const snapshot = new Map<string, { x: number; y: number; entityType: RelationNodeType; entityId: number }>()
+    for (const node of nodes) {
+      const entityType = node.data?.entityType as RelationNodeType | undefined
+      const entityId = node.data?.entityId as number | undefined
+      if (!entityType || entityId === undefined) continue
+      snapshot.set(node.id, { x: node.position.x, y: node.position.y, entityType, entityId })
+    }
+
     const layout = computeForceLayout(filteredNodes, rawEdges)
     setNodes((current) =>
       current.map((node) => ({ ...node, position: layout.get(node.id) ?? node.position })),
@@ -220,7 +290,70 @@ export function RelationGraph({
       void saveNodePosition(entityType, entityId, position.x, position.y)
     }
     rfRef.current?.fitView({ padding: 0.2, duration: 200, minZoom: MIN_ZOOM })
-  }, [filteredNodes, rawEdges, setNodes])
+
+    toast('已整理布局', {
+      duration: 8000,
+      action: {
+        label: '撤销',
+        onClick: () => {
+          setNodes((current) =>
+            current.map((node) => {
+              const previous = snapshot.get(node.id)
+              return previous ? { ...node, position: { x: previous.x, y: previous.y } } : node
+            }),
+          )
+          // 快照也要写回实体：否则只是画布回原位，下次打开还是整理后的位置
+          for (const previous of snapshot.values()) {
+            void saveNodePosition(previous.entityType, previous.entityId, previous.x, previous.y)
+          }
+        },
+      },
+    })
+  }, [filteredNodes, rawEdges, nodes, setNodes])
+
+  /**
+   * 保存布局：把当前所有节点坐标批量写回实体。
+   * 拖动本身已经逐点保存，这个按钮是「我排完了，确认一下」的显式动作（并给一次可见的反馈）。
+   */
+  const handleSaveLayout = useCallback(async () => {
+    if (savingLayout) return
+    setSavingLayout(true)
+    try {
+      const writes: Promise<void>[] = []
+      for (const node of nodes) {
+        const entityType = node.data?.entityType as RelationNodeType | undefined
+        const entityId = node.data?.entityId as number | undefined
+        if (!entityType || entityId === undefined) continue
+        writes.push(saveNodePosition(entityType, entityId, node.position.x, node.position.y))
+      }
+      await Promise.all(writes)
+      toast.success('已保存')
+    } catch (err) {
+      toast.error('保存布局失败', { description: err instanceof Error ? err.message : String(err) })
+    } finally {
+      setSavingLayout(false)
+    }
+  }, [nodes, savingLayout])
+
+  /** 导出 PNG：按当前坐标与当前边型离线重绘（桌面走系统保存对话框） */
+  const handleExport = useCallback(async () => {
+    if (exporting) return
+    setExporting(true)
+    try {
+      const saved = await exportRelationGraphPng({ nodes, edges, edgeStyle })
+      // 用户在保存对话框里按了取消 —— 不是失败，不提示
+      if (saved) toast.success('已导出 PNG')
+    } catch (err) {
+      toast.error('导出失败', { description: err instanceof Error ? err.message : String(err) })
+    } finally {
+      setExporting(false)
+    }
+  }, [nodes, edges, edgeStyle, exporting])
+
+  const handleEdgeStyleChange = useCallback(
+    (value: EdgeStyle) => updateSetting('edgeStyle', value),
+    [updateSetting],
+  )
 
   /* ── 拖拽连线 ─────────────────────────────────────────── */
   const existingPairs = useMemo(() => {
@@ -240,16 +373,21 @@ export function RelationGraph({
     [nodes],
   )
 
-  /** 连线是否成立：不同节点、这一对还没有完整的关系、且这类组合有对应字段可写 */
+  /** 连线是否成立：不同节点、这类组合有对应字段可写；角色/事件之间允许多条（成员关系仍一对一） */
   const isValidConnection = useCallback(
     (connection: Connection | Edge) => {
       const { source, target } = connection
       if (!source || !target || source === target) return false
-      if (existingPairs.get(pairKey(source, target)) === false) return false
       const sourceType = nodeTypeOf(source)
       const targetType = nodeTypeOf(target)
       if (!sourceType || !targetType) return false
-      return relationPlan(sourceType, targetType).supported
+      const plan = relationPlan(sourceType, targetType)
+      if (!plan.supported) return false
+      // 成员 / 归属类：两侧写的是同一条事实，已完整就不能再连
+      // 角色↔角色、事件↔事件：同一条线可以有多条不同名字的关系（PR #5 的 #1）
+      const allowsParallel = sourceType === targetType && (sourceType === 'character' || sourceType === 'event')
+      if (!allowsParallel && existingPairs.get(pairKey(source, target)) === false) return false
+      return true
     },
     [existingPairs, nodeTypeOf],
   )
@@ -343,28 +481,19 @@ export function RelationGraph({
         onNodeMouseLeave={() => setHoveredNodeId(null)}
         onMove={handleMove}
         onConnect={handleConnect}
-        onEdgeClick={(event, edge) => {
-          const [sourceType, sourceIdRaw] = edge.source.split('-')
-          const [targetType, targetIdRaw] = edge.target.split('-')
-          if (sourceType !== 'character' && sourceType !== 'event') return
-          if (sourceType !== targetType) return
-          const sourceId = Number(sourceIdRaw)
-          const targetId = Number(targetIdRaw)
-          if (!Number.isFinite(sourceId) || !Number.isFinite(targetId)) return
-          const data = edge.data as { relation?: string; color?: string; arrow?: RelationArrow } | undefined
-          setEdgePanel({
-            selection: {
-              sourceType,
-              sourceId,
-              targetType,
-              targetId,
-              relation: data?.relation ?? '',
-              color: data?.color,
-              arrow: data?.arrow,
-            },
-            anchor: { x: event.clientX, y: event.clientY },
-          })
-        }}
+        // 移动端只读（docs/关系图.md）：禁拖、禁连、禁框选；样式面板仍可点开查看
+        nodesDraggable={!isMobile}
+        nodesConnectable={!isMobile}
+        elementsSelectable={!isMobile}
+        // 框选 / 鼠标模式（设置 → 个性化）：左键平移时 Shift 框选；右键平移时左键直接框选
+        panOnDrag={mouseMode === 'right-pan' ? [2] : true}
+        selectionOnDrag={!isMobile && mouseMode === 'right-pan'}
+        selectionMode={SelectionMode.Partial}
+        selectionKeyCode={!isMobile && mouseMode === 'left-pan' ? 'Shift' : null}
+        // 删除只能走编辑器（软删除 + 二次确认），画布上的 Backspace 只删本地状态、刷新就回来
+        deleteKeyCode={null}
+        onPaneClick={() => setEdgePanel(null)}
+        onEdgeClick={(event, edge) => openEdgePanel(edge, { x: event.clientX, y: event.clientY })}
         isValidConnection={isValidConnection}
         connectionMode={ConnectionMode.Loose}
         connectOnClick={false}
@@ -393,6 +522,12 @@ export function RelationGraph({
           zoom={zoom}
           onZoomChange={handleZoomChange}
           onRelayout={handleRelayout}
+          edgeStyle={edgeStyle}
+          onEdgeStyleChange={handleEdgeStyleChange}
+          onExport={() => void handleExport()}
+          exporting={exporting}
+          onSaveLayout={() => void handleSaveLayout()}
+          savingLayout={savingLayout}
         />
 
         <Panel position="bottom-left" className="max-md:hidden m-3 flex flex-col gap-1 border border-line bg-paper/85 px-3 py-2 text-[11px] text-ink-muted backdrop-blur-lg float-shadow">
@@ -431,6 +566,12 @@ export function RelationGraph({
         zoom={zoom}
         onZoomChange={handleZoomChange}
         onRelayout={handleRelayout}
+        edgeStyle={edgeStyle}
+        onEdgeStyleChange={handleEdgeStyleChange}
+        onExport={() => void handleExport()}
+        exporting={exporting}
+        onSaveLayout={() => void handleSaveLayout()}
+        savingLayout={savingLayout}
       />
 
       {draft ? (
@@ -450,12 +591,29 @@ export function RelationGraph({
           onClose={() => setEdgePanel(null)}
           onChange={(patch) => {
             const { selection } = edgePanel
+            // 乐观更新面板自己的选中态：改颜色、再接箭头是一次动作里的两下，
+            // 面板不能在第一下就关掉（关掉就逼用户重新点那条细线）
+            setEdgePanel((current) =>
+              current
+                ? {
+                    ...current,
+                    selection: {
+                      ...current.selection,
+                      color: patch.color === null ? undefined : (patch.color ?? current.selection.color),
+                      arrow:
+                        patch.arrow === null
+                          ? undefined
+                          : (patch.arrow ?? current.selection.arrow),
+                    },
+                  }
+                : current,
+            )
             void updateEdgeStyle(
               { entityType: selection.sourceType, entityId: selection.sourceId },
               { entityType: selection.targetType, entityId: selection.targetId },
               patch,
-            ).then(() => {
-              setEdgePanel(null)
+            ).then((ok) => {
+              if (!ok) toast.error('这条关系已不在数据里')
               void refresh({ silent: true })
             })
           }}

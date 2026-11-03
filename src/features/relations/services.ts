@@ -63,7 +63,9 @@ export async function buildGraphData(): Promise<{ nodes: GraphNode[]; edges: Gra
     if (edgeKeys.has(key)) return
     edgeKeys.add(key)
     edges.push({
-      id: `${source}->${target}`,
+      // 同一对节点允许多条关系（兄弟 + 同事），id 必须带上关系名，否则 React Flow 的
+      // edgeLookup 会把后一条覆盖掉（PR #5 #1 的前提）
+      id: allowParallel ? `${source}->${target}::${relation}` : `${source}->${target}`,
       source,
       target,
       type: 'relationEdge',
@@ -101,6 +103,10 @@ export async function buildGraphData(): Promise<{ nodes: GraphNode[]; edges: Gra
 
   for (const e of events) {
     addNode(`event-${e.id}`, e.title, 'event', e.id, e.time, e.graphPosition)
+    const node = nodes.find((n) => n.id === `event-${e.id}`)
+    if (node) {
+      ;(node.data as Record<string, unknown>).imageUrl = e.headerUrl ?? ''
+    }
   }
 
   for (const c of countries) {
@@ -116,7 +122,8 @@ export async function buildGraphData(): Promise<{ nodes: GraphNode[]; edges: Gra
     for (const rc of c.relatedCharacters ?? []) {
       const targetId = `character-${rc.characterId}`
       if (nodeIds.has(targetId)) {
-        addEdge(sourceId, targetId, rc.relation || '', false, { color: rc.color, arrow: rc.arrow }, true)
+        // 角色之间的关系默认双向箭头（docs/关系图.md §2.1），显式存过就以存的为准
+        addEdge(sourceId, targetId, rc.relation || '', false, { color: rc.color, arrow: rc.arrow ?? 'both' }, true)
       }
     }
   }
@@ -363,8 +370,14 @@ export async function createRelationBetween(
       ])
       if (!from || !to) return { ok: false, reason: 'missing' }
       const list = from.relatedCharacters ?? []
-      if (list.some((item) => item.characterId === to.id)) return { ok: false, reason: 'duplicate' }
-      const next = [...list, { characterId: to.id, name: to.name, relation: label }]
+      // 同一对角色可以有多条不同名字的关系（兄弟 + 同事）；同名才算重复
+      if (list.some((item) => item.characterId === to.id && (item.relation ?? '').trim() === label)) {
+        return { ok: false, reason: 'duplicate' }
+      }
+      const next = [
+        ...list,
+        { characterId: to.id, name: to.name, relation: label, arrow: 'both' as const },
+      ]
       await db.characters.update(from.id, {
         relatedCharacters: next,
         updatedAt: now,
@@ -393,7 +406,9 @@ export async function createRelationBetween(
       ])
       if (!from || !to) return { ok: false, reason: 'missing' }
       const list = from.relations ?? []
-      if (list.some((item) => item.targetId === to.id)) return { ok: false, reason: 'duplicate' }
+      if (list.some((item) => item.targetId === to.id && (item.relation ?? '').trim() === label)) {
+        return { ok: false, reason: 'duplicate' }
+      }
       const next = [...list, { targetId: to.id, relation: label }]
       await db.events.update(from.id, { relations: next, updatedAt: now, ...pendingStamp(now) })
       await logOperation('events', from.id, 'relations', JSON.stringify(list), JSON.stringify(next))

@@ -168,6 +168,7 @@ export function generateTerrain(
       const continental = fbm(noise, wx * continentScale, wy * continentScale, 6, 2.03, 0.52)
       const medium = fbm(noise, wx * 0.0046 + 9.2, wy * 0.0046 - 4.7, 4)
       const fine = fbm(noise, wx * 0.0135 - 8.8, wy * 0.0135 + 6.1, 3)
+      const conv = Math.max(0, tectonics.convergence[i])
       const div = Math.max(0, -tectonics.convergence[i])
       const boundary = tectonics.boundary[i]
 
@@ -177,7 +178,8 @@ export function generateTerrain(
         medium * 0.2 +
         fine * 0.06
 
-      // 姹囪仛杈圭晫鎶崌鍦板３锛涚鏁ｈ竟鐣屽舰鎴愯璋?娲嬭剨鐨勮礋鍚戜慨姝ｃ€?      value += boundary * conv * (0.045 + 0.11 * plateauStrength)
+      // 汇聚边界抬升地壳；离散边界形成裂谷洋脊的负向修正。
+      value += boundary * conv * (0.045 + 0.11 * plateauStrength)
       value -= boundary * div * (0.02 + 0.024 * (1 - plainBias) * 0.5)
 
       if (preset !== 'custom') {
@@ -244,7 +246,7 @@ export function generateTerrain(
         const ridgeB = ridgedFbm(noise, x * 0.0157 - 6.6, y * 0.0157 + 1.9, 4, 2.15, 0.5)
         const ridge = ridgeA * 0.62 + ridgeB * 0.38
 
-        // 姹囪仛杈圭晫锛氬缂撻珮鍘?+ 鍒嗘灞辩郴銆備笉瑕佹妸鏁存潯鏉垮潡缂濇姮鎴愪竴閬撹繛缁伆澧欙細
+        // 汇聚边界：宽缓高原 + 分段山系。不要把整条板块缝抬成一道连续灰墙：
         const core = Math.pow(boundary, 2.35)
         const orogen = smoothstep(0.42, 0.72, ridgeA * 0.62 + ridgeB * 0.38)
         const alongVariation = 0.28 + ridge * 0.9
@@ -261,7 +263,8 @@ export function generateTerrain(
       } else {
         const oceanT = clamp((seaThreshold - b) / (seaThreshold - minBase || 1), 0, 1)
         let depth = 180 + Math.pow(oceanT, 0.72) * 5450
-        // 澶氬昂搴︽捣搴曡捣浼忥紝閬垮厤鍑虹幇澶х墖绾壊鈥滃钩闈㈡捣娲嬧€濄€?        depth += fbm(noise, x * 0.0018 - 3.4, y * 0.0018 + 7.7, 3) * 430
+        // 多尺度海底起伏，避免出现大片纯色“平面海洋”。
+        depth += fbm(noise, x * 0.0018 - 3.4, y * 0.0018 + 7.7, 3) * 430
         depth += fbm(noise, x * 0.0052 + 8.1, y * 0.0052 - 2.6, 4) * 260
         depth += fbm(noise, x * 0.013 - 5.3, y * 0.013 + 4.9, 2) * 70
         if (tectonics.oceanic[i]) {

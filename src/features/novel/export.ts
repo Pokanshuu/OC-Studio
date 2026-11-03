@@ -26,6 +26,11 @@ export interface NovelExportChapter {
   /** 1 = 卷/章，2 = 节 …（按树深度） */
   depth: number
   text: string
+  /**
+   * 章内插图（`imageBlock.src`，库内相对路径或 data URL），按正文顺序。
+   * 纯文本 / TXT / 分页预览不显示；Word 导出据此把图写进 `word/media/`。
+   */
+  images?: string[]
 }
 
 function parseDoc(content: string): NovelDocNode | null {
@@ -51,6 +56,12 @@ function inlineText(node: NovelDocNode, markdown: boolean): string {
       return acc
     }, text)
   }
+  // @ 引用 / [[内链]] 是 atom：正文在 attrs.label 上，直接读 content 会得到空串
+  if (node.type === 'mention' || node.type === 'wikiLink') {
+    const label = String(node.attrs?.label ?? node.attrs?.raw ?? '').trim()
+    return label
+  }
+  if (node.type === 'hardBreak') return '\n'
   const inner = (node.content ?? []).map((child) => inlineText(child, markdown)).join('')
   return inner
 }
@@ -63,6 +74,12 @@ function blockLines(node: NovelDocNode, markdown: boolean): string[] {
       const level = Number(node.attrs?.level ?? 2)
       const text = inlineText(node, markdown)
       return markdown ? [`${'#'.repeat(Math.min(6, Math.max(1, level)))} ${text}`] : [text]
+    }
+    case 'imageBlock': {
+      const src = String(node.attrs?.src ?? '')
+      if (!src) return []
+      // 纯文本（TXT / 分页预览 / 字数）不出现任何图片标记；Markdown 才保留图片语法
+      return markdown ? [`![](${src})`] : []
     }
     case 'bulletList':
     case 'orderedList': {
@@ -88,6 +105,23 @@ function blockLines(node: NovelDocNode, markdown: boolean): string[] {
   }
 }
 
+function imageSources(node: NovelDocNode, out: string[]): void {
+  if (node.type === 'imageBlock' || node.type === 'image') {
+    const src = String(node.attrs?.src ?? '').trim()
+    if (src) out.push(src)
+  }
+  for (const child of node.content ?? []) imageSources(child, out)
+}
+
+/** 一章的插图源（正文顺序）；没有图片时返回空数组 */
+export function chapterImages(entry: WorldEntry): string[] {
+  const doc = parseDoc(entry.content)
+  if (!doc) return []
+  const out: string[] = []
+  imageSources(doc, out)
+  return out
+}
+
 /** 一章的正文：Tiptap JSON → Markdown / 纯文本 */
 export function chapterText(entry: WorldEntry, markdown: boolean): string {
   const doc = parseDoc(entry.content)
@@ -99,26 +133,45 @@ export function chapterText(entry: WorldEntry, markdown: boolean): string {
   return blocks.join(markdown ? '\n\n' : '\n').trim()
 }
 
-function collect(nodes: WorldTreeNode[], depth: number, out: NovelExportChapter[]): void {
+function collect(
+  nodes: WorldTreeNode[],
+  depth: number,
+  out: NovelExportChapter[],
+  markdown: boolean,
+): void {
   for (const node of nodes) {
-    out.push({ title: node.entry.title, depth, text: chapterText(node.entry, true) })
-    if (node.children.length > 0) collect(node.children, depth + 1, out)
+    const text = chapterText(node.entry, markdown)
+    const images = chapterImages(node.entry)
+    out.push(
+      images.length > 0
+        ? { title: node.entry.title, depth, text, images }
+        : { title: node.entry.title, depth, text },
+    )
+    if (node.children.length > 0) collect(node.children, depth + 1, out, markdown)
   }
 }
 
-/** 树 → 章节序列（顺序与编辑器目录 / 静态站完全一致） */
-export function flattenNovel(entries: WorldEntry[]): NovelExportChapter[] {
+/**
+ * 树 → 章节序列（顺序与编辑器目录 / 静态站完全一致）。
+ *
+ * 默认给**纯文本**：TXT / Word / 分页预览 / 字数统计都不该看到 `**` `##`；
+ * 只有 Markdown 导出才显式要 `markdown: true`。
+ */
+export function flattenNovel(
+  entries: WorldEntry[],
+  options: { markdown?: boolean } = {},
+): NovelExportChapter[] {
   const out: NovelExportChapter[] = []
-  collect(buildEntryTree(entries), 1, out)
+  collect(buildEntryTree(entries), 1, out, options.markdown === true)
   return out
 }
 
-/** Markdown：卷用 `#`，章用 `##`，节用 `###`（按树深度，最多 6 级） */
+/** Markdown：书名 `#`，卷 `##`，章 `###` …（层级从书名下一档开始，最多 6 级） */
 export function toMarkdown(chapters: NovelExportChapter[], options: { title?: string } = {}): string {
   const parts: string[] = []
   if (options.title) parts.push(`# ${options.title}`)
   for (const chapter of chapters) {
-    const level = Math.min(6, chapter.depth)
+    const level = Math.min(6, chapter.depth + 1)
     parts.push(`${'#'.repeat(level)} ${chapter.title}`)
     if (chapter.text) parts.push(chapter.text)
   }
@@ -136,7 +189,12 @@ export function toTxt(chapters: NovelExportChapter[], options: { title?: string 
   return parts.join('\n\n') + '\n'
 }
 
-/** 字数（和 fork 版一致：按去掉空白的字符数算） */
+/** 字数（和 fork 版一致：按去掉空白的字符数算）；图片路径 / 图片标记不计入 */
 export function countNovelWords(chapters: NovelExportChapter[]): number {
-  return chapters.reduce((sum, chapter) => sum + chapter.text.replace(/\s/g, '').length, 0)
+  return chapters.reduce((sum, chapter) => {
+    const prose = chapter.text
+      .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+      .replace(/［图片］/g, '')
+    return sum + prose.replace(/\s/g, '').length
+  }, 0)
 }

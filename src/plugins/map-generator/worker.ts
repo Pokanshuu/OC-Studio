@@ -38,7 +38,7 @@ function generate(requestId: number, seed: number, params: WorldMapParams): void
 
     const initial = renderView(generated.state, generated.context, 'terrain')
     cache.set('terrain:0', initial)
-    progress(requestId, '鍑嗗鍥惧眰', 0.99)
+    progress(requestId, '准备图层', 0.99)
 
     const height = copyBuffer(generated.state.terrain.elevation)
     const biome = copyBuffer(generated.state.biomes.biome)
@@ -72,7 +72,7 @@ function generate(requestId: number, seed: number, params: WorldMapParams): void
       [height, biome, water, temperature, moisture, initialImage],
     )
   } catch (error) {
-    const message = error instanceof Error ? error.message : '鍦板浘鐢熸垚澶辫触'
+    const message = error instanceof Error ? error.message : '地图生成失败'
     post({ type: 'error', requestId, message })
   }
 }
@@ -90,7 +90,7 @@ function importMapwright(
 
     const initial = renderView(generated.state, generated.context, 'terrain')
     cache.set('terrain:0', initial)
-    progress(requestId, '鏄犲皠 mapwright 鏁版嵁', 0.99)
+    progress(requestId, '映射 mapwright 数据', 0.99)
 
     const height = copyBuffer(generated.state.terrain.elevation)
     const biome = copyBuffer(generated.state.biomes.biome)
@@ -124,7 +124,7 @@ function importMapwright(
       [height, biome, water, temperature, moisture, initialImage],
     )
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'mapwright 鏁版嵁瀵煎叆澶辫触'
+    const message = error instanceof Error ? error.message : 'mapwright 数据导入失败'
     post({ type: 'error', requestId, message })
   }
 }
@@ -132,7 +132,7 @@ function importMapwright(
 function render(requestId: number, view: MapView, contourInterval = 100): void {
   try {
     if (!world || !renderContext) {
-      post({ type: 'error', requestId, message: '鍦板浘灏氭湭鐢熸垚' })
+      post({ type: 'error', requestId, message: '地图尚未生成' })
       return
     }
     const effective = view === 'profile' ? 'terrain' : view
@@ -149,7 +149,7 @@ function render(requestId: number, view: MapView, contourInterval = 100): void {
     const buffer = image.slice().buffer as ArrayBuffer
     post({ type: 'rendered', requestId, view, contourInterval: interval, buffer }, [buffer])
   } catch (error) {
-    const message = error instanceof Error ? error.message : '鍥惧眰娓叉煋澶辫触'
+    const message = error instanceof Error ? error.message : '图层渲染失败'
     post({ type: 'error', requestId, message })
   }
 }

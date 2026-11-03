@@ -6,6 +6,7 @@ import { isTauri } from "./env"
 import { DEFAULT_SIDEBAR_WIDTH, clampSidebarWidth } from "./sidebar-width"
 import type { EditorLayout } from "./editor-layout"
 import type { CoverTintMode } from "./cover/tuning"
+import { normalizeEdgeStyle, type EdgeStyle } from "./edge-style"
 
 const STORAGE_KEY = "oc-studio-settings"
 
@@ -24,6 +25,8 @@ export interface Settings {
    * - `right-pan`：右键拖动画布平移，左键直接框选
    */
   mouseMode: 'left-pan' | 'right-pan'
+  /** 关系图边型：正交（默认）/ 曲线，见 `EdgeStyle` */
+  edgeStyle: EdgeStyle
   /**
    * 封面卡（角色 / 国家 / 事件网格）的混色来源：
    * - `auto` 从封面图里取色（有彩度跟着图走，无彩度转中性）
@@ -41,6 +44,7 @@ const DEFAULT_SETTINGS: Settings = {
   sidebarWidth: DEFAULT_SIDEBAR_WIDTH,
   editorLayout: "auto",
   mouseMode: "left-pan",
+  edgeStyle: "orthogonal",
   coverTintMode: "auto",
 }
 
@@ -51,7 +55,12 @@ function loadSettings(): Settings {
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<Settings>
       const merged = { ...DEFAULT_SETTINGS, ...parsed }
-      return { ...merged, sidebarWidth: clampSidebarWidth(merged.sidebarWidth) }
+      return {
+        ...merged,
+        sidebarWidth: clampSidebarWidth(merged.sidebarWidth),
+        // 手改过 localStorage 的旧值不让它把「边型」带到非法状态（非法一律回正交）
+        edgeStyle: normalizeEdgeStyle(merged.edgeStyle),
+      }
     }
   } catch {
     // corrupted data, fall through

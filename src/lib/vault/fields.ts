@@ -123,6 +123,9 @@ export const WORLD_KEYS = {
   mapImage: chain('map_image', '底图'),
   mapWidth: chain('map_width', '地图宽'),
   mapHeight: chain('map_height', '地图高'),
+  /** 地图生成参数快照（JSON 字符串）+ 种子：重生成用 */
+  mapSeed: chain('map_seed', '种子'),
+  mapParams: chain('map_params', '生成参数'),
   /** 章节大纲 / 备注（只有章节会写） */
   chapterOutline: chain('chapter_outline', '章节大纲'),
   tags: chain('tags'),

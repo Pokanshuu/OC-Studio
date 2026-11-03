@@ -248,4 +248,41 @@ export async function saveBlobToDisk(blob: Blob, type: string): Promise<string> 
   }
 }
 
+/**
+ * 地图底图专用：把 Blob 写进 appData 的临时目录，返回绝对路径。
+ *
+ * 为什么只有这一步单独开一个函数：`vault_import_file` 读的是**磁盘上的源文件**。
+ * 先落成临时文件再让 Rust 原生复制，避免把整张图的字节经 IPC 序列化成 JSON
+ * （与 `saveBlobToDisk` 的 vault 分支同一个理由）。调用方负责清理临时文件。
+ */
+export async function writeBlobToAppDataTemp(blob: Blob, fileName: string): Promise<string> {
+  if (!isTauri()) throw new Error('临时文件只存在于桌面版')
+
+  const basePath = (await ensureTauriAppDataDir()).replace(/[\\/]+$/, '')
+  const { writeFile, mkdir } = await import('@tauri-apps/plugin-fs')
+  const dir = `${basePath}/tmp/maps`
+
+  try {
+    await mkdir(dir, { recursive: true })
+  } catch {
+    // 目录已存在
+  }
+
+  const safeName = fileName.replace(/[\\/:*?"<>|]/g, '_') || 'map.png'
+  const destPath = `${dir}/${safeName}`
+  await writeFile(destPath, new Uint8Array(await blob.arrayBuffer()))
+  return destPath
+}
+
+/** 删除上一步写出的临时文件。失败静默：它只是一份中转副本，不该让保存失败。 */
+export async function removeAppDataTemp(path: string): Promise<void> {
+  if (!isTauri()) return
+  try {
+    const { remove } = await import('@tauri-apps/plugin-fs')
+    await remove(path)
+  } catch {
+    // 权限或占用问题都不影响底图本身
+  }
+}
+
 export { getCroppedBlob, getCroppedDataUrl } from './image-crop'

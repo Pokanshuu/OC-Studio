@@ -7,7 +7,9 @@ import { convertHeifToJpeg } from '@/lib/image-heif'
 import { ImageCropper } from './ImageCropper'
 import { FullscreenViewer } from './FullscreenViewer'
 import { toast } from 'sonner'
-import { MENU, MENU_ITEM } from '@/lib/ui-tokens'
+import { MENU_ITEM } from '@/lib/ui-tokens'
+import { MenuSurface } from './menu/MenuSurface'
+import { OverlayIconButton } from './OverlayIconButton'
 import { downloadMediaFile } from '@/lib/media-download'
 
 export interface ImageUploaderProps {
@@ -176,18 +178,18 @@ export function ImageUploader({
             />
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={currentSrc} alt="" className="h-full w-full object-cover pointer-events-none" />
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation()
-                const rect = event.currentTarget.getBoundingClientRect()
-                setMenuAt({ x: rect.left, y: rect.bottom })
-              }}
-              className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--oc-scrim)] text-paper-fixed opacity-0 transition-opacity group-hover/image:opacity-100"
-              aria-label="图片操作"
-            >
-              <MoreHorizontal size={14} strokeWidth={2} />
-            </button>
+            <span className="absolute right-1 top-1 opacity-0 transition-opacity group-hover/image:opacity-100">
+              <OverlayIconButton
+                label="图片操作"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  const rect = event.currentTarget.getBoundingClientRect()
+                  setMenuAt({ x: rect.left, y: rect.bottom })
+                }}
+              >
+                <MoreHorizontal size={14} strokeWidth={2} />
+              </OverlayIconButton>
+            </span>
           </div>
         ) : (
           <button
@@ -202,11 +204,7 @@ export function ImageUploader({
       </div>
 
       {menuAt ? (
-        <div
-          className={`${MENU} fixed z-50 flex min-w-32 flex-col`}
-          style={{ left: menuAt.x, top: menuAt.y }}
-          onMouseLeave={() => setMenuAt(null)}
-        >
+        <MenuSurface at={menuAt} onClose={() => setMenuAt(null)} className="min-w-32">
           <button type="button" className={MENU_ITEM} onClick={() => { setMenuAt(null); void handleClick() }}>
             替换
           </button>
@@ -241,7 +239,7 @@ export function ImageUploader({
               移除
             </button>
           ) : null}
-        </div>
+        </MenuSurface>
       ) : null}
 
       {viewing && value ? (

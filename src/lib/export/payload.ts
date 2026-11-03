@@ -1,12 +1,10 @@
 import { db } from '@/lib/db'
+import type { Character, Country, Event, WorldEntry } from '@/types'
 import { downloadJson } from './download'
 import { resolveImageUrl } from '../image-service'
 import {
   collectBodyImageRefs,
-  collectCharacterImageRefs,
-  collectCountryImageRefs,
-  collectEventImageRefs,
-  collectWorldEntryImageRefs,
+  collectDatasetImageRefs,
   inlineBodyImageRefs,
 } from '../image-refs'
 
@@ -55,6 +53,11 @@ type ImageRecord = {
   headerUrl?: string
   flagUrl?: string
   coverUrl?: string
+  /** 角色 OC 动画（视频也是随库走的素材，备份要一起带走） */
+  animationUrl?: string
+  /** 词条：小说封面 / 地图底图 */
+  novelCover?: string
+  mapImage?: string
   avatars?: unknown[]
   gallery?: unknown[]
   images?: unknown[]
@@ -73,6 +76,9 @@ export async function urlToDataUri(url: string): Promise<string | null> {
   if (!url || url.startsWith('data:')) return null
   try {
     const resolved = resolveImageUrl(url, 'avatar')
+    // 相对路径在没有库的环境里（浏览器预览）会解析成内置占位图。
+    // 占位图不能顶替真图写进备份：那等于用一张灰头像覆盖掉原引用。
+    if (resolved.includes('/images/defaults/')) return null
     const resp = await fetch(resolved)
     if (!resp.ok) return null
     const blob = await resp.blob()
@@ -90,6 +96,9 @@ function inlineImageUrls(records: unknown[], map: Map<string, string>): void {
     if (r.headerUrl) r.headerUrl = replace(r.headerUrl)
     if (r.flagUrl) r.flagUrl = replace(r.flagUrl)
     if (r.coverUrl) r.coverUrl = replace(r.coverUrl)
+    if (r.animationUrl) r.animationUrl = replace(r.animationUrl)
+    if (r.novelCover) r.novelCover = replace(r.novelCover)
+    if (r.mapImage) r.mapImage = replace(r.mapImage)
     if (Array.isArray(r.avatars)) {
       r.avatars = r.avatars.map((a) => (typeof a === 'string' ? replace(a) : { ...(a as object), url: replace((a as { url?: string }).url) }))
     }
@@ -106,16 +115,22 @@ function inlineImageUrls(records: unknown[], map: Map<string, string>): void {
 export async function exportFullBackup(): Promise<ExportPayload> {
   const payload = await exportAllData()
   // 图片引用的收集规则与相册、文件夹落地共用 `lib/image-refs`：
-  // 字段图（头像/头图/图集/旗帜/封面）**和正文 imageBlock** 都要算进来，
-  // 只内联字段图的话，换台机器导入后正文里的图全是死链。
-  const urls = new Set<string>([
-    ...collectCharacterImageRefs(payload.data.characters as never).map((ref) => ref.url),
-    ...collectEventImageRefs(payload.data.events as never).map((ref) => ref.url),
-    ...collectCountryImageRefs(payload.data.countries as never).map((ref) => ref.url),
-    ...collectWorldEntryImageRefs(payload.data.worldEntries as never).map((ref) => ref.url),
-  ])
-  const cover = (payload.data.meta[0] as { coverUrl?: string } | undefined)?.coverUrl
-  if (typeof cover === 'string' && cover !== '') urls.add(cover)
+  // 字段图（头像/头图/图集/旗帜/封面）、**正文 imageBlock**、角色动画（视频）
+  // 与词条的 `novelCover` / `mapImage` 都要算进来，只内联字段图的话，
+  // 换台机器导入后正文里的图、动画、小说封面、地图底图全是死链。
+  // `blob:` 这类只在当前会话有效的地址由收集器跳过，并记进 skipped。
+  const skipped: string[] = []
+  const refs = collectDatasetImageRefs(
+    {
+      characters: payload.data.characters as Character[],
+      events: payload.data.events as Event[],
+      countries: payload.data.countries as Country[],
+      worldEntries: payload.data.worldEntries as WorldEntry[],
+      metaCoverUrl: (payload.data.meta[0] as { coverUrl?: string } | undefined)?.coverUrl,
+    },
+    { skipped },
+  )
+  const urls = new Set(refs.map((ref) => ref.url))
 
   const map = new Map<string, string>()
   for (const url of urls) {
@@ -124,9 +139,15 @@ export async function exportFullBackup(): Promise<ExportPayload> {
     if (dataUri) map.set(url, dataUri)
   }
 
+  if (skipped.length > 0) {
+    // 会话内地址写进备份只会是一串死地址；这里明确说一声，别让它变成静默丢失
+    console.warn(`[backup] 跳过 ${skipped.length} 个会话内素材引用（blob:）`)
+  }
+
   inlineImageUrls(payload.data.characters, map)
   inlineImageUrls(payload.data.events, map)
   inlineImageUrls(payload.data.countries, map)
+  inlineImageUrls(payload.data.worldEntries, map)
   inlineImageUrls(payload.data.meta, map)
   inlineBodies(payload.data.characters, map)
   inlineBodies(payload.data.events, map)

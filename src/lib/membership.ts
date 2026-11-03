@@ -128,8 +128,7 @@ export async function syncCountryCharacters(
 }
 
 /** 国家编辑器改了「相关事件」：镜像回事件的相关国家（事件侧没有单值字段，直接增删） */
-export async function syncCountryEvents(
-  countryId: number,
+export async function syncCountryEvents(  countryId: number,
   previousEventIds: number[],
   nextEventIds: number[],
   now: number,
@@ -157,5 +156,66 @@ export async function syncCountryEvents(
     const updated = [...list, countryId]
     await db.events.update(event.id, { countries: updated, updatedAt: now, ...pendingStamp(now) })
     await logOperation('events', event.id, 'countries', JSON.stringify(list), JSON.stringify(updated))
+  }
+}
+
+/* ── 软删除后的投影清理 ─────────────────────────────────────
+   软删除只改自己那一行；别处的**投影**（关系表 / 国家名单 / 事件参与者）不会自动消失，
+   于是删完角色后，别人的关系表国家名单里还挂着一个看不见的人（PR #5 的 #10）。
+   这里按「被删的是谁」把指向它的那一项摘掉；只改投影，不动被删的行。
+   **不碰 `updatedAt`**：清理不是编辑，不该让整库窜到「最近更新」最前面。 */
+
+/** 删角色：清掉别人关系表里的它、国家名单里的它、事件参与者里的它 */
+export async function purgeCharacterReferences(characterId: number, now: number): Promise<void> {
+  for (const row of await db.characters.toArray()) {
+    const list = row.relatedCharacters ?? []
+    const next = list.filter((item) => item.characterId !== characterId)
+    if (next.length === list.length) continue
+    await db.characters.update(row.id, { relatedCharacters: next, ...pendingStamp(now) })
+    await logOperation('characters', row.id, 'relatedCharacters', JSON.stringify(list), JSON.stringify(next))
+  }
+  for (const row of await db.countries.toArray()) {
+    const list = row.characters ?? []
+    const next = list.filter((id) => id !== characterId)
+    if (next.length === list.length) continue
+    await db.countries.update(row.id, { characters: next, ...pendingStamp(now) })
+    await logOperation('countries', row.id, 'characters', JSON.stringify(list), JSON.stringify(next))
+  }
+  for (const row of await db.events.toArray()) {
+    const list = row.characters ?? []
+    const next = list.filter((id) => id !== characterId)
+    if (next.length === list.length) continue
+    await db.events.update(row.id, { characters: next, ...pendingStamp(now) })
+    await logOperation('events', row.id, 'characters', JSON.stringify(list), JSON.stringify(next))
+  }
+}
+
+/** 删国家：清掉角色的国籍、事件的相关国家 */
+export async function purgeCountryReferences(countryId: number, now: number): Promise<void> {
+  for (const row of await db.characters.toArray()) {
+    if (row.countryId !== countryId) continue
+    await db.characters.update(row.id, {
+      countryId: null,
+      ...pendingStamp(now),
+    } as unknown as Partial<Character>)
+    await logOperation('characters', row.id, 'countryId', String(countryId), '')
+  }
+  for (const row of await db.events.toArray()) {
+    const list = row.countries ?? []
+    const next = list.filter((id) => id !== countryId)
+    if (next.length === list.length) continue
+    await db.events.update(row.id, { countries: next, ...pendingStamp(now) })
+    await logOperation('events', row.id, 'countries', JSON.stringify(list), JSON.stringify(next))
+  }
+}
+
+/** 删事件：清掉国家侧的「相关事件」 */
+export async function purgeEventReferences(eventId: number, now: number): Promise<void> {
+  for (const row of await db.countries.toArray()) {
+    const list = row.events ?? []
+    const next = list.filter((id) => id !== eventId)
+    if (next.length === list.length) continue
+    await db.countries.update(row.id, { events: next, ...pendingStamp(now) })
+    await logOperation('countries', row.id, 'events', JSON.stringify(list), JSON.stringify(next))
   }
 }

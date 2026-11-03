@@ -32,7 +32,9 @@ export const MAP_GENERATOR_MANIFEST: PluginManifest = {
   version: '1.0.0',
   apiVersion: MAP_GENERATOR_API_VERSION,
   kind: 'official',
-  description: '按参数与种子生成世界 / 区域地图：地形、气候、水文、生物群系、政区与剖面',
+  // 只说界面上真能切到的视图（`MapGeneratorPanel` 的 VIEWS）。
+  // 内核还有 `political` / `profile`，但宿主暂无入口，不写进对外描述。
+  description: '按参数与种子生成世界 / 区域地图：地形、等高线、温度、降水、生物群系',
   permissions: ['render-canvas', 'export-image', 'read-params'],
   entry: 'builtin',
 }

@@ -3,7 +3,7 @@ import { CharacterNode } from './CharacterNode'
 import { EventNode } from './EventNode'
 import { CountryNode } from './CountryNode'
 import { RelationEdge } from './RelationEdge'
-import { NODE_SIZE } from '../layout'
+import { nodeRect, type EdgeSide } from './floating-edge'
 import type { RelationNodeType } from '../types'
 
 // 节点坐标不放这里：真源是实体（`graphPosition` → 仓库的 `graph_position`），
@@ -68,16 +68,20 @@ export const MIN_ZOOM = 0.6
 
 /* ── 连线落点 ────────────────────────────────────────────────
    节点四向都有手柄（见 *Node.tsx）。每条边按「目标在哪个方位」挑两端的手柄，
-   否则所有线都从正下方挤出来，贴着节点糊成一束。 */
+   否则所有线都从正下方挤出来，贴着节点糊成一束。
+   几何唯一源是 `floating-edge.ts`（尺寸 / 求交 / 边型都在那边），这里只决定挂哪对手柄。 */
 
-export type HandleSide = 'top' | 'right' | 'bottom' | 'left'
+export type HandleSide = EdgeSide
 
 function nodeCenter(node: Node): { x: number; y: number } {
-  const type = (node.data?.entityType ?? 'character') as RelationNodeType
-  const size = NODE_SIZE[type] ?? NODE_SIZE.character
-  const width = node.measured?.width ?? size.w
-  const height = node.measured?.height ?? size.h
-  return { x: node.position.x + width / 2, y: node.position.y + height / 2 }
+  const rect = nodeRect({
+    x: node.position.x,
+    y: node.position.y,
+    width: node.measured?.width,
+    height: node.measured?.height,
+    entityType: node.data?.entityType,
+  })
+  return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }
 }
 
 /** 按两端节点的相对方位，给每条边挑一组手柄（横向为主走左右，纵向为主走上下） */

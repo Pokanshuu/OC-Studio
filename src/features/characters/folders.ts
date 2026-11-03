@@ -39,7 +39,7 @@ export async function moveCharacterToFolder(id: number, folder: string | null): 
   const now = Date.now()
   await db.characters.update(id, {
     folder: name === '' ? undefined : name,
-    updatedAt: now,
+    // 分组不是内容编辑：不碰 updatedAt，否则整夹角色会窜到「最近更新」最前面
     ...pendingStamp(now),
   })
   await logOperation('characters', id, 'folder', '', name)
@@ -48,12 +48,15 @@ export async function moveCharacterToFolder(id: number, folder: string | null): 
 /** 重命名文件夹：批量改 `folder` 键，角色一条都不动 */
 export async function renameFolder(from: string, to: string): Promise<number> {
   const target = to.trim()
-  if (target === '' || target === from) return 0
-  const rows = await db.characters.filter((row) => !row.deleted && row.folder === from).toArray()
+  const source = from.trim()
+  if (target === '' || target === source) return 0
+  const rows = await db.characters
+    .filter((row) => !row.deleted && (row.folder ?? '').trim() === source)
+    .toArray()
   const now = Date.now()
   for (const row of rows) {
-    await db.characters.update(row.id, { folder: target, updatedAt: now, ...pendingStamp(now) })
-    await logOperation('characters', row.id, 'folder', from, target)
+    await db.characters.update(row.id, { folder: target, ...pendingStamp(now) })
+    await logOperation('characters', row.id, 'folder', source, target)
   }
   return rows.length
 }
@@ -63,11 +66,14 @@ export async function renameFolder(from: string, to: string): Promise<number> {
  * 返回受影响的角色数。
  */
 export async function deleteFolder(name: string): Promise<number> {
-  const rows = await db.characters.filter((row) => !row.deleted && row.folder === name).toArray()
+  const target = name.trim()
+  const rows = await db.characters
+    .filter((row) => !row.deleted && (row.folder ?? '').trim() === target)
+    .toArray()
   const now = Date.now()
   for (const row of rows) {
-    await db.characters.update(row.id, { folder: undefined, updatedAt: now, ...pendingStamp(now) })
-    await logOperation('characters', row.id, 'folder', name, '')
+    await db.characters.update(row.id, { folder: undefined, ...pendingStamp(now) })
+    await logOperation('characters', row.id, 'folder', target, '')
   }
   return rows.length
 }

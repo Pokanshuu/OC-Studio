@@ -208,10 +208,6 @@ export function CharacterList({
           total={characters.length}
           value={folderFilter}
           onChange={setFolderFilter}
-          onCreate={async (name) => {
-            // 文件夹没有自己的表：建 = 等第一个角色用这个名字（这里只切到它）
-            setFolderFilter(name)
-          }}
           onRename={async (from, to) => {
             const moved = await renameFolder(from, to)
             toast.success(`已重命名为「${to}」`, { description: `${moved} 个角色跟着走，角色本身没动` })

@@ -5,6 +5,7 @@
  */
 import { flattenNovel, toMarkdown, toTxt, countNovelWords } from '../src/features/novel/export'
 import { paginateNovel, linesPerPage, charsPerLine, wrapText } from '../src/features/novel/pagination'
+import { planNovelPages } from '../src/features/novel/render-pages'
 import type { WorldEntry } from '../src/types'
 
 let passed = 0
@@ -49,23 +50,40 @@ const entries: WorldEntry[] = [
 ]
 
 const chapters = flattenNovel(entries)
+const markdownChapters = flattenNovel(entries, { markdown: true })
 check('章节数 = 4（含根）', chapters.length === 4)
 check('按 order 排序', chapters.map((c) => c.title).join('|') === '蜂群纪事|第01章 雨季|第02章 蜂巢|第01节 巢门')
 check('深度正确（节在第 2 章下）', chapters[3].depth === 3)
-check('粗体转成 **…**', chapters[1].text.includes('**她没有回头。**'))
+check('默认纯文本不带粗体标记', !chapters[1].text.includes('**'))
+check('Markdown 粗体转成 **…**', markdownChapters[1].text.includes('**她没有回头。**'))
 check('列表转成 - 项', chapters[2].text.includes('- 一'))
 
-const md = toMarkdown(chapters, { title: '蜂群纪事' })
+const md = toMarkdown(markdownChapters, { title: '蜂群纪事' })
 check('Markdown 有书名一级标题', md.startsWith('# 蜂群纪事'))
 check('Markdown 章是二级标题', md.includes('## 第01章 雨季'))
 check('Markdown 节是三级标题', md.includes('### 第01节 巢门'))
 
 const txt = toTxt(chapters, { title: '蜂群纪事' })
 check('TXT 不带 # 号', !txt.includes('#'))
+check('TXT 不带 Markdown 粗体标记', !txt.includes('**'))
 check('TXT 保留章节标题行', txt.includes('第01章 雨季'))
 check('TXT 段落用空行分隔', txt.includes('雨下了很久。\n\n**她没有回头。**') || txt.includes('雨下了很久。') )
 
 check('字数 > 0 且不含空白', countNovelWords(chapters) > 0 && countNovelWords(chapters) === countNovelWords(chapters))
+
+// ── 图片：纯文本不显示、Markdown 出语法、字数不计路径
+const imageDoc = doc([
+  p('开头'),
+  { type: 'imageBlock', attrs: { src: '附件/插图1.png' } },
+  p('结尾'),
+])
+const imagePlain = flattenNovel([entry(20, '第03章 插图', null, 0, imageDoc)])
+const imageMarkdown = flattenNovel([entry(21, '第03章 插图', null, 0, imageDoc)], { markdown: true })
+check('纯文本不出现图片标记 / 路径', !imagePlain[0].text.includes('［图片］') && !imagePlain[0].text.includes('附件/插图1.png'))
+check('纯文本不出现 Markdown 图片语法', !imagePlain[0].text.includes('!['))
+check('imageBlock.src 收进 images', imagePlain[0].images?.length === 1 && imagePlain[0].images?.[0] === '附件/插图1.png')
+check('Markdown 输出 ![](src)', imageMarkdown[0].text.includes('![](附件/插图1.png)'))
+check('字数只算正文（不含图片路径）', countNovelWords(imagePlain) === 4)
 
 // 悬空父级：父被删也不能丢
 const orphan = flattenNovel([entry(9, '孤儿章', 999, 0, doc([p('x')]))])
@@ -86,5 +104,12 @@ check('每行字数随版心变化', charsPerLine('A4') >= charsPerLine('9:16'))
 const wrapped = wrapText('这是一段很长的中文，用来验证折行不会切断字符。', '9:16')
 check('折行后总字数不变', wrapped.join('').replace(/\s/g, '') === '这是一段很长的中文，用来验证折行不会切断字符。'.replace(/\s/g, ''))
 check('空章节也占一页', paginateNovel([{ title: '空章', depth: 2, text: '' }], '9:16').length === 1)
+
+// ── PNG 分页计划：导出对话框的页数来源（浏览器里再画成 canvas）
+const pngPages = planNovelPages(flat, '9:16')
+check('PNG 页数 > 0', pngPages.length > 0)
+check('PNG 页数与分页一致', pngPages.length === paginateNovel(flat, '9:16').length)
+check('PNG 每一页都有页码', pngPages.every((page) => page.index >= 1))
+check('PNG 页数对空书为 0', planNovelPages([], '9:16').length === 0)
 
 console.log(`\n共 ${passed} 项断言通过`)

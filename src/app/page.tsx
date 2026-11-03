@@ -48,6 +48,7 @@ export default function Home() {
     charactersLoading,
     characterView,
     charSlide,
+    clearNovelEntryTarget,
     clearWorldSelectedEntry,
     countrySlide,
     countryView,
@@ -79,6 +80,7 @@ export default function Home() {
     handleWikiLinkClick,
     handleWorldCharCount,
     leaveConfirm,
+    novelEntryTarget,
     placeholderText,
     selectedEvent,
     setActiveItem,
@@ -223,7 +225,11 @@ export default function Home() {
         className="h-full section-fade overflow-y-auto section-fade-no-gutter"
         data-visible={showNovel ? "true" : "false"}
       >
-        <NovelSection />
+        <NovelSection
+          openEntryRequest={novelEntryTarget}
+          onOpenEntryConsumed={clearNovelEntryTarget}
+          onWikiLinkClick={handleWikiLinkClick}
+        />
       </div>
 
       <div
@@ -237,7 +243,7 @@ export default function Home() {
         className="h-full section-fade overflow-auto section-fade-no-gutter"
         data-visible={showTreeTable ? "true" : "false"}
       >
-        <TreeTable />
+        <TreeTable onNavigate={(id, type) => handleRelatedItemNavigate(id, type)} />
       </div>
 
       <div
