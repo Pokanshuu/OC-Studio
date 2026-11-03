@@ -59,6 +59,15 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - `src/components/ui/` — shadcn/ui 基础组件
 - `src/components/layout/` — 布局（AppShell, Sidebar, MenuBar + MenuBarMenus/MenuBarSearch/WindowControls, StatusBar, OverlayRoot, MobileTopBar, MobileTabBar, MobileFilterBar, MobileFab）
 
+- `src/features/novel/` — 小说（**章节 = 笔记**）：`NovelSection`（书架，封面 2:3）/ `NovelTree`（章节树 + 复用 `EditorBodyPane` + 我们自己的编辑器内核）/ `export.ts`（Markdown / TXT）/ `docx.ts`（自带最小 ZIP writer，不引第三方）/ `pagination.ts`（9:16 · 16:9 · A4 估页）/ `services.ts`（建根 / 建章 / 元信息 / 章节大纲）。作品信息落 `novel_author` `novel_synopsis` `novel_target_words` `novel_notes` `novel_cover`，章节大纲落 `chapter_outline`；小说条目**不进世界观目录树、不进相册**（`lib/novel.ts#isNovelEntry`）
+- `src/features/map/` — 地图（**视图**，不是实体）：`services.ts`（`normalizeAnchor` / `groupAnchors` / `setAnchor` / `listMapAssets`）、`MapView.tsx`（16:9 画布 + 拖动写回 + 底图）。锚点落实体 `map_position`（归一化 0–1）+ `map_id`，底图在 `.ocstudio/maps/`（Rust `vault_list_assets` 枚举）
+- `src/features/tree-table/` — 树形表格：**只做渲染层**，词条树仍走 `buildEntryTree`；四个页签（词条 / 国家 / 角色 / 事件）
+- `src/plugins/map-generator/` — **第一个官方插件**（内置模块 + 插件形状接口）：`manifest.ts` + `index.ts`（唯一对外边界）+ `kernel/`（纯算法）+ `worker.ts`。不碰 Dexie / localStorage / DOM / 用户文件；内置侧只留地图视图
+- `src/lib/legacy/` — fork 数据**只读适配器**：`pr5-novels.ts`（`OCStudioNovels` 独立库 → 章节笔记）、`pr5-relations.ts`（`relations` 表 → 显式边）。三条规矩：只读、幂等、给报告
+- `src/lib/relation-colors.ts` — 关系线色板与箭头唯一源（12 档 `--oc-accent-*`、`arrowEnds()`、非法值收敛）；`features/relations/edge-style.ts` 负责「怎么改一条边」
+- `src/lib/theme-tokens.ts` — 主题令牌归属登记（`shell` / `page` / `both`），`npm run audit:theme` 双向自检
+- `src/lib/media-download.ts` — 图片 / 动画「保存到…」（系统保存对话框 + Rust `save_bytes` 原子写）；`src/lib/video-upload.ts` — OC 动画上传（库内 `附件/`）
+
 ### 核心上下文
 - `src/lib/editor-context.tsx` — ActiveEditorProvider（追踪当前聚焦编辑器）
 - `src/components/layout/EditorContext.tsx` — EditorProvider + useEditor()（编辑状态 isEditing）
