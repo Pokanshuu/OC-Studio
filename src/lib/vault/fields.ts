@@ -106,6 +106,13 @@ export const WORLD_KEYS = {
   /** 地图锚点：归一化 0–1，换分辨率不用重摆（docs/地图.md §2） */
   mapPosition: chain('map_position', 'mapPosition'),
   mapId: chain('map_id', 'mapId'),
+  /** 小说作品信息（只有小说根节点会写；别的词条上不存在这些键） */
+  novelAuthor: chain('novel_author', '作者'),
+  novelSynopsis: chain('novel_synopsis', '作品简介'),
+  novelTargetWords: chain('novel_target_words', '目标字数'),
+  novelNotes: chain('novel_notes', '作品笔记'),
+  /** 章节大纲 / 备注（只有章节会写） */
+  chapterOutline: chain('chapter_outline', '章节大纲'),
   tags: chain('tags'),
   date: chain('date'),
 } as const

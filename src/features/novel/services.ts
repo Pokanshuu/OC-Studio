@@ -65,3 +65,24 @@ export async function renameNovelEntry(id: number, title: string): Promise<void>
   await db.worldEntries.update(id, { title, updatedAt: now, ...pendingStamp(now) })
   await logOperation('worldEntries', id, 'title', '', title)
 }
+
+/** 作品级元信息（只有根节点写这些键） */
+export interface NovelMetaPatch {
+  novelAuthor?: string
+  novelSynopsis?: string
+  novelTargetWords?: number
+  novelNotes?: string
+}
+
+export async function updateNovelMeta(id: number, patch: NovelMetaPatch): Promise<void> {
+  const now = Date.now()
+  await db.worldEntries.update(id, { ...patch, updatedAt: now, ...pendingStamp(now) })
+  await logOperation('worldEntries', id, 'novel_meta', '', Object.keys(patch).join(','))
+}
+
+/** 章节大纲 / 备注（一行说明，不是正文） */
+export async function updateChapterOutline(id: number, outline: string): Promise<void> {
+  const now = Date.now()
+  await db.worldEntries.update(id, { chapterOutline: outline, updatedAt: now, ...pendingStamp(now) })
+  await logOperation('worldEntries', id, 'chapter_outline', '', outline)
+}

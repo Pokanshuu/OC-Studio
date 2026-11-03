@@ -169,6 +169,13 @@ export interface WorldEntry {
   mapPosition?: GraphPosition
   /** 所属地图（`.ocstudio/maps/` 的文件名）；空 = 主地图 */
   mapId?: string
+  /** 小说根节点：作者 / 简介 / 目标字数 / 作品笔记（其它词条不会有） */
+  novelAuthor?: string
+  novelSynopsis?: string
+  novelTargetWords?: number
+  novelNotes?: string
+  /** 章节：大纲 / 备注（一行说明，不是正文） */
+  chapterOutline?: string
   references: WorldReference[]
   tags: number[]
   /** 自定义字段的值（键 = 字段表里的 key；内置字段仍然走各自的列） */

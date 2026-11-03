@@ -8,20 +8,28 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Editor } from '@tiptap/core'
-import { FileDown, Plus } from 'lucide-react'
+import { ArrowLeft, ChevronDown, FileDown, Plus } from 'lucide-react'
 import { DocumentEditor } from '@/components/editor/DocumentEditor'
 import { buildEntryTree, type WorldTreeNode } from '@/lib/world-tree'
-import { BTN_QUIET, ROUND_ITEM, SECTION_TITLE } from '@/lib/ui-tokens'
+import { BTN_QUIET, MENU, MENU_ITEM, ROUND_ITEM, SECTION_TITLE } from '@/lib/ui-tokens'
+import { EditorBodyPane } from '@/components/editor/EditorBodyPane'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { downloadBlob } from '@/lib/zip'
 import type { WorldEntry } from '@/types'
 import { flattenNovel, toMarkdown, toTxt, countNovelWords } from './export'
 import { buildDocx } from './docx'
-import { createNovelChapter, listNovelEntries } from './services'
+import { createNovelChapter, listNovelEntries, updateChapterOutline, updateNovelMeta } from './services'
 
-export function NovelTree({ novelId, title }: { novelId: number; title: string }) {
+export function NovelTree({ novelId, title, onBack }: { novelId: number; title: string; onBack: () => void }) {
   const [entries, setEntries] = useState<WorldEntry[]>([])
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
+  const [bodyEditor, setBodyEditor] = useState<Editor | null>(null)
 
   const reload = useCallback(async () => {
     const rows = (await listNovelEntries()).filter((row) => row.id === novelId || row.parentId !== null)
@@ -53,13 +61,27 @@ export function NovelTree({ novelId, title }: { novelId: number; title: string }
   }, [entries, novelId])
 
   const chapters = entries.filter((entry) => entry.id !== novelId)
+  const root = entries.find((entry) => entry.id === novelId) ?? null
   const selected = entries.find((entry) => entry.id === selectedId) ?? null
   const words = countNovelWords(flattenNovel(chapters))
+  const chapterWords = selected ? countNovelWords(flattenNovel([selected])) : 0
+  const target = root?.novelTargetWords ?? 0
 
   const handleCreateChapter = async () => {
     const id = await createNovelChapter(novelId)
     await reload()
     setSelectedId(id)
+  }
+
+  const saveMeta = async (patch: Parameters<typeof updateNovelMeta>[1]) => {
+    await updateNovelMeta(novelId, patch)
+    await reload()
+  }
+
+  const saveOutline = async (value: string) => {
+    if (!selected) return
+    await updateChapterOutline(selected.id, value)
+    await reload()
   }
 
   const handleExport = (format: 'txt' | 'md' | 'docx') => {
@@ -93,43 +115,65 @@ export function NovelTree({ novelId, title }: { novelId: number; title: string }
       </aside>
 
       <section className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between gap-3 px-4 py-2">
-          <div className="min-w-0">
+        <header className="flex items-center gap-3 px-4">
+          <button type="button" onClick={onBack} className={BTN_QUIET} aria-label="返回书架" title="返回书架">
+            <ArrowLeft size={16} strokeWidth={2} />
+          </button>
+          <div className="min-w-0 flex-1">
             <div className="truncate text-sm text-ink">{selected?.title ?? title}</div>
-            <div className="text-xs text-ink-faint">全书 {words} 字</div>
+            <div className="text-xs text-ink-faint">
+              {selected ? `本章 ${chapterWords} 字 · ` : ''}全书 {words} 字{target > 0 ? ` / ${target}` : ''}
+            </div>
           </div>
-          <div className="flex shrink-0 items-center gap-1">
-            <button type="button" onClick={() => handleExport('docx')} className={BTN_QUIET}>
+          <DropdownMenu>
+            <DropdownMenuTrigger className={BTN_QUIET}>
               <FileDown size={14} strokeWidth={2} />
-              Word
-            </button>
-            <button type="button" onClick={() => handleExport('md')} className={BTN_QUIET}>
-              <FileDown size={14} strokeWidth={2} />
-              Markdown
-            </button>
-            <button type="button" onClick={() => handleExport('txt')} className={BTN_QUIET}>
-              <FileDown size={14} strokeWidth={2} />
-              TXT
-            </button>
-          </div>
+              导出
+              <ChevronDown size={12} strokeWidth={2} />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className={MENU}>
+              <DropdownMenuItem className={MENU_ITEM} onClick={() => handleExport('docx')}>
+                Word（.docx）
+              </DropdownMenuItem>
+              <DropdownMenuItem className={MENU_ITEM} onClick={() => handleExport('md')}>
+                Markdown
+              </DropdownMenuItem>
+              <DropdownMenuItem className={MENU_ITEM} onClick={() => handleExport('txt')}>
+                纯文本（.txt）
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-24 pt-2">
-          {/* 不挂常驻工具条：它 sticky top-12 会压住正文，正文自带气泡菜单 */}
-          {selected ? (
+        {selected ? (
+          <div className="flex items-center gap-2 px-4 pb-1">
+            <input
+              key={`outline-${selected.id}`}
+              defaultValue={selected.chapterOutline ?? ''}
+              onBlur={(event) => void saveOutline(event.target.value)}
+              placeholder="章节大纲 / 备注"
+              className="w-full bg-transparent py-1 text-xs text-ink-muted outline-none placeholder:text-ink-faint"
+            />
+          </div>
+        ) : null}
+
+        {selected ? (
+          <EditorBodyPane editor={bodyEditor} showToolbar>
             <DocumentEditor
               key={selected.id}
               entityId={selected.id}
               entityType="worldEntry"
-              onReady={(_editor: Editor) => {}}
+              onReady={(editor) => setBodyEditor(editor)}
               onDocChange={() => {}}
               showToolbar={false}
               placeholder="从这一章开始写…"
             />
-          ) : (
+          </EditorBodyPane>
+        ) : (
+          <div className="flex min-h-0 flex-1 items-center justify-center">
             <p className="text-sm text-ink-muted">在左侧选一章，或者新建一章</p>
-          )}
-        </div>
+          </div>
+        )}
       </section>
     </div>
   )

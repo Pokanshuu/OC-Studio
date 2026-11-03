@@ -83,7 +83,7 @@ export function NovelSection() {
 
   const active = books.find((book) => book.id === activeId) ?? null
   if (active) {
-    return <NovelTree novelId={active.id} title={active.title} />
+    return <NovelTree novelId={active.id} title={active.title} onBack={() => setActiveId(null)} />
   }
 
   if (loading) return null
