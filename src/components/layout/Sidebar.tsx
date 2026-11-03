@@ -33,6 +33,7 @@ import {
 
 const CREATE_ITEMS = [
   { label: '世界观', icon: BookOpen },
+  { label: '小说', icon: BookText },
 ] as const
 
 const CODEX_ITEMS = [
@@ -43,7 +44,6 @@ const CODEX_ITEMS = [
 
 const VIEW_ITEMS = [
   { label: '时间线', icon: Clock },
-  { label: '小说', icon: BookText },
   { label: '关系图', icon: GitBranch },
   { label: '相册', icon: Images },
 ] as const
