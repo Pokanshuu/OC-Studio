@@ -40,6 +40,8 @@ export const CHARACTER_KEYS = {
   kind: chain('kind', '类别', '类型'),
   avatar: chain('avatar', 'avatarUrl'),
   header: chain('header', 'headerUrl'),
+  /** OC 动画（视频文件，存在库里附件目录） */
+  animation: chain('animation', '动画'),
   gallery: chain('gallery'),
   avatars: chain('avatars'),
   relations: chain('relations'),

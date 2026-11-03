@@ -49,6 +49,8 @@ export interface Character {
   headerUrl?: string
   bio: string
   lifeStory: string
+  /** OC 动画（视频或多帧）：库里附件路径，空 = 没上传 */
+  animationUrl?: string
   /** 角色文件夹名（空 / 缺省 = 未分组）；删文件夹不删角色 */
   folder?: string
   /** 类别：角色 / 武器 / 宠物（缺省 = 角色） */

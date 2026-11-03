@@ -366,6 +366,7 @@ export function scanVault(options: ScanOptions): VaultScanResult {
         birthday: readString(fm, CHARACTER_KEYS.birthday),
         avatarUrl: readString(fm, CHARACTER_KEYS.avatar),
         headerUrl: readString(fm, CHARACTER_KEYS.header) || undefined,
+        animationUrl: readString(fm, CHARACTER_KEYS.animation) || undefined,
         bio: readString(fm, CHARACTER_KEYS.bio),
         lifeStory: readString(fm, CHARACTER_KEYS.lifeStory),
         relatedCharacters: readObjects(fm, CHARACTER_KEYS.relations).map((item) => {

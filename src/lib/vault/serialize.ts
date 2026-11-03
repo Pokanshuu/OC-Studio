@@ -223,6 +223,7 @@ export function serializeCharacter(
   putIfChanged(out, existing, CHARACTER_KEYS.isMajor, writeBool(entity.isMajor === true), prev === null ? null : writeBool(prev.isMajor === true))
   putIfChanged(out, existing, CHARACTER_KEYS.avatar, writeString(entity.avatarUrl), prev === null ? null : writeString(prev.avatarUrl))
   putIfChanged(out, existing, CHARACTER_KEYS.header, writeString(entity.headerUrl ?? ''), prev === null ? null : writeString(prev.headerUrl ?? ''))
+  putIfChanged(out, existing, CHARACTER_KEYS.animation, writeString(entity.animationUrl ?? ''), prev === null ? null : writeString(prev.animationUrl ?? ''))
   putIfChanged(out, existing, CHARACTER_KEYS.tags, tagNames(ctx, entity.tags), prev === null ? null : tagNames(ctx, prev.tags))
   putIfChanged(out, existing, CHARACTER_KEYS.gallery, imageListDisk(entity.gallery), prev === null ? null : imageListDisk(prev.gallery))
   putIfChanged(out, existing, CHARACTER_KEYS.avatars, imageListDisk(entity.avatars), prev === null ? null : imageListDisk(prev.avatars))

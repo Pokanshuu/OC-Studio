@@ -6,6 +6,10 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { DATE_INPUT, FIELD_GRID, FIELD_INPUT, FIELD_LABEL, FIELD_ROW, FIELD_ROW_TOP, SECTION_TITLE } from '@/lib/ui-tokens'
 import { useFieldConfig, type FieldDef } from '@/lib/fields'
 import type { CharacterForm } from '../hooks/useCharacterForm'
+import { BTN_QUIET } from '@/lib/ui-tokens'
+import { resolveImageUrl } from '@/lib/image-service'
+import { uploadAnimation } from '@/lib/video-upload'
+import { toast } from 'sonner'
 
 const TEXT_PLACEHOLDERS: Record<string, string> = {
   aliases: '多个用、分隔',
@@ -152,6 +156,49 @@ export function CharacterInfoSection({
         }
       >
         {fields.map(renderRow)}
+
+        {/* OC 动画：不属于字段表（它是媒体槽位，不是文本字段） */}
+        <div className={`${FIELD_ROW_TOP} ${compact ? '' : 'sm:col-span-2'}`}>
+          <span className={FIELD_LABEL}>动画</span>
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            {form.animationUrl ? (
+              <>
+                <video
+                  src={resolveImageUrl(form.animationUrl, 'animation')}
+                  className="h-12 w-20 rounded-item border border-line object-cover"
+                  muted
+                  playsInline
+                />
+                <button type="button" onClick={() => form.setAnimationUrl('')} className={BTN_QUIET}>
+                  移除
+                </button>
+              </>
+            ) : (
+              <label className={`${BTN_QUIET} cursor-pointer`}>
+                选择动画
+                <input
+                  type="file"
+                  accept="video/*"
+                  className="hidden"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0]
+                    if (!file) return
+                    void uploadAnimation(file)
+                      .then((result) => {
+                        form.setAnimationUrl(result.path)
+                        if (result.ephemeral) {
+                          toast('浏览器预览只能临时播放', { description: '桌面版会存进库的附件目录' })
+                        }
+                      })
+                      .catch((err: unknown) => {
+                        toast.error('上传失败', { description: err instanceof Error ? err.message : String(err) })
+                      })
+                  }}
+                />
+              </label>
+            )}
+          </div>
+        </div>
       </div>
     </section>
   )

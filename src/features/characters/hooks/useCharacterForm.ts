@@ -49,6 +49,7 @@ interface CharacterValues {
   birthdayDay: string
   avatarUrl: string
   headerUrl: string
+  animationUrl: string
   avatarUrls: string[]
   galleryUrls: string[]
   relatedCharacters: RelatedCharacter[]
@@ -74,6 +75,7 @@ function valuesFromEntity(character: Character): CharacterValues {
     birthdayDay: birthday.day,
     avatarUrl: character.avatarUrl,
     headerUrl: character.headerUrl ?? '',
+    animationUrl: character.animationUrl ?? '',
     avatarUrls: toUrls(character.avatars),
     galleryUrls: toUrls(character.gallery),
     relatedCharacters: character.relatedCharacters ?? [],
@@ -102,6 +104,7 @@ function valuesSnapshot(values: CharacterValues): Record<string, unknown> {
     birthday: assembleTime(values.birthdayYear, values.birthdayMonth, values.birthdayDay),
     avatarUrl: values.avatarUrl,
     headerUrl: values.headerUrl,
+    animationUrl: values.animationUrl,
     avatars: values.avatarUrls,
     gallery: values.galleryUrls,
     related: values.relatedCharacters.map((rc) => ({
@@ -140,6 +143,7 @@ export function useCharacterForm(
 
   const [avatarUrl, setAvatarUrl] = useState(initial.avatarUrl)
   const [headerUrl, setHeaderUrl] = useState(initial.headerUrl)
+  const [animationUrl, setAnimationUrl] = useState(initial.animationUrl)
   const [tags, setTags] = useState<number[]>(initial.tags)
   const [avatarUrls, setAvatarUrls] = useState<string[]>(initial.avatarUrls)
   const [galleryUrls, setGalleryUrls] = useState<string[]>(initial.galleryUrls)
@@ -165,12 +169,12 @@ export function useCharacterForm(
   const values = useMemo<CharacterValues>(() => ({
     name, aliasesStr, race, element, occupation, faction, nationalityLegacy, countryId,
     height, birthdayYear, birthdayMonth, birthdayDay,
-    avatarUrl, headerUrl, avatarUrls, galleryUrls, relatedCharacters,
+    avatarUrl, headerUrl, animationUrl, avatarUrls, galleryUrls, relatedCharacters,
     isMajor, custom, tags,
   }), [
     name, aliasesStr, race, element, occupation, faction, nationalityLegacy, countryId,
     height, birthdayYear, birthdayMonth, birthdayDay,
-    avatarUrl, headerUrl, avatarUrls, galleryUrls, relatedCharacters,
+    avatarUrl, headerUrl, animationUrl, avatarUrls, galleryUrls, relatedCharacters,
     isMajor, custom, tags,
   ])
 
@@ -317,6 +321,7 @@ export function useCharacterForm(
         birthday: assembleTime(birthdayYear, birthdayMonth, birthdayDay),
         avatarUrl,
         headerUrl,
+        animationUrl,
         bio: character.bio,
         lifeStory: character.lifeStory,
         document,
@@ -345,6 +350,7 @@ export function useCharacterForm(
     character.lifeStory,
     avatarUrl,
     headerUrl,
+    animationUrl,
     avatarUrls,
     galleryUrls,
     name,
@@ -406,6 +412,7 @@ export function useCharacterForm(
     birthdayDay, setBirthdayDay,
     avatarUrl, setAvatarUrl,
     headerUrl, setHeaderUrl,
+    animationUrl, setAnimationUrl,
     tags, setTags,
     avatarUrls, setAvatarUrls,
     galleryUrls, setGalleryUrls,

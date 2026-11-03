@@ -86,6 +86,7 @@ export async function updateCharacter(
     'birthday',
     'avatarUrl',
     'headerUrl',
+    'animationUrl',
     'bio',
     'lifeStory',
     'isMajor',
