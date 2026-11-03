@@ -114,7 +114,8 @@ export function NovelTree({ novelId, title }: { novelId: number; title: string }
           </div>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-24">
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-24 pt-2">
+          {/* 不挂常驻工具条：它 sticky top-12 会压住正文，正文自带气泡菜单 */}
           {selected ? (
             <DocumentEditor
               key={selected.id}
@@ -122,6 +123,7 @@ export function NovelTree({ novelId, title }: { novelId: number; title: string }
               entityType="worldEntry"
               onReady={(_editor: Editor) => {}}
               onDocChange={() => {}}
+              showToolbar={false}
               placeholder="从这一章开始写…"
             />
           ) : (
