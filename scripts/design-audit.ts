@@ -32,8 +32,8 @@ const LITERAL_ALLOWLIST = [
   'src/features/tags/components/TagPicker.tsx',
   // 地图渲染色板：画布写像素（ImageData）与 Canvas 填充，拿不到 CSS 变量；
   // 生物群系 / 高程 / 政区色属于「图上内容」，不是界面样式（见 docs/地图.md）
-  'src/features/map/types.ts',
-  'src/features/map/political.ts',
+  'src/plugins/map-generator/types.ts',
+  'src/plugins/map-generator/political.ts',
   // 实体强调色：要在色值后面拼透明度（`#RRGGBB24`），`var()` 拼不了，所以存的是字面量。
   // 它和标签色同一性质（内容色），换主题时不需要跟着变
   'src/lib/entity-accent.ts',
@@ -216,3 +216,4 @@ for (const rule of RULES) {
   console.log('')
 }
 process.exit(1)
+

@@ -1,14 +1,14 @@
 /// <reference lib="webworker" />
 
-import { generateWorld } from './generator'
-import { buildMapwrightWorld } from './generator/mapwright'
-import { renderView } from './generator/render'
-import { buildMapVectors } from './generator/vectors'
-import { clamp } from './generator/noise'
-import type { MapState, RenderContext } from './generator/render'
+import { generateWorld } from './kernel'
+import { buildMapwrightWorld } from './kernel/mapwright'
+import { renderView } from './kernel/render'
+import { buildMapVectors } from './kernel/vectors'
+import { clamp } from './kernel/noise'
+import type { MapState, RenderContext } from './kernel/render'
 import { MAP_ALGORITHM_VERSION } from './types'
 import type { MapView, WorkerRequest, WorkerResponse, WorldMapParams } from './types'
-import type { MapwrightData } from './generator/mapwright'
+import type { MapwrightData } from './kernel/mapwright'
 
 const ctx = self as unknown as DedicatedWorkerGlobalScope
 
@@ -166,4 +166,6 @@ ctx.onmessage = (event: MessageEvent<WorkerRequest>) => {
 }
 
 export {}
+
+
 
