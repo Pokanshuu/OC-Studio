@@ -390,6 +390,7 @@ export function scanVault(options: ScanOptions): VaultScanResult {
         tags: tagIdsOf(note, CHARACTER_KEYS.tags),
         isMajor: readBool(fm, CHARACTER_KEYS.isMajor),
         folder: readString(fm, CHARACTER_KEYS.folder) || undefined,
+        kind: (readString(fm, CHARACTER_KEYS.kind) || undefined) as Character['kind'],
         order: readNumber(fm, CHARACTER_KEYS.order),
         graphPosition: readPosition(fm, CHARACTER_KEYS.graphPosition),
         custom: readCustomFields(fm, 'character'),

@@ -37,7 +37,7 @@ import type { SortKey } from './character-list-utils'
 import type { ViewMode } from '@/components/shared/SortViewControls'
 import { SortableList, moveId } from '@/components/shared/list-dnd'
 import { useReorderCharacters } from '../hooks/useCharacters'
-import { BTN_QUIET, CENTER_STATE, EMPTY_HINT, LIST_GRID } from '@/lib/ui-tokens'
+import { BTN_QUIET, CENTER_STATE, CHIP, EMPTY_HINT, LIST_GRID } from '@/lib/ui-tokens'
 
 interface CharacterListProps {
   characters: Character[]
@@ -60,6 +60,7 @@ export function CharacterList({
   const handleSelect = useMemo(() => withTouchFeedback(onSelectCharacter), [onSelectCharacter])
   const [sortKey, setSortKey] = useState<SortKey>(() => readSortKey(SORT_STORAGE_KEY, 'updatedAt'))
   const [folderFilter, setFolderFilter] = useState<FolderFilter>('all')
+  const [kindFilter, setKindFilter] = useState<'all' | 'character' | 'weapon' | 'pet'>('all')
   const [viewMode, setViewMode] = useState<ViewMode>(readViewPreference)
   const [search, setSearch] = useState('')
   const [countryFilter, setCountryFilter] = useState<number | 'all'>('all')
@@ -113,6 +114,9 @@ export function CharacterList({
 
   const filtered = useMemo(() => {
     let result = characters
+    if (kindFilter !== 'all') {
+      result = result.filter((c) => (c.kind ?? 'character') === kindFilter)
+    }
     if (folderFilter === 'ungrouped') {
       result = result.filter((c) => !(c.folder ?? '').trim())
     } else if (folderFilter !== 'all') {
@@ -132,7 +136,7 @@ export function CharacterList({
       )
     }
     return sortCharacters(result, sortKey)
-  }, [characters, sortKey, search, countryFilter, folderFilter])
+  }, [characters, sortKey, search, countryFilter, folderFilter, kindFilter])
 
   const handleViewChange = (mode: ViewMode) => {
     setViewMode(mode)
@@ -194,6 +198,24 @@ export function CharacterList({
       />
 
       <div className="max-md:h-10 flex-shrink-0" />
+
+      <div className="flex items-center gap-1.5 px-6 pb-2">
+        {([
+          ['all', '全部'],
+          ['character', '角色'],
+          ['weapon', '武器'],
+          ['pet', '宠物'],
+        ] as const).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setKindFilter(value)}
+            className={`${CHIP} ${kindFilter === value ? 'text-ink' : 'text-ink-muted'}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
       {characters.length > 0 ? (
         <CharacterFolderBar

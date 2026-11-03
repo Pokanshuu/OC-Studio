@@ -1,3 +1,5 @@
+export type CharacterKind = 'character' | 'weapon' | 'pet'
+
 export interface RelatedCharacter {
   characterId?: number
   name: string
@@ -49,6 +51,8 @@ export interface Character {
   lifeStory: string
   /** 角色文件夹名（空 / 缺省 = 未分组）；删文件夹不删角色 */
   folder?: string
+  /** 类别：角色 / 武器 / 宠物（缺省 = 角色） */
+  kind?: CharacterKind
   document?: unknown
   relatedCharacters: RelatedCharacter[]
   gallery: GalleryImage[]

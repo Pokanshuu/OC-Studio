@@ -36,6 +36,8 @@ export const CHARACTER_KEYS = {
   /** 旧版「人生故事」：早期版本的大段文本，编辑器已合并进正文展示，但数据不能丢 */
   lifeStory: chain('lifeStory', '人生故事'),
   isMajor: chain('isMajor', '主要角色'),
+  /** 实体类别：角色 / 武器 / 宠物（缺省 = 角色；武器与宠物是「角色模板实体」，不是新表） */
+  kind: chain('kind', '类别', '类型'),
   avatar: chain('avatar', 'avatarUrl'),
   header: chain('header', 'headerUrl'),
   gallery: chain('gallery'),
