@@ -19,7 +19,10 @@ import {
 import '@xyflow/react/dist/style.css'
 import { toast } from 'sonner'
 
+import type { RelationArrow } from '@/lib/relation-colors'
 import { useGraphData } from '../hooks/useGraphData'
+import { updateEdgeStyle } from '../services'
+import { EdgeStylePanel, type EdgeStyleSelection } from './EdgeStylePanel'
 import { createRelationBetween, saveNodePosition } from '../services'
 import { computeForceLayout } from '../layout'
 import { MobileRelationControls, DesktopRelationPanel } from './MobileRelationControls'
@@ -64,6 +67,7 @@ export function RelationGraph({
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
   const [draft, setDraft] = useState<RelationDraft | null>(null)
   const [savingRelation, setSavingRelation] = useState(false)
+  const [edgePanel, setEdgePanel] = useState<{ selection: EdgeStyleSelection; anchor: { x: number; y: number } } | null>(null)
   const rfRef = useRef<ReactFlowInstance | null>(null)
 
   const handleZoomChange = useCallback((value: number) => {
@@ -336,6 +340,28 @@ export function RelationGraph({
         onNodeMouseLeave={() => setHoveredNodeId(null)}
         onMove={handleMove}
         onConnect={handleConnect}
+        onEdgeClick={(event, edge) => {
+          const [sourceType, sourceIdRaw] = edge.source.split('-')
+          const [targetType, targetIdRaw] = edge.target.split('-')
+          if (sourceType !== 'character' && sourceType !== 'event') return
+          if (sourceType !== targetType) return
+          const sourceId = Number(sourceIdRaw)
+          const targetId = Number(targetIdRaw)
+          if (!Number.isFinite(sourceId) || !Number.isFinite(targetId)) return
+          const data = edge.data as { relation?: string; color?: string; arrow?: RelationArrow } | undefined
+          setEdgePanel({
+            selection: {
+              sourceType,
+              sourceId,
+              targetType,
+              targetId,
+              relation: data?.relation ?? '',
+              color: data?.color,
+              arrow: data?.arrow,
+            },
+            anchor: { x: event.clientX, y: event.clientY },
+          })
+        }}
         isValidConnection={isValidConnection}
         connectionMode={ConnectionMode.Loose}
         connectOnClick={false}
@@ -412,6 +438,24 @@ export function RelationGraph({
           saving={savingRelation}
           onCancel={handleCancelRelation}
           onSubmit={handleSubmitRelation}
+        />
+      ) : null}
+      {edgePanel ? (
+        <EdgeStylePanel
+          selection={edgePanel.selection}
+          anchor={edgePanel.anchor}
+          onClose={() => setEdgePanel(null)}
+          onChange={(patch) => {
+            const { selection } = edgePanel
+            void updateEdgeStyle(
+              { entityType: selection.sourceType, entityId: selection.sourceId },
+              { entityType: selection.targetType, entityId: selection.targetId },
+              patch,
+            ).then(() => {
+              setEdgePanel(null)
+              void refresh({ silent: true })
+            })
+          }}
         />
       ) : null}
     </div>
