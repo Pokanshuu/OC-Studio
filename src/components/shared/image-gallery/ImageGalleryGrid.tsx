@@ -1,7 +1,11 @@
 'use client'
 
+import { useState } from 'react'
 import { Plus, Trash2, ImageIcon, Loader2 } from 'lucide-react'
 import { resolveImageUrl } from '@/lib/image-service'
+import { MediaContextMenu, type MediaMenuItem } from '@/components/shared/MediaContextMenu'
+import { downloadMediaFile } from '@/lib/media-download'
+import { toast } from 'sonner'
 
 interface ImageGalleryGridProps {
   images: string[]
@@ -28,6 +32,23 @@ export function ImageGalleryGrid({
   onUploadClick,
 }: ImageGalleryGridProps) {
   const aspectClass = gridAspect === 'portrait' ? 'aspect-[9/16]' : 'aspect-square'
+  const [menuAt, setMenuAt] = useState<{ x: number; y: number; index: number } | null>(null)
+
+  const menuItems = (index: number): MediaMenuItem[] => {
+    const items: MediaMenuItem[] = [
+      { label: '查看', onSelect: () => onViewImage(index) },
+      {
+        label: '保存到…',
+        onSelect: () => {
+          void downloadMediaFile(images[index]).catch((err: unknown) => {
+            toast.error('保存失败', { description: err instanceof Error ? err.message : String(err) })
+          })
+        },
+      },
+    ]
+    if (onRemove) items.push({ label: '移除', danger: true, onSelect: () => onRemove(index) })
+    return items
+  }
 
   return (
     <div className="relative">
@@ -45,6 +66,10 @@ export function ImageGalleryGrid({
             <div
               key={idx}
               className={`group relative overflow-hidden rounded-item bg-paper-card ${aspectClass}`}
+              onContextMenu={(event) => {
+                event.preventDefault()
+                setMenuAt({ x: event.clientX, y: event.clientY, index: idx })
+              }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img

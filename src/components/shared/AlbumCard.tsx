@@ -2,7 +2,11 @@
 
 import { useLongPress } from '@/lib/useLongPress'
 import type { AlbumEntry } from './useAlbumData'
+import { useState } from 'react'
 import { getEntryImageUrl } from './album-utils'
+import { MediaContextMenu, type MediaMenuItem } from './MediaContextMenu'
+import { downloadMediaFile } from '@/lib/media-download'
+import { toast } from 'sonner'
 
 interface AlbumCardProps {
   entry: AlbumEntry
@@ -24,8 +28,38 @@ export function AlbumCard({
     enabled: isMobile,
   })
 
+  const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null)
+
+  const menuItems: MediaMenuItem[] = isMobile
+    ? []
+    : [
+        { label: '查看', onSelect: onViewImage },
+        {
+          label: '保存到…',
+          onSelect: () => {
+            void downloadMediaFile(entry.url, entry.sourceName).catch((err: unknown) => {
+              toast.error('保存失败', { description: err instanceof Error ? err.message : String(err) })
+            })
+          },
+        },
+        ...(onNavigate
+          ? [{ label: '跳转', onSelect: () => onNavigate(entry.sourceId, entry.sourceType) }]
+          : []),
+      ]
+
   return (
-    <div className="group relative" {...longPress}>
+    <div
+      className="group relative"
+      onContextMenu={
+        menuItems.length > 0
+          ? (event) => {
+              event.preventDefault()
+              setMenuAt({ x: event.clientX, y: event.clientY })
+            }
+          : undefined
+      }
+      {...longPress}
+    >
       <img
         src={getEntryImageUrl(entry)}
         alt={entry.sourceName}
@@ -45,6 +79,10 @@ export function AlbumCard({
           </span>
         ) : null}
       </div>
+
+      {menuAt ? (
+        <MediaContextMenu at={menuAt} items={menuItems} onClose={() => setMenuAt(null)} />
+      ) : null}
     </div>
   )
 }

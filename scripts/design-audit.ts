@@ -37,6 +37,8 @@ const LITERAL_ALLOWLIST = [
   // 实体强调色：要在色值后面拼透明度（`#RRGGBB24`），`var()` 拼不了，所以存的是字面量。
   // 它和标签色同一性质（内容色），换主题时不需要跟着变
   'src/lib/entity-accent.ts',
+  // 封面取色：从封面图里抽出来的色调（内容色，随图片变），不是界面样式
+  'src/lib/cover/',
 ]
 
 interface Rule {
