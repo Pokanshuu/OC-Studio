@@ -110,7 +110,7 @@
 
 ## 9. 其它（不属于上面八项）
 
-- [ ] **P1 导出前一致性检查**：落盘队列 `flush()` 只写，不知道磁盘被谁改过。导出 / 关库前比对 mtime，发现外部改动时提示「建议先重新载入」
+- [ ] **P0 桌面开发壳起不来（WebView2 156 崩溃）**：`tauri dev` / 仓库代码新编的 exe 一律起不来窗口。**Tauri 2.12.5 终于把真实报错露出来**：`failed to create webview: HRESULT(0x800700AA) 请求的资源在使用中`；Windows 事件日志同时记录 `msedgewebview2.exe 156.0.4314.58` **APPCRASH**（`msedge.dll`，异常 `0x80000003`）。即浏览器进程一启动就崩，Tauri 拿不到 webview，窗口对象存在所以表现成闪退。已排除：日志插件、透明窗 / Mica、数据目录、`--disable-gpu`。注意 `WEBVIEW2_BROWSER_EXECUTABLE_FOLDER` 只认 **Fixed Version** 运行时，指 Evergreen 版本目录会报 "Could not find the WebView2 Runtime"。待办：① 重装修复 WebView2；② 若预览版系统继续崩，改发 **Fixed Version**（包体 +约 150MB，Win10 一并考虑）`flush()` 只写，不知道磁盘被谁改过。导出 / 关库前比对 mtime，发现外部改动时提示「建议先重新载入」
 - [ ] **P1 World 正文收敛到 `document`**：现在 JSON 字符串（在用）与 `document` 对象（unused）两形态并存，读取处要分支
 - [ ] **P2 仓储 create/update 模板**：`listActive` / `getById` / `softDelete` 已收敛，create/update 因字段级日志与引用同步差异仍各自手写
 - [ ] **P3 命令面板与移动端搜索合并**：`MenuBarSearch` 与 `MobileSearchOverlay` 现在是两套 UI
