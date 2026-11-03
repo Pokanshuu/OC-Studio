@@ -5,15 +5,15 @@ import { createPortal } from 'react-dom'
 import { ChevronDown } from 'lucide-react'
 import { MENU, MENU_ITEM_BASE } from '@/lib/ui-tokens'
 
-export interface FilterOption {
-  value: number | 'all'
+export interface FilterOption<T extends string | number = number | 'all'> {
+  value: T
   label: string
 }
 
-interface FilterSelectProps {
-  value: number | 'all'
-  onChange: (value: number | 'all') => void
-  options: FilterOption[]
+interface FilterSelectProps<T extends string | number> {
+  value: T
+  onChange: (value: T) => void
+  options: FilterOption<T>[]
   /** 找不到当前项时的兜底文案（通常是「全部 XX」） */
   fallbackLabel: string
   /** 触发按钮类名（各调用点样式不同，从这里传） */
@@ -33,7 +33,7 @@ interface FilterSelectProps {
  * 通用筛选下拉：触发按钮 + portal 到 `#overlay-root` 的面板 + 点外部关闭。
  * 样式由调用点传入（各列表页的触发按钮/面板密度不同），行为只有这一份实现。
  */
-export function FilterSelect({
+export function FilterSelect<T extends string | number>({
   value,
   onChange,
   options,
@@ -45,7 +45,7 @@ export function FilterSelect({
   labelClassName,
   chevronSize = 14,
   maxHeightClassName = 'max-h-64',
-}: FilterSelectProps) {
+}: FilterSelectProps<T>) {
   const [open, setOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)

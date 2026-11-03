@@ -190,6 +190,8 @@ export function CharacterList({
         countryFilter={countryFilter}
         onCountryFilterChange={setCountryFilter}
         countryOptions={countryOptions}
+        kindFilter={kindFilter}
+        onKindFilterChange={setKindFilter}
         sortKey={sortKey}
         onSortKeyChange={handleSortChange}
         viewMode={viewMode}
@@ -198,24 +200,6 @@ export function CharacterList({
       />
 
       <div className="max-md:h-10 flex-shrink-0" />
-
-      <div className="flex items-center gap-1.5 px-6 pb-2">
-        {([
-          ['all', '全部'],
-          ['character', '角色'],
-          ['weapon', '武器'],
-          ['pet', '宠物'],
-        ] as const).map(([value, label]) => (
-          <button
-            key={value}
-            type="button"
-            onClick={() => setKindFilter(value)}
-            className={`${CHIP} ${kindFilter === value ? 'text-ink' : 'text-ink-muted'}`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
 
       {characters.length > 0 ? (
         <CharacterFolderBar

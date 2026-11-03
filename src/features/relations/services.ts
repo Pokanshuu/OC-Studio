@@ -44,7 +44,13 @@ export async function buildGraphData(): Promise<{ nodes: GraphNode[]; edges: Gra
     })
   }
 
-  function addEdge(source: string, target: string, relation: string, incomplete = false) {
+  function addEdge(
+    source: string,
+    target: string,
+    relation: string,
+    incomplete = false,
+    style?: { color?: string; arrow?: 'none' | 'forward' | 'reverse' | 'both' },
+  ) {
     // 按无序节点对去重：同一对节点只保留一条边，避免「属于/所属」「发生于/发生地」等
     // 在数据模型两侧同时表达时被重复绘制成两条反向边。
     const key = [source, target].sort().join('||')
@@ -55,7 +61,12 @@ export async function buildGraphData(): Promise<{ nodes: GraphNode[]; edges: Gra
       source,
       target,
       type: 'relationEdge',
-      data: incomplete ? { relation, incomplete: true } : { relation },
+      data: {
+        relation,
+        ...(incomplete ? { incomplete: true } : {}),
+        ...(style?.color ? { color: style.color } : {}),
+        ...(style?.arrow ? { arrow: style.arrow } : {}),
+      },
     })
   }
 
@@ -99,7 +110,7 @@ export async function buildGraphData(): Promise<{ nodes: GraphNode[]; edges: Gra
     for (const rc of c.relatedCharacters ?? []) {
       const targetId = `character-${rc.characterId}`
       if (nodeIds.has(targetId)) {
-        addEdge(sourceId, targetId, rc.relation || '')
+        addEdge(sourceId, targetId, rc.relation || '', false, { color: rc.color, arrow: rc.arrow })
       }
     }
   }
@@ -110,7 +121,10 @@ export async function buildGraphData(): Promise<{ nodes: GraphNode[]; edges: Gra
     for (const relation of e.relations ?? []) {
       const targetId = `event-${relation.targetId}`
       if (nodeIds.has(targetId)) {
-        addEdge(sourceId, targetId, relation.relation || '')
+        addEdge(sourceId, targetId, relation.relation || '', false, {
+          color: relation.color,
+          arrow: relation.arrow,
+        })
       }
     }
   }

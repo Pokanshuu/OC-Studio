@@ -10,12 +10,23 @@ import type { FilterOption } from '@/components/shared/FilterSelect'
 import { SORT_OPTIONS } from './character-list-utils'
 import type { SortKey } from './character-list-utils'
 
+type KindFilter = 'all' | 'character' | 'weapon' | 'pet'
+
+const KIND_OPTIONS: FilterOption<KindFilter>[] = [
+  { value: 'all', label: '全部类别' },
+  { value: 'character', label: '角色' },
+  { value: 'weapon', label: '武器' },
+  { value: 'pet', label: '宠物' },
+]
+
 interface CharacterListToolbarProps {
   search: string
   onSearchChange: (value: string) => void
   countryFilter: number | 'all'
   onCountryFilterChange: (value: number | 'all') => void
   countryOptions: FilterOption[]
+  kindFilter: 'all' | 'character' | 'weapon' | 'pet'
+  onKindFilterChange: (value: 'all' | 'character' | 'weapon' | 'pet') => void
   sortKey: SortKey
   onSortKeyChange: (key: SortKey) => void
   viewMode: ViewMode
@@ -30,6 +41,8 @@ export function CharacterListToolbar({
   countryFilter,
   onCountryFilterChange,
   countryOptions,
+  kindFilter,
+  onKindFilterChange,
   sortKey,
   onSortKeyChange,
   viewMode,
@@ -63,6 +76,14 @@ export function CharacterListToolbar({
             triggerClassName={FILTER_TRIGGER}
             chevronSize={16}
           />
+          <FilterSelect
+            value={kindFilter}
+            onChange={onKindFilterChange}
+            options={KIND_OPTIONS}
+            fallbackLabel="全部类别"
+            triggerClassName={FILTER_TRIGGER}
+            chevronSize={16}
+          />
           <SortViewControls
             sortKey={sortKey}
             onSortChange={(key) => onSortKeyChange(key as SortKey)}
@@ -87,6 +108,14 @@ export function CharacterListToolbar({
             onChange={onCountryFilterChange}
             options={countryOptions}
             fallbackLabel="全部国家"
+            triggerClassName={FILTER_TRIGGER}
+            chevronSize={16}
+          />
+          <FilterSelect
+            value={kindFilter}
+            onChange={(value) => onKindFilterChange(value as typeof kindFilter)}
+            options={KIND_OPTIONS}
+            fallbackLabel="全部类别"
             triggerClassName={FILTER_TRIGGER}
             chevronSize={16}
           />
