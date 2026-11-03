@@ -43,6 +43,8 @@ export const CHARACTER_KEYS = {
   relations: chain('relations'),
   tags: chain('tags'),
   order: chain('order', '排序'),
+  /** 角色文件夹：只存文件夹**名字**（不是 id），空 = 未分组；删文件夹不删角色（见 docs/待设计决策清单 §2） */
+  folder: chain('folder', '文件夹', '分类'),
   /** 关系图坐标：`{ x, y }`。只有用户拖过节点才有这个键 */
   graphPosition: chain('graph_position', 'graphPosition'),
   date: chain('date'),

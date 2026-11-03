@@ -228,6 +228,7 @@ export function serializeCharacter(
   putIfChanged(out, existing, CHARACTER_KEYS.avatars, imageListDisk(entity.avatars), prev === null ? null : imageListDisk(prev.avatars))
   putIfChanged(out, existing, CHARACTER_KEYS.relations, relationDisk(entity, ctx), prev === null ? null : relationDisk(prev, ctx))
   putIfChanged(out, existing, CHARACTER_KEYS.order, writeNumber(entity.order), prev === null ? null : writeNumber(prev.order))
+  putIfChanged(out, existing, CHARACTER_KEYS.folder, writeString(entity.folder ?? ''), prev === null ? null : writeString(prev.folder ?? ''))
   putIfChanged(out, existing, CHARACTER_KEYS.graphPosition, writePosition(entity.graphPosition), prev === null ? null : writePosition(prev.graphPosition))
   putCustomFields(out, existing, 'character', entity.custom, prev === null ? undefined : prev.custom)
 

@@ -47,6 +47,8 @@ export interface Character {
   headerUrl?: string
   bio: string
   lifeStory: string
+  /** 角色文件夹名（空 / 缺省 = 未分组）；删文件夹不删角色 */
+  folder?: string
   document?: unknown
   relatedCharacters: RelatedCharacter[]
   gallery: GalleryImage[]
