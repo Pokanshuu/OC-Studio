@@ -11,7 +11,7 @@ import type { Editor } from '@tiptap/core'
 import { ArrowLeft, ChevronDown, Eye, FileDown, Plus } from 'lucide-react'
 import { DocumentEditor } from '@/components/editor/DocumentEditor'
 import { buildEntryTree, type WorldTreeNode } from '@/lib/world-tree'
-import { BTN_QUIET, FIELD_LABEL, INPUT_LINE, MENU, MENU_ITEM, ROUND_ITEM, SECTION_TITLE } from '@/lib/ui-tokens'
+import { BTN_QUIET, FIELD_GRID, FIELD_INPUT, FIELD_LABEL, FIELD_ROW, FIELD_ROW_TOP, LIST_END, MENU, MENU_ITEM, ROUND_ITEM, SECTION_TITLE } from '@/lib/ui-tokens'
 import { EditorBodyPane } from '@/components/editor/EditorBodyPane'
 import { ImageUploader } from '@/components/shared/ImageUploader'
 import {
@@ -116,7 +116,7 @@ export function NovelTree({ novelId, title, onBack }: { novelId: number; title: 
           <p className="px-3 py-2 text-xs text-ink-faint">还没有章节</p>
         )}
 
-        <div className="mt-auto flex flex-col gap-2 border-t border-line px-3 py-3">
+        <div className={`mt-auto border-t border-line px-3 pb-3 pt-2 ${FIELD_GRID}`}>
           <ImageUploader
             value={root?.novelCover}
             aspectRatio="2:3"
@@ -126,46 +126,47 @@ export function NovelTree({ novelId, title, onBack }: { novelId: number; title: 
             onChange={(path) => void saveMeta({ novelCover: path })}
             onRemove={() => void saveMeta({ novelCover: undefined })}
           />
-          <label className="flex items-center gap-2">
+          <label className={`${FIELD_ROW} px-0`}>
             <span className={FIELD_LABEL}>作者</span>
             <input
               defaultValue={root?.novelAuthor ?? ''}
               onBlur={(event) => void saveMeta({ novelAuthor: event.target.value })}
               placeholder="未署名"
-              className={INPUT_LINE}
+              className={FIELD_INPUT}
             />
           </label>
-          <label className="flex items-start gap-2">
+          <label className={FIELD_ROW_TOP}>
             <span className={FIELD_LABEL}>简介</span>
             <textarea
               defaultValue={root?.novelSynopsis ?? ''}
               onBlur={(event) => void saveMeta({ novelSynopsis: event.target.value })}
-              rows={3}
+              rows={2}
               placeholder="一句话说清这本书"
-              className={INPUT_LINE}
+              className={`${FIELD_INPUT} resize-none leading-relaxed`}
             />
           </label>
-          <label className="flex items-center gap-2">
+          <label className={FIELD_ROW}>
             <span className={FIELD_LABEL}>目标字数</span>
             <input
               type="number"
+              inputMode="numeric"
               defaultValue={root?.novelTargetWords ?? ''}
               onBlur={(event) => {
                 const value = Number(event.target.value)
                 void saveMeta({ novelTargetWords: Number.isFinite(value) && value > 0 ? value : undefined })
               }}
               placeholder="可选"
-              className={INPUT_LINE}
+              className={`${FIELD_INPUT} [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
             />
           </label>
-          <label className="flex items-start gap-2">
+          <label className={FIELD_ROW_TOP}>
             <span className={FIELD_LABEL}>笔记</span>
             <textarea
               defaultValue={root?.novelNotes ?? ''}
               onBlur={(event) => void saveMeta({ novelNotes: event.target.value })}
-              rows={3}
+              rows={2}
               placeholder="设定、灵感、待办"
-              className={INPUT_LINE}
+              className={`${FIELD_INPUT} resize-none leading-relaxed`}
             />
           </label>
         </div>
