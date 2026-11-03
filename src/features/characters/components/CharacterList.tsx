@@ -20,6 +20,10 @@ import {
 } from '@/components/ui/alert-dialog'
 import { CharacterCard, CharacterRow } from './CharacterListItems'
 import { CharacterListToolbar } from './CharacterListToolbar'
+import { CharacterFolderBar, type FolderFilter } from './CharacterFolderBar'
+import { deleteFolder, listFolders, renameFolder } from '../folders'
+import { toast } from 'sonner'
+import { notifyDataUpdated } from '@/lib/data-events'
 import type { FilterOption } from '@/components/shared/FilterSelect'
 import {
   readViewPreference,
@@ -55,6 +59,7 @@ export function CharacterList({
   const { isMobile } = useDevice()
   const handleSelect = useMemo(() => withTouchFeedback(onSelectCharacter), [onSelectCharacter])
   const [sortKey, setSortKey] = useState<SortKey>(() => readSortKey(SORT_STORAGE_KEY, 'updatedAt'))
+  const [folderFilter, setFolderFilter] = useState<FolderFilter>('all')
   const [viewMode, setViewMode] = useState<ViewMode>(readViewPreference)
   const [search, setSearch] = useState('')
   const [countryFilter, setCountryFilter] = useState<number | 'all'>('all')
@@ -104,8 +109,15 @@ export function CharacterList({
     [countryMap],
   )
 
+  const { folders, ungrouped } = useMemo(() => listFolders(characters), [characters])
+
   const filtered = useMemo(() => {
     let result = characters
+    if (folderFilter === 'ungrouped') {
+      result = result.filter((c) => !(c.folder ?? '').trim())
+    } else if (folderFilter !== 'all') {
+      result = result.filter((c) => (c.folder ?? '').trim() === folderFilter)
+    }
     if (countryFilter !== 'all') {
       result = result.filter((c) => c.countryId === countryFilter)
     }
@@ -120,7 +132,7 @@ export function CharacterList({
       )
     }
     return sortCharacters(result, sortKey)
-  }, [characters, sortKey, search, countryFilter])
+  }, [characters, sortKey, search, countryFilter, folderFilter])
 
   const handleViewChange = (mode: ViewMode) => {
     setViewMode(mode)
@@ -182,6 +194,30 @@ export function CharacterList({
       />
 
       <div className="max-md:h-10 flex-shrink-0" />
+
+      {characters.length > 0 ? (
+        <CharacterFolderBar
+          folders={folders}
+          ungrouped={ungrouped}
+          total={characters.length}
+          value={folderFilter}
+          onChange={setFolderFilter}
+          onCreate={async (name) => {
+            // 文件夹没有自己的表：建 = 等第一个角色用这个名字（这里只切到它）
+            setFolderFilter(name)
+          }}
+          onRename={async (from, to) => {
+            const moved = await renameFolder(from, to)
+            toast.success(`已重命名为「${to}」`, { description: `${moved} 个角色跟着走，角色本身没动` })
+            notifyDataUpdated()
+          }}
+          onDelete={async (name) => {
+            const count = await deleteFolder(name)
+            toast.success(`已删除文件夹「${name}」`, { description: `${count} 个角色回到未分组，一个都没删` })
+            notifyDataUpdated()
+          }}
+        />
+      ) : null}
 
       <div className="flex-1 p-4 flex flex-col">
         {characters.length === 0 ? (
