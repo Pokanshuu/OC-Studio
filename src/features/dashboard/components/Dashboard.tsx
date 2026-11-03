@@ -127,6 +127,24 @@ export function Dashboard({ onNavigate, onOpenSection }: DashboardProps) {
           ))}
         </div>
 
+        {/* 其它入口：小说 / 地图 / 树表 —— 与左侧栏同一批目的地，不多造概念 */}
+        <div className="mt-6 -mx-2 flex flex-wrap items-center gap-x-6 gap-y-2 px-2 text-[13px]">
+          {[
+            { label: '小说', item: '小说' },
+            { label: '地图', item: '地图' },
+            { label: '树表', item: '树表' },
+          ].map((entry) => (
+            <button
+              key={entry.item}
+              type="button"
+              onClick={() => onOpenSection(entry.item)}
+              className="text-ink-muted transition-colors hover:text-ink"
+            >
+              {entry.label}
+            </button>
+          ))}
+        </div>
+
         {/* 主要角色 */}
         <section className="mt-12">
           <h2 className={SECTION_TITLE}>主要角色</h2>
