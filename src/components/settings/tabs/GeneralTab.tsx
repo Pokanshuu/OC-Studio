@@ -5,7 +5,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { useSettings } from '@/lib/settings'
 import { useDevice } from '@/lib/use-device'
 import { isTauri as isTauriEnv } from '@/lib/env'
-import { ThemeRadio, LayoutRadio, SWITCH_CLASSES, SWITCH_DOT } from '../controls'
+import { ThemeRadio, LayoutRadio, MouseModeRadio, SWITCH_CLASSES, SWITCH_DOT } from '../controls'
 export function GeneralTab() {
   const { settings, updateSetting } = useSettings()
   const { isMobile } = useDevice()

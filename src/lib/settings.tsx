@@ -17,6 +17,12 @@ export interface Settings {
   sidebarWidth: number
   /** 编辑界面样式；默认「自动」（≥1280 多栏，否则全屏） */
   editorLayout: EditorLayout
+  /**
+   * 关系图鼠标模式（docs/关系图.md §6.1，来自 PR #5 的框选能力）
+   * - `left-pan`：左键拖动画布平移，Shift + 拖动框选（默认，和大多数画布一致）
+   * - `right-pan`：右键拖动画布平移，左键直接框选
+   */
+  mouseMode: 'left-pan' | 'right-pan'
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -27,6 +33,7 @@ const DEFAULT_SETTINGS: Settings = {
   sidebarVisible: true,
   sidebarWidth: DEFAULT_SIDEBAR_WIDTH,
   editorLayout: "auto",
+  mouseMode: "left-pan",
 }
 
 function loadSettings(): Settings {

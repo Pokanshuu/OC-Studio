@@ -32,11 +32,17 @@ export function MapView() {
   const canvasRef = useRef<HTMLDivElement | null>(null)
 
   const reload = useCallback(async () => {
-    const groups = await listAnchors()
-    const main = groups.get('') ?? []
-    const others = [...groups.entries()].filter(([key]) => key !== '').flatMap(([, list]) => list)
-    setPoints([...main, ...others])
-    setLoading(false)
+    try {
+      const groups = await listAnchors()
+      const main = groups.get('') ?? []
+      const others = [...groups.entries()].filter(([key]) => key !== '').flatMap(([, list]) => list)
+      setPoints([...main, ...others])
+    } catch (err) {
+      console.error('[map] 锚点读取失败', err)
+      setPoints([])
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => {

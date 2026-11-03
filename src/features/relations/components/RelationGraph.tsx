@@ -20,6 +20,7 @@ import '@xyflow/react/dist/style.css'
 import { toast } from 'sonner'
 
 import type { RelationArrow } from '@/lib/relation-colors'
+import { useSettings } from '@/lib/settings'
 import { useGraphData } from '../hooks/useGraphData'
 import { updateEdgeStyle } from '../services'
 import { EdgeStylePanel, type EdgeStyleSelection } from './EdgeStylePanel'
@@ -58,6 +59,8 @@ export function RelationGraph({
   visible,
 }: RelationGraphProps) {
   const { nodes: rawNodes, edges: rawEdges, loading, error, refresh } = useGraphData()
+  const { settings } = useSettings()
+  const mouseMode = settings.mouseMode
   const prevVisible = useRef(false)
 
   const [showCharacters, setShowCharacters] = useState(true)
