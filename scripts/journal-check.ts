@@ -51,6 +51,7 @@ eq(
   {
     ts: 1750000000000,
     kind: 'update',
+    actor: 'human',
     relPath: '角色/凯尔.md',
     title: '凯尔',
     keys: ['race', 'body'],
@@ -70,12 +71,27 @@ eq(
   [0, '', []],
 )
 
+// ── actor（docs/Agent接入.md §2.2） ─────────────────────────────────────
+
+eq('老记录没有 actor 时按 human', parseJournalLine('{"kind":"update","ts":1}')?.actor, 'human')
+eq(
+  'agent 身份原样保留',
+  parseJournalLine('{"kind":"update","ts":1,"actor":"agent:critic"}')?.actor,
+  'agent:critic',
+)
+eq(
+  'plugin 身份原样保留',
+  parseJournalLine('{"kind":"update","ts":1,"actor":"plugin:map-gen"}')?.actor,
+  'plugin:map-gen',
+)
+eq('不认识的 actor 不猜，回落 human', parseJournalLine('{"kind":"update","ts":1,"actor":"robot"}')?.actor, 'human')
+
 // ── 过滤 / 文案 ──────────────────────────────────────────────────────────
 
 const entries: JournalEntry[] = [
-  { ts: 3, kind: 'update', relPath: '角色/凯尔.md', title: '凯尔', keys: ['race', 'body'], hash: 'aaa', prevHash: 'bbb' },
-  { ts: 2, kind: 'create', relPath: '角色/凯尔.md', title: '凯尔', keys: [], hash: 'ccc', prevHash: '' },
-  { ts: 1, kind: 'trash', relPath: '角色/阿尔法.md', title: '阿尔法', keys: [], hash: 'ddd', prevHash: '' },
+  { ts: 3, kind: 'update', actor: 'human', relPath: '角色/凯尔.md', title: '凯尔', keys: ['race', 'body'], hash: 'aaa', prevHash: 'bbb' },
+  { ts: 2, kind: 'create', actor: 'agent:critic', relPath: '角色/凯尔.md', title: '凯尔', keys: [], hash: 'ccc', prevHash: '' },
+  { ts: 1, kind: 'trash', actor: 'plugin:map-gen', relPath: '角色/阿尔法.md', title: '阿尔法', keys: [], hash: 'ddd', prevHash: '' },
 ]
 
 eq('按笔记过滤', journalOf(entries, '角色/凯尔.md').map((e) => e.ts), [3, 2])
