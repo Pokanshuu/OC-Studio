@@ -34,6 +34,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - `src/app/globals.css` — 设计令牌（`--oc-paper/ink/line/hover`、`--oc-danger`（危险按钮的灰调红底色））、**圆角三档**（`--radius-item: 4px` / `control: 6px` / `panel: 8px` → `rounded-item` 等工具类）、`--oc-hover`（全局控件悬停底色）、`--oc-scrim`（弹窗遮罩，亮 .15 / 暗 .40）、`--oc-ink-fixed/paper-fixed`（固定底色上的文字）、`.touch-feedback`、`.row-rule`+`.rules-end`（可点整行的直线分隔）
 - `scripts/design-audit.ts` — **设计令牌体检**（`npm run audit:design`）：扫全项目找像素圆角 / Tailwind 原色 / 暗色十六进制 / 黑·白半透明底 / 阴影 / 粗描边 / ring 光晕，并列出「重复 ≥3 次、该收进 ui-tokens 的类名串」。确有例外就写 `// design-audit-allow <规则名> 理由`。**提交前跑一次，0 违规才算过**
 - `src/lib/sidebar-width.ts` — **侧边栏宽度唯一源**：默认 140px，可调范围 0.8–1.2 倍（112–168px），`clampSidebarWidth()` 负责夹取；宽度存在 settings 的 `sidebarWidth`（localStorage），拖动中只更新本地 state，松手才落盘
+- `src/lib/cover/` — **封面卡算法唯一源**（角色 / 国家 / 事件的网格视图）：照搬 Simple_Cover 的「照片下缘逐行递增模糊 → 完全混色」+ 自动取色。`color.ts`（取色，**无彩度的图走中性、不猜色相**）· `blur.ts`（渐进模糊，纯函数，`npx tsx scripts/cover-check.ts` 自检 32 项）· `scene.ts`（画面合成）· `tuning.ts`（**所有版式数字的唯一源**，面板实时调，「视图 → 封面卡参数」或 `Ctrl/Cmd + Shift + K`）。**改这块先读 `docs/封面卡.md`**（算法、参数表、取色规则、性能策略）
+- `src/components/shared/cover/` — `CoverCard`（三个列表共用的封面卡：标题压模糊区、简介与小字落色块、头像/国徽在标题上方）+ `CoverArt`（画布：进视口才画、一帧两张、按画布去重）+ `CoverTuningPanel`（调参面板）
 
 ### 编辑器（全局唯一内核）
 - `src/components/editor/EditorCore.tsx` — 统一 Tiptap 实例（含移动端键盘工具栏与块面板）
@@ -80,7 +82,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - `src/lib/useBackButton.ts` — Capacitor 系统返回键处理
 - `src/lib/browser-compat.ts` — 浏览器兼容性检测：Chromium 版本、HarmonyOS/ArkWeb、安全区域降级估算与修正
 - `src/lib/reference-registry.ts` — @ 引用和 [[ 内链数据源注册
-- `src/lib/settings.tsx` — 主题 / 同步 / 界面偏好（`sidebarVisible`、`sidebarWidth`）设置
+- `src/lib/settings.tsx` — 主题 / 同步 / 界面偏好（`sidebarVisible`、`sidebarWidth`、`editorLayout`、`mouseMode`、**`coverTintMode`**（封面卡彩色 / 黑白））设置
 - `src/lib/use-device.ts` — useDevice() (isMobile)
 - `src/lib/image-service.ts` — 图片全流程（含 Tauri/Capacitor/Browser 三环境适配）
 - `src/lib/image-crop.ts` — Canvas 裁剪引擎（getCroppedBlob 支持 Blob 入参 + HEIF 自动转换）

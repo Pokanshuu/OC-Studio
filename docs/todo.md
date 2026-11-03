@@ -114,6 +114,7 @@
 - [ ] **P1 World 正文收敛到 `document`**：现在 JSON 字符串（在用）与 `document` 对象（unused）两形态并存，读取处要分支
 - [ ] **P2 仓储 create/update 模板**：`listActive` / `getById` / `softDelete` 已收敛，create/update 因字段级日志与引用同步差异仍各自手写
 - [ ] **P3 命令面板与移动端搜索合并**：`MenuBarSearch` 与 `MobileSearchOverlay` 现在是两套 UI
+- [ ] **P2 封面卡参数定稿**：版式数字集中在 `src/lib/cover/tuning.ts`（「视图 → 封面卡参数」可实时拖，32 项算法自检见 `scripts/cover-check.ts`）。定稿后把 JSON 写回默认值，面板降级成隐藏调试口；细节见 `docs/封面卡.md`
 - [ ] **P2 Rust 化（只搬「数据已在磁盘、结果很小、纯函数」的活）**：
   - [ ] **扫描分段**（收益最大）：`vault_scan` 现在把每个 `.md` 全文塞进 IPC（`VaultFile.content`，见 `src-tauri/src/vault.rs`），JS 再逐篇 parse。改成 Rust 切出 frontmatter（`serde_yaml` → `serde_json::Value`）+ body + mtime，TS 只做词表映射 —— **`lib/vault/fields.ts` 仍是唯一词汇表，一行不搬**，所以不会长出第二套规则
   - [ ] **全库 mtime 比对命令**：一次遍历返回「被外部改动的路径」，给上面的导出前检查用（别在 JS 里 N 次 IPC）

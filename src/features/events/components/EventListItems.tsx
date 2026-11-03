@@ -5,9 +5,11 @@ import type { Event } from '@/types'
 import { formatRelativeTime } from '../utils'
 import { resolveImageUrl } from '@/lib/image-service'
 import { DeleteButton } from '@/components/shared/DeleteButton'
+import { CoverCard } from '@/components/shared/cover/CoverCard'
 import { useLongPress } from '@/lib/useLongPress'
+import { coverExcerpt } from '@/lib/cover'
 import { formatTimeDisplay } from './event-list-utils'
-import { DRAG_SLOT_CARD, DRAG_SLOT_ROW, MEDIA_CARD, MEDIA_FALLBACK, MEDIA_GRADIENT, MEDIA_IMG, ROUND_ITEM, ROW_ACTIONS } from '@/lib/ui-tokens'
+import { DRAG_SLOT_ROW, ROW_ACTIONS } from '@/lib/ui-tokens'
 import { DragHandle, useSortableItem } from '@/components/shared/list-dnd'
 
 interface EventItemProps {
@@ -20,7 +22,7 @@ interface EventItemProps {
   sortable?: boolean
 }
 
-/** 「画廊」视图的卡片 */
+/** 「画廊」视图的卡片：一张封面（照片 → 渐进模糊 → 色块，事件名与时间落在色块里） */
 export function EventCard({
   event,
   onSelect,
@@ -29,79 +31,24 @@ export function EventCard({
   isMobile,
   sortable = false,
 }: EventItemProps) {
-  const { setNodeRef, style, attributes, listeners, longPress: longPressSort, cardAttributes, cardListeners } =
-    useSortableItem(event.id, !sortable)
-  // 长按拖动和「长按动作表」抢同一个手势：排序模式下让拖动赢
-  const longPress = useLongPress({
-    onLongPress: onLongPress ?? (() => {}),
-    enabled: isMobile && !longPressSort,
-  })
-
   return (
-    <div
-      ref={setNodeRef}
-      style={longPressSort ? { ...style, touchAction: 'none' } : style}
-      className={`relative group touch-feedback ${longPressSort ? 'touch-none' : ''}`}
-      {...longPress}
-      {...cardAttributes}
-      {...cardListeners}
-    >
-      {sortable ? (
-        <div className={DRAG_SLOT_CARD}>
-          <DragHandle tone="overlay" handleProps={{ attributes, listeners }} />
-        </div>
-      ) : null}
-      <button
-        onClick={() => onSelect(event.id)}
-        className={`flex w-full flex-col overflow-hidden bg-paper-card text-left transition-colors hover:bg-line ${ROUND_ITEM}`}
-      >
-        <div className={MEDIA_CARD}>
-          {event.headerUrl ? (
-            <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={resolveImageUrl(event.headerUrl, 'header')}
-                alt=""
-                className={MEDIA_IMG}
-              />
-              <div className={MEDIA_GRADIENT} />
-            </>
-          ) : (
-            <div className={MEDIA_FALLBACK}>
-              {event.title.slice(0, 1)}
-            </div>
-          )}
-        </div>
-        <div className="flex flex-col gap-2 p-2.5">
-          <div className="flex items-center gap-2 pr-6">
-            {event.isMajor ? (
-              <Circle size={8} fill="var(--color-error)" className="shrink-0 text-error" />
-            ) : null}
-            <h3 className="truncate text-sm font-medium text-ink">{event.title}</h3>
-          </div>
-
-          {event.time ? (
-            <span className="text-xs text-ink-faint">{formatTimeDisplay(event)}</span>
-          ) : null}
-
-          {event.summary ? (
-            <p className="line-clamp-2 text-xs leading-relaxed text-ink-muted">
-              {event.summary}
-            </p>
-          ) : null}
-
-          <span className="mt-auto text-xs text-ink-faint">
-            编辑于 {formatRelativeTime(event.updatedAt)}
-          </span>
-        </div>
-      </button>
-
-      {!isMobile ? (
-        <div className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity">
-          <DeleteButton onDelete={() => onDelete(event.id)} />
-        </div>
-      ) : null}
-    </div>
+    <CoverCard
+      id={event.id}
+      title={event.title}
+      intro={coverExcerpt(event.summary, 84)}
+      meta={event.time ? formatTimeDisplay(event) : undefined}
+      imageSrc={event.headerUrl ? resolveImageUrl(event.headerUrl, 'header') : undefined}
+      marker={
+        event.isMajor ? (
+          <Circle size={7} strokeWidth={0} fill="currentColor" className="text-error" />
+        ) : undefined
+      }
+      onSelect={() => onSelect(event.id)}
+      onLongPress={onLongPress}
+      isMobile={isMobile}
+      sortable={sortable}
+      actions={!isMobile ? <DeleteButton tone="overlay" onDelete={() => onDelete(event.id)} /> : undefined}
+    />
   )
 }
 

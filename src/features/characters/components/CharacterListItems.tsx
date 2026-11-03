@@ -4,10 +4,12 @@ import { Circle } from 'lucide-react'
 import type { Character } from '@/types'
 import { Avatar } from '@/components/shared/Avatar'
 import { DeleteButton } from '@/components/shared/DeleteButton'
+import { CoverCard } from '@/components/shared/cover/CoverCard'
 import { getImageUrl, resolveImageUrl } from '@/lib/image-service'
+import { coverExcerpt } from '@/lib/cover'
 import { useLongPress } from '@/lib/useLongPress'
 import { aliasesText } from './character-list-utils'
-import { DRAG_SLOT_CARD, DRAG_SLOT_ROW, MEDIA_CARD, MEDIA_FALLBACK, MEDIA_GRADIENT, MEDIA_IMG, ROUND_ITEM, ROW_ACTIONS } from '@/lib/ui-tokens'
+import { DRAG_SLOT_ROW, ROW_ACTIONS } from '@/lib/ui-tokens'
 import { DragHandle, useSortableItem } from '@/components/shared/list-dnd'
 import { MoveToFolderMenu } from './MoveToFolderMenu'
 
@@ -25,7 +27,7 @@ interface CharacterItemProps {
   sortable?: boolean
 }
 
-/** 「画廊」视图的卡片 */
+/** 「画廊」视图的卡片：一张封面（照片 → 渐进模糊 → 色块，名字落在色块里） */
 export function CharacterCard({
   character,
   onSelect,
@@ -38,80 +40,41 @@ export function CharacterCard({
   sortable = false,
 }: CharacterItemProps) {
   const displayNationality = countryName || character.nationalityLegacy
-
-  const { setNodeRef, style, attributes, listeners, longPress: longPressSort, cardAttributes, cardListeners } =
-    useSortableItem(character.id, !sortable)
-  // 长按拖动和「长按动作表」抢同一个手势：排序模式下让拖动赢
-  const longPress = useLongPress({
-    onLongPress: onLongPress ?? (() => {}),
-    enabled: isMobile && !longPressSort,
-  })
+  const meta = [character.race, displayNationality].filter(Boolean).join(' · ')
+  const avatar = character.avatarUrl ? resolveImageUrl(character.avatarUrl, 'avatar') : undefined
 
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={`relative group touch-feedback ${longPressSort ? 'touch-none' : ''}`}
-      {...longPress}
-      {...cardAttributes}
-      {...cardListeners}
-    >
-      {sortable ? (
-        <div className={DRAG_SLOT_CARD}>
-          <DragHandle tone="overlay" handleProps={{ attributes, listeners }} />
-        </div>
-      ) : null}
-      <button
-        onClick={() => onSelect(character.id)}
-        className={`flex w-full flex-col overflow-hidden bg-paper-card text-left transition-colors hover:bg-line ${ROUND_ITEM}`}
-      >
-        <div className={MEDIA_CARD}>
-          {character.headerUrl ? (
-            <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={resolveImageUrl(character.headerUrl, 'header')}
-                alt=""
-                className={MEDIA_IMG}
-              />
-              {/* 图片与卡片底色之间做渐变过渡 */}
-              <div className={MEDIA_GRADIENT} />
-            </>
-          ) : (
-            <div className={MEDIA_FALLBACK}>
-              {character.name.slice(0, 1)}
-            </div>
-          )}
-        </div>
-        <div className={`flex gap-3 p-2.5 ${displayNationality ? 'items-start' : 'items-center'}`}>
-          <Avatar src={character.avatarUrl} size="md" className="shrink-0" />
-          <div className="flex flex-col min-w-0 gap-0.5">
-            <div className="flex items-center gap-1.5 min-w-0">
-              {character.isMajor ? (
-                <span title="主要角色" className="shrink-0">
-                  <Circle size={8} fill="var(--color-ink-muted)" className="text-ink-muted" />
-                </span>
-              ) : null}
-              <h3 className="text-sm font-medium text-ink truncate">{character.name}</h3>
-            </div>
-            {displayNationality ? (
-              <span className="text-xs text-ink-faint">{displayNationality}</span>
-            ) : null}
-          </div>
-        </div>
-      </button>
-
-      {!isMobile ? (
-        <div className="absolute right-2 top-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <MoveToFolderMenu
-            folders={folders}
-            current={character.folder}
-            onMove={(folder) => onMoveToFolder?.(character.id, folder)}
-          />
-          <DeleteButton onDelete={() => onDelete(character.id)} />
-        </div>
-      ) : null}
-    </div>
+    <CoverCard
+      id={character.id}
+      title={character.name}
+      intro={coverExcerpt(character.bio, 84)}
+      meta={meta || undefined}
+      imageSrc={character.headerUrl ? resolveImageUrl(character.headerUrl, 'header') : undefined}
+      tintSrc={avatar}
+      emblem={avatar ? <Avatar src={character.avatarUrl} size="md" /> : undefined}
+      marker={
+        character.isMajor ? (
+          <Circle size={7} strokeWidth={0} fill="currentColor" className="text-paper-fixed/70" />
+        ) : undefined
+      }
+      onSelect={() => onSelect(character.id)}
+      onLongPress={onLongPress}
+      isMobile={isMobile}
+      sortable={sortable}
+      actions={
+        !isMobile ? (
+          <>
+            <MoveToFolderMenu
+              folders={folders}
+              current={character.folder}
+              onMove={(folder) => onMoveToFolder?.(character.id, folder)}
+              tone="overlay"
+            />
+            <DeleteButton tone="overlay" onDelete={() => onDelete(character.id)} />
+          </>
+        ) : undefined
+      }
+    />
   )
 }
 

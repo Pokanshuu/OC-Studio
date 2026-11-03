@@ -30,6 +30,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { GripVertical } from 'lucide-react'
+import { OverlayIconButton } from './OverlayIconButton'
 
 type DragListeners = ReturnType<typeof useSortable>['listeners']
 
@@ -140,12 +141,20 @@ interface DragHandleProps {
 
 export function DragHandle({ handleProps, tone = 'inline', className = '' }: DragHandleProps) {
   const { attributes, listeners } = handleProps
-  const base =
-    'flex items-center justify-center transition-colors touch-none cursor-grab active:cursor-grabbing'
-  const skin =
-    tone === 'overlay'
-      ? 'h-6 w-6 rounded-full bg-black/30 text-white/80 hover:bg-black/50'
-      : 'h-6 w-6 rounded-item text-ink-faint hover:text-ink'
+
+  if (tone === 'overlay') {
+    return (
+      <OverlayIconButton
+        label="拖动排序"
+        {...attributes}
+        {...listeners}
+        onClick={(event) => event.stopPropagation()}
+        className={`touch-none cursor-grab active:cursor-grabbing ${className}`}
+      >
+        <GripVertical size={14} strokeWidth={2} />
+      </OverlayIconButton>
+    )
+  }
 
   return (
     <button
@@ -155,7 +164,7 @@ export function DragHandle({ handleProps, tone = 'inline', className = '' }: Dra
       {...attributes}
       {...listeners}
       onClick={(event) => event.stopPropagation()}
-      className={`${base} ${skin} ${className}`}
+      className={`flex h-6 w-6 items-center justify-center rounded-item text-ink-faint transition-colors touch-none cursor-grab hover:text-ink active:cursor-grabbing ${className}`}
     >
       <GripVertical size={14} strokeWidth={2} />
     </button>

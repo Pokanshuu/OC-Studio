@@ -26,7 +26,8 @@ import { readSortKey, writeSortKey } from '@/lib/sort-manual'
 import type { ViewMode } from '@/components/shared/SortViewControls'
 import { SortableList, moveId } from '@/components/shared/list-dnd'
 import { useReorderEvents } from '../hooks/useEvents'
-import { BTN_QUIET, CENTER_STATE, EMPTY_HINT, LIST_GRID } from '@/lib/ui-tokens'
+import { BTN_QUIET, CENTER_STATE, LIST_GRID } from '@/lib/ui-tokens'
+import { ListEmptyState } from '@/components/shared/ListEmptyState'
 
 interface EventListProps {
   events: Event[]
@@ -139,14 +140,15 @@ export function EventList({
 
       <div className="flex-1 p-4 flex flex-col">
         {events.length === 0 ? (
-          <div className="flex-1 flex items-center justify-center">
-            <button
-              onClick={onCreateEvent}
-              className={EMPTY_HINT}
-            >
-              暂无事件，点击创建第一个
-            </button>
-          </div>
+          <ListEmptyState
+            message="还没有事件"
+            action={{ label: '创建第一个', onClick: onCreateEvent }}
+          />
+        ) : filteredEvents.length === 0 ? (
+          <ListEmptyState
+            message="没有匹配的事件"
+            action={{ label: '清除筛选', onClick: () => setSearch('') }}
+          />
         ) : viewMode === 'grid' ? (
           <SortableList
               activation="longPress"
@@ -157,7 +159,7 @@ export function EventList({
           >
             <div className={LIST_GRID}>
               {filteredEvents.map((event) => (
-                <div key={event.id} className="[break-inside:avoid] mb-4">
+                <div key={event.id}>
                   <EventCard
                     event={event}
                     onSelect={handleSelect}

@@ -1,6 +1,7 @@
 'use client'
 
 import { EDITOR_LAYOUT_OPTIONS, type EditorLayout } from "@/lib/editor-layout"
+import { COVER_TINT_MODE_OPTIONS, type CoverTintMode } from "@/lib/cover"
 
 /** 设置页的共享控件：主题单选 + 开关样式常量（被「个性化」等 tab 使用）。 */
 export const THEME_OPTIONS = [
@@ -117,6 +118,41 @@ export function MouseModeRadio({
           <input
             type="radio"
             name="mouseMode"
+            value={opt.value}
+            checked={value === opt.value}
+            onChange={() => onChange(opt.value)}
+            className="sr-only"
+          />
+          <span className="text-sm leading-none text-ink">{opt.label}</span>
+        </label>
+      ))}
+    </div>
+  )
+}
+
+
+/** 封面卡混色：彩色（跟着封面图取色）/ 黑白（设计令牌的墨色） */
+export function CoverTintRadio({
+  value,
+  onChange,
+}: {
+  value: CoverTintMode
+  onChange: (v: CoverTintMode) => void
+}) {
+  return (
+    <div className="flex gap-3">
+      {COVER_TINT_MODE_OPTIONS.map((opt) => (
+        <label key={opt.value} className="flex cursor-pointer items-center gap-2">
+          <span
+            className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border ${
+              value === opt.value ? 'border-ink' : 'border-line'
+            }`}
+          >
+            {value === opt.value ? <span className="h-1.5 w-1.5 rounded-full bg-ink" /> : null}
+          </span>
+          <input
+            type="radio"
+            name="coverTintMode"
             value={opt.value}
             checked={value === opt.value}
             onChange={() => onChange(opt.value)}

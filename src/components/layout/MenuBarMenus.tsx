@@ -9,6 +9,7 @@ import { useImportExport } from '@/components/shared/ImportExportUI'
 import { downloadMarkdown, downloadTxt, downloadFullBackup, exportStaticSite } from '@/lib/export'
 import { toast } from 'sonner'
 import { useActiveEditor } from '@/lib/editor-context'
+import { toggleCoverTuningPanel } from '@/lib/cover'
 import { VaultMenuSection } from '@/features/vault'
 import {
   DropdownMenu,
@@ -239,6 +240,10 @@ export function MenuBarMenus() {
                   </DropdownMenuItem>
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => toggleCoverTuningPanel()}>
+                封面卡参数
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 

@@ -5,6 +5,7 @@ import { invoke } from "@tauri-apps/api/core"
 import { isTauri } from "./env"
 import { DEFAULT_SIDEBAR_WIDTH, clampSidebarWidth } from "./sidebar-width"
 import type { EditorLayout } from "./editor-layout"
+import type { CoverTintMode } from "./cover/tuning"
 
 const STORAGE_KEY = "oc-studio-settings"
 
@@ -23,6 +24,12 @@ export interface Settings {
    * - `right-pan`：右键拖动画布平移，左键直接框选
    */
   mouseMode: 'left-pan' | 'right-pan'
+  /**
+   * 封面卡（角色 / 国家 / 事件网格）的混色来源：
+   * - `auto` 从封面图里取色（有彩度跟着图走，无彩度转中性）
+   * - `ink`  固定用设计令牌的墨色，即黑白封面
+   */
+  coverTintMode: CoverTintMode
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -34,6 +41,7 @@ const DEFAULT_SETTINGS: Settings = {
   sidebarWidth: DEFAULT_SIDEBAR_WIDTH,
   editorLayout: "auto",
   mouseMode: "left-pan",
+  coverTintMode: "auto",
 }
 
 function loadSettings(): Settings {

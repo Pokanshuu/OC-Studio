@@ -245,7 +245,7 @@ export function CharacterList({
           >
             <div className={LIST_GRID}>
               {filtered.map((character) => (
-                <div key={character.id} className="[break-inside:avoid] mb-4">
+                <div key={character.id}>
                   <CharacterCard
                     character={character}
                     onSelect={handleSelect}

@@ -2,11 +2,13 @@
 
 import type { Country } from '@/types'
 import { DeleteButton } from '@/components/shared/DeleteButton'
+import { CoverCard } from '@/components/shared/cover/CoverCard'
 import { useLongPress } from '@/lib/useLongPress'
 import { Avatar } from '@/components/shared/Avatar'
 import { getImageUrl, resolveImageUrl } from '@/lib/image-service'
+import { coverExcerpt } from '@/lib/cover'
 import { countryPreview } from './country-list-utils'
-import { DRAG_SLOT_CARD, DRAG_SLOT_ROW, MEDIA_CARD, MEDIA_FALLBACK, MEDIA_GRADIENT, MEDIA_IMG, ROUND_ITEM, ROW_ACTIONS } from '@/lib/ui-tokens'
+import { DRAG_SLOT_ROW, ROW_ACTIONS } from '@/lib/ui-tokens'
 import { DragHandle, useSortableItem } from '@/components/shared/list-dnd'
 
 interface CountryItemProps {
@@ -78,7 +80,7 @@ export function CountryRow({
   )
 }
 
-/** 「画廊」视图的卡片 */
+/** 「画廊」视图的卡片：一张封面（照片 → 渐进模糊 → 色块，国名落在色块里） */
 export function CountryCard({
   country,
   onSelect,
@@ -87,67 +89,19 @@ export function CountryCard({
   isMobile,
   sortable = false,
 }: CountryItemProps) {
-  const preview = countryPreview(country)
-
-  const { setNodeRef, style, attributes, listeners, longPress: longPressSort, cardAttributes, cardListeners } =
-    useSortableItem(country.id, !sortable)
-  // 长按拖动和「长按动作表」抢同一个手势：排序模式下让拖动赢
-  const longPress = useLongPress({
-    onLongPress: onLongPress ?? (() => {}),
-    enabled: isMobile && !longPressSort,
-  })
-
   return (
-    <div
-      ref={setNodeRef}
-      style={longPressSort ? { ...style, touchAction: 'none' } : style}
-      className={`relative group touch-feedback ${longPressSort ? 'touch-none' : ''}`}
-      {...longPress}
-      {...cardAttributes}
-      {...cardListeners}
-    >
-      {sortable ? (
-        <div className={DRAG_SLOT_CARD}>
-          <DragHandle tone="overlay" handleProps={{ attributes, listeners }} />
-        </div>
-      ) : null}
-      <button
-        onClick={() => onSelect(country.id)}
-        className={`flex w-full flex-col overflow-hidden bg-paper-card text-left transition-colors hover:bg-line ${ROUND_ITEM}`}
-      >
-        <div className={MEDIA_CARD}>
-          {country.headerUrl ? (
-            <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={resolveImageUrl(country.headerUrl, 'header')}
-                alt=""
-                className={MEDIA_IMG}
-              />
-              <div className={MEDIA_GRADIENT} />
-            </>
-          ) : (
-            <div className={MEDIA_FALLBACK}>
-              {country.name.slice(0, 1)}
-            </div>
-          )}
-        </div>
-        <div className="flex items-start gap-3 p-2.5">
-          <Avatar src={country.flagUrl} size="md" type="flag" className="shrink-0" />
-          <div className="flex flex-col min-w-0 gap-0.5">
-            <h3 className="text-sm font-medium text-ink truncate">{country.name}</h3>
-            {preview ? (
-              <p className="text-xs text-ink-muted truncate">{preview}</p>
-            ) : null}
-          </div>
-        </div>
-      </button>
-
-      {!isMobile ? (
-        <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <DeleteButton onDelete={() => onDelete(country.id)} />
-        </div>
-      ) : null}
-    </div>
+    <CoverCard
+      id={country.id}
+      title={country.name}
+      intro={coverExcerpt(countryPreview(country), 84)}
+      imageSrc={country.headerUrl ? resolveImageUrl(country.headerUrl, 'header') : undefined}
+      tintSrc={country.flagUrl ? resolveImageUrl(country.flagUrl, 'flag') : undefined}
+      emblem={country.flagUrl ? <Avatar src={country.flagUrl} size="md" type="flag" /> : undefined}
+      onSelect={() => onSelect(country.id)}
+      onLongPress={onLongPress}
+      isMobile={isMobile}
+      sortable={sortable}
+      actions={!isMobile ? <DeleteButton tone="overlay" onDelete={() => onDelete(country.id)} /> : undefined}
+    />
   )
 }
