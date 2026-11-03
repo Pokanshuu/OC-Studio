@@ -51,10 +51,15 @@ export async function buildGraphData(): Promise<{ nodes: GraphNode[]; edges: Gra
     relation: string,
     incomplete = false,
     style?: { color?: string; arrow?: 'none' | 'forward' | 'reverse' | 'both' },
+    /**
+     * 是否允许同一对节点的多条边。
+     * - 成员 / 归属类（角色↔国家、事件↔国家）：两侧数据表达同一条事实，**必须去重**
+     * - 角色↔角色、事件↔事件：一个名字就是一条关系（兄弟 + 同事），去重会把其中一条吞掉
+     */
+    allowParallel = false,
   ) {
-    // 按无序节点对去重：同一对节点只保留一条边，避免「属于/所属」「发生于/发生地」等
-    // 在数据模型两侧同时表达时被重复绘制成两条反向边。
-    const key = [source, target].sort().join('||')
+    const pairKey = [source, target].sort().join('||')
+    const key = allowParallel ? `${pairKey}::${relation}` : pairKey
     if (edgeKeys.has(key)) return
     edgeKeys.add(key)
     edges.push({
@@ -111,7 +116,7 @@ export async function buildGraphData(): Promise<{ nodes: GraphNode[]; edges: Gra
     for (const rc of c.relatedCharacters ?? []) {
       const targetId = `character-${rc.characterId}`
       if (nodeIds.has(targetId)) {
-        addEdge(sourceId, targetId, rc.relation || '', false, { color: rc.color, arrow: rc.arrow })
+        addEdge(sourceId, targetId, rc.relation || '', false, { color: rc.color, arrow: rc.arrow }, true)
       }
     }
   }
@@ -122,12 +127,27 @@ export async function buildGraphData(): Promise<{ nodes: GraphNode[]; edges: Gra
     for (const relation of e.relations ?? []) {
       const targetId = `event-${relation.targetId}`
       if (nodeIds.has(targetId)) {
-        addEdge(sourceId, targetId, relation.relation || '', false, {
-          color: relation.color,
-          arrow: relation.arrow,
-        })
+        addEdge(
+          sourceId,
+          targetId,
+          relation.relation || '',
+          false,
+          { color: relation.color, arrow: relation.arrow },
+          true,
+        )
       }
     }
+  }
+
+  // 并行边错开：同一对节点的第 n 条关系给一个序号（docs/关系图.md §9 风险 3）
+  const pairCount = new Map<string, number>()
+  for (const edge of edges) {
+    const key = [edge.source, edge.target].sort().join('||')
+    if (edgeKeys.has(key + '::member')) continue
+    const index = pairCount.get(key) ?? 0
+    pairCount.set(key, index + 1)
+    const data = edge.data as Record<string, unknown> | undefined
+    if (data) data.parallelIndex = index
   }
 
   // 先把「两侧都有」的成员关系登记一遍，画边时据此判断这条边完不完整

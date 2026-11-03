@@ -21,7 +21,8 @@ export function RelationEdge({
     targetY,
     targetPosition,
     // 曲率调小：默认 0.25 在四向落点下会甩出很大的弧，几条线一叠就糊成一团
-    curvature: 0.15,
+    // 同一对节点的第 n 条边再叠一点曲率，避免并行关系完全重合（docs/关系图.md §9 风险 3）
+    curvature: 0.15 + Math.min(3, Number(data?.parallelIndex ?? 0)) * 0.12,
   })
 
   // 关系名可以为空（如角色关系只连了线没起名）——空标签不画那个白框
