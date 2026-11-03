@@ -25,6 +25,7 @@ import {
   type KeyChain,
 } from './fields'
 import { classifyFolderWithOverrides, type FolderClassification } from './mapping'
+import { normalizeRelationArrow, normalizeRelationColor } from '@/lib/relation-colors'
 import { noteAliases, noteTitle, toNote } from './note'
 import { normalizeLinkKey, stripOrderPrefix } from './wikilink'
 import { customFieldKeys } from './vault-field-keys'
@@ -370,7 +371,13 @@ export function scanVault(options: ScanOptions): VaultScanResult {
         relatedCharacters: readObjects(fm, CHARACTER_KEYS.relations).map((item) => {
           const name = typeof item.name === 'string' ? item.name : ''
           const relation = typeof item.relation === 'string' ? item.relation : ''
-          return { characterId: lookupTarget(name, 'character')?.id, name, relation }
+          return {
+            characterId: lookupTarget(name, 'character')?.id,
+            name,
+            relation,
+            color: normalizeRelationColor(item.color),
+            arrow: item.arrow === undefined ? undefined : normalizeRelationArrow(item.arrow, 'none'),
+          }
         }),
         gallery: readImageList(fm, CHARACTER_KEYS.gallery).map((item) => ({
           url: item.url,
@@ -458,6 +465,8 @@ export function scanVault(options: ScanOptions): VaultScanResult {
           .map((item) => ({
             targetId: lookupTarget(typeof item.name === 'string' ? item.name : '', 'event')?.id ?? 0,
             relation: typeof item.relation === 'string' ? item.relation : '',
+            color: normalizeRelationColor(item.color),
+            arrow: item.arrow === undefined ? undefined : normalizeRelationArrow(item.arrow, 'none'),
           }))
           .filter((item) => item.targetId !== 0),
         tags: tagIdsOf(note, EVENT_KEYS.tags),

@@ -2,6 +2,10 @@ export interface RelatedCharacter {
   characterId?: number
   name: string
   relation: string
+  /** 连线颜色（色板名，见 lib/relation-colors.ts）；空 = 中性线色 */
+  color?: string
+  /** 箭头方向；空 = 无箭头 */
+  arrow?: 'none' | 'forward' | 'reverse' | 'both'
 }
 
 export interface GalleryImage {
@@ -102,6 +106,10 @@ export interface Event {
 export interface EventRelation {
   targetId: number
   relation: string
+  /** 连线颜色（色板名）；空 = 中性线色 */
+  color?: string
+  /** 箭头方向；空 = 无箭头 */
+  arrow?: 'none' | 'forward' | 'reverse' | 'both'
 }
 
 export interface ImageEntry {

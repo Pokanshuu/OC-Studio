@@ -172,6 +172,8 @@ function relationDisk(
       if (resolved === '') return null
       const row: Record<string, unknown> = { name: resolved }
       if (item.relation) row.relation = item.relation
+      if (item.color) row.color = item.color
+      if (item.arrow && item.arrow !== 'none') row.arrow = item.arrow
       return row
     })
     .filter((row): row is Record<string, unknown> => row !== null)
@@ -190,6 +192,8 @@ function eventRelationDisk(
       if (resolved === undefined || resolved === '') return null
       const row: Record<string, unknown> = { name: resolved }
       if (item.relation) row.relation = item.relation
+      if (item.color) row.color = item.color
+      if (item.arrow && item.arrow !== 'none') row.arrow = item.arrow
       return row
     })
     .filter((row): row is Record<string, unknown> => row !== null)
