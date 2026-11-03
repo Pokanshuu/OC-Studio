@@ -112,7 +112,18 @@ export function useImportExport(options?: {
   }, [])
 
   const summaryText = summary
-    ? `角色 ${summary.characters} 条，事件 ${summary.events} 条，国家 ${summary.countries} 条，词条 ${summary.worldEntries} 条，标签 ${summary.tags} 条，时期 ${summary.periods} 条`
+    ? [
+        `角色 ${summary.characters} 条`,
+        `事件 ${summary.events} 条`,
+        `国家 ${summary.countries} 条`,
+        `词条 ${summary.worldEntries} 条`,
+        `标签 ${summary.tags} 条`,
+        `时期 ${summary.periods} 条`,
+        // fork 版备份里的地图：我们有锚点模型，暂不导入，只如实告诉用户
+        summary.maps ? `地图 ${summary.maps} 张（暂不导入）` : '',
+      ]
+        .filter(Boolean)
+        .join('，')
     : ''
 
   const dialog = (
