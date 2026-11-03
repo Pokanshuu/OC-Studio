@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import { logOperation, pendingStamp } from '@/lib/sync'
 import { addCountryCharacter, addCountryEvent, removeCountryCharacter } from '@/lib/membership'
 import type { GraphNode, GraphEdge, RelationEndpoint, RelationNodeType } from './types'
+import { patchCharacterEdge, patchEventEdge, type EdgeStylePatch } from './edge-style'
 
 export type CreateRelationResult =
   | { ok: true }
@@ -389,4 +390,48 @@ export async function createRelationBetween(
       // 国家之间没有对应字段（既没有父级外的关联表，也没有反向列表）
       return { ok: false, reason: 'unsupported' }
   }
+}
+
+
+/**
+ * 改一条边的样式（颜色 / 箭头）。只支持「角色↔角色」与「事件↔事件」两类边
+ * ——其它组合的样式不在这一层表达（归属 / 参与不画箭头，见 docs/关系图.md §2.1）。
+ */
+export async function updateEdgeStyle(
+  source: { entityType: RelationNodeType; entityId: number },
+  target: { entityType: RelationNodeType; entityId: number },
+  patch: EdgeStylePatch,
+): Promise<boolean> {
+  if (source.entityType !== target.entityType) return false
+  const now = Date.now()
+
+  if (source.entityType === 'character') {
+    const row = await db.characters.get(source.entityId)
+    if (!row) return false
+    const patched = patchCharacterEdge(row, target.entityId, patch)
+    if (!patched || !patched.changed) return patched?.found ?? false
+    await db.characters.update(row.id, {
+      relatedCharacters: patched.relatedCharacters,
+      updatedAt: now,
+      ...pendingStamp(now),
+    })
+    await logOperation('characters', row.id, 'edge_style', '', JSON.stringify(patch))
+    return true
+  }
+
+  if (source.entityType === 'event') {
+    const row = await db.events.get(source.entityId)
+    if (!row) return false
+    const patched = patchEventEdge(row, target.entityId, patch)
+    if (!patched || !patched.changed) return patched?.found ?? false
+    await db.events.update(row.id, {
+      relations: patched.relations,
+      updatedAt: now,
+      ...pendingStamp(now),
+    })
+    await logOperation('events', row.id, 'edge_style', '', JSON.stringify(patch))
+    return true
+  }
+
+  return false
 }
