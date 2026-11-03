@@ -4,6 +4,7 @@
  * 验的是「树 → 三种输出」这条链：顺序、层级、粗体/列表、字数、TXT/Markdown 差异。
  */
 import { flattenNovel, toMarkdown, toTxt, countNovelWords } from '../src/features/novel/export'
+import { paginateNovel, linesPerPage, charsPerLine, wrapText } from '../src/features/novel/pagination'
 import type { WorldEntry } from '../src/types'
 
 let passed = 0
@@ -73,5 +74,17 @@ check('parentId 悬空时当根，不消失', orphan.length === 1)
 // 老数据：content 是纯文本而不是 JSON
 const plain = flattenNovel([entry(10, '旧章', null, 0, '就是一段纯文本')])
 check('非 JSON 正文原样输出', plain[0].text === '就是一段纯文本')
+
+// ── 分页
+const flat = flattenNovel(entries)
+const pages = paginateNovel(flat, '9:16')
+check('分页有页', pages.length > 0)
+check('每章至少一页', pages.filter((p) => p.startsChapter).length === flat.length)
+check('页码连续', pages.every((p, i) => p.index === i + 1))
+check('横版每页行数更少', linesPerPage('16:9') < linesPerPage('9:16'))
+check('每行字数随版心变化', charsPerLine('A4') >= charsPerLine('9:16'))
+const wrapped = wrapText('这是一段很长的中文，用来验证折行不会切断字符。', '9:16')
+check('折行后总字数不变', wrapped.join('').replace(/\s/g, '') === '这是一段很长的中文，用来验证折行不会切断字符。'.replace(/\s/g, ''))
+check('空章节也占一页', paginateNovel([{ title: '空章', depth: 2, text: '' }], '9:16').length === 1)
 
 console.log(`\n共 ${passed} 项断言通过`)

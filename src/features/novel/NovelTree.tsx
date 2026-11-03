@@ -8,7 +8,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Editor } from '@tiptap/core'
-import { ArrowLeft, ChevronDown, FileDown, Plus } from 'lucide-react'
+import { ArrowLeft, ChevronDown, Eye, FileDown, Plus } from 'lucide-react'
 import { DocumentEditor } from '@/components/editor/DocumentEditor'
 import { buildEntryTree, type WorldTreeNode } from '@/lib/world-tree'
 import { BTN_QUIET, FIELD_LABEL, INPUT_LINE, MENU, MENU_ITEM, ROUND_ITEM, SECTION_TITLE } from '@/lib/ui-tokens'
@@ -25,12 +25,14 @@ import type { WorldEntry } from '@/types'
 import { flattenNovel, toMarkdown, toTxt, countNovelWords } from './export'
 import { buildDocx } from './docx'
 import { createNovelChapter, listNovelEntries, updateChapterOutline, updateNovelMeta } from './services'
+import { NovelPreview } from './NovelPreview'
 
 export function NovelTree({ novelId, title, onBack }: { novelId: number; title: string; onBack: () => void }) {
   const [entries, setEntries] = useState<WorldEntry[]>([])
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [bodyEditor, setBodyEditor] = useState<Editor | null>(null)
+  const [previewOpen, setPreviewOpen] = useState(false)
 
   const reload = useCallback(async () => {
     const rows = (await listNovelEntries()).filter((row) => row.id === novelId || row.parentId !== null)
@@ -180,6 +182,10 @@ export function NovelTree({ novelId, title, onBack }: { novelId: number; title: 
               {selected ? `本章 ${chapterWords} 字 · ` : ''}全书 {words} 字{target > 0 ? ` / ${target}` : ''}
             </div>
           </div>
+          <button type="button" onClick={() => setPreviewOpen(true)} className={BTN_QUIET}>
+            <Eye size={14} strokeWidth={2} />
+            预览
+          </button>
           <DropdownMenu>
             <DropdownMenuTrigger className={BTN_QUIET}>
               <FileDown size={14} strokeWidth={2} />
@@ -230,6 +236,14 @@ export function NovelTree({ novelId, title, onBack }: { novelId: number; title: 
           </div>
         )}
       </section>
+
+      {previewOpen ? (
+        <NovelPreview
+          title={title}
+          chapters={flattenNovel(chapters)}
+          onClose={() => setPreviewOpen(false)}
+        />
+      ) : null}
     </div>
   )
 }
