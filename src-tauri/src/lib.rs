@@ -127,9 +127,21 @@ pub fn run() {
     .plugin(tauri_plugin_fs::init())
     .setup(|app| {
       if cfg!(debug_assertions) {
+        // 开发期只往 stdout 打日志。
+        //
+        // 默认 targets 还包含 `LogDir`（`%LOCALAPPDATA%\<identifier>\logs`），而 `cargo run`
+        // 出来的 app.exe 是没有签名的：在这台机器上会被拦截成 `拒绝访问 (os error 5)`，
+        // 整个 setup hook 直接 panic（"failed to initialize plugin `log`"），
+        // 表现就是 `tauri dev` 编译完成却起不了窗口。
+        // 开发期的日志本来就该在 `tauri dev` 的终端里看，不需要落盘；
+        // 发布版（--release）保持默认，落盘 + 轮转。
         app.handle().plugin(
           tauri_plugin_log::Builder::default()
             .level(log::LevelFilter::Info)
+            .clear_targets()
+            .target(tauri_plugin_log::Target::new(
+              tauri_plugin_log::TargetKind::Stdout,
+            ))
             .build(),
         )?;
       }
