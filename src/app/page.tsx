@@ -23,6 +23,10 @@ import { GlobalAlbum } from '@/components/shared/GlobalAlbum'
 import { Dashboard } from '@/features/dashboard'
 import { useEntityWorkspace } from '@/lib/use-entity-workspace'
 
+const NovelView = dynamic(() => import('@/features/novel').then((mod) => ({ default: mod.NovelView })), {
+  ssr: false,
+})
+
 const RelationGraph = dynamic(
   () => import('@/features/relations').then((mod) => ({ default: mod.RelationGraph })),
   { ssr: false },
@@ -78,6 +82,7 @@ export default function Home() {
     showEvents,
     showPlaceholder,
     showRelations,
+    showNovel,
     showTimeline,
     showWorld,
     worldSelectedEntryId,
@@ -202,6 +207,13 @@ export default function Home() {
           onSelectEvent={handleTimelineSelectEvent}
           onSelectCharacter={handleTimelineSelectCharacter}
         />
+      </div>
+
+      <div
+        className="h-full section-fade overflow-y-auto section-fade-no-gutter"
+        data-visible={showNovel ? "true" : "false"}
+      >
+        <NovelView />
       </div>
 
       <div
