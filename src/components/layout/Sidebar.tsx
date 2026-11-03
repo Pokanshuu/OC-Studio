@@ -15,6 +15,7 @@ import {
   BookOpen,
   BookText,
   Table2,
+  Map,
   Clock,
   GitBranch,
   Settings,
@@ -45,6 +46,7 @@ const CODEX_ITEMS = [
 
 const VIEW_ITEMS = [
   { label: '时间线', icon: Clock },
+  { label: '地图', icon: Map },
   { label: '关系图', icon: GitBranch },
   { label: '相册', icon: Images },
   { label: '树表', icon: Table2 },

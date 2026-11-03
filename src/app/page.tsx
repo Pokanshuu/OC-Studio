@@ -23,6 +23,10 @@ import { GlobalAlbum } from '@/components/shared/GlobalAlbum'
 import { Dashboard } from '@/features/dashboard'
 import { useEntityWorkspace } from '@/lib/use-entity-workspace'
 
+const MapView = dynamic(() => import('@/features/map').then((mod) => ({ default: mod.MapView })), {
+  ssr: false,
+})
+
 const TreeTable = dynamic(() => import('@/features/tree-table').then((mod) => ({ default: mod.TreeTable })), {
   ssr: false,
 })
@@ -88,6 +92,7 @@ export default function Home() {
     showRelations,
     showNovel,
     showTreeTable,
+    showMap,
     showTimeline,
     showWorld,
     worldSelectedEntryId,
@@ -219,6 +224,13 @@ export default function Home() {
         data-visible={showNovel ? "true" : "false"}
       >
         <NovelSection />
+      </div>
+
+      <div
+        className="h-full section-fade overflow-hidden section-fade-no-gutter"
+        data-visible={showMap ? "true" : "false"}
+      >
+        <MapView />
       </div>
 
       <div

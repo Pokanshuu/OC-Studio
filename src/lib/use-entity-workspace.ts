@@ -545,9 +545,10 @@ export function useEntityWorkspace() {  const { activeItem: desktopActiveItem, s
   const showTimeline = activeItem === '时间线'
   const showNovel = activeItem === '小说'
   const showTreeTable = activeItem === '树表'
+  const showMap = activeItem === '地图'
   const showRelations = activeItem === '关系图'
   const showAlbum = activeItem === '相册'
-  const showPlaceholder = activeItem !== null && !showEvents && !showCharacters && !showCountries && !showWorld && !showTimeline && !showRelations && !showAlbum && !showNovel && !showTreeTable
+  const showPlaceholder = activeItem !== null && !showEvents && !showCharacters && !showCountries && !showWorld && !showTimeline && !showRelations && !showAlbum && !showNovel && !showTreeTable && !showMap
   const placeholderText = activeItem !== null
     ? (PLACEHOLDER_MAP[activeItem] ?? '功能开发中...')
     : null
@@ -641,6 +642,7 @@ export function useEntityWorkspace() {  const { activeItem: desktopActiveItem, s
     showAlbum,
     showNovel,
     showTreeTable,
+    showMap,
     showCharacters,
     showCountries,
     showEvents,

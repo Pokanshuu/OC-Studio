@@ -13,3 +13,6 @@ export {
   type MapLayerKind,
   type MapLayerState,
 } from './types'
+export { MapView } from './MapView'
+export { listAnchors, setAnchor, normalizeAnchor, groupAnchors, MAIN_MAP_ID } from './services'
+    export type { AnchorPoint, AnchorKind } from './services'
