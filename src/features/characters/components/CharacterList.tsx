@@ -21,7 +21,7 @@ import {
 import { CharacterCard, CharacterRow } from './CharacterListItems'
 import { CharacterListToolbar } from './CharacterListToolbar'
 import { CharacterFolderBar, type FolderFilter } from './CharacterFolderBar'
-import { deleteFolder, listFolders, renameFolder } from '../folders'
+import { deleteFolder, listFolders, moveCharacterToFolder, renameFolder } from '../folders'
 import { toast } from 'sonner'
 import { notifyDataUpdated } from '@/lib/data-events'
 import type { FilterOption } from '@/components/shared/FilterSelect'
@@ -243,6 +243,10 @@ export function CharacterList({
                   <CharacterCard
                     character={character}
                     onSelect={handleSelect}
+          folders={folders.map((f) => f.name)}
+          onMoveToFolder={(id, folder) => {
+            void moveCharacterToFolder(id, folder).then(() => notifyDataUpdated())
+          }}
                     onDelete={onDeleteCharacter}
                     onLongPress={() => openActionSheet(character)}
                     countryName={getCountryName(character)}
@@ -267,6 +271,10 @@ export function CharacterList({
                   key={character.id}
                   character={character}
                   onSelect={handleSelect}
+          folders={folders.map((f) => f.name)}
+          onMoveToFolder={(id, folder) => {
+            void moveCharacterToFolder(id, folder).then(() => notifyDataUpdated())
+          }}
                   onDelete={onDeleteCharacter}
                   onLongPress={() => openActionSheet(character)}
                   countryName={getCountryName(character)}

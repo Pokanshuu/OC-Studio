@@ -9,6 +9,7 @@ import { useLongPress } from '@/lib/useLongPress'
 import { aliasesText } from './character-list-utils'
 import { DRAG_SLOT_CARD, DRAG_SLOT_ROW, MEDIA_CARD, MEDIA_FALLBACK, MEDIA_GRADIENT, MEDIA_IMG, ROUND_ITEM, ROW_ACTIONS } from '@/lib/ui-tokens'
 import { DragHandle, useSortableItem } from '@/components/shared/list-dnd'
+import { MoveToFolderMenu } from './MoveToFolderMenu'
 
 interface CharacterItemProps {
   character: Character
@@ -17,6 +18,9 @@ interface CharacterItemProps {
   onLongPress?: () => void
   countryName?: string
   isMobile: boolean
+  /** 现有文件夹名（用于「移到文件夹」菜单） */
+  folders?: string[]
+  onMoveToFolder?: (id: number, folder: string | null) => void
   /** 手动排序模式下才挂拖拽手柄 */
   sortable?: boolean
 }
@@ -29,6 +33,8 @@ export function CharacterCard({
   onLongPress,
   countryName,
   isMobile,
+  folders = [],
+  onMoveToFolder,
   sortable = false,
 }: CharacterItemProps) {
   const displayNationality = countryName || character.nationalityLegacy
@@ -96,7 +102,12 @@ export function CharacterCard({
       </button>
 
       {!isMobile ? (
-        <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="absolute right-2 top-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <MoveToFolderMenu
+            folders={folders}
+            current={character.folder}
+            onMove={(folder) => onMoveToFolder?.(character.id, folder)}
+          />
           <DeleteButton onDelete={() => onDelete(character.id)} />
         </div>
       ) : null}
@@ -112,6 +123,8 @@ export function CharacterRow({
   onLongPress,
   countryName,
   isMobile,
+  folders = [],
+  onMoveToFolder,
   sortable = false,
 }: CharacterItemProps) {
   const displayNationality = countryName || character.nationalityLegacy
@@ -169,6 +182,11 @@ export function CharacterRow({
       </div>
       {!isMobile ? (
         <div className={ROW_ACTIONS}>
+          <MoveToFolderMenu
+            folders={folders}
+            current={character.folder}
+            onMove={(folder) => onMoveToFolder?.(character.id, folder)}
+          />
           <DeleteButton onDelete={() => onDelete(character.id)} />
         </div>
       ) : null}
