@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useCallback, useEffect } from 'react'
-import { Search, RefreshCw, Menu, ExternalLink } from 'lucide-react'
+import { Download, ExternalLink, Menu, RefreshCw, Search } from 'lucide-react'
 import { ICON_BTN_MD, LOADING_TEXT, PAGE_TITLE } from '@/lib/ui-tokens'
 import { FullscreenViewer } from './FullscreenViewer'
 import { useAlbumData, type AlbumEntry } from './useAlbumData'
@@ -14,6 +14,8 @@ import { SortSelect } from '@/components/shared/SortViewControls'
 import { AlbumCard } from './AlbumCard'
 import { FilterSelect } from './FilterSelect'
 import { AlbumTreePanel } from './AlbumTreePanel'
+import { downloadMediaFile } from '@/lib/media-download'
+import { toast } from 'sonner'
 import { ListWidthResizer } from '@/components/editor/ListWidthResizer'
 import { useListWidth } from '@/components/editor/useListWidth'
 import { CATEGORY_TREE, albumSourceLabel, albumSourceType, collectAlbumSources, matchesAlbumCategory } from './album-utils'
@@ -91,6 +93,16 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
       title: entry.sourceName,
       actions: [
         { id: 'navigate', label: '跳转', icon: <ExternalLink size={20} strokeWidth={2} />, onPress: () => onNavigate?.(entry.sourceId, entry.sourceType) },
+        {
+          id: 'download',
+          label: '保存到…',
+          icon: <Download size={20} strokeWidth={2} />,
+          onPress: () => {
+            void downloadMediaFile(entry.url, entry.sourceName).catch((err: unknown) => {
+              toast.error('保存失败', { description: err instanceof Error ? err.message : String(err) })
+            })
+          },
+        },
       ],
     })
   }, [onNavigate])

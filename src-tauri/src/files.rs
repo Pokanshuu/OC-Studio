@@ -56,6 +56,42 @@ fn save_text_impl(path: &str, content: &str) -> Result<u64, String> {
     Ok(bytes.len() as u64)
 }
 
+
+/// 写二进制文件（照片下载 / 动画导出）；返回写入字节数。
+/// 与 `save_text` 同一套原子写：同目录临时文件 + rename。
+#[command]
+pub async fn save_bytes(path: String, bytes: Vec<u8>) -> Result<u64, String> {
+    tauri::async_runtime::spawn_blocking(move || save_bytes_impl(&path, &bytes))
+        .await
+        .map_err(|e| format!("保存任务失败: {e}"))?
+}
+
+fn save_bytes_impl(path: &str, bytes: &[u8]) -> Result<u64, String> {
+    let target = PathBuf::from(path);
+    if target.is_dir() {
+        return Err("目标路径是个文件夹".into());
+    }
+    if let Some(parent) = target.parent() {
+        if !parent.is_dir() {
+            return Err(format!("目录不存在：{}", parent.display()));
+        }
+    }
+    let temp = temp_path_for(&target);
+    {
+        let mut file = fs::File::create(&temp).map_err(|e| format!("创建临时文件失败: {e}"))?;
+        file.write_all(bytes).map_err(|e| {
+            let _ = fs::remove_file(&temp);
+            format!("写入失败: {e}")
+        })?;
+        file.flush().map_err(|e| format!("刷新失败: {e}"))?;
+    }
+    fs::rename(&temp, &target).map_err(|e| {
+        let _ = fs::remove_file(&temp);
+        format!("替换目标文件失败: {e}")
+    })?;
+    Ok(bytes.len() as u64)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

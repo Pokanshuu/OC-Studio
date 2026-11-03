@@ -171,7 +171,8 @@ pub fn run() {
       vault::vault_list_assets,
       journal::journal_append,
       journal::journal_tail,
-      files::save_text
+      files::save_text,
+      files::save_bytes
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
