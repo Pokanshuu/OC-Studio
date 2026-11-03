@@ -86,6 +86,10 @@ export interface Event {
   order?: number
   /** 关系图里的坐标（用户拖过才有） */
   graphPosition?: GraphPosition
+  /** 地图锚点：归一化 0–1（docs/地图.md §2）；没摆过就没有这个键 */
+  mapPosition?: GraphPosition
+  /** 所属地图（`.ocstudio/maps/` 的文件名）；空 = 主地图 */
+  mapId?: string
   createdAt: number
   /** 自定义字段的值（键 = 字段表里的 key；内置字段仍然走各自的列） */
   custom?: Record<string, string>
@@ -125,6 +129,10 @@ export interface Country {
   order?: number
   /** 关系图里的坐标（用户拖过才有） */
   graphPosition?: GraphPosition
+  /** 地图锚点：归一化 0–1（docs/地图.md §2）；没摆过就没有这个键 */
+  mapPosition?: GraphPosition
+  /** 所属地图（`.ocstudio/maps/` 的文件名）；空 = 主地图 */
+  mapId?: string
   createdAt: number
   /** 自定义字段的值（键 = 字段表里的 key；内置字段仍然走各自的列） */
   custom?: Record<string, string>
@@ -149,6 +157,10 @@ export interface WorldEntry {
   parentId: number | null
   order: number
   isConcept: boolean
+  /** 地图锚点：归一化 0–1（docs/地图.md §2）；没摆过就没有这个键 */
+  mapPosition?: GraphPosition
+  /** 所属地图（`.ocstudio/maps/` 的文件名）；空 = 主地图 */
+  mapId?: string
   references: WorldReference[]
   tags: number[]
   /** 自定义字段的值（键 = 字段表里的 key；内置字段仍然走各自的列） */

@@ -260,6 +260,8 @@ export function serializeCountry(
   putIfChanged(out, existing, COUNTRY_KEYS.tags, tagNames(ctx, entity.tags), p === null ? null : tagNames(ctx, p.tags))
   putIfChanged(out, existing, COUNTRY_KEYS.order, writeNumber(entity.order), p === null ? null : writeNumber(p.order))
   putIfChanged(out, existing, COUNTRY_KEYS.graphPosition, writePosition(entity.graphPosition), p === null ? null : writePosition(p.graphPosition))
+  putIfChanged(out, existing, COUNTRY_KEYS.mapPosition, writePosition(entity.mapPosition), p === null ? null : writePosition(p.mapPosition))
+  putIfChanged(out, existing, COUNTRY_KEYS.mapId, writeString(entity.mapId ?? ''), p === null ? null : writeString(p.mapId ?? ''))
   return out
 }
 
@@ -294,6 +296,8 @@ export function serializeEvent(
   putIfChanged(out, existing, EVENT_KEYS.tags, tagNames(ctx, entity.tags), p === null ? null : tagNames(ctx, p.tags))
   putIfChanged(out, existing, EVENT_KEYS.order, writeNumber(entity.order), p === null ? null : writeNumber(p.order))
   putIfChanged(out, existing, EVENT_KEYS.graphPosition, writePosition(entity.graphPosition), p === null ? null : writePosition(p.graphPosition))
+  putIfChanged(out, existing, EVENT_KEYS.mapPosition, writePosition(entity.mapPosition), p === null ? null : writePosition(p.mapPosition))
+  putIfChanged(out, existing, EVENT_KEYS.mapId, writeString(entity.mapId ?? ''), p === null ? null : writeString(p.mapId ?? ''))
   putCustomFields(out, existing, 'event', entity.custom, p === null ? undefined : p.custom)
   return out
 }
@@ -323,6 +327,8 @@ export function serializeWorldEntry(
   putIfChanged(out, existing, WORLD_KEYS.parent, parentValue(entity), p === null ? null : parentValue(p))
   putIfChanged(out, existing, WORLD_KEYS.order, writeNumber(entity.order), p === null ? null : writeNumber(p.order))
   putIfChanged(out, existing, WORLD_KEYS.isConcept, writeBool(entity.isConcept), p === null ? null : writeBool(p.isConcept))
+  putIfChanged(out, existing, WORLD_KEYS.mapPosition, writePosition(entity.mapPosition), p === null ? null : writePosition(p.mapPosition))
+  putIfChanged(out, existing, WORLD_KEYS.mapId, writeString(entity.mapId ?? ''), p === null ? null : writeString(p.mapId ?? ''))
   putIfChanged(out, existing, WORLD_KEYS.tags, tagNames(ctx, entity.tags), p === null ? null : tagNames(ctx, p.tags))
   putCustomFields(out, existing, 'worldEntry', entity.custom, p === null ? undefined : p.custom)
   return out

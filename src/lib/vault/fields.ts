@@ -64,6 +64,9 @@ export const COUNTRY_KEYS = {
   order: chain('order', '排序'),
   /** 关系图坐标：`{ x, y }`。只有用户拖过节点才有这个键 */
   graphPosition: chain('graph_position', 'graphPosition'),
+  /** 地图锚点：归一化 0–1，换分辨率不用重摆（docs/地图.md §2） */
+  mapPosition: chain('map_position', 'mapPosition'),
+  mapId: chain('map_id', 'mapId'),
   date: chain('date'),
 } as const
 
@@ -87,6 +90,9 @@ export const EVENT_KEYS = {
   order: chain('order', '排序'),
   /** 关系图坐标：`{ x, y }`。只有用户拖过节点才有这个键 */
   graphPosition: chain('graph_position', 'graphPosition'),
+  /** 地图锚点：归一化 0–1，换分辨率不用重摆（docs/地图.md §2） */
+  mapPosition: chain('map_position', 'mapPosition'),
+  mapId: chain('map_id', 'mapId'),
   date: chain('date'),
 } as const
 
@@ -97,6 +103,9 @@ export const WORLD_KEYS = {
   parent: chain('parent', '父词条'),
   order: chain('order', '排序'),
   isConcept: chain('isConcept', '概念'),
+  /** 地图锚点：归一化 0–1，换分辨率不用重摆（docs/地图.md §2） */
+  mapPosition: chain('map_position', 'mapPosition'),
+  mapId: chain('map_id', 'mapId'),
   tags: chain('tags'),
   date: chain('date'),
 } as const
