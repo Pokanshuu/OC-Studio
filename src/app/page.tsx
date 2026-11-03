@@ -23,7 +23,7 @@ import { GlobalAlbum } from '@/components/shared/GlobalAlbum'
 import { Dashboard } from '@/features/dashboard'
 import { useEntityWorkspace } from '@/lib/use-entity-workspace'
 
-const NovelView = dynamic(() => import('@/features/novel').then((mod) => ({ default: mod.NovelView })), {
+const NovelSection = dynamic(() => import('@/features/novel').then((mod) => ({ default: mod.NovelSection })), {
   ssr: false,
 })
 
@@ -213,7 +213,7 @@ export default function Home() {
         className="h-full section-fade overflow-y-auto section-fade-no-gutter"
         data-visible={showNovel ? "true" : "false"}
       >
-        <NovelView />
+        <NovelSection />
       </div>
 
       <div

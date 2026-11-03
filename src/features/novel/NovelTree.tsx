@@ -1,116 +1,115 @@
 'use client'
 
 /**
- * 小说页（W2 界面）：**章节树 + 我们自己的编辑器内核**。
+ * 小说章节树（某本书的内部编辑器）。
  *
- * 刻意不搬 fork 那份 1069 行的 EditorCore（见 `docs/小说.md` §8）：
- * 正文继续用 `DocumentEditor`（`entityType: 'worldEntry'`），所以
- * `@` 引用、`[[内链]]`、未保存判定、图片引用收集、vault 落盘全部免费复用。
- *
- * 这里只做三件事：左侧章节树、新建卷/章、导出 TXT / Markdown。
+ * 只负责「一本书」：左侧章节树 + 右侧我们的编辑器内核 + 导出。
+ * 书与书之间由 `NovelSection` 切换（首页 = 书架）。
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Editor } from '@tiptap/core'
-import { BookPlus, FileDown, Plus } from 'lucide-react'
+import { FileDown, Plus } from 'lucide-react'
 import { DocumentEditor } from '@/components/editor/DocumentEditor'
 import { buildEntryTree, type WorldTreeNode } from '@/lib/world-tree'
-import { BTN_PRIMARY, BTN_QUIET, EMPTY_STATE, PANEL, ROUND_ITEM, SECTION_TITLE } from '@/lib/ui-tokens'
+import { BTN_QUIET, ROUND_ITEM, SECTION_TITLE } from '@/lib/ui-tokens'
+import { downloadBlob } from '@/lib/zip'
 import type { WorldEntry } from '@/types'
 import { flattenNovel, toMarkdown, toTxt, countNovelWords } from './export'
-import { createNovelChapter, createNovelRoot, listNovelEntries } from './services'
+import { buildDocx } from './docx'
+import { createNovelChapter, listNovelEntries } from './services'
 
-function downloadText(name: string, content: string): void {
-  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = name
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
-export function NovelView() {
+export function NovelTree({ novelId, title }: { novelId: number; title: string }) {
   const [entries, setEntries] = useState<WorldEntry[]>([])
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
 
   const reload = useCallback(async () => {
-    const rows = await listNovelEntries()
-    setEntries(rows)
-    setSelectedId((current) => current ?? rows.find((row) => row.parentId === null)?.id ?? null)
+    const rows = (await listNovelEntries()).filter((row) => row.id === novelId || row.parentId !== null)
+    const mine = rows.filter((row) => {
+      if (row.id === novelId) return true
+      // 只保留这棵树下的节点（父链最终指到 novelId）
+      const byId = new Map(rows.map((item) => [item.id, item]))
+      let cursor = row.parentId
+      let guard = 0
+      while (cursor !== null && guard < 64) {
+        if (cursor === novelId) return true
+        cursor = byId.get(cursor)?.parentId ?? null
+        guard += 1
+      }
+      return false
+    })
+    setEntries(mine)
+    setSelectedId((current) => current ?? mine.find((row) => row.parentId === novelId)?.id ?? null)
     setLoading(false)
-  }, [])
+  }, [novelId])
 
   useEffect(() => {
     void reload()
   }, [reload])
 
-  const tree = useMemo(() => buildEntryTree(entries), [entries])
-  const selected = entries.find((entry) => entry.id === selectedId) ?? null
+  const tree = useMemo(() => {
+    const root = entries.find((entry) => entry.id === novelId)
+    return root ? buildEntryTree([root, ...entries.filter((entry) => entry.id !== novelId)]) : []
+  }, [entries, novelId])
 
-  const handleCreateRoot = async () => {
-    const id = await createNovelRoot()
-    await reload()
-    setSelectedId(id)
-  }
+  const chapters = entries.filter((entry) => entry.id !== novelId)
+  const selected = entries.find((entry) => entry.id === selectedId) ?? null
+  const words = countNovelWords(flattenNovel(chapters))
 
   const handleCreateChapter = async () => {
-    const parent = selected?.parentId === null ? selected.id : selected?.parentId ?? null
-    const id = await createNovelChapter(parent)
+    const id = await createNovelChapter(novelId)
     await reload()
     setSelectedId(id)
   }
 
-  const handleExport = (format: 'md' | 'txt') => {
-    const chapters = flattenNovel(entries)
-    if (chapters.length === 0) return
-    const title = tree[0]?.entry.title ?? '小说'
-    const content = format === 'md' ? toMarkdown(chapters, { title }) : toTxt(chapters, { title })
-    downloadText(`${title}.${format === 'md' ? 'md' : 'txt'}`, content)
+  const handleExport = (format: 'txt' | 'md' | 'docx') => {
+    const flat = flattenNovel(chapters)
+    if (flat.length === 0) return
+    if (format === 'docx') {
+      downloadBlob(buildDocx(flat, { title }), `${title}.docx`)
+      return
+    }
+    const content = format === 'md' ? toMarkdown(flat, { title }) : toTxt(flat, { title })
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+    downloadBlob(blob, `${title}.${format}`)
   }
-
-  const total = countNovelWords(flattenNovel(entries))
 
   if (loading) return null
 
-  if (entries.length === 0) {
-    return (
-      <div className={EMPTY_STATE}>
-        <p className="text-sm text-ink-muted">这个库里还没有小说</p>
-        <button type="button" onClick={() => void handleCreateRoot()} className={BTN_PRIMARY}>
-          <BookPlus size={14} strokeWidth={2} />
-          新建小说
-        </button>
-      </div>
-    )
-  }
-
   return (
     <div className="flex h-full min-h-0">
-      <aside className={`${PANEL} flex w-60 shrink-0 flex-col overflow-y-auto`}>
+      <aside className="flex w-60 shrink-0 flex-col overflow-y-auto border-r border-line">
         <div className="flex items-center justify-between px-3 py-2">
           <span className={SECTION_TITLE}>目录</span>
           <button type="button" onClick={() => void handleCreateChapter()} className={BTN_QUIET} title="新建章节">
             <Plus size={14} strokeWidth={2} />
           </button>
         </div>
-        <TreeList nodes={tree} selectedId={selectedId} onSelect={setSelectedId} depth={0} />
+        {tree.length > 0 ? (
+          <TreeList nodes={tree[0].children} selectedId={selectedId} onSelect={setSelectedId} depth={0} />
+        ) : (
+          <p className="px-3 py-2 text-xs text-ink-faint">还没有章节</p>
+        )}
       </aside>
 
       <section className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between gap-3 px-4 py-2">
           <div className="min-w-0">
-            <div className="truncate text-sm text-ink">{selected?.title ?? '未选择章节'}</div>
-            <div className="text-xs text-ink-faint">全书 {total} 字</div>
+            <div className="truncate text-sm text-ink">{selected?.title ?? title}</div>
+            <div className="text-xs text-ink-faint">全书 {words} 字</div>
           </div>
           <div className="flex shrink-0 items-center gap-1">
-            <button type="button" onClick={() => handleExport('txt')} className={BTN_QUIET}>
+            <button type="button" onClick={() => handleExport('docx')} className={BTN_QUIET}>
               <FileDown size={14} strokeWidth={2} />
-              TXT
+              Word
             </button>
             <button type="button" onClick={() => handleExport('md')} className={BTN_QUIET}>
               <FileDown size={14} strokeWidth={2} />
               Markdown
+            </button>
+            <button type="button" onClick={() => handleExport('txt')} className={BTN_QUIET}>
+              <FileDown size={14} strokeWidth={2} />
+              TXT
             </button>
           </div>
         </header>
