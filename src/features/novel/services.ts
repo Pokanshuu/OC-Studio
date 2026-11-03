@@ -72,6 +72,7 @@ export interface NovelMetaPatch {
   novelSynopsis?: string
   novelTargetWords?: number
   novelNotes?: string
+  novelCover?: string
 }
 
 export async function updateNovelMeta(id: number, patch: NovelMetaPatch): Promise<void> {

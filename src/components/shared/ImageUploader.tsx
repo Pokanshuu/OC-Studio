@@ -10,7 +10,7 @@ export interface ImageUploaderProps {
   value?: string
   onChange: (path: string) => void
   onRemove?: () => void
-  aspectRatio?: '1:1' | '3:4' | '4:3' | '3:2'
+  aspectRatio?: '1:1' | '3:4' | '4:3' | '3:2' | '2:3'
   placeholderText?: string
   size?: 'sm' | 'md' | 'lg'
   enableCrop?: boolean
@@ -24,6 +24,7 @@ const ASPECT_CLASS: Record<string, string> = {
   '3:4': 'aspect-[3/4]',
   '4:3': 'aspect-[4/3]',
   '3:2': 'aspect-[3/2]',
+  '2:3': 'aspect-[2/3]',
 }
 
 const ASPECT_RATIO_MAP: Record<string, number> = {
@@ -31,6 +32,7 @@ const ASPECT_RATIO_MAP: Record<string, number> = {
   '3:4': 3 / 4,
   '4:3': 4 / 3,
   '3:2': 3 / 2,
+  '2:3': 2 / 3,
 }
 
 const SIZE_CLASS: Record<string, string> = {

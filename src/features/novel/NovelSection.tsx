@@ -10,7 +10,8 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { BookPlus, ChevronRight } from 'lucide-react'
-import { BTN_PRIMARY, BTN_QUIET, EMPTY_STATE, LIST_GRID, PAGE_TITLE, ROUND_ITEM } from '@/lib/ui-tokens'
+import { BTN_PRIMARY, BTN_QUIET, EMPTY_STATE, LIST_GRID, MEDIA_IMG, PAGE_TITLE, ROUND_ITEM } from '@/lib/ui-tokens'
+import { resolveImageUrl } from '@/lib/image-service'
 import { listNovelEntries, createNovelRoot } from './services'
 import { readLegacyNovels } from '@/lib/legacy/pr5-novels'
 import { importLegacyNovels } from '@/lib/legacy/pr5-novels-import'
@@ -22,6 +23,7 @@ interface BookSummary {
   title: string
   chapters: number
   words: number
+  cover?: string
 }
 
 export function NovelSection() {
@@ -50,6 +52,7 @@ export function NovelSection() {
         title: root.title,
         chapters: children.length,
         words: countNovelWords(flattenNovel(children)),
+        cover: root.novelCover,
       }
     })
     setBooks(summaries)
@@ -124,9 +127,14 @@ export function NovelSection() {
             >
               {/* 封面槽位：书籍经典 2:3 */}
               <div className="relative aspect-[2/3] w-full overflow-hidden bg-paper-alt">
-                <div className="absolute inset-0 grid place-items-center">
-                  <span className="font-serif text-3xl text-ink-faint">{book.title.slice(0, 1)}</span>
-                </div>
+                {book.cover ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={resolveImageUrl(book.cover, 'cover')} alt="" className={MEDIA_IMG} />
+                ) : (
+                  <div className="absolute inset-0 grid place-items-center">
+                    <span className="font-serif text-3xl text-ink-faint">{book.title.slice(0, 1)}</span>
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-2 px-2.5 py-2">
                 <div className="min-w-0 flex-1">

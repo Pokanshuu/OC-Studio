@@ -111,6 +111,8 @@ export const WORLD_KEYS = {
   novelSynopsis: chain('novel_synopsis', '作品简介'),
   novelTargetWords: chain('novel_target_words', '目标字数'),
   novelNotes: chain('novel_notes', '作品笔记'),
+  /** 封面（2:3 槽位，见 docs/小说.md §9） */
+  novelCover: chain('novel_cover', '封面'),
   /** 章节大纲 / 备注（只有章节会写） */
   chapterOutline: chain('chapter_outline', '章节大纲'),
   tags: chain('tags'),

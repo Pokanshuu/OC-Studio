@@ -514,6 +514,7 @@ export function scanVault(options: ScanOptions): VaultScanResult {
         novelSynopsis: readString(fm, WORLD_KEYS.novelSynopsis) || undefined,
         novelTargetWords: readNumber(fm, WORLD_KEYS.novelTargetWords),
         novelNotes: readString(fm, WORLD_KEYS.novelNotes) || undefined,
+        novelCover: readString(fm, WORLD_KEYS.novelCover) || undefined,
         chapterOutline: readString(fm, WORLD_KEYS.chapterOutline) || undefined,
         references: [],
         tags: tagIdsOf(note, WORLD_KEYS.tags),

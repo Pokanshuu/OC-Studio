@@ -13,6 +13,7 @@ import { DocumentEditor } from '@/components/editor/DocumentEditor'
 import { buildEntryTree, type WorldTreeNode } from '@/lib/world-tree'
 import { BTN_QUIET, FIELD_LABEL, INPUT_LINE, MENU, MENU_ITEM, ROUND_ITEM, SECTION_TITLE } from '@/lib/ui-tokens'
 import { EditorBodyPane } from '@/components/editor/EditorBodyPane'
+import { ImageUploader } from '@/components/shared/ImageUploader'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -114,6 +115,15 @@ export function NovelTree({ novelId, title, onBack }: { novelId: number; title: 
         )}
 
         <div className="mt-auto flex flex-col gap-2 border-t border-line px-3 py-3">
+          <ImageUploader
+            value={root?.novelCover}
+            aspectRatio="2:3"
+            cropAspect={2 / 3}
+            placeholderText="添加封面"
+            size="md"
+            onChange={(path) => void saveMeta({ novelCover: path })}
+            onRemove={() => void saveMeta({ novelCover: undefined })}
+          />
           <label className="flex items-center gap-2">
             <span className={FIELD_LABEL}>作者</span>
             <input
