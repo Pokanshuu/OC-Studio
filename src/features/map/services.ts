@@ -123,3 +123,43 @@ export async function setAnchor(
     normalized ? `${normalized.x},${normalized.y}` : '',
   )
 }
+
+
+/** 底图目录（相对库根） */
+export const MAP_ASSET_DIR = '.ocstudio/maps'
+
+export interface MapAsset {
+  name: string
+  relPath: string
+  /** 可直接给 <img src> 的地址（Tauri 下走 asset 协议） */
+  url: string
+}
+
+/**
+ * 列出库里的底图。
+ *
+ * 只有桌面版（Tauri）能读库目录：浏览器预览返回空数组，界面按「没有底图」处理，
+ * 不会假装有图。底图是**文件**，不是数据库记录（docs/地图.md §2）。
+ */
+export async function listMapAssets(): Promise<MapAsset[]> {
+  const { getVaultSession } = await import('@/lib/vault/vault-session')
+  const { vaultFs, isVaultSupported } = await import('@/lib/vault/vault-fs')
+  if (!isVaultSupported()) return []
+  const session = getVaultSession()
+  if (!session) return []
+
+  try {
+    const assets = await vaultFs.listAssets(session.root, MAP_ASSET_DIR)
+    const { convertFileSrc } = await import('@tauri-apps/api/core')
+    const sep = session.root.includes('\\') ? '\\' : '/'
+    return assets
+      .filter((asset) => /\.(png|jpe?g|webp|avif)$/i.test(asset.name))
+      .map((asset) => ({
+        name: asset.name,
+        relPath: asset.relPath,
+        url: convertFileSrc(`${session.root}${sep}${asset.relPath.replace(/\//g, sep)}`),
+      }))
+  } catch {
+    return []
+  }
+}

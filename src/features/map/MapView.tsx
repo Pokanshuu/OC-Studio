@@ -10,8 +10,9 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { MapPin } from 'lucide-react'
-import { listAnchors, setAnchor, type AnchorKind, type AnchorPoint } from './services'
-import { CENTER_STATE, ROUND_ITEM } from '@/lib/ui-tokens'
+import { listAnchors, listMapAssets, setAnchor, type AnchorKind, type AnchorPoint, type MapAsset } from './services'
+import { CENTER_STATE, FILTER_TRIGGER, ROUND_ITEM } from '@/lib/ui-tokens'
+import { FilterSelect } from '@/components/shared/FilterSelect'
 
 /** 画布按 16:9；归一化坐标与像素的换算只在这里 */
 const CANVAS_ASPECT = 16 / 9
@@ -26,6 +27,8 @@ export function MapView() {
   const [points, setPoints] = useState<AnchorPoint[]>([])
   const [loading, setLoading] = useState(true)
   const [dragId, setDragId] = useState<string | null>(null)
+  const [assets, setAssets] = useState<MapAsset[]>([])
+  const [backgroundName, setBackgroundName] = useState<string | null>(null)
   const canvasRef = useRef<HTMLDivElement | null>(null)
 
   const reload = useCallback(async () => {
@@ -38,7 +41,13 @@ export function MapView() {
 
   useEffect(() => {
     void reload()
+    void listMapAssets().then((list) => {
+      setAssets(list)
+      setBackgroundName((current) => current ?? list[0]?.name ?? null)
+    })
   }, [reload])
+
+  const background = assets.find((asset) => asset.name === backgroundName) ?? null
 
   const updateFromPointer = useCallback(
     (kind: AnchorKind, id: number, clientX: number, clientY: number) => {
@@ -76,6 +85,18 @@ export function MapView() {
       <header className="flex items-center gap-3 px-6 pb-3 pt-4">
         <h1 className="text-lg font-serif font-bold tracking-[-0.01em] text-ink">地图</h1>
         <span className="text-xs text-ink-faint">{points.length} 个锚点</span>
+        {assets.length > 1 ? (
+          <div className="ml-auto">
+            <FilterSelect
+              value={backgroundName ?? ''}
+              onChange={setBackgroundName}
+              options={assets.map((asset) => ({ value: asset.name, label: asset.name }))}
+              fallbackLabel="选择底图"
+              triggerClassName={FILTER_TRIGGER}
+              chevronSize={14}
+            />
+          </div>
+        ) : null}
       </header>
 
       <div className="min-h-0 flex-1 overflow-auto px-6 pb-6">
@@ -91,6 +112,15 @@ export function MapView() {
           onPointerUp={() => setDragId(null)}
           onPointerLeave={() => setDragId(null)}
         >
+          {background ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={background.url}
+              alt=""
+              className="pointer-events-none absolute inset-0 h-full w-full select-none object-contain"
+            />
+          ) : null}
+
           {points.map((point) => {
             const key = `${point.kind}:${point.id}`
             return (
