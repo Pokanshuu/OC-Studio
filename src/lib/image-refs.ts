@@ -6,6 +6,11 @@ import type { Character, Country, Event, WorldEntry } from '@/types'
 //   2. `.ocbak` 备份（`lib/export/payload.ts`）—— 备份要能把图一起带走
 //   3. 老数据落地（`lib/vault/export-dir.ts`）—— 迁进文件夹时要把图搬过去
 //
+// 字段图之外还有三个「已存在但曾漏收」的槽位（PR5 收尾 D1）：
+// 角色 `animationUrl`（OC 动画，走 `collectCharacterAnimationRefs`）、
+// 词条 `novelCover`（小说封面）、词条 `mapImage`（地图底图）。
+// 只扫字段 / 只扫正文都会漏，所以「哪些字段算图片」只能在这里回答。
+//
 // 只用纯函数、不碰数据库与 Tauri，方便脚本里直接断言。
 
 export type ImageCategory =
@@ -16,10 +21,47 @@ export type ImageCategory =
   | 'flag'
   | 'cover'
   | 'body'
+  /** 角色 OC 动画（视频，落在 `附件/`）；不进相册的静态图分组 */
+  | 'animation'
+  /** 词条 · 小说封面（2:3 槽位） */
+  | 'novelCover'
+  /** 词条 · 地图底图（`.ocstudio/maps/` 相对路径或 `data:`） */
+  | 'map'
 
 export interface ImageRef {
   url: string
   category: ImageCategory
+}
+
+/**
+ * 收集时的旁路账本。
+ *
+ * `blob:` 是**只在当前会话有效**的地址（浏览器预览上传、视频上传后未落盘），
+ * 刷新即失效，备份与落地都带不走 —— 收集器直接跳过它们，并把地址记进
+ * `skipped`，免得下游把「丢了几个引用」做成静默行为。
+ */
+export interface ImageRefOptions {
+  skipped?: string[]
+}
+
+/** 只在当前会话有效的地址：`blob:` 刷新即失效 */
+export function isTransientImageRef(url: string): boolean {
+  return url.startsWith('blob:')
+}
+
+/** 所有字段图共用的入列规则：空串 / `blob:` 不进结果（后者留痕） */
+function addRef(
+  refs: ImageRef[],
+  url: string | undefined,
+  category: ImageCategory,
+  options?: ImageRefOptions,
+): void {
+  if (typeof url !== 'string' || url === '') return
+  if (isTransientImageRef(url)) {
+    options?.skipped?.push(url)
+    return
+  }
+  refs.push({ url, category })
 }
 
 function parseDocument(value: unknown): unknown {
@@ -77,38 +119,107 @@ function listUrls(list: unknown): string[] {
   return out
 }
 
-export function collectCharacterImageRefs(character: Character): ImageRef[] {
+export function collectCharacterImageRefs(
+  character: Character,
+  options?: ImageRefOptions,
+): ImageRef[] {
   const refs: ImageRef[] = []
-  if (character.avatarUrl) refs.push({ url: character.avatarUrl, category: 'avatar' })
-  for (const url of listUrls(character.avatars)) refs.push({ url, category: 'fullbody' })
-  if (character.headerUrl) refs.push({ url: character.headerUrl, category: 'header' })
-  for (const url of listUrls(character.gallery)) refs.push({ url, category: 'gallery' })
-  for (const url of collectBodyImageRefs(character.document)) refs.push({ url, category: 'body' })
+  addRef(refs, character.avatarUrl, 'avatar', options)
+  for (const url of listUrls(character.avatars)) addRef(refs, url, 'fullbody', options)
+  addRef(refs, character.headerUrl, 'header', options)
+  for (const url of listUrls(character.gallery)) addRef(refs, url, 'gallery', options)
+  for (const url of collectBodyImageRefs(character.document)) addRef(refs, url, 'body', options)
   return refs
 }
 
-export function collectEventImageRefs(event: Event): ImageRef[] {
+/**
+ * 角色 OC 动画（`animationUrl`）。
+ *
+ * 单独一条入口而不是塞进 `collectCharacterImageRefs`：相册是**静态图**画廊
+ * （`docs/相册.md` §1.1 的槽位里没有动画），把 `.mp4` 塞进去只会在网格里
+ * 出现一格坏图。备份（`.ocbak`）与文件夹落地才是它的两个消费方。
+ */
+export function collectCharacterAnimationRefs(
+  character: Character,
+  options?: ImageRefOptions,
+): ImageRef[] {
   const refs: ImageRef[] = []
-  if (event.headerUrl) refs.push({ url: event.headerUrl, category: 'header' })
-  for (const url of listUrls(event.images)) refs.push({ url, category: 'gallery' })
-  for (const url of collectBodyImageRefs(event.document)) refs.push({ url, category: 'body' })
+  addRef(refs, character.animationUrl, 'animation', options)
   return refs
 }
 
-export function collectCountryImageRefs(country: Country): ImageRef[] {
+export function collectEventImageRefs(event: Event, options?: ImageRefOptions): ImageRef[] {
   const refs: ImageRef[] = []
-  if (country.flagUrl) refs.push({ url: country.flagUrl, category: 'flag' })
-  if (country.headerUrl) refs.push({ url: country.headerUrl, category: 'header' })
-  for (const url of collectBodyImageRefs(country.document)) refs.push({ url, category: 'body' })
+  addRef(refs, event.headerUrl, 'header', options)
+  for (const url of listUrls(event.images)) addRef(refs, url, 'gallery', options)
+  for (const url of collectBodyImageRefs(event.document)) addRef(refs, url, 'body', options)
   return refs
 }
 
-/** 词条的正文在 `content`（历史数据是 JSON 字符串），没有才看 `document` */
-export function collectWorldEntryImageRefs(entry: WorldEntry): ImageRef[] {
+export function collectCountryImageRefs(country: Country, options?: ImageRefOptions): ImageRef[] {
+  const refs: ImageRef[] = []
+  addRef(refs, country.flagUrl, 'flag', options)
+  addRef(refs, country.headerUrl, 'header', options)
+  for (const url of collectBodyImageRefs(country.document)) addRef(refs, url, 'body', options)
+  return refs
+}
+
+/**
+ * 词条的正文在 `content`（历史数据是 JSON 字符串），没有才看 `document`；
+ * 另外两个「已存在但曾漏收」的字段图也在这里：
+ * - `novelCover` 小说封面（2:3）
+ * - `mapImage` 地图底图（`.ocstudio/maps/` 相对路径或 `data:`）
+ */
+export function collectWorldEntryImageRefs(
+  entry: WorldEntry,
+  options?: ImageRefOptions,
+): ImageRef[] {
+  const refs: ImageRef[] = []
   const doc = collectBodyImageRefs(entry.content).length > 0
     ? entry.content
     : entry.document
-  return collectBodyImageRefs(doc).map((url) => ({ url, category: 'body' as const }))
+  for (const url of collectBodyImageRefs(doc)) addRef(refs, url, 'body', options)
+  addRef(refs, entry.novelCover, 'novelCover', options)
+  addRef(refs, entry.mapImage, 'map', options)
+  return refs
+}
+
+/**
+ * 一次收集一整份数据集 —— `.ocbak` 备份与老数据落地共用这一条入口。
+ *
+ * 别在调用方自己写 `for (const row of rows)`：`payload.ts` 曾经把**整个数组**
+ * 当成一个实体传给收集器（`collectCharacterImageRefs(characters as never)`），
+ * 于是 `.ocbak` 一张实体图都没内联，换台机器导入全是死链。
+ * 相册按实体自己遍历（它要带来源信息），也仍然走下面这些单实体函数。
+ */
+export interface ImageRefDataset {
+  characters: Character[]
+  events: Event[]
+  countries: Country[]
+  worldEntries: WorldEntry[]
+  /** 世界封面（`meta.coverUrl`） */
+  metaCoverUrl?: string
+}
+
+export function collectDatasetImageRefs(
+  data: ImageRefDataset,
+  options?: ImageRefOptions,
+): ImageRef[] {
+  const refs: ImageRef[] = []
+  const push = (list: ImageRef[]): void => {
+    for (const ref of list) refs.push(ref)
+  }
+
+  for (const character of data.characters) {
+    push(collectCharacterImageRefs(character, options))
+    push(collectCharacterAnimationRefs(character, options))
+  }
+  for (const event of data.events) push(collectEventImageRefs(event, options))
+  for (const country of data.countries) push(collectCountryImageRefs(country, options))
+  for (const entry of data.worldEntries) push(collectWorldEntryImageRefs(entry, options))
+  addRef(refs, data.metaCoverUrl, 'cover', options)
+
+  return refs
 }
 
 /**

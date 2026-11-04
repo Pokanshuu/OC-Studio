@@ -12,8 +12,21 @@
  * 真正写盘（含图片、tags.json、fields.json、oc-studio.json）由 Tauri 命令承担，
  * 那部分是 `vault_write_texts` / `vault_write_bytes` 的既有覆盖范围。
  */
-import { buildContext, composeNote, legacyImageSourcePath, type LegacyRows } from '../src/lib/vault/export-dir'
-import { collectBodyImageRefs, collectWorldEntryImageRefs, inlineBodyImageRefs } from '../src/lib/image-refs'
+import {
+  buildContext,
+  collectLegacyImageRefs,
+  composeNote,
+  isVaultAssetRef,
+  legacyImageSourcePath,
+  type LegacyRows,
+} from '../src/lib/vault/export-dir'
+import {
+  collectBodyImageRefs,
+  collectCharacterAnimationRefs,
+  collectDatasetImageRefs,
+  collectWorldEntryImageRefs,
+  inlineBodyImageRefs,
+} from '../src/lib/image-refs'
 import { applyDocumentBodies } from '../src/lib/vault/markdown-bridge'
 import { scanVault } from '../src/lib/vault/scan'
 import { applyTagMeta, parseTagMeta, serializeTagMeta, tagMetaFromTags } from '../src/lib/vault/vault-tags'
@@ -81,6 +94,8 @@ const characters: Character[] = [
     height: '190',
     birthday: '06-04',
     avatarUrl: '附件/凯尔.png',
+    /** OC 动画：库里附件目录，备份 / 落地都要跟着走 */
+    animationUrl: '附件/凯尔.mp4',
     bio: '沉默的铁匠',
     lifeStory: '雪线之战里丢了一只手',
     relatedCharacters: [{ characterId: 2, name: '阿尔法', relation: '挚友' }],
@@ -189,6 +204,45 @@ const worldEntries: WorldEntry[] = [
     _syncStatus: 'local',
     _lastModified: 1,
   },
+  // 小说根节点与地图笔记同样是 worldEntries：封面（2:3）与底图是它们各自的字段图
+  {
+    id: 2,
+    title: '灰烬纪年',
+    aliases: [],
+    content: '',
+    category: '小说',
+    parentId: null,
+    order: 1,
+    isConcept: false,
+    novelCover: '附件/小说封面.png',
+    references: [],
+    tags: [],
+    createdAt: 3,
+    updatedAt: 3,
+    deleted: false,
+    _syncStatus: 'local',
+    _lastModified: 3,
+  },
+  {
+    id: 3,
+    title: '北境地图',
+    aliases: [],
+    content: '',
+    category: '地图',
+    parentId: null,
+    order: 2,
+    isConcept: false,
+    mapImage: '.ocstudio/maps/北境.png',
+    mapWidth: 1920,
+    mapHeight: 1080,
+    references: [],
+    tags: [],
+    createdAt: 4,
+    updatedAt: 4,
+    deleted: false,
+    _syncStatus: 'local',
+    _lastModified: 4,
+  },
 ]
 
 const rows: LegacyRows = {
@@ -229,6 +283,8 @@ emit('character', '阿尔法', characters[1])
 emit('event', '雪线之战', events[0])
 emit('event', '余烬', events[1])
 emit('worldEntry', '世界树', worldEntries[0])
+emit('worldEntry', '灰烬纪年', worldEntries[1])
+emit('worldEntry', '北境地图', worldEntries[2])
 emit('period', '黎明纪元', rows.periods[0])
 
 const scan = scanVault({ root: '/memory', files, skippedDirs: [], marker: null })
@@ -239,7 +295,7 @@ const tagMeta = parseTagMeta(serializeTagMeta(tagMetaFromTags(tags)))
 
 // ── 断言 ────────────────────────────────────────────────────────────────
 
-eq('迁移出的文件数', files.length, 7)
+eq('迁移出的文件数', files.length, 9)
 eq(
   '扫描回来的数量（角色/国家/事件/词条/标签/时期）',
   [
@@ -250,7 +306,7 @@ eq(
     scan.dataset.tags.length,
     scan.dataset.periods.length,
   ],
-  [2, 1, 2, 1, 2, 1],
+  [2, 1, 2, 3, 2, 1],
 )
 
 const period = scan.dataset.periods[0]?.entity
@@ -274,6 +330,7 @@ if (character === undefined) {
   eq('角色 · 阵营', character.faction, '北境军')
   eq('角色 · 身高/生日', [character.height, character.birthday], ['190', '06-04'])
   eq('角色 · 头像引用', character.avatarUrl, '附件/凯尔.png')
+  eq('角色 · OC 动画引用', character.animationUrl, '附件/凯尔.mp4')
   eq('角色 · 简介', character.bio, '沉默的铁匠')
   eq('角色 · 旧版人生故事', character.lifeStory, '雪线之战里丢了一只手')
   const countryOfCharacter = scan.dataset.countries.find((item) => item.entity.id === character.countryId)
@@ -310,7 +367,7 @@ if (event === undefined) {
   eq('事件 · 关联事件', relationTargets, ['余烬'])
 }
 
-const worldEntry = scan.dataset.worldEntries[0]?.entity
+const worldEntry = scan.dataset.worldEntries.find((item) => item.entity.title === '世界树')?.entity
 if (worldEntry === undefined) {
   failures.push('找不到读回来的词条')
 } else {
@@ -318,6 +375,24 @@ if (worldEntry === undefined) {
   eq('词条 · 分类', worldEntry.category, '神话')
   const parsed = JSON.parse(worldEntry.content) as { content?: { content?: { text?: string }[] }[] }
   eq('词条 · 正文', parsed.content?.[0]?.content?.[0]?.text, '支撑世界的巨树')
+}
+
+// 小说根 / 地图笔记：封面与底图是各自的字段图，落地必须一起带过去
+const novel = scan.dataset.worldEntries.find((item) => item.entity.title === '灰烬纪年')?.entity
+if (novel === undefined) {
+  failures.push('找不到读回来的小说根')
+} else {
+  eq('小说根 · 分类', novel.category, '小说')
+  eq('小说根 · 封面引用', novel.novelCover, '附件/小说封面.png')
+}
+
+const mapNote = scan.dataset.worldEntries.find((item) => item.entity.title === '北境地图')?.entity
+if (mapNote === undefined) {
+  failures.push('找不到读回来的地图笔记')
+} else {
+  eq('地图 · 分类', mapNote.category, '地图')
+  eq('地图 · 底图引用', mapNote.mapImage, '.ocstudio/maps/北境.png')
+  eq('地图 · 像素尺寸', [mapNote.mapWidth, mapNote.mapHeight], [1920, 1080])
 }
 
 const country = scan.dataset.countries[0]?.entity
@@ -404,6 +479,90 @@ eq(
   } as never).map((ref) => ref.url),
   ['images/body-1.png', '附件/x.png'],
 )
+
+// ── 三类曾漏收的字段图：动画 / 小说封面 / 地图底图 ──────────────────────
+// 它们以前既不在收集器里、也不在内联 / 复制名单里：`.ocbak` 换台机器后动画、
+// 小说封面、地图底图全是死链。收集规则只能有一份（`lib/image-refs`）。
+eq(
+  '收集 · 角色动画（附件里的视频）',
+  collectCharacterAnimationRefs(characters[0]).map((ref) => [ref.url, ref.category]),
+  [['附件/凯尔.mp4', 'animation']],
+)
+
+const blobAnimation = { ...characters[1], animationUrl: 'blob:http://localhost:3000/abc' }
+const skippedRefs: string[] = []
+eq('收集 · blob: 动画不进结果', collectCharacterAnimationRefs(blobAnimation, { skipped: skippedRefs }), [])
+eq('收集 · blob: 动画计入 skipped', skippedRefs, ['blob:http://localhost:3000/abc'])
+eq('收集 · 空动画跳过', collectCharacterAnimationRefs({ ...characters[1], animationUrl: '' }), [])
+
+eq(
+  '收集 · 词条小说封面',
+  collectWorldEntryImageRefs(worldEntries[1]).map((ref) => [ref.url, ref.category]),
+  [['附件/小说封面.png', 'novelCover']],
+)
+eq(
+  '收集 · 词条地图底图（.ocstudio/maps/ 相对路径）',
+  collectWorldEntryImageRefs(worldEntries[2]).map((ref) => [ref.url, ref.category]),
+  [['.ocstudio/maps/北境.png', 'map']],
+)
+eq(
+  '收集 · 地图底图（data: 也算）',
+  collectWorldEntryImageRefs({ ...worldEntries[2], mapImage: 'data:image/png;base64,AAA' })
+    .map((ref) => [ref.url, ref.category]),
+  [['data:image/png;base64,AAA', 'map']],
+)
+
+// `.ocbak` 与落地共用这条「整份数据集」入口：一次就要拿到三类字段图
+// （`payload.ts` 曾把整个数组当成一个实体传进去，结果一张都没收到）
+eq(
+  '整份数据集 · 动画 / 小说封面 / 地图底图 都收齐',
+  collectDatasetImageRefs(rows)
+    .map((ref) => `${ref.category}:${ref.url}`)
+    .filter((item) => /^(animation|novelCover|map):/.test(item)),
+  [
+    'animation:附件/凯尔.mp4',
+    'novelCover:附件/小说封面.png',
+    'map:.ocstudio/maps/北境.png',
+  ],
+)
+
+// ── 落地分派：库内素材只登记，带不走的跳过 ──────────────────────────────
+// 复制只认「有外部源」的引用（appData 的 `images/…`、`data:`、绝对路径）。
+// `.ocstudio/maps/` 底图与 `附件/` 素材本来就在库里：搬进 `附件/` 会多一份，
+// `map_image` 还指不回底图目录（`docs/地图.md` §2）。
+check(
+  '落地 · 库内素材判定（附件/、.ocstudio/maps/）',
+  isVaultAssetRef('附件/凯尔.mp4') && isVaultAssetRef('.ocstudio/maps/北境.png'),
+)
+check(
+  '落地 · 库内素材判定不吞 appData 图片 / 远端 / blob:',
+  !isVaultAssetRef('images/a.png') && !isVaultAssetRef('https://x/a.png') && !isVaultAssetRef('blob:x'),
+)
+
+const plan = collectLegacyImageRefs(rows)
+check(
+  '落地 · 地图底图只登记不复制',
+  plan.inVault.includes('.ocstudio/maps/北境.png') && !plan.copy.includes('.ocstudio/maps/北境.png'),
+)
+check(
+  '落地 · 附件里的动画只登记不复制',
+  plan.inVault.includes('附件/凯尔.mp4') && !plan.copy.includes('附件/凯尔.mp4'),
+)
+check('落地 · 小说封面只登记不复制', plan.inVault.includes('附件/小说封面.png'))
+
+const blobPlan = collectLegacyImageRefs({ ...rows, characters: [blobAnimation] })
+eq('落地 · blob: 计入 skipped', blobPlan.skipped, ['blob:http://localhost:3000/abc'])
+check(
+  '落地 · blob: 不进复制 / 登记队列',
+  !blobPlan.copy.includes('blob:http://localhost:3000/abc')
+    && !blobPlan.inVault.includes('blob:http://localhost:3000/abc'),
+)
+
+const dataPlan = collectLegacyImageRefs({
+  ...rows,
+  worldEntries: [{ ...worldEntries[2], mapImage: 'data:image/png;base64,AAA' }],
+})
+eq('落地 · data: 底图进复制队列', dataPlan.copy, ['data:image/png;base64,AAA'])
 
 // ── 结果 ────────────────────────────────────────────────────────────────
 

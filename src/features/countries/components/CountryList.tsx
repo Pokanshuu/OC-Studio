@@ -25,7 +25,8 @@ import type { CountrySortKey } from './country-list-utils'
 import { readSortKey, writeSortKey } from '@/lib/sort-manual'
 import type { ViewMode } from '@/components/shared/SortViewControls'
 import { SortableList, moveId } from '@/components/shared/list-dnd'
-import { BTN_QUIET, CENTER_STATE, EMPTY_HINT, LIST_GRID } from '@/lib/ui-tokens'
+import { BTN_QUIET, CENTER_STATE, LIST_GRID } from '@/lib/ui-tokens'
+import { ListEmptyState } from '@/components/shared/ListEmptyState'
 
 interface CountryListProps {
   onSelectCountry: (id: number) => void
@@ -134,16 +135,18 @@ export function CountryList({
 
       <div className="flex-1 p-4 flex flex-col">
         {countries.length === 0 ? (
-          <div className="flex-1 flex items-center justify-center">
-            <button
-              onClick={onCreateCountry}
-              className={EMPTY_HINT}
-            >
-              暂无国家，点击创建第一个
-            </button>
-          </div>
+          <ListEmptyState
+            message="还没有国家"
+            action={{ label: '创建第一个', onClick: onCreateCountry }}
+          />
+        ) : filtered.length === 0 ? (
+          <ListEmptyState
+            message="没有匹配的国家"
+            action={{ label: '清除筛选', onClick: () => setSearch('') }}
+          />
         ) : viewMode === 'grid' ? (
           <SortableList
+              activation="longPress"
             ids={filtered.map((c) => c.id)}
             onReorder={handleReorder}
             layout="grid"
@@ -151,7 +154,7 @@ export function CountryList({
           >
             <div className={LIST_GRID}>
               {filtered.map((country) => (
-                <div key={country.id} className="[break-inside:avoid] mb-4">
+                <div key={country.id}>
                   <CountryCard
                     country={country}
                     onSelect={handleSelect}
@@ -166,6 +169,7 @@ export function CountryList({
           </SortableList>
         ) : (
           <SortableList
+              activation="longPress"
             ids={filtered.map((c) => c.id)}
             onReorder={handleReorder}
             layout="list"

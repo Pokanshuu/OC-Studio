@@ -2,7 +2,7 @@ import { db } from '@/lib/db'
 import { logOperation, pendingStamp } from '@/lib/sync'
 import { listActive, getById, softDelete } from '@/lib/repository'
 import { updateReferencesAfterRename, syncReferenceLabels } from '@/lib/reference-sync'
-import { syncEventCountries } from '@/lib/membership'
+import { purgeEventReferences, syncEventCountries } from '@/lib/membership'
 import type { Event } from '@/types'
 import type { EventFormData } from './types'
 
@@ -155,6 +155,7 @@ export async function updateEvent(id: number, data: Partial<EventFormData>): Pro
 
 export async function deleteEvent(id: number): Promise<void> {
   await softDelete(db.events, id, TABLE)
+  await purgeEventReferences(id, Date.now())
 }
 
 /**

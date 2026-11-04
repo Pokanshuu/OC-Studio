@@ -2,7 +2,7 @@ import { db } from '@/lib/db'
 import { logOperation, pendingStamp } from '@/lib/sync'
 import { listActive, getById, softDelete } from '@/lib/repository'
 import { updateReferencesAfterRename, syncReferenceLabels } from '@/lib/reference-sync'
-import { syncCharacterCountry } from '@/lib/membership'
+import { purgeCharacterReferences, syncCharacterCountry } from '@/lib/membership'
 import type { Character } from '@/types'
 import type { CharacterFormData } from './types'
 
@@ -32,6 +32,7 @@ function buildDefaultCharacter(
     avatars: data.avatars,
     tags: data.tags ?? [],
     isMajor: data.isMajor ?? false,
+    kind: data.kind ?? 'character',
     custom: data.custom ?? {},
     createdAt: now,
     updatedAt: now,
@@ -86,9 +87,11 @@ export async function updateCharacter(
     'birthday',
     'avatarUrl',
     'headerUrl',
+    'animationUrl',
     'bio',
     'lifeStory',
     'isMajor',
+    'kind',
   ]
 
   for (const field of fields) {
@@ -189,6 +192,7 @@ export async function updateCharacter(
 
 export async function deleteCharacter(id: number): Promise<void> {
   await softDelete(db.characters, id, TABLE)
+  await purgeCharacterReferences(id, Date.now())
 }
 
 /**

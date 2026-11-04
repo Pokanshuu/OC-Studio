@@ -1,5 +1,6 @@
 import type {
   Character,
+  CharacterKind,
   Country,
   Event,
   Period,
@@ -25,6 +26,7 @@ import {
   type KeyChain,
 } from './fields'
 import { classifyFolderWithOverrides, type FolderClassification } from './mapping'
+import { normalizeRelationArrow, normalizeRelationColor } from '@/lib/relation-colors'
 import { noteAliases, noteTitle, toNote } from './note'
 import { normalizeLinkKey, stripOrderPrefix } from './wikilink'
 import { customFieldKeys } from './vault-field-keys'
@@ -110,6 +112,27 @@ function targetBasenameKey(target: VaultTarget): string {
 /** frontmatter 的 tags 字段 → 名字数组（键链由 fields.ts 提供，与写回保持同一张表） */
 function tagNamesOf(note: VaultNote, chain: KeyChain): string[] {
   return readStringList(note.frontmatter, chain)
+}
+
+/**
+ * 类别归一：`武器 / weapon` → weapon，`宠物 / pet` → pet，
+ * `角色 / character` / 空 / 非法值 → character。
+ *
+ * 手写 frontmatter 里中英文两种写法都真实存在，还常带全角空格与大小写差异，
+ * 所以先统一「去空白 + 小写」再认词。写回侧仍只写英文词汇（见 serialize.ts），
+ * 这里只负责读回来的那一步 —— 归一失败不该让实体消失，一律回落「角色」。
+ */
+export function normalizeCharacterKind(raw: string): CharacterKind {
+  switch (raw.replace(/[\s\u3000]/g, '').toLowerCase()) {
+    case '武器':
+    case 'weapon':
+      return 'weapon'
+    case '宠物':
+    case 'pet':
+      return 'pet'
+    default:
+      return 'character'
+  }
 }
 
 /** 按实体类型取它的 tags 键链 */
@@ -365,12 +388,19 @@ export function scanVault(options: ScanOptions): VaultScanResult {
         birthday: readString(fm, CHARACTER_KEYS.birthday),
         avatarUrl: readString(fm, CHARACTER_KEYS.avatar),
         headerUrl: readString(fm, CHARACTER_KEYS.header) || undefined,
+        animationUrl: readString(fm, CHARACTER_KEYS.animation) || undefined,
         bio: readString(fm, CHARACTER_KEYS.bio),
         lifeStory: readString(fm, CHARACTER_KEYS.lifeStory),
         relatedCharacters: readObjects(fm, CHARACTER_KEYS.relations).map((item) => {
           const name = typeof item.name === 'string' ? item.name : ''
           const relation = typeof item.relation === 'string' ? item.relation : ''
-          return { characterId: lookupTarget(name, 'character')?.id, name, relation }
+          return {
+            characterId: lookupTarget(name, 'character')?.id,
+            name,
+            relation,
+            color: normalizeRelationColor(item.color),
+            arrow: item.arrow === undefined ? undefined : normalizeRelationArrow(item.arrow, 'none'),
+          }
         }),
         gallery: readImageList(fm, CHARACTER_KEYS.gallery).map((item) => ({
           url: item.url,
@@ -382,6 +412,8 @@ export function scanVault(options: ScanOptions): VaultScanResult {
         })),
         tags: tagIdsOf(note, CHARACTER_KEYS.tags),
         isMajor: readBool(fm, CHARACTER_KEYS.isMajor),
+        folder: readString(fm, CHARACTER_KEYS.folder) || undefined,
+        kind: normalizeCharacterKind(readString(fm, CHARACTER_KEYS.kind)),
         order: readNumber(fm, CHARACTER_KEYS.order),
         graphPosition: readPosition(fm, CHARACTER_KEYS.graphPosition),
         custom: readCustomFields(fm, 'character'),
@@ -420,6 +452,8 @@ export function scanVault(options: ScanOptions): VaultScanResult {
         tags: tagIdsOf(note, COUNTRY_KEYS.tags),
         order: readNumber(fm, COUNTRY_KEYS.order),
         graphPosition: readPosition(fm, COUNTRY_KEYS.graphPosition),
+        mapPosition: readPosition(fm, COUNTRY_KEYS.mapPosition),
+        mapId: readString(fm, COUNTRY_KEYS.mapId) || undefined,
         createdAt: readTimestamp(fm, COUNTRY_KEYS.date, note.mtimeMs),
         updatedAt: note.mtimeMs,
         deleted: false,
@@ -456,6 +490,8 @@ export function scanVault(options: ScanOptions): VaultScanResult {
           .map((item) => ({
             targetId: lookupTarget(typeof item.name === 'string' ? item.name : '', 'event')?.id ?? 0,
             relation: typeof item.relation === 'string' ? item.relation : '',
+            color: normalizeRelationColor(item.color),
+            arrow: item.arrow === undefined ? undefined : normalizeRelationArrow(item.arrow, 'none'),
           }))
           .filter((item) => item.targetId !== 0),
         tags: tagIdsOf(note, EVENT_KEYS.tags),
@@ -466,6 +502,8 @@ export function scanVault(options: ScanOptions): VaultScanResult {
         isMajor: readBool(fm, EVENT_KEYS.isMajor),
         order: readNumber(fm, EVENT_KEYS.order),
         graphPosition: readPosition(fm, EVENT_KEYS.graphPosition),
+        mapPosition: readPosition(fm, EVENT_KEYS.mapPosition),
+        mapId: readString(fm, EVENT_KEYS.mapId) || undefined,
         custom: readCustomFields(fm, 'event'),
         createdAt: readTimestamp(fm, EVENT_KEYS.date, note.mtimeMs),
         updatedAt: note.mtimeMs,
@@ -495,6 +533,19 @@ export function scanVault(options: ScanOptions): VaultScanResult {
         parentId: lookupTarget(parentName, 'worldEntry')?.id ?? null,
         order: readNumber(fm, WORLD_KEYS.order) ?? order ?? folderOrder,
         isConcept: readBool(fm, WORLD_KEYS.isConcept),
+        mapPosition: readPosition(fm, WORLD_KEYS.mapPosition),
+        mapId: readString(fm, WORLD_KEYS.mapId) || undefined,
+        novelAuthor: readString(fm, WORLD_KEYS.novelAuthor) || undefined,
+        novelSynopsis: readString(fm, WORLD_KEYS.novelSynopsis) || undefined,
+        novelTargetWords: readNumber(fm, WORLD_KEYS.novelTargetWords),
+        novelNotes: readString(fm, WORLD_KEYS.novelNotes) || undefined,
+        novelCover: readString(fm, WORLD_KEYS.novelCover) || undefined,
+        chapterOutline: readString(fm, WORLD_KEYS.chapterOutline) || undefined,
+        mapImage: readString(fm, WORLD_KEYS.mapImage) || undefined,
+        mapWidth: readNumber(fm, WORLD_KEYS.mapWidth),
+        mapHeight: readNumber(fm, WORLD_KEYS.mapHeight),
+        mapSeed: readNumber(fm, WORLD_KEYS.mapSeed),
+        mapParams: readString(fm, WORLD_KEYS.mapParams) || undefined,
         references: [],
         tags: tagIdsOf(note, WORLD_KEYS.tags),
         custom: readCustomFields(fm, 'worldEntry'),

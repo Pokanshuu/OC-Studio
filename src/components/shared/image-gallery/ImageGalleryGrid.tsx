@@ -1,7 +1,12 @@
 'use client'
 
+import { useState } from 'react'
 import { Plus, Trash2, ImageIcon, Loader2 } from 'lucide-react'
 import { resolveImageUrl } from '@/lib/image-service'
+import { MediaContextMenu, type MediaMenuItem } from '@/components/shared/MediaContextMenu'
+import { OverlayIconButton } from '@/components/shared/OverlayIconButton'
+import { downloadMediaFile } from '@/lib/media-download'
+import { toast } from 'sonner'
 
 interface ImageGalleryGridProps {
   images: string[]
@@ -28,6 +33,23 @@ export function ImageGalleryGrid({
   onUploadClick,
 }: ImageGalleryGridProps) {
   const aspectClass = gridAspect === 'portrait' ? 'aspect-[9/16]' : 'aspect-square'
+  const [menuAt, setMenuAt] = useState<{ x: number; y: number; index: number } | null>(null)
+
+  const menuItems = (index: number): MediaMenuItem[] => {
+    const items: MediaMenuItem[] = [
+      { label: '查看', onSelect: () => onViewImage(index) },
+      {
+        label: '保存到…',
+        onSelect: () => {
+          void downloadMediaFile(images[index]).catch((err: unknown) => {
+            toast.error('保存失败', { description: err instanceof Error ? err.message : String(err) })
+          })
+        },
+      },
+    ]
+    if (onRemove) items.push({ label: '移除', danger: true, onSelect: () => onRemove(index) })
+    return items
+  }
 
   return (
     <div className="relative">
@@ -45,6 +67,10 @@ export function ImageGalleryGrid({
             <div
               key={idx}
               className={`group relative overflow-hidden rounded-item bg-paper-card ${aspectClass}`}
+              onContextMenu={(event) => {
+                event.preventDefault()
+                setMenuAt({ x: event.clientX, y: event.clientY, index: idx })
+              }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -57,12 +83,11 @@ export function ImageGalleryGrid({
                 }}
               />
               {onRemove ? (
-                <button
-                  onClick={() => onRemove(idx)}
-                  className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/40 text-white/80 opacity-100 md:opacity-0 md:transition-opacity md:group-hover:opacity-100 hover:bg-black/60"
-                >
-                  <Trash2 size={12} strokeWidth={2} />
-                </button>
+                <span className="absolute right-1 top-1 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
+                  <OverlayIconButton label="移除图片" onClick={() => onRemove(idx)}>
+                    <Trash2 size={12} strokeWidth={2} />
+                  </OverlayIconButton>
+                </span>
               ) : null}
             </div>
           ))}
@@ -92,6 +117,14 @@ export function ImageGalleryGrid({
           <Plus size={16} strokeWidth={2} />
           <span>添加图片</span>
         </button>
+      ) : null}
+
+      {menuAt ? (
+        <MediaContextMenu
+          at={{ x: menuAt.x, y: menuAt.y }}
+          items={menuItems(menuAt.index)}
+          onClose={() => setMenuAt(null)}
+        />
       ) : null}
     </div>
   )

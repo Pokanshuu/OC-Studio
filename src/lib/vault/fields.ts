@@ -36,13 +36,19 @@ export const CHARACTER_KEYS = {
   /** 旧版「人生故事」：早期版本的大段文本，编辑器已合并进正文展示，但数据不能丢 */
   lifeStory: chain('lifeStory', '人生故事'),
   isMajor: chain('isMajor', '主要角色'),
+  /** 实体类别：角色 / 武器 / 宠物（缺省 = 角色；武器与宠物是「角色模板实体」，不是新表） */
+  kind: chain('kind', '类别', '类型'),
   avatar: chain('avatar', 'avatarUrl'),
   header: chain('header', 'headerUrl'),
+  /** OC 动画（视频文件，存在库里附件目录） */
+  animation: chain('animation', '动画'),
   gallery: chain('gallery'),
   avatars: chain('avatars'),
   relations: chain('relations'),
   tags: chain('tags'),
   order: chain('order', '排序'),
+  /** 角色文件夹：只存文件夹**名字**（不是 id），空 = 未分组；删文件夹不删角色（见 docs/待设计决策清单 §2） */
+  folder: chain('folder', '文件夹', '分类'),
   /** 关系图坐标：`{ x, y }`。只有用户拖过节点才有这个键 */
   graphPosition: chain('graph_position', 'graphPosition'),
   date: chain('date'),
@@ -64,6 +70,9 @@ export const COUNTRY_KEYS = {
   order: chain('order', '排序'),
   /** 关系图坐标：`{ x, y }`。只有用户拖过节点才有这个键 */
   graphPosition: chain('graph_position', 'graphPosition'),
+  /** 地图锚点：归一化 0–1，换分辨率不用重摆（docs/地图.md §2） */
+  mapPosition: chain('map_position', 'mapPosition'),
+  mapId: chain('map_id', 'mapId'),
   date: chain('date'),
 } as const
 
@@ -87,6 +96,9 @@ export const EVENT_KEYS = {
   order: chain('order', '排序'),
   /** 关系图坐标：`{ x, y }`。只有用户拖过节点才有这个键 */
   graphPosition: chain('graph_position', 'graphPosition'),
+  /** 地图锚点：归一化 0–1，换分辨率不用重摆（docs/地图.md §2） */
+  mapPosition: chain('map_position', 'mapPosition'),
+  mapId: chain('map_id', 'mapId'),
   date: chain('date'),
 } as const
 
@@ -97,6 +109,25 @@ export const WORLD_KEYS = {
   parent: chain('parent', '父词条'),
   order: chain('order', '排序'),
   isConcept: chain('isConcept', '概念'),
+  /** 地图锚点：归一化 0–1，换分辨率不用重摆（docs/地图.md §2） */
+  mapPosition: chain('map_position', 'mapPosition'),
+  mapId: chain('map_id', 'mapId'),
+  /** 小说作品信息（只有小说根节点会写；别的词条上不存在这些键） */
+  novelAuthor: chain('novel_author', '作者'),
+  novelSynopsis: chain('novel_synopsis', '作品简介'),
+  novelTargetWords: chain('novel_target_words', '目标字数'),
+  novelNotes: chain('novel_notes', '作品笔记'),
+  /** 封面（2:3 槽位，见 docs/小说.md §9） */
+  novelCover: chain('novel_cover', '封面'),
+  /** 地图笔记：底图相对路径 + 像素尺寸（只有 category=地图 的条目会写） */
+  mapImage: chain('map_image', '底图'),
+  mapWidth: chain('map_width', '地图宽'),
+  mapHeight: chain('map_height', '地图高'),
+  /** 地图生成参数快照（JSON 字符串）+ 种子：重生成用 */
+  mapSeed: chain('map_seed', '种子'),
+  mapParams: chain('map_params', '生成参数'),
+  /** 章节大纲 / 备注（只有章节会写） */
+  chapterOutline: chain('chapter_outline', '章节大纲'),
   tags: chain('tags'),
   date: chain('date'),
 } as const

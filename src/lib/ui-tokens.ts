@@ -79,6 +79,16 @@ export const ICON_BTN =
 export const ICON_BTN_MD =
   `flex h-8 w-8 shrink-0 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink ${ROUND_CONTROL}`
 
+/**
+ * 压在图片 / 封面上的圆形图标按钮（删除 / 移到文件夹 / 拖拽手柄 / 图片菜单）—— **唯一皮肤**。
+ *
+ * 颜色走 design skill §8 的例外：图片上的操作层允许半透明黑底 + 白字。
+ * `--oc-scrim` 是弹窗遮罩（亮色只有 .15），压在图上看不清，别拿它当图片遮罩。
+ * 移动端 44px 命中（`max-md:h-11 max-md:w-11`）。页面里的按钮仍用 `ICON_BTN` / `ICON_BTN_MD`。
+ */
+export const OVERLAY_ROUND_BTN =
+  'flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-black/40 text-white transition-colors hover:bg-black/60 max-md:h-11 max-md:w-11'
+
 /* ── 按钮 ─────────────────────────────────────────────
    主按钮 = 浅底实心（**不是**实心墨色：强调色只留给「选中态」），次按钮 = 纯文字。
    原则：一屏之内不该出现第二块深色；动作靠位置与文字表达，不靠反相。 */
@@ -109,6 +119,13 @@ export const BTN_DANGER =
    零描边：静默态只留一条极淡的线，聚焦时加深。 */
 export const INPUT_LINE =
   'w-full border-b border-line bg-transparent px-0 text-sm text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none'
+
+/**
+ * 行内输入：固定宽度（`w-28`），用在 `flex-wrap` 的 chip 行里。
+ * `INPUT_LINE` 是 `w-full`，放进文件夹条会把整行撑开 —— 改名 / 新建文件夹用这个。
+ */
+export const INLINE_INPUT =
+  'h-6 w-28 min-w-0 border-b border-line bg-transparent px-0 text-[12px] text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none'
 
 /* ── 浮层 ─────────────────────────────────────────────
    只有浮层允许有边框；**阴影只有一档**（`FLOAT_SHADOW`，值在 globals.css 的 `--oc-shadow-float`）——
@@ -142,6 +159,30 @@ export const SEARCH_INPUT =
 /** 搜索图标：绝对定位在输入框左侧 */
 export const SEARCH_ICON = 'pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-faint'
 
+/* ── 封面卡（角色 / 国家 / 事件的网格视图） ─────────────
+   版式照搬 Simple_Cover：照片贴顶、下缘渐进模糊溶进色块，标题压在模糊区上，
+   简介与小字落在色块里。
+   比例 / 边距 / 字号全部来自 `lib/cover/tuning.ts`（视图菜单里可实时拖），
+   这里只留「画什么色、怎么截断」这类不随手调的。 */
+export const COVER_FRAME = `relative w-full overflow-hidden bg-paper-card ${ROUND_ITEM}`
+export const COVER_TEXT = 'absolute'
+export const COVER_TITLE =
+  'line-clamp-2 font-serif font-semibold leading-[1.14] tracking-[0.012em] text-paper-fixed [overflow-wrap:anywhere]'
+export const COVER_INTRO =
+  'mt-[0.8em] line-clamp-2 leading-[1.7] tracking-[0.035em] text-paper-fixed/80'
+/** 标题下面那行小字（国籍 / 时间）：和标题同一个「左右布局」里，标题右下方 */
+export const COVER_SUBTITLE = 'mt-0.5 truncate leading-[1.4] tracking-[0.12em] text-paper-fixed/60'
+
+/*
+ * 黑白模式：块色跟着主题走（亮色主题是纸色、暗色主题才是墨色），
+ * 所以文字也要跟着主题翻 —— 用 `text-ink` 一族，不要用 `*-fixed`。
+ */
+export const COVER_TITLE_MONO =
+  'line-clamp-2 font-serif font-semibold leading-[1.14] tracking-[0.012em] text-ink [overflow-wrap:anywhere]'
+export const COVER_INTRO_MONO =
+  'mt-[0.8em] line-clamp-2 leading-[1.7] tracking-[0.035em] text-ink-muted'
+export const COVER_SUBTITLE_MONO = 'mt-0.5 truncate leading-[1.4] tracking-[0.12em] text-ink-faint'
+
 /* ── 素材卡片（列表卡片 / 画廊格子的图区） ───────────── */
 /** 图区外框：固定比例 + 卡片底色（图加载前就是这块底色） */
 export const MEDIA_CARD = 'relative aspect-[3/2] w-full bg-paper-card'
@@ -168,8 +209,13 @@ export const FILTER_TRIGGER =
 
 /* ── 拖拽排序 ─────────────────────────────────────────
    手柄位置只有两种：卡片压在图左上角、列表行在左侧留白里。
-   位置定在这里，卡片 / 行只管渲染 DragHandle。 */
-export const DRAG_SLOT_CARD = 'absolute left-2 top-2 z-10'
+   位置定在这里，卡片 / 行只管渲染 DragHandle。
+   卡片上的手柄默认隐身、悬停（或键盘聚焦）才出现 —— 它不承载信息，
+   只是起拖的抓手；常显会在每张图的左上角一直压一个黑圆点。
+   移动端整块不渲染：那里靠长按起拖（`SortableList activation="longPress"`），
+   一个 44px 的隐形命中区反而容易误触。 */
+export const DRAG_SLOT_CARD =
+  'absolute left-2 top-2 z-10 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-md:hidden'
 export const DRAG_SLOT_ROW = 'absolute left-2 top-1/2 -translate-y-1/2'
 
 /* ── 关系图节点 ──────────────────────────────────────── */

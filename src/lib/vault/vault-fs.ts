@@ -66,10 +66,22 @@ function requireSupport(): void {
   }
 }
 
+export interface VaultAssetDto {
+  name: string
+  relPath: string
+  size: number
+  mtimeMs: number
+}
+
 export const vaultFs = {
   async probe(path: string): Promise<VaultProbe> {
     requireSupport()
     return invoke<VaultProbe>('vault_probe', { path })
+  },
+
+  /** 列出库内某个子目录的文件（地图底图这类素材）；目录不存在返回空数组 */
+  async listAssets(path: string, subdir: string): Promise<VaultAssetDto[]> {
+    return invoke<VaultAssetDto[]>('vault_list_assets', { path, subdir })
   },
 
   async scan(path: string): Promise<VaultScanDto> {

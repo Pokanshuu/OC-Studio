@@ -9,6 +9,7 @@ import { MobileTabBar } from "@/components/layout/MobileTabBar"
 import { GlobalContextMenu } from "@/components/shared/GlobalContextMenu"
 import { MobileTextSelectionBar } from "@/components/shared/mobile-text-selection/MobileTextSelectionBar"
 import { SettingsDialog } from "@/components/settings/SettingsDialog"
+import { CoverTuningPanel } from "@/components/shared/cover/CoverTuningPanel"
 import { SettingsTriggerContext } from "@/components/layout/SettingsTriggerContext"
 import { EditorProvider, useEditor } from "@/components/layout/EditorContext"
 import { MobileNavigationProvider } from "@/components/layout/MobileNavigationContext"
@@ -83,6 +84,9 @@ function AppShellChrome({ settings, children }: { settings: ReturnType<typeof us
       </div>
       <StatusBar />
       {!hideTabBar && <MobileTabBar />}
+      {/* 封面卡参数面板（调试用）：挂在 SettingsProvider 里面，
+          因为它要读「设置 → 封面卡混色」 */}
+      <CoverTuningPanel />
     </div>
   )
 }

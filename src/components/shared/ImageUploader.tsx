@@ -1,16 +1,22 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { ImageIcon, Trash2, Loader2 } from 'lucide-react'
+import { ImageIcon, MoreHorizontal, Loader2 } from 'lucide-react'
 import { resolveImageUrl, saveBlobToDisk } from '@/lib/image-service'
 import { convertHeifToJpeg } from '@/lib/image-heif'
 import { ImageCropper } from './ImageCropper'
+import { FullscreenViewer } from './FullscreenViewer'
+import { toast } from 'sonner'
+import { MENU_ITEM } from '@/lib/ui-tokens'
+import { MenuSurface } from './menu/MenuSurface'
+import { OverlayIconButton } from './OverlayIconButton'
+import { downloadMediaFile } from '@/lib/media-download'
 
 export interface ImageUploaderProps {
   value?: string
   onChange: (path: string) => void
   onRemove?: () => void
-  aspectRatio?: '1:1' | '3:4' | '4:3' | '3:2'
+  aspectRatio?: '1:1' | '3:4' | '4:3' | '3:2' | '2:3' | '16:9'
   placeholderText?: string
   size?: 'sm' | 'md' | 'lg'
   enableCrop?: boolean
@@ -24,6 +30,8 @@ const ASPECT_CLASS: Record<string, string> = {
   '3:4': 'aspect-[3/4]',
   '4:3': 'aspect-[4/3]',
   '3:2': 'aspect-[3/2]',
+  '2:3': 'aspect-[2/3]',
+  '16:9': 'aspect-video',
 }
 
 const ASPECT_RATIO_MAP: Record<string, number> = {
@@ -31,6 +39,8 @@ const ASPECT_RATIO_MAP: Record<string, number> = {
   '3:4': 3 / 4,
   '4:3': 4 / 3,
   '3:2': 3 / 2,
+  '2:3': 2 / 3,
+  '16:9': 16 / 9,
 }
 
 const SIZE_CLASS: Record<string, string> = {
@@ -56,6 +66,8 @@ export function ImageUploader({
   const [uploading, setUploading] = useState(false)
   const [converting, setConverting] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null)
+  const [viewing, setViewing] = useState(false)
 
   const currentSrc = value ? resolveImageUrl(value) : undefined
   const effectiveCropAspect = cropAspect ?? ASPECT_RATIO_MAP[aspectRatio] ?? 1
@@ -63,6 +75,20 @@ export function ImageUploader({
 
   async function handleClick() {
     if (inputRef.current) { inputRef.current.value = ''; inputRef.current.click() }
+  }
+
+  /** 右键菜单的「编辑」：把已有图取回来丢进裁剪器（只有开了裁剪的槽位才有） */
+  async function handleEditExisting() {
+    if (!currentSrc) return
+    try {
+      const response = await fetch(currentSrc)
+      const blob = await response.blob()
+      if (rawFileUrl) URL.revokeObjectURL(rawFileUrl)
+      setRawFileUrl(URL.createObjectURL(blob))
+      setCropperOpen(true)
+    } catch (err) {
+      toast.error('取不到原图', { description: err instanceof Error ? err.message : String(err) })
+    }
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -139,30 +165,31 @@ export function ImageUploader({
           </div>
         ) : currentSrc ? (
           <div className={`group/image relative h-full w-full overflow-hidden ${shape === 'circle' ? 'rounded-full' : 'rounded-item'}`}>
+            {/* 统一交互：单击看大图；右键（或右上 ⋯）出菜单做替换 / 编辑 / 移除 / 保存 */}
             <button
               type="button"
-              onClick={handleClick}
+              onClick={() => setViewing(true)}
+              onContextMenu={(event) => {
+                event.preventDefault()
+                setMenuAt({ x: event.clientX, y: event.clientY })
+              }}
               className="absolute inset-0 h-full w-full bg-transparent hover:bg-transparent"
-              aria-label="更换图片"
+              aria-label="查看图片"
             />
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={currentSrc} alt="" className="h-full w-full object-cover pointer-events-none" />
-            <div className={`absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition-opacity group-hover/image:opacity-100 pointer-events-none ${shape === 'circle' ? 'rounded-full' : 'rounded-item'}`}>
-              <span className="rounded-item px-2 py-1 text-xs text-white">更换</span>
-            </div>
-            {onRemove ? (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onRemove()
+            <span className="absolute right-1 top-1 opacity-0 transition-opacity group-hover/image:opacity-100">
+              <OverlayIconButton
+                label="图片操作"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  const rect = event.currentTarget.getBoundingClientRect()
+                  setMenuAt({ x: rect.left, y: rect.bottom })
                 }}
-                className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-full bg-black/40 text-white/80 opacity-0 transition-opacity group-hover/image:opacity-100 hover:bg-black/60"
-                title="删除"
               >
-                <Trash2 size={16} strokeWidth={2} />
-              </button>
-            ) : null}
+                <MoreHorizontal size={14} strokeWidth={2} />
+              </OverlayIconButton>
+            </span>
           </div>
         ) : (
           <button
@@ -175,6 +202,49 @@ export function ImageUploader({
           </button>
         )}
       </div>
+
+      {menuAt ? (
+        <MenuSurface at={menuAt} onClose={() => setMenuAt(null)} className="min-w-32">
+          <button type="button" className={MENU_ITEM} onClick={() => { setMenuAt(null); void handleClick() }}>
+            替换
+          </button>
+          {enableCrop ? (
+            <button type="button" className={MENU_ITEM} onClick={() => { setMenuAt(null); void handleEditExisting() }}>
+              编辑
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className={MENU_ITEM}
+            onClick={() => {
+              setMenuAt(null)
+              if (value) {
+                void downloadMediaFile(value).catch((err: unknown) => {
+                  toast.error('保存失败', { description: err instanceof Error ? err.message : String(err) })
+                })
+              }
+            }}
+          >
+            保存到…
+          </button>
+          {onRemove ? (
+            <button
+              type="button"
+              className={MENU_ITEM}
+              onClick={() => {
+                setMenuAt(null)
+                onRemove()
+              }}
+            >
+              移除
+            </button>
+          ) : null}
+        </MenuSurface>
+      ) : null}
+
+      {viewing && value ? (
+        <FullscreenViewer images={[value]} initialIndex={0} onClose={() => setViewing(false)} />
+      ) : null}
 
       {rawFileUrl ? (
         <ImageCropper

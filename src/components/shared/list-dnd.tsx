@@ -10,7 +10,7 @@
  * 手柄是唯一的拖拽入口（`DragHandle`）：卡片可以照常点击进入，不会误触拖拽。
  */
 
-import type { ReactNode } from 'react'
+import { createContext, useContext, type ReactNode } from 'react'
 import {
   DndContext,
   KeyboardSensor,
@@ -30,6 +30,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { GripVertical } from 'lucide-react'
+import { OverlayIconButton } from './OverlayIconButton'
 
 type DragListeners = ReturnType<typeof useSortable>['listeners']
 
@@ -41,21 +42,42 @@ interface SortableListProps {
   layout?: 'grid' | 'list'
   /** 关闭拖拽（例如当前不是「手动排序」） */
   disabled?: boolean
+  /**
+   * 怎么起拖：
+   * - `handle`（默认）：只能抓左侧手柄，4px 起拖 —— 桌面精确、绝不误触
+   * - `longPress`：**整张卡片**按住 320ms 起拖（移动端没有 hover 手柄，这是唯一顺手的入口）；
+   *   阈值内松手仍然是点击，不耽误进入详情
+   */
+  activation?: 'handle' | 'longPress'
   children: ReactNode
 }
+
+type SortActivation = 'handle' | 'longPress'
+
+const SortActivationContext = createContext<SortActivation>('handle')
+
+/** 长按起拖的阈值：和 `useLongPress` 一致（320ms / 8px），全站手感统一 */
+const LONG_PRESS_DELAY = 320
+const LONG_PRESS_TOLERANCE = 8
 
 export function SortableList({
   ids,
   onReorder,
   layout = 'grid',
   disabled = false,
+  activation = 'handle',
   children,
 }: SortableListProps) {
-  const sensors = useSensors(
-    // 4px 才起拖：点一下仍然是点击，不会把「打开」变成「拖动」
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  )
+  // 两个传感器都无条件创建（Hooks 不能条件调用），只切换起拖阈值
+  const pointerSensor = useSensor(PointerSensor, {
+    activationConstraint:
+      activation === 'longPress'
+        ? { delay: LONG_PRESS_DELAY, tolerance: LONG_PRESS_TOLERANCE }
+        : // 4px 才起拖：点一下仍然是点击，不会把「打开」变成「拖动」
+          { distance: 4 },
+  })
+  const keyboardSensor = useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  const sensors = useSensors(pointerSensor, keyboardSensor)
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
@@ -64,15 +86,17 @@ export function SortableList({
   }
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-      <SortableContext
-        items={ids}
-        strategy={layout === 'grid' ? rectSortingStrategy : verticalListSortingStrategy}
-        disabled={disabled}
-      >
-        {children}
-      </SortableContext>
-    </DndContext>
+    <SortActivationContext.Provider value={activation}>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext
+          items={ids}
+          strategy={layout === 'grid' ? rectSortingStrategy : verticalListSortingStrategy}
+          disabled={disabled}
+        >
+          {children}
+        </SortableContext>
+      </DndContext>
+    </SortActivationContext.Provider>
   )
 }
 
@@ -82,12 +106,18 @@ export function useSortableItem(id: number | string, disabled: boolean) {
     id,
     disabled,
   })
+  const activation = useContext(SortActivationContext)
+  const longPress = activation === 'longPress' && !disabled
 
   return {
     setNodeRef,
     attributes,
     listeners,
     isDragging,
+    /** 长按模式：把这两个铺到**卡片根节点**上，整张卡都可长按起拖 */
+    longPress,
+    cardAttributes: longPress ? attributes : undefined,
+    cardListeners: longPress ? listeners : undefined,
     style: {
       transform: CSS.Transform.toString(transform),
       transition,
@@ -111,12 +141,20 @@ interface DragHandleProps {
 
 export function DragHandle({ handleProps, tone = 'inline', className = '' }: DragHandleProps) {
   const { attributes, listeners } = handleProps
-  const base =
-    'flex items-center justify-center transition-colors touch-none cursor-grab active:cursor-grabbing'
-  const skin =
-    tone === 'overlay'
-      ? 'h-6 w-6 rounded-full bg-black/30 text-white/80 hover:bg-black/50'
-      : 'h-6 w-6 rounded-item text-ink-faint hover:text-ink'
+
+  if (tone === 'overlay') {
+    return (
+      <OverlayIconButton
+        label="拖动排序"
+        {...attributes}
+        {...listeners}
+        onClick={(event) => event.stopPropagation()}
+        className={`touch-none cursor-grab active:cursor-grabbing ${className}`}
+      >
+        <GripVertical size={14} strokeWidth={2} />
+      </OverlayIconButton>
+    )
+  }
 
   return (
     <button
@@ -126,7 +164,7 @@ export function DragHandle({ handleProps, tone = 'inline', className = '' }: Dra
       {...attributes}
       {...listeners}
       onClick={(event) => event.stopPropagation()}
-      className={`${base} ${skin} ${className}`}
+      className={`flex h-6 w-6 items-center justify-center rounded-item text-ink-faint transition-colors touch-none cursor-grab hover:text-ink active:cursor-grabbing ${className}`}
     >
       <GripVertical size={14} strokeWidth={2} />
     </button>

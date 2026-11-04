@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import { logOperation, pendingStamp } from '@/lib/sync'
 import { addCountryCharacter, addCountryEvent, removeCountryCharacter } from '@/lib/membership'
 import type { GraphNode, GraphEdge, RelationEndpoint, RelationNodeType } from './types'
+import { patchCharacterEdge, patchEventEdge, type EdgeStylePatch } from './edge-style'
 
 export type CreateRelationResult =
   | { ok: true }
@@ -44,18 +45,36 @@ export async function buildGraphData(): Promise<{ nodes: GraphNode[]; edges: Gra
     })
   }
 
-  function addEdge(source: string, target: string, relation: string, incomplete = false) {
-    // 按无序节点对去重：同一对节点只保留一条边，避免「属于/所属」「发生于/发生地」等
-    // 在数据模型两侧同时表达时被重复绘制成两条反向边。
-    const key = [source, target].sort().join('||')
+  function addEdge(
+    source: string,
+    target: string,
+    relation: string,
+    incomplete = false,
+    style?: { color?: string; arrow?: 'none' | 'forward' | 'reverse' | 'both' },
+    /**
+     * 是否允许同一对节点的多条边。
+     * - 成员 / 归属类（角色↔国家、事件↔国家）：两侧数据表达同一条事实，**必须去重**
+     * - 角色↔角色、事件↔事件：一个名字就是一条关系（兄弟 + 同事），去重会把其中一条吞掉
+     */
+    allowParallel = false,
+  ) {
+    const pairKey = [source, target].sort().join('||')
+    const key = allowParallel ? `${pairKey}::${relation}` : pairKey
     if (edgeKeys.has(key)) return
     edgeKeys.add(key)
     edges.push({
-      id: `${source}->${target}`,
+      // 同一对节点允许多条关系（兄弟 + 同事），id 必须带上关系名，否则 React Flow 的
+      // edgeLookup 会把后一条覆盖掉（PR #5 #1 的前提）
+      id: allowParallel ? `${source}->${target}::${relation}` : `${source}->${target}`,
       source,
       target,
       type: 'relationEdge',
-      data: incomplete ? { relation, incomplete: true } : { relation },
+      data: {
+        relation,
+        ...(incomplete ? { incomplete: true } : {}),
+        ...(style?.color ? { color: style.color } : {}),
+        ...(style?.arrow ? { arrow: style.arrow } : {}),
+      },
     })
   }
 
@@ -84,6 +103,10 @@ export async function buildGraphData(): Promise<{ nodes: GraphNode[]; edges: Gra
 
   for (const e of events) {
     addNode(`event-${e.id}`, e.title, 'event', e.id, e.time, e.graphPosition)
+    const node = nodes.find((n) => n.id === `event-${e.id}`)
+    if (node) {
+      ;(node.data as Record<string, unknown>).imageUrl = e.headerUrl ?? ''
+    }
   }
 
   for (const c of countries) {
@@ -99,7 +122,8 @@ export async function buildGraphData(): Promise<{ nodes: GraphNode[]; edges: Gra
     for (const rc of c.relatedCharacters ?? []) {
       const targetId = `character-${rc.characterId}`
       if (nodeIds.has(targetId)) {
-        addEdge(sourceId, targetId, rc.relation || '')
+        // 角色之间的关系默认双向箭头（docs/关系图.md §2.1），显式存过就以存的为准
+        addEdge(sourceId, targetId, rc.relation || '', false, { color: rc.color, arrow: rc.arrow ?? 'both' }, true)
       }
     }
   }
@@ -110,9 +134,27 @@ export async function buildGraphData(): Promise<{ nodes: GraphNode[]; edges: Gra
     for (const relation of e.relations ?? []) {
       const targetId = `event-${relation.targetId}`
       if (nodeIds.has(targetId)) {
-        addEdge(sourceId, targetId, relation.relation || '')
+        addEdge(
+          sourceId,
+          targetId,
+          relation.relation || '',
+          false,
+          { color: relation.color, arrow: relation.arrow },
+          true,
+        )
       }
     }
+  }
+
+  // 并行边错开：同一对节点的第 n 条关系给一个序号（docs/关系图.md §9 风险 3）
+  const pairCount = new Map<string, number>()
+  for (const edge of edges) {
+    const key = [edge.source, edge.target].sort().join('||')
+    if (edgeKeys.has(key + '::member')) continue
+    const index = pairCount.get(key) ?? 0
+    pairCount.set(key, index + 1)
+    const data = edge.data as Record<string, unknown> | undefined
+    if (data) data.parallelIndex = index
   }
 
   // 先把「两侧都有」的成员关系登记一遍，画边时据此判断这条边完不完整
@@ -328,8 +370,14 @@ export async function createRelationBetween(
       ])
       if (!from || !to) return { ok: false, reason: 'missing' }
       const list = from.relatedCharacters ?? []
-      if (list.some((item) => item.characterId === to.id)) return { ok: false, reason: 'duplicate' }
-      const next = [...list, { characterId: to.id, name: to.name, relation: label }]
+      // 同一对角色可以有多条不同名字的关系（兄弟 + 同事）；同名才算重复
+      if (list.some((item) => item.characterId === to.id && (item.relation ?? '').trim() === label)) {
+        return { ok: false, reason: 'duplicate' }
+      }
+      const next = [
+        ...list,
+        { characterId: to.id, name: to.name, relation: label, arrow: 'both' as const },
+      ]
       await db.characters.update(from.id, {
         relatedCharacters: next,
         updatedAt: now,
@@ -358,7 +406,9 @@ export async function createRelationBetween(
       ])
       if (!from || !to) return { ok: false, reason: 'missing' }
       const list = from.relations ?? []
-      if (list.some((item) => item.targetId === to.id)) return { ok: false, reason: 'duplicate' }
+      if (list.some((item) => item.targetId === to.id && (item.relation ?? '').trim() === label)) {
+        return { ok: false, reason: 'duplicate' }
+      }
       const next = [...list, { targetId: to.id, relation: label }]
       await db.events.update(from.id, { relations: next, updatedAt: now, ...pendingStamp(now) })
       await logOperation('events', from.id, 'relations', JSON.stringify(list), JSON.stringify(next))
@@ -375,4 +425,48 @@ export async function createRelationBetween(
       // 国家之间没有对应字段（既没有父级外的关联表，也没有反向列表）
       return { ok: false, reason: 'unsupported' }
   }
+}
+
+
+/**
+ * 改一条边的样式（颜色 / 箭头）。只支持「角色↔角色」与「事件↔事件」两类边
+ * ——其它组合的样式不在这一层表达（归属 / 参与不画箭头，见 docs/关系图.md §2.1）。
+ */
+export async function updateEdgeStyle(
+  source: { entityType: RelationNodeType; entityId: number },
+  target: { entityType: RelationNodeType; entityId: number },
+  patch: EdgeStylePatch,
+): Promise<boolean> {
+  if (source.entityType !== target.entityType) return false
+  const now = Date.now()
+
+  if (source.entityType === 'character') {
+    const row = await db.characters.get(source.entityId)
+    if (!row) return false
+    const patched = patchCharacterEdge(row, target.entityId, patch)
+    if (!patched || !patched.changed) return patched?.found ?? false
+    await db.characters.update(row.id, {
+      relatedCharacters: patched.relatedCharacters,
+      updatedAt: now,
+      ...pendingStamp(now),
+    })
+    await logOperation('characters', row.id, 'edge_style', '', JSON.stringify(patch))
+    return true
+  }
+
+  if (source.entityType === 'event') {
+    const row = await db.events.get(source.entityId)
+    if (!row) return false
+    const patched = patchEventEdge(row, target.entityId, patch)
+    if (!patched || !patched.changed) return patched?.found ?? false
+    await db.events.update(row.id, {
+      relations: patched.relations,
+      updatedAt: now,
+      ...pendingStamp(now),
+    })
+    await logOperation('events', row.id, 'edge_style', '', JSON.stringify(patch))
+    return true
+  }
+
+  return false
 }

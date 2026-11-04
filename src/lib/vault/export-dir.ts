@@ -16,10 +16,8 @@ import { MARKER_REL_PATH, buildMarkerContent } from './vault-marker'
 import { vaultFs } from './vault-fs'
 import type { MergeStrategy } from '@/lib/import'
 import {
-  collectCharacterImageRefs,
-  collectCountryImageRefs,
-  collectEventImageRefs,
-  collectWorldEntryImageRefs,
+  collectDatasetImageRefs,
+  isTransientImageRef,
 } from '@/lib/image-refs'
 import type { VaultEntityKind, VaultStorableKind } from './types'
 
@@ -49,6 +47,10 @@ export interface ExportDirReport {
   /** 引用了但找不回来的图片（应用数据目录里没有、或 data URI 解析失败） */
   missingImages: string[]
   failedImages: { path: string; message: string }[]
+  /** 库里已有文件、只登记不搬的引用（`附件/` 素材、`.ocstudio/maps/` 底图） */
+  inVaultRefs: string[]
+  /** 被跳过的引用（`blob:` 这类只在当前会话有效的地址，备份/落地都带不走） */
+  skippedRefs: string[]
   /** 回收站条目：写进 `.ocstudio/trash/`（不在应用里显示，但字节不丢） */
   trashed: number
   /** 落下的时期数 */
@@ -218,35 +220,66 @@ function fileNameOf(path: string): string {
   return name === '' ? '图片' : name
 }
 
-/** 该实体是否算「本地文件 / data URI」图片引用（http、blob、已有相对素材一律不碰） */
-function isLocalImageRef(value: string): boolean {
+/** 该引用是否**有外部源文件**要复制进库：`data:` / appData 里的 `images/…` / 绝对路径 */
+function isCopyableImageRef(value: string): boolean {
   if (value.startsWith('data:') || value.startsWith('images/')) return true
   return /^[A-Za-z]:[\\/]/.test(value) || value.startsWith('\\\\')
 }
 
-/** 收集所有实体里指向「本地文件 / data URI」的图片引用（字段 + 正文） */
-function collectRefs(rows: LegacyRows): string[] {
-  const found = new Set<string>()
-  const push = (value: string | undefined): void => {
-    if (typeof value !== 'string' || value === '') return
-    if (isLocalImageRef(value)) found.add(value)
+/**
+ * 库里已经有这个文件：`附件/`（图片 / 动画）、`.ocstudio/maps/`（地图底图）……
+ *
+ * 按 `resolveImageUrl` 的约定，相对路径一律相对**库根**，所以「既不是外部源文件、
+ * 也不是远端地址」的引用就是库内素材：**只登记引用，不复制、不改写**。
+ * 地图底图尤其不能搬 —— 搬进 `附件/` 会多出一份，`map_image` 也指不回
+ * `.ocstudio/maps/`（`docs/地图.md` §2）。
+ */
+export function isVaultAssetRef(value: string): boolean {
+  if (value === '' || isCopyableImageRef(value)) return false
+  if (isTransientImageRef(value)) return false
+  if (/^(https?:|file:)/i.test(value)) return false
+  if (value.startsWith('/')) return false
+  return true
+}
+
+/** 落地时的图片引用分派：要复制的 / 已在库里的 / 带不走的 */
+export interface LegacyImageRefPlan {
+  /** 有外部源、要落成库内文件的引用（`data:` / appData 的 `images/…` / 绝对路径） */
+  copy: string[]
+  /** 库里已有文件的引用（`附件/`、`.ocstudio/maps/`）：只登记，文件不动 */
+  inVault: string[]
+  /** 带不走的引用（`blob:`）：收集器已跳过，这里留痕 */
+  skipped: string[]
+}
+
+/**
+ * 收集所有实体里的图片引用并分派去向（字段 + 正文 + 动画 + 小说封面 + 地图底图）。
+ *
+ * 遍历一律走 `lib/image-refs` 的 `collectDatasetImageRefs`，这里只回答
+ * 「这个引用要不要搬」—— 复制策略是落地这一层的事，不是收集器的事。
+ */
+export function collectLegacyImageRefs(rows: LegacyRows): LegacyImageRefPlan {
+  const copy = new Set<string>()
+  const inVault = new Set<string>()
+  const skipped: string[] = []
+  const refs = collectDatasetImageRefs(
+    {
+      characters: rows.characters,
+      events: rows.events,
+      countries: rows.countries,
+      worldEntries: rows.worldEntries,
+      metaCoverUrl: rows.meta?.coverUrl,
+    },
+    { skipped },
+  )
+
+  for (const ref of refs) {
+    if (isVaultAssetRef(ref.url)) inVault.add(ref.url)
+    else if (isCopyableImageRef(ref.url)) copy.add(ref.url)
+    // 其余（http(s) 远端地址）原样留在笔记里，不搬
   }
 
-  for (const character of rows.characters) {
-    for (const ref of collectCharacterImageRefs(character)) push(ref.url)
-  }
-  for (const country of rows.countries) {
-    for (const ref of collectCountryImageRefs(country)) push(ref.url)
-  }
-  for (const event of rows.events) {
-    for (const ref of collectEventImageRefs(event)) push(ref.url)
-  }
-  for (const entry of rows.worldEntries) {
-    for (const ref of collectWorldEntryImageRefs(entry)) push(ref.url)
-  }
-  if (rows.meta !== null) push(rows.meta.coverUrl)
-
-  return [...found]
+  return { copy: [...copy], inVault: [...inVault], skipped }
 }
 
 /**
@@ -261,15 +294,14 @@ export function legacyImageSourcePath(raw: string, appData: string): string {
   return raw.startsWith('images/') ? `${appData}/${raw}` : raw
 }
 
-/** 把图片引用变成目标文件夹里的素材文件，并返回 旧引用 → 新相对路径 */
+/** 把「要复制的」图片引用变成目标文件夹里的素材文件，并返回 旧引用 → 新相对路径 */
 async function materializeImages(
   root: string,
-  rows: LegacyRows,
+  refs: string[],
   occupied: Set<string>,
   report: ExportDirReport,
 ): Promise<Map<string, string>> {
   const map = new Map<string, string>()
-  const refs = collectRefs(rows)
   if (refs.length === 0) return map
 
   const assetsDir = normalizeRelPath(DEFAULT_ASSETS_DIR)
@@ -350,6 +382,27 @@ function applyImageMap(rows: LegacyRows, map: Map<string, string>): void {
   }
 
   rewriteBodyImages(rows, map)
+}
+
+/**
+ * 三个「媒体」字段的引用改写：角色动画、词条的小说封面 / 地图底图。
+ *
+ * 其余字段图仍走 `vault-assets` 的 `planImageRewrites`（那张表只认
+ * characters / countries / events / meta 的图片槽位）。这里只做字段换值，
+ * 遍历与「哪些字段算引用」都在 `lib/image-refs` 里。
+ */
+function applyMediaMap(rows: LegacyRows, map: Map<string, string>): void {
+  if (map.size === 0) return
+  const swap = (value: string | undefined): string | undefined =>
+    value !== undefined && map.has(value) ? map.get(value) : value
+
+  for (const character of rows.characters) {
+    character.animationUrl = swap(character.animationUrl)
+  }
+  for (const entry of rows.worldEntries) {
+    entry.novelCover = swap(entry.novelCover)
+    entry.mapImage = swap(entry.mapImage)
+  }
 }
 
 /** 正文里 imageBlock 的 src 换成新路径（词条的正文在 `content` 里，也要回写） */
@@ -436,6 +489,8 @@ export async function exportLegacyToFolder(
     images: 0,
     missingImages: [],
     failedImages: [],
+    inVaultRefs: [],
+    skippedRefs: [],
     trashed: 0,
     periods: 0,
     created: 0,
@@ -508,9 +563,15 @@ export async function exportLegacyToFolder(
     byBaseName.clear()
   }
 
-  // 1. 图片先落地：实体里的引用改写完，后面序列化才能写对路径
-  const imageMap = await materializeImages(root, rows, occupied, report)
+  // 1. 图片先落地：实体里的引用改写完，后面序列化才能写对路径。
+  //    只搬「有外部源」的引用；`附件/`、`.ocstudio/maps/` 是库内文件，只登记
+  //    （底图搬进 `附件/` 会多一份、`map_image` 还指不回去）。
+  const refs = collectLegacyImageRefs(rows)
+  report.inVaultRefs = refs.inVault
+  report.skippedRefs = refs.skipped
+  const imageMap = await materializeImages(root, refs.copy, occupied, report)
   applyImageMap(rows, imageMap)
+  applyMediaMap(rows, imageMap)
 
   // 2. 笔记
   const ctx = buildContext(rows)

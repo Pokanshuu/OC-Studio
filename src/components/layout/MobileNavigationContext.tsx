@@ -2,7 +2,17 @@
 
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
 
-export type MobileSection = 'gallery' | 'wiki' | 'timeline' | 'relations' | 'album'
+export type MobileSection =
+  | 'gallery'
+  | 'wiki'
+  | 'timeline'
+  | 'relations'
+  | 'album'
+  /** 底栏放不下的新区块（更多 → 小说 / 地图 / 树表 / 主页） */
+  | 'home'
+  | 'novel'
+  | 'map'
+  | 'tree'
 export type GallerySubTab = 'characters' | 'events' | 'countries'
 
 interface MobileNavigationState {

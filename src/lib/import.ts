@@ -17,6 +17,8 @@ interface ImportPayload {
 }
 
 export interface ImportSummary {
+  /** fork 版（version 2）备份里的地图：只统计不导入（锚点在我们的模型里存实体上） */
+  maps?: number
   characters: number
   events: number
   countries: number
@@ -77,8 +79,10 @@ export function validateImportData(json: unknown): ImportSummary {
 
   const payload = json as Record<string, unknown>
 
-  if (payload.version !== 1) {
-    throw new Error(`不支持的版本：${String(payload.version)}，仅支持 version 1`)
+  // version 1 = 我们自己的备份；version 2 = fork 版（多了 data.maps，其余结构一致）
+  const version = payload.version
+  if (version !== 1 && version !== 2) {
+    throw new Error(`不支持的版本：${String(version)}，仅支持 version 1 / 2`)
   }
 
   const data = payload.data as Record<string, unknown> | undefined
@@ -98,6 +102,7 @@ export function validateImportData(json: unknown): ImportSummary {
   const periods = asRows(data.periods)
 
   return {
+    maps: version === 2 ? asRows(data.maps).length : undefined,
     characters: asRows(data.characters).length,
     events: asRows(data.events).length,
     countries: asRows(data.countries).length,

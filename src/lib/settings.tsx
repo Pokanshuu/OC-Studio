@@ -5,6 +5,9 @@ import { invoke } from "@tauri-apps/api/core"
 import { isTauri } from "./env"
 import { DEFAULT_SIDEBAR_WIDTH, clampSidebarWidth } from "./sidebar-width"
 import type { EditorLayout } from "./editor-layout"
+import type { CoverTintMode } from "./cover/tuning"
+import { normalizeTintMode } from "./cover/tuning"
+import { normalizeEdgeStyle, type EdgeStyle } from "./edge-style"
 
 const STORAGE_KEY = "oc-studio-settings"
 
@@ -17,6 +20,20 @@ export interface Settings {
   sidebarWidth: number
   /** 编辑界面样式；默认「自动」（≥1280 多栏，否则全屏） */
   editorLayout: EditorLayout
+  /**
+   * 关系图鼠标模式（docs/关系图.md §6.1，来自 PR #5 的框选能力）
+   * - `left-pan`：左键拖动画布平移，Shift + 拖动框选（默认，和大多数画布一致）
+   * - `right-pan`：右键拖动画布平移，左键直接框选
+   */
+  mouseMode: 'left-pan' | 'right-pan'
+  /** 关系图边型：正交（默认）/ 曲线，见 `EdgeStyle` */
+  edgeStyle: EdgeStyle
+  /**
+   * 封面卡（角色 / 国家 / 事件网格）的混色来源：
+   * - `auto` 从封面图里取色（有彩度跟着图走，无彩度转中性）
+   * - `ink`  固定用设计令牌的墨色，即黑白封面
+   */
+  coverTintMode: CoverTintMode
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -27,6 +44,9 @@ const DEFAULT_SETTINGS: Settings = {
   sidebarVisible: true,
   sidebarWidth: DEFAULT_SIDEBAR_WIDTH,
   editorLayout: "auto",
+  mouseMode: "left-pan",
+  edgeStyle: "orthogonal",
+  coverTintMode: "auto",
 }
 
 function loadSettings(): Settings {
@@ -36,7 +56,14 @@ function loadSettings(): Settings {
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<Settings>
       const merged = { ...DEFAULT_SETTINGS, ...parsed }
-      return { ...merged, sidebarWidth: clampSidebarWidth(merged.sidebarWidth) }
+      return {
+        ...merged,
+        sidebarWidth: clampSidebarWidth(merged.sidebarWidth),
+        // 手改过 localStorage 的旧值不让它把「边型」带到非法状态（非法一律回正交）
+        edgeStyle: normalizeEdgeStyle(merged.edgeStyle),
+        // 老版本存的是 ink（固定墨色），现在黑白跟主题走
+        coverTintMode: normalizeTintMode(merged.coverTintMode),
+      }
     }
   } catch {
     // corrupted data, fall through

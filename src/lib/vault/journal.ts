@@ -7,7 +7,9 @@ import { vaultFs } from './vault-fs'
 //
 // 因此刻意只做三件事：记录、只读列表、导出。**不做**回滚、不做 diff、不存全文。
 // 每行一条 JSON：
-//   { ts, kind, relPath, title, keys, hash, prevHash }
+//   { ts, kind, actor, relPath, title, keys, hash, prevHash }
+// · actor     谁改的：`human` / `agent:<名>` / `plugin:<id>`（docs/Agent接入.md §2.2）
+//             老记录没有这个键，按 `human` 解释 —— 只追加，不改历史行
 // · keys      这次改到哪些 frontmatter 键（正文算一个 `body`）
 // · hash      写完之后整份文件的 sha256
 // · prevHash  写之前那份的 sha256（新文件为空）
@@ -22,10 +24,20 @@ export const JOURNAL_TAIL_LIMIT = 2000
 
 export type JournalKind = 'create' | 'update' | 'trash' | 'restore' | 'remove'
 
+/**
+ * 谁改的。默认 `human`；agent / 插件写入时必须带自己的身份，
+ * 这样用户才能「只看 AI 改过的」或「只回滚 agent 的改动」。
+ */
+export type JournalActor = 'human' | `agent:${string}` | `plugin:${string}`
+
+export const DEFAULT_JOURNAL_ACTOR: JournalActor = 'human'
+
 export interface JournalEntry {
   /** 毫秒时间戳 */
   ts: number
   kind: JournalKind
+  /** 谁改的；老记录缺省按 `human` */
+  actor: JournalActor
   relPath: string
   title: string
   /** 这次改到的键；正文记作 `body` */
@@ -37,6 +49,8 @@ export interface JournalEntry {
 /** 一条待写入的记录（哈希与时间由本模块补齐） */
 export interface JournalDraft {
   kind: JournalKind
+  /** 省略 = `human` */
+  actor?: JournalActor
   relPath: string
   title: string
   keys: string[]
@@ -71,6 +85,7 @@ export async function appendJournal(drafts: JournalDraft[]): Promise<void> {
       const entry: JournalEntry = {
         ts,
         kind: draft.kind,
+        actor: draft.actor ?? DEFAULT_JOURNAL_ACTOR,
         relPath: draft.relPath,
         title: draft.title,
         keys: draft.keys,
@@ -106,6 +121,15 @@ export async function readJournal(limit = JOURNAL_TAIL_LIMIT): Promise<JournalEn
   return entries
 }
 
+/** 归一化 actor：认识的三种形态照抄，其它一律按 human（不猜） */
+export function normalizeActor(value: unknown): JournalActor {
+  if (value === 'human') return 'human'
+  if (typeof value === 'string' && (value.startsWith('agent:') || value.startsWith('plugin:'))) {
+    return value as JournalActor
+  }
+  return DEFAULT_JOURNAL_ACTOR
+}
+
 /** 解析单行；坏行返回 null（导出给自检脚本用） */
 export function parseJournalLine(line: string): JournalEntry | null {
   try {
@@ -125,6 +149,7 @@ export function parseJournalLine(line: string): JournalEntry | null {
     return {
       ts: typeof record.ts === 'number' ? record.ts : 0,
       kind,
+      actor: normalizeActor(record.actor),
       relPath: typeof record.relPath === 'string' ? record.relPath : '',
       title: typeof record.title === 'string' ? record.title : '',
       keys: Array.isArray(record.keys)

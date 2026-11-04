@@ -1,7 +1,13 @@
+export type CharacterKind = 'character' | 'weapon' | 'pet'
+
 export interface RelatedCharacter {
   characterId?: number
   name: string
   relation: string
+  /** 连线颜色（色板名，见 lib/relation-colors.ts）；空 = 中性线色 */
+  color?: string
+  /** 箭头方向；空 = 无箭头 */
+  arrow?: 'none' | 'forward' | 'reverse' | 'both'
 }
 
 export interface GalleryImage {
@@ -43,6 +49,12 @@ export interface Character {
   headerUrl?: string
   bio: string
   lifeStory: string
+  /** OC 动画（视频或多帧）：库里附件路径，空 = 没上传 */
+  animationUrl?: string
+  /** 角色文件夹名（空 / 缺省 = 未分组）；删文件夹不删角色 */
+  folder?: string
+  /** 类别：角色 / 武器 / 宠物（缺省 = 角色） */
+  kind?: CharacterKind
   document?: unknown
   relatedCharacters: RelatedCharacter[]
   gallery: GalleryImage[]
@@ -86,6 +98,10 @@ export interface Event {
   order?: number
   /** 关系图里的坐标（用户拖过才有） */
   graphPosition?: GraphPosition
+  /** 地图锚点：归一化 0–1（docs/地图.md §2）；没摆过就没有这个键 */
+  mapPosition?: GraphPosition
+  /** 所属地图（`.ocstudio/maps/` 的文件名）；空 = 主地图 */
+  mapId?: string
   createdAt: number
   /** 自定义字段的值（键 = 字段表里的 key；内置字段仍然走各自的列） */
   custom?: Record<string, string>
@@ -98,6 +114,10 @@ export interface Event {
 export interface EventRelation {
   targetId: number
   relation: string
+  /** 连线颜色（色板名）；空 = 中性线色 */
+  color?: string
+  /** 箭头方向；空 = 无箭头 */
+  arrow?: 'none' | 'forward' | 'reverse' | 'both'
 }
 
 export interface ImageEntry {
@@ -125,6 +145,10 @@ export interface Country {
   order?: number
   /** 关系图里的坐标（用户拖过才有） */
   graphPosition?: GraphPosition
+  /** 地图锚点：归一化 0–1（docs/地图.md §2）；没摆过就没有这个键 */
+  mapPosition?: GraphPosition
+  /** 所属地图（`.ocstudio/maps/` 的文件名）；空 = 主地图 */
+  mapId?: string
   createdAt: number
   /** 自定义字段的值（键 = 字段表里的 key；内置字段仍然走各自的列） */
   custom?: Record<string, string>
@@ -149,6 +173,26 @@ export interface WorldEntry {
   parentId: number | null
   order: number
   isConcept: boolean
+  /** 地图锚点：归一化 0–1（docs/地图.md §2）；没摆过就没有这个键 */
+  mapPosition?: GraphPosition
+  /** 所属地图（`.ocstudio/maps/` 的文件名）；空 = 主地图 */
+  mapId?: string
+  /** 小说根节点：作者 / 简介 / 目标字数 / 作品笔记（其它词条不会有） */
+  novelAuthor?: string
+  novelSynopsis?: string
+  novelTargetWords?: number
+  novelNotes?: string
+  /** 小说封面（2:3 槽位） */
+  novelCover?: string
+  /** 地图：底图相对路径 + 像素尺寸（category=地图 才有） */
+  mapImage?: string
+  mapWidth?: number
+  mapHeight?: number
+  /** 生成用的种子与参数快照（JSON 字符串） */
+  mapSeed?: number
+  mapParams?: string
+  /** 章节：大纲 / 备注（一行说明，不是正文） */
+  chapterOutline?: string
   references: WorldReference[]
   tags: number[]
   /** 自定义字段的值（键 = 字段表里的 key；内置字段仍然走各自的列） */

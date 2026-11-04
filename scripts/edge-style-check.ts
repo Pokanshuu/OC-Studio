@@ -1,0 +1,40 @@
+/**
+ * 边样式自检：`npx tsx scripts/edge-style-check.ts`
+ * 只验纯函数（合并补丁 / 清空 / 非法值 / 找不到边）。
+ */
+import { applyEdgeStyle, patchCharacterEdge, patchEventEdge } from '../src/features/relations/edge-style'
+
+let passed = 0
+function check(name: string, ok: boolean) {
+  if (ok) { passed += 1; console.log(`  OK ${name}`) }
+  else { console.error(`  FAIL ${name}`); process.exitCode = 1 }
+}
+
+const base = { color: '苔绿' as string | undefined, arrow: 'both' as const }
+const setColor = applyEdgeStyle(base, { color: '玫瑰' })
+check('改颜色生效', setColor.edge.color === '玫瑰' && setColor.changed)
+
+const clearArrow = applyEdgeStyle({ ...base }, { arrow: 'none' })
+check('arrow=none 被清掉', clearArrow.edge.arrow === undefined && clearArrow.changed)
+
+const clearColor = applyEdgeStyle({ ...base }, { color: null })
+check('color=null 被清掉', clearColor.edge.color === undefined)
+
+const badColor = applyEdgeStyle({ ...base }, { color: '不存在的颜色' })
+check('非法颜色不写入', badColor.edge.color === undefined)
+
+const same = applyEdgeStyle({ ...base }, { color: '苔绿' })
+check('值没变时 changed=false', same.changed === false)
+
+const character = {
+  id: 1, name: 'A', relatedCharacters: [{ characterId: 2, name: 'B', relation: '同伴' }],
+} as unknown as Parameters<typeof patchCharacterEdge>[0]
+const patched = patchCharacterEdge(character, 2, { color: '赤陶', arrow: 'forward' })
+check('角色边被找到并改掉', patched?.changed === true && patched.relatedCharacters[0].color === '赤陶')
+check('找不到目标时返回 null', patchCharacterEdge(character, 99, { color: '赤陶' }) === null)
+
+const event = { id: 5, relations: [{ targetId: 6, relation: '关联' }] } as unknown as Parameters<typeof patchEventEdge>[0]
+const eventPatched = patchEventEdge(event, 6, { arrow: 'both' })
+check('事件边改箭头', eventPatched?.relations[0].arrow === 'both')
+
+console.log(`\n共 ${passed} 项断言通过`)

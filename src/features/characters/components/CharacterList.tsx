@@ -20,6 +20,10 @@ import {
 } from '@/components/ui/alert-dialog'
 import { CharacterCard, CharacterRow } from './CharacterListItems'
 import { CharacterListToolbar } from './CharacterListToolbar'
+import { CharacterFolderBar, type FolderFilter } from './CharacterFolderBar'
+import { deleteFolder, listFolders, moveCharacterToFolder, renameFolder } from '../folders'
+import { toast } from 'sonner'
+import { notifyDataUpdated } from '@/lib/data-events'
 import type { FilterOption } from '@/components/shared/FilterSelect'
 import {
   readViewPreference,
@@ -33,7 +37,7 @@ import type { SortKey } from './character-list-utils'
 import type { ViewMode } from '@/components/shared/SortViewControls'
 import { SortableList, moveId } from '@/components/shared/list-dnd'
 import { useReorderCharacters } from '../hooks/useCharacters'
-import { BTN_QUIET, CENTER_STATE, EMPTY_HINT, LIST_GRID } from '@/lib/ui-tokens'
+import { BTN_QUIET, CENTER_STATE, CHIP, EMPTY_HINT, LIST_GRID } from '@/lib/ui-tokens'
 
 interface CharacterListProps {
   characters: Character[]
@@ -55,6 +59,8 @@ export function CharacterList({
   const { isMobile } = useDevice()
   const handleSelect = useMemo(() => withTouchFeedback(onSelectCharacter), [onSelectCharacter])
   const [sortKey, setSortKey] = useState<SortKey>(() => readSortKey(SORT_STORAGE_KEY, 'updatedAt'))
+  const [folderFilter, setFolderFilter] = useState<FolderFilter>('all')
+  const [kindFilter, setKindFilter] = useState<'all' | 'character' | 'weapon' | 'pet'>('all')
   const [viewMode, setViewMode] = useState<ViewMode>(readViewPreference)
   const [search, setSearch] = useState('')
   const [countryFilter, setCountryFilter] = useState<number | 'all'>('all')
@@ -104,8 +110,18 @@ export function CharacterList({
     [countryMap],
   )
 
+  const { folders, ungrouped } = useMemo(() => listFolders(characters), [characters])
+
   const filtered = useMemo(() => {
     let result = characters
+    if (kindFilter !== 'all') {
+      result = result.filter((c) => (c.kind ?? 'character') === kindFilter)
+    }
+    if (folderFilter === 'ungrouped') {
+      result = result.filter((c) => !(c.folder ?? '').trim())
+    } else if (folderFilter !== 'all') {
+      result = result.filter((c) => (c.folder ?? '').trim() === folderFilter)
+    }
     if (countryFilter !== 'all') {
       result = result.filter((c) => c.countryId === countryFilter)
     }
@@ -120,7 +136,7 @@ export function CharacterList({
       )
     }
     return sortCharacters(result, sortKey)
-  }, [characters, sortKey, search, countryFilter])
+  }, [characters, sortKey, search, countryFilter, folderFilter, kindFilter])
 
   const handleViewChange = (mode: ViewMode) => {
     setViewMode(mode)
@@ -174,6 +190,8 @@ export function CharacterList({
         countryFilter={countryFilter}
         onCountryFilterChange={setCountryFilter}
         countryOptions={countryOptions}
+        kindFilter={kindFilter}
+        onKindFilterChange={setKindFilter}
         sortKey={sortKey}
         onSortKeyChange={handleSortChange}
         viewMode={viewMode}
@@ -182,6 +200,26 @@ export function CharacterList({
       />
 
       <div className="max-md:h-10 flex-shrink-0" />
+
+      {characters.length > 0 ? (
+        <CharacterFolderBar
+          folders={folders}
+          ungrouped={ungrouped}
+          total={characters.length}
+          value={folderFilter}
+          onChange={setFolderFilter}
+          onRename={async (from, to) => {
+            const moved = await renameFolder(from, to)
+            toast.success(`已重命名为「${to}」`, { description: `${moved} 个角色跟着走，角色本身没动` })
+            notifyDataUpdated()
+          }}
+          onDelete={async (name) => {
+            const count = await deleteFolder(name)
+            toast.success(`已删除文件夹「${name}」`, { description: `${count} 个角色回到未分组，一个都没删` })
+            notifyDataUpdated()
+          }}
+        />
+      ) : null}
 
       <div className="flex-1 p-4 flex flex-col">
         {characters.length === 0 ? (
@@ -195,6 +233,7 @@ export function CharacterList({
           </div>
         ) : viewMode === 'grid' ? (
           <SortableList
+              activation="longPress"
             ids={filtered.map((c) => c.id)}
             onReorder={handleReorder}
             layout="grid"
@@ -202,10 +241,14 @@ export function CharacterList({
           >
             <div className={LIST_GRID}>
               {filtered.map((character) => (
-                <div key={character.id} className="[break-inside:avoid] mb-4">
+                <div key={character.id}>
                   <CharacterCard
                     character={character}
                     onSelect={handleSelect}
+          folders={folders.map((f) => f.name)}
+          onMoveToFolder={(id, folder) => {
+            void moveCharacterToFolder(id, folder).then(() => notifyDataUpdated())
+          }}
                     onDelete={onDeleteCharacter}
                     onLongPress={() => openActionSheet(character)}
                     countryName={getCountryName(character)}
@@ -218,6 +261,7 @@ export function CharacterList({
           </SortableList>
         ) : (
           <SortableList
+              activation="longPress"
             ids={filtered.map((c) => c.id)}
             onReorder={handleReorder}
             layout="list"
@@ -229,6 +273,10 @@ export function CharacterList({
                   key={character.id}
                   character={character}
                   onSelect={handleSelect}
+          folders={folders.map((f) => f.name)}
+          onMoveToFolder={(id, folder) => {
+            void moveCharacterToFolder(id, folder).then(() => notifyDataUpdated())
+          }}
                   onDelete={onDeleteCharacter}
                   onLongPress={() => openActionSheet(character)}
                   countryName={getCountryName(character)}

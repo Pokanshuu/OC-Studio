@@ -1,6 +1,8 @@
 'use client'
 
 import { EDITOR_LAYOUT_OPTIONS, type EditorLayout } from "@/lib/editor-layout"
+import { COVER_TINT_MODE_OPTIONS, type CoverTintMode } from "@/lib/cover"
+import { EDGE_STYLE_OPTIONS, type EdgeStyle } from "@/lib/edge-style"
 
 /** 设置页的共享控件：主题单选 + 开关样式常量（被「个性化」等 tab 使用）。 */
 export const THEME_OPTIONS = [
@@ -21,13 +23,13 @@ export function LayoutRadio({
     <div className="flex gap-3">
       {EDITOR_LAYOUT_OPTIONS.map((opt) => (
         <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
-          <div
-            className={`relative flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
-              value === opt.value ? "border-line-hover" : "border-line"
-            } bg-[var(--oc-hover)]`}
+          <span
+            className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border ${
+              value === opt.value ? 'border-ink' : 'border-line'
+            }`}
           >
-            {value === opt.value && <div className="h-2 w-2 rounded-full bg-ink-muted" />}
-          </div>
+            {value === opt.value ? <span className="h-1.5 w-1.5 rounded-full bg-ink" /> : null}
+          </span>
           <input
             type="radio"
             name="editorLayout"
@@ -36,7 +38,7 @@ export function LayoutRadio({
             onChange={() => onChange(opt.value)}
             className="sr-only"
           />
-          <span className="text-sm text-ink">{opt.label}</span>
+          <span className="text-sm leading-none text-ink">{opt.label}</span>
         </label>
       ))}
     </div>
@@ -57,15 +59,13 @@ export function ThemeRadio({
           key={opt.value}
           className="flex items-center gap-2 cursor-pointer"
         >
-          <div
-            className={`relative flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
-              value === opt.value ? "border-line-hover" : "border-line"
-            } bg-[var(--oc-hover)]`}
+          <span
+            className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border ${
+              value === opt.value ? 'border-ink' : 'border-line'
+            }`}
           >
-            {value === opt.value && (
-              <div className="h-2 w-2 rounded-full bg-ink-muted" />
-            )}
-          </div>
+            {value === opt.value ? <span className="h-1.5 w-1.5 rounded-full bg-ink" /> : null}
+          </span>
           <input
             type="radio"
             name="theme"
@@ -74,7 +74,7 @@ export function ThemeRadio({
             onChange={() => onChange(opt.value)}
             className="sr-only"
           />
-          <span className="text-sm text-ink">{opt.label}</span>
+          <span className="text-sm leading-none text-ink">{opt.label}</span>
         </label>
       ))}
     </div>
@@ -91,3 +91,110 @@ export const SWITCH_CLASSES = {
 export const SWITCH_DOT =
   "block h-3.5 w-3.5 rounded-full transition-transform bg-ink-muted"
 
+
+export const MOUSE_MODE_OPTIONS: Array<{ value: 'left-pan' | 'right-pan'; label: string }> = [
+  { value: 'left-pan', label: '左键平移 · Shift 框选' },
+  { value: 'right-pan', label: '右键平移 · 左键框选' },
+]
+
+/** 关系图鼠标模式：左键平移 / 右键平移（框选入口随之切换） */
+export function MouseModeRadio({
+  value,
+  onChange,
+}: {
+  value: 'left-pan' | 'right-pan'
+  onChange: (v: 'left-pan' | 'right-pan') => void
+}) {
+  return (
+    <div className="flex flex-wrap gap-x-4 gap-y-2">
+      {MOUSE_MODE_OPTIONS.map((opt) => (
+        <label key={opt.value} className="flex cursor-pointer items-center gap-2">
+          <span
+            className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border ${
+              value === opt.value ? 'border-ink' : 'border-line'
+            }`}
+          >
+            {value === opt.value ? <span className="h-1.5 w-1.5 rounded-full bg-ink" /> : null}
+          </span>
+          <input
+            type="radio"
+            name="mouseMode"
+            value={opt.value}
+            checked={value === opt.value}
+            onChange={() => onChange(opt.value)}
+            className="sr-only"
+          />
+          <span className="text-sm leading-none text-ink">{opt.label}</span>
+        </label>
+      ))}
+    </div>
+  )
+}
+
+/** 关系图边型：正交（四向落点）/ 曲线（从节点边缘发散） */
+export function EdgeStyleRadio({
+  value,
+  onChange,
+}: {
+  value: EdgeStyle
+  onChange: (v: EdgeStyle) => void
+}) {
+  return (
+    <div className="flex gap-3">
+      {EDGE_STYLE_OPTIONS.map((opt) => (
+        <label key={opt.value} className="flex cursor-pointer items-center gap-2">
+          <span
+            className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border ${
+              value === opt.value ? 'border-ink' : 'border-line'
+            }`}
+          >
+            {value === opt.value ? <span className="h-1.5 w-1.5 rounded-full bg-ink" /> : null}
+          </span>
+          <input
+            type="radio"
+            name="edgeStyle"
+            value={opt.value}
+            checked={value === opt.value}
+            onChange={() => onChange(opt.value)}
+            className="sr-only"
+          />
+          <span className="text-sm leading-none text-ink">{opt.label}</span>
+        </label>
+      ))}
+    </div>
+  )
+}
+
+/** 封面卡混色：彩色（跟着封面图取色）/ 黑白（设计令牌的墨色） */
+export function CoverTintRadio({
+  value,
+  onChange,
+}: {
+  value: CoverTintMode
+  onChange: (v: CoverTintMode) => void
+}) {
+  return (
+    <div className="flex gap-3">
+      {COVER_TINT_MODE_OPTIONS.map((opt) => (
+        <label key={opt.value} className="flex cursor-pointer items-center gap-2">
+          <span
+            className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border ${
+              value === opt.value ? 'border-ink' : 'border-line'
+            }`}
+          >
+            {value === opt.value ? <span className="h-1.5 w-1.5 rounded-full bg-ink" /> : null}
+          </span>
+          <input
+            type="radio"
+            name="coverTintMode"
+            value={opt.value}
+            checked={value === opt.value}
+            onChange={() => onChange(opt.value)}
+            className="sr-only"
+          />
+          <span className="text-sm leading-none text-ink">{opt.label}</span>
+        </label>
+      ))}
+    </div>
+  )
+}

@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import type { Editor } from '@tiptap/core'
-import type { Character, GalleryImage, RelatedCharacter } from '@/types'
+import type { Character, CharacterKind, GalleryImage, RelatedCharacter } from '@/types'
 import type { RelatedItem } from '@/components/shared/RelatedItemsSelector'
 import type { CharacterFormData } from '../types'
 import { useCharacterList } from './useCharacters'
@@ -49,10 +49,13 @@ interface CharacterValues {
   birthdayDay: string
   avatarUrl: string
   headerUrl: string
+  animationUrl: string
   avatarUrls: string[]
   galleryUrls: string[]
   relatedCharacters: RelatedCharacter[]
   isMajor: boolean
+  /** 类别：角色 / 武器 / 宠物（老数据没有这一列时按角色算） */
+  kind: CharacterKind
   custom: Record<string, string>
   tags: number[]
 }
@@ -74,10 +77,12 @@ function valuesFromEntity(character: Character): CharacterValues {
     birthdayDay: birthday.day,
     avatarUrl: character.avatarUrl,
     headerUrl: character.headerUrl ?? '',
+    animationUrl: character.animationUrl ?? '',
     avatarUrls: toUrls(character.avatars),
     galleryUrls: toUrls(character.gallery),
     relatedCharacters: character.relatedCharacters ?? [],
     isMajor: character.isMajor ?? false,
+    kind: character.kind ?? 'character',
     custom: character.custom ?? {},
     tags: character.tags ?? [],
   }
@@ -102,6 +107,7 @@ function valuesSnapshot(values: CharacterValues): Record<string, unknown> {
     birthday: assembleTime(values.birthdayYear, values.birthdayMonth, values.birthdayDay),
     avatarUrl: values.avatarUrl,
     headerUrl: values.headerUrl,
+    animationUrl: values.animationUrl,
     avatars: values.avatarUrls,
     gallery: values.galleryUrls,
     related: values.relatedCharacters.map((rc) => ({
@@ -109,9 +115,19 @@ function valuesSnapshot(values: CharacterValues): Record<string, unknown> {
       relation: rc.relation,
     })),
     isMajor: values.isMajor,
+    kind: values.kind,
     custom: values.custom,
     tags: values.tags,
   }
+}
+
+/** 别人记在我身上的关系：只读镜像，权威记录在发起方（见 docs/关系图.md §2.1） */
+export interface InboundRelation {
+  fromId: number
+  fromName: string
+  relation: string
+  color?: string
+  arrow?: string
 }
 
 /**
@@ -140,6 +156,7 @@ export function useCharacterForm(
 
   const [avatarUrl, setAvatarUrl] = useState(initial.avatarUrl)
   const [headerUrl, setHeaderUrl] = useState(initial.headerUrl)
+  const [animationUrl, setAnimationUrl] = useState(initial.animationUrl)
   const [tags, setTags] = useState<number[]>(initial.tags)
   const [avatarUrls, setAvatarUrls] = useState<string[]>(initial.avatarUrls)
   const [galleryUrls, setGalleryUrls] = useState<string[]>(initial.galleryUrls)
@@ -147,6 +164,7 @@ export function useCharacterForm(
     initial.relatedCharacters,
   )
   const [isMajor, setIsMajor] = useState(initial.isMajor)
+  const [kind, setKind] = useState<CharacterKind>(initial.kind)
   /** 自定义字段的值：键 = 字段表里的 key。内置字段不走这里（各有各的列） */
   const [custom, setCustom] = useState<Record<string, string>>(initial.custom)
 
@@ -165,13 +183,13 @@ export function useCharacterForm(
   const values = useMemo<CharacterValues>(() => ({
     name, aliasesStr, race, element, occupation, faction, nationalityLegacy, countryId,
     height, birthdayYear, birthdayMonth, birthdayDay,
-    avatarUrl, headerUrl, avatarUrls, galleryUrls, relatedCharacters,
-    isMajor, custom, tags,
+    avatarUrl, headerUrl, animationUrl, avatarUrls, galleryUrls, relatedCharacters,
+    isMajor, kind, custom, tags,
   }), [
     name, aliasesStr, race, element, occupation, faction, nationalityLegacy, countryId,
     height, birthdayYear, birthdayMonth, birthdayDay,
-    avatarUrl, headerUrl, avatarUrls, galleryUrls, relatedCharacters,
-    isMajor, custom, tags,
+    avatarUrl, headerUrl, animationUrl, avatarUrls, galleryUrls, relatedCharacters,
+    isMajor, kind, custom, tags,
   ])
 
   const snapshot = useMemo(() => valuesSnapshot(values), [values])
@@ -203,6 +221,7 @@ export function useCharacterForm(
     setGalleryUrls(next.galleryUrls)
     setRelatedCharacters(next.relatedCharacters)
     setIsMajor(next.isMajor)
+    setKind(next.kind)
     setCustom(next.custom)
     setTags(next.tags)
     markFieldsClean(nextKey)
@@ -222,6 +241,32 @@ export function useCharacterForm(
         })),
     [allCharacters, character.id],
   )
+
+  /**
+   * 反向关系：遍历全体角色，收集「谁在自己的关系表里记了我」。
+   * 只读派生 —— 不进脏判断、不回写；名字取对方当前的 `name`（发起方改名能同步过来）。
+   */
+  const inboundRelations = useMemo<InboundRelation[]>(() => {
+    const rows: InboundRelation[] = []
+    for (const other of allCharacters) {
+      if (other.id === character.id) continue
+      for (const rc of other.relatedCharacters ?? []) {
+        if (rc.characterId !== character.id) continue
+        rows.push({
+          fromId: other.id,
+          fromName: other.name,
+          relation: rc.relation,
+          color: rc.color,
+          arrow: rc.arrow,
+        })
+      }
+    }
+    return rows.sort(
+      (a, b) =>
+        a.fromName.localeCompare(b.fromName, 'zh-Hans') ||
+        a.relation.localeCompare(b.relation, 'zh-Hans'),
+    )
+  }, [allCharacters, character.id])
 
   const relatedCharacterIds = useMemo(
     () =>
@@ -317,6 +362,7 @@ export function useCharacterForm(
         birthday: assembleTime(birthdayYear, birthdayMonth, birthdayDay),
         avatarUrl,
         headerUrl,
+        animationUrl,
         bio: character.bio,
         lifeStory: character.lifeStory,
         document,
@@ -325,6 +371,7 @@ export function useCharacterForm(
         avatars: avatarUrls.map((url) => ({ url, type: 'portrait' as const })),
         tags,
         isMajor,
+        kind,
         custom,
       })
       savedSnapshotRef.current = snapshotKey(snapshot)
@@ -345,6 +392,7 @@ export function useCharacterForm(
     character.lifeStory,
     avatarUrl,
     headerUrl,
+    animationUrl,
     avatarUrls,
     galleryUrls,
     name,
@@ -362,6 +410,7 @@ export function useCharacterForm(
     relatedCharacters,
     tags,
     isMajor,
+    kind,
     custom,
     onSave,
     markSaving,
@@ -406,11 +455,13 @@ export function useCharacterForm(
     birthdayDay, setBirthdayDay,
     avatarUrl, setAvatarUrl,
     headerUrl, setHeaderUrl,
+    animationUrl, setAnimationUrl,
     tags, setTags,
     avatarUrls, setAvatarUrls,
     galleryUrls, setGalleryUrls,
     relatedCharacters, setRelatedCharacters,
     isMajor, setIsMajor,
+    kind, setKind,
     custom, setCustomValue,
     saving,
     docDirty,
@@ -420,6 +471,7 @@ export function useCharacterForm(
     allCharacters,
     countries,
     characterItems,
+    inboundRelations,
     relatedCharacterIds,
     handleRelatedCharactersChange,
     countryItems,

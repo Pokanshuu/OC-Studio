@@ -1,4 +1,4 @@
-import type { RelatedCharacter, GalleryImage, AvatarImage } from '@/types'
+import type { RelatedCharacter, GalleryImage, AvatarImage, CharacterKind } from '@/types'
 
 export interface CharacterFormData {
   name: string
@@ -12,6 +12,7 @@ export interface CharacterFormData {
   height: string
   birthday: string
   avatarUrl: string
+  animationUrl?: string
   headerUrl?: string
   bio: string
   lifeStory: string
@@ -21,6 +22,8 @@ export interface CharacterFormData {
   avatars: AvatarImage[]
   tags: number[]
   isMajor?: boolean
+  /** 类别：角色 / 武器 / 宠物（缺省 = 角色；落盘键见 CHARACTER_KEYS.kind） */
+  kind?: CharacterKind
   /** 自定义字段的值（键 = 字段表里的 key）；内置字段走各自的列 */
   custom?: Record<string, string>
 }

@@ -43,6 +43,23 @@
   --oc-danger-hover: #8A5344;
   --oc-danger-ink: #FBF7F1;
 
+  /* 强调色板（12 档）—— **只给图表用**：关系图连线 / 时间线 / 统计图。
+   * 归属 `page`（主题可覆盖）；界面控件不开放（见 docs/主题.md §4）。
+   * 每档在纸上亮暗两套都验过对比度：文字与线条同色，最浅一档仍 ≥ 4.5:1。
+   * 组件里不许写裸色值，一律 `var(--oc-accent-N)`，取色走 src/lib/relation-colors.ts。 */
+  --oc-accent-1: #AC604B; /* 赤陶 */
+  --oc-accent-2: #996A2F; /* 琥珀 */
+  --oc-accent-3: #6A7A4C; /* 苔绿 */
+  --oc-accent-4: #557D69; /* 松绿 */
+  --oc-accent-5: #557992; /* 靛蓝 */
+  --oc-accent-6: #7170A1; /* 紫罗兰 */
+  --oc-accent-7: #996679; /* 玫瑰 */
+  --oc-accent-8: #956B53; /* 赭石 */
+  --oc-accent-9: #5F7878; /* 青灰 */
+  --oc-accent-10: #7D6C9E; /* 雾紫 */
+  --oc-accent-11: #906F45; /* 麦金 */
+  --oc-accent-12: #75756D; /* 石墨 */
+
   /* 浮层阴影（**唯一一档**）：只给浮在内容之上的东西 —— 菜单 / 下拉 / 右键 / 弹窗 / 抽屉 / 通知。
      小、淡、两层：近处一圈收边 + 远处一圈柔光。内容面（卡片 / 按钮 / 输入）仍然是零阴影。 */
   --oc-shadow-float: 0 1px 2px rgba(43, 43, 43, 0.05), 0 6px 16px -6px rgba(43, 43, 43, 0.12);
@@ -60,6 +77,19 @@
   --oc-hover: rgba(227, 223, 216, 0.06);
   --oc-scrim: rgba(0, 0, 0, 0.40);
   --oc-error-light: rgba(179, 102, 81, 0.18);
+  /* 强调色板在暗色下整体提亮，保证同样的 4.5:1（色相不变） */
+  --oc-accent-1: #B8715D; /* 赤陶 */
+  --oc-accent-2: #C68D44; /* 琥珀 */
+  --oc-accent-3: #8FA36B; /* 苔绿 */
+  --oc-accent-4: #5F8D75; /* 松绿 */
+  --oc-accent-5: #6A8FA8; /* 靛蓝 */
+  --oc-accent-6: #8180AB; /* 紫罗兰 */
+  --oc-accent-7: #A47788; /* 玫瑰 */
+  --oc-accent-8: #A77B62; /* 赭石 */
+  --oc-accent-9: #6E8B8B; /* 青灰 */
+  --oc-accent-10: #8B7BA8; /* 雾紫 */
+  --oc-accent-11: #B08A5A; /* 麦金 */
+  --oc-accent-12: #83837B; /* 石墨 */
   /* 暗色下浮层的「浮起」全靠阴影：底色更深，收边用更实的黑 */
   --oc-shadow-float: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 20px -8px rgba(0, 0, 0, 0.55);
 }
@@ -823,4 +853,5 @@ html.tauri-mica [data-statusbar] {
     transition-duration: 0.001ms !important;
   }
 }
+
 

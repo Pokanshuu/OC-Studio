@@ -23,19 +23,31 @@ import type { GraphEdge, GraphNode, RelationNodeType } from './types'
  * - **确定性**：初始位置按圆周均分、随机源用固定种子的 mulberry32 —— 同一份数据每次同一张图。
  */
 
-/** 节点碰撞半径：角色 / 国家按 56 头像 + 名字算；事件是矩形，按宽度算 */
+/** 节点碰撞半径：角色按 56 头像算；国家 / 事件按卡片宽度算 */
 const COLLIDE_RADIUS: Record<RelationNodeType, number> = {
-  character: 52,
+  character: 36,
   country: 52,
-  event: 64,
+  event: 52,
 }
 
-/** 节点在 React Flow 里是「左上角定位」，d3 给的是圆心 —— 换算时减掉半个身位 */
+/**
+ * 节点尺寸（docs/关系图.md §4）—— **唯一源**：画布、连线求交（floating-edge）、PNG 重绘共用。
+ * 尺寸写死、不随文字长度变，否则不同字号下 `fitView` 出来的构图会变（§9 风险 2）。
+ *
+ * - 角色：56px 圆头像 + 12px 名字 → 56 × 84
+ * - 国家 / 事件：96 × 64 卡片 + 名字 → 96 × 84
+ */
 export const NODE_SIZE: Record<RelationNodeType, { w: number; h: number }> = {
-  character: { w: 72, h: 92 },
-  country: { w: 72, h: 92 },
-  event: { w: 128, h: 56 },
+  character: { w: 56, h: 84 },
+  country: { w: 96, h: 84 },
+  event: { w: 96, h: 84 },
 }
+
+/** 角色头像直径（圆形锚点半径 = 一半） */
+export const NODE_AVATAR_SIZE = 56
+
+/** 国家旗帜 / 事件封面卡片的尺寸：卡片贴在节点顶部，名字在下方 */
+export const NODE_CARD_SIZE = { w: 96, h: 64 }
 
 /** 圆与圆之间留的缝 */
 const COLLIDE_PADDING = 12

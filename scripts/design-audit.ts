@@ -30,6 +30,15 @@ const LITERAL_ALLOWLIST = [
   // 标签色是用户数据：必须有完整字面量类名，Tailwind JIT 不能拼接（见 TagBadge 顶部注释）
   'src/features/tags/components/TagBadge.tsx',
   'src/features/tags/components/TagPicker.tsx',
+  // 地图渲染色板：画布写像素（ImageData）与 Canvas 填充，拿不到 CSS 变量；
+  // 生物群系 / 高程 / 政区色属于「图上内容」，不是界面样式（见 docs/地图.md）
+  'src/plugins/map-generator/types.ts',
+  'src/plugins/map-generator/political.ts',
+  // 实体强调色：要在色值后面拼透明度（`#RRGGBB24`），`var()` 拼不了，所以存的是字面量。
+  // 它和标签色同一性质（内容色），换主题时不需要跟着变
+  'src/lib/entity-accent.ts',
+  // 封面取色：从封面图里抽出来的色调（内容色，随图片变），不是界面样式
+  'src/lib/cover/',
 ]
 
 interface Rule {
@@ -209,3 +218,4 @@ for (const rule of RULES) {
   console.log('')
 }
 process.exit(1)
+

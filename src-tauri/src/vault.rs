@@ -487,6 +487,59 @@ fn write_atomic(path: &Path, contents: &[u8], expected_mtime_ms: Option<i64>) ->
 }
 
 /// 把阻塞 IO 挪出主线程。Tauri 的同步命令跑在主线程上，会卡死界面。
+
+/// 库内某个子目录下的文件条目（地图底图、主题背景这类随库走的素材）
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct VaultAsset {
+    name: String,
+    #[serde(rename = "relPath")]
+    rel_path: String,
+    size: i64,
+    #[serde(rename = "mtimeMs")]
+    mtime_ms: i64,
+}
+
+/// 列出 `<vault>/<subdir>` 下的文件（不递归）。目录不存在返回空数组，不报错。
+#[tauri::command]
+pub async fn vault_list_assets(path: String, subdir: String) -> Result<Vec<VaultAsset>, String> {
+    blocking(move || {
+        let root = PathBuf::from(&path);
+        if !root.is_dir() {
+            return Err(format!("不是目录: {path}"));
+        }
+        let dir = safe_join(&root, &subdir)?;
+        if !dir.is_dir() {
+            return Ok(Vec::new());
+        }
+        let mut assets = Vec::new();
+        let entries = fs::read_dir(&dir)
+            .map_err(|err| format!("读取目录失败 {}: {err}", dir.display()))?;
+        for entry in entries.flatten() {
+            let file_path = entry.path();
+            let Ok(meta) = entry.metadata() else { continue };
+            if !meta.is_file() {
+                continue;
+            }
+            let Some(name) = file_path.file_name().and_then(|n| n.to_str()) else { continue };
+            let mtime_ms = meta
+                .modified()
+                .ok()
+                .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+                .map(|d| d.as_millis() as i64)
+                .unwrap_or(0);
+            assets.push(VaultAsset {
+                name: name.to_string(),
+                rel_path: format!("{}/{}", subdir.trim_end_matches(['/', '\\']), name),
+                size: meta.len() as i64,
+                mtime_ms,
+            });
+        }
+        assets.sort_by(|a, b| a.name.cmp(&b.name));
+        Ok(assets)
+    })
+    .await
+}
+
 pub(crate) async fn blocking<T, F>(f: F) -> Result<T, String>
 where
     F: FnOnce() -> Result<T, String> + Send + 'static,

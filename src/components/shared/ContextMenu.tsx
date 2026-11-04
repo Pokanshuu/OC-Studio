@@ -20,6 +20,10 @@ interface SelectionSnapshot {
 /**
  * 右键菜单：长按/右键弹出，位置自动贴边；带子菜单；选区变化时自动收起。
  * 分层：`context-menu/`（`context-menu-types` · `ContextMenuButton` · `ContextSubMenu`）。
+ *
+ * 与 `menu/MenuSurface` 的边界：这里只服务编辑器正文 / 选区的右键 —— 子菜单要再 Portal 一层、
+ * 选区一变就收、150ms 淡入淡出与冷却计时都在本文件里；按点击坐标弹出的通用菜单
+ * （媒体 / 文件夹 / 边样式 / 图片 ⋯）一律走 `MenuSurface`，不要再复制这里的 effect。
  */
 export function ContextMenu({ children, items }: ContextMenuProps) {
   const [open, setOpen] = useState(false)

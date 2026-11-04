@@ -38,10 +38,14 @@
 
 - [ ] **P2 静态手摆 demo**：先跑起来验证吸附步长 / 对齐参考线阈值 / 点阵间距 / 过渡时长 / 拖动性能，**参数回填文档 §3**
 - [ ] **P2 节点形态**：角色 = 圆形头像，国家 / 事件 = 矩形卡；点阵底；「整理」按钮（跑一次 `computeForceLayout`）+ 撤销
-- [ ] **P2 并行边错开**：`routeEdges` 加并行偏移（兄弟 + 同事两条正交线不能重合）
+- [ ] **P2 并行边错开**：同一对节点的多条关系必须错开——正交靠并行偏移，曲线靠曲率分离（兄弟 + 同事看着只有一条线就说明没做）
+- [ ] **P2 边型切换**：工具栏 / 设置里「正交 ↔ 曲线」，存应用设置 `edgeStyle`（不落实体）；曲线用自动浮动贝塞尔，手拖控制点列 P3
+- [ ] **P2 边配色（12 档，文字同色）**：令牌 `--oc-accent-1..12` 已落地（`globals.css` + `src/lib/relation-colors.ts`，亮暗各一套 ≥ 4.5:1），**待接边面板与渲染**。**来自她的 PR #5，提交时署名**
+- [ ] **P2 箭头方向**：边可选 无 / 正向 / 反向 / 双向，落 frontmatter `箭头`（默认：角色之间双向，归属与参与无箭头）。**来自 PR #5 的能力对齐**，见 `docs/关系图.md` §2.1
+- [ ] **P2 框选多选 + 鼠标模式**：右键平移 / 左键平移+Shift 框选（设置项），原 P3 提前。**框选能力来自另一位贡献者的 PR，提交时署名**
 - [ ] **P2 新建节点默认落点**：`graphPosition` 为空时不能全叠在原点
 - [ ] **P3 图上组件原子化**：数据无关的 `nodes / edges / config` 输入，可在集合视图复用
-- [ ] **P3 框选多选 / 编组框 / 锁定**
+- [ ] **P3 编组框 / 锁定**（框选已提前到 P2）
 
 ---
 
@@ -106,10 +110,11 @@
 
 ## 9. 其它（不属于上面八项）
 
-- [ ] **P1 导出前一致性检查**：落盘队列 `flush()` 只写，不知道磁盘被谁改过。导出 / 关库前比对 mtime，发现外部改动时提示「建议先重新载入」
+- [ ] **P0 桌面开发壳起不来（WebView2 156 崩溃）**：`tauri dev` / 仓库代码新编的 exe 一律起不来窗口。**Tauri 2.12.5 终于把真实报错露出来**：`failed to create webview: HRESULT(0x800700AA) 请求的资源在使用中`；Windows 事件日志同时记录 `msedgewebview2.exe 156.0.4314.58` **APPCRASH**（`msedge.dll`，异常 `0x80000003`）。即浏览器进程一启动就崩，Tauri 拿不到 webview，窗口对象存在所以表现成闪退。已排除：日志插件、透明窗 / Mica、数据目录、`--disable-gpu`。注意 `WEBVIEW2_BROWSER_EXECUTABLE_FOLDER` 只认 **Fixed Version** 运行时，指 Evergreen 版本目录会报 "Could not find the WebView2 Runtime"。待办：① 重装修复 WebView2；② 若预览版系统继续崩，改发 **Fixed Version**（包体 +约 150MB，Win10 一并考虑）`flush()` 只写，不知道磁盘被谁改过。导出 / 关库前比对 mtime，发现外部改动时提示「建议先重新载入」
 - [ ] **P1 World 正文收敛到 `document`**：现在 JSON 字符串（在用）与 `document` 对象（unused）两形态并存，读取处要分支
 - [ ] **P2 仓储 create/update 模板**：`listActive` / `getById` / `softDelete` 已收敛，create/update 因字段级日志与引用同步差异仍各自手写
 - [ ] **P3 命令面板与移动端搜索合并**：`MenuBarSearch` 与 `MobileSearchOverlay` 现在是两套 UI
+- [ ] **P2 封面卡参数定稿**：版式数字集中在 `src/lib/cover/tuning.ts`（「视图 → 封面卡参数」可实时拖，32 项算法自检见 `scripts/cover-check.ts`）。定稿后把 JSON 写回默认值，面板降级成隐藏调试口；细节见 `docs/封面卡.md`
 - [ ] **P2 Rust 化（只搬「数据已在磁盘、结果很小、纯函数」的活）**：
   - [ ] **扫描分段**（收益最大）：`vault_scan` 现在把每个 `.md` 全文塞进 IPC（`VaultFile.content`，见 `src-tauri/src/vault.rs`），JS 再逐篇 parse。改成 Rust 切出 frontmatter（`serde_yaml` → `serde_json::Value`）+ body + mtime，TS 只做词表映射 —— **`lib/vault/fields.ts` 仍是唯一词汇表，一行不搬**，所以不会长出第二套规则
   - [ ] **全库 mtime 比对命令**：一次遍历返回「被外部改动的路径」，给上面的导出前检查用（别在 JS 里 N 次 IPC）
@@ -125,3 +130,28 @@
 ## 不做（别再提）
 
 AI 功能（代码已整体删除）· 编辑 / 浏览双模式 · 标签交互 · 快捷键可发现性提示 · 相册批量操作 · 「以此为模板新建」· **实时物理关系图** · **参与时段（角色中途加入 / 退出）** · 在时间线 / 关系图上新建实体
+
+
+---
+
+## 合并进度（PR #5，2026-11-03）
+
+**已完成（有提交、有自检）**
+
+- 地基：`src/plugins/map-generator/`（生成器插件化，内置只留视图）、12 档 `--oc-accent-*`、Tauri 2.12.5
+- 小说：章节 = 笔记（`parentId`）、书架（封面 2:3）、作品信息 / 章节大纲、导出 Word·Markdown·TXT、分页预览（9:16·16:9·A4）、旧库导入
+- 地图：锚点 `map_position` / `map_id`（归一化）、锚点服务、`MapView` 画布、`.ocstudio/maps/` 底图（Rust `vault_list_assets`）
+- 关系：边颜色 / 箭头落 frontmatter、画布消费、并行边、点边改样式面板、旧 `relations` 表只读兼容
+- 树表：四页签（词条 / 国家 / 角色 / 事件）、树仍走 `buildEntryTree`；主页补三入口
+- 角色：文件夹四动作（`folder` 键）、类别（角色 / 武器 / 宠物）、照片·动画「保存到…」、OC 动画上传
+- 兼容：`.ocbak` version 2、小说旧库、关系旧表；地图旧 `db.maps` 明示不导入
+- 下一代地基：插件形状接口、主题令牌登记（`audit:theme`）、journal `actor` 留痕
+
+**还没做（按优先级）**
+
+- [ ] 关系图：静态手摆 demo（吸附 / 对齐参考线 / 点阵参数待验证）、节点形态（角色圆 / 国家卡）
+- [ ] 框选多选 + 鼠标模式（`docs/关系图.md` §6.1 已定并入 S4，尚未实现）
+- [ ] 地图：底图在真机 vault 里验证；「在地图中查看」入口
+- [ ] 角色：武器 / 宠物独立编辑页（目前共用角色编辑器 + 类别筛选）
+- [ ] 界面观感：由作者验收（关系图面板、书架卡片、地图锚点样式）
+- [ ] `cargo test --lib` 需在非受限环境跑一遍（本机 `%TEMP%` 写入被拒，12 项全挂在建临时目录）

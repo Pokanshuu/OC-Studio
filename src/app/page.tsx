@@ -23,6 +23,18 @@ import { GlobalAlbum } from '@/components/shared/GlobalAlbum'
 import { Dashboard } from '@/features/dashboard'
 import { useEntityWorkspace } from '@/lib/use-entity-workspace'
 
+const MapView = dynamic(() => import('@/features/map').then((mod) => ({ default: mod.MapView })), {
+  ssr: false,
+})
+
+const TreeTable = dynamic(() => import('@/features/tree-table').then((mod) => ({ default: mod.TreeTable })), {
+  ssr: false,
+})
+
+const NovelSection = dynamic(() => import('@/features/novel').then((mod) => ({ default: mod.NovelSection })), {
+  ssr: false,
+})
+
 const RelationGraph = dynamic(
   () => import('@/features/relations').then((mod) => ({ default: mod.RelationGraph })),
   { ssr: false },
@@ -36,6 +48,7 @@ export default function Home() {
     charactersLoading,
     characterView,
     charSlide,
+    clearNovelEntryTarget,
     clearWorldSelectedEntry,
     countrySlide,
     countryView,
@@ -67,6 +80,7 @@ export default function Home() {
     handleWikiLinkClick,
     handleWorldCharCount,
     leaveConfirm,
+    novelEntryTarget,
     placeholderText,
     selectedEvent,
     setActiveItem,
@@ -78,6 +92,9 @@ export default function Home() {
     showEvents,
     showPlaceholder,
     showRelations,
+    showNovel,
+    showTreeTable,
+    showMap,
     showTimeline,
     showWorld,
     worldSelectedEntryId,
@@ -202,6 +219,31 @@ export default function Home() {
           onSelectEvent={handleTimelineSelectEvent}
           onSelectCharacter={handleTimelineSelectCharacter}
         />
+      </div>
+
+      <div
+        className="h-full section-fade overflow-y-auto section-fade-no-gutter"
+        data-visible={showNovel ? "true" : "false"}
+      >
+        <NovelSection
+          openEntryRequest={novelEntryTarget}
+          onOpenEntryConsumed={clearNovelEntryTarget}
+          onWikiLinkClick={handleWikiLinkClick}
+        />
+      </div>
+
+      <div
+        className="h-full section-fade overflow-hidden section-fade-no-gutter"
+        data-visible={showMap ? "true" : "false"}
+      >
+        <MapView />
+      </div>
+
+      <div
+        className="h-full section-fade overflow-auto section-fade-no-gutter"
+        data-visible={showTreeTable ? "true" : "false"}
+      >
+        <TreeTable onNavigate={(id, type) => handleRelatedItemNavigate(id, type)} />
       </div>
 
       <div

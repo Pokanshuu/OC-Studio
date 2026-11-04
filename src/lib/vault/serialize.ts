@@ -172,6 +172,8 @@ function relationDisk(
       if (resolved === '') return null
       const row: Record<string, unknown> = { name: resolved }
       if (item.relation) row.relation = item.relation
+      if (item.color) row.color = item.color
+      if (item.arrow && item.arrow !== 'none') row.arrow = item.arrow
       return row
     })
     .filter((row): row is Record<string, unknown> => row !== null)
@@ -190,6 +192,8 @@ function eventRelationDisk(
       if (resolved === undefined || resolved === '') return null
       const row: Record<string, unknown> = { name: resolved }
       if (item.relation) row.relation = item.relation
+      if (item.color) row.color = item.color
+      if (item.arrow && item.arrow !== 'none') row.arrow = item.arrow
       return row
     })
     .filter((row): row is Record<string, unknown> => row !== null)
@@ -219,11 +223,14 @@ export function serializeCharacter(
   putIfChanged(out, existing, CHARACTER_KEYS.isMajor, writeBool(entity.isMajor === true), prev === null ? null : writeBool(prev.isMajor === true))
   putIfChanged(out, existing, CHARACTER_KEYS.avatar, writeString(entity.avatarUrl), prev === null ? null : writeString(prev.avatarUrl))
   putIfChanged(out, existing, CHARACTER_KEYS.header, writeString(entity.headerUrl ?? ''), prev === null ? null : writeString(prev.headerUrl ?? ''))
+  putIfChanged(out, existing, CHARACTER_KEYS.animation, writeString(entity.animationUrl ?? ''), prev === null ? null : writeString(prev.animationUrl ?? ''))
   putIfChanged(out, existing, CHARACTER_KEYS.tags, tagNames(ctx, entity.tags), prev === null ? null : tagNames(ctx, prev.tags))
   putIfChanged(out, existing, CHARACTER_KEYS.gallery, imageListDisk(entity.gallery), prev === null ? null : imageListDisk(prev.gallery))
   putIfChanged(out, existing, CHARACTER_KEYS.avatars, imageListDisk(entity.avatars), prev === null ? null : imageListDisk(prev.avatars))
   putIfChanged(out, existing, CHARACTER_KEYS.relations, relationDisk(entity, ctx), prev === null ? null : relationDisk(prev, ctx))
   putIfChanged(out, existing, CHARACTER_KEYS.order, writeNumber(entity.order), prev === null ? null : writeNumber(prev.order))
+  putIfChanged(out, existing, CHARACTER_KEYS.folder, writeString(entity.folder ?? ''), prev === null ? null : writeString(prev.folder ?? ''))
+  putIfChanged(out, existing, CHARACTER_KEYS.kind, writeString(entity.kind ?? ''), prev === null ? null : writeString(prev.kind ?? ''))
   putIfChanged(out, existing, CHARACTER_KEYS.graphPosition, writePosition(entity.graphPosition), prev === null ? null : writePosition(prev.graphPosition))
   putCustomFields(out, existing, 'character', entity.custom, prev === null ? undefined : prev.custom)
 
@@ -260,6 +267,8 @@ export function serializeCountry(
   putIfChanged(out, existing, COUNTRY_KEYS.tags, tagNames(ctx, entity.tags), p === null ? null : tagNames(ctx, p.tags))
   putIfChanged(out, existing, COUNTRY_KEYS.order, writeNumber(entity.order), p === null ? null : writeNumber(p.order))
   putIfChanged(out, existing, COUNTRY_KEYS.graphPosition, writePosition(entity.graphPosition), p === null ? null : writePosition(p.graphPosition))
+  putIfChanged(out, existing, COUNTRY_KEYS.mapPosition, writePosition(entity.mapPosition), p === null ? null : writePosition(p.mapPosition))
+  putIfChanged(out, existing, COUNTRY_KEYS.mapId, writeString(entity.mapId ?? ''), p === null ? null : writeString(p.mapId ?? ''))
   return out
 }
 
@@ -294,6 +303,8 @@ export function serializeEvent(
   putIfChanged(out, existing, EVENT_KEYS.tags, tagNames(ctx, entity.tags), p === null ? null : tagNames(ctx, p.tags))
   putIfChanged(out, existing, EVENT_KEYS.order, writeNumber(entity.order), p === null ? null : writeNumber(p.order))
   putIfChanged(out, existing, EVENT_KEYS.graphPosition, writePosition(entity.graphPosition), p === null ? null : writePosition(p.graphPosition))
+  putIfChanged(out, existing, EVENT_KEYS.mapPosition, writePosition(entity.mapPosition), p === null ? null : writePosition(p.mapPosition))
+  putIfChanged(out, existing, EVENT_KEYS.mapId, writeString(entity.mapId ?? ''), p === null ? null : writeString(p.mapId ?? ''))
   putCustomFields(out, existing, 'event', entity.custom, p === null ? undefined : p.custom)
   return out
 }
@@ -323,6 +334,19 @@ export function serializeWorldEntry(
   putIfChanged(out, existing, WORLD_KEYS.parent, parentValue(entity), p === null ? null : parentValue(p))
   putIfChanged(out, existing, WORLD_KEYS.order, writeNumber(entity.order), p === null ? null : writeNumber(p.order))
   putIfChanged(out, existing, WORLD_KEYS.isConcept, writeBool(entity.isConcept), p === null ? null : writeBool(p.isConcept))
+  putIfChanged(out, existing, WORLD_KEYS.mapPosition, writePosition(entity.mapPosition), p === null ? null : writePosition(p.mapPosition))
+  putIfChanged(out, existing, WORLD_KEYS.mapId, writeString(entity.mapId ?? ''), p === null ? null : writeString(p.mapId ?? ''))
+  putIfChanged(out, existing, WORLD_KEYS.novelAuthor, writeString(entity.novelAuthor ?? ''), p === null ? null : writeString(p.novelAuthor ?? ''))
+  putIfChanged(out, existing, WORLD_KEYS.novelSynopsis, writeString(entity.novelSynopsis ?? ''), p === null ? null : writeString(p.novelSynopsis ?? ''))
+  putIfChanged(out, existing, WORLD_KEYS.novelTargetWords, writeNumber(entity.novelTargetWords), p === null ? null : writeNumber(p.novelTargetWords))
+  putIfChanged(out, existing, WORLD_KEYS.novelNotes, writeString(entity.novelNotes ?? ''), p === null ? null : writeString(p.novelNotes ?? ''))
+  putIfChanged(out, existing, WORLD_KEYS.novelCover, writeString(entity.novelCover ?? ''), p === null ? null : writeString(p.novelCover ?? ''))
+  putIfChanged(out, existing, WORLD_KEYS.chapterOutline, writeString(entity.chapterOutline ?? ''), p === null ? null : writeString(p.chapterOutline ?? ''))
+  putIfChanged(out, existing, WORLD_KEYS.mapImage, writeString(entity.mapImage ?? ''), p === null ? null : writeString(p.mapImage ?? ''))
+  putIfChanged(out, existing, WORLD_KEYS.mapWidth, writeNumber(entity.mapWidth), p === null ? null : writeNumber(p.mapWidth))
+  putIfChanged(out, existing, WORLD_KEYS.mapHeight, writeNumber(entity.mapHeight), p === null ? null : writeNumber(p.mapHeight))
+  putIfChanged(out, existing, WORLD_KEYS.mapSeed, writeNumber(entity.mapSeed), p === null ? null : writeNumber(p.mapSeed))
+  putIfChanged(out, existing, WORLD_KEYS.mapParams, writeString(entity.mapParams ?? ''), p === null ? null : writeString(p.mapParams ?? ''))
   putIfChanged(out, existing, WORLD_KEYS.tags, tagNames(ctx, entity.tags), p === null ? null : tagNames(ctx, p.tags))
   putCustomFields(out, existing, 'worldEntry', entity.custom, p === null ? undefined : p.custom)
   return out
