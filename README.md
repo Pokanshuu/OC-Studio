@@ -4,6 +4,11 @@
 
 当前版本：**v0.19.2-beta**
 
+> **OC-Studio 正在并入更多新功能，下一个 release 发布前不再接收新的 PR。**
+>
+> - 旧架构的更多新功能：[nekibud/OC-editor v0.18.3](https://github.com/nekibud/OC-editor/releases/tag/v0.18.3)
+> - 新架构的旧功能：[Pokanshuu/OC-Studio v0.19.2-beta](https://github.com/Pokanshuu/OC-Studio/releases/tag/v0.19.2-beta)
+
 ---
 
 ## 功能
@@ -96,6 +101,8 @@ Next.js 16 · TypeScript · Tailwind CSS v4 · Tiptap · Dexie.js (IndexedDB) ·
 开发前先阅读 `AGENTS.md`。
 
 **提 PR**
+
+> 下一个 release 发布前暂不接收新 PR（见顶部说明），此节保留供发布后参考。
 
 1. Fork 后克隆，装依赖（Node.js 20.9+）：
 
