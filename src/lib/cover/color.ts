@@ -43,10 +43,13 @@ const NEUTRAL_SAT = 0.05
 export const NEUTRAL_TINT = '#2A2825'
 
 /**
- * 黑白封面用的墨色 —— 与设计令牌 `--oc-ink-fixed`（#2B2B2B）同一个值。
- * 画布读不到 CSS 变量，这里只能抄一份；换令牌时记得同步。
+ * 黑白模式的**兜底**块色 —— 与设计令牌同一个值，只在读不到 CSS 变量时用。
+ * 真正的块色跟着主题读 `--oc-paper-card`：亮色主题是纸色，暗色主题才是墨色。
  */
-export const INK_TINT = '#2B2B2B'
+export const MONO_LIGHT_TINT = '#F3EFE9'
+export const MONO_DARK_TINT = '#2D2B28'
+/** 旧名，保留给「没有 CSS 可用」的极端场景 */
+export const INK_TINT = MONO_DARK_TINT
 
 export const DEFAULT_TINT = NEUTRAL_TINT
 
@@ -108,6 +111,15 @@ export function lighten(hex: string, amount: number): string {
 /** 往近黑压一点（色块底部收暗） */
 export function darken(hex: string, amount: number): string {
   return mixColor(hex, DARK_END, amount)
+}
+
+/**
+ * 相对亮度 0–1。画布上「这块底色是亮的还是暗的」全靠它决定：
+ * 水印、暗角、底部厚度在深底色上是「提亮」，在纸色底色上必须反过来。
+ */
+export function luminance(hex: string): number {
+  const { r, g, b } = hexToRgb(hex)
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
 }
 
 export function rgbToHsl({ r, g, b }: Rgb): Hsl {

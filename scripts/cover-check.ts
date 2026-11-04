@@ -13,6 +13,7 @@ import {
   darken,
   hslToHex,
   lighten,
+  luminance,
   mixColor,
   normalizeTint,
   rgbToHex,
@@ -20,6 +21,7 @@ import {
   rgba,
   tintFromPixels,
 } from '../src/lib/cover/color'
+import { normalizeTintMode } from '../src/lib/cover/tuning'
 
 const failures: string[] = []
 let checks = 0
@@ -309,6 +311,22 @@ function maxGradient(data: Uint8ClampedArray, row: number, offsetRow: number, wi
   check('提亮不等于原色', lighten('#304238', 0.2) !== '#304238')
   check('压暗不等于原色', darken('#304238', 0.2) !== '#304238')
   check('hsl 往返', hslToHex(rgbToHsl({ r: 48, g: 66, b: 56 })) === '#304238', hslToHex(rgbToHsl({ r: 48, g: 66, b: 56 })))
+}
+
+// ── 10. 黑白模式：块色跟主题走，亮度决定水印/暗角的方向 ──────────────────
+
+{
+  // 亮色主题的纸色 / 暗色主题的墨色，亮度必须分居 0.5 两侧 —— 否则卡片会选错分支
+  check('纸色块判定为「亮」', luminance('#F3EFE9') > 0.5, luminance('#F3EFE9').toFixed(3))
+  check('墨色块判定为「暗」', luminance('#2D2B28') < 0.5, luminance('#2D2B28').toFixed(3))
+  check('纯黑亮度 0', luminance('#000000') === 0)
+  check('纯白亮度 1', Math.abs(luminance('#FFFFFF') - 1) < 0.001)
+
+  // 老数据里存的是 ink（固定墨色），要读成 mono；其余脏值回 auto
+  check('旧值 ink 映射成 mono', normalizeTintMode('ink') === 'mono')
+  check('mono 原样返回', normalizeTintMode('mono') === 'mono')
+  check('脏值回 auto', normalizeTintMode('purple') === 'auto')
+  check('缺省回 auto', normalizeTintMode(undefined) === 'auto')
 }
 
 // ── 汇总 ────────────────────────────────────────────────────────────────

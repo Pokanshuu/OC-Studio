@@ -52,13 +52,20 @@ export interface CoverTuningRange {
   unit: string
 }
 
-/** 混色来源：自动取色 / 墨色（黑白） */
-export type CoverTintMode = 'auto' | 'ink'
+/** 混色来源：自动取色（彩色）/ 跟随主题的纸色·墨色（黑白） */
+export type CoverTintMode = 'auto' | 'mono'
 
 export const COVER_TINT_MODE_OPTIONS: { label: string; value: CoverTintMode }[] = [
   { label: '彩色', value: 'auto' },
-  { label: '黑白', value: 'ink' },
+  { label: '黑白', value: 'mono' },
 ]
+
+/** 老版本存过 `ink`，读到就当成 `mono`（黑白现在跟主题走，不再固定墨色） */
+export function normalizeTintMode(value: unknown): CoverTintMode {
+  if (value === 'auto' || value === 'mono') return value
+  if (value === 'ink') return 'mono'
+  return 'auto'
+}
 
 /** 默认值 = 参考实现（Simple_Cover）的参数，卡片比例按网格调整为 4:5 */
 export const COVER_TUNING_DEFAULTS: CoverTuning = {

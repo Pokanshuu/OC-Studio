@@ -14,7 +14,7 @@
  * 左、右、下边界，文字才能落在实色区里，标题也才能压在模糊区上。
  */
 
-import { INK_TINT, darken, lighten, rgba, tintFromPixels } from './color'
+import { INK_TINT, darken, lighten, luminance, rgba, tintFromPixels } from './color'
 import { progressiveBlur } from './blur'
 
 /** 画布比例：参考实现的 4:5 */
@@ -65,8 +65,10 @@ export interface CoverRenderOptions {
   fallbackTint: string
   /** 没有头图时拿它取混色（头像 / 国徽），比纯色更有依据 */
   tintImage?: CoverImage | null
-  /** 混色来源：auto = 从图取色；ink = 设计令牌的墨色（黑白封面） */
-  tintMode?: 'auto' | 'ink'
+  /** 混色来源：auto = 从图取色；mono = 黑白（块色由调用方按主题给 `monoColor`） */
+  tintMode?: 'auto' | 'mono'
+  /** 黑白模式的块色：亮色主题给纸色、暗色主题给墨色（`readTokenColor('--oc-paper-card', …)`） */
+  monoColor?: string
   watermark?: string
   /** 以下都是 `CoverTuning` 的同名字段（比例已换成 0–1） */
   aspect?: number
@@ -165,6 +167,21 @@ function paintSoftDissolve(ctx: CanvasRenderingContext2D, width: number, height:
   ctx.restore()
 }
 
+/**
+ * 读设计令牌的真实色值 —— 画布拿不到 CSS 变量，只能问一次 `getComputedStyle`。
+ * 黑白模式的块色就靠它：`--oc-paper-card` 在亮色主题是纸色、暗色主题是墨色，
+ * 所以「黑白」天然跟着主题走，不用在这里再写一份明暗分支。
+ */
+export function readTokenColor(name: string, fallback: string): string {
+  if (typeof window === 'undefined') return fallback
+  try {
+    const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+    return /^#[0-9A-Fa-f]{6}$/.test(raw) ? raw : fallback
+  } catch {
+    return fallback
+  }
+}
+
 /** 照片那一块：模糊只算需要模糊的那一段（起点以上是清晰的，别白算） */
 function paintPhoto(
   ctx: CanvasRenderingContext2D,
@@ -248,9 +265,10 @@ function paintWatermark(
   watermark: string,
 ): void {
   const size = height * 0.38
+  const light = luminance(tint) > 0.5
   ctx.save()
-  ctx.globalAlpha = 0.1
-  ctx.fillStyle = lighten(tint, 0.62)
+  ctx.globalAlpha = light ? 0.08 : 0.1
+  ctx.fillStyle = light ? darken(tint, 0.55) : lighten(tint, 0.62)
   ctx.font = `600 ${size}px ${SERIF_STACK}`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
@@ -295,10 +313,15 @@ export function paintScene(
   ctx.fillStyle = mix
   ctx.fillRect(0, mixStart, width, height - mixStart)
 
+  // 底色是亮是暗，决定下面三件事的方向：
+  //   - 深色块（彩色封面 / 暗色主题的黑白）：暗角与底部厚度都往暗里压
+  //   - 纸色块（亮色主题的黑白）：暗角改成极淡的灰、底部厚度几乎不加，否则纸会发脏
+  const lightBlock = luminance(tint) > 0.5
+
   // 色块底部一点点厚度，免得看起来像一块纯 UI 填色
   const shade = ctx.createLinearGradient(0, mixEnd, 0, height)
-  shade.addColorStop(0, 'rgba(5, 8, 6, 0)')
-  shade.addColorStop(1, 'rgba(5, 8, 6, 0.2)')
+  shade.addColorStop(0, lightBlock ? 'rgba(43, 43, 43, 0)' : 'rgba(5, 8, 6, 0)')
+  shade.addColorStop(1, lightBlock ? 'rgba(43, 43, 43, 0.05)' : 'rgba(5, 8, 6, 0.2)')
   ctx.fillStyle = shade
   ctx.fillRect(0, mixEnd, width, height - mixEnd)
 
@@ -311,9 +334,15 @@ export function paintScene(
     height * 0.5,
     width * 0.84,
   )
-  vignette.addColorStop(0, 'rgba(5, 7, 5, 0)')
-  vignette.addColorStop(0.7, 'rgba(5, 7, 5, 0.035)')
-  vignette.addColorStop(1, 'rgba(5, 7, 5, 0.16)')
+  if (lightBlock) {
+    vignette.addColorStop(0, 'rgba(43, 43, 43, 0)')
+    vignette.addColorStop(0.7, 'rgba(43, 43, 43, 0.015)')
+    vignette.addColorStop(1, 'rgba(43, 43, 43, 0.07)')
+  } else {
+    vignette.addColorStop(0, 'rgba(5, 7, 5, 0)')
+    vignette.addColorStop(0.7, 'rgba(5, 7, 5, 0.035)')
+    vignette.addColorStop(1, 'rgba(5, 7, 5, 0.16)')
+  }
   ctx.fillStyle = vignette
   ctx.fillRect(0, 0, width, height)
 
@@ -357,9 +386,12 @@ export function renderCover(
 
   const focusX = options.focusX ?? 0.5
   const focusY = options.focusY ?? 0.5
-  const mono = options.tintMode === 'ink'
+  const mono = options.tintMode === 'mono'
   const tintSource = mono ? null : image ?? options.tintImage ?? null
-  const tint = (tintSource ? sampleTint(tintSource, focusX, focusY) : null) ?? (mono ? INK_TINT : options.fallbackTint)
+  const tint =
+    (mono ? options.monoColor : null) ??
+    (tintSource ? sampleTint(tintSource, focusX, focusY) : null) ??
+    (mono ? INK_TINT : options.fallbackTint)
 
   paintScene(ctx, pixelWidth, pixelHeight, image, {
     tint,

@@ -10,9 +10,18 @@
  * - 版式参数来自 `lib/cover/tuning.ts`，面板拖动时这里跟着重画。
  */
 
-import { useEffect, useRef, useState } from 'react'
-import { NEUTRAL_TINT, loadCoverImage, renderCover, useCoverTuning } from '@/lib/cover'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  MONO_DARK_TINT,
+  MONO_LIGHT_TINT,
+  NEUTRAL_TINT,
+  loadCoverImage,
+  readTokenColor,
+  renderCover,
+  useCoverTuning,
+} from '@/lib/cover'
 import { enqueueCoverRender } from '@/lib/cover/queue'
+import { useIsDarkTheme } from '@/lib/use-theme'
 import { useSettings } from '@/lib/settings'
 
 interface CoverArtProps {
@@ -29,9 +38,17 @@ export function CoverArt({ src, tintSrc, watermark }: CoverArtProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const [active, setActive] = useState(false)
   const tuning = useCoverTuning()
-  // 彩色 / 黑白是用户设置（设置 → 封面卡混色），不是调试参数
+  // 彩色 / 黑白是用户设置（设置 → 个性化），不是调试参数。
+  // 黑白不是「固定墨色」：块色跟着主题走 —— 亮色主题是纸色，暗色主题才是墨色。
   const { settings } = useSettings()
-  const tintMode = settings.coverTintMode
+  const isDark = useIsDarkTheme()
+  const mono = settings.coverTintMode === 'mono'
+  // 读 CSS 变量会触发一次样式计算，只随「模式 + 主题」变，别每次渲染都问
+  const monoColor = useMemo(
+    () => (mono ? readTokenColor('--oc-paper-card', isDark ? MONO_DARK_TINT : MONO_LIGHT_TINT) : undefined),
+    [mono, isDark],
+  )
+  const underlay = monoColor ?? NEUTRAL_TINT
 
   useEffect(() => {
     const host = hostRef.current
@@ -93,7 +110,8 @@ export function CoverArt({ src, tintSrc, watermark }: CoverArtProps) {
           renderCover(canvas, width, image, {
             fallbackTint: NEUTRAL_TINT,
             tintImage,
-            tintMode,
+            tintMode: mono ? 'mono' : 'auto',
+            monoColor,
             watermark,
             aspect: tuning.aspect,
             inset: tuning.inset / 100,
@@ -127,14 +145,14 @@ export function CoverArt({ src, tintSrc, watermark }: CoverArtProps) {
       if (timer !== undefined) window.clearTimeout(timer)
       resize.disconnect()
     }
-  }, [active, src, tintSrc, tuning, tintMode, watermark])
+  }, [active, src, tintSrc, tuning, mono, monoColor, watermark])
 
   return (
     <div
       ref={hostRef}
       aria-hidden="true"
       className="absolute inset-0"
-      style={{ backgroundColor: NEUTRAL_TINT }}
+      style={{ backgroundColor: underlay }}
     >
       <canvas ref={canvasRef} className="block h-full w-full" />
     </div>

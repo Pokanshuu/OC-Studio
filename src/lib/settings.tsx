@@ -6,6 +6,7 @@ import { isTauri } from "./env"
 import { DEFAULT_SIDEBAR_WIDTH, clampSidebarWidth } from "./sidebar-width"
 import type { EditorLayout } from "./editor-layout"
 import type { CoverTintMode } from "./cover/tuning"
+import { normalizeTintMode } from "./cover/tuning"
 import { normalizeEdgeStyle, type EdgeStyle } from "./edge-style"
 
 const STORAGE_KEY = "oc-studio-settings"
@@ -60,6 +61,8 @@ function loadSettings(): Settings {
         sidebarWidth: clampSidebarWidth(merged.sidebarWidth),
         // 手改过 localStorage 的旧值不让它把「边型」带到非法状态（非法一律回正交）
         edgeStyle: normalizeEdgeStyle(merged.edgeStyle),
+        // 老版本存的是 ink（固定墨色），现在黑白跟主题走
+        coverTintMode: normalizeTintMode(merged.coverTintMode),
       }
     }
   } catch {

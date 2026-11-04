@@ -17,7 +17,18 @@ import type { CSSProperties, ReactNode } from 'react'
 import { DragHandle, useSortableItem } from '@/components/shared/list-dnd'
 import { useLongPress } from '@/lib/useLongPress'
 import { useCoverTuning } from '@/lib/cover'
-import { COVER_FRAME, COVER_INTRO, COVER_META, COVER_TEXT, COVER_TITLE, DRAG_SLOT_CARD } from '@/lib/ui-tokens'
+import {
+  COVER_FRAME,
+  COVER_INTRO,
+  COVER_INTRO_MONO,
+  COVER_META,
+  COVER_META_MONO,
+  COVER_TEXT,
+  COVER_TITLE,
+  COVER_TITLE_MONO,
+  DRAG_SLOT_CARD,
+} from '@/lib/ui-tokens'
+import { useSettings } from '@/lib/settings'
 import { CoverArt } from './CoverArt'
 
 interface CoverCardProps {
@@ -81,6 +92,8 @@ export function CoverCard({
     enabled: isMobile && !longPressSort,
   })
   const tuning = useCoverTuning()
+  // 黑白模式下块色跟主题走（亮 = 纸色、暗 = 墨色），文字也得跟着翻
+  const mono = useSettings().settings.coverTintMode === 'mono'
 
   return (
     <div
@@ -112,17 +125,20 @@ export function CoverCard({
             }}
           >
             {emblem ? <div className="mb-2 flex items-center gap-2">{emblem}</div> : null}
-            <h3 className={COVER_TITLE} style={titleFontSize(title, tuning.titleScale, tuning.titleMax)}>
+            <h3
+              className={mono ? COVER_TITLE_MONO : COVER_TITLE}
+              style={titleFontSize(title, tuning.titleScale, tuning.titleMax)}
+            >
               {marker ? <span className="mr-1.5 shrink-0">{marker}</span> : null}
               {title}
             </h3>
             {intro ? (
-              <p className={COVER_INTRO} style={{ fontSize: `${tuning.introSize}px` }}>
+              <p className={mono ? COVER_INTRO_MONO : COVER_INTRO} style={{ fontSize: `${tuning.introSize}px` }}>
                 {intro}
               </p>
             ) : null}
             {meta ? (
-              <span className={COVER_META} style={{ fontSize: `${tuning.metaSize}px` }}>
+              <span className={mono ? COVER_META_MONO : COVER_META} style={{ fontSize: `${tuning.metaSize}px` }}>
                 {meta}
               </span>
             ) : null}

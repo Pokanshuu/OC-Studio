@@ -13,11 +13,14 @@ import { stripHtml } from '@/lib/utils'
 export {
   DEFAULT_TINT,
   INK_TINT,
+  MONO_DARK_TINT,
+  MONO_LIGHT_TINT,
   NEUTRAL_TINT,
   darken,
   hexToRgb,
   hslToHex,
   lighten,
+  luminance,
   mixColor,
   normalizeTint,
   rgbToHex,
@@ -26,7 +29,7 @@ export {
   tintFromPixels,
 } from './color'
 export { progressiveBlur } from './blur'
-export { COVER_ASPECT, renderCover, sampleTint } from './scene'
+export { COVER_ASPECT, readTokenColor, renderCover, sampleTint } from './scene'
 export type { CoverImage, CoverRenderOptions, CoverSceneOptions } from './scene'
 export { enqueueCoverRender } from './queue'
 export { loadCoverImage } from './image-cache'
@@ -37,6 +40,7 @@ export {
   COVER_TUNING_RANGES,
   coverTuningJson,
   getCoverTuning,
+  normalizeTintMode,
   resetCoverTuning,
   sanitizeCoverTuning,
   setCoverTuningPanelOpen,

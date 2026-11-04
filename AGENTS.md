@@ -82,7 +82,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - `src/lib/useBackButton.ts` — Capacitor 系统返回键处理
 - `src/lib/browser-compat.ts` — 浏览器兼容性检测：Chromium 版本、HarmonyOS/ArkWeb、安全区域降级估算与修正
 - `src/lib/reference-registry.ts` — @ 引用和 [[ 内链数据源注册
-- `src/lib/settings.tsx` — 主题 / 同步 / 界面偏好（`sidebarVisible`、`sidebarWidth`、`editorLayout`、`mouseMode`、**`coverTintMode`**（封面卡彩色 / 黑白））设置
+- `src/lib/settings.tsx` — 主题 / 同步 / 界面偏好（`sidebarVisible`、`sidebarWidth`、`editorLayout`、`mouseMode`、**`coverTintMode`**（封面卡彩色 / 黑白：黑白跟主题走，亮=纸色、暗=墨色））设置
 - `src/lib/use-device.ts` — useDevice() (isMobile)
 - `src/lib/image-service.ts` — 图片全流程（含 Tauri/Capacitor/Browser 三环境适配）
 - `src/lib/image-crop.ts` — Canvas 裁剪引擎（getCroppedBlob 支持 Blob 入参 + HEIF 自动转换）
