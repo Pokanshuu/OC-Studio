@@ -329,14 +329,17 @@ export function paintScene(
   options: CoverSceneOptions,
 ): void {
   const tint = options.tint
+  // 底色是亮是暗，下面几层「压暗 / 暗角 / 颗粒」的力度完全不同 ——
+  // 纸色底（黑白模式 + 亮色主题）上把它们按深色底那套来，纸就发灰发脏。
+  const lightBlock = luminance(tint) > 0.5
   ctx.clearRect(0, 0, width, height)
 
-  // 铺满画布的色块：上端极轻提亮，下端收暗
+  // 铺满画布的色块：上端极轻提亮，下端收暗（浅色底只收一点点，否则显脏）
   const field = ctx.createLinearGradient(0, 0, 0, height)
-  field.addColorStop(0, lighten(tint, 0.045))
+  field.addColorStop(0, lighten(tint, lightBlock ? 0.02 : 0.045))
   field.addColorStop(0.52, tint)
   field.addColorStop(0.72, tint)
-  field.addColorStop(1, darken(tint, 0.14))
+  field.addColorStop(1, darken(tint, lightBlock ? 0.035 : 0.14))
   ctx.fillStyle = field
   ctx.fillRect(0, 0, width, height)
 
@@ -358,15 +361,10 @@ export function paintScene(
   ctx.fillStyle = mix
   ctx.fillRect(0, mixStart, width, height - mixStart)
 
-  // 底色是亮是暗，决定下面三件事的方向：
-  //   - 深色块（彩色封面 / 暗色主题的黑白）：暗角与底部厚度都往暗里压
-  //   - 纸色块（亮色主题的黑白）：暗角改成极淡的灰、底部厚度几乎不加，否则纸会发脏
-  const lightBlock = luminance(tint) > 0.5
-
-  // 色块底部一点点厚度，免得看起来像一块纯 UI 填色
+  // 色块底部一点点厚度，免得看起来像一块纯 UI 填色（纸色底几乎不加）
   const shade = ctx.createLinearGradient(0, mixEnd, 0, height)
   shade.addColorStop(0, lightBlock ? 'rgba(43, 43, 43, 0)' : 'rgba(5, 8, 6, 0)')
-  shade.addColorStop(1, lightBlock ? 'rgba(43, 43, 43, 0.05)' : 'rgba(5, 8, 6, 0.2)')
+  shade.addColorStop(1, lightBlock ? 'rgba(43, 43, 43, 0.02)' : 'rgba(5, 8, 6, 0.2)')
   ctx.fillStyle = shade
   ctx.fillRect(0, mixEnd, width, height - mixEnd)
 
@@ -380,9 +378,10 @@ export function paintScene(
     width * 0.84,
   )
   if (lightBlock) {
+    // 纸色底不要暗角：一圈灰会让整张纸看起来像旧的
     vignette.addColorStop(0, 'rgba(43, 43, 43, 0)')
-    vignette.addColorStop(0.7, 'rgba(43, 43, 43, 0.015)')
-    vignette.addColorStop(1, 'rgba(43, 43, 43, 0.07)')
+    vignette.addColorStop(0.7, 'rgba(43, 43, 43, 0)')
+    vignette.addColorStop(1, 'rgba(43, 43, 43, 0)')
   } else {
     vignette.addColorStop(0, 'rgba(5, 7, 5, 0)')
     vignette.addColorStop(0.7, 'rgba(5, 7, 5, 0.035)')
@@ -391,7 +390,7 @@ export function paintScene(
   ctx.fillStyle = vignette
   ctx.fillRect(0, 0, width, height)
 
-  // 胶片颗粒
+  // 胶片颗粒（纸色底上要压一档：同样的强度在浅色底上会像蒙了一层脏点）
   const grain = Math.min(1, Math.max(0, options.grain))
   const tile = getNoiseTile()
   if (grain > 0 && tile) {
@@ -399,7 +398,7 @@ export function paintScene(
     if (pattern) {
       ctx.save()
       ctx.globalCompositeOperation = 'overlay'
-      ctx.globalAlpha = 0.025 + grain * 0.09
+      ctx.globalAlpha = (0.025 + grain * 0.09) * (lightBlock ? 0.35 : 1)
       ctx.fillStyle = pattern
       ctx.fillRect(0, 0, width, height)
       ctx.restore()
