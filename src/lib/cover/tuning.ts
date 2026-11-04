@@ -16,7 +16,7 @@ export interface CoverTuning {
   aspect: number
   /** 照片左右留边：画布宽 %（0 = 满幅） */
   inset: number
-  /** 照片高度：画布高 % */
+  /** 照片高度上限：画布高 %（照片按宽度铺满后的自然高度超了才裁上下） */
   photoHeight: number
   /** 模糊起点：画布高 % */
   blurStart: number
@@ -68,17 +68,18 @@ export function normalizeTintMode(value: unknown): CoverTintMode {
 }
 
 /**
- * 默认值 = 2026-11-04 定稿的参数（在面板里调出来的），起点仍是参考实现 Simple_Cover。
+ * 默认值 = 2026-11-04 定稿的参数，起点仍是参考实现 Simple_Cover。
  *
- * 比例是 **1:1**：头图都是横向的（3:2），卡片比它高一截、但**仍然不竖**
- * —— 竖起来会把横图裁掉大半，也不像封面。
- * 其余差别：照片几乎占满整张卡（95%）、混色更早开始（51%）也更晚收完（88%）、
- * 颗粒更重（57%）、字号更克制（标题上限 24px）。
+ * 比例 **7:6**（≈1.17）：头图基本都是横向的，卡片就按接近原图的比例来，**左右不裁**
+ * —— 见 `scene.ts` 的 `photoPlateHeight`：照片只按宽度铺满，横图自己就矮，
+ * 下面那段正好留给色块与文字。照片高度上限给到 100%，所以常见横图一点不裁。
+ * 其余差别：混色更早开始（51%）也更晚收完（88%）、颗粒更重（57%）、
+ * 字号更克制（标题上限 24px）。
  */
 export const COVER_TUNING_DEFAULTS: CoverTuning = {
-  aspect: 1,
+  aspect: 7 / 6,
   inset: 0,
-  photoHeight: 95,
+  photoHeight: 100,
   blurStart: 47,
   blur: 30,
   mixStart: 51,
@@ -94,14 +95,14 @@ export const COVER_TUNING_DEFAULTS: CoverTuning = {
 }
 
 /** 参数结构的版本：改默认值时 +1，老的面板数据直接作废（否则用户永远看不到新默认值） */
-const COVER_TUNING_VERSION = 2
+const COVER_TUNING_VERSION = 3
 
 /** 滑杆的范围、步长与名字 —— 面板据此生成控件，`sanitize` 据此夹取 */
 export type CoverSliderKey = Exclude<keyof CoverTuning, 'aspect'>
 
 export const COVER_TUNING_RANGES: Record<CoverSliderKey, CoverTuningRange> = {
   inset: { label: '照片留边', min: 0, max: 12, step: 0.5, unit: '%' },
-  photoHeight: { label: '照片高度', min: 40, max: 95, step: 1, unit: '%' },
+  photoHeight: { label: '照片高度上限', min: 40, max: 100, step: 1, unit: '%' },
   blurStart: { label: '模糊起点', min: 10, max: 85, step: 1, unit: '%' },
   blur: { label: '模糊强度', min: 0, max: 80, step: 1, unit: 'px' },
   mixStart: { label: '混色起点', min: 20, max: 90, step: 1, unit: '%' },
@@ -116,12 +117,12 @@ export const COVER_TUNING_RANGES: Record<CoverSliderKey, CoverTuningRange> = {
   metaSize: { label: '小字字号', min: 7, max: 18, step: 1, unit: 'px' },
 }
 
-/** 卡片比例的可选项：按钮里显示的就是这个标签 */
+/** 卡片比例的可选项：按钮里显示的就是这个标签。全部是横的或方的 —— 竖起来会裁掉横图大半 */
 export const COVER_ASPECT_OPTIONS: { label: string; value: number }[] = [
-  { label: '3:4', value: 0.75 },
-  { label: '4:5', value: 0.8 },
   { label: '1:1', value: 1 },
-  { label: '5:4', value: 1.25 },
+  { label: '7:6', value: 7 / 6 },
+  { label: '4:3', value: 4 / 3 },
+  { label: '3:2', value: 3 / 2 },
 ]
 
 const STORAGE_KEY = 'oc-cover-tuning'

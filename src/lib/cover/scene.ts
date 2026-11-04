@@ -118,7 +118,7 @@ function getNoiseTile(): HTMLCanvasElement | null {
   return canvas
 }
 
-/** 覆盖式裁切（保持比例、多余部分裁掉） */
+/** 覆盖式裁切（保持比例、多余部分裁掉）—— 只给取色用 */
 function drawCover(
   ctx: CanvasRenderingContext2D,
   image: CoverImage,
@@ -133,6 +133,44 @@ function drawCover(
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = 'high'
   ctx.drawImage(image.element, (width - dw) * focusX, (height - dh) * focusY, dw, dh)
+}
+
+/**
+ * 照片块的高度（画布像素）—— **只按宽度铺满，左右永远不裁**：
+ *
+ * ```
+ * 自然高度 = 卡片宽 × (图片高 / 图片宽)
+ * 块高度   = min(自然高度, 画布高 × 照片高度上限)
+ * ```
+ *
+ * 所以 3:2 的横图放在 1:1 的卡上只占约 67% 高，下面那段留给色块与文字 ——
+ * 这正是封面的样子；只有竖图超出上限时才**裁上下**，左右始终完整。
+ */
+export function photoPlateHeight(
+  cardWidth: number,
+  cardHeight: number,
+  imageWidth: number,
+  imageHeight: number,
+  maxRatio: number,
+): number {
+  const natural = cardWidth * (imageHeight / Math.max(1, imageWidth))
+  const cap = cardHeight * maxRatio
+  return Math.max(4, Math.round(Math.min(natural, cap)))
+}
+
+/** 按宽度铺满照片块；超出块高时按 `focusY` 裁上下 */
+function drawPhoto(
+  ctx: CanvasRenderingContext2D,
+  image: CoverImage,
+  width: number,
+  height: number,
+  focusY: number,
+): void {
+  const scale = width / image.width
+  const dh = Math.max(height, image.height * scale)
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
+  ctx.drawImage(image.element, 0, (height - dh) * focusY, width, dh)
 }
 
 /** 从照片里提混色：缩到 48×60 就够，权重见 `tintFromPixels` */
@@ -183,7 +221,7 @@ export function readTokenColor(name: string, fallback: string): string {
 }
 
 /** 照片那一块：模糊只算需要模糊的那一段（起点以上是清晰的，别白算） */
-function paintPhoto(
+export function paintPhoto(
   ctx: CanvasRenderingContext2D,
   width: number,
   height: number,
@@ -193,7 +231,8 @@ function paintPhoto(
   const plateX = width * options.inset
   const plateW = width * (1 - options.inset * 2)
   const plateY = 0
-  const plateH = height * options.photoHeight
+  // 只按宽度铺满：横图自己就矮，下面那段留给色块；竖图超出上限才裁上下
+  const plateH = photoPlateHeight(plateW, height, image.width, image.height, options.photoHeight)
   const photoWidth = Math.max(4, Math.round(plateW))
   const photoHeight = Math.max(4, Math.round(plateH))
 
@@ -205,7 +244,7 @@ function paintPhoto(
   if (!plateCtx) return
 
   plateCtx.clearRect(0, 0, photoWidth, photoHeight)
-  drawCover(plateCtx, image, photoWidth, photoHeight, options.focusX, options.focusY)
+  drawPhoto(plateCtx, image, photoWidth, photoHeight, options.focusY)
 
   if (image.readable) {
     // 起点换算到照片自己的行号（参数是画布比例，不是照片比例）

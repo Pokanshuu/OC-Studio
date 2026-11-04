@@ -21,6 +21,7 @@ import {
   rgba,
   tintFromPixels,
 } from '../src/lib/cover/color'
+import { photoPlateHeight } from '../src/lib/cover/scene'
 import { normalizeTintMode } from '../src/lib/cover/tuning'
 
 const failures: string[] = []
@@ -327,6 +328,37 @@ function maxGradient(data: Uint8ClampedArray, row: number, offsetRow: number, wi
   check('mono 原样返回', normalizeTintMode('mono') === 'mono')
   check('脏值回 auto', normalizeTintMode('purple') === 'auto')
   check('缺省回 auto', normalizeTintMode(undefined) === 'auto')
+}
+
+// ── 11. 照片块：按宽度铺满，左右永远不裁 ────────────────────────────────
+//
+// 这条是「左右别裁」的防线：横图在卡片里只能靠**自然高度**结束（照片矮、下面留色块），
+// 只有竖图才会因为超过上限而被裁上下。一旦有人把 drawCover 换回来，这里会立刻红。
+
+{
+  const CARD_W = 400
+  const CARD_H = Math.round(CARD_W / (7 / 6)) // 默认 7:6 的卡
+  const CAP = 1 // 上限 100%
+
+  // 横图 3:2：自然高度只有 67% 宽，必须小于卡片高度 —— 一点不裁
+  const wide = photoPlateHeight(CARD_W, CARD_H, 1500, 1000, CAP)
+  check('3:2 横图按宽度算高度', Math.abs(wide - Math.round(CARD_W / 1.5)) <= 1, `实际 ${wide}`)
+  check('3:2 横图不顶到画布底（下方留给色块）', wide < CARD_H, `${wide} vs ${CARD_H}`)
+
+  // 和卡片同比例的图：铺满整张卡、正好不裁
+  const same = photoPlateHeight(CARD_W, CARD_H, 1400, 1200, CAP)
+  check('同比例图正好铺满', Math.abs(same - CARD_H) <= 1, `${same} vs ${CARD_H}`)
+
+  // 竖图：自然高度远超画布，被上限截住 —— 只裁上下
+  const tall = photoPlateHeight(CARD_W, CARD_H, 1000, 1500, CAP)
+  check('竖图被上限截住', tall === CARD_H, `${tall} vs ${CARD_H}`)
+
+  // 上限调低时，横图也只会更矮，绝不会更宽
+  const capped = photoPlateHeight(CARD_W, CARD_H, 1500, 1000, 0.5)
+  check('上限生效时只减少高度', Math.abs(capped - Math.round(CARD_H * 0.5)) <= 1, `实际 ${capped}`)
+
+  // 极端比例不产出 0 / NaN
+  check('超宽图仍有最小高度', photoPlateHeight(CARD_W, CARD_H, 4000, 100, CAP) >= 4)
 }
 
 // ── 汇总 ────────────────────────────────────────────────────────────────
