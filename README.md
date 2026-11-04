@@ -142,6 +142,14 @@ Next.js 16 · TypeScript · Tailwind CSS v4 · Tiptap · Dexie.js (IndexedDB) ·
 
 ---
 
+## 贡献者
+
+- **Pokanshuu** — 项目作者与维护者
+- **nekibud** — [OC Studio 0.18.1 分支](https://github.com/Pokanshuu/OC-Studio/pull/5)（关系图、创作区与 Windows 10 安装增强）；0.19.x 吸收了该分支的角色文件夹、关系线配色 / 箭头、布局保存、鼠标模式、小说与地图等能力
+- **AyaoUwU** — 角色文件夹、关系线 12 色与箭头、头像发散连线、布局保存与撤销、鼠标模式
+
+---
+
 ## 许可
 
-MIT
+MIT · 版权归 Pokanshuu、nekibud 与贡献者所有。
