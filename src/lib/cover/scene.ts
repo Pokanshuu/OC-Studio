@@ -334,14 +334,20 @@ export function paintScene(
   const lightBlock = luminance(tint) > 0.5
   ctx.clearRect(0, 0, width, height)
 
-  // 铺满画布的色块：上端极轻提亮，下端收暗（浅色底只收一点点，否则显脏）
-  const field = ctx.createLinearGradient(0, 0, 0, height)
-  field.addColorStop(0, lighten(tint, lightBlock ? 0.02 : 0.045))
-  field.addColorStop(0.52, tint)
-  field.addColorStop(0.72, tint)
-  field.addColorStop(1, darken(tint, lightBlock ? 0.035 : 0.14))
-  ctx.fillStyle = field
-  ctx.fillRect(0, 0, width, height)
+  // 铺满画布的色块。纸色底就是**一块干净的纸**：不做上下渐变，
+  // 否则底边会露出一道更暗的带子（纸色上看就是「脏」）。
+  if (lightBlock) {
+    ctx.fillStyle = tint
+    ctx.fillRect(0, 0, width, height)
+  } else {
+    const field = ctx.createLinearGradient(0, 0, 0, height)
+    field.addColorStop(0, lighten(tint, 0.045))
+    field.addColorStop(0.52, tint)
+    field.addColorStop(0.72, tint)
+    field.addColorStop(1, darken(tint, 0.14))
+    ctx.fillStyle = field
+    ctx.fillRect(0, 0, width, height)
+  }
 
   if (image) {
     paintPhoto(ctx, width, height, image, options)
@@ -361,44 +367,40 @@ export function paintScene(
   ctx.fillStyle = mix
   ctx.fillRect(0, mixStart, width, height - mixStart)
 
-  // 色块底部一点点厚度，免得看起来像一块纯 UI 填色（纸色底几乎不加）
-  const shade = ctx.createLinearGradient(0, mixEnd, 0, height)
-  shade.addColorStop(0, lightBlock ? 'rgba(43, 43, 43, 0)' : 'rgba(5, 8, 6, 0)')
-  shade.addColorStop(1, lightBlock ? 'rgba(43, 43, 43, 0.02)' : 'rgba(5, 8, 6, 0.2)')
-  ctx.fillStyle = shade
-  ctx.fillRect(0, mixEnd, width, height - mixEnd)
+  // 色块底部一点点厚度，免得看起来像一块纯 UI 填色。
+  // 纸色底不加：那层暗在平铺的纸上就是一条脏边。
+  if (!lightBlock) {
+    const shade = ctx.createLinearGradient(0, mixEnd, 0, height)
+    shade.addColorStop(0, 'rgba(5, 8, 6, 0)')
+    shade.addColorStop(1, 'rgba(5, 8, 6, 0.2)')
+    ctx.fillStyle = shade
+    ctx.fillRect(0, mixEnd, width, height - mixEnd)
 
-  // 克制的暗角
-  const vignette = ctx.createRadialGradient(
-    width * 0.5,
-    height * 0.42,
-    width * 0.1,
-    width * 0.5,
-    height * 0.5,
-    width * 0.84,
-  )
-  if (lightBlock) {
-    // 纸色底不要暗角：一圈灰会让整张纸看起来像旧的
-    vignette.addColorStop(0, 'rgba(43, 43, 43, 0)')
-    vignette.addColorStop(0.7, 'rgba(43, 43, 43, 0)')
-    vignette.addColorStop(1, 'rgba(43, 43, 43, 0)')
-  } else {
+    // 克制的暗角（纸色底不要：一圈灰让整张纸看起来像旧的）
+    const vignette = ctx.createRadialGradient(
+      width * 0.5,
+      height * 0.42,
+      width * 0.1,
+      width * 0.5,
+      height * 0.5,
+      width * 0.84,
+    )
     vignette.addColorStop(0, 'rgba(5, 7, 5, 0)')
     vignette.addColorStop(0.7, 'rgba(5, 7, 5, 0.035)')
     vignette.addColorStop(1, 'rgba(5, 7, 5, 0.16)')
+    ctx.fillStyle = vignette
+    ctx.fillRect(0, 0, width, height)
   }
-  ctx.fillStyle = vignette
-  ctx.fillRect(0, 0, width, height)
 
-  // 胶片颗粒（纸色底上要压一档：同样的强度在浅色底上会像蒙了一层脏点）
+  // 胶片颗粒。纸色底完全不加：浅色平铺面上任何噪点都像蒙了一层灰。
   const grain = Math.min(1, Math.max(0, options.grain))
-  const tile = getNoiseTile()
+  const tile = lightBlock ? null : getNoiseTile()
   if (grain > 0 && tile) {
     const pattern = ctx.createPattern(tile, 'repeat')
     if (pattern) {
       ctx.save()
       ctx.globalCompositeOperation = 'overlay'
-      ctx.globalAlpha = (0.025 + grain * 0.09) * (lightBlock ? 0.35 : 1)
+      ctx.globalAlpha = 0.025 + grain * 0.09
       ctx.fillStyle = pattern
       ctx.fillRect(0, 0, width, height)
       ctx.restore()
