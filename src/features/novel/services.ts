@@ -59,67 +59,7 @@ export async function createNovelChapter(parentId: number | null, title = '新�
   return id
 }
 
-/**
- * 同父级内上移 / 下移（交换 `order`）。
- *
- * 排序口径与 `buildEntryTree` 完全一致（`order` 再按标题），所以「目录里看到的位置」
- * 就是「交换后的位置」。老数据 / fork 导入可能整层 `order` 都是 0：先按当前顺序
- * 归一化成 10 / 20 / 30…再交换，否则两个 0 互换等于没动。
- * 已在两端时返回 false，调用方据此置灰按钮。
- */
-export async function moveNovelEntry(
-  id: number,
-  direction: 'up' | 'down',
-): Promise<boolean> {
-  const entry = await db.worldEntries.get(id)
-  if (!entry || entry.deleted) return false
-
-  const siblings = (
-    await db.worldEntries
-      .filter(
-        (row) =>
-          !row.deleted && row.category === NOVEL_CATEGORY && row.parentId === entry.parentId,
-      )
-      .toArray()
-  ).sort(
-    (a, b) =>
-      (a.order ?? 0) - (b.order ?? 0) || a.title.localeCompare(b.title, 'zh-Hans'),
-  )
-
-  const index = siblings.findIndex((row) => row.id === id)
-  if (index < 0) return false
-  const swapIndex = direction === 'up' ? index - 1 : index + 1
-  if (swapIndex < 0 || swapIndex >= siblings.length) return false
-
-  const now = Date.now()
-  let currentOrder = entry.order ?? 0
-  if (currentOrder === (siblings[swapIndex].order ?? 0)) {
-    for (const [position, row] of siblings.entries()) {
-      const order = (position + 1) * 10
-      row.order = order
-      await db.worldEntries.update(row.id, { order, updatedAt: now, ...pendingStamp(now) })
-    }
-    currentOrder = (index + 1) * 10
-  }
-
-  const neighbor = siblings[swapIndex]
-  const neighborId = neighbor.id
-  const neighborOrder = neighbor.order ?? 0
-  await db.worldEntries.update(id, {
-    order: neighborOrder,
-    updatedAt: now,
-    ...pendingStamp(now),
-  })
-  await db.worldEntries.update(neighborId, {
-    order: currentOrder,
-    updatedAt: now,
-    ...pendingStamp(now),
-  })
-  await logOperation('worldEntries', id, 'order', String(currentOrder), String(neighborOrder))
-  return true
-}
-
-/** 重命名（走 updateEntry 那条路会把 `category` 抹掉，这里直接写 title） */
+/*/** 重命名（走 updateEntry 那条路会把 `category` 抹掉，这里直接写 title） */
 export async function renameNovelEntry(id: number, title: string): Promise<void> {
   const now = Date.now()
   await db.worldEntries.update(id, { title, updatedAt: now, ...pendingStamp(now) })

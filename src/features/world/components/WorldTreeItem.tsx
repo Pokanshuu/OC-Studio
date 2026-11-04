@@ -1,55 +1,19 @@
 'use client'
 
-import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
-import { ChevronRight, FileText, GripVertical } from 'lucide-react'
+import { useCallback, useMemo } from 'react'
+import { FileText } from 'lucide-react'
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { DeleteButton } from '@/components/shared/DeleteButton'
-import { ContextMenu } from '@/components/shared/ContextMenu'
+import { TreeRow } from '@/components/shared/TreeRow'
 import type { ContextMenuItem } from '@/components/shared/ContextMenu'
 import { useLongPress } from '@/lib/useLongPress'
 import type { WorldEntry } from '@/types'
 import { saveExpanded } from './world-tree-utils'
 import type { TreeNode } from './world-tree-utils'
 
-/** 树内联重命名输入框（回车提交 / Esc 取消 / 失焦提交） */
-export function InlineEditInput({
-  initialValue,
-  onSubmit,
-  onCancel,
-}: {
-  initialValue: string
-  onSubmit: (value: string) => void
-  onCancel: () => void
-}) {
-  const inputRef = useRef<HTMLInputElement>(null)
-  const [value, setValue] = useState(initialValue)
-
-  useEffect(() => {
-    inputRef.current?.focus()
-    inputRef.current?.select()
-  }, [])
-
-  const commit = useCallback(() => {
-    const trimmed = value.trim()
-    if (trimmed) onSubmit(trimmed)
-    else onCancel()
-  }, [value, onSubmit, onCancel])
-
-  return (
-    <div className="flex flex-1 items-center gap-1">
-      <input
-        ref={inputRef}
-        type="text"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onKeyDown={(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') onCancel() }}
-        onBlur={commit}
-        className="min-w-0 flex-1 border-b border-line bg-transparent px-0 py-0.5 text-[13px] text-ink focus:border-line-hover focus:outline-none"
-      />
-    </div>
-  )
-}
+/** 兼容旧引用：内联编辑框已收口到 `components/shared/TreeRow` */
+export { InlineEditInput } from '@/components/shared/TreeRow'
 
 /** 可拖拽的树节点（含子级递归） */
 export function SortableTreeItem({
@@ -113,11 +77,6 @@ export function SortableTreeItem({
     })
   }, [setExpandedIds])
 
-  const handleRenameClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation()
-    setEditingId(entryId)
-  }, [entryId, setEditingId])
-
   const handleRename = useCallback((newTitle: string) => {
     onRename(entryId, newTitle)
     setEditingId(null)
@@ -142,72 +101,23 @@ export function SortableTreeItem({
 
   return (
     <div ref={setNodeRef} style={style}>
-      <ContextMenu items={treeContextMenuItems}>
-      <div
-        className={`group flex items-center gap-0.5 rounded-item py-1 text-[13px] transition-colors cursor-pointer ${
-          isSelected
-            ? 'bg-[var(--oc-hover)] text-ink'
-            : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
-        }`}
-        style={{ paddingLeft: `${depth * 12 + 6}px` }}
+      <TreeRow
+        depth={depth}
+        selected={isSelected}
+        title={node.entry.title}
+        icon={node.entry.isConcept ? <FileText size={12} strokeWidth={2} /> : undefined}
         onClick={handleRowClick}
-        {...longPress}
-      >
-        {!isMobile ? (
-          <span
-            {...attributes}
-            {...listeners}
-            className="flex h-4 w-4 shrink-0 items-center justify-center cursor-grab text-ink-faint opacity-100 md:opacity-0 md:group-hover:opacity-100 md:transition-opacity"
-          >
-            <GripVertical size={11} strokeWidth={2} />
-          </span>
-        ) : null}
-
-        {hasChildren ? (
-          <button
-            onClick={(e) => { e.stopPropagation(); toggleExpand(entryId) }}
-            className="flex h-4 w-4 shrink-0 items-center justify-center text-ink-faint"
-          >
-            <ChevronRight
-              size={13}
-              strokeWidth={2}
-              className={`transition-transform ${isExpanded ? 'rotate-90' : ''}`}
-            />
-          </button>
-        ) : (
-          <span className="w-4 shrink-0" />
-        )}
-
-        {isEditing ? (
-          <InlineEditInput
-            initialValue={node.entry.title}
-            onSubmit={handleRename}
-            onCancel={() => setEditingId(null)}
-          />
-        ) : (
-          <span
-            className="flex-1 truncate pl-0.5 text-[13px]"
-            onDoubleClick={handleRenameClick}
-            title="双击重命名"
-          >
-            {node.entry.isConcept ? (
-              <span className="inline-flex items-center gap-1">
-                <FileText size={12} strokeWidth={2} className="text-ink-faint shrink-0" />
-                {node.entry.title}
-              </span>
-            ) : (
-              node.entry.title
-            )}
-          </span>
-        )}
-
-        <div className="flex items-center gap-0.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:transition-opacity">
-          {!isMobile ? (
-            <DeleteButton onDelete={() => onDelete(entryId)} />
-          ) : null}
-        </div>
-      </div>
-      </ContextMenu>
+        onStartRename={() => setEditingId(entryId)}
+        editing={isEditing}
+        onCommitRename={handleRename}
+        onCancelRename={() => setEditingId(null)}
+        expanded={isExpanded}
+        onToggleExpand={hasChildren ? () => toggleExpand(entryId) : undefined}
+        dragHandle={isMobile ? undefined : { attributes, listeners }}
+        actions={isMobile ? undefined : <DeleteButton onDelete={() => onDelete(entryId)} />}
+        contextMenu={treeContextMenuItems}
+        rowProps={longPress as React.HTMLAttributes<HTMLDivElement>}
+      />
 
       <div className={`grid transition-[grid-template-rows] duration-200 ease-out ${isExpanded && hasChildren ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
         <div className="min-h-0 overflow-hidden">

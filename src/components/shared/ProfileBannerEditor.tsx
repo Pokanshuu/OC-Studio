@@ -7,6 +7,8 @@ import { convertHeifToJpeg } from '@/lib/image-heif'
 import { Avatar } from './Avatar'
 import { ImageCropper } from './ImageCropper'
 import { StretchyHeader } from './StretchyHeader'
+import { FullscreenViewer } from './FullscreenViewer'
+import { MediaContextMenu } from './MediaContextMenu'
 import { MEDIA_IMG } from '@/lib/ui-tokens'
 
 interface ProfileBannerEditorProps {
@@ -37,8 +39,31 @@ export function ProfileBannerEditor({
   const [avatarRawFileUrl, setAvatarRawFileUrl] = useState<string | null>(null)
   const [avatarCropperOpen, setAvatarCropperOpen] = useState(false)
   const [avatarConverting, setAvatarConverting] = useState(false)
+  /** 单击看大图（与相册 / 画廊同一口径） */
+  const [viewing, setViewing] = useState<{ images: string[]; index: number } | null>(null)
+  /** 右键菜单：头图与头像共用一套定位 */
+  const [menu, setMenu] = useState<{ x: number; y: number; target: 'header' | 'avatar' } | null>(null)
 
   const headerSrc = headerUrl ? resolveImageUrl(headerUrl) : undefined
+
+  function openMenu(event: React.MouseEvent, target: 'header' | 'avatar') {
+    event.preventDefault()
+    event.stopPropagation()
+    setMenu({ x: event.clientX, y: event.clientY, target })
+  }
+
+  function viewHeader() {
+    if (headerUrl) setViewing({ images: [headerUrl], index: 0 })
+    else pickHeader()
+  }
+
+  function viewAvatar() {
+    if (avatarUrl) setViewing({ images: [avatarUrl], index: 0 })
+    else if (avatarInputRef.current) {
+      avatarInputRef.current.value = ''
+      avatarInputRef.current.click()
+    }
+  }
 
   function pickHeader() {
     const input = headerInputRef.current
@@ -129,7 +154,7 @@ export function ProfileBannerEditor({
       {/* Header — 弹性头图（下拉拉伸 / 滚动折叠 / 视差都在 StretchyHeader 里） */}
       <StretchyHeader
         className={`group/header rounded-item bg-paper-card ${onHeaderChange ? 'cursor-pointer' : ''}`}
-        onClick={onHeaderChange ? pickHeader : undefined}
+        onClick={headerUrl ? viewHeader : pickHeader}
         overlay={
           onHeaderChange ? (
             <>
@@ -142,7 +167,7 @@ export function ProfileBannerEditor({
               />
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/30 text-sm text-white opacity-0 transition-opacity group-hover/header:opacity-100">
                 <button
-                  onClick={pickHeader}
+                  onClick={(event) => { event.stopPropagation(); pickHeader() }}
                   className="pointer-events-auto flex items-center gap-1.5 bg-transparent hover:bg-transparent"
                 >
                   <Camera size={18} strokeWidth={2} />
@@ -167,7 +192,8 @@ export function ProfileBannerEditor({
           <img
             src={headerSrc}
             alt=""
-            className={MEDIA_IMG}
+            className={`${MEDIA_IMG} cursor-zoom-in`}
+            onContextMenu={(event) => openMenu(event, 'header')}
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center">
@@ -182,7 +208,8 @@ export function ProfileBannerEditor({
           <div className="group/avatar relative inline-block">
             <button
               type="button"
-              onClick={() => { if (avatarInputRef.current) { avatarInputRef.current.value = ''; avatarInputRef.current.click() } }}
+              onClick={viewAvatar}
+              onContextMenu={(event) => openMenu(event, 'avatar')}
               className="relative block bg-transparent hover:bg-transparent"
             >
               <div className="overflow-hidden rounded-full border-4 border-paper"> {/* design-audit-allow border-fat 头像外圈装饰描边 */}
@@ -234,6 +261,48 @@ export function ProfileBannerEditor({
           loading={avatarConverting}
           onComplete={handleAvatarCropComplete}
           onClose={handleAvatarCropperClose}
+        />
+      ) : null}
+
+      {menu ? (
+        <MediaContextMenu
+          at={{ x: menu.x, y: menu.y }}
+          onClose={() => setMenu(null)}
+          items={
+            menu.target === 'header'
+              ? [
+                  ...(headerUrl ? [{ label: '查看大图', onSelect: viewHeader }] : []),
+                  ...(onHeaderChange ? [{ label: '更换封面', onSelect: pickHeader }] : []),
+                  ...(onHeaderRemove && headerUrl
+                    ? [{ label: '删除封面', danger: true, onSelect: onHeaderRemove }]
+                    : []),
+                ]
+              : [
+                  ...(avatarUrl ? [{ label: '查看大图', onSelect: viewAvatar }] : []),
+                  ...(onAvatarChange
+                    ? [{
+                        label: avatarType === 'flag' ? '更换旗帜' : '更换头像',
+                        onSelect: () => {
+                          if (avatarInputRef.current) {
+                            avatarInputRef.current.value = ''
+                            avatarInputRef.current.click()
+                          }
+                        },
+                      }]
+                    : []),
+                  ...(onAvatarRemove && avatarUrl
+                    ? [{ label: '删除', danger: true, onSelect: onAvatarRemove }]
+                    : []),
+                ]
+          }
+        />
+      ) : null}
+
+      {viewing ? (
+        <FullscreenViewer
+          images={viewing.images}
+          initialIndex={viewing.index}
+          onClose={() => setViewing(null)}
         />
       ) : null}
     </div>

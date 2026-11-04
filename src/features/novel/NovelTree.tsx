@@ -12,8 +12,36 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/core'
-import { BookText, ChevronDown, ChevronLeft, ChevronUp, Eye, FileDown, Info, Plus, Search } from 'lucide-react'
+import { BookText, ChevronDown, ChevronLeft, Eye, FileDown, Info, Plus, Search } from 'lucide-react'
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { EntityEditorShell } from '@/components/shared/EntityEditorShell'
+import { TreeRow } from '@/components/shared/TreeRow'
+import type { ContextMenuItem } from '@/components/shared/ContextMenu'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { EntityHistoryButton } from '@/features/vault'
 import { buildEntryTree, type WorldTreeNode } from '@/lib/world-tree'
 import {
@@ -25,7 +53,6 @@ import {
   FIELD_LABEL,
   FIELD_ROW,
   FIELD_ROW_TOP,
-  ICON_BTN,
   ICON_BTN_MD,
   LIST_END,
   PAGE_TITLE,
@@ -47,16 +74,16 @@ import { notifyDataUpdated } from '@/lib/data-events'
 import type { WorldEntry } from '@/types'
 import { WorldEntryBody } from '@/features/world/components/WorldEntryBody'
 import { useWorldEntryDraft } from '@/features/world/hooks/useWorldEntryDraft'
-import { deleteEntry } from '@/features/world/services'
+import { deleteEntry, reorderEntries } from '@/features/world/services'
 import { flattenNovel, countNovelWords } from './export'
 import {
   createNovelChapter,
   listNovelEntries,
-  moveNovelEntry,
   renameNovelEntry,
   updateChapterOutline,
   updateNovelMeta,
 } from './services'
+import { computeReorder } from '@/lib/tree-order'
 import { NovelPreview } from './NovelPreview'
 import { NovelExportDialog } from './NovelExportDialog'
 
@@ -88,6 +115,8 @@ export function NovelTree({
   const [listOpen, setListOpen] = useState(true)
   const [showMobileTree, setShowMobileTree] = useState(false)
   const [metaOpen, setMetaOpen] = useState(false)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
   const scrollRef = useRef<HTMLDivElement | null>(null)
   // 同一个内链目标只定位一次；reload（保存后刷新）不应把用户拉回去
   const appliedInitialRef = useRef<string | null>(null)
@@ -220,10 +249,13 @@ export function NovelTree({
     notifyDataUpdated()
   }
 
-  const handleMoveChapter = async (id: number, direction: 'up' | 'down') => {
+  /** 拖拽落点：插到 `overId` 那一条的位置（父级跟着目标走），旧层与新层一起重排 */
+  const handleDrop = async (draggedId: number, overId: number) => {
+    const overParent = entries.find((entry) => entry.id === overId)?.parentId ?? null
+    const updates = computeReorder(entries, draggedId, overParent, overId)
+    if (updates.length === 0) return
     await flushSave()
-    const moved = await moveNovelEntry(id, direction)
-    if (!moved) return
+    await reorderEntries(updates)
     await reload()
     notifyDataUpdated()
   }
@@ -241,6 +273,14 @@ export function NovelTree({
   const handleDeleteChapter = async (id: number) => {
     await flushSave()
     await deleteEntry(id)
+    await reload()
+    notifyDataUpdated()
+  }
+
+  const handleRenameChapter = async (id: number, next: string) => {
+    if (!next.trim()) return
+    await renameNovelEntry(id, next.trim())
+    setEditingId(null)
     await reload()
     notifyDataUpdated()
   }
@@ -268,8 +308,12 @@ export function NovelTree({
       onSelect={(id) => void handleSelect(id)}
       onCreate={() => void handleCreateChapter()}
       onCreateChild={() => void handleCreateSubChapter()}
-      onMove={(id, direction) => void handleMoveChapter(id, direction)}
+      onDrop={(draggedId, overId) => void handleDrop(draggedId, overId)}
       sortable={treeQuery.trim().length === 0}
+      editingId={editingId}
+      setEditingId={setEditingId}
+      onRename={(id, next) => void handleRenameChapter(id, next)}
+      onRequestDelete={setDeleteTarget}
       metaOpen={metaOpen}
       onToggleMeta={() => setMetaOpen((open) => !open)}
       root={root}
@@ -423,6 +467,24 @@ export function NovelTree({
         entries={chapters}
         onClose={() => setExportOpen(false)}
       />
+
+      <AlertDialog open={deleteTarget !== null} onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>删除章节</AlertDialogTitle>
+            <AlertDialogDescription>移到回收站，可在 30 天内恢复。</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              if (deleteTarget !== null) {
+                void handleDeleteChapter(deleteTarget)
+                setDeleteTarget(null)
+              }
+            }}>删除</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
@@ -438,9 +500,16 @@ interface NovelTreePanelProps {
   onCreate: () => void
   /** 新建子章（挂在当前选中章下） */
   onCreateChild: () => void
-  onMove: (id: number, direction: 'up' | 'down') => void
-  /** 搜索时目录是过滤后的子集，上下移会指错兄弟，直接不给按钮 */
+  /** 拖拽结束：把 `draggedId` 插到 `overId` 的位置 */
+  onDrop: (draggedId: number, overId: number) => void
+  /** 搜索时目录是过滤后的子集，拖拽会指错兄弟，直接关掉 */
   sortable: boolean
+  /** 正在重命名的章节 */
+  editingId: number | null
+  setEditingId: (id: number | null) => void
+  onRename: (id: number, title: string) => void
+  /** 右键「删除」：交给外层弹确认 */
+  onRequestDelete: (id: number) => void
   metaOpen: boolean
   onToggleMeta: () => void
   root: WorldEntry | null
@@ -460,8 +529,12 @@ function NovelTreePanel({
   onSelect,
   onCreate,
   onCreateChild,
-  onMove,
+  onDrop,
   sortable,
+  editingId,
+  setEditingId,
+  onRename,
+  onRequestDelete,
   metaOpen,
   onToggleMeta,
   root,
@@ -470,6 +543,21 @@ function NovelTreePanel({
   onCloseMobile,
   onToggleCollapsed,
 }: NovelTreePanelProps) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    // dnd-kit 的 id 是 string | number；显式转换并校验，避免字符串 id 静默失效
+    const draggedId = Number(active.id)
+    const overId = Number(over.id)
+    if (!Number.isFinite(draggedId) || !Number.isFinite(overId)) return
+    onDrop(draggedId, overId)
+  }
+
   return (
     <div className="flex h-full flex-col bg-paper-alt max-md:pt-[var(--safe-top)]">
       <div className="flex h-12 items-center justify-between border-b border-line px-3">
@@ -521,14 +609,19 @@ function NovelTreePanel({
             </button>
           </div>
         ) : (
-          <ChapterRows
-            nodes={tree}
-            selectedId={selectedId}
-            onSelect={onSelect}
-            onMove={onMove}
-            sortable={sortable}
-            depth={0}
-          />
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <ChapterRows
+              nodes={tree}
+              selectedId={selectedId}
+              onSelect={onSelect}
+              sortable={sortable}
+              editingId={editingId}
+              setEditingId={setEditingId}
+              onRename={onRename}
+              onRequestDelete={onRequestDelete}
+              depth={0}
+            />
+          </DndContext>
         )}
       </div>
 
@@ -623,87 +716,126 @@ function NovelTreePanel({
   )
 }
 
+
 function ChapterRows({
   nodes,
   selectedId,
   onSelect,
-  onMove,
   sortable,
+  editingId,
+  setEditingId,
+  onRename,
+  onRequestDelete,
   depth,
 }: {
   nodes: WorldTreeNode[]
   selectedId: number | null
   onSelect: (id: number) => void
-  onMove: (id: number, direction: 'up' | 'down') => void
   sortable: boolean
+  editingId: number | null
+  setEditingId: (id: number | null) => void
+  onRename: (id: number, title: string) => void
+  onRequestDelete: (id: number) => void
   depth: number
 }) {
   return (
-    <ul className="flex flex-col">
-      {nodes.map((node, index) => {
-        const selected = selectedId === node.entry.id
-        return (
-          <li key={node.entry.id}>
-            <div
-              style={{ paddingLeft: `${12 + depth * 12}px` }}
-              className={`group flex h-8 w-full items-center rounded-item pr-1 transition-colors ${
-                selected ? 'bg-[var(--oc-hover)]' : 'hover:bg-[var(--oc-hover)]'
-              }`}
-            >
-              <button
-                type="button"
-                onClick={() => onSelect(node.entry.id)}
-                className={`flex min-w-0 flex-1 items-center gap-1.5 py-1 text-left text-[13px] transition-colors ${
-                  selected ? 'text-ink' : 'text-ink-muted hover:text-ink'
-                }`}
-              >
-                <BookText size={13} strokeWidth={2} className="shrink-0 text-ink-faint" />
-                <span className="truncate">{node.entry.title}</span>
-              </button>
-              {sortable ? (
-                <span
-                  className={`flex shrink-0 items-center gap-0.5 ${
-                    selected
-                      ? 'opacity-100'
-                      : 'pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100'
-                  }`}
-                >
-                  <button
-                    type="button"
-                    onClick={() => onMove(node.entry.id, 'up')}
-                    disabled={index === 0}
-                    className={`${ICON_BTN} disabled:pointer-events-none disabled:opacity-30`}
-                    aria-label="上移"
-                    title="上移"
-                  >
-                    <ChevronUp size={13} strokeWidth={2} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onMove(node.entry.id, 'down')}
-                    disabled={index === nodes.length - 1}
-                    className={`${ICON_BTN} disabled:pointer-events-none disabled:opacity-30`}
-                    aria-label="下移"
-                    title="下移"
-                  >
-                    <ChevronDown size={13} strokeWidth={2} />
-                  </button>
-                </span>
-              ) : null}
-            </div>
-            {node.children.length > 0 ? (
-              <ChapterRows
-                nodes={node.children}
-                selectedId={selectedId}
-                onSelect={onSelect}
-                onMove={onMove}
-                sortable={sortable}
-                depth={depth + 1}
-              />
-            ) : null}
-          </li>
-        )
-      })}
-    </ul>
+    // 每一层一个 SortableContext：嵌套行共用同一个 DndContext（外层），
+    // 但排序策略按「本层兄弟」计算，否则父行和它自己的子行会互相错位
+    <SortableContext
+      items={nodes.map((node) => node.entry.id)}
+      strategy={verticalListSortingStrategy}
+      disabled={!sortable}
+    >
+      <ul className="flex flex-col">
+        {nodes.map((node) => (
+          <ChapterRow
+            key={node.entry.id}
+            node={node}
+            selectedId={selectedId}
+            onSelect={onSelect}
+            sortable={sortable}
+            editingId={editingId}
+            setEditingId={setEditingId}
+            onRename={onRename}
+            onRequestDelete={onRequestDelete}
+            depth={depth}
+          />
+        ))}
+      </ul>
+    </SortableContext>
+  )
+}
+
+function ChapterRow({
+  node,
+  selectedId,
+  onSelect,
+  sortable,
+  editingId,
+  setEditingId,
+  onRename,
+  onRequestDelete,
+  depth,
+}: {
+  node: WorldTreeNode
+  selectedId: number | null
+  onSelect: (id: number) => void
+  sortable: boolean
+  editingId: number | null
+  setEditingId: (id: number | null) => void
+  onRename: (id: number, title: string) => void
+  onRequestDelete: (id: number) => void
+  depth: number
+}) {
+  const id = node.entry.id
+  const selected = selectedId === id
+  const editing = editingId === id
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id,
+    disabled: !sortable || editing,
+  })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : undefined,
+    zIndex: isDragging ? 30 : undefined,
+  }
+
+  const contextMenu: ContextMenuItem[] = [
+    { label: '重命名', onClick: () => setEditingId(id) },
+    { separator: true, label: '', onClick: () => {} },
+    { label: '删除', danger: true, onClick: () => onRequestDelete(id) },
+  ]
+
+  return (
+    <li ref={setNodeRef} style={style}>
+      <TreeRow
+        depth={depth}
+        selected={selected}
+        title={node.entry.title}
+        icon={<BookText size={12} strokeWidth={2} />}
+        onClick={() => onSelect(id)}
+        onStartRename={() => setEditingId(id)}
+        editing={editing}
+        onCommitRename={(value) => onRename(id, value)}
+        onCancelRename={() => setEditingId(null)}
+        dragHandle={sortable ? { attributes, listeners } : undefined}
+        contextMenu={contextMenu}
+      />
+      {node.children.length > 0 ? (
+        <ChapterRows
+          nodes={node.children}
+          selectedId={selectedId}
+          onSelect={onSelect}
+          sortable={sortable}
+          editingId={editingId}
+          setEditingId={setEditingId}
+          onRename={onRename}
+          onRequestDelete={onRequestDelete}
+          depth={depth + 1}
+        />
+      ) : null}
+    </li>
   )
 }

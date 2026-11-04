@@ -29,45 +29,8 @@ export function buildTree(entries: WorldEntry[]): TreeNode[] {
   return buildEntryTree(entries)
 }
 
-/** 计算一次拖拽后需要写回的顺序（旧父级与目标父级两层） */
-export function computeReorder(
-  entries: WorldEntry[],
-  draggedId: number,
-  newParentId: number | null,
-  insertBeforeId: number | null,
-): { id: number; parentId: number | null; order: number }[] {
-  const dragged = entries.find((e) => e.id === draggedId)
-  if (!dragged) return []
-  const oldParentId = dragged.parentId
-  const updates: { id: number; parentId: number | null; order: number }[] = []
-
-  if (oldParentId !== newParentId && oldParentId !== undefined) {
-    const oldSiblings = entries
-      .filter((e) => e.parentId === oldParentId && e.id !== draggedId)
-      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || a.title.localeCompare(b.title, 'zh-Hans'))
-    for (let i = 0; i < oldSiblings.length; i++) {
-      updates.push({ id: oldSiblings[i].id, parentId: oldParentId, order: i })
-    }
-  }
-
-  const newSiblings = entries
-    .filter((e) => e.parentId === newParentId && e.id !== draggedId)
-    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || a.title.localeCompare(b.title, 'zh-Hans'))
-
-  const insertIndex = insertBeforeId !== null
-    ? newSiblings.findIndex((s) => s.id === insertBeforeId)
-    : -1
-
-  const finalIndex = insertIndex >= 0 ? insertIndex : newSiblings.length
-  const reordered = [...newSiblings]
-  reordered.splice(finalIndex, 0, { ...dragged, parentId: newParentId })
-
-  for (let i = 0; i < reordered.length; i++) {
-    const existing = updates.find((u) => u.id === reordered[i].id)
-    if (!existing) {
-      updates.push({ id: reordered[i].id, parentId: newParentId, order: i })
-    }
-  }
-
-  return updates
-}
+/**
+ * 计算一次拖拽后需要写回的顺序。
+ * 实现已收口到 `lib/tree-order`（小说章节树共用），这里只做转出。
+ */
+export { computeReorder } from '@/lib/tree-order'
