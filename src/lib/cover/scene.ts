@@ -20,8 +20,12 @@ import { progressiveBlur } from './blur'
 /** 画布比例：参考实现的 4:5 */
 export const COVER_ASPECT = 4 / 5
 
-/** 照片开始淡出（照片自身高度比） */
-const PHOTO_FADE_START = 0.78
+/**
+ * 照片从自身高度的这个位置开始淡出（最后 14%）。
+ * 原来给的是 0.78（最后 22%）—— 宽图（比如 800×300 的占位图）本身就矮，
+ * 再淡 22% 会在照片底边拉出一条又宽又白的雾带，看着像没擦干净的边。
+ */
+const PHOTO_FADE_START = 0.86
 /** 参考实现按 1080 宽出图，所有 px 参数都以它为基准等比缩放 */
 const DESIGN_WIDTH = 1080
 const GRAIN_TILE = 160
