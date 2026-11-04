@@ -55,6 +55,11 @@ interface CoverCardProps {
   isMobile: boolean
   /** 手动排序模式下才挂拖拽手柄 */
   sortable?: boolean
+  /**
+   * 卡片比例（宽 / 高）覆盖。
+   * 默认用调试面板的全局值（实体卡 7:6）；小说封面是 2:3 的竖槽位，单独传。
+   */
+  aspect?: number
 }
 
 /**
@@ -83,6 +88,7 @@ export function CoverCard({
   onLongPress,
   isMobile,
   sortable = false,
+  aspect,
 }: CoverCardProps) {
   const { setNodeRef, style, attributes, listeners, longPress: longPressSort, cardAttributes, cardListeners } =
     useSortableItem(id, !sortable)
@@ -113,9 +119,9 @@ export function CoverCard({
       <button type="button" onClick={onSelect} className="block w-full text-left">
         <div
           className={COVER_FRAME}
-          style={{ containerType: 'inline-size', aspectRatio: String(tuning.aspect) }}
+          style={{ containerType: 'inline-size', aspectRatio: String(aspect ?? tuning.aspect) }}
         >
-          <CoverArt src={imageSrc} tintSrc={tintSrc} watermark={Array.from(title)[0] ?? ''} />
+          <CoverArt src={imageSrc} tintSrc={tintSrc} aspect={aspect} watermark={Array.from(title)[0] ?? ''} />
           {/*
             文字块：
             - 有头像 / 国徽时**左右布局**——圆像在左，标题在上、小字在下（角色、国家靠这块认人）

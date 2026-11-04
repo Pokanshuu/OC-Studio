@@ -31,9 +31,11 @@ interface CoverArtProps {
   tintSrc?: string
   /** 无照片时压在色块上的衬线首字 */
   watermark?: string
+  /** 卡片比例覆盖（小说封面 2:3 这类）；不传就用调试面板的全局值 */
+  aspect?: number
 }
 
-export function CoverArt({ src, tintSrc, watermark }: CoverArtProps) {
+export function CoverArt({ src, tintSrc, watermark, aspect }: CoverArtProps) {
   const hostRef = useRef<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const [active, setActive] = useState(false)
@@ -113,7 +115,7 @@ export function CoverArt({ src, tintSrc, watermark }: CoverArtProps) {
             tintMode: mono ? 'mono' : 'auto',
             monoColor,
             watermark,
-            aspect: tuning.aspect,
+            aspect: aspect ?? tuning.aspect,
             inset: tuning.inset / 100,
             photoHeight: tuning.photoHeight / 100,
             blurStart: tuning.blurStart / 100,
@@ -145,7 +147,7 @@ export function CoverArt({ src, tintSrc, watermark }: CoverArtProps) {
       if (timer !== undefined) window.clearTimeout(timer)
       resize.disconnect()
     }
-  }, [active, src, tintSrc, tuning, mono, monoColor, watermark])
+  }, [active, src, tintSrc, tuning, mono, monoColor, watermark, aspect])
 
   return (
     <div

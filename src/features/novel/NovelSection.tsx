@@ -9,18 +9,11 @@
  * - 文案节制：标题下只放事实（几章 / 多少字），不写「分章节写作、插入图片…」这类说明
  */
 import { useCallback, useEffect, useState } from 'react'
-import { BookPlus, ChevronRight } from 'lucide-react'
+import { BookPlus } from 'lucide-react'
 import { toast } from 'sonner'
 import type { WorldEntry } from '@/types'
-import {
-  BTN_PRIMARY,
-  BTN_QUIET,
-  CENTER_STATE,
-  LIST_GRID,
-  LOADING_TEXT,
-  MEDIA_IMG,
-  ROUND_ITEM,
-} from '@/lib/ui-tokens'
+import { BTN_PRIMARY, BTN_QUIET, CENTER_STATE, LIST_GRID, LOADING_TEXT } from '@/lib/ui-tokens'
+import { CoverCard } from '@/components/shared/cover/CoverCard'
 import { PageToolbar } from '@/components/shared/PageToolbar'
 import { ListEmptyState } from '@/components/shared/ListEmptyState'
 import { resolveImageUrl } from '@/lib/image-service'
@@ -225,36 +218,20 @@ export function NovelSection({
         ) : (
           <div className={LIST_GRID}>
             {books.map((book) => (
-              <button
+              <CoverCard
                 key={book.id}
-                type="button"
-                onClick={() => {
+                id={book.id}
+                title={book.title}
+                meta={`${book.chapters} 章 · ${book.words} 字`}
+                imageSrc={book.cover ? resolveImageUrl(book.cover, 'cover') : undefined}
+                // 书籍封面是 2:3 的竖槽位，不跟实体卡的 7:6 走
+                aspect={2 / 3}
+                onSelect={() => {
                   setFocusedEntry(null)
                   setActiveId(book.id)
                 }}
-                className={`group flex flex-col overflow-hidden bg-paper-card text-left transition-colors hover:bg-[var(--oc-hover)] active:bg-[var(--oc-hover)] ${ROUND_ITEM}`}
-              >
-                {/* 封面槽位：书籍经典 2:3 */}
-                <div className="relative aspect-[2/3] w-full overflow-hidden bg-paper-alt">
-                  {book.cover ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={resolveImageUrl(book.cover, 'cover')} alt="" className={MEDIA_IMG} />
-                  ) : (
-                    <div className="absolute inset-0 grid place-items-center">
-                      <span className="font-serif text-3xl text-ink-faint">{book.title.slice(0, 1)}</span>
-                    </div>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 px-2.5 py-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm text-ink">{book.title}</div>
-                    <div className="text-[12px] text-ink-faint">
-                      {book.chapters} 章 · {book.words} 字
-                    </div>
-                  </div>
-                  <ChevronRight size={14} strokeWidth={2} className="shrink-0 text-ink-faint" />
-                </div>
-              </button>
+                isMobile={false}
+              />
             ))}
           </div>
         )}
