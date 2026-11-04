@@ -70,9 +70,9 @@ export function normalizeTintMode(value: unknown): CoverTintMode {
 /**
  * 默认值 = 2026-11-04 定稿的参数，起点仍是参考实现 Simple_Cover。
  *
- * 比例 **7:6**（≈1.17）：头图基本都是横向的，卡片就按接近原图的比例来，**左右不裁**
- * —— 见 `scene.ts` 的 `photoPlateHeight`：照片只按宽度铺满，横图自己就矮，
- * 下面那段正好留给色块与文字。照片高度上限给到 100%，所以常见横图一点不裁。
+ * 比例 **7:6**（≈1.17）：头图基本都是横向的，卡片就按接近原图的比例来。
+ * 照片**只按宽度铺满**（`scene.ts` 的 `photoPlateHeight`），左右永远不裁；
+ * 高度统一压到 70% —— 比上限高的图只裁上下，每张卡的照片底边因此对齐。
  * 其余差别：混色更早开始（51%）也更晚收完（88%）、颗粒更重（57%）、
  * 字号更克制（标题上限 24px）。
  */
@@ -95,7 +95,7 @@ export const COVER_TUNING_DEFAULTS: CoverTuning = {
 }
 
 /** 参数结构的版本：改默认值时 +1，老的面板数据直接作废（否则用户永远看不到新默认值） */
-const COVER_TUNING_VERSION = 3
+const COVER_TUNING_VERSION = 5
 
 /** 滑杆的范围、步长与名字 —— 面板据此生成控件，`sanitize` 据此夹取 */
 export type CoverSliderKey = Exclude<keyof CoverTuning, 'aspect'>

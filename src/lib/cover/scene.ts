@@ -249,10 +249,16 @@ export function paintPhoto(
   if (image.readable) {
     // 起点换算到照片自己的行号（参数是画布比例，不是照片比例）
     const startRatio = (options.blurStart * height - plateY) / plateH
-    const startRow = Math.round(Math.min(1, Math.max(0, startRatio)) * photoHeight)
+    const blurStartRow = Math.round(Math.min(1, Math.max(0, startRatio)) * photoHeight)
+    // 淡出是照片自己的事（照片高度的 78% 起），跟模糊起点无关。
+    // 照片比模糊起点还矮时（很宽的图），起点落在照片外面 —— 这时候如果整段跳过，
+    // 照片就会一刀切在色块上：所以从「模糊起点」和「淡出起点」里更靠上的那个开始算。
+    const fadeRow = Math.round(PHOTO_FADE_START * photoHeight)
+    const startRow = Math.max(0, Math.min(blurStartRow, fadeRow))
     const radius = options.blur * (width / DESIGN_WIDTH)
 
-    if (radius > 0 && startRow < photoHeight) {
+    // 半径可以是 0（滑杆拉到最左），淡出仍然要跑 —— 否则又是硬边
+    if (startRow < photoHeight) {
       try {
         const rows = photoHeight - startRow
         const slice = plateCtx.getImageData(0, startRow, photoWidth, rows)

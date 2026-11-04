@@ -170,8 +170,8 @@ export const COVER_TITLE =
   'line-clamp-2 font-serif font-semibold leading-[1.14] tracking-[0.012em] text-paper-fixed [overflow-wrap:anywhere]'
 export const COVER_INTRO =
   'mt-[0.8em] line-clamp-2 leading-[1.7] tracking-[0.035em] text-paper-fixed/80'
-export const COVER_META =
-  'mt-2.5 truncate border-t border-paper-fixed/20 pt-2 tracking-[0.12em] text-paper-fixed/60'
+/** 标题下面那行小字（国籍 / 时间）：和标题同一个「左右布局」里，标题右下方 */
+export const COVER_SUBTITLE = 'mt-0.5 truncate leading-[1.4] tracking-[0.12em] text-paper-fixed/60'
 
 /*
  * 黑白模式：块色跟着主题走（亮色主题是纸色、暗色主题才是墨色），
@@ -181,8 +181,7 @@ export const COVER_TITLE_MONO =
   'line-clamp-2 font-serif font-semibold leading-[1.14] tracking-[0.012em] text-ink [overflow-wrap:anywhere]'
 export const COVER_INTRO_MONO =
   'mt-[0.8em] line-clamp-2 leading-[1.7] tracking-[0.035em] text-ink-muted'
-export const COVER_META_MONO =
-  'mt-2.5 truncate border-t border-line pt-2 tracking-[0.12em] text-ink-faint'
+export const COVER_SUBTITLE_MONO = 'mt-0.5 truncate leading-[1.4] tracking-[0.12em] text-ink-faint'
 
 /* ── 素材卡片（列表卡片 / 画廊格子的图区） ───────────── */
 /** 图区外框：固定比例 + 卡片底色（图加载前就是这块底色） */

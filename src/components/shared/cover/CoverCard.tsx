@@ -21,8 +21,8 @@ import {
   COVER_FRAME,
   COVER_INTRO,
   COVER_INTRO_MONO,
-  COVER_META,
-  COVER_META_MONO,
+  COVER_SUBTITLE,
+  COVER_SUBTITLE_MONO,
   COVER_TEXT,
   COVER_TITLE,
   COVER_TITLE_MONO,
@@ -116,6 +116,12 @@ export function CoverCard({
           style={{ containerType: 'inline-size', aspectRatio: String(tuning.aspect) }}
         >
           <CoverArt src={imageSrc} tintSrc={tintSrc} watermark={Array.from(title)[0] ?? ''} />
+          {/*
+            文字块：
+            - 有头像 / 国徽时**左右布局**——圆像在左，标题在上、小字在下（角色、国家靠这块认人）
+            - 没有头像就不占位，标题直接顶到左边
+            - 没有简介 / 小字就不渲染，不预留空行（宁可标题低一点，也不要空一块）
+          */}
           <div
             className={COVER_TEXT}
             style={{
@@ -124,23 +130,30 @@ export function CoverCard({
               right: `${tuning.textRight}%`,
             }}
           >
-            {emblem ? <div className="mb-2 flex items-center gap-2">{emblem}</div> : null}
-            <h3
-              className={mono ? COVER_TITLE_MONO : COVER_TITLE}
-              style={titleFontSize(title, tuning.titleScale, tuning.titleMax)}
-            >
-              {marker ? <span className="mr-1.5 shrink-0">{marker}</span> : null}
-              {title}
-            </h3>
+            <div className="flex items-start gap-2.5">
+              {emblem ? <div className="flex h-10 w-10 shrink-0 items-center justify-center">{emblem}</div> : null}
+              <div className="min-w-0 flex-1">
+                <h3
+                  className={mono ? COVER_TITLE_MONO : COVER_TITLE}
+                  style={titleFontSize(title, tuning.titleScale, tuning.titleMax)}
+                >
+                  {marker ? <span className="mr-1.5 shrink-0">{marker}</span> : null}
+                  {title}
+                </h3>
+                {meta ? (
+                  <span
+                    className={mono ? COVER_SUBTITLE_MONO : COVER_SUBTITLE}
+                    style={{ fontSize: `${tuning.metaSize}px` }}
+                  >
+                    {meta}
+                  </span>
+                ) : null}
+              </div>
+            </div>
             {intro ? (
               <p className={mono ? COVER_INTRO_MONO : COVER_INTRO} style={{ fontSize: `${tuning.introSize}px` }}>
                 {intro}
               </p>
-            ) : null}
-            {meta ? (
-              <span className={mono ? COVER_META_MONO : COVER_META} style={{ fontSize: `${tuning.metaSize}px` }}>
-                {meta}
-              </span>
             ) : null}
           </div>
         </div>
