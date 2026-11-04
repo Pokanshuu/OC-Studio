@@ -136,7 +136,9 @@ export function CoverCard({
               right: `${tuning.textRight}%`,
             }}
           >
-            <div className="flex items-start gap-2.5">
+            {/* 头像与「标题 + 小字」按**视觉居中**对齐：不贴顶（items-center），
+                这样两行标题时头像也不会孤零零挂在上面 */}
+            <div className="flex items-center gap-2.5">
               {emblem ? <div className="flex h-10 w-10 shrink-0 items-center justify-center">{emblem}</div> : null}
               <div className="min-w-0 flex-1">
                 <h3
