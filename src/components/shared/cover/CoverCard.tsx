@@ -13,7 +13,7 @@
  * 卡片本身就是个 `<button>`，嵌进去会变成非法 HTML。
  */
 
-import type { CSSProperties, ReactNode } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { DragHandle, useSortableItem } from '@/components/shared/list-dnd'
 import { useLongPress } from '@/lib/useLongPress'
 import { useCoverTuning } from '@/lib/cover'
@@ -101,6 +101,43 @@ export function CoverCard({
   // 黑白模式下块色跟主题走（亮 = 纸色、暗 = 墨色），文字也得跟着翻
   const mono = useSettings().settings.coverTintMode === 'mono'
 
+  /*
+   * 规范：**模糊从标题开始，混色从小字开始**。
+   * 这两处不能写死成「卡片高度的百分之几」—— 标题的字号跟字数、有没有小字都会变。
+   * 所以量一次真实位置：标题顶边 / 小字顶边（没有小字就取标题底边），换算成卡片高度比。
+   */
+  const frameRef = useRef<HTMLDivElement | null>(null)
+  const titleRef = useRef<HTMLHeadingElement | null>(null)
+  const subtitleRef = useRef<HTMLSpanElement | null>(null)
+  const [anchors, setAnchors] = useState<{ blurStart: number; mixStart: number } | null>(null)
+
+  useEffect(() => {
+    const frame = frameRef.current
+    if (!frame) return
+
+    const measure = (): void => {
+      const rect = frame.getBoundingClientRect()
+      const titleRect = titleRef.current?.getBoundingClientRect()
+      if (rect.height <= 0 || !titleRect) return
+      const subtitleRect = subtitleRef.current?.getBoundingClientRect()
+      const ratio = (y: number): number => Math.min(1, Math.max(0, (y - rect.top) / rect.height))
+      const next = {
+        blurStart: ratio(titleRect.top),
+        mixStart: ratio(subtitleRect?.top ?? titleRect.bottom),
+      }
+      setAnchors((prev) =>
+        prev && Math.abs(prev.blurStart - next.blurStart) < 0.001 && Math.abs(prev.mixStart - next.mixStart) < 0.001
+          ? prev
+          : next,
+      )
+    }
+
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(frame)
+    return () => observer.disconnect()
+  }, [title, meta, intro, tuning, aspect])
+
   return (
     <div
       ref={setNodeRef}
@@ -118,10 +155,18 @@ export function CoverCard({
 
       <button type="button" onClick={onSelect} className="block w-full text-left">
         <div
+          ref={frameRef}
           className={COVER_FRAME}
           style={{ containerType: 'inline-size', aspectRatio: String(aspect ?? tuning.aspect) }}
         >
-          <CoverArt src={imageSrc} tintSrc={tintSrc} aspect={aspect} watermark={Array.from(title)[0] ?? ''} />
+          <CoverArt
+            src={imageSrc}
+            tintSrc={tintSrc}
+            aspect={aspect}
+            blurStart={anchors?.blurStart}
+            mixStart={anchors?.mixStart}
+            watermark={Array.from(title)[0] ?? ''}
+          />
           {/*
             文字块：
             - 有头像 / 国徽时**左右布局**——圆像在左，标题在上、小字在下（角色、国家靠这块认人）
@@ -142,6 +187,7 @@ export function CoverCard({
               {emblem ? <div className="flex h-10 w-10 shrink-0 items-center justify-center">{emblem}</div> : null}
               <div className="min-w-0 flex-1">
                 <h3
+                  ref={titleRef}
                   className={mono ? COVER_TITLE_MONO : COVER_TITLE}
                   style={titleFontSize(title, tuning.titleScale, tuning.titleMax)}
                 >
@@ -150,6 +196,7 @@ export function CoverCard({
                 </h3>
                 {meta ? (
                   <span
+                    ref={subtitleRef}
                     className={mono ? COVER_SUBTITLE_MONO : COVER_SUBTITLE}
                     style={{ fontSize: `${tuning.metaSize}px` }}
                   >

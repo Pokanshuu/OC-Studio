@@ -88,7 +88,7 @@ export interface CoverRenderOptions {
 const DEFAULT_BLUR_START = 0.48
 const DEFAULT_BLUR = 42
 const DEFAULT_MIX_START = 0.54
-const DEFAULT_MIX_POINT = 0.73
+const DEFAULT_MIX_POINT = 1
 const DEFAULT_GRAIN = 0.28
 const DEFAULT_PHOTO_HEIGHT = 0.66
 const DEFAULT_MAX_PIXEL_WIDTH = 760

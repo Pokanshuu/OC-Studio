@@ -18,14 +18,8 @@ export interface CoverTuning {
   inset: number
   /** 照片高度上限：画布高 %（照片按宽度铺满后的自然高度超了才裁上下） */
   photoHeight: number
-  /** 模糊起点：画布高 % */
-  blurStart: number
   /** 模糊强度：1080 宽下的 px */
   blur: number
-  /** 混色起点：画布高 % */
-  mixStart: number
-  /** 混色完成：画布高 % */
-  mixPoint: number
   /** 颗粒 0–100 */
   grain: number
   /** 文字块底边距：画布高 % */
@@ -71,19 +65,16 @@ export function normalizeTintMode(value: unknown): CoverTintMode {
  * 默认值 = 2026-11-04 定稿的参数，起点仍是参考实现 Simple_Cover。
  *
  * 比例 **7:6**（≈1.17）：头图基本都是横向的，卡片就按接近原图的比例来。
- * 照片**只按宽度铺满**（`scene.ts` 的 `photoPlateHeight`），左右永远不裁；
- * 高度统一压到 70% —— 比上限高的图只裁上下，每张卡的照片底边因此对齐。
- * 其余差别：混色更早开始（51%）也更晚收完（88%）、颗粒更重（57%）、
- * 字号更克制（标题上限 24px）。
+ * 照片**只按宽度铺满**（`scene.ts` 的 `photoPlateHeight`），左右永远不裁。
+ *
+ * 模糊起点 / 混色起点**不在这里**：规范是「模糊从标题开始、混色从小字开始」，
+ * 由 `CoverCard` 量出标题与小字的真实位置再交给画布（见 `docs/封面卡.md` §1）。
  */
 export const COVER_TUNING_DEFAULTS: CoverTuning = {
   aspect: 7 / 6,
   inset: 0,
   photoHeight: 100,
-  blurStart: 47,
   blur: 30,
-  mixStart: 51,
-  mixPoint: 88,
   grain: 57,
   textBottom: 5,
   textLeft: 6.5,
@@ -95,7 +86,7 @@ export const COVER_TUNING_DEFAULTS: CoverTuning = {
 }
 
 /** 参数结构的版本：改默认值时 +1，老的面板数据直接作废（否则用户永远看不到新默认值） */
-const COVER_TUNING_VERSION = 5
+const COVER_TUNING_VERSION = 6
 
 /** 滑杆的范围、步长与名字 —— 面板据此生成控件，`sanitize` 据此夹取 */
 export type CoverSliderKey = Exclude<keyof CoverTuning, 'aspect'>
@@ -103,10 +94,7 @@ export type CoverSliderKey = Exclude<keyof CoverTuning, 'aspect'>
 export const COVER_TUNING_RANGES: Record<CoverSliderKey, CoverTuningRange> = {
   inset: { label: '照片留边', min: 0, max: 12, step: 0.5, unit: '%' },
   photoHeight: { label: '照片高度上限', min: 40, max: 100, step: 1, unit: '%' },
-  blurStart: { label: '模糊起点', min: 10, max: 85, step: 1, unit: '%' },
   blur: { label: '模糊强度', min: 0, max: 80, step: 1, unit: 'px' },
-  mixStart: { label: '混色起点', min: 20, max: 90, step: 1, unit: '%' },
-  mixPoint: { label: '混色完成', min: 40, max: 98, step: 1, unit: '%' },
   grain: { label: '颗粒', min: 0, max: 100, step: 1, unit: '%' },
   textBottom: { label: '文字底边距', min: 0, max: 40, step: 0.5, unit: '%' },
   textLeft: { label: '文字左边距', min: 0, max: 20, step: 0.5, unit: '%' },
