@@ -210,8 +210,13 @@ export const FILTER_TRIGGER =
 
 /* ── 拖拽排序 ─────────────────────────────────────────
    手柄位置只有两种：卡片压在图左上角、列表行在左侧留白里。
-   位置定在这里，卡片 / 行只管渲染 DragHandle。 */
-export const DRAG_SLOT_CARD = 'absolute left-2 top-2 z-10'
+   位置定在这里，卡片 / 行只管渲染 DragHandle。
+   卡片上的手柄默认隐身、悬停（或键盘聚焦）才出现 —— 它不承载信息，
+   只是起拖的抓手；常显会在每张图的左上角一直压一个黑圆点。
+   移动端整块不渲染：那里靠长按起拖（`SortableList activation="longPress"`），
+   一个 44px 的隐形命中区反而容易误触。 */
+export const DRAG_SLOT_CARD =
+  'absolute left-2 top-2 z-10 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-md:hidden'
 export const DRAG_SLOT_ROW = 'absolute left-2 top-1/2 -translate-y-1/2'
 
 /* ── 关系图节点 ──────────────────────────────────────── */
