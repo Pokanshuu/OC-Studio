@@ -67,24 +67,34 @@ export function normalizeTintMode(value: unknown): CoverTintMode {
   return 'auto'
 }
 
-/** 默认值 = 参考实现（Simple_Cover）的参数，卡片比例按网格调整为 4:5 */
+/**
+ * 默认值 = 2026-11-04 定稿的参数（在面板里调出来的），起点仍是参考实现 Simple_Cover。
+ *
+ * 比例是 **1:1**：头图都是横向的（3:2），卡片比它高一截、但**仍然不竖**
+ * —— 竖起来会把横图裁掉大半，也不像封面。
+ * 其余差别：照片几乎占满整张卡（95%）、混色更早开始（51%）也更晚收完（88%）、
+ * 颗粒更重（57%）、字号更克制（标题上限 24px）。
+ */
 export const COVER_TUNING_DEFAULTS: CoverTuning = {
-  aspect: 0.8,
+  aspect: 1,
   inset: 0,
-  photoHeight: 66,
-  blurStart: 48,
-  blur: 42,
-  mixStart: 54,
-  mixPoint: 73,
-  grain: 28,
-  textBottom: 6.5,
+  photoHeight: 95,
+  blurStart: 47,
+  blur: 30,
+  mixStart: 51,
+  mixPoint: 88,
+  grain: 57,
+  textBottom: 5,
   textLeft: 6.5,
   textRight: 6.5,
-  titleScale: 8.6,
-  titleMax: 28,
+  titleScale: 8,
+  titleMax: 24,
   introSize: 12,
   metaSize: 10,
 }
+
+/** 参数结构的版本：改默认值时 +1，老的面板数据直接作废（否则用户永远看不到新默认值） */
+const COVER_TUNING_VERSION = 2
 
 /** 滑杆的范围、步长与名字 —— 面板据此生成控件，`sanitize` 据此夹取 */
 export type CoverSliderKey = Exclude<keyof CoverTuning, 'aspect'>
@@ -145,7 +155,11 @@ function ensureLoaded(): void {
   loaded = true
   try {
     const stored = window.localStorage.getItem(STORAGE_KEY)
-    if (stored) tuning = sanitizeCoverTuning(JSON.parse(stored))
+    if (stored) {
+      const parsed = JSON.parse(stored) as { version?: number } & Record<string, unknown>
+      // 老版本的面板数据作废：默认值改过一次，留着它用户就永远看不到定稿的版式
+      if (parsed.version === COVER_TUNING_VERSION) tuning = sanitizeCoverTuning(parsed)
+    }
     panelOpen = window.localStorage.getItem(PANEL_KEY) === '1'
   } catch {
     // 存的是坏数据就用默认值，不要因此打不开列表
@@ -159,7 +173,10 @@ function emit(): void {
 function persist(): void {
   if (typeof window === 'undefined') return
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(tuning))
+    window.localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ version: COVER_TUNING_VERSION, ...tuning }),
+    )
     window.localStorage.setItem(PANEL_KEY, panelOpen ? '1' : '0')
   } catch {
     // 隐私模式写不进去：参数只在本次会话生效
