@@ -79,14 +79,14 @@ export const COVER_TUNING_DEFAULTS: CoverTuning = {
   textBottom: 5,
   textLeft: 6.5,
   textRight: 6.5,
-  titleScale: 8,
-  titleMax: 24,
-  introSize: 12,
-  metaSize: 10,
+  titleScale: 7,
+  titleMax: 18,
+  introSize: 11,
+  metaSize: 12,
 }
 
 /** 参数结构的版本：改默认值时 +1，老的面板数据直接作废（否则用户永远看不到新默认值） */
-const COVER_TUNING_VERSION = 6
+const COVER_TUNING_VERSION = 7
 
 /** 滑杆的范围、步长与名字 —— 面板据此生成控件，`sanitize` 据此夹取 */
 export type CoverSliderKey = Exclude<keyof CoverTuning, 'aspect'>
