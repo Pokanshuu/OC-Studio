@@ -16,9 +16,10 @@ import type { EventFormData } from '@/features/events/types'
 import type { WorldEntry } from '@/types'
 import { toast } from 'sonner'
 import { db } from '@/lib/db'
-import { isMapEntry, isNovelEntry } from '@/lib/entry-kinds'
+import { isMapEntry, isNovelEntry, isToolItem } from '@/lib/entry-kinds'
 import { isCategoryItem, categoryItemName } from '@/lib/categories/types'
 import { getCategories, loadCategories } from '@/lib/categories/store'
+import { newCharacterData, newCountryData, newEventData } from '@/lib/entity-defaults'
 
 export type EventView = { sub: 'list' } | { sub: 'editor'; eventId: number }
 export type CharacterView = { sub: 'list' } | { sub: 'editor'; characterId: number }
@@ -221,15 +222,7 @@ export function useEntityWorkspace() {  const { activeItem: desktopActiveItem, s
   const handleCreateEvent = useCallback(() => {
     if (creating) return
     const doCreate = () => {
-      createEvent({
-        title: '新事件',
-        time: '',
-        location: '',
-        summary: '',
-        isMajor: false,
-        content: '',
-        tags: [],
-      }).then((id) => {
+      createEvent(newEventData()).then((id) => {
         rememberCrossBack()
         setEventView({ sub: 'editor', eventId: id })
         setActiveItem('事件')
@@ -342,24 +335,7 @@ export function useEntityWorkspace() {  const { activeItem: desktopActiveItem, s
   const handleCreateCharacter = useCallback(() => {
     if (creatingChar) return
     const doCreate = () => {
-      createCharacter({
-        name: '新角色',
-        aliases: [],
-        race: '',
-        element: '',
-        occupation: '',
-        faction: '',
-        nationalityLegacy: '',
-        height: '',
-        birthday: '',
-        avatarUrl: '',
-        bio: '',
-        lifeStory: '',
-        relatedCharacters: [],
-        gallery: [],
-        avatars: [],
-        tags: [],
-      }).then((id) => {
+      createCharacter(newCharacterData()).then((id) => {
         rememberCrossBack()
         setCharacterView({ sub: 'editor', characterId: id })
         setActiveItem('角色')
@@ -403,15 +379,7 @@ export function useEntityWorkspace() {  const { activeItem: desktopActiveItem, s
   const handleCreateCountry = useCallback(() => {
     if (creatingCountry) return
     const doCreate = () => {
-      createCountry({
-        name: '新国家',
-        parentId: null,
-        description: '',
-        system: '',
-        geography: '',
-        culture: '',
-        tags: [],
-      }).then((id) => {
+      createCountry(newCountryData()).then((id) => {
         rememberCrossBack()
         setCountryView({ sub: 'editor', countryId: id })
         setActiveItem('国家')
@@ -652,7 +620,22 @@ export function useEntityWorkspace() {  const { activeItem: desktopActiveItem, s
   const showMap = activeItem === '地图'
   const showRelations = activeItem === '关系图'
   const showAlbum = activeItem === '相册'
-  const showPlaceholder = activeItem !== null && !showEvents && !showCharacters && !showCountries && !showWorld && !showTimeline && !showRelations && !showAlbum && !showNovel && !showTreeTable && !showMap && !isCategoryItem(activeItem)
+  // 工具页（工具:<插件 id>）**不算占位**：它有自己的面板，漏掉这一项就会把
+// 「功能开发中...」盖在插件界面上（地图生成器的预览区就是这么被挡住的）。
+  const showPlaceholder =
+    activeItem !== null &&
+    !showEvents &&
+    !showCharacters &&
+    !showCountries &&
+    !showWorld &&
+    !showTimeline &&
+    !showRelations &&
+    !showAlbum &&
+    !showNovel &&
+    !showTreeTable &&
+    !showMap &&
+    !isCategoryItem(activeItem) &&
+    !isToolItem(activeItem)
   const placeholderText = activeItem !== null
     ? (PLACEHOLDER_MAP[activeItem] ?? '功能开发中...')
     : null

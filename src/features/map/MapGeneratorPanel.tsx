@@ -13,6 +13,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Dices, ImageDown, Save } from 'lucide-react'
 import {
+  BIOME_COLORS,
+  BIOME_NAMES,
   DEFAULT_MAP_PARAMS,
   MAP_VIEW_LABELS,
   REGION_MAP_SIZE,
@@ -442,6 +444,44 @@ export function MapGeneratorPanel({
           />
         </div>
 
+        {meta ? (
+          <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[11px] tabular-nums text-ink-faint">
+            <span>
+              陆地 <span className="text-ink">{(meta.stats.landRatio * 100).toFixed(1)}%</span>
+            </span>
+            <span>
+              最高峰 <span className="text-ink">{Math.round(meta.stats.maxElevation).toLocaleString('zh-CN')} m</span>
+            </span>
+            <span>
+              河流格 <span className="text-ink">{meta.stats.riverCells.toLocaleString('zh-CN')}</span>
+            </span>
+            <span>
+              湖泊 <span className="text-ink">{meta.stats.lakeCount}</span>
+            </span>
+            <span>
+              生物群系 <span className="text-ink">{meta.stats.biomeCount}</span>
+            </span>
+            <span>
+              平均降水 <span className="text-ink">{Math.round(meta.stats.meanPrecipitation)} mm</span>
+            </span>
+          </div>
+        ) : null}
+
+        {view === 'biome' ? (
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ink-faint">
+            {BIOME_NAMES.map((name, id) =>
+              name ? (
+                <span key={name} className="flex items-center gap-1">
+                  <span
+                    className="h-2 w-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: BIOME_COLORS[id] ?? 'transparent' }}
+                  />
+                  {name}
+                </span>
+              ) : null,
+            )}
+          </div>
+        ) : null}
         <div className="mt-2 flex min-h-5 items-center gap-2">
           {progress ? (
             <>
