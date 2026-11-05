@@ -30,6 +30,7 @@ import {
 import { DragHandle, SortableList, moveId, useSortableItem } from '@/components/shared/list-dnd'
 import type { FieldKind } from '@/lib/fields'
 import type { InfoGroupHost } from '@/lib/templates/info-groups'
+import { SettingsFieldRow } from './FieldRow'
 import {
   createInfoGroup,
   deleteInfoGroup,
@@ -67,57 +68,6 @@ function nextGroupName(groups: readonly InfoGroup[]): string {
     counter += 1
   }
   return name
-}
-
-/** 一行字段：手柄 + 键名（可直接改）+ 删除。与「模板 › 组件行」同一套 */
-function GroupFieldRow({
-  fieldKey,
-  onRename,
-  onRemove,
-}: {
-  fieldKey: string
-  onRename: (next: string) => void
-  onRemove: () => void
-}) {
-  const [draft, setDraft] = useState(fieldKey)
-  const { setNodeRef, style, attributes, listeners } = useSortableItem(fieldKey, false)
-
-  const commit = (): void => {
-    const next = draft.trim()
-    if (next === '' || next === fieldKey) {
-      setDraft(fieldKey)
-      return
-    }
-    onRename(next)
-  }
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className="flex items-center gap-1 border-b border-line py-1 last:border-b-0"
-    >
-      <DragHandle handleProps={{ attributes, listeners }} />
-      <input
-        value={draft}
-        onChange={(event) => setDraft(event.target.value)}
-        onBlur={commit}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter') event.currentTarget.blur()
-          if (event.key === 'Escape') setDraft(fieldKey)
-        }}
-        className="min-w-0 flex-1 bg-transparent text-[13px] text-ink focus:outline-none"
-      />
-      <button
-        type="button"
-        onClick={onRemove}
-        aria-label={`删除字段「${fieldKey}」`}
-        className={`${ICON_BTN} hover:text-error`}
-      >
-        <X size={14} strokeWidth={2} />
-      </button>
-    </div>
-  )
 }
 
 /** 一个基本信息组件的字段表（键 = frontmatter 同名键，值落 WorldEntry.custom） */
@@ -160,9 +110,10 @@ function GroupFieldsSettings({ group }: { group: InfoGroup }) {
       <SortableList ids={keys} onReorder={reorder} layout="list">
         <div className="flex flex-col">
           {keys.map((key, index) => (
-            <GroupFieldRow
+            <SettingsFieldRow
               key={key}
-              fieldKey={key}
+              id={key}
+              value={key}
               onRename={(next) => rename(index, next)}
               onRemove={() => commit(keys.filter((_, i) => i !== index))}
             />

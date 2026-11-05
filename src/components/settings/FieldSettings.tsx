@@ -17,61 +17,11 @@ import {
 } from '@/lib/fields'
 import { defaultFields } from '@/lib/fields/defaults'
 import { ICON_BTN, ROUND_ITEM } from '@/lib/ui-tokens'
-import { DragHandle, SortableList, moveId, useSortableItem } from '@/components/shared/list-dnd'
+import { SortableList, moveId } from '@/components/shared/list-dnd'
+import { SettingsFieldRow } from './FieldRow'
 
-/** 一行：拖左侧手柄排序、显示名可直接改（Enter / 失焦生效）、删除 */
-function FieldRow({
-  field,
-  onRename,
-  onRemove,
-}: {
-  field: FieldDef
-  onRename: (label: string) => void
-  onRemove: () => void
-}) {
-  const [label, setLabel] = useState(field.label)
-  const { setNodeRef, style, attributes, listeners } = useSortableItem(field.id, false)
-
-  const commit = () => {
-    const next = label.trim()
-    if (next === '' || next === field.label) {
-      setLabel(field.label)
-      return
-    }
-    onRename(next)
-  }
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className="flex items-center gap-1 border-b border-line py-1 last:border-b-0"
-    >
-      <DragHandle handleProps={{ attributes, listeners }} />
-      <input
-        value={label}
-        onChange={(e) => setLabel(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') e.currentTarget.blur()
-          if (e.key === 'Escape') setLabel(field.label)
-        }}
-        className="min-w-0 flex-1 bg-transparent text-[13px] text-ink focus:outline-none"
-      />
-      {isCustomField(field) ? (
-        <span className="shrink-0 text-[11px] text-ink-faint">自建</span>
-      ) : null}
-      <button
-        type="button"
-        onClick={onRemove}
-        aria-label={`删除字段「${field.label}」`}
-        className={`${ICON_BTN} hover:text-error`}
-      >
-        <X size={14} strokeWidth={2} />
-      </button>
-    </div>
-  )
-}
+/** 行实现统一在 `FieldRow.tsx`（列型 / 组件型共用一套语法） */
+const FieldRow = SettingsFieldRow
 
 function FieldGroup({ kind, showTitle = true }: { kind: FieldKind; showTitle?: boolean }) {
   const fields = useFieldConfig()[kind]
@@ -158,9 +108,11 @@ function FieldGroup({ kind, showTitle = true }: { kind: FieldKind; showTitle?: b
       >
         <div className="flex flex-col">
           {fields.map((field, index) => (
-            <FieldRow
+            <SettingsFieldRow
               key={field.id}
-              field={field}
+              id={field.id}
+              value={field.label}
+              badge={isCustomField(field) ? '自建' : undefined}
               onRename={(label) => rename(index, label)}
               onRemove={() => remove(index)}
             />
