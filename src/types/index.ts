@@ -137,13 +137,13 @@ export interface Country {
   flagUrl?: string
   headerUrl?: string
   /**
-   * **历史字段（已退役，阶段二·一）**：以前成员关系存两份，国家侧这份是镜像。
-   * 现在唯一真源是 `Character.countryId` / `Event.countries`；国家页的名单是查询结果
-   * （`features/countries/services.ts#listCountryCharacters` / `listCountryEvents`）。
-   * 这两个值只在扫描时读回来保真，任何界面路径都不该依赖它们。
+   * 阶段二·一收尾：国家侧的成员名单 `characters` / `events` **已从类型里摘掉**。
+   *
+   * 以前成员关系存两份，国家侧这份是镜像；现在唯一真源是 `Character.countryId` /
+   * `Event.countries`，国家页的名单是查询结果（`features/countries/services.ts#listCountryCharacters`
+   * / `listCountryEvents`）。盘上遗留的 `国家成员:` / `相关角色:` 键**不读、不写、不删**，
+   * 只是不再有字段接住它们 —— 留着字段就会有人再去读它。
    */
-  characters: number[]
-  events: number[]
   tags: number[]
   /** 手动排序位置（升序；缺省 = 排在已有项之后） */
   order?: number

@@ -70,8 +70,6 @@ const countries: Country[] = [
     system: '君主制',
     geography: '雪山与峡湾',
     culture: '尚武',
-    characters: [1],
-    events: [1],
     tags: [2],
     createdAt: 1,
     updatedAt: 1,
@@ -440,8 +438,8 @@ if (country === undefined) {
 } else {
   eq('国家 · 制度/地理/文化', [country.system, country.geography, country.culture], ['君主制', '雪山与峡湾', '尚武'])
   eq('国家 · 描述', country.description, '雪原上的王国')
-  // 阶段二·一：国家侧的成员名单已退役 —— 盘上就算有也不读回来（真源在实体侧）
-  eq('国家 · 成员名单不再读回', [country.characters, country.events], [[], []])
+  // 阶段二·一收尾：国家侧的成员名单字段**已从类型里摘掉**（盘上遗留的键不读不写不删）。
+  eq('国家 · 字段上不再有成员名单', 'characters' in country || 'events' in country, false)
 }
 
 const tagged = applyTagMeta(scan.dataset.tags.map((item) => item.entity), tagMeta)

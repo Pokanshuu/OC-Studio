@@ -423,9 +423,8 @@ export function scanVault(options: ScanOptions): VaultScanResult {
         flagUrl: readString(fm, COUNTRY_KEYS.flag) || undefined,
         headerUrl: readString(fm, COUNTRY_KEYS.header) || undefined,
         // 成员名单不读了（阶段二·一）：真源是角色的 `countryId` 与事件的 `countries`，
-        // 国家页的两个列表由查询得出。盘上遗留的键原样留着，不读也不删。
-        characters: [],
-        events: [],
+        // 国家页的两个列表由查询得出。这里的字段已经摘掉 —— 盘上遗留的键原样留着，
+        // 不读也不删（写回也不会碰，`COUNTRY_KEYS` 里没有它们）。
         tags: tagIdsOf(note, COUNTRY_KEYS.tags),
         order: readNumber(fm, COUNTRY_KEYS.order),
         graphPosition: readPosition(fm, COUNTRY_KEYS.graphPosition),

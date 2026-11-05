@@ -39,7 +39,7 @@ function event(input: Partial<Event> & Pick<Event, 'id' | 'title'>): Event {
 function country(input: Partial<Country> & Pick<Country, 'id' | 'name'>): Country {
   return {
     aliases: [], description: '', system: '', geography: '', culture: '', flagUrl: '',
-    characters: [], events: [], tags: [], createdAt: 0, updatedAt: 0, deleted: false,
+    tags: [], createdAt: 0, updatedAt: 0, deleted: false,
     _syncStatus: 'synced', _lastModified: 0, ...input, parentId: input.parentId ?? null,
   }
 }

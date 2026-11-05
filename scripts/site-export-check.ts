@@ -8,6 +8,7 @@
  * 3. 导出日期按本地日历，不用 `toISOString()`（东八区凌晨会少一天）
  */
 import { buildSite, dateLabel, timeLabel, type SiteData } from '../src/lib/export/site/build'
+import { SITE_TEMPLATES, siteTemplateOf } from '../src/lib/export/site/templates'
 import type { Character, Country, Event, Period, ProjectMeta, Tag, WorldEntry } from '../src/types'
 
 let passed = 0
@@ -79,8 +80,6 @@ function country(input: Partial<Country> & Pick<Country, 'id' | 'name'>): Countr
     geography: '',
     culture: '',
     flagUrl: '',
-    characters: [],
-    events: [],
     tags: [],
     createdAt: 0,
     updatedAt: 0,
@@ -236,10 +235,51 @@ check('HTML 正文被转成文本', htmlBody.includes('这是一段引用'))
 check('HTML 正文不出现原始 blockquote 标签', !htmlBody.includes('<blockquote>'))
 check('HTML 正文不出现转义标签文本', !htmlBody.includes('&lt;blockquote'))
 
+// ── 7. 版式（书斋 / 档案 / 画廊） ─────────────────────────────────────
+check('至少三套版式', SITE_TEMPLATES.length >= 3)
+for (const template of SITE_TEMPLATES) {
+  const output = buildSite(data, { images: new Map(), template: template.id })
+  check(`版式 ${template.id}：body 带 data-template`, output.includes(`<body data-template="${template.id}">`))
+  check(`版式 ${template.id}：CSS 真的被内联`, output.includes(`body[data-template="${template.id}"]`))
+  if (template.shell === 'topbar') {
+    check(`版式 ${template.id}：顶栏渲染`, output.includes('<header class="topbar">'))
+    check(`版式 ${template.id}：不渲染侧栏`, !output.includes('<aside class="sidebar">'))
+  } else {
+    check(`版式 ${template.id}：侧栏渲染`, output.includes('<aside class="sidebar">'))
+    check(`版式 ${template.id}：不渲染顶栏`, !output.includes('<header class="topbar">'))
+  }
+  check(`版式 ${template.id}：导航仍然有链接`, output.includes('data-nav="characters"'))
+}
+check('未知版式回落到书斋', siteTemplateOf('不存在的版式').id === 'book')
+const unknownTemplate = buildSite(data, { images: new Map(), template: '不存在的版式' as never })
+check('未知版式生成的是书斋', unknownTemplate.includes('<body data-template="book">'))
+
+// 纸色覆盖必须排在版式 CSS 之后，否则模板里的令牌会盖掉用户选的纸色
+const zz = buildSite(data, {
+  images: new Map(),
+  template: 'archive',
+  theme: {
+    paper: '#111111',
+    paperAlt: '#111112',
+    paperCard: '#111113',
+    line: '#111114',
+    lineHover: '#111115',
+    ink: '#111116',
+    inkMuted: '#111117',
+    inkFaint: '#111118',
+    hover: 'rgba(17, 17, 17, 0.05)',
+  },
+})
+check(
+  '固定纸色排在版式 CSS 之后',
+  zz.indexOf('--paper: #111111;') > zz.indexOf('body[data-template="archive"]'),
+  '纸色被版式令牌盖住了',
+)
+
 if (failures.length > 0) {
   console.error('静态站导出自检失败：')
   for (const failure of failures) console.error(`  - ${failure}`)
   process.exit(1)
 }
 
-console.log(`静态站导出自检通过：${passed} 项断言（角色路由 / 只有结束时间 / 本地日期 / 未知引用 / 分区开关 / 标题与纸色）`)
+console.log(`静态站导出自检通过：${passed} 项断言（角色路由 / 只有结束时间 / 本地日期 / 未知引用 / 分区开关 / 标题与纸色 / 三套版式）`)

@@ -54,7 +54,7 @@
 - [ ] **P2 网页导出 · 封面与真实库验收**：用带世界封面 / 大量图片的真实笔记库再走一遍
 - [x] **P2 标签管理**（2026-11-05）：设置 › 世界 › 标签；使用篇数（扫四张实体表）、改名、合并、删除、颜色；改名/合并/删除走 `db.tags` 与实体 tag id，文件重写交给落盘队列（没有 aliases 读取层，见 `docs/模板.md` §8.8）
 - [x] **P2 阶段二·一 · 拆掉「存反向」**（2026-11-05）：成员关系只留实体侧 —— 角色 `countryId`、事件 `countries`；国家页的「相关角色 / 相关事件」改成查询（`listCountryCharacters` / `listCountryEvents`，国家编辑器用「查询 + 本地覆盖」，覆盖只在未保存时存在）。`lib/membership.ts` 从镜像写入退成**单向应用**（`applyCountryCharacters` / `applyCountryEvents` + 两个 purge），关系图拖拽只写权威侧、并删掉 `markMembership` 那套「两侧都有」判定（边天然完整）。盘上旧的 `country.characters` / `country.events` **不写、不删**（扫描仍读回来保真，但没有界面路径依赖，类型上已标注退役）；静态站国家详情、模板预览计数、角色列表的分组都改成按实体侧统计
-- [ ] **P2 阶段二·一 · 收尾**：确认没有遗留读点后再把 `country.characters` / `country.events` 从扫描与 frontmatter 词汇表里摘掉（连带 `vault-migrate-check` 的断言）
+- [x] **P2 阶段二·一 · 收尾**（2026-11-05）：确认全项目已无读点后，把 `characters` / `events` 从 `Country` 类型里摘掉、扫描不再塞空数组、两个 builder（`buildDefaultCountry` / seed）不再写。盘上遗留的键**不读不写不删**（`COUNTRY_KEYS` 里本来就没有）。`vault-migrate-check` 的断言从「读回来是空数组」改成「字段上不再有它们」—— 前者靠自觉，后者靠类型里摘掉（连带 `vault-migrate-check` 的断言）
 - [ ] **P2 阶段二·二**：关系改显式边 `关系: [{类型, 目标, 名称}]`（角色之间无序对、只存发起方）+ 字段 / 时间 / 地点统一成 frontmatter 键
 - [ ] **P3 字段自定义剩余两项**：字段行 hover `⋯` 快捷隐藏；国家暂无字段表（体制 / 地理 / 文化已并进正文）
 - [x] **P3 删掉的字段能找回**（2026-11-05）：`lib/fields/orphans.ts` 扫实体的 `custom`，把「有值但字段表里没有」的键算出来；设置 › 基本信息 的每一类下面出现「找回 N 个有数据的字段」，点一下按原键名补回字段表（值一直在，加回即可见）。空值不算，避免删掉的行永远显示成可找回

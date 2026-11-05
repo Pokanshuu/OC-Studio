@@ -38,8 +38,6 @@ function buildDefaultCountry(data: CountryFormData, overrides: Partial<Country> 
     system: data.system,
     geography: data.geography,
     culture: data.culture,
-    characters: data.characters ?? [],
-    events: data.events ?? [],
     tags: data.tags ?? [],
     createdAt: now,
     updatedAt: now,
@@ -81,7 +79,7 @@ export async function updateCountry(id: number, data: Partial<CountryFormData>):
     ...pendingStamp(now),
   }
 
-  type FieldKey = keyof CountryFormData
+  type FieldKey = Extract<keyof CountryFormData, keyof Country>
   const fields: FieldKey[] = ['name', 'parentId', 'description', 'system', 'geography', 'culture', 'flagUrl', 'headerUrl']
 
   for (const field of fields) {
