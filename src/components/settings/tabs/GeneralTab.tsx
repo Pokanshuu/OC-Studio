@@ -20,9 +20,8 @@ export function GeneralTab() {
     if (typeof window === "undefined") return false
     return localStorage.getItem("blur-effect-enabled") === "true"
   })
-
   const [blurSupported, setBlurSupported] = useState(false)
-  const [backgroundBusy, setBackgroundBusy] = useState(false)
+
   const backgroundInputRef = useRef<HTMLInputElement>(null)
 
   const isTauri = isTauriEnv()
@@ -53,99 +52,6 @@ export function GeneralTab() {
       }).catch(() => {})
     } catch {}
   }
-
-  /**
-   * 背景图期间把窗口材质**暂时**撤掉。
-   *
-   * 关键：只撤运行时，**不改 `blur-effect-enabled`**。原来的实现顺手把偏好写成
-   * `false`，于是「设一次背景图 = 永久关掉窗口模糊」，用户找不到原因。现在去掉
-   * 背景后会按偏好自动恢复（`restoreBlur`）。
-   */
-  const suspendBlur = () => {
-    setBlurEnabled(false)
-    document.documentElement.classList.remove("tauri-mica")
-    if (!isTauri) return
-    try {
-      invoke<boolean>("update_blur_effect", {
-        enabled: false,
-        isDark: document.documentElement.classList.contains("dark"),
-      }).catch(() => {})
-    } catch {}
-  }
-
-  /** 背景移除后按用户偏好恢复窗口材质 */
-  const restoreBlur = () => {
-    const wanted = typeof window !== 'undefined' && localStorage.getItem("blur-effect-enabled") === "true"
-    setBlurEnabled(wanted)
-    if (!wanted || !isTauri) {
-      document.documentElement.classList.remove("tauri-mica")
-      return
-    }
-    try {
-      invoke<boolean>("update_blur_effect", {
-        enabled: true,
-        isDark: document.documentElement.classList.contains("dark"),
-      }).then((applied) => {
-        document.documentElement.classList.toggle("tauri-mica", applied)
-      }).catch(() => {})
-    } catch {}
-  }
-
-  const handleBackgroundFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    event.target.value = ''
-    if (!file) return
-    setBackgroundBusy(true)
-    try {
-      const compressed = await compressBackgroundImage(file)
-      const session = getVaultSession()
-      let next = compressed.dataUrl
-      if (session !== null && isVaultSupported()) {
-        const relPath = `.ocstudio/backgrounds/background-${Date.now()}.webp`
-        await vaultFs.writeBytes(session.root, relPath, Array.from(compressed.bytes))
-        next = relPath
-        // 扫一遍 `backgrounds/`，把不是当前这张的都删掉。
-        // 只删「记得的上一张」会留孤儿：删失败、换库、异常退出都会攒下没人认领的文件。
-        try {
-          const assets = await vaultFs.listAssets(session.root, 'backgrounds')
-          const keep = relPath.split('/').pop()
-          await Promise.all(
-            assets
-              .filter((asset) => asset.name !== keep && /^background-.*\.(webp|png|jpg|jpeg)$/i.test(asset.name))
-              .map((asset) => vaultFs.remove(session.root, asset.relPath).catch(() => undefined)),
-          )
-        } catch {
-          // 扫不动目录不影响换图本身，下次换图再扫
-        }
-      }
-      updateSetting("backgroundImage", next)
-      suspendBlur()
-    } catch (error) {
-      toast.error('背景图读取失败', { description: error instanceof Error ? error.message : String(error) })
-    } finally {
-      setBackgroundBusy(false)
-    }
-  }
-
-  const handleRemoveBackground = async () => {
-    const previous = settings.backgroundImage
-    updateSetting("backgroundImage", "")
-    const session = getVaultSession()
-    if (session !== null && previous.startsWith('.ocstudio/backgrounds/')) {
-      try {
-        await vaultFs.remove(session.root, previous)
-      } catch {
-        // 文件可能已被外部删掉；界面已经清空，不阻塞
-      }
-    }
-    restoreBlur()
-  }
-
-  const backgroundModes: Array<{ value: BackgroundMode; label: string }> = [
-    { value: 'cover', label: '填充' },
-    { value: 'tile', label: '平铺' },
-    { value: 'fixed', label: '固定' },
-  ]
   return (
     <>
               <div className="flex flex-col gap-5">
@@ -174,7 +80,7 @@ export function GeneralTab() {
                 </label>
 
                 <div className="flex flex-col gap-2">
-                  <span className="text-sm text-ink">主题</span>
+                  <span className="text-sm text-ink">显示模式</span>
                   <ThemeRadio
                     value={settings.theme}
                     onChange={(v) =>
@@ -184,113 +90,10 @@ export function GeneralTab() {
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  <span className="text-sm text-ink">纸色</span>
-                  <ThemePresetRadio
-                    value={settings.themePreset}
-                    onChange={(v) => updateSetting("themePreset", v)}
-                    presets={THEME_PRESETS}
-                  />
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <span className="text-sm text-ink">背景</span>
-                  <input
-                    ref={backgroundInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="sr-only"
-                    onChange={(event) => void handleBackgroundFile(event)}
-                  />
-                  {settings.backgroundImage !== '' ? (
-                    <>
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="h-14 w-24 shrink-0 rounded-item border border-line bg-cover bg-center"
-                          style={{ backgroundImage: `url("${settings.backgroundImage}")` }}
-                          aria-hidden
-                        />
-                        <div className="flex flex-col items-start gap-1">
-                          <button
-                            type="button"
-                            onClick={() => backgroundInputRef.current?.click()}
-                            disabled={backgroundBusy}
-                            className={BTN_QUIET}
-                          >
-                            {backgroundBusy ? '处理中…' : '更换图片'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void handleRemoveBackground()}
-                            className={`${BTN_QUIET} hover:text-error`}
-                          >
-                            <Trash2 size={13} strokeWidth={2} />
-                            移除
-                          </button>
-                        </div>
-                      </div>
-                      <div className="flex gap-1">
-                        {backgroundModes.map((mode) => (
-                          <button
-                            key={mode.value}
-                            type="button"
-                            aria-pressed={settings.backgroundMode === mode.value}
-                            onClick={() => updateSetting("backgroundMode", mode.value)}
-                            className={`rounded-item px-2 py-1 text-[12px] transition-colors ${
-                              settings.backgroundMode === mode.value
-                                ? 'bg-[var(--oc-hover)] text-ink'
-                                : 'text-ink-muted hover:text-ink'
-                            }`}
-                          >
-                            {mode.label}
-                          </button>
-                        ))}
-                      </div>
-                      <label className="flex items-center gap-2">
-                        <span className="w-8 shrink-0 text-[11px] text-ink-faint">遮罩</span>
-                        <input
-                          type="range"
-                          min={BACKGROUND_MIN_SCRIM * 100}
-                          max={BACKGROUND_MAX_SCRIM * 100}
-                          step={5}
-                          value={Math.round(settings.backgroundScrim * 100)}
-                          onChange={(event) =>
-                            updateSetting("backgroundScrim", Number(event.target.value) / 100)
-                          }
-                          className="h-4 min-w-0 flex-1"
-                          style={{ accentColor: 'var(--oc-ink-muted)' }}
-                        />
-                        <span className="w-8 shrink-0 text-right text-[11px] tabular-nums text-ink-faint">
-                          {Math.round(settings.backgroundScrim * 100)}%
-                        </span>
-                      </label>
-                    </>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => backgroundInputRef.current?.click()}
-                      disabled={backgroundBusy}
-                      className={`${BTN_QUIET} justify-start`}
-                    >
-                      <ImagePlus size={14} strokeWidth={2} />
-                      {backgroundBusy ? '处理中…' : '选择背景图...'}
-                    </button>
-                  )}
-                </div>
-
-                <div className="flex flex-col gap-2">
                   <span className="text-sm text-ink">编辑界面样式</span>
                   <LayoutRadio
                     value={settings.editorLayout}
                     onChange={(v) => updateSetting("editorLayout", v)}
-                  />
-                  <span className="text-[11px] text-ink-faint">切换时自动保存正文</span>
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <span className="text-sm text-ink">封面卡配色</span>
-                  <CoverTintRadio
-                    value={settings.coverTintMode}
-                    onChange={(v) => updateSetting("coverTintMode", v)}
                   />
                 </div>
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { ArrowLeft, ChevronRight, LayoutTemplate, FolderTree, Tag, ListTree, Waypoints } from 'lucide-react'
+import { ArrowLeft, ChevronRight, LayoutTemplate, FolderTree, Tag, ListTree, Palette, Waypoints } from 'lucide-react'
 import { useInputContextMenu } from '@/lib/use-input-context-menu'
 import { useProjectMeta } from '@/features/project'
 import { ImageUploader } from '@/components/shared/ImageUploader'
@@ -11,6 +11,7 @@ import { ComponentsPanel } from '@/components/settings/ComponentsPanel'
 import { TagsPanel } from '@/features/tags/components/TagsPanel'
 import type { SettingsSection } from '@/components/layout/SettingsTriggerContext'
 import { EdgeStyleRadio, MouseModeRadio } from '@/components/settings/controls'
+import { ThemePanel } from '@/components/settings/ThemePanel'
 import { useSettings } from '@/lib/settings'
 import {
   ICON_BTN,
@@ -39,6 +40,7 @@ const ENTRY_ITEMS: ReadonlyArray<{
   { panel: 'templates', label: '模板', icon: LayoutTemplate },
   { panel: 'categories', label: '分类', icon: FolderTree },
   { panel: 'tags', label: '标签', icon: Tag },
+  { panel: 'theme', label: '主题', icon: Palette },
   { panel: 'relations', label: '关系图操作', icon: Waypoints },
 ]
 
@@ -193,6 +195,21 @@ export function WorldTab({
             <span className="text-sm text-ink">标签</span>
           </div>
           <TagsPanel />
+        </div>
+      ) : panel === 'theme' ? (
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPanel('root')}
+              aria-label="返回"
+              className={ICON_BTN}
+            >
+              <ArrowLeft size={16} strokeWidth={2} />
+            </button>
+            <span className="text-sm text-ink">主题</span>
+          </div>
+          <ThemePanel />
         </div>
       ) : panel === 'relations' ? (
         <div className="flex flex-col gap-4">
