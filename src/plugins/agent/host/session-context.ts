@@ -155,7 +155,7 @@ export async function novelTitleOf(rootId: number | null): Promise<string | null
 
 /**
  * 组装这次请求的「资料块」。返回空串表示不注入（agent 模式或没选资料）。
- * 只读权限没开时也给一句说明，让模型知道「不是库里没有，是作者没授权」。
+ * 只读权限没开时也给一句说明，让模型知道「不是库里没有，是助手没启用」。
  */
 export async function buildAgentSessionContextBlock(
   mode: ConversationMode,
@@ -174,7 +174,7 @@ export async function buildAgentSessionContextBlock(
   ].join('\n')
 
   if (!libraryAccessGranted()) {
-    return `${guard}\n（作者尚未开启「读实体」权限，这次没有读取设定库。需要资料时请说明，不要凭空编造。）`
+    return `${guard}\n（助手没有启用，这次没有读取设定库。需要资料时请说明，不要凭空编造。）`
   }
 
   const sections: string[] = []

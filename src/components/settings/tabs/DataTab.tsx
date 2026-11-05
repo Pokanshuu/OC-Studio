@@ -64,7 +64,6 @@ export function DataTab() {
         >
           导出完整备份 (.ocbak)
         </button>
-        <p className="text-xs text-ink-faint">不含助手会话</p>
         <button
           onClick={() => void handleImportLegacy()}
           disabled={importingLegacy}

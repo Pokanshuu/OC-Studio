@@ -61,7 +61,7 @@ export const zh = {
   'context.noNovel': '不读取小说',
   'context.roleplayHint': '扮演时读取角色、相关事件与国家',
   'context.creativeHint': '创作时额外读取小说最近三章',
-  'context.permission': '需要「读实体」权限，去 设置 › 插件 › 助手 开启',
+  'context.permission': '助手没有启用，去 设置 › 插件 开启',
   'context.empty': '库里还没有可选的条目',
   'context.primary': '主角',
   'context.primaryHint': '第一个选中的角色是主角，其余作为同场角色',

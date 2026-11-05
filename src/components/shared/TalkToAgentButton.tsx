@@ -7,14 +7,14 @@
  * 把「聊谁」放进 `agent-bridge` 的待消费槽、切到助手工具页。
  * 真正的预填与开场白在 `AgentPlugin` 里 —— 它要等插件初始化完才拿得到会话库。
  *
- * 没开「读实体」权限时不渲染：助手看不到库，这个入口没有意义。
+ * 助手没启用时不渲染：入口只会跳到一块用不了的界面。
  */
 
 import { useState } from 'react'
 import { MessageSquareText } from 'lucide-react'
 import { useNavigation } from '@/components/layout/NavigationContext'
 import { toolItem } from '@/lib/entry-kinds'
-import { usePlugins } from '@/lib/plugins'
+import { hasPermission, usePlugins } from '@/lib/plugins'
 import { AGENT_PLUGIN } from '@/lib/plugins/official'
 import { requestAgentContext, type AgentContextKind } from '@/lib/plugins/agent-bridge'
 import { ICON_BTN_MD } from '@/lib/ui-tokens'
@@ -32,11 +32,11 @@ export function TalkToAgentButton({
   onBeforeOpen?: () => void | Promise<void>
 }) {
   const { setActiveItem } = useNavigation()
-  const { plugins, enabled, granted } = usePlugins()
+  const { plugins, enabled } = usePlugins()
   const [busy, setBusy] = useState(false)
 
   const manifest = plugins.find((plugin) => plugin.id === AGENT_PLUGIN.id) ?? AGENT_PLUGIN
-  const available = enabled(manifest) && granted(manifest).includes('read-entities')
+  const available = enabled(manifest) && hasPermission(manifest, 'read-entities')
   const clean = title.trim()
 
   if (!available || !clean) return null

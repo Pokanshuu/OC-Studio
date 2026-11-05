@@ -1,16 +1,12 @@
 export { OFFICIAL_PLUGINS, AGENT_PLUGIN, MAP_GENERATOR_PLUGIN, findPlugin } from './official'
 export {
-  grantedPermissions,
   hasPermission,
   isPluginActive,
   isPluginEnabled,
-  setPermission,
   setPluginEnabled,
   usePlugins,
 } from './store'
 export {
-  DEFAULT_GRANTED,
-  PERMISSION_LABELS,
   PLUGIN_KIND_LABELS,
   isSidebarTool,
   isToolPlugin,

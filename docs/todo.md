@@ -110,12 +110,12 @@
 
 - [x] **P2 A1 只读能力层**（2026-11-05）：`src/lib/capabilities/`（`Caller` 权限入口 / list / get / search / graphSlice）+ Dexie 适配器；`scripts/capabilities-check.ts` 19 项断言。**没有 MCP / REST 传输层**
 - [x] **P2 A2 图鉴切片装配**（2026-11-05）：`buildCodexSlice()` 把字段 / 关系 / 相关事件 / 标签 / 正文装配成 markdown；**还没被导出卡 / 静态站复用**（先保住唯一实现）
-- [x] **P1 插件系统地基**（2026-11-05）：`src/lib/plugins/`（manifest 契约：三类 tool / theme / skill + 六项权限 + 可用标记；开关与逐项授权存 localStorage）；侧栏「工具」分组 + `工具:<id>` 导航键 + `ToolSection` 接线表；地图生成器搬成独立工具页（先选目标地图 → 参数 → 生成 → 用作底图）；设置 › 插件页签（开关 / 权限 / 版本 / 类型 / 添加与市场标开发中）；**主题即插件**：四套官方配色登记为 `kind: 'theme'`，个性化按插件开关过滤（当前在用的永远保留）。定稿口径写进 `docs/插件.md` §0.0
+- [x] **P1 插件系统地基**（2026-11-05）：`src/lib/plugins/`（manifest 契约：三类 tool / theme / skill + 六项权限 + 可用标记；开关存 localStorage）；侧栏「工具」分组 + `工具:<id>` 导航键 + `ToolSection` 接线表；地图生成器搬成独立工具页（先选目标地图 → 参数 → 生成 → 用作底图）；设置 › 插件页签（开关 / 作者 / 版本 / 类型 / 添加与市场标开发中）；**主题即插件**：四套官方配色登记为 `kind: 'theme'`，个性化按插件开关过滤（当前在用的永远保留）。定稿口径写进 `docs/插件.md` §0.0。2026-11-06 收口：权限只作声明，设置里不再逐项授权，那一行改成作者署名
 - [x] **P1 助手 · 整目录移植**（2026-11-05 定稿）：**不再手写**。`src/plugins/agent/` + `src-tauri/src/agent/` 原样搬自 `D:\Codes\Simple-Agent`；**逻辑目录**（`core/` `state/` `api/` `i18n/`）上游更新可整目录覆盖，UI 层按宿主设计系统改造（见下一条）。**会话树 / 分支切换 / 编辑重发 / 草稿 / 预设 / 压缩 / 工具循环 / 审批（allow·deny·always）/ 流式 markdown / i18n 一次性全有** —— 此前手写的那套（`lib/plugins/agent/` + `features/tools/agent/` + `AgentToolView`）已删除，不做两套
 - [x] **P1 助手 · 界面统一 + 组件复用**（2026-11-05）：三件事一起收口 —— ① `styles/base.css` 去掉自带调色板，颜色 / 圆角 / 阴影全部继承宿主 `--oc-*`（新增 `--oc-error·warning·success` 并登记 `audit:theme`），换纸色 / 暗色 / 背景图面板一起变；② 浮层统一进 `#overlay-root` 并包 `.oc-agent-root`（**原来 portal 到 `document.body`，落在作用域外，弹窗和菜单是裸 DOM**）；③ 弹窗复用宿主 `components/ui/dialog`、菜单与 `MENU` 同值、toast 走全站 sonner，会话列表宽度可拖（原来传入的是两个 noop）。边界写进 `docs/插件.md` §0
-- [x] **P1 助手 · 读库权限闸**（2026-11-05）：`read-entities` 默认关，没开时 `library_*` 不进本轮请求（`state/chat.ts` 按 `libraryAccessGranted()` 过滤），执行器兜底回可读错误；`grantedPermissions` / `isPluginEnabled` 补 `ensureLoaded()`，重启后不用先打开设置页才认得授权
-- [x] **P1 助手 · 和助手聊聊**（2026-11-05）：角色 / 事件 / 国家 / 词条编辑器页头一个按钮（`components/shared/TalkToAgentButton.tsx`）。先保存当前条目 → `lib/plugins/agent-bridge.ts` 存一次性 `{ kind, id, title }` → 切到助手页后开新会话、预填「先用 `library_read` 读一遍」的提示词，**不自动发送**。未授权「读实体」时不渲染
-- [ ] **P1 助手 · 存储边界**：会话在插件自己的 SQLite 里，**`.ocbak` 备份带不上**。要么备份时连插件库一起收，要么在备份界面明说不含助手会话 —— 二选一，别让用户以为备份等于全部
+- [x] **P1 助手 · 读库闸**（2026-11-05，2026-11-06 改口径）：`read-entities` 是声明，助手启用即可读、停用即全关；`library_*` 在助手停用时不进本轮请求（`state/chat.ts` 按 `libraryAccessGranted()` 过滤），执行器兜底回可读错误；`isPluginEnabled` 补 `ensureLoaded()`，重启后不用先打开设置页才认得开关
+- [x] **P1 助手 · 和助手聊聊**（2026-11-05）：角色 / 事件 / 国家 / 词条编辑器页头一个按钮（`components/shared/TalkToAgentButton.tsx`）。先保存当前条目 → `lib/plugins/agent-bridge.ts` 存一次性 `{ kind, id, title }` → 切到助手页后开新会话、预填「先用 `library_read` 读一遍」的提示词，**不自动发送**。助手没启用时不渲染
+- [ ] **P1 助手 · 存储边界**：会话在插件自己的 SQLite 里，**`.ocbak` 备份带不上**。要么备份时连插件库一起收，要么在备份界面明说不含助手会话 —— 二选一，别让用户以为备份等于全部。（2026-11-06：数据页那行「不含助手会话」按作者要求去掉了，这件事仍未解决）
 - [x] **P1 助手 · 读库接上**（2026-11-05）：四个只读工具 `library_list` / `library_read` / `library_search` / `library_graph` 进了插件工具带（schema 在 `src/plugins/agent/core/agent/tools.ts`，执行在 `src/lib/capabilities/agent-tools.ts`，浏览器接线在 `src/plugins/agent/host/library-tools.ts`）。插件只认 `(name, args)`，不知道背后是 Dexie；不归宿主管的名字回 `null` 继续走它的文件工具。`npm run audit:agent` 33 项断言。**写入仍未开**
 - [x] **P1 助手 · 写标量字段**（2026-11-05）：`library_set_fields` 能改角色 / 事件 / 国家的标量文本（种族、职业、地点、地理……），**正文与改名故意不放**——正文要过 Markdown ⇄ Tiptap 的桥（要 `createLinkResolver(scan.index)`），改名会牵动文件名 / 撞名 / 全库 `[[链接]]` 回写，都不是一次字段写入能负责的。写入包装在 `runAsActorAsync('agent:assistant')` 里，落点是 Dexie 的 `update`，所以自动进 `vault-persist` 队列、写盘、并追加带 `actor` 的时间线。`requiresApproval: true` —— 每次改都要作者点同意
 - [x] **P1 助手 · 写正文**（2026-11-05）：`library_set_body` 整篇替换 Markdown 正文。转换走 `lib/vault/write-body.ts`（**唯一入口**）：`markdownToTiptap` + 会话上的链接索引，`[[林知遥]]` 会解析成 `mention` 节点而不是退化成纯文本；没有会话时（Mock / 脚本）降级成不解析链接，不抛异常。`VaultSession` 因此多了 `index` 字段 —— 装载时只用一次的扫描产物，写入侧同样需要。词条写 `content`（JSON 字符串），其余写 `document`（对象），口径照抄 `markdown-bridge.ts`。**端到端未验**：桌面壳因 P0（WebView2 崩溃）起不来，现在只有单元级 + 构建级验证
@@ -218,7 +218,7 @@ AI 功能（代码已整体删除）· 编辑 / 浏览双模式 · 标签交互 
 - 小说：章节 = 笔记（`parentId`）、书架（封面 2:3）、作品信息 / 章节大纲、导出 Word·Markdown·TXT、分页预览（9:16·16:9·A4）、旧库导入
 - 地图：锚点 `map_position` / `map_id`（归一化）、锚点服务、`MapView` 画布、`.ocstudio/maps/` 底图（Rust `vault_list_assets`）
 - 关系：边颜色 / 箭头落 frontmatter、画布消费、并行边、点边改样式面板、旧 `relations` 表只读兼容
-- 树表：四页签（词条 / 国家 / 角色 / 事件）；词条树走 `buildEntryTree`，国家树 / 角色按国家分组 / 搜索保留祖先在 `tree-table-rows.ts`；就地改名 / 种族 / 职业 / 所属国家，行内新增子项 / 删除（子项提升）；主页补三入口
+- 表格（原「树表」）：四页签（词条 / 国家 / 角色 / 事件）；词条树走 `buildEntryTree`，国家树 / 角色按国家分组 / 搜索保留祖先在 `tree-table-rows.ts`；就地改名 / 种族 / 职业 / 所属国家，行内新增子项 / 删除（子项提升）；主页补三入口
 - 角色：文件夹四动作（`folder` 键）、照片·动画「保存到…」、OC 动画上传（`类别` 已废弃，见 §1 自定义分类）
 - 兼容：`.ocbak` version 2、小说旧库、关系旧表；地图旧 `db.maps` 明示不导入
 - 下一代地基：插件形状接口、主题令牌登记（`audit:theme`）、journal `actor` 留痕

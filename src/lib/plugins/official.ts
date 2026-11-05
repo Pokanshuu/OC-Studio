@@ -16,6 +16,7 @@ import type { PluginManifest } from './types'
 export const MAP_GENERATOR_PLUGIN: PluginManifest = {
   id: MAP_GENERATOR_MANIFEST.id,
   name: MAP_GENERATOR_MANIFEST.name,
+  author: 'nekibud',
   kind: 'tool',
   version: MAP_GENERATOR_MANIFEST.version,
   apiVersion: MAP_GENERATOR_API_VERSION,
@@ -26,27 +27,25 @@ export const MAP_GENERATOR_PLUGIN: PluginManifest = {
   enabledByDefault: true,
   available: true,
   /**
-   * 生成器**不占侧栏导航位**。
+   * 生成器**占侧栏导航位**（2026-11-06 改）。
    *
-   * 它只为一张具体的地图服务：进「地图」→ 新建一张 → 生成底图，生成器就在
-   * 那里出现。没有「泛泛地打开生成器」这回事，摆在侧栏只会让人以为它是个
-   * 独立工具、还得再选一次目标地图。
-   *
-   * 页面本身（`features/tools/MapToolView`）**保留**：它是唯一能脱离地图、
-   * 直接指定目标地图调试生成的地方。从 设置 › 插件 里点进去。
+   * 工具页已经是独立入口：不选目标地图，每次提交新建一张（`世界地图` / `区域地图`），
+   * 建完直接跳到那张图 —— 于是「泛泛地打开生成器」成立，它就是「造一张新地图」。
+   * 在地图里改底图仍走地图内的生成器（那条会写回当前地图）。
    */
-  nav: 'contextual',
+  nav: 'sidebar',
 }
 
 export const AGENT_PLUGIN: PluginManifest = {
   id: 'official.agent',
   // 界面里不出现「AI」字样（`AGENTS.md` 约束 15）：叫「助手」，代码 id 仍是 agent
   name: '助手',
+  author: 'Pokanshu',
   kind: 'tool',
   version: '0.1.0',
   apiVersion: 1,
   description: '和设定库对话，读写条目',
-  // 对话要网络与自己的存储；读库是逐项授权项（关掉后助手照常能聊，只是看不见库）
+  // 对话要网络与自己的存储；读库是声明项，插件一关就都看不见库
   permissions: ['network', 'own-storage', 'read-entities'],
   source: 'builtin',
   // 助手有独立的对话界面，任何地方都不依赖上下文 —— 它占侧栏导航位

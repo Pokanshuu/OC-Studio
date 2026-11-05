@@ -12,7 +12,7 @@
 import { createCapabilities } from '../src/lib/capabilities'
 import { AGENT_CALLER, LIBRARY_TOOL_NAMES, createLibraryToolExecutor } from '../src/lib/capabilities/agent-tools'
 import { READ_PERMISSION, type Caller, type CapabilityStore, type EntityKind } from '../src/lib/capabilities/types'
-import { AGENT_PLUGIN } from '../src/lib/plugins/official'
+import { AGENT_PLUGIN, OFFICIAL_PLUGINS } from '../src/lib/plugins/official'
 import { hasPermission, isPluginActive } from '../src/lib/plugins/store'
 import { agentContextPrompt } from '../src/lib/plugins/agent-bridge'
 import { emptyAgentSessionContext, hasAgentSessionContext } from '../src/lib/plugins/agent-session'
@@ -393,9 +393,14 @@ async function main(): Promise<void> {
   }
   check('不合法 actor 被能力层拒绝', refused)
 
-  // ── 宿主侧：授权与入口 ────────────────────────────────────────────────
+  // ── 宿主侧：启用、署名与入口 ──────────────────────────────────────────
   check('助手出厂启用', isPluginActive(AGENT_PLUGIN))
-  check('读实体默认关（逐项授权）', hasPermission(AGENT_PLUGIN, 'read-entities') === false)
+  // 权限是声明，跟着启用状态走（2026-11-06 起设置里不再逐项授权）
+  check('助手启用即可读库', hasPermission(AGENT_PLUGIN, 'read-entities') === true)
+  check(
+    '两个官方插件都署了作者',
+    OFFICIAL_PLUGINS.length === 2 && OFFICIAL_PLUGINS.every((plugin) => plugin.author.trim().length > 0),
+  )
 
   const contextPrompt = agentContextPrompt({ kind: 'character', id: 7, title: '林知遥' })
   check('入口提示带 kind / id', contextPrompt.includes('kind=character') && contextPrompt.includes('id=7'))

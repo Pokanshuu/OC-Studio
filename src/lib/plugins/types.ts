@@ -20,7 +20,9 @@ export type PluginNav = 'sidebar' | 'contextual'
 /**
  * 权限项（`docs/插件.md` §3 的表）。
  *
- * 默认全关，用户在设置里逐项授权；`own-storage` 是唯一默认开的（插件自己的键值空间）。
+ * 这份清单是**声明**：插件要碰什么写在 manifest 里，由宿主在调用处自己判。
+ * 设置页只署名作者，不做逐项开关 —— 内置插件随包发行，授权开关既没有真实
+ * 边界，还把「谁写的」这一行挤掉了（2026-11-06）。
  */
 export type PluginPermission =
   | 'read-entities'
@@ -35,6 +37,8 @@ export interface PluginManifest {
   id: string
   /** 人可读名（侧栏 / 设置里显示的就是它） */
   name: string
+  /** 作者署名（设置里显示在类型后面） */
+  author: string
   kind: PluginKind
   version: string
   /** 宿主 API 版本：宿主升级到不兼容时据此拒绝加载 */
@@ -53,7 +57,8 @@ export interface PluginManifest {
    *
    * - sidebar（默认）：侧栏「工具」里列一条，任何时候都能进
    * - contextual：**不占导航位**，只在某个具体上下文里出现
-   *   （地图生成器就是这种：它只为一张具体的地图服务，没有“泛泛地打开生成器”这回事）
+   *   （地图生成器：日常从「地图」里打开；它另有一个不选目标的工具页，
+   *   但那个入口不占导航位，见 `official.ts` 的注释）
    */
   nav?: PluginNav
 }
@@ -62,18 +67,6 @@ export const PLUGIN_KIND_LABELS: Record<PluginKind, string> = {
   tool: '功能',
   skill: '技能',
 }
-
-export const PERMISSION_LABELS: Record<PluginPermission, string> = {
-  'read-entities': '读实体',
-  'subscribe-data': '订阅变更',
-  'render-canvas': '渲染容器',
-  'export-image': '导出图片',
-  network: '网络',
-  'own-storage': '自己的存储',
-}
-
-/** 默认就开的权限（其余逐项授权） */
-export const DEFAULT_GRANTED: readonly PluginPermission[] = ['own-storage']
 
 /** 侧栏「工具」里能出现的插件 */
 export function isToolPlugin(manifest: PluginManifest): boolean {
