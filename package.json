@@ -16,6 +16,7 @@
     "audit:capabilities": "tsx scripts/capabilities-check.ts",
     "audit:map": "tsx scripts/map-anchor-check.ts",
     "audit:paths": "tsx scripts/vault-paths-check.ts",
+    "audit:agent": "tsx scripts/agent-session-check.ts",
     "cap:dev": "npm run build && npx cap sync && npx cap open android",
     "cap:hot": "npm run build && npx cap sync"
   },
