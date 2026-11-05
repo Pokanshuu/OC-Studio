@@ -16,6 +16,7 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { Download, ImagePlus, Loader2 } from 'lucide-react'
 import type { WorldEntry } from '@/types'
 import { db } from '@/lib/db'
+import { isNovelEntry } from '@/lib/novel'
 import { createZip, downloadBlob } from '@/lib/zip'
 import { flattenNovel, toMarkdown, toTxt } from '@/features/novel/export'
 import { PAGE_SIZES, paginateNovel, type NovelPageFormat } from '@/features/novel/pagination'
@@ -91,8 +92,9 @@ function collectChapters(rows: WorldEntry[], rootId: number): WorldEntry[] {
 }
 
 export function NovelPanel({ novelId }: { novelId?: number }) {
-  const [root, setRoot] = useState<WorldEntry | null>(null)
-  const [chapters, setChapters] = useState<WorldEntry[]>([])
+  const [entries, setEntries] = useState<WorldEntry[]>([])
+  /** 选中的是哪本书（`null` = 还没选，落到最近更新的一本） */
+  const [selectedId, setSelectedId] = useState<number | null>(novelId ?? null)
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState('')
 
@@ -111,18 +113,8 @@ export function NovelPanel({ novelId }: { novelId?: number }) {
     void (async () => {
       try {
         const rows = await db.worldEntries.filter((entry) => !entry.deleted).toArray()
-        const target =
-          novelId !== undefined
-            ? rows.find((entry) => entry.id === novelId)
-            : rows.filter((entry) => entry.parentId === null && (entry.novelAuthor !== undefined || entry.category === '小说')).sort((a, b) => b.updatedAt - a.updatedAt)[0]
         if (!alive) return
-        if (!target) {
-          setError('没有可导出的小说')
-          setLoaded(true)
-          return
-        }
-        setRoot(target)
-        setChapters(collectChapters(rows, target.id))
+        setEntries(rows)
         setLoaded(true)
       } catch (reason) {
         if (!alive) return
@@ -133,7 +125,34 @@ export function NovelPanel({ novelId }: { novelId?: number }) {
     return () => {
       alive = false
     }
-  }, [novelId])
+  }, [])
+
+  /**
+   * 库里所有的书：根笔记（`parentId === null`）且是小说类的条目。
+   * 按最近更新排 —— 不传 `novelId` 时默认落在最上面那本（刚写的那本）。
+   */
+  const books = useMemo(
+    () =>
+      entries
+        .filter((entry) => entry.parentId === null && (isNovelEntry(entry) || entry.novelAuthor !== undefined))
+        .sort((a, b) => b.updatedAt - a.updatedAt),
+    [entries],
+  )
+
+  /** 选中的书；选过的被删了 / 传进来的不是根笔记时，退回第一本 */
+  const root = useMemo(() => {
+    const hit = selectedId === null ? null : books.find((entry) => entry.id === selectedId) ?? null
+    return hit ?? books[0] ?? null
+  }, [books, selectedId])
+
+  const chapters = useMemo(() => (root === null ? [] : collectChapters(entries, root.id)), [entries, root])
+
+  /** 书多的时候要给「作品」一栏显示每本几章 */
+  const chapterCounts = useMemo(() => {
+    const counts = new Map<number, number>()
+    for (const entry of books) counts.set(entry.id, collectChapters(entries, entry.id).length)
+    return counts
+  }, [books, entries])
 
   const book = useMemo(
     () => ({
@@ -246,22 +265,26 @@ export function NovelPanel({ novelId }: { novelId?: number }) {
       ? '正在读取…'
       : error !== ''
         ? error
-        : `${plainChapters.length} 章 · ${
-            format === 'png'
-              ? `${PAGE_SIZES[pageFormat].label} · ${pages.length} 页`
-              : FORMAT_OPTIONS.find((option) => option.value === format)?.label ?? ''
-          }`
+        : books.length === 0
+          ? '没有可导出的小说'
+          : `${plainChapters.length} 章 · ${
+              format === 'png'
+                ? `${PAGE_SIZES[pageFormat].label} · ${pages.length} 页`
+                : FORMAT_OPTIONS.find((option) => option.value === format)?.label ?? ''
+            }`
 
   return (
     <ExportPanelLayout
       preview={
         <>
           <div className="flex h-9 shrink-0 items-center justify-between gap-2 border-b border-line px-3 text-[11px] text-ink-faint">
-            <span className="truncate text-ink-muted">{book.title}</span>
+            <span className="truncate text-ink-muted">{books.length === 0 ? '小说' : book.title}</span>
             <span className="shrink-0 truncate">{summary}</span>
           </div>
           {format === 'png' ? (
             <NovelReader
+              // 换书就换一册：页码与缩放跟着重置（不然会停在上一本的中间那页）
+              key={root?.id ?? 'none'}
               pages={pages}
               layout={layout}
               format={pageFormat}
@@ -280,6 +303,34 @@ export function NovelPanel({ novelId }: { novelId?: number }) {
       }
       config={
         <>
+          {books.length > 1 ? (
+            <ExportSection title="作品">
+              <div className="flex max-h-36 flex-col overflow-y-auto">
+                {books.map((entry) => {
+                  const active = entry.id === root?.id
+                  return (
+                    <button
+                      key={entry.id}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => setSelectedId(entry.id)}
+                      className={`flex h-7 shrink-0 items-center gap-2 px-1.5 text-left transition-colors ${ROUND_ITEM} ${
+                        active
+                          ? 'bg-[var(--oc-hover)] font-medium text-ink'
+                          : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
+                      }`}
+                    >
+                      <span className="min-w-0 flex-1 truncate text-[12px]">{entry.title}</span>
+                      <span className="shrink-0 text-[10px] text-ink-faint">
+                        {chapterCounts.get(entry.id) ?? 0} 章
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </ExportSection>
+          ) : null}
+
           <ExportSection title="格式">
             <Segmented
               value={format}
