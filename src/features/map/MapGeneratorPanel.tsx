@@ -260,11 +260,20 @@ const RANGE_INPUT =
   '[&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:rounded-full ' +
   '[&::-moz-range-thumb]:bg-ink-muted [&::-moz-range-thumb]:border-0'
 
+/**
+ * 生成结果写到哪 —— 决定面板上那句提示与底部那颗按钮的措辞：
+ * - `existing`：从地图里打开的生成器，写完就替换那张图的底图
+ * - `new`：工具页（直接进入生成器），每次提交都**新建一张地图**
+ */
+export type MapGeneratorTarget =
+  | { kind: 'existing'; name: string }
+  | { kind: 'new' }
+
 export function MapGeneratorPanel({
   onUseAsBackground,
   initialSeed,
   initialParams,
-  mapName,
+  target,
 }: {
   /** 拿到 PNG 后交给宿主：落盘 + 设为当前地图底图（带上是哪一档视图） */
   onUseAsBackground: (
@@ -280,8 +289,8 @@ export function MapGeneratorPanel({
   initialSeed?: number
   /** 原来的参数（JSON 字符串，来自 `map_params`）；解析不了就当没有 */
   initialParams?: string
-  /** 生成结果写到哪张地图 —— 生成器没有地图库下拉，目标得写出来 */
-  mapName?: string
+  /** 生成结果写到哪：既有地图（提示写入哪张）/ 新建一张（工具页） */
+  target?: MapGeneratorTarget
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const workerRef = useRef<Worker | null>(null)
@@ -538,6 +547,10 @@ export function MapGeneratorPanel({
 
   const canvasWidth = meta?.width ?? params.width
   const canvasHeight = meta?.height ?? params.height
+  // 工具页（直接进入）每次提交都是新建一张；地图里打开的才是替换当前底图
+  const createsMap = target?.kind === 'new'
+  const CommitIcon = createsMap ? Plus : Save
+  const commitLabel = createsMap ? '保存为新地图' : '用作底图'
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4 md:flex-row">
@@ -550,7 +563,7 @@ export function MapGeneratorPanel({
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1">
           <section className="flex flex-col">
             <div className="mb-2 flex items-baseline justify-between gap-2">
-              <p className="flex min-w-0 items-baseline gap-2"><span className={SECTION_LABEL}>形态</span>{mapName ? <span className="truncate text-[11px] text-ink-faint">写入「{mapName}」</span> : null}</p>
+              <p className="flex min-w-0 items-baseline gap-2"><span className={SECTION_LABEL}>形态</span>{target?.kind === 'existing' ? <span className="truncate text-[11px] text-ink-faint">写入「{target.name}」</span> : null}</p>
             </div>
 
             <div className="grid grid-cols-2 gap-1 rounded-control border border-line bg-paper p-1">
@@ -878,8 +891,8 @@ export function MapGeneratorPanel({
               disabled={!ready || busy}
               className={BTN_PRIMARY}
             >
-              <Save size={14} strokeWidth={2} />
-              用作底图
+              <CommitIcon size={14} strokeWidth={2} />
+              {commitLabel}
             </button>
             <button
               type="button"

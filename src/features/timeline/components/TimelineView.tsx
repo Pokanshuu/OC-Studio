@@ -56,7 +56,7 @@ interface TimelineViewProps {
 
 export function TimelineView({ onSelectEvent, onSelectCharacter }: TimelineViewProps) {
   const { isMobile } = useDevice()
-  const { settings } = useSettings()
+  const { settings, updateSetting } = useSettings()
   const [editMode, setEditMode] = useState(false)
   const openExportCenter = useExportCenter()
   const [filterMajor, setFilterMajor] = useState(false)
@@ -338,6 +338,11 @@ export function TimelineView({ onSelectEvent, onSelectCharacter }: TimelineViewP
     setFilterMajor,
     editMode,
     onToggleEdit: toggleEditMode,
+    // 简 / 详与参与者轨道是**这张图自己的显示档位**，放在工具栏里，不占全局「视图」菜单
+    detail,
+    onDetailChange: (value: 'simple' | 'detailed') => updateSetting('timelineDetail', value),
+    showTracks,
+    onToggleTracks: () => updateSetting('timelineShowTracks', !showTracks),
     zoomRatio,
     onZoomChange: handleZoomChange,
     onZoomCommit: handleZoomCommit,

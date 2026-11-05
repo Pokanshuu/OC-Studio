@@ -44,7 +44,6 @@ import { toast } from 'sonner'
 import { MediaContextMenu, type MediaMenuItem } from '@/components/shared/MediaContextMenu'
 import { MapGeneratorPanel } from './MapGeneratorPanel'
 import {
-  MAP_VIEW_LABELS,
   normalizeMapParams,
   type MapView as MapViewKind,
   type ProfilePoint,
@@ -65,6 +64,7 @@ import {
   FLOAT_SKIN,
   FLOAT_STACK,
   LOADING_TEXT,
+  PAGE_TITLE,
 } from '@/lib/ui-tokens'
 import { notifyDataUpdated } from '@/lib/data-events'
 import { MapAnchorPicker, type MapAnchorSelection } from './components/MapAnchorPicker'
@@ -106,27 +106,15 @@ import {
   type MapEntity,
 } from './services'
 import { DEFAULT_MAP_LAYERS, type MapAnchor, type MapLayerKind, type MapLayerState } from './types'
+// 六档档位与「生成结果落成底图」这一步由生成器与工具页共用，见 save-generated.ts
+import { MAP_VIEWS as VIEWS, saveGeneratedMap } from './save-generated'
+import { consumeOpenMapRequest } from './open-request'
 
 const NAV_TYPE: Record<AnchorKind, string> = {
   country: 'country',
   event: 'event',
   worldEntry: 'world',
 }
-
-/**
- * 控制条上的档位。
- *
- * 不含 `profile`：剖面是**抽屉**（沿一条线取高度剖面），不是一张满屏底图，
- * 切过去会把整张地图换成一条剖面图，那不是这条控制条要干的事。
- */
-const VIEWS: readonly MapViewKind[] = [
-  'terrain',
-  'contour',
-  'temperature',
-  'moisture',
-  'biome',
-  'political',
-]
 
 /** 压在画布上的小工具按钮：图标 24 见方，浮条里再嵌一层 */
 const TOOL_BTN = `flex h-7 w-7 shrink-0 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink rounded-item`
@@ -344,6 +332,14 @@ export function MapView() {
     void reload()
   }, [reload])
 
+  // 「工具 › 地图生成器」建完图会交棒过来：切到地图时直接打开它，而不是停在上次那张
+  useEffect(() => {
+    if (activeItem !== '地图') return
+    const pending = consumeOpenMapRequest()
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 一次性交棒：读的是模块态，没有可派生的值
+    if (pending !== null) void reload(pending)
+  }, [activeItem, reload])
+
   const selectMap = useCallback((id: number | null) => {
     activeIdRef.current = id
     setActiveId(id)
@@ -438,44 +434,17 @@ export function MapView() {
     onProgress?: (stage: string, value: number) => void,
   ) => {
     if (!active) return
-    const saved = await saveMapImage(blob, {
-      name: active.name,
-      // 生成出来的第一张也按「地图名 + 视图」命名，视图条才能原地覆盖而不是越攒越多
-      fileName: mapViewFileName(active.name, view),
-      replace: true,
+    // 落盘 + 其余五档的预渲染在 save-generated.ts（工具页那边走的是同一份）
+    await saveGeneratedMap({
+      mapId: active.id,
+      mapName: active.name,
+      blob,
+      size,
+      seed,
+      params,
+      view,
+      onProgress,
     })
-    await setMapBackground(
-      active.id,
-      saved.relPath,
-      {
-        width: saved.width > 0 ? saved.width : size.width,
-        height: saved.height > 0 ? saved.height : size.height,
-      },
-      { seed, params, view },
-    )
-
-    /**
-     * 其余五档**现在就画完存盘**：切档只是换一张图，不用再等 Worker 重画。
-     * 以前是切到哪档才画哪档，每次切都卡几秒 —— 社区反馈里最扎的一条。
-     * 单档失败不连坐：存下来的那几档照样能切，缺的那档切过去时再补。
-     */
-    const others = VIEWS.filter((item) => item !== view)
-    for (let index = 0; index < others.length; index += 1) {
-      const next = others[index]
-      onProgress?.(`渲染 ${MAP_VIEW_LABELS[next]}`, index / others.length)
-      try {
-        const png = await renderMapView({ seed, params, view: next })
-        await saveMapImage(png, {
-          name: active.name,
-          fileName: mapViewFileName(active.name, next),
-          replace: true,
-        })
-      } catch (err) {
-        console.warn('[map] 预渲染视图失败', next, err)
-      }
-    }
-    onProgress?.('', 1)
-
     await reload(active.id)
     notifyDataUpdated()
     setMode('draw')
@@ -981,15 +950,23 @@ export function MapView() {
           </div>
         )}
 
-        {/* 生成器是一整块工作区，盖在画布上（画布保持挂载：视口尺寸不能因为切走一次就丢） */}
+        {/* 生成器是一整块工作区，盖在画布上（画布保持挂载：视口尺寸不能因为切走一次就丢）。
+            md 以上用 flex 把剩余高度整块交给面板（面板自己 `h-full`，内部各栏各自滚）；
+            手机上保持自然流，长表单交给这层滚动 —— 别把这层 `overflow-y-auto` 关掉。 */}
         {mode === 'generate' ? (
-          <div className="absolute inset-0 z-10 overflow-y-auto bg-paper px-4 pb-6 pt-16 md:overflow-hidden md:px-6">
-            <MapGeneratorPanel
-              onUseAsBackground={handleGenerated}
-              mapName={active?.name}
-              initialSeed={generatorPreset?.seed}
-              initialParams={generatorPreset?.params}
-            />
+          <div className="absolute inset-0 z-10 overflow-y-auto bg-paper px-4 pb-6 pt-3 md:flex md:flex-col md:overflow-hidden md:px-6">
+            {/* 标题只给「从地图跳进来」的这一条路：画布退到后面，别处没有东西告诉用户这是哪一页。
+                侧栏「工具 › 地图生成器」那条入口不加（侧栏已经点明了），见 `MapToolView`。 */}
+            <h1 className={`mb-3 flex h-8 shrink-0 items-center md:mb-5 ${PAGE_TITLE}`}>地图生成器</h1>
+            <div className="md:min-h-0 md:flex-1">
+              <MapGeneratorPanel
+                onUseAsBackground={handleGenerated}
+                // 从地图里打开的生成器：写回这张图的底图（工具页那边是新建，见 MapToolView）
+                target={active ? { kind: 'existing', name: active.name } : undefined}
+                initialSeed={generatorPreset?.seed}
+                initialParams={generatorPreset?.params}
+              />
+            </div>
           </div>
         ) : null}
 
@@ -1037,11 +1014,27 @@ export function MapView() {
                     anchorCount={(map) => anchorStats.counts.get(map.name) ?? 0}
                     onSelect={selectMap}
                     onCreate={() => void handleCreate()}
-                    onRename={(id, name) => {
-                      void renameMap(id, name).then(() => reload())
+                    onRename={async (id, name) => {
+                      // 失败（比如与另一张图重名）要**说出来**，否则输入框一收就像没发生
+                      try {
+                        await renameMap(id, name)
+                      } catch (err) {
+                        toast.error('改名失败', { description: messageOf(err) })
+                      } finally {
+                        await reload()
+                      }
                     }}
-                    onDelete={(id) => {
-                      void deleteMap(id).then(() => reload())
+                    onDelete={async (id, name) => {
+                      try {
+                        await deleteMap(id, name)
+                        toast.success('已移到回收站')
+                      } catch (err) {
+                        toast.error('删除失败', { description: messageOf(err) })
+                      } finally {
+                        // 成功失败都重新读一遍：列表留着一张「其实已经删了」的旧行，
+                        // 用户下次新建/改名撞上它，就会说「怎么又说已存在」
+                        await reload()
+                      }
                     }}
                     onOpenDetail={() => {
                       setSwitcherOpen(false)

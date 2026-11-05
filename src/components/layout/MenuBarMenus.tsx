@@ -9,7 +9,6 @@ import { useImportExport } from '@/components/shared/ImportExportUI'
 import { useExportCenter } from '@/components/shared/export/ExportCenterHost'
 import { JournalTimelineDialog } from '@/features/vault/components/JournalTimelineDialog'
 import { useActiveEditor } from '@/lib/editor-context'
-import { toggleCoverTuningPanel } from '@/lib/cover'
 import { VaultMenuSection } from '@/features/vault'
 import {
   DropdownMenu,
@@ -197,32 +196,6 @@ export function MenuBarMenus() {
                   </DropdownMenuItem>
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
-              <DropdownMenuSeparator />
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>时间线</DropdownMenuSubTrigger>
-                <DropdownMenuSubContent>
-                  <DropdownMenuItem onClick={() => updateSetting("timelineDetail", "simple")}>
-                    <span>简</span>
-                    {settings.timelineDetail === "simple" ? <Check size={14} strokeWidth={2} className="ml-auto" /> : null}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => updateSetting("timelineDetail", "detailed")}>
-                    <span>详</span>
-                    {settings.timelineDetail === "detailed" ? <Check size={14} strokeWidth={2} className="ml-auto" /> : null}
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => updateSetting("timelineShowTracks", !settings.timelineShowTracks)}>
-                    <span>参与者轨道</span>
-                    {settings.timelineShowTracks ? <Check size={14} strokeWidth={2} className="ml-auto" /> : null}
-                  </DropdownMenuItem>
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setJournalOpen(true)}>
-                创作时间线...
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => toggleCoverTuningPanel()}>
-                封面卡参数
-              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 

@@ -10,6 +10,7 @@
  */
 import { db } from '@/lib/db'
 import { logOperation, pendingStamp } from '@/lib/sync'
+import { flushVaultWrites } from '@/lib/vault/vault-persist'
 import type { MapLayerKind, MapAnchor } from './types'
 
 export type AnchorKind = Extract<MapLayerKind, 'country' | 'event' | 'worldEntry'>
@@ -221,8 +222,18 @@ export async function setMapAnnotations(id: number, raw: string | undefined): Pr
   await logOperation('worldEntries', id, 'map_annotations', '', raw ?? '')
 }
 
-/** 新建一张地图（一条笔记；底图之后单独设） */
+/** 新建一张地图（一条笔记；底图之后单独设）。要拿到去重后的名字用 `createNamedMap`。 */
 export async function createMap(name = '新地图'): Promise<number> {
+  return (await createNamedMap(name)).id
+}
+
+/**
+ * 新建地图并**把去重后的名字一起返回**。
+ *
+ * 地图的底图文件按名字命名（`<地图名>-<视图>.png`），所以「新建 + 写底图」的调用方
+ * 必须拿到最终名字 —— 只回 id 的话要么再查一次，要么用请求的名字（重名时会写错文件）。
+ */
+export async function createNamedMap(name = '新地图'): Promise<{ id: number; name: string }> {
   const now = Date.now()
   const title = await allocateMapName(name)
   const id = await db.worldEntries.add({
@@ -241,7 +252,7 @@ export async function createMap(name = '新地图'): Promise<number> {
     ...pendingStamp(now),
   })
   await logOperation('worldEntries', id, 'title', '', title)
-  return id
+  return { id, name: title }
 }
 
 async function nextWorldOrder(): Promise<number> {
@@ -259,6 +270,11 @@ async function allocateMapName(base: string): Promise<string> {
   let counter = 2
   while (existing.has(`${root} ${counter}`)) counter += 1
   return `${root} ${counter}`
+}
+
+/** 建议一个还没被占用的地图名（**不建图**）：工具页的命名对话框拿它当默认值 */
+export async function suggestMapName(base = '新地图'): Promise<string> {
+  return allocateMapName(base)
 }
 
 async function mapNameTaken(name: string, exceptId: number): Promise<boolean> {
@@ -354,16 +370,30 @@ export async function renameMap(id: number, name: string): Promise<void> {
  * 地图上的锚点不清坐标，只清 `map_id` —— 它们回到主地图的同一归一化位置，
  * 不会因为删了一张图就把作者摆过的位置丢掉。
  */
-export async function deleteMap(id: number): Promise<void> {
-  const row = await db.worldEntries.get(id)
+/**
+ * 删除一张地图（软删除，进回收站）。
+ *
+ * `fallbackName` 是**兜底**：地图的持久身份是**名字**（锚点 `map_id` 存的就是名字），
+ * 而 `id` 只在本次会话有效 —— 中间整库重读过（换库 / 重启 / 落盘回读）一次，列表里
+ * 那些 id 就全对不上了。这时再按 id 删会「删了没反应」，用户看到的是「删掉的地图又回来了」。
+ * 所以 id 找不到就按名字再找一次。
+ */
+export async function deleteMap(id: number, fallbackName?: string): Promise<void> {
+  let row = await db.worldEntries.get(id)
+  if ((!row || row.deleted || !isMapEntry(row)) && fallbackName) {
+    row = await db.worldEntries
+      .filter((item) => !item.deleted && isMapEntry(item) && item.title === fallbackName)
+      .first()
+  }
   if (!row || row.deleted || !isMapEntry(row)) throw new Error('地图不存在')
 
+  const targetId = row.id
   const mapName = row.title
   const now = Date.now()
   const stamp = pendingStamp(now)
 
   await db.transaction('rw', db.worldEntries, db.countries, db.events, async () => {
-    await db.worldEntries.update(id, { deleted: true, updatedAt: now, ...stamp })
+    await db.worldEntries.update(targetId, { deleted: true, updatedAt: now, ...stamp })
 
     const countries = await db.countries.filter((item) => item.mapId === mapName).toArray()
     for (const item of countries) {
@@ -375,11 +405,18 @@ export async function deleteMap(id: number): Promise<void> {
       await db.events.update(item.id, { mapId: undefined, updatedAt: now, ...stamp })
     }
 
-    const entries = await db.worldEntries.filter((item) => item.id !== id && item.mapId === mapName).toArray()
+    const entries = await db.worldEntries.filter((item) => item.id !== targetId && item.mapId === mapName).toArray()
     for (const item of entries) {
       await db.worldEntries.update(item.id, { mapId: undefined, updatedAt: now, ...stamp })
     }
   })
 
-  await logOperation('worldEntries', id, 'deleted', 'false', 'true')
+  await logOperation('worldEntries', targetId, 'deleted', 'false', 'true')
+
+  /**
+   * 立刻落一次盘。删除在磁盘上体现为「把笔记文件挪进 `.ocstudio/trash/`」；
+   * 只排进落盘队列的话，队列还没轮到就整库重读（重启 / 换库 / 开发时热重载），
+   * 文件还在原地 —— 这张**刚删掉的地图会原样回来**，再建一张同名的就报「已存在同名地图」。
+   */
+  await flushVaultWrites().catch(() => undefined)
 }

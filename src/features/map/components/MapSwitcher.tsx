@@ -29,7 +29,8 @@ interface MapSwitcherProps {
   onSelect: (id: number) => void
   onCreate: () => void
   onRename: (id: number, name: string) => void
-  onDelete: (id: number) => void
+  /** 带上名字：id 只在本次会话有效，整库重读过就对不上（见 `deleteMap` 的说明） */
+  onDelete: (id: number, name: string) => void
   /** 打开这张图的详情（尺寸 / 锚点 / 标注 / 重新生成 / 导出） */
   onOpenDetail: () => void
 }
@@ -157,7 +158,7 @@ export function MapSwitcher({
                   {maps.length > 1 ? (
                     <button
                       type="button"
-                      onClick={() => onDelete(map.id)}
+                      onClick={() => onDelete(map.id, map.name)}
                       className={`${ICON_BTN} hover:text-error`}
                       aria-label="删除地图"
                       title="删除"

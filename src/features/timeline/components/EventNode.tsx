@@ -29,7 +29,13 @@ function EventNodeContent({
       ) : event.isMajor ? (
         <span className="h-3 shrink-0 bg-ink" style={{ width: 3 }} aria-hidden />
       ) : null}
-      <span className="flex min-w-0 flex-col justify-center">
+      {/*
+        标题**吸附在视口最左**（`sticky left-2`）：长条事件往左滚出屏幕时，名字还留在
+        可见区左缘，否则「这一条是什么」就随着条子的左端一起滚没了。
+        `flex-1` 让这一列铺满条子剩下的宽度 —— sticky 只能在自己的包含块里滑，
+        列只有文字那么宽的话，条子滚过去两步它就滑不动了。
+      */}
+      <span className="sticky left-2 flex min-w-0 flex-1 flex-col justify-center">
         <span className={`truncate ${event.isMajor ? 'font-medium' : ''}`}>{event.title}</span>
         {meta ? <span className="mt-0.5 truncate text-[11px] leading-none text-ink-muted">{meta}</span> : null}
       </span>
