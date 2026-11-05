@@ -97,6 +97,9 @@
 
 - [x] **P2 A1 只读能力层**（2026-11-05）：`src/lib/capabilities/`（`Caller` 权限入口 / list / get / search / graphSlice）+ Dexie 适配器；`scripts/capabilities-check.ts` 19 项断言。**没有 MCP / REST 传输层**
 - [x] **P2 A2 图鉴切片装配**（2026-11-05）：`buildCodexSlice()` 把字段 / 关系 / 相关事件 / 标签 / 正文装配成 markdown；**还没被导出卡 / 静态站复用**（先保住唯一实现）
+- [x] **P1 插件系统地基**（2026-11-05）：`src/lib/plugins/`（manifest 契约：三类 tool / theme / skill + 六项权限 + 可用标记；开关与逐项授权存 localStorage）；侧栏「工具」分组 + `工具:<id>` 导航键 + `ToolSection` 接线表；地图生成器搬成独立工具页（先选目标地图 → 参数 → 生成 → 用作底图）；设置 › 插件页签（开关 / 权限 / 版本 / 类型 / 添加与市场标开发中）；**主题即插件**：四套官方配色登记为 `kind: 'theme'`，个性化按插件开关过滤（当前在用的永远保留）。定稿口径写进 `docs/插件.md` §0.0
+- [ ] **P1 助手插件实装**：从 `available: false` 打开。三块按序搬 —— ① 对话内核（Simple-Agent 的 `sseParser` / `chatRequest` / `messageTree` / `tokenEstimate`，可直接搬）② 工具循环（把 `read_file`/`run_shell` 那套换成 `lib/capabilities` 的 list / get / search / graphSlice，审批保留逐次 / 本会话 / 只读）③ 界面（MessageItem / Composer / StepTimeline / ToolCard 用我们的令牌重画）。**不走 MCP**，进程内直调
+- [ ] **P2 主题插件对外开放**：把 `lib/theme/presets.ts` 的令牌升级成可导入的主题包 manifest（现在只是内置四套登记成插件，还没有「装一个主题」的入口）
 - [ ] **P2 A3 内置 agent**：对话壳（复用作者已有安卓原生 AI 应用里预留的 agent 能力）+ 官方 skill（角色讨论 / 设定补全 / 小说续写 / 一致性检查）+ 模型可换
 - [ ] **P2 A4 `actor` 留痕 + 受限写入**：journal 每条加 `actor`（**格式已落，写入侧未接**）；权限四级（只读 / 写正文 / 改结构 / 删除），默认只读，写入必须走落盘链路
 - [ ] **P3 官方插件：地图生成器**：读国家 / 词条 → 渲染 SVG/Canvas → 导出 PNG（见 `docs/地图.md`）。先做成**内置模块 + 插件形状的接口**，等沙箱就绪再真正装成插件

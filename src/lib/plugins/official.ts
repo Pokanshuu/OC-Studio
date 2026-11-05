@@ -9,6 +9,7 @@
  * 但侧栏不出入口 —— 免得点进去是块空壳。实装顺序见 `docs/插件.md` §0.2。
  */
 import { MAP_GENERATOR_API_VERSION, MAP_GENERATOR_MANIFEST } from '@/plugins/map-generator'
+import { THEME_PLUGINS } from './themes'
 import type { PluginManifest } from './types'
 
 export const MAP_GENERATOR_PLUGIN: PluginManifest = {
@@ -39,8 +40,13 @@ export const AGENT_PLUGIN: PluginManifest = {
   available: false,
 }
 
-/** 出厂清单（顺序 = 侧栏「工具」里的顺序） */
-export const OFFICIAL_PLUGINS: readonly PluginManifest[] = [MAP_GENERATOR_PLUGIN, AGENT_PLUGIN]
+/** 出厂清单（顺序 = 设置里的顺序；侧栏「工具」只取 kind: 'tool' 的那些） */
+export const OFFICIAL_PLUGINS: readonly PluginManifest[] = [
+  MAP_GENERATOR_PLUGIN,
+  AGENT_PLUGIN,
+  // 主题也是插件：四套配色各算一个，只给数据、没有代码
+  ...THEME_PLUGINS,
+]
 
 export function findPlugin(id: string): PluginManifest | undefined {
   return OFFICIAL_PLUGINS.find((plugin) => plugin.id === id)

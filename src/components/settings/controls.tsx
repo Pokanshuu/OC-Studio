@@ -3,7 +3,7 @@
 import { EDITOR_LAYOUT_OPTIONS, type EditorLayout } from "@/lib/editor-layout"
 import { COVER_TINT_MODE_OPTIONS, type CoverTintMode } from "@/lib/cover"
 import { EDGE_STYLE_OPTIONS, type EdgeStyle } from "@/lib/edge-style"
-import { THEME_PRESETS, type ThemePresetId } from "@/lib/theme/presets"
+import { THEME_PRESETS, type ThemePreset, type ThemePresetId } from "@/lib/theme/presets"
 
 // 单选圈：选中只加实心点，外圈最多到 `line-hover`。
 // 用墨色（`border-ink`）在深色底上会变成一只刺眼的白环，`line-hover` 才和界面其它
@@ -89,13 +89,16 @@ export function ThemeRadio({
 export function ThemePresetRadio({
   value,
   onChange,
+  // 主题现在是插件（`lib/plugins/themes.ts`）：关掉的那套不出选项，由调用方过滤后传进来
+  presets = THEME_PRESETS,
 }: {
   value: ThemePresetId
   onChange: (v: ThemePresetId) => void
+  presets?: readonly ThemePreset[]
 }) {
   return (
     <div className="flex flex-wrap gap-2">
-      {THEME_PRESETS.map((preset) => {
+      {presets.map((preset) => {
         const selected = value === preset.id
         return (
           <label

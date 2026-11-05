@@ -12,6 +12,7 @@ import { BTN_QUIET } from '@/lib/ui-tokens'
 import { getVaultSession } from '@/lib/vault/vault-session'
 import { isVaultSupported, vaultFs } from '@/lib/vault/vault-fs'
 import { ThemeRadio, ThemePresetRadio, LayoutRadio, CoverTintRadio, MouseModeRadio, EdgeStyleRadio, SWITCH_CLASSES, SWITCH_DOT } from '../controls'
+import { enabledThemePresets } from '@/lib/plugins'
 export function GeneralTab() {
   const { settings, updateSetting } = useSettings()
   const { isMobile } = useDevice()
@@ -159,6 +160,7 @@ export function GeneralTab() {
                   <ThemePresetRadio
                     value={settings.themePreset}
                     onChange={(v) => updateSetting("themePreset", v)}
+                    presets={enabledThemePresets(settings.themePreset)}
                   />
                 </div>
 
