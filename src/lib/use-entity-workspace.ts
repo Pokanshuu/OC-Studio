@@ -616,6 +616,7 @@ export function useEntityWorkspace() {  const { activeItem: desktopActiveItem, s
   const showWorld = activeItem === '世界观'
   const showTimeline = activeItem === '时间线'
   const showNovel = activeItem === '小说'
+  const showInspiration = activeItem === '灵感'
   const showTreeTable = activeItem === '树表'
   const showMap = activeItem === '地图'
   const showRelations = activeItem === '关系图'
@@ -632,6 +633,7 @@ export function useEntityWorkspace() {  const { activeItem: desktopActiveItem, s
     !showRelations &&
     !showAlbum &&
     !showNovel &&
+    !showInspiration &&
     !showTreeTable &&
     !showMap &&
     !isCategoryItem(activeItem) &&

@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import { withTouchFeedback } from '@/lib/animation'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Flag, Pencil, SearchX, Trash2 } from 'lucide-react'
 import type { Country } from '@/types'
 import { MobileActionSheet, type ActionItem } from '@/components/shared/MobileActionSheet'
 import {
@@ -139,14 +139,16 @@ export function CountryList({
         )}
       >
         <div className="max-md:h-10" />
-        <div className={viewMode === 'gallery' ? 'flex min-h-0 flex-1 flex-col' : 'p-4 flex flex-col'}>
+        <div className={viewMode === 'gallery' ? 'flex min-h-0 flex-1 flex-col' : 'flex flex-1 flex-col p-4'}>
         {countries.length === 0 ? (
           <ListEmptyState
+            icon={Flag}
             message="还没有国家"
             action={{ label: '创建第一个', onClick: onCreateCountry }}
           />
         ) : filtered.length === 0 ? (
           <ListEmptyState
+            icon={SearchX}
             message="没有匹配的国家"
             action={{ label: '清除筛选', onClick: () => setSearch('') }}
           />

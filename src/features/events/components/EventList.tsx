@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import { withTouchFeedback } from '@/lib/animation'
-import { Pencil, Trash2 } from 'lucide-react'
+import { CalendarDays, Pencil, SearchX, Trash2 } from 'lucide-react'
 import type { Event } from '@/types'
 import { sortEvents } from '../utils'
 import { MobileActionSheet, type ActionItem } from '@/components/shared/MobileActionSheet'
@@ -144,14 +144,16 @@ export function EventList({
         )}
       >
         <div className="max-md:h-10" />
-        <div className={viewMode === 'gallery' ? 'flex min-h-0 flex-1 flex-col' : 'p-4 flex flex-col'}>
+        <div className={viewMode === 'gallery' ? 'flex min-h-0 flex-1 flex-col' : 'flex flex-1 flex-col p-4'}>
         {events.length === 0 ? (
           <ListEmptyState
+            icon={CalendarDays}
             message="还没有事件"
             action={{ label: '创建第一个', onClick: onCreateEvent }}
           />
         ) : filteredEvents.length === 0 ? (
           <ListEmptyState
+            icon={SearchX}
             message="没有匹配的事件"
             action={{ label: '清除筛选', onClick: () => setSearch('') }}
           />

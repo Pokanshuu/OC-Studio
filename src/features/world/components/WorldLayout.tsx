@@ -5,7 +5,10 @@ import { useDevice } from '@/lib/use-device'
 import type { WorldEntry } from '@/types'
 import type { Editor } from '@tiptap/core'
 import { EntityHistoryButton } from '@/features/vault'
+import { FileText } from 'lucide-react'
 import { EntityEditorShell } from '@/components/shared/EntityEditorShell'
+import { ListEmptyState } from '@/components/shared/ListEmptyState'
+import { TalkToAgentButton } from '@/components/shared/TalkToAgentButton'
 import { useEntryList, useEntry, useCreateEntry, useDeleteEntry } from '../hooks/useWorldEntries'
 import { renameEntry, reorderEntries, updateEntry } from '../services'
 import { useFields } from '@/lib/fields'
@@ -244,6 +247,12 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
               >
                 {entryTemplate?.name ?? '模板'}
               </button>
+              <TalkToAgentButton
+                kind="world"
+                id={currentEntry.id}
+                title={title}
+                onBeforeOpen={flushSave}
+              />
               <EntityHistoryButton table="worldEntries" id={currentEntry.id} name={title} />
             </>
           ) : null
@@ -262,7 +271,7 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
                         return <WorldCoverField entry={currentEntry} />
                       case 'info':
                         return (
-                          <div className="flex flex-col gap-3">
+                          <div className="flex min-w-0 flex-col gap-8">
                             <WorldTitleField title={title} onTitleChange={handleTitleChange} />
                             <WorldCustomFields key={currentEntry.id} entry={currentEntry} />
                           </div>
@@ -312,10 +321,12 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
             <span className="text-sm text-error">{error}</span>
           </div>
         ) : (
-          <div className="flex h-full items-center justify-center">
-            <p className="text-sm text-ink-muted">
-              {entries.length === 0 ? '暂无词条，从左侧创建' : '选择一个词条或新建词条'}
-            </p>
+          <div className="flex h-full flex-col">
+            <ListEmptyState
+              icon={FileText}
+              message={entries.length === 0 ? '还没有词条' : '选择一个词条或新建词条'}
+              action={{ label: '新建词条', onClick: () => void handleCreate(null, '新词条') }}
+            />
           </div>
         )}
       </EntityEditorShell>

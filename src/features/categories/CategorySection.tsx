@@ -11,18 +11,21 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { CircleAlert, Pencil, SearchX, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { withTouchFeedback } from '@/lib/animation'
 import type { WorldEntry } from '@/types'
 import { db } from '@/lib/db'
 import { listActive } from '@/lib/repository'
 import { useCategories } from '@/lib/categories/store'
+import { categoryIconOf } from '@/lib/categories/icons'
 import { useDevice } from '@/lib/use-device'
 import { useMobilePageHeader } from '@/components/layout/MobilePageHeaderContext'
 import { ListShell } from '@/components/shared/ListShell'
 import { ListEmptyState } from '@/components/shared/ListEmptyState'
 import { CoverFlow } from '@/components/shared/CoverFlow'
 import { VerticalSplit } from '@/components/shared/VerticalSplit'
+import { MobileActionSheet, type ActionItem } from '@/components/shared/MobileActionSheet'
 import { SortableList, moveId } from '@/components/shared/list-dnd'
 import {
   AlertDialog,
@@ -89,6 +92,9 @@ export function CategorySection({
   const [sortKey, setSortKey] = useState<CategorySortKey>(readCategorySortKey)
   const [viewMode, setViewMode] = useState<CategoryViewMode>(readCategoryViewMode)
   const [deleteTarget, setDeleteTarget] = useState<WorldEntry | null>(null)
+  const [actionSheet, setActionSheet] = useState<{ open: boolean; title: string; actions: ActionItem[] }>({
+    open: false, title: '', actions: [],
+  })
 
   const reload = useCallback(async () => {
     if (!category) {
@@ -129,6 +135,24 @@ export function CategorySection({
     queryClient.removeQueries({ queryKey: ['worldEntry', id] })
     setOpenId(id)
   }, [queryClient])
+
+  /** 移动端长按：与事件列表同一套「编辑 / 删除」动作表 */
+  const openActionSheet = useCallback((entry: WorldEntry) => {
+    setActionSheet({
+      open: true,
+      title: entry.title || '未命名',
+      actions: [
+        { id: 'edit', label: '编辑', icon: <Pencil size={20} strokeWidth={2} />, onPress: () => openEntry(entry.id) },
+        {
+          id: 'delete',
+          label: '删除',
+          icon: <Trash2 size={20} strokeWidth={2} />,
+          destructive: true,
+          onPress: () => setDeleteTarget(entry),
+        },
+      ],
+    })
+  }, [openEntry])
 
   // 内链 / @ 指定了要打开哪一条（只认 nonce，避免对象字面量每帧重跑）
   const requestEntryId = openEntryRequest?.entryId ?? null
@@ -206,6 +230,17 @@ export function CategorySection({
     }
   }
 
+  /** 行内 `DeleteButton` 已经确认过一次，这里直接删，不再叠页面级对话框 */
+  const handleDeleteDirect = useCallback(async (target: WorldEntry): Promise<void> => {
+    try {
+      await deleteEntry(target.id)
+      notifyDataUpdated()
+      await reload()
+    } catch (err) {
+      toast.error('删除失败', { description: err instanceof Error ? err.message : String(err) })
+    }
+  }, [reload])
+
   if (!category) {
     return (
       <div className={CENTER_STATE}>
@@ -237,21 +272,21 @@ export function CategorySection({
     </div>
   ) : error ? (
     <ListEmptyState
+      icon={CircleAlert}
       message={error}
       action={{ label: '重试', onClick: () => void reload() }}
-      className="py-24"
     />
   ) : entries.length === 0 ? (
     <ListEmptyState
+      icon={categoryIconOf(category.icon)}
       message={`「${category.name}」里还没有条目`}
       action={{ label: '创建第一个', onClick: () => void handleCreate() }}
-      className="py-24"
     />
   ) : filtered.length === 0 ? (
     <ListEmptyState
+      icon={SearchX}
       message="没有匹配的条目"
       action={{ label: '清除搜索', onClick: () => setSearch('') }}
-      className="py-24"
     />
   ) : null
 
@@ -269,8 +304,10 @@ export function CategorySection({
             entry={entry}
             excerpt={excerptOf(entry)}
             sortable={canReorder}
+            isMobile={isMobile}
             onOpen={handleSelect}
-            onDelete={setDeleteTarget}
+            onDelete={(target) => void handleDeleteDirect(target)}
+            onLongPress={() => openActionSheet(entry)}
           />
         ))}
       </div>
@@ -297,7 +334,7 @@ export function CategorySection({
         <div className="max-md:h-10 shrink-0" />
         {viewMode === 'gallery' ? (
           status ? (
-            <div className="flex flex-col p-4">{status}</div>
+            <div className="flex flex-1 flex-col p-4">{status}</div>
           ) : (
             <VerticalSplit
               storageKey="oc-categories-gallery-split"
@@ -319,7 +356,7 @@ export function CategorySection({
             />
           )
         ) : (
-          <div className="flex flex-col p-4">
+          <div className="flex flex-1 flex-col p-4">
             {status ?? (
               <SortableList
                 ids={filtered.map((entry) => entry.id)}
@@ -348,6 +385,13 @@ export function CategorySection({
           </div>
         )}
       </ListShell>
+
+      <MobileActionSheet
+        open={actionSheet.open}
+        onClose={() => setActionSheet((prev) => ({ ...prev, open: false }))}
+        title={actionSheet.title}
+        actions={actionSheet.actions}
+      />
 
       <AlertDialog
         open={deleteTarget !== null}

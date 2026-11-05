@@ -211,7 +211,8 @@ export const CHIP = `inline-flex items-center gap-1 bg-paper-alt px-2 py-[3px] t
 export const CHIP_ON = `inline-flex items-center gap-1 bg-ink px-2 py-[3px] text-[12px] text-paper ${ROUND_ITEM}`
 
 /* ── 空态 / 加载 ───────────────────────────────────────
-   空态 = **一句话 + 一个主按钮**（`BTN_PRIMARY`），整块在内容区里**横向 + 纵向居中**。
+   空态 = **一个图标 + 一句话 + 一个主按钮**（`BTN_PRIMARY`），整块在内容区里**横向 + 纵向居中**。
+   图标是必需品：只有一句话时分不清「还没内容」还是「加载失败」（实现见 `ListEmptyState`）。
    要真居中，父级必须给出高度：`ListShell` 的滚动容器是 flex 列，
    内容那一层加 `flex-1` 就会撑满可视区（见 `ListShell` 顶部注释）。
    动作不许再写成可点的衬线小字（`EMPTY_HINT` 只留给侧栏 / 卡片里的行内入口）。 */

@@ -54,7 +54,15 @@ export function ListShell({ header, children, bodyClassName = '', fill = false, 
 
   return (
     <div className={`flex h-full min-h-0 flex-col ${className}`}>
-      <div ref={setScrollEl} className={`min-h-0 flex-1 overflow-y-auto overflow-x-hidden ${bodyClassName}`}>
+      {/*
+        滚动容器是 **flex 列**：页面内容那一层写 `flex-1` 就能撑满可视区 ——
+        空态要靠它才能纵向居中。子项一律 `shrink-0`：内容长到溢出时，默认的 `shrink` 会把
+        页头 / 移动端 spacer 压扁（它们没有内容兜底，会被压成 0）。
+      */}
+      <div
+        ref={setScrollEl}
+        className={`flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden [&>*]:shrink-0 ${bodyClassName}`}
+      >
         <div className="sticky top-0 z-20">
           {/*
             页头表面：**整块**页头共用一层底色 + 模糊。做成页头底下的绝对定位层，

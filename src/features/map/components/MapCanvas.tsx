@@ -24,7 +24,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react'
-import { ExternalLink, MapPin, MapPinOff, Upload, Wand2 } from 'lucide-react'
+import { ExternalLink, Layers, MapPin, MapPinOff, Upload, Wand2 } from 'lucide-react'
 import { MediaContextMenu } from '@/components/shared/MediaContextMenu'
 import { ListEmptyState } from '@/components/shared/ListEmptyState'
 import { BTN_PRIMARY, BTN_QUIET, ROUND_ITEM, PANEL } from '@/lib/ui-tokens'
@@ -409,6 +409,7 @@ export function MapCanvas({
       {empty === 'layers-off' ? (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-4">
           <ListEmptyState
+            icon={Layers}
             message="图层都关掉了"
             action={{ label: '全部打开', onClick: onEnableAllLayers }}
             className="pointer-events-none w-full [&_button]:pointer-events-auto"

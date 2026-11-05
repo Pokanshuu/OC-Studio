@@ -9,7 +9,7 @@
  * - 文案节制：标题下只放事实（几章 / 多少字），不写「分章节写作、插入图片…」这类说明
  */
 import { useCallback, useEffect, useState } from 'react'
-import { BookPlus } from 'lucide-react'
+import { BookOpen, BookPlus, CircleAlert } from 'lucide-react'
 import { toast } from 'sonner'
 import type { WorldEntry } from '@/types'
 import { BTN_PRIMARY, BTN_QUIET, CENTER_STATE, LIST_GRID, LOADING_TEXT } from '@/lib/ui-tokens'
@@ -259,26 +259,27 @@ export function NovelSection({
           }
         />
       )}
-      bodyClassName="px-6"
     >
-      <div className="pb-24 pt-4">
-      <div className="md:hidden h-[calc(60px+var(--safe-top))]" aria-hidden />
+      {/* 左右留白放在内容里，不要塞给 ListShell 的 bodyClassName：
+          那个 padding 加在滚动容器上，页头也在里面，会跟 PageToolbar 自己的 px 叠成双层。
+          这层是 `flex-1`：空态 / 加载 / 报错要在内容区里纵向居中，得先有高度。 */}
+      <div className="flex flex-1 flex-col px-6 pb-6 pt-4 max-md:pb-24">
+        <div className="md:hidden h-[calc(60px+var(--safe-top))] shrink-0" aria-hidden />
         {loading ? (
           <div className={CENTER_STATE}>
             <span className={LOADING_TEXT}>加载中…</span>
           </div>
         ) : error ? (
-          <div className={CENTER_STATE}>
-            <span className="text-sm text-error">{error}</span>
-            <button type="button" onClick={() => void reload()} className={BTN_QUIET}>
-              重试
-            </button>
-          </div>
+          <ListEmptyState
+            icon={CircleAlert}
+            message={error}
+            action={{ label: '重试', onClick: () => void reload() }}
+          />
         ) : books.length === 0 ? (
           <ListEmptyState
+            icon={BookOpen}
             message="还没有小说"
             action={{ label: '新建小说', onClick: () => void handleCreate() }}
-            className="py-24"
           />
         ) : viewMode === 'gallery' ? (
           <CoverFlow itemWidth={isMobile ? 190 : 260}>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useCallback, useEffect } from 'react'
-import { Download, ExternalLink, Eye, Menu, RefreshCw, Search } from 'lucide-react'
+import { Download, ExternalLink, Eye, Images, Menu, RefreshCw, Search } from 'lucide-react'
 import { ICON_BTN_MD, LOADING_TEXT } from '@/lib/ui-tokens'
 import { useScrollShade } from '@/lib/use-scroll-shade'
 import { PageToolbar } from './PageToolbar'
@@ -105,7 +105,7 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
       actions: [
         {
           id: 'view',
-          label: '查看',
+          label: '查看大图',
           icon: <Eye size={20} strokeWidth={2} />,
           onPress: () => setViewerIndex(index),
         },
@@ -288,7 +288,7 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
           {loading ? (
             <div className="flex flex-1 items-center justify-center"><span className={LOADING_TEXT}>加载中…</span></div>
           ) : filtered.length === 0 ? (
-            <ListEmptyState message="暂无图片" className="min-h-[40vh]" />
+            <ListEmptyState icon={Images} message="暂无图片" className="min-h-[40vh]" />
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
               {filtered.map((entry, idx) => (

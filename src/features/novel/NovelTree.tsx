@@ -46,9 +46,9 @@ import { EntityHistoryButton } from '@/features/vault'
 import { buildEntryTree, type WorldTreeNode } from '@/lib/world-tree'
 import {
   ADD_ACTION,
+  BTN_PRIMARY,
   BTN_QUIET,
   CENTER_STATE,
-  EMPTY_HINT,
   FIELD_INPUT,
   FIELD_LABEL,
   FIELD_ROW,
@@ -58,6 +58,7 @@ import {
   PAGE_TITLE,
   TITLE_INPUT,
 } from '@/lib/ui-tokens'
+import { ListEmptyState } from '@/components/shared/ListEmptyState'
 import { ImageUploader } from '@/components/shared/ImageUploader'
 import { DeleteButton } from '@/components/shared/DeleteButton'
 import {
@@ -439,10 +440,12 @@ export function NovelTree({
             </div>
           </div>
         ) : (
-          <div className="flex min-h-0 flex-1 items-center justify-center">
-            <button type="button" onClick={() => void handleCreateChapter()} className={EMPTY_HINT}>
-              新建第一章
-            </button>
+          <div className="flex min-h-0 flex-1 flex-col">
+            <ListEmptyState
+              icon={BookText}
+              message="还没有章节"
+              action={{ label: '新建第一章', onClick: () => void handleCreateChapter() }}
+            />
           </div>
         )}
         </EntityEditorShell>
@@ -603,8 +606,8 @@ function NovelTreePanel({
         {tree.length === 0 ? (
           <div className="flex flex-col items-center gap-2 px-3 py-8">
             <p className="text-xs text-ink-faint">还没有章节</p>
-            <button type="button" onClick={onCreate} className={`${EMPTY_HINT} flex items-center gap-1`}>
-              <Plus size={12} strokeWidth={2} />
+            <button type="button" onClick={onCreate} className={BTN_PRIMARY}>
+              <Plus size={13} strokeWidth={2} />
               新建第一章
             </button>
           </div>

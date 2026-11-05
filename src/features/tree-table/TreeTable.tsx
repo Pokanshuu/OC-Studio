@@ -1,37 +1,45 @@
 'use client'
 
 /**
- * 树形表格（W5）：词条 / 国家 / 角色 / 事件 的同源表格视图。
+ * 树形表格（W5）：角色 / 事件 / 国家 / 词条 的同源表格视图。
  *
  * 口径（`docs/todo.md` §1、`docs/模板.md` §1.4）：
  * **只做渲染层** —— 词条的层级一律由 `lib/world-tree.ts#buildEntryTree` 决定，
  * 这里不再写第二套排序；其它三类是平表（它们没有层级）。
  *
  * 一行 = 一个实体：整行可点（进入对应编辑器），展开箭头只负责展开/收起。
+ *
+ * 页签**可拖拽调序**（顺序存 localStorage，见 `tree-table-tabs.ts`）。页头动作区
+ * 四个页签**位置一致**（搜索 / 计数 / 刷新 / 新增 一直在），只有「展开全部 / 折叠全部」
+ * 出现在**词条**页签 —— 层级只有它才有，平表页签上放两个点不动的按钮只是噪声。
+ * 「新增」建的是**当前页签**那一类实体，建完留在表里。
  */
 import { useMemo, useState } from 'react'
-import { ChevronDown, ChevronRight, Plus, RotateCw, Search } from 'lucide-react'
+import { ChevronDown, ChevronRight, Plus, RotateCw, Search, SearchX, Table2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { useEntryList } from '@/features/world/hooks/useWorldEntries'
 import { useCharacterList } from '@/features/characters/hooks/useCharacters'
 import { useCountryList } from '@/features/countries/hooks/useCountries'
 import { useEventList } from '@/features/events/hooks/useEvents'
 import { createEntry } from '@/features/world/services'
+import { createCharacter } from '@/features/characters/services'
+import { createCountry } from '@/features/countries/services'
+import { createEvent } from '@/features/events/services'
+import {
+  newCharacterData,
+  newCountryData,
+  newEventData,
+  newWorldEntryData,
+} from '@/lib/entity-defaults'
 import { buildEntryTree, type WorldTreeNode } from '@/lib/world-tree'
+import { plainTextOf } from '@/lib/export/site/render'
 import { notifyDataUpdated } from '@/lib/data-events'
 import { BTN_QUIET, ICON_BTN, ROUND_ITEM, SEARCH_ICON, SEARCH_INPUT } from '@/lib/ui-tokens'
 import { PageToolbar } from '@/components/shared/PageToolbar'
 import { ListEmptyState } from '@/components/shared/ListEmptyState'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { TreeTableTabs } from './TreeTableTabs'
+import { readTabOrder, type TreeTableTab } from './tree-table-tabs'
 import type { WorldEntry } from '@/types'
-
-type Tab = 'entry' | 'country' | 'character' | 'event'
-
-const TABS: Array<{ value: Tab; label: string }> = [
-  { value: 'entry', label: '词条' },
-  { value: 'country', label: '国家' },
-  { value: 'character', label: '角色' },
-  { value: 'event', label: '事件' },
-]
 
 export type TreeTableKind = 'world' | 'country' | 'character' | 'event'
 
@@ -53,6 +61,17 @@ function formatDate(value: number): string {
   return `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}`
 }
 
+/**
+ * 表格单元格只放**纯文本**。
+ *
+ * 老库的 `制度` / `职业` 这些字段里存的是 HTML 富文本（fork 时期直接存了编辑器
+ * 序列化的结果），原样渲染会把 `<p>` 当字显示出来。剥标签不另写一套：导出站的
+ * `plainTextOf` 已经同时认 HTML、Tiptap JSON 字符串与文档对象，能力层也在用它。
+ */
+function cellText(value: unknown): string {
+  return plainTextOf(value).replace(/\s+/g, ' ').trim()
+}
+
 /** 树 → 扁平行（受展开状态控制）；渲染与计数共用这一份 */
 export function flattenTree(nodes: WorldTreeNode[], expanded: Set<number>, depth = 0): Row[] {
   const rows: Row[] = []
@@ -65,7 +84,7 @@ export function flattenTree(nodes: WorldTreeNode[], expanded: Set<number>, depth
       name: node.entry.title,
       depth,
       hasChildren,
-      category: node.entry.category || '—',
+      category: cellText(node.entry.category) || '—',
       tags: node.entry.tags?.length ? String(node.entry.tags.length) : '—',
       updatedAt: node.entry.updatedAt ?? 0,
     })
@@ -82,9 +101,12 @@ export function TreeTable({
   /** 点一行 → 打开对应编辑器（由工作区编排层提供） */
   onNavigate?: (id: number, type: TreeTableKind) => void
 }) {
-  const [tab, setTab] = useState<Tab>('entry')
+  // 首次打开选「排在最前」的那个页签；顺序本身由 TreeTableTabs 持有 ——
+  // 拖动时只重渲染那一条页签栏，不带着整张表一起重画
+  const [tab, setTab] = useState<TreeTableTab>(() => readTabOrder()[0])
   const [search, setSearch] = useState('')
   const [expanded, setExpanded] = useState<Set<number>>(() => new Set())
+  const [creating, setCreating] = useState(false)
 
   const entryList = useEntryList()
   const characterList = useCharacterList()
@@ -105,7 +127,7 @@ export function TreeTable({
         name: item.name,
         depth: 0,
         hasChildren: false,
-        category: item.system || '—',
+        category: cellText(item.system) || '—',
         tags: item.tags?.length ? String(item.tags.length) : '—',
         updatedAt: item.updatedAt ?? 0,
       }))
@@ -118,7 +140,7 @@ export function TreeTable({
         name: item.name,
         depth: 0,
         hasChildren: false,
-        category: item.occupation || item.race || '—',
+        category: cellText(item.occupation || item.race) || '—',
         tags: item.tags?.length ? String(item.tags.length) : '—',
         updatedAt: item.updatedAt ?? 0,
       }))
@@ -130,7 +152,7 @@ export function TreeTable({
       name: item.title,
       depth: 0,
       hasChildren: false,
-      category: item.time || '—',
+      category: cellText(item.time) || '—',
       tags: item.tags?.length ? String(item.tags.length) : '—',
       updatedAt: item.updatedAt ?? 0,
     }))
@@ -142,10 +164,30 @@ export function TreeTable({
     [rows, keyword],
   )
 
-  const handleCreate = async () => {
-    await createEntry({ title: '新词条', content: '', parentId: null, order: 0, isConcept: false, tags: [] })
-    notifyDataUpdated()
-    entryList.refresh()
+  /** 只有词条有层级：展开 / 折叠只在词条页签出现，别的页签没有树可展开 */
+  const hasNested = tree.some((node) => node.children.length > 0)
+
+  /** 新增的是**当前页签**那一类实体，建完留在表里（不跳走） */
+  const handleCreate = () => {
+    if (creating) return
+    setCreating(true)
+    const run = async () => {
+      try {
+        if (tab === 'character') await createCharacter(newCharacterData())
+        else if (tab === 'event') await createEvent(newEventData())
+        else if (tab === 'country') await createCountry(newCountryData())
+        else await createEntry(newWorldEntryData())
+        // 四张表的列表 hook 都监听这个事件，不用挨个 refresh
+        notifyDataUpdated()
+      } catch (error) {
+        toast.error('新建失败', {
+          description: error instanceof Error ? error.message : String(error),
+        })
+      } finally {
+        setCreating(false)
+      }
+    }
+    void run()
   }
 
   const handleRefresh = () => {
@@ -193,61 +235,71 @@ export function TreeTable({
                 <button
                   type="button"
                   onClick={() => setExpanded(new Set(entries.map((entry) => entry.id)))}
-                  className={BTN_QUIET}
+                  className={`${BTN_QUIET} max-sm:hidden`}
+                  disabled={!hasNested}
                 >
                   展开全部
                 </button>
-                <button type="button" onClick={() => setExpanded(new Set())} className={BTN_QUIET}>
+                <button
+                  type="button"
+                  onClick={() => setExpanded(new Set())}
+                  className={`${BTN_QUIET} max-sm:hidden`}
+                  disabled={expanded.size === 0}
+                >
                   折叠全部
-                </button>
-                <button type="button" onClick={() => void handleCreate()} className={BTN_QUIET}>
-                  <Plus size={14} strokeWidth={2} />
-                  新增
                 </button>
               </>
             ) : null}
+            <button
+              type="button"
+              onClick={handleCreate}
+              className={BTN_QUIET}
+              disabled={creating}
+            >
+              <Plus size={14} strokeWidth={2} />
+              新增
+            </button>
           </>
         }
       />
 
-      <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)} className="shrink-0 gap-0">
-        <TabsList className="grid grid-cols-4 px-4 md:px-6">
-          {TABS.map((item) => (
-            <TabsTrigger key={item.value} value={item.value} className="w-full">
-              {item.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
+      <TreeTableTabs tab={tab} onTabChange={setTab} />
 
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div className="flex min-h-0 flex-1 flex-col overflow-auto">
+        {filtered.length === 0 ? (
+          keyword ? (
+            <ListEmptyState
+              icon={SearchX}
+              message="没有匹配的条目"
+              action={{ label: '清除搜索', onClick: () => setSearch('') }}
+            />
+          ) : (
+            <ListEmptyState
+              icon={Table2}
+              message="还没有内容"
+              action={{ label: '新增', onClick: handleCreate }}
+            />
+          )
+        ) : (
         <table className="w-full min-w-[640px] border-collapse text-left text-[13px]">
           <thead className="sticky top-0 bg-paper">
             <tr className="border-b border-line text-ink-faint">
               <th className="py-2 pl-6 font-normal">名称</th>
               <th className="w-40 py-2 font-normal">
-                {tab === 'entry' ? '分类' : tab === 'character' ? '职业 / 种族' : tab === 'event' ? '时间' : '体制'}
+                {tab === 'entry'
+                  ? '分类'
+                  : tab === 'character'
+                    ? '职业 / 种族'
+                    : tab === 'event'
+                      ? '时间'
+                      : '体制'}
               </th>
               <th className="w-24 py-2 font-normal">标签</th>
               <th className="w-32 py-2 pr-6 font-normal">更新</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={4} className="py-12">
-                  {keyword ? (
-                    <ListEmptyState
-                      message="没有匹配的条目"
-                      action={{ label: '清除搜索', onClick: () => setSearch('') }}
-                    />
-                  ) : (
-                    <ListEmptyState message="还没有内容" />
-                  )}
-                </td>
-              </tr>
-            ) : (
-              filtered.map((row) => {
+            {filtered.map((row) => {
                 const open = expanded.has(row.entityId)
                 return (
                   <tr
@@ -292,9 +344,10 @@ export function TreeTable({
                   </tr>
                 )
               })
-            )}
+            }
           </tbody>
         </table>
+        )}
       </div>
     </div>
   )
