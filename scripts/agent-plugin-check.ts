@@ -13,6 +13,8 @@ import { createCapabilities } from '../src/lib/capabilities'
 import { AGENT_CALLER, LIBRARY_TOOL_NAMES, createLibraryToolExecutor } from '../src/lib/capabilities/agent-tools'
 import { READ_PERMISSION, type Caller, type CapabilityStore, type EntityKind } from '../src/lib/capabilities/types'
 import { ALL_TOOLS, toOpenAiTools, toolByName, toolSummary } from '../src/plugins/agent/core/agent/tools'
+import { bodyDocFromMarkdown } from '../src/lib/vault/write-body'
+import { createVaultSession, setVaultSession } from '../src/lib/vault/vault-session'
 import type { Character, Country, Event, Tag, WorldEntry } from '../src/types'
 
 let passed = 0
@@ -76,10 +78,10 @@ async function main(): Promise<void> {
   for (const name of LIBRARY_TOOL_NAMES) {
     const spec = toolByName(name)
     check(`schema 存在：${name}`, Boolean(spec))
-    const readOnly = spec?.name !== 'library_set_fields'
+    const readOnly = spec?.category === 'read'
     check(
       `${name} ${readOnly ? '只读免审批' : '写入要审批'}`,
-      spec?.category === (readOnly ? 'read' : 'write') && spec?.requiresApproval === !readOnly,
+      (readOnly ? true : spec?.category === 'write') && spec?.requiresApproval === !readOnly,
     )
   }
 
@@ -148,11 +150,17 @@ async function main(): Promise<void> {
   check('没注入 writer 时写不了', noWriter?.isError === true && noWriter?.content === '这个环境不能写库。')
 
   const writes: Array<{ kind: string; id: number; patch: Record<string, string> }> = []
+  const bodies: Array<{ kind: string; id: number; markdown: string }> = []
   const writer = {
     async setFields(kind: EntityKind, id: number, patch: Record<string, string>) {
       writes.push({ kind, id, patch })
       const row = characters.find((item) => item.id === id)
       if (row) Object.assign(row, patch)
+    },
+    async setBody(kind: EntityKind, id: number, markdown: string) {
+      bodies.push({ kind, id, markdown })
+      const row = characters.find((item) => item.id === id)
+      if (row) Object.assign(row, { bio: markdown })
     },
   }
   const resolveW = createLibraryToolExecutor(createCapabilities(store), writer)
@@ -201,6 +209,69 @@ async function main(): Promise<void> {
     'toolSummary 认 library_set_fields',
     toolSummary({ id: 'c3', name: 'library_set_fields', args: '{"fields":{"race":"精灵"}}' } as never) === 'race',
   )
+
+  // ── library_set_body（写正文）──────────────────────────────────────────
+  const bodyNoWriter = await resolve('library_set_body', { kind: 'character', id: 7, body: '# 新的一节' })
+  check('没注入 writer 时写不了正文', bodyNoWriter?.isError === true)
+
+  const bodyOk = await resolveW('library_set_body', { kind: 'character', id: 7, body: '# 新的一节\n\n正文。' })
+  check('正文写入成功', bodyOk?.isError === false, bodyOk?.content.slice(0, 50))
+  check('正文落到 writer 上', bodies.length === 1 && bodies[0]?.markdown === '# 新的一节\n\n正文。')
+  check('写完把正文读回来', bodyOk?.content.includes('正文。') === true)
+
+  const bodyEmpty = await resolveW('library_set_body', { kind: 'character', id: 7, body: '   ' })
+  check('空正文被拒（要清正文得走别的路）', bodyEmpty?.isError === true && bodies.length === 1)
+
+  const bodyNotString = await resolveW('library_set_body', { kind: 'character', id: 7, body: 42 })
+  check('body 不是字符串时报错', bodyNotString?.isError === true)
+
+  const bodyTooLong = await resolveW('library_set_body', {
+    kind: 'character',
+    id: 7,
+    body: 'x'.repeat(20_001),
+  })
+  check('超长正文被拒', bodyTooLong?.isError === true && bodyTooLong?.content.includes('太长') === true)
+  check('被拒的正文没有真去写', bodies.length === 1)
+
+  const bodyBadId = await resolveW('library_set_body', { kind: 'character', id: 999, body: '# x' })
+  check('写不存在的 id 报错而不是静默成功', bodyBadId?.isError === true)
+
+  check(
+    'toolSummary 认 library_set_body',
+    toolSummary({ id: 'c4', name: 'library_set_body', args: '{"body":"abc"}' } as never) === '3 字',
+  )
+
+  // ── 正文写入的 Markdown → 文档桥 ──────────────────────────────────────
+  const session = createVaultSession('C:/oc-studio-check')
+  session.index.byKey.set('林知遥', [
+    { kind: 'character', relPath: '角色/林知遥.md', title: '林知遥', id: 7 },
+  ])
+  setVaultSession(session)
+
+  const withLink = bodyDocFromMarkdown('# 新的一节\n\n见 [[林知遥]]。') as {
+    content?: Array<{ type?: string; content?: Array<{ type?: string; attrs?: { id?: string; entityType?: string } }> }>
+  }
+  check('正文桥产出 doc', withLink?.content !== undefined && withLink.content.length > 0)
+  // 指向**已有实体**的链接建的是 `mention` 节点（和 @ 引用同一形态），不是 wikiLink
+  const linkNode = (withLink.content ?? [])
+    .flatMap((node) => node.content ?? [])
+    .find((node) => node.type === 'mention')
+  check(
+    '[[…]] 按会话索引解析成引用节点',
+    linkNode?.attrs?.id === '7' && linkNode?.attrs?.entityType === 'character',
+    JSON.stringify(linkNode),
+  )
+
+  setVaultSession(null)
+  let degraded: unknown = null
+  let threw = false
+  try {
+    degraded = bodyDocFromMarkdown('见 [[林知遥]]。')
+  } catch {
+    threw = true
+  }
+  check('没有会话时不抛异常', !threw)
+  check('没有会话时仍产出 doc', degraded !== null)
 
   // ── 调用方身份 ────────────────────────────────────────────────────────
   check('调用方是助手本人', AGENT_CALLER.actor === 'agent:assistant')

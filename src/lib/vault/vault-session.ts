@@ -1,4 +1,4 @@
-import type { VaultStorableKind } from './types'
+import type { VaultIndex, VaultStorableKind } from './types'
 
 // ── 当前打开的 vault 会话 ───────────────────────────────────────────────
 // 会话 = 「磁盘上装载了什么」的内存镜像。写回逻辑靠它做两件事：
@@ -81,6 +81,14 @@ export interface VaultSession {
   byPath: Map<string, string>
   /** 已占用的全部路径（含被忽略的非实体文件），新文件分配时用于去重 */
   occupied: Set<string>
+  /**
+   * 链接解析索引（装载时的扫描产物）。
+   *
+   * 装载阶段只用了一次就丢了 —— 但**写入正文**同样需要它：Markdown 里的
+   * `[[林知遥]]` 要解析成带 id 的 wikiLink 节点，解析不了就会退化成纯文本、
+   * 方括号消失。所以留在会话上，写入侧按当前索引解析。
+   */
+  index: VaultIndex
   /** 标记文件；没建过则为 null（外来 vault 不会被自动写入标记） */
   marker: { relPath: string; content: string } | null
   tagMeta: VaultTagMeta
@@ -109,6 +117,7 @@ export function createVaultSession(root: string): VaultSession {
     entries: new Map(),
     byPath: new Map(),
     occupied: new Set(),
+    index: { byKey: new Map(), byPath: new Map() },
     marker: null,
     tagMeta: {
       relPath: TAG_META_REL_PATH,

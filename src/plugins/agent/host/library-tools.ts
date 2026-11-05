@@ -31,14 +31,34 @@ const TABLE_BY_KIND: Record<EntityKind, string> = {
  */
 const writer: LibraryWriter = {
   async setFields(kind, id, patch) {
-    const [{ db }, { runAsActorAsync }] = await Promise.all([
-      import('@/lib/db'),
-      import('@/lib/vault/actor'),
-    ])
+    const { db, runAsActorAsync } = await loadWriteDeps()
     await runAsActorAsync('agent:assistant', async () => {
       await db.table(TABLE_BY_KIND[kind]).update(id, { ...patch, updatedAt: Date.now() })
     })
   },
+  async setBody(kind, id, markdown) {
+    const { db, runAsActorAsync } = await loadWriteDeps()
+    const { bodyDocFromMarkdown } = await import('@/lib/vault/write-body')
+    const doc = bodyDocFromMarkdown(markdown)
+    // 词条的正文在 `content`（JSON 字符串），其余在 `document`（对象）——
+    // 这条口径由 `markdown-bridge.ts` 定，写入侧照抄，不另立一套。
+    const patch = kind === 'world' ? { content: JSON.stringify(doc) } : { document: doc }
+    await runAsActorAsync('agent:assistant', async () => {
+      await db.table(TABLE_BY_KIND[kind]).update(id, { ...patch, updatedAt: Date.now() })
+    })
+  },
+}
+
+/** 写到一半才装载 Dexie，构建期与 SSR 都不会碰它 */
+async function loadWriteDeps(): Promise<{
+  db: typeof import('@/lib/db').db
+  runAsActorAsync: typeof import('@/lib/vault/actor').runAsActorAsync
+}> {
+  const [{ db }, { runAsActorAsync }] = await Promise.all([
+    import('@/lib/db'),
+    import('@/lib/vault/actor'),
+  ])
+  return { db, runAsActorAsync }
 }
 
 let executor: Executor | null = null

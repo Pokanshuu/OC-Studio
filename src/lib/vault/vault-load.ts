@@ -105,6 +105,8 @@ export async function readVault(root: string): Promise<VaultLoadResult> {
   })
 
   const session = createVaultSession(dto.root)
+  // 链接索引留在会话上：写入正文时要按它把 `[[…]]` 解析成节点
+  session.index = scan.index
   const files = new Map(
     dto.files.map((file) => [normalizeRelPath(file.relPath), { content: file.content, mtimeMs: file.mtimeMs }]),
   )

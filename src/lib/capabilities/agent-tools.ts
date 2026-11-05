@@ -26,6 +26,7 @@ export const LIBRARY_TOOL_NAMES = [
   'library_search',
   'library_graph',
   'library_set_fields',
+  'library_set_body',
 ] as const
 
 export type LibraryToolName = (typeof LIBRARY_TOOL_NAMES)[number]
@@ -47,9 +48,14 @@ const WRITABLE_FIELDS = {
 
 const FIELD_MAX_LENGTH = 4000
 
+/** 正文上限：比字段宽得多，但挡住「模型一口气吐一万字」这种事故 */
+const BODY_MAX_LENGTH = 20_000
+
 /** 写库动作：注入进来，执行器本身不碰 Dexie（脚本里也能跑） */
 export interface LibraryWriter {
   setFields(kind: EntityKind, id: number, patch: Record<string, string>): Promise<void>
+  /** 整篇正文替换。`markdown` 会过 vault 的 Markdown → Tiptap 桥 */
+  setBody(kind: EntityKind, id: number, markdown: string): Promise<void>
 }
 
 const KINDS: readonly EntityKind[] = ['character', 'event', 'country', 'world']
@@ -198,6 +204,27 @@ export function createLibraryToolExecutor(capabilities: Capabilities, writer?: L
             written: keys,
             rejected,
           }),
+        )
+      }
+
+      if (name === 'library_set_body') {
+        if (!writer) return finish(fail('这个环境不能写库。'))
+        if (typeof args.body !== 'string') return finish(fail('body 必须是 Markdown 字符串。'))
+        const markdown = args.body.trim()
+        if (markdown === '') {
+          return finish(fail('body 是空的。不想改正文就别调这个工具。'))
+        }
+        if (markdown.length > BODY_MAX_LENGTH) {
+          return finish(fail(`正文太长（${markdown.length} 字，上限 ${BODY_MAX_LENGTH}）。`))
+        }
+        await writer.setBody(kind, id, markdown)
+        const after = await capabilities.getEntity(AGENT_CALLER, kind, id)
+        const body = after.body.trim()
+        return finish(
+          ok(
+            `已替换正文（${markdown.length} 字）。读回来是：\n\n${body.length > 0 ? body : '（空）'}`,
+            { length: markdown.length },
+          ),
         )
       }
 

@@ -310,6 +310,29 @@ export const ALL_TOOLS: ToolSpec[] = [
       additionalProperties: false,
     },
   },
+  {
+    name: 'library_set_body',
+    category: 'write',
+    requiresApproval: true,
+    description:
+      'Replace the body text of one library entry with the given Markdown. This overwrites ' +
+      'whatever is there now, so read the entry first and keep what still holds. ' +
+      'Wiki links written as [[Title]] are resolved against the library.',
+    parameters: {
+      type: 'object',
+      properties: {
+        kind: {
+          type: 'string',
+          enum: ['character', 'event', 'country', 'world'],
+          description: 'Entity kind.',
+        },
+        id: { type: 'integer', description: 'Entity id.' },
+        body: { type: 'string', description: 'Full body as Markdown. Must not be empty.' },
+      },
+      required: ['kind', 'id', 'body'],
+      additionalProperties: false,
+    },
+  },
 ]
 
 export const TOOL_NAMES = ALL_TOOLS.map((t) => t.name)
@@ -387,6 +410,8 @@ export function toolSummary(call: ToolCall): string {
       const keys = Object.keys(fields as Record<string, unknown>)
       return keys.length > 0 ? keys.join(' · ') : ''
     }
+    case 'library_set_body':
+      return typeof args.body === 'string' ? `${args.body.length} 字` : ''
     case 'library_search':
       return pick('query') ?? ''
     default:
