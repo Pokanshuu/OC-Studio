@@ -15,7 +15,7 @@ import {
 } from '../src/lib/templates/params'
 import { isNoteTemplate, NOTE_COMPONENT_IDS } from '../src/lib/templates/note'
 import { templateFieldKeys } from '../src/lib/templates/fields'
-import { BUILTIN_INFO_GROUPS, isBuiltinInfoGroup, selectableInfoGroups } from '../src/lib/templates/info-groups'
+import { BUILTIN_INFO_GROUPS, isBuiltinInfoGroup, normalizeInfoGroups, selectableInfoGroups } from '../src/lib/templates/info-groups'
 import { BUILTIN_FIELDS } from '../src/lib/fields/defaults'
 import { BUILTIN_CATEGORIES } from '../src/lib/categories/builtins'
 import type { TemplateDoc } from '../src/lib/templates/types'
@@ -259,6 +259,16 @@ if (petGroup) {
   const forPet = selectableInfoGroups('pet', BUILTIN_INFO_GROUPS)
   check(forPet.includes(petGroup), '宠物模板选不到宠物组件')
 }
+// 盘上改不了内置组件的宿主，也塞不进不存在的列键
+const tampered = normalizeInfoGroups([
+  { id: 'group-character', name: '角色', fields: ['race', '并不存在的键'], for: 'note' },
+])
+const tamperedGroup = tampered.find((group) => group.id === 'group-character')
+check(tamperedGroup?.for === 'character', '盘上的 for 改写了内置组件的宿主')
+check(
+  tamperedGroup !== undefined && !tamperedGroup.fields.includes('并不存在的键'),
+  '不存在的列键被读回进内置组件（界面上会出现死行）',
+)
 if (failures === 0) {
   console.log(`  ✓ 通过（${COMPONENT_IDS.length} 个组件 / ${BUILTIN_TEMPLATES.length} 个内置模板）`)
   process.exit(0)

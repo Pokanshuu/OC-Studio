@@ -115,6 +115,22 @@ export function isBuiltinInfoGroup(id: string): boolean {
   return BUILTIN_INFO_GROUPS.some((group) => group.id === id)
 }
 
+/** 内置组件的宿主以代码为准；自建组件才认记录里写的 */
+function hostOf(id: string, recordFor: unknown): InfoGroupHost | undefined {
+  const builtin = BUILTIN_INFO_GROUPS.find((group) => group.id === id)
+  if (builtin) return builtin.for
+  return recordFor === 'character' || recordFor === 'event' || recordFor === 'world' || recordFor === 'note'
+    ? recordFor
+    : undefined
+}
+
+/** 列型宿主的字段必须是真实存在的实体列；不认识的键直接丢，避免界面上出现死行 */
+function knownColumnKeys(host: InfoGroupHost | undefined, fields: string[]): string[] {
+  if (host === 'note' || host === undefined) return fields
+  const kind = host === 'character' ? 'character' : host === 'event' ? 'event' : 'worldEntry'
+  const known = new Set(BUILTIN_FIELDS[kind].map((field) => field.id))
+  return fields.filter((field) => known.has(field))
+}
 function clone(group: InfoGroup): InfoGroup {
   return { ...group, fields: [...group.fields] }
 }
@@ -141,7 +157,14 @@ function normalize(raw: unknown): InfoGroup[] {
     const fields = Array.isArray(record.fields)
       ? [...new Set(record.fields.filter((field): field is string => typeof field === 'string').map((field) => field.trim()).filter((field) => field !== ''))]
       : []
-    out.push({ id, name, fields, builtin: record.builtin === true || isBuiltinInfoGroup(id) })
+    const host = hostOf(id, record.for)
+    out.push({
+      id,
+      name,
+      fields: knownColumnKeys(host, fields),
+      builtin: record.builtin === true || isBuiltinInfoGroup(id),
+      ...(host !== undefined ? { for: host } : {}),
+    })
   }
   return out
 }
