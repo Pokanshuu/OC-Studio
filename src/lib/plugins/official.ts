@@ -39,8 +39,9 @@ export const AGENT_PLUGIN: PluginManifest = {
   // 对话要网络与自己的存储；读库是逐项授权项（关掉后助手照常能聊，只是看不见库）
   permissions: ['network', 'own-storage', 'read-entities'],
   source: 'builtin',
-  // 出厂不开：要先填端点与密钥才有意义，默认开只会变成「点进去一片空白」
-  enabledByDefault: false,
+  // 一方工具，和地图生成器一样出厂就在侧栏里可见：插件自己带设置页，
+  // 没配端点时点进去是它的引导，而不是一块空白。藏起来只会让人找不到。
+  enabledByDefault: true,
   available: true,
 }
 

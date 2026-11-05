@@ -174,7 +174,8 @@
 
 ## 9. 其它（不属于上面八项）
 
-- [ ] **P0 桌面开发壳起不来（WebView2 156 崩溃）**：`tauri dev` / 仓库代码新编的 exe 一律起不来窗口。**Tauri 2.12.5 终于把真实报错露出来**：`failed to create webview: HRESULT(0x800700AA) 请求的资源在使用中`；Windows 事件日志同时记录 `msedgewebview2.exe 156.0.4314.58` **APPCRASH**（`msedge.dll`，异常 `0x80000003`）。即浏览器进程一启动就崩，Tauri 拿不到 webview，窗口对象存在所以表现成闪退。已排除：日志插件、透明窗 / Mica、数据目录、`--disable-gpu`。注意 `WEBVIEW2_BROWSER_EXECUTABLE_FOLDER` 只认 **Fixed Version** 运行时，指 Evergreen 版本目录会报 "Could not find the WebView2 Runtime"。待办：① 重装修复 WebView2；② 若预览版系统继续崩，改发 **Fixed Version**（包体 +约 150MB，Win10 一并考虑）`flush()` 只写，不知道磁盘被谁改过。导出 / 关库前比对 mtime，发现外部改动时提示「建议先重新载入」
+- [x] **P0 桌面开发壳起不来（已不再复现，2026-11-05 复测）**：结论要改。当时把 `HRESULT(0x800700AA)` 读成「WebView2 运行时坏了」，但 0x800700AA 就是 **`ERROR_BUSY`（资源在使用中）**：WebView2 起浏览器进程时，用户数据目录 `%LOCALAPPDATA%\com.ocstudio.ocstudio\EBWebView` 被**另一个还活着的实例**（或崩溃后没退干净的 `msedgewebview2.exe`）占着。复测：同一份 `156.0.4314.58`、不加任何环境变量，`target\release\app.exe` 与 `target\debug\app.exe` 都能起窗口并渲染（截图确认，见下条）。`scripts/tauri-dev.ps1` 不再猜结论，改成开跑前**打印事实**（运行时版本 / webview 进程数 / 数据目录锁 / 已有实例 PID）。**仍未确认**那次 APPCRASH（`msedge.dll`、`0x80000003`）是不是同一次事件的伴生现象 —— 现在无法复现，先按「启动前清干净残留实例」处理
+- [ ] **验证手段（留给后面的轮次，别再重复试错）**：窗口在后台、前台焦点被系统拦时，`SetForegroundWindow` + `mouse_event` **点不动**（截图字节完全不变）。只读核对用 `PrintWindow(hwnd, hdc, 2)`，能抓到窗口自身内容、不受遮挡与焦点影响。要真正**驱动**界面得换路子（自动化脚本 / 应用内命令面板），别在坐标点击上反复烧时间
 - [ ] **P1 World 正文收敛到 `document`**：现在 JSON 字符串（在用）与 `document` 对象（unused）两形态并存，读取处要分支
 - [ ] **P2 仓储 create/update 模板**：`listActive` / `getById` / `softDelete` 已收敛，create/update 因字段级日志与引用同步差异仍各自手写
 - [ ] **P3 命令面板与移动端搜索合并**：`MenuBarSearch` 与 `MobileSearchOverlay` 现在是两套 UI
