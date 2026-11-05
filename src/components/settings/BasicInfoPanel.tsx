@@ -1,86 +1,76 @@
 'use client'
 
 /**
- * 设置 › 世界 › 组件 › 基本信息 —— **两级**：先选「基本信息模板」，点进去才是字段表。
+ * 设置 › 世界 › 自定义组件 › 基本信息。
  *
- * 为什么拆两级：基本信息不是一个全局表，而是**每个模板各一份**。以前把
- * 角色 / 事件 / 词条的表竖着堆在一屏里，用户看到的是「一长串行」，看不出
- * 它们其实属于不同的模板，也没法给宠物 / 武器这类新模板留位置。
+ * 两类东西，**关系不同**：
+ * - **字段表**（角色 / 词条）：实体自己的全局字段表（`lib/fields`），
+ *   实体模板直接消费，不存在「选择」。
+ * - **基本信息组件**（宠物 / 武器 / 自建）：独立的、可复用的字段组；
+ *   模板只是**选择**其中一个（`info.params.group = <id>`）。名字和模板名无关，
+ *   改组件名不会影响模板，改模板名也不会影响组件 —— 关系只由选择决定。
  *
- * 两类行，配置源不同（这是本文件最重要的一条）：
- * - **实体字段表**（角色 / 词条）：`lib/fields`，值走实体列或 `custom`，
- *   读写 `.ocstudio/fields.json`。
- * - **模板字段**（宠物 / 武器 / 自建）：模板的 `info.params.fields`，
- *   值落 `WorldEntry.custom`，随模板文件走（`lib/templates/fields.ts`）。
- *
- * 两种都存在是有原因的：实体有自己的强类型列（种族 / 阵营…），而笔记类模板
- * 没有列，只能靠键。合并会丢内置字段的语义，所以这里显式分流。
+ * 这里管理组件库：新建 / 改名 / 增删字段 / 删除（内置不可删）。
+ * 模板侧的选择器在 `TemplateParams`，两边共用同一份 `useInfoGroups()`。
  */
-import { useMemo, useState } from 'react'
-import { ArrowLeft, ChevronRight, Plus, X } from 'lucide-react'
+import { useState } from 'react'
+import { ArrowLeft, ChevronRight, Plus, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { FieldKindSettings } from '@/components/settings/FieldSettings'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { DragHandle, SortableList, moveId, useSortableItem } from '@/components/shared/list-dnd'
 import type { FieldKind } from '@/lib/fields'
-import { templateFieldKeys } from '@/lib/templates/fields'
-import { isNoteTemplate } from '@/lib/templates/note'
-import { saveTemplate, saveTemplates, useTemplates } from '@/lib/templates/store'
-import type { TemplateComponent, TemplateDoc } from '@/lib/templates/types'
-import { BTN_QUIET, ICON_BTN, INPUT_LINE, ROUND_ITEM } from '@/lib/ui-tokens'
-
-type Row =
-  | { type: 'field'; key: string; label: string; fieldKind: FieldKind; ready: boolean }
-  | { type: 'template'; key: string; label: string; templateId: string; ready: boolean }
+import type { InfoGroupHost } from '@/lib/templates/info-groups'
+import {
+  createInfoGroup,
+  deleteInfoGroup,
+  isBuiltinInfoGroup,
+  updateInfoGroup,
+  useInfoGroups,
+  type InfoGroup,
+} from '@/lib/templates/info-groups'
+import { useTemplates } from '@/lib/templates/store'
+import { BTN_DANGER, BTN_QUIET, ICON_BTN, INPUT_LINE, ROUND_ITEM } from '@/lib/ui-tokens'
 
 /**
- * 四类内置实体，字段表是**实体列**驱动的那一类。
- *
- * `ready: false` 的项不是「忘了做」，是那张表确实还没接到渲染器上
- * （事件 / 国家目前没有字段行可增删，见 `lib/fields/types.ts` 顶部注释）。
- * 界面上标「开发中」并置灰，比让用户改完发现没反应好。
+ * 实体字段表（`ready: false` = 那张表还没接到渲染器上，见 `lib/fields/types.ts`）。
+ * 这些不是「基本信息组件」，不能被模板选择；它们是实体模板的固定字段表。
  */
-const FIELD_ROWS: Row[] = [
-  { type: 'field', key: 'character', label: '角色', fieldKind: 'character', ready: true },
-  { type: 'field', key: 'event', label: '事件', fieldKind: 'event', ready: false },
-  { type: 'field', key: 'worldEntry', label: '词条', fieldKind: 'worldEntry', ready: true },
+const FIELD_ROWS: { key: string; label: string; fieldKind: FieldKind; ready: boolean }[] = [
+  { key: 'character', label: '角色', fieldKind: 'character', ready: true },
+  { key: 'event', label: '事件', fieldKind: 'event', ready: false },
+  { key: 'worldEntry', label: '词条', fieldKind: 'worldEntry', ready: true },
 ]
 
-/** 自建模板 id：稳定、可读、不会与内置冲突 */
-function customId(): string {
-  return `custom-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`
+/** 宿主 → 字段表种类。列型宿主（角色 / 事件 / 词条）共用同一套字段表编辑器 */
+function columnKindOf(host: InfoGroupHost | undefined): FieldKind | undefined {
+  if (host === 'character') return 'character'
+  if (host === 'event') return 'event'
+  if (host === 'world') return 'worldEntry'
+  return undefined
 }
-
-/** 新模板 = 笔记类的五块（封面 / 基本信息 / 标签 / 简介 / 正文），字段表先空着 */
-function blankNoteTemplate(taken: string[]): TemplateDoc {
-  const names = new Set(taken)
-  let name = '新模板'
+function nextGroupName(groups: readonly InfoGroup[]): string {
+  const names = new Set(groups.map((group) => group.name))
+  let name = '新基本信息组件'
   let counter = 2
   while (names.has(name)) {
-    name = `新模板 ${counter}`
+    name = `新基本信息组件 ${counter}`
     counter += 1
   }
-  const components: TemplateComponent[] = (['cover', 'info', 'tags', 'summary', 'body'] as const).map((id) => ({
-    id,
-    enabled: true,
-    ...(id === 'info' ? { params: { fields: [] as string[] } } : {}),
-  }))
-  return { id: customId(), name, aliases: [], components }
+  return name
 }
 
-/** 把字段表写回模板的 info 组件（只动这一格，别的组件参数原样保留） */
-function withInfoFields(doc: TemplateDoc, fields: string[]): TemplateDoc {
-  return {
-    ...doc,
-    components: doc.components.map((component) =>
-      component.id === 'info'
-        ? { ...component, params: { ...(component.params ?? {}), fields } }
-        : component,
-    ),
-  }
-}
-
-/** 一行字段：手柄 + 键名（可直接改）+ 删除。样式与「模板 › 组件行」同一套 */
-function FieldKeyRow({
+/** 一行字段：手柄 + 键名（可直接改）+ 删除。与「模板 › 组件行」同一套 */
+function GroupFieldRow({
   fieldKey,
   onRename,
   onRemove,
@@ -130,21 +120,19 @@ function FieldKeyRow({
   )
 }
 
-/** 模板的字段表：键 = frontmatter 同名键，值落 `WorldEntry.custom` */
-function TemplateFieldsSettings({ doc }: { doc: TemplateDoc }) {
-  const declared = templateFieldKeys(doc)
-  const keys = useMemo(() => declared ?? [], [declared])
+/** 一个基本信息组件的字段表（键 = frontmatter 同名键，值落 WorldEntry.custom） */
+function GroupFieldsSettings({ group }: { group: InfoGroup }) {
+  const keys = group.fields
   const [draftName, setDraftName] = useState('')
 
   const commit = (next: string[]): void => {
-    void saveTemplate(withInfoFields(doc, next)).catch((err: unknown) => {
+    void updateInfoGroup(group.id, { fields: next }).catch((err: unknown) => {
       toast.error('字段保存失败', { description: err instanceof Error ? err.message : String(err) })
     })
   }
 
   const reorder = (activeKey: number | string, overKey: number | string): void => {
-    const next = moveId(keys, String(activeKey), String(overKey))
-    commit(next)
+    commit(moveId(keys, String(activeKey), String(overKey)))
   }
 
   const rename = (index: number, next: string): void => {
@@ -169,14 +157,10 @@ function TemplateFieldsSettings({ doc }: { doc: TemplateDoc }) {
 
   return (
     <section className="flex flex-col gap-2">
-      {declared === undefined ? (
-        <p className="text-[11px] text-ink-faint">未声明时沿用词条字段表</p>
-      ) : null}
-
       <SortableList ids={keys} onReorder={reorder} layout="list">
         <div className="flex flex-col">
           {keys.map((key, index) => (
-            <FieldKeyRow
+            <GroupFieldRow
               key={key}
               fieldKey={key}
               onRename={(next) => rename(index, next)}
@@ -212,89 +196,71 @@ function TemplateFieldsSettings({ doc }: { doc: TemplateDoc }) {
   )
 }
 
-export function BasicInfoPanel({ onBack }: { onBack: () => void }) {
+export function BasicInfoPanel({ onBack, initialId }: { onBack: () => void; initialId?: string }) {
+  const groups = useInfoGroups()
   const { templates } = useTemplates()
-  const [activeKey, setActiveKey] = useState<string | null>(null)
+  const initialGroupId = initialId?.startsWith('group:') ? initialId.slice('group:'.length) : null
+  const [activeGroupId, setActiveGroupId] = useState<string | null>(initialGroupId)
+  const [activeFieldKind, setActiveFieldKind] = useState<FieldKind | null>(null)
   const [renaming, setRenaming] = useState(false)
   const [nameDraft, setNameDraft] = useState('')
+  const [deleting, setDeleting] = useState<InfoGroup | null>(null)
 
-  const rows = useMemo<Row[]>(() => {
-    const templateRows: Row[] = templates
-      .filter((doc) => isNoteTemplate(doc) && doc.components.some((component) => component.id === 'info' && component.enabled))
-      .map((doc) => ({ type: 'template', key: doc.id, label: doc.name, templateId: doc.id, ready: true }))
-    return [...FIELD_ROWS, ...templateRows]
-  }, [templates])
-
-  const active = rows.find((row) => row.key === activeKey) ?? null
-  const activeTemplate =
-    active && active.type === 'template' ? templates.find((doc) => doc.id === active.templateId) ?? null : null
-
-  const createTemplate = (): void => {
-    const doc = blankNoteTemplate(templates.map((item) => item.name))
-    void saveTemplates([...templates, doc])
-      .then(() => setActiveKey(doc.id))
-      .catch((err: unknown) => toast.error('新建失败', { description: String(err) }))
-  }
-
-  if (!active) {
-    return (
-      <div className="flex flex-col">
-        <div className="flex items-center gap-2 pb-1">
-          <button type="button" onClick={onBack} aria-label="返回" className={ICON_BTN}>
-            <ArrowLeft size={16} strokeWidth={2} />
-          </button>
-          <span className="text-sm text-ink">基本信息</span>
-        </div>
-
-        {rows.map((row) => (
-          <button
-            key={row.key}
-            type="button"
-            disabled={!row.ready}
-            onClick={() => setActiveKey(row.key)}
-            className="flex items-center justify-between border-b border-line py-2.5 text-left text-sm text-ink transition-colors hover:bg-[var(--oc-hover)] disabled:cursor-default disabled:text-ink-faint disabled:hover:bg-transparent"
-          >
-            <span>{row.label}</span>
-            {row.ready ? (
-              <ChevronRight size={16} strokeWidth={2} className="text-ink-faint" />
-            ) : (
-              <span className="text-[11px] text-ink-faint">开发中</span>
-            )}
-          </button>
-        ))}
-
-        <button type="button" onClick={createTemplate} className={`${BTN_QUIET} mt-3 self-start`}>
-          <Plus size={13} strokeWidth={2} />
-          新建模板
-        </button>
-        <p className="mt-1 text-[11px] text-ink-faint">新模板在分类里绑</p>
-      </div>
+  const activeGroup = activeGroupId === null ? null : groups.find((group) => group.id === activeGroupId) ?? null
+  const usageOf = (groupId: string): typeof templates =>
+    templates.filter((doc) =>
+      doc.components.some(
+        (component) => component.id === 'info' && component.enabled && component.params?.group === groupId,
+      ),
     )
+  const usage = activeGroup ? usageOf(activeGroup.id) : []
+
+  const createGroup = (): void => {
+    void createInfoGroup({ name: nextGroupName(groups) })
+      .then((group) => setActiveGroupId(group.id))
+      .catch((err: unknown) => toast.error('新建失败', { description: err instanceof Error ? err.message : String(err) }))
   }
 
   const commitRename = (): void => {
     setRenaming(false)
-    if (!activeTemplate) return
+    if (!activeGroup) return
     const next = nameDraft.trim()
-    const from = activeTemplate.name
-    if (next === '' || next === from) return
-    // 改名不回写笔记：旧名进别名（与「模板」面板同一套，docs/模板.md §3.5）
-    const aliases = activeTemplate.aliases.includes(from)
-      ? activeTemplate.aliases
-      : [...activeTemplate.aliases, from]
-    void saveTemplate({ ...activeTemplate, name: next, aliases }).catch((err: unknown) => {
+    if (next === '' || next === activeGroup.name) return
+    if (groups.some((group) => group.id !== activeGroup.id && group.name === next)) {
+      toast.error(`已经有叫「${next}」的基本信息组件了`)
+      return
+    }
+    void updateInfoGroup(activeGroup.id, { name: next }).catch((err: unknown) => {
       toast.error('改名失败', { description: err instanceof Error ? err.message : String(err) })
     })
   }
 
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-2">
-        <button type="button" onClick={() => setActiveKey(null)} aria-label="返回" className={ICON_BTN}>
-          <ArrowLeft size={16} strokeWidth={2} />
-        </button>
-        {active.type === 'template' ? (
-          renaming ? (
+  // 实体字段表
+  if (activeFieldKind !== null) {
+    return (
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => setActiveFieldKind(null)} aria-label="返回" className={ICON_BTN}>
+            <ArrowLeft size={16} strokeWidth={2} />
+          </button>
+          <span className="text-sm font-medium text-ink">
+            {FIELD_ROWS.find((row) => row.fieldKind === activeFieldKind)?.label ?? activeFieldKind}
+          </span>
+        </div>
+        <FieldKindSettings kind={activeFieldKind} />
+      </div>
+    )
+  }
+
+  // 基本信息组件编辑器
+  if (activeGroup) {
+    return (
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => setActiveGroupId(null)} aria-label="返回" className={ICON_BTN}>
+            <ArrowLeft size={16} strokeWidth={2} />
+          </button>
+          {renaming ? (
             <input
               autoFocus
               value={nameDraft}
@@ -311,24 +277,112 @@ export function BasicInfoPanel({ onBack }: { onBack: () => void }) {
               type="button"
               onClick={() => {
                 setRenaming(true)
-                setNameDraft(active.label)
+                setNameDraft(activeGroup.name)
               }}
               title="重命名"
               className="text-sm font-medium text-ink transition-colors hover:text-ink-muted"
             >
-              {activeTemplate?.name ?? active.label}
+              {activeGroup.name}
             </button>
-          )
-        ) : (
-          <span className="text-sm font-medium text-ink">{active.label}</span>
-        )}
+          )}
+          {isBuiltinInfoGroup(activeGroup.id) ? null : (
+            <button type="button" onClick={() => setDeleting(activeGroup)} className={`${BTN_QUIET} ml-auto`}>
+              <Trash2 size={13} strokeWidth={2} />
+              删除
+            </button>
+          )}
+        </div>
+
+        {/* 反向关系：哪些模板选择了这个组件 */}
+        {usage.length > 0 ? (
+          <p className="truncate text-[11px] text-ink-faint">
+            {usage.map((doc) => doc.name).join('、')} 在用
+          </p>
+        ) : null}
+
+        <GroupFieldsSettings group={activeGroup} />
+
+        <AlertDialog open={deleting !== null} onOpenChange={(open) => { if (!open) setDeleting(null) }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>删除基本信息组件「{deleting?.name}」</AlertDialogTitle>
+              <AlertDialogDescription>用它的模板会退回「全部字段」。</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>取消</AlertDialogCancel>
+              <AlertDialogAction
+                className={BTN_DANGER}
+                onClick={() => {
+                  const target = deleting
+                  setDeleting(null)
+                  if (!target) return
+                  void deleteInfoGroup(target.id)
+                    .then(() => {
+                      setActiveGroupId(null)
+                      toast.success(`已删除「${target.name}」`)
+                    })
+                    .catch((err: unknown) => toast.error('删除失败', { description: String(err) }))
+                }}
+              >
+                删除组件
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    )
+  }
+
+  // 列表
+  return (
+    <div className="flex flex-col">
+      <div className="flex items-center gap-2 pb-1">
+        <button type="button" onClick={onBack} aria-label="返回" className={ICON_BTN}>
+          <ArrowLeft size={16} strokeWidth={2} />
+        </button>
+        <span className="text-sm text-ink">基本信息</span>
       </div>
 
-      {active.type === 'field' ? (
-        <FieldKindSettings kind={active.fieldKind} />
-      ) : activeTemplate ? (
-        <TemplateFieldsSettings doc={activeTemplate} />
-      ) : null}
+      {/* 一张列表：内置（角色 / 事件 / 词条 / 宠物 / 武器）+ 自建。
+          原来这里是「字段表」和「基本信息组件」两组 —— 同一件事的两种存储。
+          列型宿主（角色 / 事件 / 词条）点进去是字段表编辑器，笔记型宿主进组件编辑器。 */}
+      {groups.map((group) => {
+        const count = usageOf(group.id).length
+        const columnKind = columnKindOf(group.for)
+        const ready = columnKind !== "event"
+        return (
+          <button
+            key={group.id}
+            type="button"
+            disabled={!ready}
+            onClick={() => {
+              if (columnKind !== undefined) setActiveFieldKind(columnKind)
+              else setActiveGroupId(group.id)
+            }}
+            className="flex items-center justify-between border-b border-line py-2.5 text-left text-sm text-ink transition-colors hover:bg-[var(--oc-hover)] disabled:cursor-default disabled:text-ink-faint disabled:hover:bg-transparent"
+          >
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="truncate">{group.name}</span>
+              {group.builtin ? null : <span className="shrink-0 text-[11px] text-ink-faint">自建</span>}
+            </span>
+            <span className="flex shrink-0 items-center gap-2 text-[11px] text-ink-faint">
+              {ready ? (
+                <>
+                  <span>{group.fields.length} 个字段</span>
+                  {columnKind === undefined ? <span>{count} 个模板</span> : null}
+                  <ChevronRight size={16} strokeWidth={2} />
+                </>
+              ) : (
+                <span>开发中</span>
+              )}
+            </span>
+          </button>
+        )
+      })}
+      <button type="button" onClick={createGroup} className={`${BTN_QUIET} mt-3 self-start`}>
+        <Plus size={13} strokeWidth={2} />
+        新建基本信息组件
+      </button>
     </div>
   )
 }
