@@ -102,6 +102,7 @@ export function generateClimate(
   onProgress?.('纬度温度梯度', 0.61)
   for (let y = 0; y < height; y++) {
     const lat = latSpan / 2 - ((y + 0.5) / height) * latSpan
+    const latAbs = Math.abs(lat)
     const base = 29.5 - 0.00565 * lat * lat + params.temperatureOffset
     const row = y * width
     for (let x = 0; x < width; x++) {
@@ -208,4 +209,3 @@ export function generateClimate(
     meanPrecipitation: landCount > 0 ? precipSum / landCount : 0,
   }
 }
-

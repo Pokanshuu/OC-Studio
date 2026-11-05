@@ -60,7 +60,8 @@
 - [x] **P3 删掉的字段能找回**（2026-11-05）：`lib/fields/orphans.ts` 扫实体的 `custom`，把「有值但字段表里没有」的键算出来；设置 › 基本信息 的每一类下面出现「找回 N 个有数据的字段」，点一下按原键名补回字段表（值一直在，加回即可见）。空值不算，避免删掉的行永远显示成可找回
 - [ ] **P3 阶段三**：通用记录模型（模板可定义全新实体类型）
 - [ ] **挂起 自定义集合（L2）**：等基于 `0.18.0` 的 fork 提 PR；需求见 `docs/自定义分类-需求文档.md`（已被 `docs/模板.md` 取代，仅作参考）。实现前先出冲突地图（`git merge-tree`），再按文档 P1–P4 分期，不要边合边改
-- [x] **改版超集 · 灵感**（2026-11-05）：改版有、main 完全没有的一项。`features/inspirations/`（`types` / `store` / `InspirationSection`），存 `.ocstudio/inspirations.json`，浏览器退 localStorage；左列表 + 右编辑器（复用 `EditorCore`），自动保存 600ms 防抖。「不是实体」是刻意的 —— 不进词条树 / 相册 / 关系图，也不落成 `.md`，否则半成品会淹没设定集。`npm run audit:inspirations` 24 项断言盯「不丢字」**尚未做**：改版里「灵感 ↔ 小说笔记」的双向挂接
+- [x] **地图内核对等**（2026-11-05）：查「移植好了没有」时发现内核被**顺手改过** —— `climate.ts` 少一行 `latAbs`、`terrain.ts` 变量改名，tcs 不报错但同一颗种子长出的是另一块大陆（海拔 / 水系 / 气候三个哈希全不同）。已按改版原样对齐，`npm run audit:mapkernel` 11 项断言把指纹钉死（含「同种子可复现」「换种子必须换地图」）
+- [x] **改版超集 · 灵感**（2026-11-05）：改版有、main 完全没有的一项。`features/inspirations/`（`types` / `store` / `InspirationSection`），存 `.ocstudio/inspirations.json`，浏览器退 localStorage；左列表 + 右编辑器（复用 `EditorCore`），自动保存 600ms 防抖。「不是实体」是刻意的 —— 不进词条树 / 相册 / 关系图，也不落成 `.md`，否则半成品会淹没设定集。`npm run audit:inspirations` 24 项断言盯「不丢字」**已做「变成笔记」**（2026-11-05）：一键升级成词条，正文直接取编辑器实例的 JSON（不经过 HTML 往返），升级后记 `promotedId`。**仍未做**：改版里「灵感 ↔ 小说笔记」的双向挂接（那是改版 novel 笔记模型的能力，main 的作品笔记是一个文本字段）
 - [ ] **远期 社区模板包**（图片 / 网站模板导入）：依赖导出预设与阶段一先落地 → 见 `docs/插件.md` §1
 
 ---

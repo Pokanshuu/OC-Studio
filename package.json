@@ -18,6 +18,7 @@
     "audit:capabilities": "tsx scripts/capabilities-check.ts",
     "audit:agent": "tsx scripts/agent-plugin-check.ts",
     "audit:map": "tsx scripts/map-anchor-check.ts",
+    "audit:mapkernel": "tsx scripts/map-parity-check.ts",
     "audit:world": "tsx scripts/world-body-check.ts",
     "audit:inspirations": "tsx scripts/inspirations-check.ts",
     "audit:actor": "tsx scripts/journal-actor-check.ts",
