@@ -12,6 +12,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowUp, Settings2, Square } from 'lucide-react'
 import { streamChat, type AgentMessage } from '@/lib/plugins/agent/chat'
+import { buildLibraryContext } from '@/lib/plugins/agent/context'
+import { AGENT_PLUGIN, hasPermission } from '@/lib/plugins'
 import { useAgentProvider } from '@/lib/plugins/agent/config'
 import {
   BTN_PRIMARY,
@@ -36,6 +38,8 @@ export function AgentToolView() {
 
   const abortRef = useRef<AbortController | null>(null)
   const listRef = useRef<HTMLDivElement | null>(null)
+  /** 读库是逐项授权：设置里关掉这项，就只是聊天窗口 */
+  const canReadLibrary = hasPermission(AGENT_PLUGIN, 'read-entities')
   /** 流式增量先攒在 ref 里，按帧刷进 state —— 每个 token 一次 setState 会把输入框拖死 */
   const bufferRef = useRef('')
   const frameRef = useRef<number | null>(null)
@@ -80,9 +84,15 @@ export function AgentToolView() {
     abortRef.current = controller
 
     try {
+      // 授权了「读实体」才把库概览带上；没授权就纯对话（不报错、不假装读过）
+      const library = canReadLibrary ? await buildLibraryContext() : ''
+      const history = next.slice(0, -1)
+      const payload: AgentMessage[] =
+        library === '' ? history : [{ role: 'system', content: library }, ...history]
+
       await streamChat({
         config,
-        messages: next.slice(0, -1),
+        messages: payload,
         signal: controller.signal,
         onDelta: (chunk) => {
           bufferRef.current += chunk

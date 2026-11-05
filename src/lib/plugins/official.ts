@@ -34,8 +34,8 @@ export const AGENT_PLUGIN: PluginManifest = {
   version: '0.1.0',
   apiVersion: 1,
   description: '和设定库对话，读写条目',
-  // 对话壳先只用网络与自己的存储；读库要等工具循环接上能力层再逐项授权
-  permissions: ['network', 'own-storage'],
+  // 对话要网络与自己的存储；读库是逐项授权项（关掉后助手照常能聊，只是看不见库）
+  permissions: ['network', 'own-storage', 'read-entities'],
   source: 'builtin',
   // 出厂不开：要先填端点与密钥才有意义，默认开只会变成「点进去一片空白」
   enabledByDefault: false,

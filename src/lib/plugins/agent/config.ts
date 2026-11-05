@@ -54,6 +54,7 @@ export function useAgentProvider(): {
 
   // 首屏读本地配置（服务端渲染没有 localStorage，只能水合后补）
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 水合后才读得到 localStorage，这次补渲染是必要的
     setConfig(read())
   }, [])
 

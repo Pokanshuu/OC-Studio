@@ -12,7 +12,7 @@
 import type { AgentProviderConfig } from './config'
 
 export interface AgentMessage {
-  role: 'user' | 'assistant'
+  role: 'system' | 'user' | 'assistant'
   content: string
 }
 
