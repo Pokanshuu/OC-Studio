@@ -926,3 +926,21 @@ body[data-map-immersive='true'] [data-dev-mock] {
 
 /* css-rebuild-probe */
 
+/* ── 关系图：节点名 ─────────────────────────────────────────────
+   名字要压在别人的卡片和线上也能读：给两层纸色光晕（与地图标注层的「纸色外壳」同一手法）。
+   缩到 `LABEL_ZOOM`（0.7）以下整批淡出 —— 40 个节点的名字挤在 0.6 倍下只会糊成一片，
+   那时候留图形比留字有用。阈值在 `relation-graph-utils.ts`，这里只管表现。 */
+.graph-node-label {
+  text-shadow:
+    0 0 2px var(--oc-paper),
+    0 0 6px var(--oc-paper);
+  transition: opacity 120ms ease-out;
+}
+[data-graph-labels='off'] .graph-node-label {
+  opacity: 0;
+}
+
+/* 拖动中的名字浮尘（缩放很小时节点名看不见，跟着鼠标反而看得清） */
+.graph-drag-ghost {
+  animation: overlay-in 100ms ease-out;
+}

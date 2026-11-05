@@ -12,6 +12,7 @@ import {
 import { arrowEnds, relationColorValue, type RelationArrow } from '@/lib/relation-colors'
 import { useSettings } from '@/lib/settings'
 import { nodeRect, relationEdgePath } from './floating-edge'
+import type { GraphEdgeKind } from '../types'
 
 /** 标签点击回调：屏幕坐标，与画布上点线打开的样式面板共用同一条路径 */
 export type RelationLabelClick = (point: { x: number; y: number }) => void
@@ -101,6 +102,13 @@ export function RelationEdge({
   const startId = `arrow-start-${id}`
   const endId = `arrow-end-${id}`
 
+  /* 线的分级（docs/关系图.md §10）：不新增视觉语汇，只改权重 ——
+     语义关系实线稍粗；归属 / 参与细一档；@ 引用推出来的线用虚线（机器推的，不是人手画的）。 */
+  const kind = (data?.kind as GraphEdgeKind | undefined) ?? 'relation'
+  const strokeWidth = kind === 'member' ? 1 : kind === 'reference' ? 1 : 1.4
+  const dash = kind === 'reference' ? '2 3' : undefined
+  const baseOpacity = kind === 'reference' ? 0.45 : kind === 'member' ? 0.6 : 0.85
+
   return (
     <>
       <defs>
@@ -116,7 +124,12 @@ export function RelationEdge({
         path={edgePath}
         // hover 聚焦会把 opacity 挂在 edge.style 上（见 RelationGraph 的 displayEdges），
         // 自定义边必须自己接住它，否则节点淡了、线还全亮
-        style={{ stroke: color, ...style }}
+        style={{
+          stroke: color,
+          strokeWidth,
+          ...(dash ? { strokeDasharray: dash } : {}),
+          opacity: typeof style?.opacity === 'number' ? style.opacity : baseOpacity,
+        }}
         markerStart={ends.start ? `url(#${startId})` : undefined}
         markerEnd={ends.end ? `url(#${endId})` : undefined}
       />

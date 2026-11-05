@@ -6,6 +6,7 @@ import { getImageUrl } from '@/lib/image-service'
 import { useSettings } from '@/lib/settings'
 import { NODE_HANDLE, NODE_WRAPPER } from '@/lib/ui-tokens'
 import { NODE_AVATAR_SIZE, NODE_SIZE } from '../layout'
+import { NodeOpenButton } from './NodeOpenButton'
 
 /**
  * 角色节点（docs/关系图.md §4）：**56px 圆头像 + 12px 名字**，尺寸写死在 `NODE_SIZE`。
@@ -22,6 +23,7 @@ export function CharacterNode({ data, selected }: NodeProps) {
   const showImage = Boolean(url) && url !== failedSrc
   const size = NODE_SIZE.character
   const handleStyle = edgeStyle === 'curve' ? { opacity: 0 } : undefined
+  const onOpen = data.onOpen as (() => void) | undefined
 
   return (
     <>
@@ -30,6 +32,7 @@ export function CharacterNode({ data, selected }: NodeProps) {
       <Handle id="bottom" type="source" position={Position.Bottom} className={NODE_HANDLE} style={handleStyle} />
       <Handle id="left" type="source" position={Position.Left} className={NODE_HANDLE} style={handleStyle} />
       <div className={`${NODE_WRAPPER} relative`} style={{ width: size.w, height: size.h }}>
+        {selected && onOpen ? <NodeOpenButton onOpen={onOpen} /> : null}
         <div
           style={{ width: NODE_AVATAR_SIZE, height: NODE_AVATAR_SIZE }}
           className={`shrink-0 overflow-hidden rounded-full border bg-paper-card transition-colors ${
@@ -50,7 +53,7 @@ export function CharacterNode({ data, selected }: NodeProps) {
             </span>
           )}
         </div>
-        <span className="block max-w-[80px] truncate whitespace-nowrap text-center text-xs leading-4 text-ink">
+        <span className="graph-node-label block max-w-[80px] truncate whitespace-nowrap text-center text-xs leading-4 text-ink">
           {label}
         </span>
       </div>

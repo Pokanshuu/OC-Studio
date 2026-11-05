@@ -3,7 +3,8 @@
  *
  * 边上这两个值是**数据**，落在实体 frontmatter 的 `relations[]` 里（`docs/关系图.md` §2.1）：
  * - 颜色：色板名（`lib/relation-colors`），非法值回落到「不设」
- * - 箭头：`none / forward / reverse / both`；`none` 视为不设（写回时不出现在文件里）
+ * - 箭头：`none / forward / reverse / both`；`none` 是**显式无箭头**，必须保留
+ *   （角色边不写 = 默认双向，清成 `undefined` 会把「无箭头」又变回双向）
  *
  * 纯函数负责「怎么改一条边」，service 负责落库与日志，这样子可测、写盘只有一处。
  */
@@ -45,8 +46,7 @@ export function applyEdgeStyle<T extends { color?: string; arrow?: RelationArrow
     color = next
   }
   if (patch.arrow !== undefined) {
-    const next = patch.arrow === null ? undefined : normalizeRelationArrow(patch.arrow, 'none')
-    arrow = next === 'none' ? undefined : next
+    arrow = patch.arrow === null ? undefined : normalizeRelationArrow(patch.arrow, 'none')
   }
 
   if (patch.relation !== undefined && patch.relation !== null) {
