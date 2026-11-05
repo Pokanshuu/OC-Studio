@@ -24,7 +24,7 @@ export function LayoutRadio({
   onChange: (v: EditorLayout) => void
 }) {
   return (
-    <div className="flex gap-3">
+    <div className="grid grid-cols-3 gap-x-4">
       {EDITOR_LAYOUT_OPTIONS.map((opt) => (
         <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
           <span
@@ -57,7 +57,7 @@ export function ThemeRadio({
   onChange: (v: string) => void
 }) {
   return (
-    <div className="flex gap-3">
+    <div className="grid grid-cols-3 gap-x-4">
       {THEME_OPTIONS.map((opt) => (
         <label
           key={opt.value}
@@ -85,11 +85,16 @@ export function ThemeRadio({
   )
 }
 
-/** 官方主题选择：一块「纸 + 两行墨」的小样，选中的那块抬起 */
+/**
+ * 官方主题选择：一块「纸 + 两行墨」的小样。
+ *
+ * 网格：**一行 11 格**（`grid-cols-11`）—— 11 套主题正好铺满一行，没有参差的
+ * 最后一行。窄屏回落到 4 列（`grid-cols-4`），那时缺一格也无所谓，因为每格都被
+ * 撑到等宽，不会出现「最后一行看着像另一个量级」。
+ */
 export function ThemePresetRadio({
   value,
   onChange,
-  // 主题现在是插件（`lib/plugins/themes.ts`）：关掉的那套不出选项，由调用方过滤后传进来
   presets = THEME_PRESETS,
 }: {
   value: ThemePresetId
@@ -97,42 +102,42 @@ export function ThemePresetRadio({
   presets?: readonly ThemePreset[]
 }) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       {presets.map((preset) => {
         const selected = value === preset.id
         return (
           <label
             key={preset.id}
-            className={`flex cursor-pointer flex-col items-center gap-1.5 rounded-control border px-2 py-2 focus-within:border-line-hover ${
-              selected ? 'border-line-hover bg-[var(--oc-hover)]' : 'border-line'
-            }`}
+            title={preset.name}
+            className="cursor-pointer"
           >
-            <span
-              className="flex h-7 w-12 flex-col justify-center gap-1 rounded-item border border-line px-1.5"
-              style={{ background: preset.preview.paper }}
-              aria-hidden
-            >
-              <span className="h-[2px] w-full rounded-full" style={{ background: preset.preview.ink }} />
-              <span className="h-[2px] w-2/3 rounded-full" style={{ background: preset.preview.ink, opacity: 0.5 }} />
-            </span>
             <input
               type="radio"
               name="themePreset"
               value={preset.id}
               checked={selected}
               onChange={() => onChange(preset.id as ThemePresetId)}
-              className="sr-only"
+              className="peer sr-only"
             />
-            <span className={`text-[12px] leading-none ${selected ? 'text-ink' : 'text-ink-muted'}`}>
-              {preset.name}
-            </span>
+            {/* 一枚圆点就是一套纸色：纸色做底、墨色做内圈，选中时外面再套一圈墨 */}
+            <span
+              aria-hidden
+              className={`block h-6 w-6 rounded-full border transition-[box-shadow,border-color] peer-focus-visible:border-line-hover ${
+                selected ? 'border-line-hover' : 'border-line hover:border-line-hover'
+              }`}
+              style={{
+                background: preset.preview.paper,
+                boxShadow: selected
+                  ? `inset 0 0 0 2px ${preset.preview.ink}, inset 0 0 0 5px ${preset.preview.paper}`
+                  : `inset 0 0 0 2px ${preset.preview.paper}, inset 0 0 0 4px ${preset.preview.ink}33`,
+              }}
+            />
           </label>
         )
       })}
     </div>
   )
 }
-
 /** 开关：胶囊轨道 + 圆形滑块（界面里唯一的「圆」除了头像，因为它表达的是拨动） */
 export const SWITCH_CLASSES = {
   base: "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border transition-colors",
@@ -145,11 +150,11 @@ export const SWITCH_DOT =
 
 
 export const MOUSE_MODE_OPTIONS: Array<{ value: 'left-pan' | 'right-pan'; label: string }> = [
-  { value: 'left-pan', label: '左键平移 · Shift 框选' },
-  { value: 'right-pan', label: '右键平移 · 左键框选' },
+  { value: 'left-pan', label: '左键平移' },
+  { value: 'right-pan', label: '右键平移' },
 ]
 
-/** 关系图鼠标模式：左键平移 / 右键平移（框选入口随之切换） */
+/** 关系图鼠标模式：左键平移 / 右键平移（框选入口随之切换，不必写进选项名） */
 export function MouseModeRadio({
   value,
   onChange,
@@ -158,7 +163,7 @@ export function MouseModeRadio({
   onChange: (v: 'left-pan' | 'right-pan') => void
 }) {
   return (
-    <div className="flex flex-wrap gap-x-4 gap-y-2">
+    <div className="grid grid-cols-2 gap-x-4">
       {MOUSE_MODE_OPTIONS.map((opt) => (
         <label key={opt.value} className="flex cursor-pointer items-center gap-2">
           <span
@@ -192,7 +197,7 @@ export function EdgeStyleRadio({
   onChange: (v: EdgeStyle) => void
 }) {
   return (
-    <div className="flex gap-3">
+    <div className="grid grid-cols-2 gap-x-4">
       {EDGE_STYLE_OPTIONS.map((opt) => (
         <label key={opt.value} className="flex cursor-pointer items-center gap-2">
           <span
@@ -226,7 +231,7 @@ export function CoverTintRadio({
   onChange: (v: CoverTintMode) => void
 }) {
   return (
-    <div className="flex gap-3">
+    <div className="grid grid-cols-2 gap-x-4">
       {COVER_TINT_MODE_OPTIONS.map((opt) => (
         <label key={opt.value} className="flex cursor-pointer items-center gap-2">
           <span

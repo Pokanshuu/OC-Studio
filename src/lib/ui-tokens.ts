@@ -36,6 +36,22 @@ export const FIELD_LABEL = 'w-16 shrink-0 text-sm text-ink-muted'
 /** 竖排表单里的标签（弹窗/设置） */
 export const FIELD_LABEL_BLOCK = 'mb-1.5 block text-[13px] text-ink-muted'
 
+/* ── 设置弹窗的行网格 ───────────────────────────────────
+   设置里的每一行都是**同一个两列网格**：左边标签一列（固定 108px，所有行对齐成
+   一条竖线），右边控件一列。不做「标签在上、控件在下」的竖排 —— 那会让每组的
+   控件起点都不一致，眼睛要重新找位置。
+   - 单行控件（开关 / 单选 / 输入）用 `SETTINGS_ROW`
+   - 高的控件（色板网格 / 图片）用 `SETTINGS_ROW_TOP`（标签跟第一行基线对齐）
+   分组之间靠 `SETTINGS_GROUP` 的 1px 线 + 20px 间距，而不是只靠空隙。 */
+export const SETTINGS_ROW = 'grid grid-cols-[108px_minmax(0,1fr)] items-center gap-x-4'
+export const SETTINGS_ROW_TOP = 'grid grid-cols-[108px_minmax(0,1fr)] items-start gap-x-4'
+export const SETTINGS_LABEL = 'text-[13px] leading-5 text-ink'
+/** 分组：除第一组外都带上边线（第一组用 `SETTINGS_GROUP_FIRST`）—— 一行一个类，别就地写 */
+export const SETTINGS_GROUP = 'mt-5 flex flex-col gap-3 border-t border-line pt-5'
+export const SETTINGS_GROUP_FIRST = 'flex flex-col gap-3'
+/** 组内更细的分隔（如「背景」下的铺法 / 遮罩），不占整行 */
+export const SETTINGS_HINT = 'text-[11px] leading-4 text-ink-faint'
+
 /* ── 区块标题 ───────────────────────────────────────────
    衬线 15px：靠字族而非字号与 14px 的字段标签拉开层级。 */
 export const SECTION_TITLE = 'mb-3 font-serif text-[15px] font-bold tracking-[-0.01em] text-ink'
@@ -89,6 +105,22 @@ export const ICON_BTN =
 export const ICON_BTN_MD =
   `flex h-8 w-8 shrink-0 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink ${ROUND_CONTROL}`
 
+/* ── 压在画布上的浮条（地图这类整屏画布） ─────────────
+   整屏画布没有页头，控件只能**压在画面上**。皮肤只有一种：浮层底色 + 一层模糊，
+   外壳 h-8、p-1，里面的按钮 h-6（外层 6 减内边距 4 = 内层 4，同心）。
+   地图的「身份 / 控制条 / 缩放」三处都从这里取，别再各写一遍。 */
+/** 浮条皮肤（不含布局）：高度 / 内边距要自定义时与它拼 */
+export const FLOAT_SKIN = `border border-line bg-paper/85 backdrop-blur-lg float-shadow ${ROUND_CONTROL}`
+export const FLOAT_BAR = `flex h-8 items-center gap-0.5 p-1 ${FLOAT_SKIN}`
+/** 浮条里的图标按钮（24 见方） */
+export const FLOAT_BAR_ICON = `flex h-6 w-6 shrink-0 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink ${ROUND_ITEM}`
+/** 浮条里的文字按钮（图标 + 12px 字） */
+export const FLOAT_BAR_TEXT = `flex h-6 shrink-0 items-center gap-1 px-1.5 text-[12px] text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink ${ROUND_ITEM}`
+/** 竖排浮条（右下角工具栈）：与 `FLOAT_BAR` 同一皮肤，只换方向 */
+export const FLOAT_STACK = `flex flex-col gap-0.5 p-1 ${FLOAT_SKIN}`
+/** 面板内的分组小标题（比 `MENU_GROUP_LABEL` 少一级缩进，配 `p-2` 的 `PANEL`） */
+export const PANEL_GROUP_LABEL = 'px-1.5 py-1 text-[11px] tracking-[0.08em] text-ink-faint'
+
 /**
  * 压在图片 / 封面上的圆形图标按钮（删除 / 移到文件夹 / 拖拽手柄 / 图片菜单）—— **唯一皮肤**。
  *
@@ -104,8 +136,12 @@ export const OVERLAY_ROUND_BTN =
    原则：一屏之内不该出现第二块深色；动作靠位置与文字表达，不靠反相。 */
 export const BTN_PRIMARY =
   `touch-feedback flex h-8 shrink-0 items-center gap-1.5 bg-paper-card px-3 text-[13px] text-ink transition-colors hover:bg-line disabled:opacity-40 ${ROUND_CONTROL}`
+/**
+ * 纯文字按钮。禁用态要显式收掉悬停：全局 `button:hover` 会给任何按钮铺底色，
+ * 光加 `opacity-40` 的话鼠标移上去仍像能点。
+ */
 export const BTN_QUIET =
-  'flex h-8 shrink-0 items-center gap-1.5 px-1.5 text-[13px] text-ink-muted transition-colors hover:text-ink'
+  'flex h-8 shrink-0 items-center gap-1.5 px-1.5 text-[13px] text-ink-muted transition-colors hover:text-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink-muted'
 
 /**
  * 区块标题右侧的「＋ 添加」：纯文字、和标题同排，不另占一整行。
@@ -136,6 +172,17 @@ export const INPUT_LINE =
  */
 export const INLINE_INPUT =
   'h-6 w-28 min-w-0 border-b border-line bg-transparent px-0 text-[12px] text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none'
+
+/**
+ * 数字输入 —— **不要用 `type="number"`**。
+ *
+ * WebView 自带的上下箭头是系统控件：暗色下是一块白底，hover / focus 也不走令牌，
+ * 和 `<datalist>` / `<input type="date">` 是同一类问题（§约束 2）。
+ * 做法：`type="text"` + `inputMode="numeric"` + 自己过滤非数字，↑/↓ 键步进。
+ * 宽度不在这里定：字段行里的宽高是 64，种子是 80 —— 调用点带一个 `w-*`。
+ */
+export const NUMBER_INPUT =
+  'h-7 shrink-0 border-b border-line bg-transparent px-0 text-right text-[12px] tabular-nums text-ink transition-colors focus:border-line-hover focus:outline-none'
 
 /* ── 浮层 ─────────────────────────────────────────────
    只有浮层允许有边框；**阴影只有一档**（`FLOAT_SHADOW`，值在 globals.css 的 `--oc-shadow-float`）——

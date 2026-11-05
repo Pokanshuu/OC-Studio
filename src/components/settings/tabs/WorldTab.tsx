@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { ArrowLeft, ChevronRight } from 'lucide-react'
+import { ArrowLeft, ChevronRight, LayoutTemplate, FolderTree, Tag, ListTree } from 'lucide-react'
 import { useInputContextMenu } from '@/lib/use-input-context-menu'
 import { useProjectMeta } from '@/features/project'
 import { ImageUploader } from '@/components/shared/ImageUploader'
@@ -10,11 +10,44 @@ import { CategoriesPanel } from '@/components/settings/CategoriesPanel'
 import { ComponentsPanel } from '@/components/settings/ComponentsPanel'
 import { TagsPanel } from '@/features/tags/components/TagsPanel'
 import type { SettingsSection } from '@/components/layout/SettingsTriggerContext'
-import { ICON_BTN } from '@/lib/ui-tokens'
+import {
+  ICON_BTN,
+  SETTINGS_GROUP_FIRST,
+  SETTINGS_LABEL,
+  SETTINGS_ROW,
+  SETTINGS_ROW_TOP,
+} from '@/lib/ui-tokens'
 
 type Panel = 'root' | SettingsSection
 
-export function WorldTab({ open, section }: { open: boolean; section?: SettingsSection }) {
+/**
+ * 二级界面入口：图标 + 名称 + 箭头。
+ *
+ * 命名去掉了「自定义」前缀 —— 这四行的共同点是「世界怎么被组织起来」，
+ * `自定义` 只是其中两个的实现细节。带前缀和不带前缀混排，读起来像两个层级的东西。
+ * 图标只出现在**一级**的入口行上；进到二级页面以后标题就只是「返回 + 文字」，
+ * 同一个东西不在两级各标一次。
+ */
+const ENTRY_ITEMS: ReadonlyArray<{
+  panel: SettingsSection
+  label: string
+  icon: typeof ListTree
+}> = [
+  { panel: 'components', label: '字段组', icon: ListTree },
+  { panel: 'templates', label: '模板', icon: LayoutTemplate },
+  { panel: 'categories', label: '分类', icon: FolderTree },
+  { panel: 'tags', label: '标签', icon: Tag },
+]
+
+export function WorldTab({
+  open,
+  section,
+  target,
+}: {
+  open: boolean
+  section?: SettingsSection
+  target?: string
+}) {
   const { meta, loading: metaLoading, save: saveMeta } = useProjectMeta()
   const worldNameRef = useInputContextMenu()
   const taglineRef = useInputContextMenu()
@@ -93,42 +126,24 @@ export function WorldTab({ open, section }: { open: boolean; section?: SettingsS
             />
           </div>
 
-          {/* 二级界面入口：字段表本身太长，收进下一级 */}
-          <button
-            type="button"
-            onClick={() => setPanel('components')}
-            className="flex items-center justify-between border-t border-line pt-4 text-sm text-ink transition-colors hover:bg-transparent hover:text-ink-muted"
-          >
-            <span>自定义组件</span>
-            <ChevronRight size={16} strokeWidth={2} className="text-ink-faint" />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setPanel('templates')}
-            className="flex items-center justify-between border-t border-line pt-4 text-sm text-ink transition-colors hover:bg-transparent hover:text-ink-muted"
-          >
-            <span>模板</span>
-            <ChevronRight size={16} strokeWidth={2} className="text-ink-faint" />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setPanel('categories')}
-            className="flex items-center justify-between border-t border-line pt-4 text-sm text-ink transition-colors hover:bg-transparent hover:text-ink-muted"
-          >
-            <span>自定义分类</span>
-            <ChevronRight size={16} strokeWidth={2} className="text-ink-faint" />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setPanel('tags')}
-            className="flex items-center justify-between border-t border-line pt-4 text-sm text-ink transition-colors hover:bg-transparent hover:text-ink-muted"
-          >
-            <span>标签</span>
-            <ChevronRight size={16} strokeWidth={2} className="text-ink-faint" />
-          </button>
+          {/* 二级界面入口：四行同一套语法（图标 + 名称 + 箭头），命名不带「自定义」前缀 */}
+          <div className="mt-2 flex flex-col border-t border-line">
+            {ENTRY_ITEMS.map((item) => {
+              const Icon = item.icon
+              return (
+                <button
+                  key={item.panel}
+                  type="button"
+                  onClick={() => setPanel(item.panel)}
+                  className="flex h-11 items-center gap-2.5 border-b border-line px-0.5 text-left text-[13px] text-ink transition-colors last:border-b-0 hover:text-ink-muted"
+                >
+                  <Icon size={15} strokeWidth={2} className="shrink-0 text-ink-muted" />
+                  <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                  <ChevronRight size={15} strokeWidth={2} className="shrink-0 text-ink-faint" />
+                </button>
+              )
+            })}
+          </div>
         </div>
       ) : panel === 'categories' ? (
         <div className="flex flex-col gap-4">
@@ -158,7 +173,7 @@ export function WorldTab({ open, section }: { open: boolean; section?: SettingsS
             </button>
             <span className="text-sm text-ink">自定义组件</span>
           </div>
-          <ComponentsPanel />
+          <ComponentsPanel target={target} />
         </div>
       ) : panel === 'tags' ? (
         <div className="flex flex-col gap-4">
@@ -188,7 +203,7 @@ export function WorldTab({ open, section }: { open: boolean; section?: SettingsS
             </button>
             <span className="text-sm text-ink">模板</span>
           </div>
-          <TemplatesPanel />
+          <TemplatesPanel initialId={target} />
         </div>
       )}
     </>
