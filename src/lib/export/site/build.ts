@@ -419,8 +419,9 @@ export function buildSite(input: SiteData, options: BuildOptions): string {
   `
 
   const countryDetails = data.countries.map((c) => {
-    const people = (c.characters ?? []).map((id) => charactersById.get(id)).filter((x): x is Character => Boolean(x))
-    const lands = (c.events ?? []).map((id) => eventsById.get(id)).filter((x): x is Event => Boolean(x))
+    // 名单是查询出来的（阶段二·一）：角色看国籍、事件看相关国家，国家行上没有第二份
+    const people = data.characters.filter((x) => x.countryId === c.id)
+    const lands = data.events.filter((e) => (e.countries ?? []).includes(c.id))
     const body = hasRichText(c.document) ? c.document : [c.description, c.system, c.geography, c.culture].join('\n\n')
 
     return `

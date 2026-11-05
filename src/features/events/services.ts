@@ -2,7 +2,7 @@ import { db } from '@/lib/db'
 import { logOperation, pendingStamp } from '@/lib/sync'
 import { listActive, getById, softDelete } from '@/lib/repository'
 import { updateReferencesAfterRename, syncReferenceLabels } from '@/lib/reference-sync'
-import { purgeEventReferences, syncEventCountries } from '@/lib/membership'
+
 import type { Event } from '@/types'
 import type { EventFormData } from './types'
 
@@ -143,10 +143,7 @@ export async function updateEvent(id: number, data: Partial<EventFormData>): Pro
 
   await db.events.update(id, updates)
 
-  // 相关国家变了 → 国家侧的「相关事件」跟着增删（成员关系两边都写，与关系图拖拽同一口径）
-  if (data.countries !== undefined) {
-    await syncEventCountries(id, existing.countries ?? [], data.countries, now)
-  }
+  // 相关国家是**唯一真源**（阶段二·一）：国家页的「相关事件」是查询出来的，没有镜像要补
 
   if (data.title !== undefined) {
     updateReferencesAfterRename('event', id, data.title).catch(() => {})
@@ -155,7 +152,6 @@ export async function updateEvent(id: number, data: Partial<EventFormData>): Pro
 
 export async function deleteEvent(id: number): Promise<void> {
   await softDelete(db.events, id, TABLE)
-  await purgeEventReferences(id, Date.now())
 }
 
 /**

@@ -190,6 +190,11 @@ async function loadPreview(template: TemplateDoc, categories: Category[]): Promi
         ['文化', country.culture],
       ] as [string, string][]
     ).filter(([, value]) => value.trim() !== '')
+    // 名单不再存在国家行上（阶段二·一）：预览里的计数直接按实体侧统计
+    const memberCharacters = await db.characters.filter((row) => !row.deleted && row.countryId === country.id).count()
+    const memberEvents = await db.events
+      .filter((row) => !row.deleted && (row.countries ?? []).includes(country.id))
+      .count()
     return {
       ...empty,
       title: country.name || '未命名',
@@ -199,8 +204,8 @@ async function loadPreview(template: TemplateDoc, categories: Category[]): Promi
       fields,
       tags: await tagNamesOf(country.tags),
       relations: [
-        country.characters.length > 0 ? `${country.characters.length} 个角色` : '',
-        country.events.length > 0 ? `${country.events.length} 个事件` : '',
+        memberCharacters > 0 ? `${memberCharacters} 个角色` : '',
+        memberEvents > 0 ? `${memberEvents} 个事件` : '',
       ].filter((line) => line !== ''),
       gallery: [],
     }

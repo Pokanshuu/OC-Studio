@@ -136,6 +136,12 @@ export interface Country {
   culture: string
   flagUrl?: string
   headerUrl?: string
+  /**
+   * **历史字段（已退役，阶段二·一）**：以前成员关系存两份，国家侧这份是镜像。
+   * 现在唯一真源是 `Character.countryId` / `Event.countries`；国家页的名单是查询结果
+   * （`features/countries/services.ts#listCountryCharacters` / `listCountryEvents`）。
+   * 这两个值只在扫描时读回来保真，任何界面路径都不该依赖它们。
+   */
   characters: number[]
   events: number[]
   tags: number[]

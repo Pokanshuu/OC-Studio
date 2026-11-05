@@ -1,6 +1,5 @@
 import { db } from '@/lib/db'
 import { logOperation, pendingStamp } from '@/lib/sync'
-import { addCountryCharacter, addCountryEvent, removeCountryCharacter } from '@/lib/membership'
 import { isCodexEntry } from '@/lib/entry-kinds'
 import type { GraphNode, GraphEdge, RelationEndpoint, RelationNodeType } from './types'
 import { patchCharacterEdge, patchEventEdge, type EdgeStylePatch } from './edge-style'
@@ -85,17 +84,7 @@ export async function buildGraphData(): Promise<{ nodes: GraphNode[]; edges: Gra
     })
   }
 
-  // 成员关系在数据模型里是**两份列表**（角色侧国籍 / 国家侧相关角色、事件侧国家 / 国家侧相关事件）。
-  // 只有一侧有记录时，这条边是「不完整的」——关系图允许重新拖一次把它补全
-  // （见 RelationGraph 的 isValidConnection 与下面的 link* 系列）。
-  const membershipSides = new Map<string, number>()
-  function markMembership(a: string, b: string, side: 1 | 2) {
-    const key = [a, b].sort().join('||')
-    membershipSides.set(key, (membershipSides.get(key) ?? 0) | side)
-  }
-  function isMembershipComplete(a: string, b: string): boolean {
-    return (membershipSides.get([a, b].sort().join('||')) ?? 0) === 3
-  }
+  // 成员关系只有一份（阶段二·一）：边永远完整，没有「只写了一半」的状态要对齐。
 
   for (const c of characters) {
     const id = `character-${c.id}`
@@ -182,25 +171,14 @@ export async function buildGraphData(): Promise<{ nodes: GraphNode[]; edges: Gra
     if (data) data.parallelIndex = index
   }
 
-  // 先把「两侧都有」的成员关系登记一遍，画边时据此判断这条边完不完整
-  for (const c of characters) {
-    if (c.countryId) markMembership(`character-${c.id}`, `country-${c.countryId}`, 1)
-  }
-  for (const c of countries) {
-    for (const charId of c.characters ?? []) markMembership(`country-${c.id}`, `character-${charId}`, 2)
-  }
-  for (const e of events) {
-    for (const countryId of e.countries ?? []) markMembership(`event-${e.id}`, `country-${countryId}`, 1)
-  }
-  for (const c of countries) {
-    for (const eventId of c.events ?? []) markMembership(`country-${c.id}`, `event-${eventId}`, 2)
-  }
-
+  // 成员关系只有一份（阶段二·一）：角色→国家「属于」、事件→国家「发生于」。
+  // 以前两侧各存一份名单、各画一条边，靠 `markMembership` 判断「两侧都有」再去重；
+  // 国家的名单退役后，这些边天然完整，不需要那套判定。
   for (const c of characters) {
     if (c.countryId) {
       const countryId = `country-${c.countryId}`
       if (nodeIds.has(countryId)) {
-        addEdge(`character-${c.id}`, countryId, '属于', !isMembershipComplete(`character-${c.id}`, countryId))
+        addEdge(`character-${c.id}`, countryId, '属于')
       }
     }
   }
@@ -220,27 +198,7 @@ export async function buildGraphData(): Promise<{ nodes: GraphNode[]; edges: Gra
     for (const countryId of e.countries ?? []) {
       const countryNodeId = `country-${countryId}`
       if (nodeIds.has(countryNodeId)) {
-        addEdge(eventId, countryNodeId, '发生于', !isMembershipComplete(eventId, countryNodeId))
-      }
-    }
-  }
-
-  for (const c of countries) {
-    const countryId = `country-${c.id}`
-    for (const charId of c.characters ?? []) {
-      const charNodeId = `character-${charId}`
-      if (nodeIds.has(charNodeId)) {
-        addEdge(countryId, charNodeId, '所属', !isMembershipComplete(countryId, charNodeId))
-      }
-    }
-  }
-
-  for (const c of countries) {
-    const countryId = `country-${c.id}`
-    for (const eventId of c.events ?? []) {
-      const eventNodeId = `event-${eventId}`
-      if (nodeIds.has(eventNodeId)) {
-        addEdge(countryId, eventNodeId, '发生地', !isMembershipComplete(countryId, eventNodeId))
+        addEdge(eventId, countryNodeId, '发生于')
       }
     }
   }
@@ -285,12 +243,11 @@ export async function saveNodePosition(
   }
 }
 
-/* ── 成员关系：两侧都写 ─────────────────────────────────────
-   角色的国籍（`character.countryId`）与国家的相关角色（`country.characters`）是**两份独立列表**；
-   事件的国家（`event.countries`）与国家的相关事件（`country.events`）同理。
-   只写一侧 → 另一侧编辑器里看不到这条关系（「拖完只在国家里出现、角色国籍仍为空」就是这么来的）。
-   所以成员关系一律**两边都写**。换国籍时把旧国家列表里的这一条摘掉，图上才不会还连着旧国家。
-   方向性关系（角色↔角色、事件↔事件）不镜像：师徒 / 前因这类是有方向的，只写在起手的那一端。 */
+/* ── 成员关系：只写权威侧 ─────────────────────────────────────
+   阶段二·一之后，成员关系**只有一份**：角色的国籍（`character.countryId`）、
+   事件的相关国家（`event.countries`）。国家页的「相关角色 / 相关事件」是查询出来的，
+   不再有 `country.characters` / `country.events` 需要同步（旧键不读不写不删）。
+   方向性关系（角色↔角色、事件↔事件）本来也不镜像：师徒 / 前因只写在起手的那一端。 */
 
 async function linkCharacterToCountry(
   characterId: number,
@@ -304,20 +261,11 @@ async function linkCharacterToCountry(
   if (!character || !country) return { ok: false, reason: 'missing' }
 
   const previousCountryId = character.countryId ?? null
-  const listed = (country.characters ?? []).includes(character.id)
-  if (previousCountryId === country.id && listed) return { ok: false, reason: 'duplicate' }
+  if (previousCountryId === country.id) return { ok: false, reason: 'duplicate' }
 
-  // 国家侧：相关角色（补上目标国、从旧国摘掉 —— 国籍是单值，旧的那条已经不算数）
-  if (!listed) await addCountryCharacter(country.id, character.id, now)
-  if (previousCountryId !== null && previousCountryId !== country.id) {
-    await removeCountryCharacter(previousCountryId, character.id, now)
-  }
-
-  // 角色侧：国籍
-  if (previousCountryId !== country.id) {
-    await db.characters.update(character.id, { countryId: country.id, updatedAt: now, ...pendingStamp(now) })
-    await logOperation('characters', character.id, 'countryId', String(previousCountryId ?? ''), String(country.id))
-  }
+  // 国籍是单值：换过去就等于从旧国家摘掉了，没有第二份列表要维护
+  await db.characters.update(character.id, { countryId: country.id, updatedAt: now, ...pendingStamp(now) })
+  await logOperation('characters', character.id, 'countryId', String(previousCountryId ?? ''), String(country.id))
 
   return { ok: true }
 }
@@ -334,18 +282,11 @@ async function linkEventToCountry(
   if (!event || !country) return { ok: false, reason: 'missing' }
 
   const eventList = event.countries ?? []
-  const inEvent = eventList.includes(country.id)
-  const inCountry = (country.events ?? []).includes(event.id)
-  if (inEvent && inCountry) return { ok: false, reason: 'duplicate' }
+  if (eventList.includes(country.id)) return { ok: false, reason: 'duplicate' }
 
-  // 事件侧：相关国家
-  if (!inEvent) {
-    const next = [...eventList, country.id]
-    await db.events.update(event.id, { countries: next, updatedAt: now, ...pendingStamp(now) })
-    await logOperation('events', event.id, 'countries', JSON.stringify(eventList), JSON.stringify(next))
-  }
-  // 国家侧：相关事件（幂等）
-  await addCountryEvent(country.id, event.id, now)
+  const next = [...eventList, country.id]
+  await db.events.update(event.id, { countries: next, updatedAt: now, ...pendingStamp(now) })
+  await logOperation('events', event.id, 'countries', JSON.stringify(eventList), JSON.stringify(next))
 
   return { ok: true }
 }

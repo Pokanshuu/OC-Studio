@@ -27,8 +27,6 @@ interface CountryValues {
   name: string
   flagUrl: string
   headerUrl: string
-  characterIds: number[]
-  eventIds: number[]
   tags: number[]
 }
 
@@ -37,22 +35,25 @@ function valuesFromEntity(country: Country): CountryValues {
     name: country.name,
     flagUrl: country.flagUrl ?? '',
     headerUrl: country.headerUrl ?? '',
-    characterIds: country.characters ?? [],
-    eventIds: country.events ?? [],
     tags: country.tags ?? [],
   }
 }
 
-/** 只比**会被保存的东西** */
+/** 只比**会被保存到国家这一行**的东西（相关角色 / 事件是实体侧字段，单独判脏） */
 function valuesSnapshot(values: CountryValues): Record<string, unknown> {
   return {
     name: values.name,
     flagUrl: values.flagUrl,
     headerUrl: values.headerUrl,
-    characters: values.characterIds,
-    events: values.eventIds,
     tags: values.tags,
   }
+}
+
+function sameIds(a: readonly number[], b: readonly number[]): boolean {
+  if (a.length !== b.length) return false
+  const left = [...a].sort((x, y) => x - y)
+  const right = [...b].sort((x, y) => x - y)
+  return left.every((value, index) => value === right[index])
 }
 
 /**
@@ -69,9 +70,31 @@ export function useCountryForm(
   const [flagUrl, setFlagUrl] = useState(initial.flagUrl)
   const [headerUrl, setHeaderUrl] = useState(initial.headerUrl)
   const [saving, setSaving] = useState(false)
-  const [editableCharIds, setEditableCharIds] = useState<number[]>(initial.characterIds)
-  const [editableEventIds, setEditableEventIds] = useState<number[]>(initial.eventIds)
-  const [tags, setTags] = useState<number[]>(initial.tags)
+  const [tags, setTags] = useState(initial.tags)
+
+  const { characters: allCharacters } = useCharacterList()
+  const { events: allEvents } = useEventList()
+
+  /**
+   * 「相关角色 / 相关事件」= **实体侧的查询结果**（阶段二·一）。
+   *
+   * 本地只在用户动过之后才有一份覆盖（`null` = 还没动过，跟着查询走）：
+   * 这样外部改了角色国籍，列表会自动跟着变，不需要镜像、也不需要「回灌」这两个列表。
+   */
+  const derivedCharacterIds = useMemo(
+    () => allCharacters.filter((item) => item.countryId === country.id).map((item) => item.id),
+    [allCharacters, country.id],
+  )
+  const derivedEventIds = useMemo(
+    () => allEvents.filter((item) => (item.countries ?? []).includes(country.id)).map((item) => item.id),
+    [allEvents, country.id],
+  )
+
+  const [editedCharIds, setEditedCharIds] = useState<number[] | null>(null)
+  const [editedEventIds, setEditedEventIds] = useState<number[] | null>(null)
+
+  const characterIds = editedCharIds ?? derivedCharacterIds
+  const eventIds = editedEventIds ?? derivedEventIds
 
   const { markSaving, registerSaveHandler, reportDirty } = useSaveStatus()
   const docEditorRef = useRef<Editor | null>(null)
@@ -84,12 +107,16 @@ export function useCountryForm(
   const savedSnapshotRef = useRef<string | null>(null)
 
   const values = useMemo<CountryValues>(() => ({
-    name, flagUrl, headerUrl,
-    characterIds: editableCharIds, eventIds: editableEventIds, tags,
-  }), [name, flagUrl, headerUrl, editableCharIds, editableEventIds, tags])
+    name, flagUrl, headerUrl, tags,
+  }), [name, flagUrl, headerUrl, tags])
 
   const snapshot = useMemo(() => valuesSnapshot(values), [values])
   const { dirty: fieldsDirty, diffSummary, markClean: markFieldsClean } = useDirtySnapshot(snapshot)
+
+  /** 名单是实体侧字段：脏 = 「动过」且与查询结果不同 */
+  const listsDirty =
+    (editedCharIds !== null && !sameIds(editedCharIds, derivedCharacterIds)) ||
+    (editedEventIds !== null && !sameIds(editedEventIds, derivedEventIds))
 
   // 外部改写后回灌，并把同一份值记为新的干净基线。
   // 自己刚保存的那份回读不回灌 —— 否则会把保存期间还在输入的字冲掉。
@@ -102,9 +129,10 @@ export function useCountryForm(
     setName(next.name)
     setFlagUrl(next.flagUrl)
     setHeaderUrl(next.headerUrl)
-    setEditableCharIds(next.characterIds)
-    setEditableEventIds(next.eventIds)
     setTags(next.tags)
+    // 名单没有本地副本要回灌：清掉覆盖就自动跟着查询走
+    setEditedCharIds(null)
+    setEditedEventIds(null)
     markFieldsClean(nextKey)
   }, [country, markFieldsClean, saving])
 
@@ -149,12 +177,15 @@ export function useCountryForm(
         culture: country.culture,
         flagUrl,
         headerUrl,
-        characters: editableCharIds,
-        events: editableEventIds,
+        characters: characterIds,
+        events: eventIds,
         tags,
       })
       savedSnapshotRef.current = snapshotKey(snapshot)
       markFieldsClean()
+      // 名单已写进实体侧，覆盖层清空 → 重新跟着查询走
+      setEditedCharIds(null)
+      setEditedEventIds(null)
       const editor = docEditorRef.current
       if (editor) docBaselineRef.current = editor.state.doc
       setDocDirty(false)
@@ -167,7 +198,7 @@ export function useCountryForm(
     }
   }, [
     country.id, country.parentId, country.system, country.geography, country.culture,
-    name, flagUrl, headerUrl, editableCharIds, editableEventIds, tags,
+    name, flagUrl, headerUrl, characterIds, eventIds, tags,
     onSave, markSaving, markFieldsClean, reportDirty, snapshot,
   ])
 
@@ -179,13 +210,14 @@ export function useCountryForm(
   useEditorDirty(
     'country',
     country.id,
-    fieldsDirty || docDirty,
+    fieldsDirty || docDirty || listsDirty,
     saving,
-    [fieldsDirty ? `字段 ${diffSummary}` : '', docDirty ? '正文文档与基线不同' : ''].filter(Boolean).join(' + '),
+    [
+      fieldsDirty ? `字段 ${diffSummary}` : '',
+      docDirty ? '正文文档与基线不同' : '',
+      listsDirty ? '关联名单变了' : '',
+    ].filter(Boolean).join(' + '),
   )
-
-  const { characters: allCharacters } = useCharacterList()
-  const { events: allEvents } = useEventList()
 
   const relatedCharacterItems: RelatedItem[] = useMemo(
     () =>
@@ -208,13 +240,13 @@ export function useCountryForm(
   )
 
   const relatedCharacterIds = useMemo(
-    () => editableCharIds.filter((id) => typeof id === 'number'),
-    [editableCharIds],
+    () => characterIds.filter((id): id is number => typeof id === 'number'),
+    [characterIds],
   )
 
   const relatedEventIds = useMemo(
-    () => editableEventIds.filter((id) => typeof id === 'number'),
-    [editableEventIds],
+    () => eventIds.filter((id): id is number => typeof id === 'number'),
+    [eventIds],
   )
 
   return {
@@ -223,16 +255,19 @@ export function useCountryForm(
     headerUrl, setHeaderUrl,
     saving,
     docDirty,
-    editableCharIds, setEditableCharIds,
-    editableEventIds, setEditableEventIds,
+    /** 名单：`editable*` 是给 UI 的名字，值来自「查询 + 本地覆盖」 */
+    editableCharIds: characterIds,
+    setEditableCharIds: setEditedCharIds,
+    editableEventIds: eventIds,
+    setEditableEventIds: setEditedEventIds,
     tags, setTags,
     handleSave,
     handleDocReady,
     handleDocChange,
     relatedCharacterItems,
     relatedEventItems,
-    relatedCharacterIds,
-    relatedEventIds,
+    relatedCharacterIds: characterIds,
+    relatedEventIds: eventIds,
   }
 }
 
