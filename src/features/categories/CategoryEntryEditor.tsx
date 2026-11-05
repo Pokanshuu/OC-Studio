@@ -193,6 +193,10 @@ function CategoryEntryEditorInner({
                 showTags={showTags}
                 backlinks={backlinks}
                 onNavigateNote={(id) => onWikiLinkClick?.(String(id))}
+                onNavigateEntity={(kind, id) => {
+                  if (kind === 'world') onWikiLinkClick?.(String(id))
+                  else onMentionClick?.(String(id), kind)
+                }}
                 body={
                   <WorldEntryBody
                     selectedId={entryId}

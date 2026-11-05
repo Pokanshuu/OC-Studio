@@ -201,7 +201,9 @@ function RelationTable({
             <td className="py-2 pr-4">
               <RelationName row={row} onNavigate={onNavigate} />
             </td>
-            <td className="py-2 pr-4 text-[13px] text-ink-muted">{RELATION_KIND_LABEL[row.kind]}</td>
+            <td className="py-2 pr-4 text-[13px] text-ink-muted">
+              {row.kindLabel ?? RELATION_KIND_LABEL[row.kind]}
+            </td>
             <td className="py-2">
               <div className="flex items-center justify-end gap-2">
                 {row.directional ? (

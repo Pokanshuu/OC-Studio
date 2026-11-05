@@ -96,6 +96,22 @@ export function patchEventEdge(
   return { relations: next, changed: true, found: true }
 }
 
+/** 角色 → 笔记：改 `relatedNotes` 里指向 targetId 的那一条 */
+export function patchCharacterNoteEdge(
+  character: Character,
+  targetId: number,
+  patch: EdgeStylePatch,
+): { relatedNotes: WorldRelation[]; changed: boolean; found: boolean } | null {
+  const list = character.relatedNotes ?? []
+  const index = list.findIndex((item) => item.targetId === targetId)
+  if (index < 0) return null
+  const { edge, changed } = applyEdgeStyle(list[index], patch)
+  if (!changed) return { relatedNotes: list, changed: false, found: true }
+  const next = [...list]
+  next[index] = edge
+  return { relatedNotes: next, changed: true, found: true }
+}
+
 /** 笔记侧：改 `relations` 里指向 targetId 的那一条 */
 export function patchWorldEdge(
   entry: WorldEntry,

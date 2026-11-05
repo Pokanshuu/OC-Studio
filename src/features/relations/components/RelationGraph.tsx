@@ -884,13 +884,16 @@ export function RelationGraph({
     )
   }
 
+  const edgeSelection = edgePanel?.selection
   const edgeCanStyle =
-    edgePanel !== null &&
-    edgePanel.selection.kind !== 'reference' &&
-    edgePanel.selection.sourceType === edgePanel.selection.targetType &&
-    (edgePanel.selection.sourceType === 'character' ||
-      edgePanel.selection.sourceType === 'event' ||
-      edgePanel.selection.sourceType === 'world')
+    edgeSelection !== undefined &&
+    edgeSelection.kind !== 'reference' &&
+    ((edgeSelection.sourceType === edgeSelection.targetType &&
+      (edgeSelection.sourceType === 'character' ||
+        edgeSelection.sourceType === 'event' ||
+        edgeSelection.sourceType === 'world')) ||
+      (edgeSelection.sourceType === 'character' && edgeSelection.targetType === 'world') ||
+      (edgeSelection.sourceType === 'world' && edgeSelection.targetType === 'character'))
 
   return (
     <div

@@ -1,4 +1,4 @@
-import type { RelatedCharacter, GalleryImage, AvatarImage } from '@/types'
+import type { RelatedCharacter, GalleryImage, AvatarImage, WorldRelation } from '@/types'
 
 export interface CharacterFormData {
   name: string
@@ -18,6 +18,7 @@ export interface CharacterFormData {
   lifeStory: string
   document?: unknown
   relatedCharacters: RelatedCharacter[]
+  relatedNotes?: WorldRelation[]
   gallery: GalleryImage[]
   avatars: AvatarImage[]
   tags: number[]

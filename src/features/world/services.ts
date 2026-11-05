@@ -60,6 +60,12 @@ export async function getEntry(id: number): Promise<WorldEntry | undefined> {
   return getById(db.worldEntries, id)
 }
 
+/** 全部未删除笔记（含分类条目 / 小说 / 地图）：角色关系候选与名字解析用，不做目录过滤 */
+export async function getAllEntries(): Promise<WorldEntry[]> {
+  const rows = await listActive(db.worldEntries, 'title')
+  return rows.filter((row) => !row.deleted)
+}
+
 export async function createEntry(data: WorldFormData): Promise<number> {
   const entry = buildDefaultEntry(data)
   const id = await db.worldEntries.add(entry)

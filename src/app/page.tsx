@@ -159,6 +159,7 @@ export default function Home() {
             onCreate={handleCreateCharacter}
             onNavigateToCharacter={(id) => handleRelatedItemNavigate(id, 'character')}
             onNavigateToCountry={(id) => handleRelatedItemNavigate(id, 'country')}
+            onNavigateToWorld={(id) => handleWikiLinkClick(String(id))}
             onMentionClick={handleMentionClick}
             onCharacterCount={handleCharacterCharCount}
             onWikiLinkClick={handleWikiLinkClick}

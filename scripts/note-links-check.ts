@@ -6,7 +6,7 @@
  * - 命名边在对方那里变成只读的「来自」，并与正文反查去重
  * - 层级（父 / 子）不受影响，目标被删时保留名字快照
  */
-import type { WorldEntry } from '../src/types'
+import type { Character, WorldEntry } from '../src/types'
 import { buildNoteLinks } from '../src/features/world/hooks/useNoteLinks'
 
 let passed = 0
@@ -77,12 +77,23 @@ const rows: WorldEntry[] = [
   }),
 ]
 
-const a = buildNoteLinks(rows, 1)
+const character = {
+  id: 1,
+  name: '角色甲',
+  relatedNotes: [{ targetId: 1, name: 'A', relation: '主角' }],
+} as unknown as Character
+
+const a = buildNoteLinks(rows, 1, [character])
 check('A · 命名边出站', a.manual.length === 1 && a.manual[0].name === 'B' && a.manual[0].relation === '共生')
 check('A · 正文提及同一目标不重复', a.outbound.length === 0)
+const noteInbound = a.manualInbound.find((item) => item.kind === 'world')
+const characterInbound = a.manualInbound.find((item) => item.kind === 'character')
 check(
-  'A · 命名边入站（双边）',
-  a.manualInbound.length === 1 && a.manualInbound[0].name === 'B' && a.manualInbound[0].relation === '伙伴',
+  'A · 命名边入站（双边 + 角色相关笔记）',
+  a.manualInbound.length === 2 &&
+    noteInbound?.name === 'B' &&
+    noteInbound?.relation === '伙伴' &&
+    characterInbound?.relation === '主角',
 )
 check('A · 正文反查排除已有命名边的来源', a.backlinks.length === 1 && a.backlinks[0].title === 'C')
 check('A · 子条目仍是层级投影', a.children.length === 1 && a.children[0].title === 'D')

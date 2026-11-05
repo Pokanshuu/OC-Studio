@@ -239,7 +239,7 @@ export function NoteRelationsBlock({
 }: {
   entry: WorldEntry
   template: TemplateDoc
-  onNavigate: (id: number) => void
+  onNavigate: (kind: RelationTargetKind, id: number) => void
   /** 已加载的词条列表：世界编辑器直接给，省一次全库扫描 */
   linkRows?: WorldEntry[]
 }) {
@@ -324,6 +324,11 @@ export function NoteRelationsBlock({
     return { targetId: target?.id, name: target?.title ?? relation.name }
   }
 
+  const categoryOf = (id: number | undefined): string | undefined => {
+    if (id === undefined) return undefined
+    return links.all.find((row) => row.id === id)?.category?.trim() || undefined
+  }
+
   const manualRows: RelationRow[] = relations.map((relation, index) => {
     const target = resolveTarget(relation)
     return {
@@ -331,6 +336,7 @@ export function NoteRelationsBlock({
       kind: 'world',
       targetId: target.targetId,
       name: target.name,
+      kindLabel: categoryOf(target.targetId),
       relation: relation.relation,
       relationEditable: true,
       directional: true,
@@ -349,6 +355,7 @@ export function NoteRelationsBlock({
             kind: 'world' as const,
             targetId: links.parent.id,
             name: links.parent.title,
+            kindLabel: categoryOf(links.parent.id),
             relation: '父词条',
             relationEditable: false,
             readonly: true,
@@ -360,6 +367,7 @@ export function NoteRelationsBlock({
       kind: 'world' as const,
       targetId: child.id,
       name: child.title,
+      kindLabel: categoryOf(child.id),
       relation: '子条目',
       relationEditable: false,
       readonly: true,
@@ -369,6 +377,7 @@ export function NoteRelationsBlock({
       kind: 'world' as const,
       targetId: link.id,
       name: link.title,
+      kindLabel: categoryOf(link.id),
       relation: '引用',
       relationEditable: false,
       readonly: true,
@@ -377,10 +386,11 @@ export function NoteRelationsBlock({
 
   const inbound: RelationRow[] = [
     ...links.manualInbound.map((link) => ({
-      key: `in-manual-${link.id}-${link.index}`,
-      kind: 'world' as const,
+      key: `in-manual-${link.kind}-${link.id}-${link.index}`,
+      kind: link.kind,
       targetId: link.id,
       name: link.name,
+      kindLabel: link.kind === 'world' ? categoryOf(link.id) : undefined,
       relation: link.relation,
       relationEditable: false,
       directional: true,
@@ -394,6 +404,7 @@ export function NoteRelationsBlock({
       kind: 'world' as const,
       targetId: link.id,
       name: link.title,
+      kindLabel: categoryOf(link.id),
       relation: '引用',
       relationEditable: false,
       readonly: true,
@@ -464,7 +475,7 @@ export function NoteRelationsBlock({
       onRemove={removeRelation}
       onRename={renameRelation}
       onArrowChange={setRelationArrow}
-      onNavigate={(_kind, id) => onNavigate(id)}
+      onNavigate={(kind, id) => onNavigate(kind, id)}
       selfName={entry.title}
     />
   )

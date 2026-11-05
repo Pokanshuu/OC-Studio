@@ -53,6 +53,14 @@ export interface Character {
   folder?: string
   document?: unknown
   relatedCharacters: RelatedCharacter[]
+  /**
+   * 角色的「相关笔记」：目标只能是 `WorldEntry`。
+   *
+   * 与 `relatedCharacters` 分开存，因为盘上要解析的目标类型不同；
+   * 形状与笔记自己的 `relations` 一致（`{ name, relation, color?, arrow? }`）。
+   * 同一篇笔记在笔记侧显示为只读的「来自该角色」。
+   */
+  relatedNotes?: WorldRelation[]
   gallery: GalleryImage[]
   avatars: AvatarImage[]
   tags: number[]

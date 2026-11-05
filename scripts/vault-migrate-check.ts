@@ -99,6 +99,7 @@ const characters: Character[] = [
     lifeStory: '雪线之战里丢了一只手',
     legacyKind: 'pet',
     relatedCharacters: [{ characterId: 2, name: '阿尔法', relation: '挚友' }],
+    relatedNotes: [{ targetId: 1, name: '世界树', relation: '守护' }],
     gallery: [{ url: '附件/凯尔-立绘.png', caption: '常服' }],
     avatars: [{ url: '附件/凯尔-头像.png', type: 'portrait' }],
     tags: [1, 2],
@@ -367,6 +368,15 @@ if (character === undefined) {
     character.relatedCharacters.map((item) => [item.name, item.relation]),
     [['阿尔法', '挚友']],
   )
+  eq(
+    '角色 · 相关笔记（目标 + 关系）',
+    (character.relatedNotes ?? []).map((item) => [item.name, item.relation]),
+    [['世界树', '守护']],
+  )
+  const noteTarget = scan.dataset.worldEntries.find(
+    (item) => item.entity.id === character.relatedNotes?.[0]?.targetId,
+  )?.entity
+  eq('角色 · 相关笔记解析回目标', noteTarget?.title, '世界树')
   eq('角色 · 立绘', character.gallery.map((item) => [item.url, item.caption]), [['附件/凯尔-立绘.png', '常服']])
   eq('角色 · 头像组', character.avatars.map((item) => [item.url, item.type]), [['附件/凯尔-头像.png', 'portrait']])
   const tagNames = character.tags

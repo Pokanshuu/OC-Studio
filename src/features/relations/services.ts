@@ -3,7 +3,13 @@ import { logOperation, pendingStamp } from '@/lib/sync'
 import { isCodexEntry } from '@/lib/entry-kinds'
 import type { Character } from '@/types'
 import type { GraphEdgeKind, GraphNode, GraphEdge, RelationEndpoint, RelationNodeType } from './types'
-import { patchCharacterEdge, patchEventEdge, patchWorldEdge, type EdgeStylePatch } from './edge-style'
+import {
+  patchCharacterEdge,
+  patchCharacterNoteEdge,
+  patchEventEdge,
+  patchWorldEdge,
+  type EdgeStylePatch,
+} from './edge-style'
 import { deleteCharacter, updateCharacter } from '@/features/characters/services'
 import { deleteCountry, updateCountry } from '@/features/countries/services'
 import { deleteEvent, updateEvent } from '@/features/events/services'
@@ -47,6 +53,16 @@ export async function buildGraphData(): Promise<{ nodes: GraphNode[]; edges: Gra
     for (const reference of entry.references ?? []) {
       if (reference.targetType !== 'world') continue
       const target = worldById.get(reference.targetId)
+      if (target && !target.deleted && target.category && isCodexEntry(target)) {
+        graphWorldIds.add(target.id)
+      }
+    }
+  }
+  // 角色 → 笔记：角色侧也能发起命名边，目标笔记同样要进图
+  for (const character of characters) {
+    for (const relation of character.relatedNotes ?? []) {
+      const target =
+        relation.targetId !== undefined ? worldById.get(relation.targetId) : undefined
       if (target && !target.deleted && target.category && isCodexEntry(target)) {
         graphWorldIds.add(target.id)
       }
@@ -181,6 +197,20 @@ export async function buildGraphData(): Promise<{ nodes: GraphNode[]; edges: Gra
           style: { color: relation.color, arrow: relation.arrow },
         })
       }
+    }
+  }
+
+  // 角色 → 笔记的命名边（角色关系块「相关笔记」写的就是这个字段）
+  for (const c of characters) {
+    const sourceId = `character-${c.id}`
+    for (const relation of c.relatedNotes ?? []) {
+      if (relation.targetId === undefined) continue
+      const targetId = `world-${relation.targetId}`
+      if (!nodeIds.has(targetId)) continue
+      addEdge(sourceId, targetId, relation.relation || '相关', {
+        parallel: true,
+        style: { color: relation.color, arrow: relation.arrow },
+      })
     }
   }
 
@@ -345,6 +375,32 @@ async function linkEventToCountry(
   return { ok: true }
 }
 
+/** 角色 → 笔记：关系存在角色侧，笔记那边查出来 */
+async function linkCharacterToNote(
+  characterId: number,
+  entryId: number,
+  label: string,
+  now: number,
+): Promise<CreateRelationResult> {
+  const [character, entry] = await Promise.all([
+    db.characters.get(characterId),
+    db.worldEntries.get(entryId),
+  ])
+  if (!character || !entry) return { ok: false, reason: 'missing' }
+  const list = character.relatedNotes ?? []
+  if (list.some((item) => item.targetId === entry.id && (item.relation ?? '').trim() === label)) {
+    return { ok: false, reason: 'duplicate' }
+  }
+  const next = [...list, { targetId: entry.id, name: entry.title, relation: label }]
+  await db.characters.update(character.id, {
+    relatedNotes: next,
+    updatedAt: now,
+    ...pendingStamp(now),
+  })
+  await logOperation('characters', character.id, 'relatedNotes', JSON.stringify(list), JSON.stringify(next))
+  return { ok: true }
+}
+
 /** 角色参与事件：只有事件侧持有名单，角色没有反向列表 */
 async function linkCharacterToEvent(
   eventId: number,
@@ -455,6 +511,14 @@ export async function createRelationBetween(
       return { ok: true }
     }
 
+    case 'character:world': {
+      return linkCharacterToNote(source.entityId, target.entityId, label, now)
+    }
+
+    case 'world:character': {
+      return linkCharacterToNote(target.entityId, source.entityId, label, now)
+    }
+
     case 'event:country':
       return linkEventToCountry(source.entityId, target.entityId, now)
 
@@ -469,16 +533,38 @@ export async function createRelationBetween(
 
 
 /**
- * 改一条边的样式（颜色 / 箭头）。只支持「角色↔角色」与「事件↔事件」两类边
- * ——其它组合的样式不在这一层表达（归属 / 参与不画箭头，见 docs/关系图.md §2.1）。
+ * 改一条边的样式（颜色 / 箭头）。支持命名边：角色↔角色、事件↔事件、笔记↔笔记，
+ * 以及角色→笔记（关系存在角色侧的 `relatedNotes`）。
  */
 export async function updateEdgeStyle(
   source: { entityType: RelationNodeType; entityId: number },
   target: { entityType: RelationNodeType; entityId: number },
   patch: EdgeStylePatch,
 ): Promise<boolean> {
-  if (source.entityType !== target.entityType) return false
   const now = Date.now()
+
+  // 角色 → 笔记：边存在角色侧，source 可能是任意一端
+  if (
+    (source.entityType === 'character' && target.entityType === 'world') ||
+    (source.entityType === 'world' && target.entityType === 'character')
+  ) {
+    const characterId =
+      source.entityType === 'character' ? source.entityId : target.entityId
+    const entryId = source.entityType === 'world' ? source.entityId : target.entityId
+    const row = await db.characters.get(characterId)
+    if (!row) return false
+    const patched = patchCharacterNoteEdge(row, entryId, patch)
+    if (!patched || !patched.changed) return patched?.found ?? false
+    await db.characters.update(row.id, {
+      relatedNotes: patched.relatedNotes,
+      updatedAt: now,
+      ...pendingStamp(now),
+    })
+    await logOperation('characters', row.id, 'edge_style', '', JSON.stringify(patch))
+    return true
+  }
+
+  if (source.entityType !== target.entityType) return false
 
   if (source.entityType === 'character') {
     const row = await db.characters.get(source.entityId)
@@ -629,6 +715,27 @@ export async function deleteRelationBetween(
       if (next.length === list.length) return false
       await db.worldEntries.update(reversed.id, { relations: next, updatedAt: now, ...pendingStamp(now) })
       await logOperation('worldEntries', reversed.id, 'relations', JSON.stringify(list), JSON.stringify(next))
+      return true
+    }
+
+    case 'character:world':
+    case 'world:character': {
+      const characterId =
+        source.entityType === 'character' ? source.entityId : target.entityId
+      const entryId = source.entityType === 'world' ? source.entityId : target.entityId
+      const character = await db.characters.get(characterId)
+      if (!character) return false
+      const list = character.relatedNotes ?? []
+      const next = list.filter(
+        (item) => !(item.targetId === entryId && relationMatches(item.relation, relation)),
+      )
+      if (next.length === list.length) return false
+      await db.characters.update(character.id, {
+        relatedNotes: next,
+        updatedAt: now,
+        ...pendingStamp(now),
+      })
+      await logOperation('characters', character.id, 'relatedNotes', JSON.stringify(list), JSON.stringify(next))
       return true
     }
 

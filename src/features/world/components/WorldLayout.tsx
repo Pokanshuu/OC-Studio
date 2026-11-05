@@ -277,6 +277,14 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
                     const target = entries.find((e) => e.id === id)
                     if (target) void handleSelect(id, target)
                   }}
+                  onNavigateEntity={(kind, id) => {
+                    if (kind === 'world') {
+                      const target = entries.find((e) => e.id === id)
+                      if (target) void handleSelect(id, target)
+                      return
+                    }
+                    onMentionClick?.(String(id), kind)
+                  }}
                   body={
                     <WorldEntryBody
                       selectedId={selectedId}

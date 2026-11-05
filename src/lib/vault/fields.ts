@@ -43,6 +43,8 @@ export const CHARACTER_KEYS = {
   gallery: chain('gallery'),
   avatars: chain('avatars'),
   relations: chain('relations'),
+  /** 角色 → 笔记的命名关系（与笔记自身 relations 同形） */
+  relatedNotes: chain('related_notes', '相关笔记'),
   tags: chain('tags'),
   order: chain('order', '排序'),
   /** 角色文件夹：只存文件夹**名字**（不是 id），空 = 未分组；删文件夹不删角色（见 docs/待设计决策清单 §2） */

@@ -44,6 +44,7 @@ export function newCharacterData(): CharacterFormData {
     bio: '',
     lifeStory: '',
     relatedCharacters: [],
+    relatedNotes: [],
     gallery: [],
     avatars: [],
     tags: [],

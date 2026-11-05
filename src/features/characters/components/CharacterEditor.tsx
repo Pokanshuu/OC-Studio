@@ -25,12 +25,14 @@ interface CharacterEditorProps {
   onCreate?: () => void
   onNavigateToCharacter?: (id: number) => void
   onNavigateToCountry?: (id: number) => void
+  /** 关系里的「相关笔记」 */
+  onNavigateToWorld?: (id: number) => void
   onMentionClick?: (id: string, entityType?: string) => void
   onCharacterCount?: (count: number) => void
   onWikiLinkClick?: (id: string) => void
 }
 
-export function CharacterEditor({ editCharacterId, onBack, onCreate, onNavigateToCharacter, onNavigateToCountry, onMentionClick, onCharacterCount, onWikiLinkClick }: CharacterEditorProps) {
+export function CharacterEditor({ editCharacterId, onBack, onCreate, onNavigateToCharacter, onNavigateToCountry, onNavigateToWorld, onMentionClick, onCharacterCount, onWikiLinkClick }: CharacterEditorProps) {
   const { character, loading, error, refresh } = useCharacter(editCharacterId)
   const { updateCharacter } = useUpdateCharacter()
 
@@ -72,6 +74,7 @@ export function CharacterEditor({ editCharacterId, onBack, onCreate, onNavigateT
       onCreate={onCreate}
       onNavigateToCharacter={onNavigateToCharacter}
       onNavigateToCountry={onNavigateToCountry}
+      onNavigateToWorld={onNavigateToWorld}
       onMentionClick={onMentionClick}
       onCharacterCount={onCharacterCount}
       onWikiLinkClick={onWikiLinkClick}
@@ -89,6 +92,7 @@ function CharacterEditorInner({
   onSave,
   onNavigateToCharacter,
   onNavigateToCountry,
+  onNavigateToWorld,
   onMentionClick,
   onCharacterCount,
   onWikiLinkClick,
@@ -99,6 +103,7 @@ function CharacterEditorInner({
   onSave: (id: number, data: Partial<CharacterFormData>) => Promise<void>
   onNavigateToCharacter?: (id: number) => void
   onNavigateToCountry?: (id: number) => void
+  onNavigateToWorld?: (id: number) => void
   onMentionClick?: (id: string, entityType?: string) => void
   onCharacterCount?: (count: number) => void
   onWikiLinkClick?: (id: string) => void
@@ -202,6 +207,7 @@ function CharacterEditorInner({
               compact
               onNavigateToCharacter={onNavigateToCharacter}
               onNavigateToCountry={onNavigateToCountry}
+              onNavigateToWorld={onNavigateToWorld}
             />
           }
         >
@@ -218,6 +224,7 @@ function CharacterEditorInner({
               compact={false}
               onNavigateToCharacter={onNavigateToCharacter}
               onNavigateToCountry={onNavigateToCountry}
+              onNavigateToWorld={onNavigateToWorld}
               body={body}
             />
           </div>

@@ -45,6 +45,11 @@ export interface RelationRow {
   /** 目标实体 id；盘上只有名字、解析不到实体时为空（仍显示，但不可跳转） */
   targetId?: number
   name: string
+  /**
+   * 类型列的具体标签（如笔记的「宠物」）。不传 = `RELATION_KIND_LABEL[kind]`。
+   * 只有笔记需要：`kind` 只能说到「词条」，分类名才说得清是哪一类。
+   */
+  kindLabel?: string
   /** 关系名（「好朋友」/「参与」/「居民」） */
   relation: string
   /** 关系名是否能在表内改写；参与 / 归属这类事实边固定只读 */

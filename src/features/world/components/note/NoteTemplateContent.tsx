@@ -15,6 +15,7 @@ import type { ReactNode } from 'react'
 import type { WorldEntry } from '@/types'
 import type { InfoFieldType } from '@/lib/templates/info-groups'
 import type { TemplateDoc } from '@/lib/templates/types'
+import type { RelationTargetKind } from '@/components/shared/relations/types'
 import { TemplateRenderer } from '@/components/shared/TemplateRenderer'
 import { WorldCoverField } from '@/features/world/components/WorldCoverField'
 import { WorldCustomFields } from '@/features/world/components/WorldCustomFields'
@@ -41,6 +42,8 @@ export interface NoteTemplateContentProps {
   backlinks: { id: number; title: string }[]
   /** 点关系 / 被引用里的另一篇笔记 */
   onNavigateNote: (id: number) => void
+  /** 关系里出现非笔记目标（如角色的「相关笔记」反查）时的跳转 */
+  onNavigateEntity?: (kind: RelationTargetKind, id: number) => void
   /** 正文编辑器节点：由宿主提供（它持有 Tiptap 实例） */
   body: ReactNode
   /** 已加载的词条列表（世界观编辑器有；分类编辑器没有，关系块自己读库） */
@@ -61,6 +64,7 @@ export function NoteTemplateContent({
   showTags,
   backlinks,
   onNavigateNote,
+  onNavigateEntity,
   body,
   linkRows,
   fieldKeys,
@@ -105,7 +109,10 @@ export function NoteTemplateContent({
                 key={entry.id}
                 entry={entry}
                 template={template}
-                onNavigate={onNavigateNote}
+                onNavigate={(kind, id) => {
+                  if (onNavigateEntity) onNavigateEntity(kind, id)
+                  else if (kind === 'world') onNavigateNote(id)
+                }}
                 linkRows={linkRows}
               />
             )

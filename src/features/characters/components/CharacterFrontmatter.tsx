@@ -20,6 +20,8 @@ interface CharacterFrontmatterProps {
   compact: boolean
   onNavigateToCharacter?: (id: number) => void
   onNavigateToCountry?: (id: number) => void
+  /** 关系里的「相关笔记」 */
+  onNavigateToWorld?: (id: number) => void
   /** 正文编辑器节点（全宽布局把它放进模板顺序；分栏布局固定在右栏，不传） */
   body?: React.ReactNode
 }
@@ -41,6 +43,7 @@ export function CharacterFrontmatter({
   compact,
   onNavigateToCharacter,
   onNavigateToCountry,
+  onNavigateToWorld,
   body,
 }: CharacterFrontmatterProps) {
   const portraitGallery = useRef<ImageGalleryHandle>(null)
@@ -115,6 +118,7 @@ export function CharacterFrontmatter({
       onArrowChange={form.setRelationArrow}
       onNavigate={(kind, id) => {
         if (kind === 'character') onNavigateToCharacter?.(id)
+        else if (kind === 'world') onNavigateToWorld?.(id)
       }}
       selfName={form.name}
     />

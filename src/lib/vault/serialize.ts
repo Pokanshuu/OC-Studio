@@ -1,4 +1,4 @@
-import type { Character, Country, Event, Period, Tag, WorldEntry } from '@/types'
+import type { Character, Country, Event, Period, Tag, WorldEntry, WorldRelation } from '@/types'
 import {
   CHARACTER_KEYS,
   COUNTRY_KEYS,
@@ -185,12 +185,15 @@ function relationDisk(
   return rows.length === 0 ? undefined : rows
 }
 
-/** 笔记之间的关系（与角色 / 事件同形，只是目标换成笔记） */
-function worldRelationDisk(
-  entity: WorldEntry,
+/**
+ * 指向笔记的命名边（笔记自己的 `relations` / 角色的 `relatedNotes` 共用）。
+ * `name` 是目标的标题，落盘后靠它重新解析；`targetId` 只活在内存里。
+ */
+function noteRelationDisk(
+  rows: WorldRelation[] | undefined,
   ctx: SerializeContext,
 ): Record<string, unknown>[] | undefined {
-  const rows = (entity.relations ?? [])
+  const out = (rows ?? [])
     .map((item) => {
       const resolved =
         (item.targetId !== undefined ? ctx.nameOf('worldEntry', item.targetId) : undefined) ??
@@ -204,7 +207,7 @@ function worldRelationDisk(
       return row
     })
     .filter((row): row is Record<string, unknown> => row !== null)
-  return rows.length === 0 ? undefined : rows
+  return out.length === 0 ? undefined : out
 }
 
 /** 事件之间的关系（与角色关系同形，只是目标换成事件） */
@@ -255,6 +258,7 @@ export function serializeCharacter(
   putIfChanged(out, existing, CHARACTER_KEYS.gallery, imageListDisk(entity.gallery), prev === null ? null : imageListDisk(prev.gallery))
   putIfChanged(out, existing, CHARACTER_KEYS.avatars, imageListDisk(entity.avatars), prev === null ? null : imageListDisk(prev.avatars))
   putIfChanged(out, existing, CHARACTER_KEYS.relations, relationDisk(entity, ctx), prev === null ? null : relationDisk(prev, ctx))
+  putIfChanged(out, existing, CHARACTER_KEYS.relatedNotes, noteRelationDisk(entity.relatedNotes, ctx), prev === null ? null : noteRelationDisk(prev.relatedNotes, ctx))
   putIfChanged(out, existing, CHARACTER_KEYS.order, writeNumber(entity.order), prev === null ? null : writeNumber(prev.order))
   putIfChanged(out, existing, CHARACTER_KEYS.folder, writeString(entity.folder ?? ''), prev === null ? null : writeString(prev.folder ?? ''))
   putIfChanged(out, existing, CHARACTER_KEYS.legacyKind, writeString(entity.legacyKind ?? ''), prev === null ? null : writeString(prev.legacyKind ?? ''))
@@ -368,7 +372,7 @@ export function serializeWorldEntry(
   putIfChanged(out, existing, WORLD_KEYS.endTime, writeString(entity.endTime ?? ''), p === null ? null : writeString(p.endTime ?? ''))
   putIfChanged(out, existing, WORLD_KEYS.location, writeString(entity.location ?? ''), p === null ? null : writeString(p.location ?? ''))
   putIfChanged(out, existing, WORLD_KEYS.template, writeString(entity.template ?? ''), p === null ? null : writeString(p.template ?? ''))
-  putIfChanged(out, existing, WORLD_KEYS.relations, worldRelationDisk(entity, ctx), p === null ? null : worldRelationDisk(p, ctx))
+  putIfChanged(out, existing, WORLD_KEYS.relations, noteRelationDisk(entity.relations, ctx), p === null ? null : noteRelationDisk(p.relations, ctx))
   putIfChanged(out, existing, WORLD_KEYS.parent, parentValue(entity), p === null ? null : parentValue(p))
   putIfChanged(out, existing, WORLD_KEYS.order, writeNumber(entity.order), p === null ? null : writeNumber(p.order))
   putIfChanged(out, existing, WORLD_KEYS.isConcept, writeBool(entity.isConcept), p === null ? null : writeBool(p.isConcept))

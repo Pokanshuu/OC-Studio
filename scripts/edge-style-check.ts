@@ -2,7 +2,13 @@
  * 边样式自检：`npx tsx scripts/edge-style-check.ts`
  * 只验纯函数（合并补丁 / 清空 / 非法值 / 找不到边）。
  */
-import { applyEdgeStyle, patchCharacterEdge, patchEventEdge, patchWorldEdge } from '../src/features/relations/edge-style'
+import {
+  applyEdgeStyle,
+  patchCharacterEdge,
+  patchCharacterNoteEdge,
+  patchEventEdge,
+  patchWorldEdge,
+} from '../src/features/relations/edge-style'
 
 let passed = 0
 function check(name: string, ok: boolean) {
@@ -55,5 +61,22 @@ check(
     worldPatched.relations[0].relation === '寄生',
 )
 check('笔记边找不到目标时返回 null', patchWorldEdge(world, 99, { color: '赤陶' }) === null)
+
+const characterNotes = {
+  id: 9,
+  relatedNotes: [{ targetId: 10, name: '笔记', relation: '守护' }],
+} as unknown as Parameters<typeof patchCharacterNoteEdge>[0]
+const characterNotesPatched = patchCharacterNoteEdge(characterNotes, 10, {
+  color: '靛蓝',
+  arrow: 'reverse',
+  relation: '守望',
+})
+check(
+  '角色 → 笔记边改颜色 / 箭头 / 关系名',
+  characterNotesPatched?.relatedNotes[0].color === '靛蓝' &&
+    characterNotesPatched.relatedNotes[0].arrow === 'reverse' &&
+    characterNotesPatched.relatedNotes[0].relation === '守望',
+)
+check('角色 → 笔记边找不到目标时返回 null', patchCharacterNoteEdge(characterNotes, 99, { color: '赤陶' }) === null)
 
 console.log(`\n共 ${passed} 项断言通过`)

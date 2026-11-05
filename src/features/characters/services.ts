@@ -28,6 +28,7 @@ function buildDefaultCharacter(
     bio: data.bio,
     lifeStory: data.lifeStory,
     relatedCharacters: data.relatedCharacters,
+    relatedNotes: data.relatedNotes ?? [],
     gallery: data.gallery,
     avatars: data.avatars,
     tags: data.tags ?? [],
@@ -120,6 +121,17 @@ export async function updateCharacter(
       'relatedCharacters',
       JSON.stringify(existing.relatedCharacters),
       JSON.stringify(data.relatedCharacters),
+    )
+  }
+
+  if (data.relatedNotes !== undefined) {
+    ;(updates as Record<string, unknown>).relatedNotes = data.relatedNotes
+    await logOperation(
+      TABLE,
+      id,
+      'relatedNotes',
+      JSON.stringify(existing.relatedNotes ?? []),
+      JSON.stringify(data.relatedNotes),
     )
   }
 

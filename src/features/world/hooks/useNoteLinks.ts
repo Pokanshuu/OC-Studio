@@ -12,8 +12,9 @@
  * 世界编辑器与分类条目编辑器共用同一次查询，别各扫一遍库。
  */
 import { useEffect, useMemo, useState } from 'react'
-import type { WorldEntry } from '@/types'
+import type { Character, WorldEntry } from '@/types'
 import type { RelationArrow } from '@/lib/relation-colors'
+import type { RelationTargetKind } from '@/components/shared/relations/types'
 import { db } from '@/lib/db'
 import { worldBodyOf } from '@/lib/world-body'
 import { docHasRef, docRefs } from '@/features/world/components/world-content-utils'
@@ -25,6 +26,8 @@ export interface NoteLink {
 
 /** 一条命名关系（出站是目标，入站是来源） */
 export interface NoteRelationLink {
+  /** 对方的实体类型：笔记自己的边是 world；角色的「相关笔记」是 character */
+  kind: RelationTargetKind
   /** 对方 id；盘上只有名字、解析不到实体时为空 */
   id?: number
   name: string
@@ -73,7 +76,11 @@ export function findBacklinks(rows: WorldEntry[], entryId: number): NoteLink[] {
   return found
 }
 
-export function buildNoteLinks(rows: WorldEntry[], entryId: number): Omit<NoteLinks, 'loading'> {
+export function buildNoteLinks(
+  rows: WorldEntry[],
+  entryId: number,
+  characters: Character[] = [],
+): Omit<NoteLinks, 'loading'> {
   const all = rows.filter((row) => !row.deleted)
   const self = all.find((row) => row.id === entryId)
   const byId = new Map(all.map((row) => [row.id, row]))
@@ -90,6 +97,7 @@ export function buildNoteLinks(rows: WorldEntry[], entryId: number): Omit<NoteLi
     const target =
       relation.targetId !== undefined ? byId.get(relation.targetId) : undefined
     return {
+      kind: 'world',
       id: target?.id,
       name: target?.title ?? relation.name,
       relation: relation.relation,
@@ -119,6 +127,7 @@ export function buildNoteLinks(rows: WorldEntry[], entryId: number): Omit<NoteLi
     for (const [index, relation] of (row.relations ?? []).entries()) {
       if (relation.targetId !== entryId) continue
       manualInbound.push({
+        kind: 'world',
         id: row.id,
         name: row.title,
         relation: relation.relation,
@@ -128,13 +137,34 @@ export function buildNoteLinks(rows: WorldEntry[], entryId: number): Omit<NoteLi
       })
     }
   }
+
+  // 角色 → 笔记：角色自己的「相关笔记」在笔记侧显示为「来自该角色」
+  for (const character of characters) {
+    for (const [index, relation] of (character.relatedNotes ?? []).entries()) {
+      if (relation.targetId !== entryId) continue
+      manualInbound.push({
+        kind: 'character',
+        id: character.id,
+        name: character.name,
+        relation: relation.relation,
+        color: relation.color,
+        arrow: relation.arrow,
+        index,
+      })
+    }
+  }
+
   manualInbound.sort(
     (a, b) =>
       a.name.localeCompare(b.name, 'zh-Hans') ||
       a.relation.localeCompare(b.relation, 'zh-Hans'),
   )
+  // 只拿「笔记来源」去和正文反查去重；角色 id 与笔记 id 可能撞号，不能混在一起
   const manuallySourced = new Set(
-    manualInbound.map((item) => item.id).filter((id): id is number => id !== undefined),
+    manualInbound
+      .filter((item) => item.kind === 'world')
+      .map((item) => item.id)
+      .filter((id): id is number => id !== undefined),
   )
 
   return {
@@ -157,10 +187,32 @@ export function buildNoteLinks(rows: WorldEntry[], entryId: number): Omit<NoteLi
  */
 export function useNoteLinks(entryId: number | null, rows?: WorldEntry[], version?: number): NoteLinks {
   const [links, setLinks] = useState<NoteLinks>(EMPTY)
+  /** 角色侧也可能有指向这篇笔记的「相关笔记」 */
+  const [characters, setCharacters] = useState<Character[]>([])
+
+  useEffect(() => {
+    if (entryId === null) return
+    let cancelled = false
+    void db.characters
+      .filter((row) => !row.deleted)
+      .toArray()
+      .then((all) => {
+        if (!cancelled) setCharacters(all)
+      })
+      .catch(() => {
+        if (!cancelled) setCharacters([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [entryId])
 
   const fromRows = useMemo(
-    () => (rows === undefined || entryId === null ? null : { ...buildNoteLinks(rows, entryId), loading: false }),
-    [rows, entryId],
+    () =>
+      rows === undefined || entryId === null
+        ? null
+        : { ...buildNoteLinks(rows, entryId, characters), loading: false },
+    [rows, entryId, characters],
   )
 
   useEffect(() => {
@@ -172,7 +224,7 @@ export function useNoteLinks(entryId: number | null, rows?: WorldEntry[], versio
       .toArray()
       .then((all) => {
         if (cancelled) return
-        setLinks({ ...buildNoteLinks(all, entryId), loading: false })
+        setLinks({ ...buildNoteLinks(all, entryId, characters), loading: false })
       })
       .catch(() => {
         if (!cancelled) setLinks({ ...EMPTY, loading: false })
@@ -180,7 +232,7 @@ export function useNoteLinks(entryId: number | null, rows?: WorldEntry[], versio
     return () => {
       cancelled = true
     }
-  }, [entryId, rows, version])
+  }, [entryId, rows, version, characters])
 
   if (entryId === null) return EMPTY
   return fromRows ?? links

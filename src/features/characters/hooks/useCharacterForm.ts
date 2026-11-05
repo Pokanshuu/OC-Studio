@@ -2,13 +2,15 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import type { Editor } from '@tiptap/core'
-import type { Character, GalleryImage, RelatedCharacter } from '@/types'
+import type { Character, GalleryImage, RelatedCharacter, WorldRelation } from '@/types'
 import type { RelatedItem } from '@/components/shared/RelatedItemsSelector'
 import type { RelationCandidate, RelationRow, RelationTargetKind } from '@/components/shared/relations/types'
 import type { RelationArrow } from '@/lib/relation-colors'
+import { isCodexEntry } from '@/lib/entry-kinds'
 import type { CharacterFormData } from '../types'
 import { useCharacterList } from './useCharacters'
 import { useCountryList } from '@/features/countries/hooks/useCountries'
+import { useCodexEntryList } from '@/features/world/hooks/useWorldEntries'
 import { useSaveStatus } from '@/components/layout/SaveStatusContext'
 import { toast } from 'sonner'
 import { useEditorDirty } from '@/components/layout/useEditorDirty'
@@ -55,6 +57,7 @@ interface CharacterValues {
   avatarUrls: string[]
   galleryUrls: string[]
   relatedCharacters: RelatedCharacter[]
+  relatedNotes: WorldRelation[]
   isMajor: boolean
   custom: Record<string, string>
   tags: number[]
@@ -83,6 +86,7 @@ function valuesFromEntity(character: Character): CharacterValues {
     avatarUrls: toUrls(character.avatars),
     galleryUrls: toUrls(character.gallery),
     relatedCharacters: character.relatedCharacters ?? [],
+    relatedNotes: character.relatedNotes ?? [],
     isMajor: character.isMajor ?? false,
     custom: character.custom ?? {},
     tags: character.tags ?? [],
@@ -118,6 +122,12 @@ function valuesSnapshot(values: CharacterValues): Record<string, unknown> {
       // 箭头 / 颜色是边上的数据：改了也算这一次编辑（否则改完不会提示保存）
       arrow: rc.arrow ?? null,
       color: rc.color ?? null,
+    })),
+    relatedNotes: values.relatedNotes.map((note) => ({
+      targetId: note.targetId ?? null,
+      relation: note.relation,
+      arrow: note.arrow ?? null,
+      color: note.color ?? null,
     })),
     isMajor: values.isMajor,
     custom: values.custom,
@@ -168,6 +178,7 @@ export function useCharacterForm(
   const [relatedCharacters, setRelatedCharacters] = useState<RelatedCharacter[]>(
     initial.relatedCharacters,
   )
+  const [relatedNotes, setRelatedNotes] = useState<WorldRelation[]>(initial.relatedNotes)
   const [isMajor, setIsMajor] = useState(initial.isMajor)
   /** 一行简介：模板「简介」组件可改；列表卡摘要也读它 */
   const [bio, setBio] = useState(initial.bio)
@@ -189,12 +200,12 @@ export function useCharacterForm(
   const values = useMemo<CharacterValues>(() => ({
     name, aliasesStr, race, element, occupation, faction, nationalityLegacy, countryId,
     height, birthdayYear, birthdayMonth, birthdayDay,
-    avatarUrl, headerUrl, animationUrl, avatarUrls, galleryUrls, relatedCharacters,
+    avatarUrl, headerUrl, animationUrl, avatarUrls, galleryUrls, relatedCharacters, relatedNotes,
     isMajor, custom, tags, bio,
   }), [
     name, aliasesStr, race, element, occupation, faction, nationalityLegacy, countryId,
     height, birthdayYear, birthdayMonth, birthdayDay,
-    avatarUrl, headerUrl, animationUrl, avatarUrls, galleryUrls, relatedCharacters,
+    avatarUrl, headerUrl, animationUrl, avatarUrls, galleryUrls, relatedCharacters, relatedNotes,
     isMajor, custom, tags, bio,
   ])
 
@@ -226,6 +237,7 @@ export function useCharacterForm(
     setAvatarUrls(next.avatarUrls)
     setGalleryUrls(next.galleryUrls)
     setRelatedCharacters(next.relatedCharacters)
+    setRelatedNotes(next.relatedNotes)
     setIsMajor(next.isMajor)
     setCustom(next.custom)
     setTags(next.tags)
@@ -235,6 +247,7 @@ export function useCharacterForm(
 
   const { characters: allCharacters } = useCharacterList()
   const { countries } = useCountryList()
+  const { entries: allNotes } = useCodexEntryList()
 
   /**
    * 反向关系：遍历全体角色，收集「谁在自己的关系表里记了我」。
@@ -268,23 +281,43 @@ export function useCharacterForm(
    */
   const relationRows = useMemo<RelationRow[]>(() => {
     const byId = new Map(allCharacters.map((item) => [item.id, item]))
-    return relatedCharacters.map((relation, index) => {
+    const noteById = new Map(allNotes.map((item) => [item.id, item]))
+    const characterRows = relatedCharacters.map((relation, index) => {
       const target = relation.characterId === undefined ? undefined : byId.get(relation.characterId)
       return {
         key: `character-${relation.characterId ?? relation.name}-${index}`,
-        kind: 'character',
+        kind: 'character' as const,
         targetId: relation.characterId,
         name: target?.name ?? relation.name,
         relation: relation.relation,
         relationEditable: true,
         directional: true,
-        defaultArrow: 'both',
+        defaultArrow: 'both' as const,
         arrow: relation.arrow,
         index,
         color: relation.color,
       }
     })
-  }, [allCharacters, relatedCharacters])
+    const noteRows = relatedNotes.map((relation, index) => {
+      const target =
+        relation.targetId === undefined ? undefined : noteById.get(relation.targetId)
+      return {
+        key: `note-${relation.targetId ?? relation.name}-${index}`,
+        kind: 'world' as const,
+        targetId: target?.id,
+        name: target?.title ?? relation.name,
+        kindLabel: target?.category?.trim() || undefined,
+        relation: relation.relation,
+        relationEditable: true,
+        directional: true,
+        defaultArrow: 'none' as const,
+        arrow: relation.arrow,
+        index,
+        color: relation.color,
+      }
+    })
+    return [...characterRows, ...noteRows]
+  }, [allCharacters, allNotes, relatedCharacters, relatedNotes])
 
   const inboundRelationRows = useMemo<RelationRow[]>(
     () =>
@@ -304,40 +337,80 @@ export function useCharacterForm(
   )
 
   const relationCandidates = useMemo<RelationCandidate[]>(() => {
-    const linked = new Set(
+    const linkedCharacters = new Set(
       relatedCharacters
         .map((relation) => relation.characterId)
         .filter((id): id is number => id !== undefined),
     )
-    return allCharacters
-      .filter((item) => item.id !== character.id && !linked.has(item.id))
-      .map((item) => ({
-        kind: 'character' as const,
-        targetId: item.id,
-        name: item.name,
-        subtitle: item.aliases.length > 0 ? item.aliases.join('、') : undefined,
-      }))
-  }, [allCharacters, character.id, relatedCharacters])
+    const linkedNotes = new Set(
+      relatedNotes
+        .map((relation) => relation.targetId)
+        .filter((id): id is number => id !== undefined),
+    )
+    return [
+      ...allCharacters
+        .filter((item) => item.id !== character.id && !linkedCharacters.has(item.id))
+        .map((item) => ({
+          kind: 'character' as const,
+          targetId: item.id,
+          name: item.name,
+          subtitle: item.aliases.length > 0 ? item.aliases.join('、') : undefined,
+        })),
+      ...allNotes
+        .filter((item) => isCodexEntry(item) && !linkedNotes.has(item.id))
+        .map((item) => ({
+          kind: 'world' as const,
+          targetId: item.id,
+          name: item.title,
+          subtitle: item.category || undefined,
+        })),
+    ]
+  }, [allCharacters, allNotes, character.id, relatedCharacters, relatedNotes])
 
   const addRelation = useCallback(
     (kind: RelationTargetKind, targetId: number) => {
-      if (kind !== 'character') return
-      const target = allCharacters.find((item) => item.id === targetId)
-      if (!target) return
-      setRelatedCharacters((previous) =>
-        previous.some((relation) => relation.characterId === targetId)
-          ? previous
-          : [...previous, { characterId: targetId, name: target.name, relation: '' }],
-      )
+      if (kind === 'character') {
+        const target = allCharacters.find((item) => item.id === targetId)
+        if (!target) return
+        setRelatedCharacters((previous) =>
+          previous.some((relation) => relation.characterId === targetId)
+            ? previous
+            : [...previous, { characterId: targetId, name: target.name, relation: '' }],
+        )
+        return
+      }
+      if (kind === 'world') {
+        const target = allNotes.find((item) => item.id === targetId)
+        if (!target) return
+        setRelatedNotes((previous) =>
+          previous.some((relation) => relation.targetId === targetId)
+            ? previous
+            : [...previous, { targetId, name: target.title, relation: '' }],
+        )
+      }
     },
-    [allCharacters],
+    [allCharacters, allNotes],
   )
 
   const removeRelation = useCallback((row: RelationRow) => {
+    if (row.index === undefined) return
+    if (row.kind === 'world') {
+      setRelatedNotes((previous) => previous.filter((_, index) => index !== row.index))
+      return
+    }
     setRelatedCharacters((previous) => previous.filter((_, index) => index !== row.index))
   }, [])
 
   const renameRelation = useCallback((row: RelationRow, value: string) => {
+    if (row.index === undefined) return
+    if (row.kind === 'world') {
+      setRelatedNotes((previous) =>
+        previous.map((relation, index) =>
+          index === row.index ? { ...relation, relation: value } : relation,
+        ),
+      )
+      return
+    }
     setRelatedCharacters((previous) =>
       previous.map((relation, index) =>
         index === row.index ? { ...relation, relation: value } : relation,
@@ -347,6 +420,15 @@ export function useCharacterForm(
 
   /** 命名边的箭头：无 / 正向 / 反向 / 双向；成员关系不经过它 */
   const setRelationArrow = useCallback((row: RelationRow, arrow: RelationArrow) => {
+    if (row.index === undefined) return
+    if (row.kind === 'world') {
+      setRelatedNotes((previous) =>
+        previous.map((relation, index) =>
+          index === row.index ? { ...relation, arrow } : relation,
+        ),
+      )
+      return
+    }
     setRelatedCharacters((previous) =>
       previous.map((relation, index) =>
         index === row.index ? { ...relation, arrow } : relation,
@@ -428,6 +510,7 @@ export function useCharacterForm(
         lifeStory: character.lifeStory,
         document,
         relatedCharacters,
+        relatedNotes,
         gallery: galleryUrls.map((url) => ({ url, caption: '' })),
         avatars: avatarUrls.map((url) => ({ url, type: 'portrait' as const })),
         tags,
@@ -468,6 +551,7 @@ export function useCharacterForm(
     birthdayMonth,
     birthdayDay,
     relatedCharacters,
+    relatedNotes,
     tags,
     isMajor,
     custom,
@@ -520,6 +604,7 @@ export function useCharacterForm(
     avatarUrls, setAvatarUrls,
     galleryUrls, setGalleryUrls,
     relatedCharacters, setRelatedCharacters,
+    relatedNotes, setRelatedNotes,
     isMajor, setIsMajor,
 
     custom, setCustomValue,
