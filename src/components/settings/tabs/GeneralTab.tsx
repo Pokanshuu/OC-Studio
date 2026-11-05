@@ -14,6 +14,7 @@ import { ThemeRadio, LayoutRadio, SWITCH_CLASSES, SWITCH_DOT } from '../controls
 import {
   SETTINGS_FIELD,
   SETTINGS_GROUP,
+  SETTINGS_GROUP_FIRST,
   SETTINGS_HINT,
   SETTINGS_LABEL,
   SETTINGS_TOGGLE_ROW,
@@ -98,12 +99,8 @@ export function GeneralTab() {
 
   return (
     <div className="flex flex-col">
-      <div className="flex flex-col">
-        <SettingsEntryRow icon={Palette} label="主题" onClick={() => setPanel('theme')} />
-        <SettingsEntryRow icon={Waypoints} label="关系图操作" onClick={() => setPanel('relations')} />
-      </div>
-
-      <div className={SETTINGS_GROUP}>
+      {/* 先给最常改的两个单选组（显示模式 / 编辑界面），二级页入口排在它们后面 */}
+      <div className={SETTINGS_GROUP_FIRST}>
         <div className={SETTINGS_FIELD}>
           <span className={SETTINGS_LABEL}>显示模式</span>
           <ThemeRadio
@@ -117,6 +114,13 @@ export function GeneralTab() {
             value={settings.editorLayout}
             onChange={(v) => updateSetting("editorLayout", v)}
           />
+        </div>
+      </div>
+
+      <div className={SETTINGS_GROUP}>
+        <div className="flex flex-col">
+          <SettingsEntryRow icon={Palette} label="主题" onClick={() => setPanel('theme')} />
+          <SettingsEntryRow icon={Waypoints} label="关系图操作" onClick={() => setPanel('relations')} />
         </div>
       </div>
 
