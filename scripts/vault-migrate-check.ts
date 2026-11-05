@@ -196,6 +196,7 @@ const worldEntries: WorldEntry[] = [
     parentId: null,
     order: 1,
     isConcept: false,
+    relations: [{ targetId: 4, name: '小灰', relation: '共生', color: '苔绿', arrow: 'forward' }],
     references: [],
     tags: [2],
     createdAt: 1,
@@ -215,6 +216,7 @@ const worldEntries: WorldEntry[] = [
     order: 1,
     isConcept: false,
     novelCover: '附件/小说封面.png',
+    relations: [],
     references: [],
     tags: [],
     createdAt: 3,
@@ -235,6 +237,7 @@ const worldEntries: WorldEntry[] = [
     mapImage: '.ocstudio/maps/北境.png',
     mapWidth: 1920,
     mapHeight: 1080,
+    relations: [],
     references: [],
     tags: [],
     createdAt: 4,
@@ -256,6 +259,7 @@ const worldEntries: WorldEntry[] = [
     parentId: null,
     order: 3,
     isConcept: false,
+    relations: [],
     references: [],
     tags: [],
     createdAt: 5,
@@ -401,6 +405,11 @@ if (worldEntry === undefined) {
   const parsed = worldBodyOf(worldEntry) as { content?: { content?: { text?: string }[] }[] }
   eq('词条 · 正文', parsed.content?.[0]?.content?.[0]?.text, '支撑世界的巨树')
   eq('词条 · content 不再镜像正文', worldEntry.content, '')
+  eq(
+    '词条 · 命名关系（目标 + 关系 + 颜色 + 箭头）',
+    worldEntry.relations.map((item) => [item.name, item.targetId, item.relation, item.color, item.arrow]),
+    [['小灰', 4, '共生', '苔绿', 'forward']],
+  )
 }
 
 // 小说根 / 地图笔记：封面与底图是各自的字段图，落地必须一起带过去
@@ -513,6 +522,7 @@ eq(
     parentId: null,
     order: 0,
     isConcept: false,
+    relations: [],
     references: [],
     tags: [],
   } as never).map((ref) => ref.url),

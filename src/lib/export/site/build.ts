@@ -507,6 +507,17 @@ export function buildSite(input: SiteData, options: BuildOptions): string {
 
   const worldDetails = data.worldEntries.map((w) => {
     const parent = w.parentId !== null && w.parentId !== undefined ? worldById.get(w.parentId) : undefined
+    const manualRefs = (w.relations ?? [])
+      .map((relation) => {
+        const target =
+          relation.targetId !== undefined ? worldById.get(relation.targetId) : undefined
+        if (!target) return ''
+        const label = `${escapeHtml(target.title || '未命名')}${
+          relation.relation ? `（${escapeHtml(relation.relation)}）` : ''
+        }`
+        return `<a class="ref" href="#/world/${target.id}">${label}</a>`
+      })
+      .filter(Boolean)
     const refs = (w.references ?? [])
       .map((r) => {
         const route = ROUTE_BY_KIND[r.targetType] ?? 'world'
@@ -542,6 +553,7 @@ export function buildSite(input: SiteData, options: BuildOptions): string {
           .map(([label, value]) => fieldRow(escapeHtml(label), escapeHtml(value)))
           .join('')}
         ${fieldRow('标签', tagChips(w.tags))}
+        ${manualRefs.length > 0 ? fieldRow('关系', manualRefs.join('、')) : ''}
         ${fieldRow('引用', refs.join('、'))}
       </div>
       ${doc(hasRichText(w.document) ? w.document : w.content)}

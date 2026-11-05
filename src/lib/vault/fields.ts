@@ -131,6 +131,8 @@ export const WORLD_KEYS = {
   summary: chain('summary', '简介'),
   /** 单篇笔记覆盖用的模板名（空 = 跟随所在分类 / 内置词条模板） */
   template: chain('template', '模板'),
+  /** 笔记之间的命名关系（与角色 / 事件同形：`{ name, relation, color?, arrow? }`） */
+  relations: chain('relations'),
   parent: chain('parent', '父词条'),
   order: chain('order', '排序'),
   isConcept: chain('isConcept', '概念'),

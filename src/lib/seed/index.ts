@@ -247,6 +247,7 @@ export async function seedSampleData(): Promise<void> {      const { db } = awai
         parentId: null,
         order: 0,
         isConcept: true,
+        relations: [],
         references: [],
         tags: [],
         createdAt: Date.now(),
@@ -289,6 +290,7 @@ export async function seedSampleData(): Promise<void> {      const { db } = awai
         parentId: null,
         order: 1,
         isConcept: true,
+        relations: [],
         references: [
           { targetType: 'world', targetId: entry1Id },
           { targetType: 'character', targetId: charAId },

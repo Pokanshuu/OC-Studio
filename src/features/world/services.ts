@@ -31,6 +31,7 @@ function buildDefaultEntry(data: WorldFormData, overrides: Partial<WorldEntry> =
     parentId: data.parentId,
     order: data.order,
     isConcept: data.isConcept,
+    relations: data.relations ?? [],
     references: [],
     tags: data.tags ?? [],
     createdAt: now,
@@ -117,6 +118,18 @@ export async function updateEntry(id: number, data: Partial<WorldFormData>): Pro
       'custom',
       JSON.stringify(existing.custom ?? {}),
       JSON.stringify(data.custom),
+    )
+  }
+
+  // 关系边是对象数组：日志按 JSON 记，String() 会变成一串 [object Object]
+  if (data.relations !== undefined) {
+    ;(updates as Record<string, unknown>).relations = data.relations
+    await logOperation(
+      TABLE,
+      id,
+      'relations',
+      JSON.stringify(existing.relations ?? []),
+      JSON.stringify(data.relations),
     )
   }
 

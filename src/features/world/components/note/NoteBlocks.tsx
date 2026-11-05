@@ -12,13 +12,19 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import type { GalleryImage, WorldEntry } from '@/types'
+import type { GalleryImage, WorldEntry, WorldRelation } from '@/types'
+import type { RelationArrow } from '@/lib/relation-colors'
 import type { TemplateComponent, TemplateDoc } from '@/lib/templates/types'
 import { componentParam } from '@/lib/templates/params'
+import { isCodexEntry } from '@/lib/entry-kinds'
 import { assembleTime, parseTime, type ParsedTime } from '@/lib/time-field'
 import { RelationsSection } from '@/components/shared/relations/RelationsSection'
 import { useRelationsBlock } from '@/components/shared/relations/use-relations-block'
-import type { RelationRow } from '@/components/shared/relations/types'
+import type {
+  RelationCandidate,
+  RelationRow,
+  RelationTargetKind,
+} from '@/components/shared/relations/types'
 import { AvatarBlock, GalleryBlock, ImageBlock, PlaceBlock, SummaryBlock, TimeBlock } from '@/components/shared/template-blocks'
 import { updateEntry } from '../../services'
 import type { WorldFormData } from '../../types'
@@ -217,9 +223,13 @@ export function NoteGalleryBlock({
 }
 
 /**
- * 关系（笔记宿主）：父词条 / 子条目 / 被引用 —— 全都是查询，不是存储。
+ * 关系（笔记宿主）：层级 + 命名边 + 正文提及。
  *
- * 行只读、关系名固定；「添加」面板不渲染（笔记没有可手写的边）。
+ * - 层级（父 / 子）与正文提及是查询，只读
+ * - 命名边存在 `WorldEntry.relations` 里，和角色 / 事件同一套边模型；
+ *   添加直接落一条边，不再要求用户先回正文写 `[[`
+ *
+ * 同一个目标如果是命名边，正文那一行就不再重复显示「引用」。
  */
 export function NoteRelationsBlock({
   entry,
@@ -233,10 +243,105 @@ export function NoteRelationsBlock({
   /** 已加载的词条列表：世界编辑器直接给，省一次全库扫描 */
   linkRows?: WorldEntry[]
 }) {
-  const links = useNoteLinks(entry.id, linkRows)
+  const links = useNoteLinks(entry.id, linkRows, entry.updatedAt)
   const block = useRelationsBlock(template)
+  const [relations, setRelations] = useState<WorldRelation[]>(entry.relations ?? [])
 
-  const rows: RelationRow[] = [
+  /** 已落盘的那份值：外部变化（撤销 / 另一处保存）时用来判断要不要回灌 */
+  const savedRef = useRef(JSON.stringify(entry.relations ?? []))
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingRef = useRef<WorldRelation[] | null>(null)
+
+  const write = useCallback(
+    (next: WorldRelation[]) => {
+      void updateEntry(entry.id, { relations: next })
+        .then(() => {
+          savedRef.current = JSON.stringify(next)
+        })
+        .catch((err: unknown) => {
+          toast.error('关系保存失败', {
+            description: err instanceof Error ? err.message : String(err),
+          })
+        })
+    },
+    [entry.id],
+  )
+
+  const flush = useCallback(() => {
+    if (timerRef.current !== null) {
+      clearTimeout(timerRef.current)
+      timerRef.current = null
+    }
+    const pending = pendingRef.current
+    pendingRef.current = null
+    if (pending !== null) write(pending)
+  }, [write])
+
+  // 卸载 / 切条目时把还没落盘的改名补上
+  useEffect(() => flush, [flush])
+
+  /**
+   * 外部值变化才回灌。自己刚写出去的那份（`savedRef`）不回灌，
+   * 否则改名防抖还没落盘时，父级的任何一次刷新都会把输入顶掉。
+   */
+  const externalSignature = JSON.stringify(entry.relations ?? [])
+  useEffect(() => {
+    if (externalSignature === savedRef.current) return
+    if (timerRef.current !== null || pendingRef.current !== null) return
+    savedRef.current = externalSignature
+    setRelations(entry.relations ?? [])
+  }, [externalSignature, entry.relations])
+
+  const persist = useCallback(
+    (next: WorldRelation[], immediate: boolean) => {
+      setRelations(next)
+      pendingRef.current = next
+      if (timerRef.current !== null) {
+        clearTimeout(timerRef.current)
+        timerRef.current = null
+      }
+      if (immediate) {
+        pendingRef.current = null
+        write(next)
+        return
+      }
+      // 关系名是逐字输入的：等 500ms 再落库，避免每个字一条写操作
+      timerRef.current = setTimeout(() => {
+        timerRef.current = null
+        const pending = pendingRef.current
+        pendingRef.current = null
+        if (pending !== null) write(pending)
+      }, 500)
+    },
+    [write],
+  )
+
+  const resolveTarget = (relation: WorldRelation): { targetId?: number; name: string } => {
+    const target =
+      relation.targetId === undefined
+        ? undefined
+        : links.all.find((row) => row.id === relation.targetId)
+    return { targetId: target?.id, name: target?.title ?? relation.name }
+  }
+
+  const manualRows: RelationRow[] = relations.map((relation, index) => {
+    const target = resolveTarget(relation)
+    return {
+      key: `manual-${relation.targetId ?? relation.name}-${index}`,
+      kind: 'world',
+      targetId: target.targetId,
+      name: target.name,
+      relation: relation.relation,
+      relationEditable: true,
+      directional: true,
+      defaultArrow: 'none',
+      arrow: relation.arrow,
+      color: relation.color,
+      index,
+    }
+  })
+
+  const factRows: RelationRow[] = [
     ...(links.parent
       ? [
           {
@@ -259,26 +364,106 @@ export function NoteRelationsBlock({
       relationEditable: false,
       readonly: true,
     })),
+    ...links.outbound.map((link) => ({
+      key: `ref-${link.id}`,
+      kind: 'world' as const,
+      targetId: link.id,
+      name: link.title,
+      relation: '引用',
+      relationEditable: false,
+      readonly: true,
+    })),
   ]
 
-  const inbound: RelationRow[] = links.backlinks.map((link) => ({
-    key: `backlink-${link.id}`,
-    kind: 'world',
-    targetId: link.id,
-    name: link.title,
-    relation: '引用',
-    relationEditable: false,
-    readonly: true,
-  }))
+  const inbound: RelationRow[] = [
+    ...links.manualInbound.map((link) => ({
+      key: `in-manual-${link.id}-${link.index}`,
+      kind: 'world' as const,
+      targetId: link.id,
+      name: link.name,
+      relation: link.relation,
+      relationEditable: false,
+      directional: true,
+      defaultArrow: 'none' as const,
+      arrow: link.arrow,
+      color: link.color,
+      readonly: true,
+    })),
+    ...links.backlinks.map((link) => ({
+      key: `in-ref-${link.id}`,
+      kind: 'world' as const,
+      targetId: link.id,
+      name: link.title,
+      relation: '引用',
+      relationEditable: false,
+      readonly: true,
+    })),
+  ]
+
+  const candidates: RelationCandidate[] = links.all
+    .filter(
+      (row) =>
+        row.id !== entry.id &&
+        isCodexEntry(row) &&
+        !relations.some((relation) => relation.targetId === row.id),
+    )
+    .map((row) => ({
+      kind: 'world' as const,
+      targetId: row.id,
+      name: row.title,
+      subtitle: row.category || undefined,
+    }))
+
+  const addRelation = (kind: RelationTargetKind, targetId: number): void => {
+    if (kind !== 'world') return
+    const target = links.all.find((row) => row.id === targetId)
+    if (!target) return
+    persist(
+      [...relations, { targetId, name: target.title, relation: '' }],
+      true,
+    )
+  }
+
+  const removeRelation = (row: RelationRow): void => {
+    if (row.index === undefined) return
+    persist(
+      relations.filter((_, index) => index !== row.index),
+      true,
+    )
+  }
+
+  const renameRelation = (row: RelationRow, value: string): void => {
+    if (row.index === undefined) return
+    persist(
+      relations.map((relation, index) =>
+        index === row.index ? { ...relation, relation: value } : relation,
+      ),
+      false,
+    )
+  }
+
+  const setRelationArrow = (row: RelationRow, arrow: RelationArrow): void => {
+    if (row.index === undefined) return
+    persist(
+      relations.map((relation, index) =>
+        index === row.index ? { ...relation, arrow } : relation,
+      ),
+      true,
+    )
+  }
 
   return (
     <RelationsSection
-      rows={rows}
+      rows={[...manualRows, ...factRows]}
       inbound={inbound}
-      candidates={[]}
+      candidates={candidates}
       presentation={block.presentation}
       showTitle={block.showTitle}
       onPresentationChange={block.canSwitch ? block.setPresentation : undefined}
+      onAdd={addRelation}
+      onRemove={removeRelation}
+      onRename={renameRelation}
+      onArrowChange={setRelationArrow}
       onNavigate={(_kind, id) => onNavigate(id)}
       selfName={entry.title}
     />

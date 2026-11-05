@@ -183,6 +183,18 @@ export async function updateReferencesAfterRename(
   const allEntries = await db.worldEntries.toArray()
   for (const e of allEntries) {
     if (e.deleted || !e.id) continue
+    // 笔记的命名关系存的是目标名字快照；目标改名时不跟，重开库就解析不回 id 了
+    if (
+      entityType === 'world' &&
+      (e.relations ?? []).some((relation) => relation.targetId === entityId)
+    ) {
+      const next = (e.relations ?? []).map((relation) =>
+        relation.targetId === entityId ? { ...relation, name: newName } : relation,
+      )
+      writes.push(
+        db.worldEntries.update(e.id, { relations: next } as Partial<WorldEntry>).then(() => {}),
+      )
+    }
     if (hasDocRef(e.document, entityIdStr, entityType)) {
       const updated = updateDocLabels(e.document, entityIdStr, newName)
       if (updated) {

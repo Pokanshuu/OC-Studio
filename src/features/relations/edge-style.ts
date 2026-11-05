@@ -9,7 +9,7 @@
  * 纯函数负责「怎么改一条边」，service 负责落库与日志，这样子可测、写盘只有一处。
  */
 import { normalizeRelationArrow, normalizeRelationColor, type RelationArrow } from '@/lib/relation-colors'
-import type { Character, Event, RelatedCharacter } from '@/types'
+import type { Character, Event, RelatedCharacter, WorldEntry, WorldRelation } from '@/types'
 
 export interface EdgeStylePatch {
   /** `undefined` = 不动；`null` = 清空回默认 */
@@ -87,6 +87,22 @@ export function patchEventEdge(
   patch: EdgeStylePatch,
 ): { relations: Event['relations']; changed: boolean; found: boolean } | null {
   const list = event.relations ?? []
+  const index = list.findIndex((item) => item.targetId === targetId)
+  if (index < 0) return null
+  const { edge, changed } = applyEdgeStyle(list[index], patch)
+  if (!changed) return { relations: list, changed: false, found: true }
+  const next = [...list]
+  next[index] = edge
+  return { relations: next, changed: true, found: true }
+}
+
+/** 笔记侧：改 `relations` 里指向 targetId 的那一条 */
+export function patchWorldEdge(
+  entry: WorldEntry,
+  targetId: number,
+  patch: EdgeStylePatch,
+): { relations: WorldRelation[]; changed: boolean; found: boolean } | null {
+  const list = entry.relations ?? []
   const index = list.findIndex((item) => item.targetId === targetId)
   if (index < 0) return null
   const { edge, changed } = applyEdgeStyle(list[index], patch)

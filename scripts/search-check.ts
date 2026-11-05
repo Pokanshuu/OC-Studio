@@ -114,6 +114,7 @@ function main(): void {
     parentId: null,
     order: 0,
     isConcept: false,
+    relations: [],
     references: [],
     tags: [],
     createdAt: 0,

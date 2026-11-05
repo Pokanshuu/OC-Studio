@@ -56,7 +56,7 @@ export function EdgeStylePanel({
   selection: EdgeStyleSelection
   onChange: (patch: EdgeStylePatchInput) => void
   onDelete: () => void
-  /** 能不能配色 / 改箭头（只有角色↔角色、事件↔事件有这两个字段） */
+  /** 能不能配色 / 改箭头（角色↔角色、事件↔事件、笔记↔笔记的命名边有） */
   canStyle: boolean
   /** 能不能改名（成员关系的名字是固定语义，改了就与字段打架） */
   canRename: boolean

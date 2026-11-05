@@ -42,7 +42,7 @@ export function WorldMetaFields({
   return (
     <div className={`flex flex-col ${LIST_END}`}>
       {showTags ? (
-        <div className={FIELD_ROW_TOP}>
+        <div className={`${FIELD_ROW_TOP} last:border-b-0`}>
           <span className={FIELD_LABEL}>标签</span>
           <div className="min-w-0 flex-1">
             <TagPicker selectedIds={tags} onChange={onTagsChange} />
@@ -51,7 +51,7 @@ export function WorldMetaFields({
       ) : null}
 
       {backlinks.length > 0 ? (
-        <div className={FIELD_ROW_TOP}>
+        <div className={`${FIELD_ROW_TOP} last:border-b-0`}>
           <span className={FIELD_LABEL}>被引用</span>
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-1.5">
             {backlinks.map((b) => (

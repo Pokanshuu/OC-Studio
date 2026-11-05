@@ -229,6 +229,17 @@ function worldData(
   pushField(fields, '上级', parent?.title)
   pushCustom(fields, entry.custom)
 
+  const manualRelations: PosterRelation[] = (entry.relations ?? [])
+    .map((relation) => {
+      const target =
+        relation.targetId !== undefined
+          ? entries.find((item) => item.id === relation.targetId)
+          : undefined
+      if (!target) return null
+      return { label: target.title, value: relation.relation || '关系' }
+    })
+    .filter((item): item is PosterRelation => item !== null)
+
   const references: PosterRelation[] = (entry.references ?? [])
     .map((reference) => {
       const target =
@@ -256,7 +267,7 @@ function worldData(
     tags: [],
     summary: text(entry.summary ?? ''),
     body: bodyText(worldBodyOf(entry), ''),
-    relations: references,
+    relations: [...manualRelations, ...references],
     // 2026-11-06：笔记也有模板组件的图片 / 时间 / 地点槽位了，海报按同一份数据出
     gallery: uniqueImages([entry.image, ...(entry.gallery ?? []).map((image) => image.url)]),
     time: [entry.time, entry.endTime]

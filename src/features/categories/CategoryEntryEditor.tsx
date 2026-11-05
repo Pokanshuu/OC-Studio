@@ -103,7 +103,7 @@ function CategoryEntryEditorInner({
   })
 
   // 被引用：哪些笔记在正文里 [[链接]] / @ 引用了这一条（与世界编辑器共用同一份查询）
-  const { backlinks } = useNoteLinks(entryId)
+  const { backlinks } = useNoteLinks(entryId, undefined, entry.updatedAt)
 
   // 模板解析顺序：单篇覆盖（模板:）→ 分类绑定 → 内置词条模板
   const requestedTemplate =

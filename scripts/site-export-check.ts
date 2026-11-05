@@ -98,6 +98,7 @@ function worldEntry(input: Partial<WorldEntry> & Pick<WorldEntry, 'id' | 'title'
     parentId: null,
     order: 0,
     isConcept: false,
+    relations: [],
     references: [],
     tags: [],
     createdAt: 0,

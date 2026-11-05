@@ -34,6 +34,7 @@ function entry(id: number, title: string, parentId: number | null, order: number
     parentId,
     order,
     isConcept: false,
+    relations: [],
     references: [],
     tags: [],
     createdAt: 0,

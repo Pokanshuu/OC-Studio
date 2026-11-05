@@ -146,6 +146,18 @@ function relationsOf(kind: EntityKind, entity: Character | Event | Country | Wor
       out.push({ relation: '人物', targetKind: 'character', targetId: character.id, name: character.name })
     }
   } else {
+    for (const relation of (entity as WorldEntry).relations ?? []) {
+      const target =
+        relation.targetId !== undefined ? context.worldById.get(relation.targetId) : undefined
+      if (target) {
+        out.push({
+          relation: relation.relation || '关系',
+          targetKind: 'world',
+          targetId: target.id,
+          name: target.title,
+        })
+      }
+    }
     for (const reference of (entity as WorldEntry).references) {
       const targetId = reference.targetId
       const name =

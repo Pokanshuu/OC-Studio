@@ -49,6 +49,7 @@ function entry(over: Partial<WorldEntry> & Pick<WorldEntry, 'title'>): WorldEntr
     order: 0,
     isConcept: false,
     tags: [],
+    relations: [],
     references: [],
     createdAt: 0,
     updatedAt: 0,

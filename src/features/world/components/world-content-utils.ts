@@ -12,6 +12,29 @@ export function parseEditorContent(content: string): object | string {
   }
 }
 
+/** 取一份 TipTap JSON 文档里引用到的实体 id（wikiLink / mention，去重、保序） */
+export function docRefs(node: unknown): string[] {
+  const out: string[] = []
+  const visit = (value: unknown): void => {
+    if (Array.isArray(value)) {
+      for (const item of value) visit(item)
+      return
+    }
+    if (!value || typeof value !== 'object') return
+    const n = value as Record<string, unknown>
+    if ((n.type === 'wikiLink' || n.type === 'mention') && n.attrs && typeof n.attrs === 'object') {
+      const id = (n.attrs as Record<string, unknown>).id
+      if (id !== undefined && id !== null && String(id) !== '') {
+        const text = String(id)
+        if (!out.includes(text)) out.push(text)
+      }
+    }
+    if (Array.isArray(n.content)) visit(n.content)
+  }
+  visit(node)
+  return out
+}
+
 /** 判断一份 TipTap JSON 文档里是否引用了某个实体（wikiLink / mention） */
 export function docHasRef(node: unknown, idStr: string): boolean {
   if (Array.isArray(node)) return node.some((n) => docHasRef(n, idStr))

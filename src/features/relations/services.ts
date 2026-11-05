@@ -3,7 +3,7 @@ import { logOperation, pendingStamp } from '@/lib/sync'
 import { isCodexEntry } from '@/lib/entry-kinds'
 import type { Character } from '@/types'
 import type { GraphEdgeKind, GraphNode, GraphEdge, RelationEndpoint, RelationNodeType } from './types'
-import { patchCharacterEdge, patchEventEdge, type EdgeStylePatch } from './edge-style'
+import { patchCharacterEdge, patchEventEdge, patchWorldEdge, type EdgeStylePatch } from './edge-style'
 import { deleteCharacter, updateCharacter } from '@/features/characters/services'
 import { deleteCountry, updateCountry } from '@/features/countries/services'
 import { deleteEvent, updateEvent } from '@/features/events/services'
@@ -24,11 +24,35 @@ export async function buildGraphData(): Promise<{ nodes: GraphNode[]; edges: Gra
   const characters = charactersRaw.filter((c) => !c.deleted)
   const events = eventsRaw.filter((e) => !e.deleted)
   const countries = countriesRaw.filter((c) => !c.deleted)
-  // 只把「有引用关系的分类条目」放进图里：没有引用的笔记放进来只会变孤岛；
-  // 小说 / 地图笔记不算分类条目
-  const categoryEntries = worldsRaw.filter(
-    (entry) => !entry.deleted && Boolean(entry.category) && isCodexEntry(entry) && (entry.references?.length ?? 0) > 0,
-  )
+  // 只把「有关系的分类条目」放进图里：没有边 / 引用的笔记放进来只会变孤岛；
+  // 小说 / 地图笔记不算分类条目。目标端也要进来，否则 A→B 只有 A 有边时 B 不在图上。
+  const worldById = new Map(worldsRaw.map((entry) => [entry.id, entry]))
+  const graphWorldIds = new Set<number>()
+  for (const entry of worldsRaw) {
+    if (
+      entry.deleted ||
+      !entry.category ||
+      !isCodexEntry(entry) ||
+      ((entry.references?.length ?? 0) === 0 && (entry.relations?.length ?? 0) === 0)
+    ) {
+      continue
+    }
+    graphWorldIds.add(entry.id)
+    for (const relation of entry.relations ?? []) {
+      const target = relation.targetId !== undefined ? worldById.get(relation.targetId) : undefined
+      if (target && !target.deleted && target.category && isCodexEntry(target)) {
+        graphWorldIds.add(target.id)
+      }
+    }
+    for (const reference of entry.references ?? []) {
+      if (reference.targetType !== 'world') continue
+      const target = worldById.get(reference.targetId)
+      if (target && !target.deleted && target.category && isCodexEntry(target)) {
+        graphWorldIds.add(target.id)
+      }
+    }
+  }
+  const categoryEntries = worldsRaw.filter((entry) => !entry.deleted && graphWorldIds.has(entry.id))
 
   const nodes: GraphNode[] = []
   const edges: GraphEdge[] = []
@@ -157,6 +181,20 @@ export async function buildGraphData(): Promise<{ nodes: GraphNode[]; edges: Gra
           style: { color: relation.color, arrow: relation.arrow },
         })
       }
+    }
+  }
+
+  // 分类条目之间的命名关系（关系块「添加」写的就是这个字段）
+  for (const entry of categoryEntries) {
+    const sourceId = `world-${entry.id}`
+    for (const relation of entry.relations ?? []) {
+      if (relation.targetId === undefined) continue
+      const targetId = `world-${relation.targetId}`
+      if (!nodeIds.has(targetId)) continue
+      addEdge(sourceId, targetId, relation.relation || '相关', {
+        parallel: true,
+        style: { color: relation.color, arrow: relation.arrow },
+      })
     }
   }
 
@@ -400,6 +438,23 @@ export async function createRelationBetween(
       return { ok: true }
     }
 
+    case 'world:world': {
+      const [from, to] = await Promise.all([
+        db.worldEntries.get(source.entityId),
+        db.worldEntries.get(target.entityId),
+      ])
+      if (!from || !to) return { ok: false, reason: 'missing' }
+      const list = from.relations ?? []
+      // 同一对笔记可以有多条不同名字的关系；同名才算重复
+      if (list.some((item) => item.targetId === to.id && (item.relation ?? '').trim() === label)) {
+        return { ok: false, reason: 'duplicate' }
+      }
+      const next = [...list, { targetId: to.id, name: to.title, relation: label }]
+      await db.worldEntries.update(from.id, { relations: next, updatedAt: now, ...pendingStamp(now) })
+      await logOperation('worldEntries', from.id, 'relations', JSON.stringify(list), JSON.stringify(next))
+      return { ok: true }
+    }
+
     case 'event:country':
       return linkEventToCountry(source.entityId, target.entityId, now)
 
@@ -450,6 +505,20 @@ export async function updateEdgeStyle(
       ...pendingStamp(now),
     })
     await logOperation('events', row.id, 'edge_style', '', JSON.stringify(patch))
+    return true
+  }
+
+  if (source.entityType === 'world') {
+    const row = await db.worldEntries.get(source.entityId)
+    if (!row) return false
+    const patched = patchWorldEdge(row, target.entityId, patch)
+    if (!patched || !patched.changed) return patched?.found ?? false
+    await db.worldEntries.update(row.id, {
+      relations: patched.relations,
+      updatedAt: now,
+      ...pendingStamp(now),
+    })
+    await logOperation('worldEntries', row.id, 'edge_style', '', JSON.stringify(patch))
     return true
   }
 
@@ -534,6 +603,32 @@ export async function deleteRelationBetween(
       if (next.length === list.length) return false
       await db.characters.update(reversed.id, { relatedCharacters: next, updatedAt: now, ...pendingStamp(now) })
       await logOperation('characters', reversed.id, 'relatedCharacters', JSON.stringify(list), JSON.stringify(next))
+      return true
+    }
+
+    case 'world:world': {
+      const from = await db.worldEntries.get(source.entityId)
+      if (from) {
+        const list = from.relations ?? []
+        const next = list.filter(
+          (item) => !(item.targetId === target.entityId && relationMatches(item.relation, relation)),
+        )
+        if (next.length !== list.length) {
+          await db.worldEntries.update(from.id, { relations: next, updatedAt: now, ...pendingStamp(now) })
+          await logOperation('worldEntries', from.id, 'relations', JSON.stringify(list), JSON.stringify(next))
+          return true
+        }
+      }
+      // 这条边可能记在另一端（谁先建的边谁持有）—— 两端都试一次
+      const reversed = await db.worldEntries.get(target.entityId)
+      if (!reversed) return false
+      const list = reversed.relations ?? []
+      const next = list.filter(
+        (item) => !(item.targetId === source.entityId && relationMatches(item.relation, relation)),
+      )
+      if (next.length === list.length) return false
+      await db.worldEntries.update(reversed.id, { relations: next, updatedAt: now, ...pendingStamp(now) })
+      await logOperation('worldEntries', reversed.id, 'relations', JSON.stringify(list), JSON.stringify(next))
       return true
     }
 

@@ -1,4 +1,4 @@
-import type { GalleryImage, WorldEntry } from '@/types'
+import type { GalleryImage, WorldEntry, WorldRelation } from '@/types'
 
 export type { WorldEntry }
 
@@ -19,6 +19,8 @@ export interface WorldFormData {
   /** 地点组件（落盘键 location） */
   location?: string
   document?: unknown
+  /** 手写的命名关系（目标为另一篇笔记；层级与正文提及不在这里） */
+  relations?: WorldRelation[]
   parentId: number | null
   order: number
   isConcept: boolean

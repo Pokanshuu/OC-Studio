@@ -164,6 +164,24 @@ export interface Country {
   _lastModified: number
 }
 
+/**
+ * 笔记之间的关系边。
+ *
+ * 与 `RelatedCharacter` / `EventRelation` 同形：只存**发起方**这一侧，
+ * 对方在关系块里显示为只读的「来自」。`targetId` 在盘上没有 id，靠 `name` 解析；
+ * `name` 同时是目标改名后解析不到时的显示兜底（序列化会按 `targetId` 重写成当前标题）。
+ */
+export interface WorldRelation {
+  targetId?: number
+  /** 目标标题（落盘键 `name`；改名后由序列化按 targetId 重写） */
+  name: string
+  relation: string
+  /** 连线颜色（色板名，见 lib/relation-colors.ts）；空 = 中性线色 */
+  color?: string
+  /** 箭头方向；空 = 无箭头 */
+  arrow?: 'none' | 'forward' | 'reverse' | 'both'
+}
+
 export interface WorldEntry {
   id: number
   title: string
@@ -222,6 +240,14 @@ export interface WorldEntry {
   mapAnnotations?: string
   /** 章节：大纲 / 备注（一行说明，不是正文） */
   chapterOutline?: string
+  /**
+   * 手写的命名关系（目标只能是另一篇笔记）。
+   *
+   * 与 `parentId`（层级）和正文 `[[ ]]` / `@`（提及）**分开存**：
+   * 层级只能有一个父级、正文是文字；只有「叫得出名字的关系」需要自己的格子。
+   * 关系块把三类事实合在一起显示，同一目标已有命名边时不再重复显示「引用」。
+   */
+  relations: WorldRelation[]
   references: WorldReference[]
   tags: number[]
   /** 自定义字段的值（键 = 字段表里的 key；内置字段仍然走各自的列） */

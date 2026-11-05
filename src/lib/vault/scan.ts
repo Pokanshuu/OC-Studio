@@ -548,6 +548,23 @@ export function scanVault(options: ScanOptions): VaultScanResult {
         mapParams: readString(fm, WORLD_KEYS.mapParams) || undefined,
         mapMode: readString(fm, WORLD_KEYS.mapMode) || undefined,
         mapAnnotations: readString(fm, WORLD_KEYS.mapAnnotations) || undefined,
+        relations: readObjects(fm, WORLD_KEYS.relations)
+          .map((item) => {
+            const name = typeof item.name === 'string' ? item.name.trim() : ''
+            const target = lookupTarget(name, 'worldEntry')
+            return {
+              targetId: target?.id,
+              // 目标已改名 / 被删时保留盘上的名字，关系块仍能显示
+              name: target?.title ?? name,
+              relation: typeof item.relation === 'string' ? item.relation : '',
+              color: normalizeRelationColor(item.color),
+              arrow:
+                item.arrow === undefined
+                  ? undefined
+                  : normalizeRelationArrow(item.arrow, 'none'),
+            }
+          })
+          .filter((item) => item.name !== ''),
         references: [],
         tags: tagIdsOf(note, WORLD_KEYS.tags),
         custom: readCustomFields(fm, 'worldEntry'),

@@ -46,7 +46,7 @@ function country(input: Partial<Country> & Pick<Country, 'id' | 'name'>): Countr
 
 function world(input: Partial<WorldEntry> & Pick<WorldEntry, 'id' | 'title'>): WorldEntry {
   return {
-    aliases: [], content: '', parentId: null, order: 0, isConcept: false, references: [],
+    aliases: [], content: '', parentId: null, order: 0, isConcept: false, relations: [], references: [],
     tags: [], createdAt: 0, updatedAt: 0, deleted: false, _syncStatus: 'synced',
     _lastModified: 0, ...input, category: input.category ?? '',
   }

@@ -232,6 +232,7 @@ export async function createMap(name = '新地图'): Promise<number> {
     parentId: null,
     order: await nextWorldOrder(),
     isConcept: false,
+    relations: [],
     references: [],
     tags: [],
     createdAt: now,

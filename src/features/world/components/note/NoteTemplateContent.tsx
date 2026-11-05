@@ -67,6 +67,12 @@ export function NoteTemplateContent({
   fieldTypes,
   fieldLabels,
 }: NoteTemplateContentProps) {
+  // 关系区块已经列出「被引用」；标签块只在模板没有关系区块时兜底显示，避免同一行出现两次
+  const relationsEnabled = template.components.some(
+    (component) => component.id === 'relations' && component.enabled,
+  )
+  const backlinksForTags = relationsEnabled ? [] : backlinks
+
   return (
     <TemplateRenderer
       template={template}
@@ -96,6 +102,7 @@ export function NoteTemplateContent({
           case 'relations':
             return (
               <NoteRelationsBlock
+                key={entry.id}
                 entry={entry}
                 template={template}
                 onNavigate={onNavigateNote}
@@ -103,13 +110,13 @@ export function NoteTemplateContent({
               />
             )
           case 'tags':
-            if (!showTags && backlinks.length === 0) return null
+            if (!showTags && backlinksForTags.length === 0) return null
             return (
               <WorldMetaFields
                 tags={tags}
                 onTagsChange={onTagsChange}
                 showTags={showTags}
-                backlinks={backlinks}
+                backlinks={backlinksForTags}
                 onSelectBacklink={onNavigateNote}
               />
             )

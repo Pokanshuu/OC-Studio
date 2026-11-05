@@ -52,7 +52,7 @@ import {
   updateEdgeStyle,
 } from '../services'
 import { EdgeStylePanel, type EdgeStylePatchInput, type EdgeStyleSelection } from './EdgeStylePanel'
-import { ExportCenter } from '@/components/shared/export/ExportCenter'
+import { useExportCenter } from '@/components/shared/export/ExportCenterHost'
 import { computeForceLayout, NODE_SIZE } from '../layout'
 import { nodeRect } from './floating-edge'
 import { FitViewOnLoad, ZoomReader } from './RelationGraphHelpers'
@@ -86,8 +86,8 @@ function pairKey(a: string, b: string): string {
   return [a, b].sort().join('||')
 }
 
-function isEdgeNodeType(value: string | undefined): value is RelationEdgeType {
-  return value === 'character' || value === 'event' || value === 'country'
+function isEdgeNodeType(value: string | undefined): value is RelationNodeType {
+  return value === 'character' || value === 'event' || value === 'country' || value === 'world'
 }
 
 const ALIGN_THRESHOLD = 8
@@ -138,7 +138,7 @@ export function RelationGraph({
   const [focusNodeId, setFocusNodeId] = useState<string | null>(null)
   const [draft, setDraft] = useState<RelationDraft | null>(null)
   const [savingRelation, setSavingRelation] = useState(false)
-  const [exportOpen, setExportOpen] = useState(false)
+  const openExportCenter = useExportCenter()
   const [edgePanel, setEdgePanel] = useState<{
     selection: EdgeStyleSelection
     anchor: { x: number; y: number }
@@ -315,6 +315,8 @@ export function RelationGraph({
     const targetId = Number(targetIdRaw)
     if (!Number.isFinite(sourceId) || !Number.isFinite(targetId)) return
     const data = edge.data as GraphEdgeData | undefined
+    // 正文推出来的「引用」不是可编辑的边：不给面板，避免误删成命名边
+    if (data?.kind === 'reference') return
     setEdgePanel({
       selection: {
         sourceType,
@@ -815,7 +817,7 @@ export function RelationGraph({
     {
       label: '导出图片…',
       icon: <ImageDown size={13} strokeWidth={2} />,
-      onSelect: () => setExportOpen(true),
+      onSelect: () => openExportCenter({ tab: 'graph' }),
     },
   ]
 
@@ -884,8 +886,11 @@ export function RelationGraph({
 
   const edgeCanStyle =
     edgePanel !== null &&
+    edgePanel.selection.kind !== 'reference' &&
     edgePanel.selection.sourceType === edgePanel.selection.targetType &&
-    (edgePanel.selection.sourceType === 'character' || edgePanel.selection.sourceType === 'event')
+    (edgePanel.selection.sourceType === 'character' ||
+      edgePanel.selection.sourceType === 'event' ||
+      edgePanel.selection.sourceType === 'world')
 
   return (
     <div
@@ -1151,7 +1156,6 @@ export function RelationGraph({
         </AlertDialogContent>
       </AlertDialog>
 
-      {exportOpen ? <ExportCenter initialTab="graph" onClose={() => setExportOpen(false)} /> : null}
     </div>
   )
 }

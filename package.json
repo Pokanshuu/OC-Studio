@@ -21,6 +21,7 @@
     "audit:maparchive": "tsx scripts/map-archive-check.ts",
     "audit:mapkernel": "tsx scripts/map-parity-check.ts",
     "audit:world": "tsx scripts/world-body-check.ts",
+    "audit:notes": "tsx scripts/note-links-check.ts",
     "audit:search": "tsx scripts/search-check.ts",
     "audit:tree": "tsx scripts/tree-table-check.ts",
     "audit:inspirations": "tsx scripts/inspirations-check.ts",

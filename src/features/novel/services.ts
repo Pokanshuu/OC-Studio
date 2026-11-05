@@ -21,6 +21,7 @@ function baseRow(title: string, parentId: number | null, order: number): Omit<Wo
     parentId,
     order,
     isConcept: false,
+    relations: [],
     references: [],
     tags: [],
     createdAt: now,

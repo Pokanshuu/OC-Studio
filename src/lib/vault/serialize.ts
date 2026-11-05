@@ -185,6 +185,28 @@ function relationDisk(
   return rows.length === 0 ? undefined : rows
 }
 
+/** 笔记之间的关系（与角色 / 事件同形，只是目标换成笔记） */
+function worldRelationDisk(
+  entity: WorldEntry,
+  ctx: SerializeContext,
+): Record<string, unknown>[] | undefined {
+  const rows = (entity.relations ?? [])
+    .map((item) => {
+      const resolved =
+        (item.targetId !== undefined ? ctx.nameOf('worldEntry', item.targetId) : undefined) ??
+        item.name
+      if (resolved === '') return null
+      const row: Record<string, unknown> = { name: resolved }
+      if (item.relation) row.relation = item.relation
+      if (item.color) row.color = item.color
+      // 笔记边默认无箭头；`none` 仍写出来，和角色边的「不写 = 双向」区分开
+      if (item.arrow) row.arrow = item.arrow
+      return row
+    })
+    .filter((row): row is Record<string, unknown> => row !== null)
+  return rows.length === 0 ? undefined : rows
+}
+
 /** 事件之间的关系（与角色关系同形，只是目标换成事件） */
 function eventRelationDisk(
   entity: Event,
@@ -346,6 +368,7 @@ export function serializeWorldEntry(
   putIfChanged(out, existing, WORLD_KEYS.endTime, writeString(entity.endTime ?? ''), p === null ? null : writeString(p.endTime ?? ''))
   putIfChanged(out, existing, WORLD_KEYS.location, writeString(entity.location ?? ''), p === null ? null : writeString(p.location ?? ''))
   putIfChanged(out, existing, WORLD_KEYS.template, writeString(entity.template ?? ''), p === null ? null : writeString(p.template ?? ''))
+  putIfChanged(out, existing, WORLD_KEYS.relations, worldRelationDisk(entity, ctx), p === null ? null : worldRelationDisk(p, ctx))
   putIfChanged(out, existing, WORLD_KEYS.parent, parentValue(entity), p === null ? null : parentValue(p))
   putIfChanged(out, existing, WORLD_KEYS.order, writeNumber(entity.order), p === null ? null : writeNumber(p.order))
   putIfChanged(out, existing, WORLD_KEYS.isConcept, writeBool(entity.isConcept), p === null ? null : writeBool(p.isConcept))
