@@ -2,7 +2,8 @@ import type { DBCoreMutateRequest } from 'dexie'
 
 import { db } from '@/lib/db'
 import { setBody, setFrontmatterKeys } from './frontmatter'
-import { appendJournal, type JournalDraft } from './journal'
+import { appendJournal, type JournalActor, type JournalDraft } from './journal'
+import { currentActor } from './actor'
 import { serializeEntity, type FrontmatterUpdates, type SerializeContext } from './serialize'
 import { allocateRelPath, novelChapterFileTitle, normalizeRelPath, originalRelPathFromTrash, pickPreferredFolder, trashRelPath } from './vault-paths'
 import {
@@ -44,6 +45,8 @@ function errorText(err: unknown): string {
 interface PendingWrite {
   table: VaultTableName
   id: number
+  /** **入队时**记下的身份；落盘时再取就晚了（中途可能换了作用域） */
+  actor: JournalActor
 }
 
 export interface VaultFlushReport {
@@ -153,7 +156,9 @@ function withTimeout<T>(task: Promise<T>, label: string): Promise<T> {
 }
 
 function enqueue(table: VaultTableName, id: number): void {
-  pending.set(entityKey(table, id), { table, id })
+  // 同一个 (表, id) 在 flush 之前被改了两次：**后写的身份说了算**。
+  // 用户改完助手又改，时间线上就该记助手 —— 那才是盘上这一版的来处。
+  pending.set(entityKey(table, id), { table, id, actor: currentActor() })
   notify()
   scheduleFlush()
 }
@@ -387,6 +392,8 @@ interface PlannedWrite {
   changedKeys: string[]
   prevContent: string
   isNew: boolean
+  /** 时间线用：这一版是谁写的 */
+  actor: JournalActor
 }
 
 async function planTextWrite(
@@ -395,6 +402,7 @@ async function planTextWrite(
   row: Record<string, unknown>,
   state: VaultEntryState | undefined,
   ctx: SerializeContext,
+  actor: JournalActor,
 ): Promise<PlannedWrite | null> {
   const session = getVaultSession()
   const kind = KIND_BY_TABLE[table]
@@ -504,6 +512,7 @@ async function planTextWrite(
     changedKeys: [...Object.keys(updates), ...(bodyChanged ? ['body'] : [])],
     prevContent: baseContent,
     isNew,
+    actor,
   }
 }
 
@@ -564,7 +573,9 @@ async function enqueueTagReferences(tagId: number): Promise<void> {
     const rows = (await db.table(table).toArray()) as { id?: unknown; tags?: unknown }[]
     for (const row of rows) {
       if (!Array.isArray(row.tags) || !row.tags.includes(tagId)) continue
-      if (typeof row.id === 'number') pending.set(entityKey(table, row.id), { table, id: row.id })
+      // 标签改名是**引用回写**，不是用户直接编辑某一条：身份跟着发起改名的
+      // 那个作用域走（用户改名 = human，助手改名 = agent:…）
+      if (typeof row.id === 'number') pending.set(entityKey(table, row.id), { table, id: row.id, actor: currentActor() })
     }
   }
   notify()
@@ -631,8 +642,8 @@ export async function flushVaultWrites(): Promise<VaultFlushReport> {
 
     const texts: VaultWriteEntry[] = []
     const planned: PlannedWrite[] = []
-    const moves: { from: string; to: string; kind: 'trash' | 'restore'; title: string }[] = []
-    const removals: { relPath: string; title: string }[] = []
+    const moves: { from: string; to: string; kind: 'trash' | 'restore'; title: string; actor: JournalActor }[] = []
+    const removals: { relPath: string; title: string; actor: JournalActor }[] = []
     /** 时间线：本轮真正写成功的改动 */
     const journalDrafts: JournalDraft[] = []
 
@@ -687,9 +698,9 @@ export async function flushVaultWrites(): Promise<VaultFlushReport> {
       if (row === undefined) {
         if (state === undefined) continue
         if (state.trashed) {
-          removals.push({ relPath: state.relPath, title: titleOfRow(state.table, state.entity) })
+          removals.push({ relPath: state.relPath, title: titleOfRow(state.table, state.entity), actor: item.actor })
         } else if (state.relPath !== '') {
-          moves.push({ from: state.relPath, to: trashRelPath(state.relPath), kind: 'trash', title: titleOfRow(state.table, state.entity) })
+          moves.push({ from: state.relPath, to: trashRelPath(state.relPath), kind: 'trash', title: titleOfRow(state.table, state.entity), actor: item.actor })
         }
         session.entries.delete(key)
         session.byPath.delete(state.relPath)
@@ -702,7 +713,7 @@ export async function flushVaultWrites(): Promise<VaultFlushReport> {
 
       if (nowTrashed && !wasTrashed && state !== undefined && state.relPath !== '') {
         const target = trashRelPath(state.relPath)
-        moves.push({ from: state.relPath, to: target, kind: 'trash', title: titleOfRow(state.table, row) })
+        moves.push({ from: state.relPath, to: target, kind: 'trash', title: titleOfRow(state.table, row), actor: item.actor })
         state.trashed = true
         state.entity = row
         session.byPath.delete(state.relPath)
@@ -716,7 +727,7 @@ export async function flushVaultWrites(): Promise<VaultFlushReport> {
       if (!nowTrashed && wasTrashed && state !== undefined) {
         const restored = originalRelPathFromTrash(state.relPath)
         if (restored !== null) {
-          moves.push({ from: state.relPath, to: restored, kind: 'restore', title: titleOfRow(state.table, row) })
+          moves.push({ from: state.relPath, to: restored, kind: 'restore', title: titleOfRow(state.table, row), actor: item.actor })
           session.byPath.delete(state.relPath)
           session.byPath.set(restored, key)
           session.occupied.delete(state.relPath)
@@ -734,7 +745,7 @@ export async function flushVaultWrites(): Promise<VaultFlushReport> {
 
       let write: PlannedWrite | null = null
       try {
-        write = await planTextWrite(item.table, item.id, row, state, ctx)
+        write = await planTextWrite(item.table, item.id, row, state, ctx, item.actor)
       } catch (err) {
         itemErrors += 1
         report.errors.push({
@@ -767,6 +778,7 @@ export async function flushVaultWrites(): Promise<VaultFlushReport> {
           keys: [],
           // 移动没有新内容，用「标题 + 时间」占位，让哈希仍能区分不同条目
           content: `${move.to}@${Date.now()}`,
+          actor: move.actor,
           prevContent: '',
         })
       } catch (err) {
@@ -784,6 +796,7 @@ export async function flushVaultWrites(): Promise<VaultFlushReport> {
           title: removal.title,
           keys: [],
           content: `${removal.relPath}@${Date.now()}`,
+          actor: removal.actor,
           prevContent: '',
         })
       } catch (err) {
@@ -809,6 +822,7 @@ export async function flushVaultWrites(): Promise<VaultFlushReport> {
             keys: write.changedKeys,
             content: write.content,
             prevContent: write.prevContent,
+            actor: write.actor,
           })
           return
         }
@@ -816,7 +830,7 @@ export async function flushVaultWrites(): Promise<VaultFlushReport> {
           // 磁盘上被外部改过：**不覆盖**，把这一项重新排进队列，
           // 让 UI 有机会提示「用磁盘版本 / 覆盖磁盘」
           report.conflicts.push(result.relPath)
-          pending.set(write.key, { table: write.table, id: write.id })
+          pending.set(write.key, { table: write.table, id: write.id, actor: write.actor })
           return
         }
         report.errors.push({ relPath: result.relPath, message: result.error ?? '写入失败' })

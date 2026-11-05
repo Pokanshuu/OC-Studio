@@ -33,7 +33,9 @@ interface JournalTimelineDialogProps {
 
 function actorLabel(actor: JournalEntry['actor']): string {
   if (actor === 'human') return ''
-  if (actor.startsWith('agent:')) return `agent · ${actor.slice(6)}`
+  // 界面上不出现英文代码名：`agent:assistant` 就是「助手」（`AGENTS.md` 约束 15）
+  if (actor === 'agent:assistant') return '助手'
+  if (actor.startsWith('agent:')) return `助手 · ${actor.slice(6)}`
   return `插件 · ${actor.slice(7)}`
 }
 
