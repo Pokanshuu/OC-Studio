@@ -7,6 +7,9 @@
  * （区块之间 `gap-8`，标题行到内容 12px），壳自己不写 margin —— 否则
  * 十一个组件各带一点距离，一定会漂。
  *
+ * 唯一例外是**分隔线到内容**的那 24px：线画在区块顶边，外层 gap 全在线**上方**，
+ * 不补这一段线就贴在标题上。所以带 `divider` 的区块自己带 `pt-6`。
+ *
  * 三种状态：
  * - 空：只渲染标题行（约 24px），内容不占位
  * - 满：标题行 + 内容
@@ -22,7 +25,7 @@ interface ComponentSectionProps {
   title?: string
   /** 标题右侧的「＋ 添加」这类动作 */
   action?: ReactNode
-  /** 区块顶部 1px 线；第一个区块传 false */
+  /** 区块顶部 1px 线（连带 24px 上内边距）；第一个区块传 false */
   divider?: boolean
   children?: ReactNode
   className?: string
@@ -43,7 +46,7 @@ export function ComponentSection({
   const hasContent = children !== null && children !== undefined && children !== false
   return (
     <section
-      className={`${divider ? 'border-t border-line' : ''} ${className}`}
+      className={`${divider ? 'border-t border-line pt-6' : ''} ${className}`}
       data-component-id={componentId}
       data-component-label={componentLabel}
     >
