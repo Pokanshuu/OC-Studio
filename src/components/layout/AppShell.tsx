@@ -10,7 +10,7 @@ import { GlobalContextMenu } from "@/components/shared/GlobalContextMenu"
 import { MobileTextSelectionBar } from "@/components/shared/mobile-text-selection/MobileTextSelectionBar"
 import { SettingsDialog } from "@/components/settings/SettingsDialog"
 import { CoverTuningPanel } from "@/components/shared/cover/CoverTuningPanel"
-import { SettingsTriggerContext } from "@/components/layout/SettingsTriggerContext"
+import { SettingsTriggerContext, type SettingsSection } from "@/components/layout/SettingsTriggerContext"
 import { EditorProvider, useEditor } from "@/components/layout/EditorContext"
 import { MobileNavigationProvider } from "@/components/layout/MobileNavigationContext"
 import { TrashOverlayProvider, useTrashOverlay } from "@/components/layout/TrashOverlayContext"
@@ -18,6 +18,7 @@ import { MobilePageHeaderProvider } from "@/components/layout/MobilePageHeaderCo
 import { SaveStatusProvider, useSaveStatus } from "@/components/layout/SaveStatusContext"
 import { TrashView } from "@/features/trash/components/TrashView"
 import { loadFieldConfig } from "@/lib/fields"
+import { loadCategories } from "@/lib/categories/store"
 import { VaultSurfaces, VaultWriteBanner } from "@/features/vault"
 import { useVault } from "@/lib/vault/vault-provider"
 import { useSettings } from "@/lib/settings"
@@ -95,9 +96,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { settings } = useSettings()
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsTab, setSettingsTab] = useState("general")
+  const [settingsSection, setSettingsSection] = useState<SettingsSection | undefined>(undefined)
 
-  const openSettings = useCallback((tab?: string) => {
+  const openSettings = useCallback((tab?: string, section?: SettingsSection) => {
     setSettingsTab(tab ?? "general")
+    setSettingsSection(section)
     setSettingsOpen(true)
   }, [])
 
@@ -114,6 +117,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   // 移动端：HarmonyOS 检测 + 安全区域 polyfill
   useEffect(() => {
     void loadFieldConfig()
+    // 分类表不能挂在 Sidebar 上：关闭侧栏 / 手机上 Sidebar 不渲染时，
+    // 分类页、移动端「更多」和世界目录过滤都会拿到空表
+    void loadCategories()
   }, [])
 
   useEffect(() => {
@@ -216,6 +222,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           onOpenChange={setSettingsOpen}
           tab={settingsTab}
           onTabChange={setSettingsTab}
+          section={settingsSection}
         />
       </SettingsTriggerContext.Provider>
     </GlobalContextMenu>
@@ -234,7 +241,7 @@ function DevMockBadge() {
   if (!mounted || supported) return null
 
   return (
-    <div className="pointer-events-none fixed right-2 bottom-8 z-50 rounded-item bg-paper-card/80 px-1.5 py-0.5 text-[10px] text-ink-faint backdrop-blur">
+    <div data-dev-mock className="pointer-events-none fixed right-2 bottom-8 z-50 rounded-item bg-paper-card/80 px-1.5 py-0.5 text-[10px] text-ink-faint backdrop-blur">
       DEV · Mock（数据只在浏览器里）
     </div>
   )

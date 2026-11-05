@@ -98,15 +98,17 @@ export function pickPreferredFolder(
 /**
  * 分配一个未被占用的 vault 相对路径。
  * @param occupied 已占用的路径集合（含被忽略的非实体文件），避免撞名
+ * @param fileName 文件名（不含扩展名）；缺省 = 标题（小说章节用它加「第 01 章-」前缀）
  */
 export function allocateRelPath(
   kind: VaultStorableKind,
   title: string,
   occupied: ReadonlySet<string>,
   folder?: string,
+  fileName?: string,
 ): string {
   const dir = normalizeRelPath(folder ?? DEFAULT_FOLDER[kind])
-  const base = sanitizeFileName(title)
+  const base = sanitizeFileName(fileName ?? title)
   const build = (suffix: string): string =>
     dir === '' ? `${base}${suffix}.md` : `${dir}/${base}${suffix}.md`
 
@@ -117,6 +119,12 @@ export function allocateRelPath(
     counter += 1
   }
   return candidate
+}
+
+/** 章节文件名：`第03章-标题`；标题自己已经写了「第 N 章」就不重复加 */
+export function novelChapterFileTitle(title: string, chapterNumber: number): string {
+  if (/^第\s*\d+\s*章/.test(title.trim())) return title
+  return `第${String(Math.max(1, chapterNumber)).padStart(2, '0')}章-${title}`
 }
 
 /** 回收站里的相对路径：`.ocstudio/trash/<原路径>` */

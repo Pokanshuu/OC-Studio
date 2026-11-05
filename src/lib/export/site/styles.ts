@@ -101,13 +101,14 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 24px 0; }
 
 /* ── 封面与统计 ───────────────────────────────────────── */
 .cover { width: 100%; aspect-ratio: 3 / 1; object-fit: cover; background: var(--paper-card); margin-bottom: 22px; }
+.entry-cover { width: 100%; aspect-ratio: 3 / 2; object-fit: cover; background: var(--paper-card); margin-bottom: 22px; border-radius: var(--radius); }
 .stats { display: flex; flex-wrap: wrap; gap: 32px; margin: 22px 0 8px; }
 .stat .num { font-family: Georgia, serif; font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .stat .label { font-size: 11px; color: var(--ink-faint); letter-spacing: 0.06em; }
 
 /* ── 卡片网格 ─────────────────────────────────────────── */
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
-.card { display: block; background: var(--paper); padding: 18px; border-radius: var(--radius); transition: background-color 0.15s ease; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.card { display: block; background: var(--paper); padding: 18px; border: 1px solid var(--line); margin-right: -1px; margin-bottom: -1px; transition: background-color 0.15s ease; }
 .card:hover { background: var(--hover); }
 .card .thumb { width: 100%; aspect-ratio: 3 / 2; object-fit: cover; background: var(--paper-card); margin-bottom: 12px; border-radius: var(--radius); }
 .card .name { font-family: Georgia, "Songti SC", serif; font-size: 15px; font-weight: 700; }
@@ -162,8 +163,8 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 24px 0; }
 .head { display: flex; gap: 22px; align-items: flex-start; margin-bottom: 8px; }
 .head .avatar { width: 96px; height: 96px; object-fit: cover; border: 1px solid var(--line); background: var(--paper-card); flex: 0 0 auto; }
 .head .banner { width: 100%; aspect-ratio: 3 / 1; object-fit: cover; background: var(--paper-card); margin-bottom: 22px; }
-.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); margin: 18px 0; }
-.gallery figure { margin: 0; background: var(--paper); }
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); margin: 18px 0; }
+.gallery figure { margin: 0; background: var(--paper); border: 1px solid var(--line); margin-right: -1px; margin-bottom: -1px; }
 .gallery img { width: 100%; aspect-ratio: 3 / 2; object-fit: cover; border-radius: var(--radius); }
 .gallery figcaption { font-size: 11px; color: var(--ink-faint); padding: 6px 8px; }
 
@@ -172,15 +173,57 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 24px 0; }
 .rel-table th, .rel-table td { border-bottom: 1px solid var(--line); padding: 9px 6px; text-align: left; }
 .rel-table th { color: var(--ink-faint); font-weight: 500; font-size: 11px; letter-spacing: 0.05em; }
 
+/* ── 时间线：竖线 + 节点圆点，不再是一条条普通列表 ─────── */
+.timeline-rows .row { position: relative; padding-left: 26px; }
+.timeline-rows .row::before {
+  content: ''; position: absolute; left: 7px; top: 0; bottom: 0;
+  width: 1px; background: var(--line);
+}
+.timeline-rows .row:last-child::before { bottom: 50%; }
+.timeline-rows .row::after {
+  content: ''; position: absolute; left: 5px; top: 20px;
+  width: 5px; height: 5px; border-radius: 50%; background: var(--ink-faint);
+}
+.timeline-rows .row.major::after { background: var(--ink); }
+.timeline-rows .row .when { flex-basis: 104px; }
+
+/* 详情：头图下的头像 / 国徽压进图里，像应用里的封面 */
+.banner + .head { margin-top: -44px; position: relative; }
+.banner + .head .avatar { border: 4px solid var(--paper); }
+
 .empty { padding: 40px 0; text-align: center; color: var(--ink-faint); font-size: 13px; border: 1px solid var(--line); }
 
 @media (max-width: 767px) {
   .layout { display: block; }
-  .sidebar { position: static; height: auto; width: 100%; flex: none; border-right: 0; border-bottom: 1px solid var(--line); padding: 18px 18px 12px; }
-  .nav { flex-direction: row; flex-wrap: wrap; gap: 4px; }
-  .nav a { border-left: 0; border-bottom: 2px solid transparent; min-height: 36px; }
+  .sidebar {
+    position: sticky; top: 0; z-index: 10;
+    height: auto; width: 100%; flex: none;
+    border-right: 0; border-bottom: 1px solid var(--line);
+    padding: 14px 18px 10px; background: var(--paper);
+  }
+  .brand { margin-bottom: 12px; }
+  .nav {
+    flex-direction: row; flex-wrap: nowrap; gap: 2px;
+    overflow-x: auto; scrollbar-width: none;
+  }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav a { border-left: 0; border-bottom: 2px solid transparent; min-height: 34px; white-space: nowrap; }
   .nav a.on { border-left-color: transparent; border-bottom-color: var(--ink); }
   .main { padding: 26px 18px 60px; }
   .head { flex-direction: column; }
+  .banner + .head { margin-top: -28px; }
+}
+
+/* ── 打印：只留内容，去掉导航与悬浮元素 ───────────────── */
+@media print {
+  @page { margin: 16mm; }
+  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .layout { display: block; }
+  .sidebar { display: none; }
+  .main { padding: 0; }
+  .page { max-width: none; }
+  .footer { margin-top: 28px; padding-top: 16px; }
+  a { color: var(--ink); text-decoration: none; }
+  .card, .row, .empty { break-inside: avoid; }
 }
 `

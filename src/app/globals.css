@@ -2,6 +2,13 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+/* 自动内容扫描不要进构建产物：Tauri target / Android build 里是几十 MB 的二进制和压缩 JS，
+   扫进来会把 Tailwind 的 PostCSS 进程撑到 OOM（它们也不产生任何类名）。 */
+@source not "../../src-tauri";
+@source not "../../android";
+@source not "../../out";
+@source not "../../.next";
+
 @custom-variant dark (&:is(.dark *));
 
 :root {
@@ -324,9 +331,50 @@ html.tauri-mica [data-statusbar] {
   background: transparent;
 }
 
+/* 应用级背景图（docs/主题.md §2）：图铺在 html 上，外壳让位；
+   内容区仍是 bg-paper 的纸，背景不会穿过正文。遮罩由 JS 按纸色算成 --oc-bg-wash。 */
+html.oc-background {
+  background-color: var(--oc-paper);
+  background-image: linear-gradient(var(--oc-bg-wash), var(--oc-bg-wash)), var(--oc-bg-image);
+  background-size: var(--oc-bg-size);
+  background-position: center;
+  background-repeat: var(--oc-bg-repeat);
+  background-attachment: var(--oc-bg-attachment);
+}
+
+html.oc-background body {
+  background: transparent !important;
+}
+
+html.oc-background [data-app-shell],
+html.oc-background [data-sidebar],
+html.oc-background [data-menubar],
+html.oc-background [data-statusbar] {
+  background: var(--oc-bg-shell);
+}
+
+/* 地图整屏时状态栏不属于画布，藏掉；否则 fixed 画布只盖到内容区底 */
+body[data-map-immersive='true'] [data-statusbar],
+body[data-map-immersive='true'] [data-dev-mock] {
+  display: none;
+}
+
 .main-scroll::-webkit-scrollbar {
   width: 6px;
   height: 6px;
+}
+
+/* 画廊（Cover Flow）：横向翻页区域不显示滚动条 —— 翻页靠滚轮 / 拖动 /
+   触控板，画一条横杠只会在卡片下方多一道灰线。 */
+.coverflow-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.coverflow-scroll::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .main-scroll::-webkit-scrollbar-track {
@@ -854,4 +902,7 @@ html.tauri-mica [data-statusbar] {
   }
 }
 
+
+
+/* css-rebuild-probe */
 

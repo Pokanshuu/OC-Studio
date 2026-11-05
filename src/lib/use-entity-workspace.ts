@@ -17,6 +17,8 @@ import type { WorldEntry } from '@/types'
 import { toast } from 'sonner'
 import { db } from '@/lib/db'
 import { isMapEntry, isNovelEntry } from '@/lib/entry-kinds'
+import { isCategoryItem, categoryItemName } from '@/lib/categories/types'
+import { getCategories, loadCategories } from '@/lib/categories/store'
 
 export type EventView = { sub: 'list' } | { sub: 'editor'; eventId: number }
 export type CharacterView = { sub: 'list' } | { sub: 'editor'; characterId: number }
@@ -45,6 +47,7 @@ export function useEntityWorkspace() {  const { activeItem: desktopActiveItem, s
         : mobileNav.section === 'novel' ? '小说'
         : mobileNav.section === 'map' ? '地图'
         : mobileNav.section === 'tree' ? '树表'
+        : mobileNav.section === 'category' ? desktopActiveItem
         : mobileNav.section === 'home' ? null
         : desktopActiveItem)
     : desktopActiveItem
@@ -54,6 +57,13 @@ export function useEntityWorkspace() {  const { activeItem: desktopActiveItem, s
   const [characterView, setCharacterView] = useState<CharacterView>({ sub: 'list' })
   const [countryView, setCountryView] = useState<CountryView>({ sub: 'list' })
   const [worldSelectedEntryId, setWorldSelectedEntryId] = useState<number | null>(null)
+  // 分类条目的定位指令：`[[内链]]` / @ 引用指向「宠物」里的一条时，切到那个分类并打开它
+  const [categoryEntryTarget, setCategoryEntryTarget] = useState<{
+    item: string
+    entryId: number
+    nonce: number
+  } | null>(null)
+  const categoryNonceRef = useRef(0)
   // `[[章节]]` / `[[小说]]` 的目标：小说分区收到后沿 parentId 找书根、打开书并选中该章。
   // nonce 让「连续点同一章」也能再次触发定位（id 不变时 state 不会重渲染）。
   const [novelEntryTarget, setNovelEntryTarget] = useState<{
@@ -485,6 +495,23 @@ export function useEntityWorkspace() {  const { activeItem: desktopActiveItem, s
     [setSource, setActiveItem, setEditing, isMobile, mobileSetSection, mobileSetGallerySubTab],
   )
 
+  /**
+   * 这条 `worldEntries` 行是不是某个分类的条目？是就返回要切到的导航键。
+   * 分类条目不在世界观目录树里（`getEntries` 已过滤），直接当词条打开会落到空树。
+   */
+  const resolveCategoryTarget = useCallback(async (id: number): Promise<{ item: string; entryId: number } | null> => {
+    try {
+      const row = await db.worldEntries.get(id)
+      const name = row?.category?.trim() ?? ''
+      if (!row || row.deleted || name === '') return null
+      await loadCategories()
+      const category = getCategories().find((item) => item.name === name)
+      return category ? { item: categoryItemName(category.id), entryId: id } : null
+    } catch {
+      return null
+    }
+  }, [])
+
   const handleRelatedItemNavigate = useCallback((id: number, type?: string) => {
     // 同类型实体间跳转会因 key 变化重挂编辑器 → 未保存改动会丢失，需确认
     const willRemount =
@@ -492,7 +519,7 @@ export function useEntityWorkspace() {  const { activeItem: desktopActiveItem, s
       (type === 'event' && eventView.sub === 'editor') ||
       (type === 'country' && countryView.sub === 'editor')
 
-    const doNavigate = () => {
+    const doNavigate = async () => {
       rememberCrossBack()
 
       if (type === 'character') {
@@ -523,6 +550,15 @@ export function useEntityWorkspace() {  const { activeItem: desktopActiveItem, s
         setEditing('country', id)
         clearSource()
       } else if (type === 'world') {
+        const categoryTarget = await resolveCategoryTarget(id)
+        if (categoryTarget) {
+          categoryNonceRef.current += 1
+          setCategoryEntryTarget({ ...categoryTarget, nonce: categoryNonceRef.current })
+          setActiveItem(categoryTarget.item)
+          if (isMobile) mobileSetSection('category')
+          clearSource()
+          return
+        }
         setWorldSelectedEntryId(id)
         setActiveItem('世界观')
         if (isMobile) {
@@ -532,9 +568,9 @@ export function useEntityWorkspace() {  const { activeItem: desktopActiveItem, s
       }
     }
 
-    if (willRemount) confirmLeave(doNavigate)
-    else doNavigate()
-  }, [eventView, characterView, countryView, setActiveItem, clearSource, setEditing, isMobile, mobileSetSection, mobileSetGallerySubTab, confirmLeave, rememberCrossBack])
+    if (willRemount) confirmLeave(() => void doNavigate())
+    else void doNavigate()
+  }, [eventView, characterView, countryView, setActiveItem, clearSource, setEditing, isMobile, mobileSetSection, mobileSetGallerySubTab, confirmLeave, rememberCrossBack, resolveCategoryTarget])
 
   const handleMentionClick = useCallback((id: string, entityType?: string) => {
     const numId = Number(id)
@@ -602,6 +638,10 @@ export function useEntityWorkspace() {  const { activeItem: desktopActiveItem, s
     setWorldSelectedEntryId(null)
   }, [])
 
+  const clearCategoryEntryTarget = useCallback(() => {
+    setCategoryEntryTarget(null)
+  }, [])
+
   const showEvents = activeItem === '事件'
   const showCharacters = activeItem === '角色'
   const showCountries = activeItem === '国家'
@@ -612,7 +652,7 @@ export function useEntityWorkspace() {  const { activeItem: desktopActiveItem, s
   const showMap = activeItem === '地图'
   const showRelations = activeItem === '关系图'
   const showAlbum = activeItem === '相册'
-  const showPlaceholder = activeItem !== null && !showEvents && !showCharacters && !showCountries && !showWorld && !showTimeline && !showRelations && !showAlbum && !showNovel && !showTreeTable && !showMap
+  const showPlaceholder = activeItem !== null && !showEvents && !showCharacters && !showCountries && !showWorld && !showTimeline && !showRelations && !showAlbum && !showNovel && !showTreeTable && !showMap && !isCategoryItem(activeItem)
   const placeholderText = activeItem !== null
     ? (PLACEHOLDER_MAP[activeItem] ?? '功能开发中...')
     : null
@@ -667,6 +707,8 @@ export function useEntityWorkspace() {  const { activeItem: desktopActiveItem, s
     charactersLoading,
     characterView,
     charSlide,
+    categoryEntryTarget,
+    clearCategoryEntryTarget,
     countrySlide,
     countryView,
     events,

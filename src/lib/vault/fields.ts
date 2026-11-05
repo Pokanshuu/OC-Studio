@@ -36,8 +36,6 @@ export const CHARACTER_KEYS = {
   /** 旧版「人生故事」：早期版本的大段文本，编辑器已合并进正文展示，但数据不能丢 */
   lifeStory: chain('lifeStory', '人生故事'),
   isMajor: chain('isMajor', '主要角色'),
-  /** 实体类别：角色 / 武器 / 宠物（缺省 = 角色；武器与宠物是「角色模板实体」，不是新表） */
-  kind: chain('kind', '类别', '类型'),
   avatar: chain('avatar', 'avatarUrl'),
   header: chain('header', 'headerUrl'),
   /** OC 动画（视频文件，存在库里附件目录） */
@@ -52,6 +50,11 @@ export const CHARACTER_KEYS = {
   /** 关系图坐标：`{ x, y }`。只有用户拖过节点才有这个键 */
   graphPosition: chain('graph_position', 'graphPosition'),
   date: chain('date'),
+  /**
+   * 旧版武器 / 宠物标记（`kind` / `类别`）：只用于一次性导入，导入后清掉；
+   * 不属于现行角色模型，但由序列化器持有，才能把盘上的旧键真正删掉。
+   */
+  legacyKind: chain('kind', '类别'),
 } as const
 
 export const COUNTRY_KEYS = {
@@ -106,9 +109,17 @@ export const WORLD_KEYS = {
   title: chain('title', 'name'),
   aliases: chain('aliases'),
   category: chain('category', '分类'),
+  /** 分类条目封面（3:2）；`封面图` 是手写常见写法，`封面` 留给小说根节点 */
+  cover: chain('cover', '封面图'),
+  /** 一行简介：分类条目的副标题，也给列表摘要用 */
+  summary: chain('summary', '简介'),
+  /** 单篇笔记覆盖用的模板名（空 = 跟随所在分类 / 内置词条模板） */
+  template: chain('template', '模板'),
   parent: chain('parent', '父词条'),
   order: chain('order', '排序'),
   isConcept: chain('isConcept', '概念'),
+  /** 关系图坐标：只有分类条目进图并拖动过才有 */
+  graphPosition: chain('graph_position', 'graphPosition'),
   /** 地图锚点：归一化 0–1，换分辨率不用重摆（docs/地图.md §2） */
   mapPosition: chain('map_position', 'mapPosition'),
   mapId: chain('map_id', 'mapId'),
@@ -126,6 +137,10 @@ export const WORLD_KEYS = {
   /** 地图生成参数快照（JSON 字符串）+ 种子：重生成用 */
   mapSeed: chain('map_seed', '种子'),
   mapParams: chain('map_params', '生成参数'),
+  /** 当前视图：切模式只是换 `map_image` 指向的文件，视图名必须记在自己的格子里 */
+  mapMode: chain('map_mode', '视图'),
+  /** 政治标注：国界多边形 / 道路折线（JSON，归一化坐标） */
+  mapAnnotations: chain('map_annotations', '标注'),
   /** 章节大纲 / 备注（只有章节会写） */
   chapterOutline: chain('chapter_outline', '章节大纲'),
   tags: chain('tags'),

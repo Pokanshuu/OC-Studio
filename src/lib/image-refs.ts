@@ -179,6 +179,7 @@ export function collectWorldEntryImageRefs(
     ? entry.content
     : entry.document
   for (const url of collectBodyImageRefs(doc)) addRef(refs, url, 'body', options)
+  addRef(refs, entry.cover, 'cover', options)
   addRef(refs, entry.novelCover, 'novelCover', options)
   addRef(refs, entry.mapImage, 'map', options)
   return refs

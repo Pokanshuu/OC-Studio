@@ -68,8 +68,16 @@ export function EntityEditorShell({
               </button>
             ) : null}
             {onBack ? (
-              <button type="button" onClick={onBack} className={ICON_BTN_MD} aria-label="返回">
+              <button
+                type="button"
+                onClick={onBack}
+                data-mobile-back
+                className={`${ICON_BTN_MD} w-auto gap-1 px-1.5`}
+                aria-label="返回"
+                title="返回"
+              >
                 <ArrowLeft size={16} strokeWidth={2} />
+                <span className="text-[13px]">返回</span>
               </button>
             ) : null}
             <h2 className="sr-only">{title}</h2>

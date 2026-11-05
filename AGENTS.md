@@ -36,7 +36,13 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - `src/lib/sidebar-width.ts` — **侧边栏宽度唯一源**：默认 140px，可调范围 0.8–1.2 倍（112–168px），`clampSidebarWidth()` 负责夹取；宽度存在 settings 的 `sidebarWidth`（localStorage），拖动中只更新本地 state，松手才落盘
 - `src/lib/cover/` — **封面卡算法唯一源**（角色 / 国家 / 事件的网格视图）：照搬 Simple_Cover 的「照片下缘逐行递增模糊 → 完全混色」+ 自动取色。`color.ts`（取色，**无彩度的图走中性、不猜色相**）· `blur.ts`（渐进模糊，纯函数，`npx tsx scripts/cover-check.ts` 自检 32 项）· `scene.ts`（画面合成）· `tuning.ts`（**所有版式数字的唯一源**，面板实时调，「视图 → 封面卡参数」或 `Ctrl/Cmd + Shift + K`）。**改这块先读 `docs/封面卡.md`**（算法、参数表、取色规则、性能策略）
 - `src/components/shared/cover/` — `CoverCard`（三个列表共用的封面卡：标题压模糊区、简介与小字落色块、头像/国徽在标题上方）+ `CoverArt`（画布：进视口才画、一帧两张、按画布去重）+ `CoverTuningPanel`（调参面板）
+- `src/components/shared/ListShell.tsx` — **列表页外壳唯一实现**：页头贴在滚动容器**里面**（内容从它背后穿过），粘顶、底色、模糊、底线全由外壳的**一块页头表面**统一给；`header()` 只排内容，页头里的每一行（工具栏 / 文件夹条…）**不要**再各写一层底色或 `backdrop-blur`（多行页头各糊各的，落后那行就会漏成「没糊、内容穿过去」）。**静止无分隔线**，上滑后才叠 `TOOLBAR_SHADE`；`useScrollShade` 在 `src/lib/use-scroll-shade.ts`。列表页禁止再各写一套 `min-h-full` + `sticky` 的组合
+- `src/components/shared/CoverFlow.tsx` — **画廊视图（Cover Flow）**：横向 snap 翻页，滚动时 rAF 直接写每格 `transform`（不进 state）；`prefers-reduced-motion` 退化成横排
+- `src/components/shared/FolderStack.tsx` — 卡片 / 画廊里的**文件夹「堆」**：单击进入、右键改名 / 管理内容 / 删除。列表模式仍用 `CharacterFolderBar` 的 chip（文件夹图标 + 名称 + 数量）
+- `src/lib/templates/` — **模板系统（阶段一，进行中）**：`types.ts`（组件闭集 + `TemplateDoc`）· `registry.ts`（组件登记，**唯一的 id 来源**）· `defaults.ts`（**六个内置模板**：角色 / 事件 / 国家 / 词条 / 宠物 / 武器）· `fields.ts`（模板声明的字段键：宠物 `物种 / 习性`、武器 `材质 / 制造者`）· `note.ts`（分类只能绑笔记类模板）· `serialize.ts`（frontmatter ⇄ 文档，存 `.ocstudio/templates/<id>.md`）· `store.ts`（库优先、浏览器退化 localStorage，`useTemplates()`）· **`params.ts`（组件参数契约 —— 值 / 消费方 / 往返校验的唯一源）** · **`support.ts`（哪些组件真接线了 —— 唯一进度表）**。配套 `src/components/shared/ComponentSection.tsx`（小节壳）+ `TemplateRenderer.tsx`（渲染循环，封面后不画线）+ 设置 › 世界 › 模板；`npm run audit:templates` 查「模板与实现漂移」。**已接渲染循环**：词条（标题 / 标签 / 正文）、事件 / 国家（封面 / 基本信息 / 关联）、角色（封面 / 名称+字段+立绘 / 关系 / 相册）、宠物 / 武器（封面 / 标题 / 标签 / 简介 / 正文 + 模板字段，只用于分类条目）。模板支持**新建 / 复制 / 重命名（旧名进别名）/ 删除 / 恢复默认**；**已做**：完整编排层（`TemplateComposer`：全宽三栏 + 结构预览）、单篇笔记覆盖模板（`模板:` 键）、自定义分类（分类 = 模板 + 一组笔记）。**组件参数**：`lib/templates/params.ts` 登记 `relations.presentation` / `title`、`gallery.mode` / `columns` / `title`、`info.fields`，编排行内直接改（只对真正消费的模板开放）；`info.fields` 展开后可增删（`TemplateFieldsRow`）；`audit:templates` 校验「值合法 / 有消费方 / 能往返」。**尚未做**：独立重参数抽屉。**改模板先读 `docs/模板.md`**
+- `src/lib/categories/` — **自定义分类**（分类 = 模板 + 一组笔记）：`types.ts`（`Category` + `分类:<id>` 导航键 + `enabled` / `builtin`）· `builtins.ts`（**内置分类 宠物 / 武器，默认不启用**，带 pawPrint / swords 图标与 pet / weapon 模板）· `icons.ts`（**可选图标闭集**，文件里存名字）· `store.ts`（`.ocstudio/categories.json`，库优先 / 浏览器 localStorage，`useCategories()`；内置项始终合并进表，老库里同名「宠物」会原地升级）。条目**复用 `worldEntries`**，靠笔记的 `category` 键归属；删除分类不删笔记。UI：侧栏只列 `enabled` 的分类、手机「更多」也列（`MobileSection = 'category'`）、`features/categories/CategorySection.tsx`（列表 → **就地编辑器**）+ `CategoryListToolbar`（搜索 / 排序 / 视图 / 新建）+ `CategoryViewToggle`（目录 / 卡片 / 画廊，`oc-categories-view`）+ `CategoryRow` / `CategoryCard` / `CategoryGalleryCard`（画廊用 `CoverFlow` 顶排 + `VerticalSplit` 底排）+ `category-list-utils.ts`、`CategoryEntryEditor.tsx`（留在分类里按模板渲染，**不再跳世界观**）、设置 › 世界 › 自定义分类（内置分类在这里开关）。分类只能绑**笔记类模板**（`lib/templates/note.ts`）；词条自建字段走 `WorldCustomFields`（`WorldEntry.custom`），封面走 `WorldCoverField`（`WorldEntry.cover`，3:2），世界编辑器与分类编辑器共用
 
+- `src/features/tags/` — 标签（维度，不是分类树）：`services.ts`（`getTagUsage` 扫四张实体表 / `mergeTag` 改实体 tag id + 删源标签 / CRUD）· `components/TagPicker.tsx`（编辑器内打标签，输入才列候选）· `components/TagBadge.tsx`（预设色完整字面量类名）· `components/TagsPanel.tsx`（设置 › 世界 › 标签：使用篇数 / 改名 / 合并 / 删除 / 颜色）。改名与合并**不手写文件**：`vault-persist` 的 `enqueueTagReferences` 会把引用实体排进落盘队列，下次 flush 用新名字重写 frontmatter；没有 aliases 读取层
 ### 编辑器（全局唯一内核）
 - `src/components/editor/EditorCore.tsx` — 统一 Tiptap 实例（含移动端键盘工具栏与块面板）
 - `src/components/editor/DocumentEditor.tsx` — 高级封装（加载 document 字段）
@@ -51,23 +57,25 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - 每个模块：`index.ts` (barrel) + `types.ts` + `services.ts` + `hooks/` + `components/`
 - **实体编辑器统一形态**：`components/<X>Editor.tsx` = 页头 + 头图 + 各 section 组装（约 120–240 行）；表单状态/派生/保存管线放 `hooks/use<X>Form.ts`（返回单个对象，`export type <X>Form = ReturnType<...>`）；字段区拆成 `components/<X>InfoSection.tsx` / `<X>RelationSection.tsx` 等。已按此收口：CharacterEditor / EventEditor / WorldLayout(`useWorldEntryDraft`) / SettingsDialog
 - **列表页统一形态**：`components/<X>List.tsx` = 状态 + 过滤派生 + 空态/错误态 + 网格·目录渲染 + 浮层；列表项 `components/<X>ListItems.tsx`（Card/Row 共用 props）、页头 `components/<X>ListToolbar.tsx`、纯函数与偏好读写 `components/<X>-list-utils.ts`。已按此收口：CharacterList / EventList / CountryList
-- `src/features/timeline/` — 已按职责分层：`hooks/useTimelineLayout`（纯派生：坐标/泳道/刻度/聚合桶）、`hooks/useTimelineViewport`（滚动/缩放/捏合/导航）、`components/{TimelineToolbar,EventNode,FilterSelect,PeriodBar,BucketView,EmptyTimeline}`、`constants.ts`、`utils.ts`（纯函数）
-- `src/features/relations/` — 关系图：`layout.ts`（**力导向 + 碰撞检测唯一实现** `computeForceLayout`，含向心引力与目标尺寸回缩）、`services.ts`（`buildGraphData` / 拖拽建边 `createRelationBetween` / 存坐标 `saveNodePosition`）、`components/relation-graph-utils.ts`（`relationPlan` 连线语义表 + `routeEdges` 四向落点 + `MIN_ZOOM`）。节点坐标存实体的 `graphPosition`（仓库写 `graph_position`），**不再用 localStorage 缓存**
+- `src/features/timeline/` — 已按职责分层：`hooks/useTimelineLayout`（纯派生：坐标/泳道/刻度/聚合桶）、`hooks/useTimelineViewport`（滚动/缩放/捏合/导航）、`components/{TimelineToolbar,EventNode,ParticipantTracks,PeriodBar,BucketView,EmptyTimeline}`、`constants.ts`、`utils.ts`（纯函数）。`ParticipantTracks` 从 `events.characters` / `events.countries` 算参与者轨道（未归属兜底、瞬时事件点），与主轴共用 x 坐标。**密度 / 轨道开关**在设置里（`timelineDetail` / `timelineShowTracks`），入口是「视图 › 时间线」；详模式第二行 = 时间 + 参与者名字；点参与条选中事件（连线换墨、参与条变墨），双击才打开编辑器
+- `src/features/relations/` — 关系图：`layout.ts`（**力导向 + 碰撞检测唯一实现** `computeForceLayout`，含向心引力与目标尺寸回缩；无坐标节点在已钉住节点周围排环）、`services.ts`（`buildGraphData` / 拖拽建边 `createRelationBetween` / 存坐标 `saveNodePosition`）、`components/relation-graph-utils.ts`（`relationPlan` 连线语义表 + `routeEdges` 四向落点 + `MIN_ZOOM`）、`components/floating-edge.ts`（**连线几何唯一源**：正交 / 曲线 / 并行车道）、`components/RelationGraph.tsx`（8px 网格吸附 + 8px 中心对齐参考线 + 整理 / 撤销 + 框选 / 鼠标模式）。节点坐标存实体的 `graphPosition`（仓库写 `graph_position`），**不再用 localStorage 缓存**
+- `src/lib/capabilities/` — **只读能力层（Agent 接入 A1/A2）**：`types.ts`（`Caller { actor, permissions }` / `CapabilityStore` / `CodexEntry`）· `index.ts`（`createCapabilities(store)`：`listEntities` / `getEntity` / `search` / `graphSlice` / `buildCodexSlice`，权限在入口检查）· `dexie-store.ts`（Dexie 适配器，软删除不返回）。`scripts/capabilities-check.ts` 自检 19 项；**还没有 MCP / REST 传输层，也没有写入能力**
 - `src/features/project/` — 项目元信息（单例 `meta` 表，id 固定为 1）
 - `src/lib/world-tree.ts` — **词条树唯一实现**（`buildEntryTree`）。层级只由 `parentId` 表达；编辑器目录与静态站导出共用同一份排序。`parentId` 悬空（父级被删）时该条当根，不消失
 - `src/features/dashboard/` — 概览（主页）首屏。世界封面（`meta.coverUrl`，设置 → 世界）就是这一页的头图（`StretchyHeader`，3:2）；没设封面时不占位
-- `src/lib/export/` — 导出器：`payload`（.ocbak + 图片内联）/ `markdown` / `download` / `site`（**静态展示站**：`render` 正文→HTML、`styles` 设计令牌、`build` 组装单文件 `index.html`）；`src/lib/export.ts` 只是 barrel
+- `src/lib/export/` — 导出器：`payload`（.ocbak + 图片内联）/ `markdown` / `download` / `site`（**静态展示站**：`render` 正文→HTML、`styles` 设计令牌、`build` 组装单文件 `index.html`；`applySiteSections` 是分区开关唯一实现，`SiteExportConfig` 带标题 / 分区 / 纸色 / 内联图片）；`src/components/shared/SiteExportDialog.tsx` 是发布界面（左预览 / 右配置，配置存 `oc-site-export`）；`src/lib/export.ts` 只是 barrel。`npm run audit:site` 查导出逻辑
 - `src/components/shared/` — 共享组件
 - `src/components/ui/` — shadcn/ui 基础组件
 - `src/components/layout/` — 布局（AppShell, Sidebar, MenuBar + MenuBarMenus/MenuBarSearch/WindowControls, StatusBar, OverlayRoot, MobileTopBar, MobileTabBar, MobileFilterBar, MobileFab）
 
 - `src/features/novel/` — 小说（**章节 = 笔记**）：`NovelSection`（书架，封面 2:3）/ `NovelTree`（章节树 + 复用 `EditorBodyPane` + 我们自己的编辑器内核）/ `export.ts`（Markdown / TXT）/ `docx.ts`（自带最小 ZIP writer，不引第三方）/ `pagination.ts`（9:16 · 16:9 · A4 估页）/ `services.ts`（建根 / 建章 / 元信息 / 章节大纲）。作品信息落 `novel_author` `novel_synopsis` `novel_target_words` `novel_notes` `novel_cover`，章节大纲落 `chapter_outline`；小说条目**不进世界观目录树、不进相册**（`lib/novel.ts#isNovelEntry`）
-- `src/features/map/` — 地图（**视图**，不是实体）：`services.ts`（`normalizeAnchor` / `groupAnchors` / `setAnchor` / `listMapAssets`）、`MapView.tsx`（16:9 画布 + 拖动写回 + 底图）。锚点落实体 `map_position`（归一化 0–1）+ `map_id`，底图在 `.ocstudio/maps/`（Rust `vault_list_assets` 枚举）
+- `src/features/map/` — 地图（**视图**，不是实体）：`services.ts`（`normalizeAnchor` / `groupAnchors` / `setAnchor` / `setMapView` / `listMapAssets` / 地图笔记 CRUD）、`MapView.tsx`（整屏画布 + 浮层 + 拖动写回 + 底图）、`components/MapViewStrip.tsx`（**视图条**：切一档 = 换一张底图）、`components/MapLibraryDialog.tsx`（**地图库 / 详情**：尺寸 / 类型 / 锚点数 / 标注数 / 重命名 / 删除 / 新建）、`MapView.tsx` 的整屏开关（`body[data-map-immersive]` 藏状态栏与 Mock 标）、`render-view.ts`（用存的 `map_seed` + `map_params` 在插件 Worker 里重画一档 → PNG）、`annotations.ts`（**政治标注**模型：国界 / 道路 + JSON 读写 + 命中测试；国界可带 `fill` 色板名）、`components/AnnotationLayer.tsx`（`viewBox="0 0 1 1"` 的 SVG 矢量层；国界填充 22%）。锚点落实体 `map_position`（归一化 0–1）+ `map_id`；**点归实体、线归地图** —— 锚点存实体，国界 / 道路存地图笔记的 `map_annotations`；底图与每档渲染图都在 `.ocstudio/maps/`（后者固定名 `<地图名>-<视图>.png`，原地覆盖）；当前档位记 `map_mode`
 - `src/features/tree-table/` — 树形表格：**只做渲染层**，词条树仍走 `buildEntryTree`；四个页签（词条 / 国家 / 角色 / 事件）
 - `src/plugins/map-generator/` — **第一个官方插件**（内置模块 + 插件形状接口）：`manifest.ts` + `index.ts`（唯一对外边界）+ `kernel/`（纯算法）+ `worker.ts`。不碰 Dexie / localStorage / DOM / 用户文件；内置侧只留地图视图
 - `src/lib/legacy/` — fork 数据**只读适配器**：`pr5-novels.ts`（`OCStudioNovels` 独立库 → 章节笔记）、`pr5-relations.ts`（`relations` 表 → 显式边）。三条规矩：只读、幂等、给报告
 - `src/lib/relation-colors.ts` — 关系线色板与箭头唯一源（12 档 `--oc-accent-*`、`arrowEnds()`、非法值收敛）；`features/relations/edge-style.ts` 负责「怎么改一条边」
 - `src/lib/theme-tokens.ts` — 主题令牌归属登记（`shell` / `page` / `both`），`npm run audit:theme` 双向自检
+- `src/lib/theme/` — **官方主题 v1（只换颜色）**：`presets.ts`（4 套：纸白 / 亚麻 / 松烟 / 青瓷，亮暗各一套 `ThemeTokens` + `preview`；主题色是数据，已进 `design-audit` 白名单）· `apply.ts`（`applyThemePreset(id, isDark)` 往 `<html>` 写行内 `--oc-*` + `data-palette`）· `boot.ts`（首帧启动脚本，`layout.tsx` 的 `<head>` 里同步落值，防闪回默认纸白）· `background.ts`（**背景图 v1**：压缩到长边 2560 WebP → Tauri 写 `.ocstudio/backgrounds/`（Mock 用 data URL）→ `html.oc-background` 铺图 + 纸色 wash；外壳 35% 纸色；填充 / 平铺 / 固定；遮罩 20–80%；有图时关 Mica）。设置项是 `Settings.themePreset` / `backgroundImage`（相对路径或 data URL）/ `backgroundMode` / `backgroundScrim`，UI 在设置 › 个性化；`npm run audit:palettes` 查亮暗对比度。静态站与模板海报已消费令牌；角色卡 / 整图导出还没做，见 `docs/主题.md` §5
 - `src/lib/media-download.ts` — 图片 / 动画「保存到…」（系统保存对话框 + Rust `save_bytes` 原子写）；`src/lib/video-upload.ts` — OC 动画上传（库内 `附件/`）
 
 ### 核心上下文
@@ -82,7 +90,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - `src/lib/useBackButton.ts` — Capacitor 系统返回键处理
 - `src/lib/browser-compat.ts` — 浏览器兼容性检测：Chromium 版本、HarmonyOS/ArkWeb、安全区域降级估算与修正
 - `src/lib/reference-registry.ts` — @ 引用和 [[ 内链数据源注册
-- `src/lib/settings.tsx` — 主题 / 同步 / 界面偏好（`sidebarVisible`、`sidebarWidth`、`editorLayout`、`mouseMode`、**`coverTintMode`**（封面卡彩色 / 黑白：黑白跟主题走，亮=纸色、暗=墨色））设置
+- `src/lib/settings.tsx` — 主题 / 同步 / 界面偏好（**`themePreset`**（官方主题 id，见 `lib/theme/`）、**`backgroundImage` / `backgroundMode` / `backgroundScrim`**（应用级背景图，data URL + 三种铺法 + 遮罩）、`sidebarVisible`、`sidebarWidth`、`editorLayout`、`mouseMode`、**`timelineDetail`**（简 / 详）、**`timelineShowTracks`**（参与者轨道）、**`coverTintMode`**（封面卡彩色 / 黑白：黑白跟主题走，亮=纸色、暗=墨色））设置
 - `src/lib/use-device.ts` — useDevice() (isMobile)
 - `src/lib/image-service.ts` — 图片全流程（含 Tauri/Capacitor/Browser 三环境适配）
 - `src/lib/image-crop.ts` — Canvas 裁剪引擎（getCroppedBlob 支持 Blob 入参 + HEIF 自动转换）
@@ -127,7 +135,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - `src/lib/vault/journal.ts` — **创作时间线**（`.ocstudio/journal.jsonl`，只追加）：行格式、sha256、tail 解析、JSON 导出（`buildJournalExport`，带 version）。落盘 flush 里对每次真正写成功的改动追加一条（新建 / 保存 / 移入回收站 / 还原 / 彻底删除）；**只做仓库模式**，不做回滚 / diff / 全文快照。磁盘侧命令在 `src-tauri/src/journal.rs`（`journal_append` / `journal_tail`）
 - `src/lib/vault/vault-provider.tsx` — 上下文。状态是**派生**的（`useSyncExternalStore` 读环境）：`isVaultSupported()` 服务端为 false，直接做 useState 初值会造成水合不一致
 - `src/lib/vault/legacy-backup.ts` — **首次绑定笔记库前的自动备份**：`lastVaultPath() === null` 且内置库非空时，先把整库导成 `<目标文件夹>/.ocstudio/legacy-backup-<时间>.ocbak` 再 `loadVault`；写不出来就抛错中止开库（宁可打不开，也不白清）。`migrateLegacy` 传 `backupLegacy: false` 跳过（数据本来就已经写进那个文件夹）
-- `src/features/vault/` — UI（`VaultGate` 启动闸门 / `VaultWriteBanner` / `VaultMenuSection` / `VaultStatus` / `VaultSurfaces` / `VaultOverlay` / `VaultScanReportDialog` —— 界面上叫**概览**：一行「N 篇笔记 → 构成」，正常时只说「没有发现问题」，有异常才出现一条「未知 N 项」，点开才是文件清单）
+- `src/features/vault/` — UI（`VaultGate` 启动闸门 / `VaultWriteBanner` / `VaultMenuSection` / `VaultStatus` / `VaultSurfaces` / `VaultOverlay` / `VaultScanReportDialog` —— 界面上叫**概览**：一行「N 篇笔记 → 构成」，正常时只说「没有发现问题」，有异常才出现一条「未知 N 项」，点开才是文件清单）；`components/JournalTimelineDialog.tsx` 是「视图 › 创作时间线」（全库 journal 只读审计流，按日期分组，不做回滚）
   - 欢迎页（`VaultGate` 的 idle 分支）= 单列 288px 网格：标题 → 旧数据组（「检测到 N 条旧版本数据」+ 导出备份 / 备份旧版本数据并导入到…）→ 打开已有 / 新建文件夹 → 一行黄色提醒。旧数据组只在 `orphanCount > 0` 时渲染，且**排在主按钮上方**（压在最下面时用户会先点按钮、把旧数据顶掉）
   - `hooks/useLegacyImport.tsx` — 「备份旧版本数据并导入到…」的唯一实现，欢迎页与「文件」菜单共用。对话框由**调用方**渲染：`DropdownMenuContent` 关闭时整棵卸载，挂在下拉里会跟着消失
   - `components/shared/SeedData.tsx` — 桌面版**不播种**（判 `isVaultSupported()`，不能只判 `isVaultEnabled()`：那个标记首次绑定后才置位，全新安装会先塞 10 条示例，再在欢迎页当成「旧版本数据」）
@@ -175,6 +183,12 @@ npm run dev       # 开发服务器 (localhost:3000)
 npm run build     # 生产构建 (静态导出)
 npm run lint      # ESLint
 npm run audit:design  # 设计令牌体检（0 违规才算过）
+npm run audit:theme   # 主题令牌归属（shell / page / both）
+npm run audit:palettes  # 官方主题亮暗对比度
+npm run audit:templates  # 模板与实现漂移（组件登记 / 往返 / 别名）
+npm run audit:site   # 静态站导出逻辑（角色路由 / 时间标签 / 本地日期 / 未知引用 / 分区 / 标题纸色）
+npm run audit:capabilities  # 只读能力层（权限入口 / 列表 / 读取 / 搜索 / 切片）
+npm run audit:map    # 地图锚点 + 国界填充色
 npm run cap:dev   # Capacitor 构建 + 同步 + 打开 Android Studio
 npm run cap:hot   # Capacitor 构建 + 同步（热更新）
 npx tauri dev     # Tauri 桌面开发
@@ -203,7 +217,7 @@ npx tauri build   # Tauri 打包 (.exe/.msi)
 7. **代码风格**：TypeScript strict，禁止 `any`，`export function` 导出
 8. **移动端布局**：CSS-first 方案（`max-md:hidden`/`md:hidden`），不依赖 `useDevice()` 做壳切换
 9. **图标规则**：返回/关闭=ArrowLeft，折叠=ChevronLeft，展开=Menu，统一 `strokeWidth={2}`
-10. **模糊效果**：`backdrop-blur` 的 header 必须放在滚动容器内部（非平级兄弟）。同时滚动容器**不得**有 `padding-top`/`padding-bottom`，padding 不参与滚动，内容无法到达 fixed bar 背后。必须用内容内部的透明 spacer div 替代（顶部 `<div className="md:hidden h-[calc(60px+var(--safe-top))]">`，底部 `pb-24`）。
+10. **模糊效果**：`backdrop-blur` 的 header 必须放在滚动容器内部（非平级兄弟）。多行页头（工具栏 + 文件夹条…）只用 `ListShell` 的**一块页头表面**盖住整块页头，不要逐行糊。同时滚动容器**不得**有 `padding-top`/`padding-bottom`，padding 不参与滚动，内容无法到达 fixed bar 背后。必须用内容内部的透明 spacer div 替代（顶部 `<div className="md:hidden h-[calc(60px+var(--safe-top))]">`，底部 `pb-24`）。
 11. **安全区域**：所有移动端固定定位元素使用 `h-[calc(60px+var(--safe-top))] pt-[var(--safe-top))]` 模式（精确高度，非 min-h）。CSS 变量定义在 `globals.css`，Java 层在 `MainActivity.java`
 12. **移动端触控反馈**：所有移动端可交互控件必须提供按压反馈，分两层规则：
    - **有边框**（`border border-line`）→ `touch-feedback` class，提供 120ms `scale(0.96)` 缩放反馈

@@ -98,6 +98,7 @@ const characters: Character[] = [
     animationUrl: '附件/凯尔.mp4',
     bio: '沉默的铁匠',
     lifeStory: '雪线之战里丢了一只手',
+    legacyKind: 'pet',
     relatedCharacters: [{ characterId: 2, name: '阿尔法', relation: '挚友' }],
     gallery: [{ url: '附件/凯尔-立绘.png', caption: '常服' }],
     avatars: [{ url: '附件/凯尔-头像.png', type: 'portrait' }],
@@ -243,6 +244,27 @@ const worldEntries: WorldEntry[] = [
     _syncStatus: 'local',
     _lastModified: 4,
   },
+  {
+    id: 4,
+    title: '小灰',
+    aliases: [],
+    content: '',
+    category: '宠物',
+    cover: '附件/小灰.png',
+    summary: '一只灰羽风灵',
+    custom: { 物种: '风灵', 习性: '夜行' },
+    graphPosition: { x: 448, y: 104 },
+    parentId: null,
+    order: 3,
+    isConcept: false,
+    references: [],
+    tags: [],
+    createdAt: 5,
+    updatedAt: 5,
+    deleted: false,
+    _syncStatus: 'local',
+    _lastModified: 5,
+  },
 ]
 
 const rows: LegacyRows = {
@@ -266,7 +288,7 @@ const rows: LegacyRows = {
 // ── 全量物化（与 exportLegacyToFolder 同一套拼装规则） ───────────────────
 
 // 自定义字段的 key 要先登记，否则序列化不会写它（这正是迁移必须带 fields.json 的原因）
-setCustomFieldKeys({ character: ['favoriteFood'] })
+setCustomFieldKeys({ character: ['favoriteFood'], worldEntry: ['物种', '习性'] })
 
 const ctx = buildContext(rows)
 const files: { relPath: string; content: string; size: number; mtimeMs: number }[] = []
@@ -285,6 +307,7 @@ emit('event', '余烬', events[1])
 emit('worldEntry', '世界树', worldEntries[0])
 emit('worldEntry', '灰烬纪年', worldEntries[1])
 emit('worldEntry', '北境地图', worldEntries[2])
+emit('worldEntry', '小灰', worldEntries[3])
 emit('period', '黎明纪元', rows.periods[0])
 
 const scan = scanVault({ root: '/memory', files, skippedDirs: [], marker: null })
@@ -295,7 +318,7 @@ const tagMeta = parseTagMeta(serializeTagMeta(tagMetaFromTags(tags)))
 
 // ── 断言 ────────────────────────────────────────────────────────────────
 
-eq('迁移出的文件数', files.length, 9)
+eq('迁移出的文件数', files.length, 10)
 eq(
   '扫描回来的数量（角色/国家/事件/词条/标签/时期）',
   [
@@ -306,7 +329,7 @@ eq(
     scan.dataset.tags.length,
     scan.dataset.periods.length,
   ],
-  [2, 1, 2, 3, 2, 1],
+  [2, 1, 2, 4, 2, 1],
 )
 
 const period = scan.dataset.periods[0]?.entity
@@ -333,6 +356,7 @@ if (character === undefined) {
   eq('角色 · OC 动画引用', character.animationUrl, '附件/凯尔.mp4')
   eq('角色 · 简介', character.bio, '沉默的铁匠')
   eq('角色 · 旧版人生故事', character.lifeStory, '雪线之战里丢了一只手')
+  eq('角色 · 旧武器/宠物标记', character.legacyKind, 'pet')
   const countryOfCharacter = scan.dataset.countries.find((item) => item.entity.id === character.countryId)
   eq('角色 · 所属国家解析', countryOfCharacter?.entity.name, '北境')
   eq(
@@ -393,6 +417,17 @@ if (mapNote === undefined) {
   eq('地图 · 分类', mapNote.category, '地图')
   eq('地图 · 底图引用', mapNote.mapImage, '.ocstudio/maps/北境.png')
   eq('地图 · 像素尺寸', [mapNote.mapWidth, mapNote.mapHeight], [1920, 1080])
+}
+
+const pet = scan.dataset.worldEntries.find((item) => item.entity.title === '小灰')?.entity
+if (pet === undefined) {
+  failures.push('找不到读回来的分类条目')
+} else {
+  eq('分类条目 · 分类', pet.category, '宠物')
+  eq('分类条目 · 封面引用', pet.cover, '附件/小灰.png')
+  eq('分类条目 · 简介', pet.summary, '一只灰羽风灵')
+  eq('分类条目 · 自定义字段', pet.custom, { 物种: '风灵', 习性: '夜行' })
+  eq('分类条目 · 关系图坐标', pet.graphPosition, { x: 448, y: 104 })
 }
 
 const country = scan.dataset.countries[0]?.entity

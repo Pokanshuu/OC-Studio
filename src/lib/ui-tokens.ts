@@ -46,9 +46,19 @@ export const SECTION_TITLE_BARE = 'font-serif text-[15px] font-bold tracking-[-0
    页头统一 48px；页面标题统一 18px 衬线加粗（列表页 / 编辑器 / 浮层共用）。 */
 export const PAGE_TITLE = 'text-lg text-ink font-serif font-bold tracking-[-0.01em]'
 
-/** 列表页 / 时间线 / 相册的页头（桌面 48px，粘顶） */
-export const TOOLBAR =
-  'max-md:hidden flex items-center justify-between sticky top-0 z-10 h-12 border-b border-line px-6 bg-paper/85 backdrop-blur-lg'
+/**
+ * 列表页 / 时间线 / 相册的页头骨架（桌面 48px）。
+ *
+ * 粘顶与底色 / 模糊在 `ListShell` 的页头表面上，这里只排这一行的内容。
+ */
+export const TOOLBAR = 'max-md:hidden flex h-12 items-center justify-between px-6'
+/**
+ * 页头「浮起来」的那一档：1px 线与模糊（滚动后才加）。**只给页头表面**（`ListShell`），
+ * 页头里的行不要再叠一层 —— 多行页头各糊各的，落后的那一行就会露出「没糊」的缝。
+ */
+export const TOOLBAR_SHADE = 'border-b border-line bg-paper/85 backdrop-blur-lg'
+/** 页头静止态：线占住位置但不画出来（底色透明） */
+export const TOOLBAR_PLAIN = 'border-b border-transparent'
 
 /** 编辑器页头：桌面粘顶 48px，移动端固定在安全区之下 */
 export const EDITOR_HEADER =

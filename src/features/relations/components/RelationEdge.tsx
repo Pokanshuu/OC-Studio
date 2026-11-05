@@ -89,6 +89,9 @@ export function RelationEdge({
 
   // 关系名可以为空（如角色关系只连了线没起名）——空标签不画那个白框
   const relation = (data?.relation as string | undefined) ?? ''
+  // 关系图里默认只在悬停 / 选中时显示（`RelationGraph` 在 data 上给 showLabel）；
+  // 导出等其它消费方没有这个键时保持显示，免得导出图丢名字
+  const showLabel = data?.showLabel !== false
   // 点标签 = 点线：标签是 EdgeLabelRenderer 里的独立元素，不经过画布的 onEdgeClick
   const onLabelClick = data?.onLabelClick as RelationLabelClick | undefined
   // 颜色与箭头是**边的数据**（docs/关系图.md §2.1），文字永远跟线同色
@@ -117,7 +120,7 @@ export function RelationEdge({
         markerStart={ends.start ? `url(#${startId})` : undefined}
         markerEnd={ends.end ? `url(#${endId})` : undefined}
       />
-      {relation ? (
+      {relation && showLabel ? (
         <EdgeLabelRenderer>
           <div
             onClick={(event) => {

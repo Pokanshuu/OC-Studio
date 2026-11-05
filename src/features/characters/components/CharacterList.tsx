@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { withTouchFeedback } from '@/lib/animation'
-import { Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeft, FolderOpen, Pencil, Trash2 } from 'lucide-react'
 import type { Character } from '@/types'
 import { useCountryList } from '@/features/countries/hooks/useCountries'
 import { useDevice } from '@/lib/use-device'
@@ -19,9 +19,16 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { CharacterCard, CharacterRow } from './CharacterListItems'
+import { ListShell } from '@/components/shared/ListShell'
+import { CoverFlow } from '@/components/shared/CoverFlow'
+import { FolderStack } from '@/components/shared/FolderStack'
+import { VerticalSplit } from '@/components/shared/VerticalSplit'
+import { MediaContextMenu } from '@/components/shared/MediaContextMenu'
+import { FolderManageDialog } from './FolderManageDialog'
+import { resolveImageUrl } from '@/lib/image-service'
 import { CharacterListToolbar } from './CharacterListToolbar'
 import { CharacterFolderBar, type FolderFilter } from './CharacterFolderBar'
-import { deleteFolder, listFolders, moveCharacterToFolder, renameFolder } from '../folders'
+import { createFolder, deleteFolder, listFolders, loadFolderRegistry, moveCharacterToFolder, renameFolder, useFolderRegistry } from '../folders'
 import { toast } from 'sonner'
 import { notifyDataUpdated } from '@/lib/data-events'
 import type { FilterOption } from '@/components/shared/FilterSelect'
@@ -60,7 +67,6 @@ export function CharacterList({
   const handleSelect = useMemo(() => withTouchFeedback(onSelectCharacter), [onSelectCharacter])
   const [sortKey, setSortKey] = useState<SortKey>(() => readSortKey(SORT_STORAGE_KEY, 'updatedAt'))
   const [folderFilter, setFolderFilter] = useState<FolderFilter>('all')
-  const [kindFilter, setKindFilter] = useState<'all' | 'character' | 'weapon' | 'pet'>('all')
   const [viewMode, setViewMode] = useState<ViewMode>(readViewPreference)
   const [search, setSearch] = useState('')
   const [countryFilter, setCountryFilter] = useState<number | 'all'>('all')
@@ -69,6 +75,9 @@ export function CharacterList({
     open: false, title: '', actions: [],
   })
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
+  /** 右键「堆」弹出的菜单（重命名 / 管理内容 / 删除） */
+  const [stackMenu, setStackMenu] = useState<{ name: string; at: { x: number; y: number } } | null>(null)
+  const [folderDialog, setFolderDialog] = useState<{ mode: 'rename' | 'members'; name: string } | null>(null)
 
   const openActionSheet = useCallback((char: Character) => {
     setActionSheet({
@@ -110,13 +119,70 @@ export function CharacterList({
     [countryMap],
   )
 
-  const { folders, ungrouped } = useMemo(() => listFolders(characters), [characters])
+  // 空文件夹的清单（`.ocstudio/folders.json`）—— 只有角色时，空夹没有地方挂
+  useEffect(() => {
+    void loadFolderRegistry()
+  }, [])
+
+  const registeredFolders = useFolderRegistry()
+  const { folders, ungrouped } = useMemo(
+    () => listFolders(characters, registeredFolders),
+    [characters, registeredFolders],
+  )
+  const folderNames = useMemo(() => folders.map((folder) => folder.name), [folders])
+  /** 是否正「站在某个文件夹里」（卡片 / 画廊视图点堆进入） */
+  const inFolder = folderFilter !== 'all'
+
+  const handleCreateFolder = useCallback(async (name: string) => {
+    try {
+      await createFolder(name)
+    } catch (err) {
+      toast.error('新建文件夹失败', { description: err instanceof Error ? err.message : String(err) })
+      throw err
+    }
+  }, [])
+
+  const handleRenameFolder = useCallback(
+    async (from: string, to: string) => {
+      const moved = await renameFolder(from, to)
+      toast.success(`已重命名为「${to}」`, { description: `${moved} 个角色跟着走，角色本身没动` })
+      notifyDataUpdated()
+      if (folderFilter === from) setFolderFilter(to)
+    },
+    [folderFilter],
+  )
+
+  const handleDeleteFolder = useCallback(
+    async (name: string) => {
+      const count = await deleteFolder(name)
+      toast.success(`已删除文件夹「${name}」`, { description: `${count} 个角色回到未分组，一个都没删` })
+      notifyDataUpdated()
+      if (folderFilter === name) setFolderFilter('all')
+    },
+    [folderFilter],
+  )
+
+  const handleMoveToFolder = useCallback((id: number, folder: string | null) => {
+    void moveCharacterToFolder(id, folder).then(() => notifyDataUpdated())
+  }, [])
+
+  /** 堆的正面：取第一个有图的成员（只一张，足够表现「里面是什么」） */
+  const stackCover = useCallback(
+    (name: string): string[] => {
+      const member = characters.find(
+        (character) => (character.folder ?? '').trim() === name && (character.headerUrl || character.avatarUrl),
+      )
+      if (!member) return []
+      const src = member.headerUrl
+        ? resolveImageUrl(member.headerUrl, 'header')
+        : resolveImageUrl(member.avatarUrl as string, 'avatar')
+      return src ? [src] : []
+    },
+    [characters],
+  )
 
   const filtered = useMemo(() => {
     let result = characters
-    if (kindFilter !== 'all') {
-      result = result.filter((c) => (c.kind ?? 'character') === kindFilter)
-    }
     if (folderFilter === 'ungrouped') {
       result = result.filter((c) => !(c.folder ?? '').trim())
     } else if (folderFilter !== 'all') {
@@ -136,7 +202,7 @@ export function CharacterList({
       )
     }
     return sortCharacters(result, sortKey)
-  }, [characters, sortKey, search, countryFilter, folderFilter, kindFilter])
+  }, [characters, sortKey, search, countryFilter, folderFilter])
 
   const handleViewChange = (mode: ViewMode) => {
     setViewMode(mode)
@@ -183,45 +249,40 @@ export function CharacterList({
   }
 
   return (
-    <div className="flex flex-col min-h-full">
-      <CharacterListToolbar
-        search={search}
-        onSearchChange={setSearch}
-        countryFilter={countryFilter}
-        onCountryFilterChange={setCountryFilter}
-        countryOptions={countryOptions}
-        kindFilter={kindFilter}
-        onKindFilterChange={setKindFilter}
-        sortKey={sortKey}
-        onSortKeyChange={handleSortChange}
-        viewMode={viewMode}
-        onViewModeChange={handleViewChange}
-        onCreateCharacter={onCreateCharacter}
-      />
-
-      <div className="max-md:h-10 flex-shrink-0" />
-
-      {characters.length > 0 ? (
-        <CharacterFolderBar
-          folders={folders}
-          ungrouped={ungrouped}
-          total={characters.length}
-          value={folderFilter}
-          onChange={setFolderFilter}
-          onRename={async (from, to) => {
-            const moved = await renameFolder(from, to)
-            toast.success(`已重命名为「${to}」`, { description: `${moved} 个角色跟着走，角色本身没动` })
-            notifyDataUpdated()
-          }}
-          onDelete={async (name) => {
-            const count = await deleteFolder(name)
-            toast.success(`已删除文件夹「${name}」`, { description: `${count} 个角色回到未分组，一个都没删` })
-            notifyDataUpdated()
-          }}
-        />
-      ) : null}
-
-      <div className="flex-1 p-4 flex flex-col">
+    <>
+      <ListShell
+        fill={viewMode === 'gallery'}
+        header={() => (
+          <>
+            <CharacterListToolbar
+              search={search}
+              onSearchChange={setSearch}
+              countryFilter={countryFilter}
+              onCountryFilterChange={setCountryFilter}
+              countryOptions={countryOptions}
+              sortKey={sortKey}
+              onSortKeyChange={handleSortChange}
+              viewMode={viewMode}
+              onViewModeChange={handleViewChange}
+              onCreateCharacter={onCreateCharacter}
+            />
+            {characters.length > 0 && viewMode === 'list' ? (
+              <CharacterFolderBar
+                folders={folders}
+                ungrouped={ungrouped}
+                total={characters.length}
+                value={folderFilter}
+                onChange={setFolderFilter}
+                onRename={handleRenameFolder}
+                onDelete={handleDeleteFolder}
+                onCreate={handleCreateFolder}
+              />
+            ) : null}
+          </>
+        )}
+      >
+        <div className="max-md:h-10" />
+        <div className={viewMode === 'gallery' ? 'flex min-h-0 flex-1 flex-col' : 'p-4 flex flex-col'}>
         {characters.length === 0 ? (
           <div className="flex-1 flex items-center justify-center">
             <button
@@ -231,7 +292,106 @@ export function CharacterList({
               暂无角色，点击创建第一个
             </button>
           </div>
-        ) : viewMode === 'grid' ? (
+        ) : (
+          <>
+            {inFolder ? (
+              <div className="mb-3 flex items-center gap-2">
+                <button type="button" onClick={() => setFolderFilter('all')} className={CHIP}>
+                  <ArrowLeft size={12} strokeWidth={2} />
+                  全部
+                </button>
+                <span className="text-[13px] text-ink">
+                  {folderFilter === 'ungrouped' ? '未分组' : folderFilter}
+                </span>
+              </div>
+            ) : null}
+
+            {viewMode === 'gallery' ? (
+              <VerticalSplit
+                storageKey="oc-characters-gallery-split"
+                className="min-h-0 flex-1"
+                top={
+                  <CoverFlow fill aspect={7 / 6} maxItemWidth={540} className="h-full">
+                    {[
+                      ...(!inFolder
+                        ? folders.map((folder) => (
+                            <FolderStack
+                              key={`folder-${folder.name}`}
+                              name={folder.name}
+                              count={folder.count}
+                              covers={stackCover(folder.name)}
+                              onOpen={() => setFolderFilter(folder.name)}
+                              onContextMenu={(event) => {
+                                event.preventDefault()
+                                setStackMenu({ name: folder.name, at: { x: event.clientX, y: event.clientY } })
+                              }}
+                            />
+                          ))
+                        : []),
+                      ...filtered.map((character) => (
+                        <CharacterCard
+                          key={character.id}
+                          character={character}
+                          onSelect={handleSelect}
+                          folders={folderNames}
+                          onMoveToFolder={handleMoveToFolder}
+                          onDelete={onDeleteCharacter}
+                          onLongPress={() => openActionSheet(character)}
+                          countryName={getCountryName(character)}
+                          isMobile={isMobile}
+                        />
+                      )),
+                    ]}
+                  </CoverFlow>
+                }
+                bottom={
+                  <SortableList
+                    activation="longPress"
+                    ids={filtered.map((c) => c.id)}
+                    onReorder={handleReorder}
+                    layout="list"
+                    disabled={!manual}
+                  >
+                    <div className="flex flex-col rules-end px-1">
+                      {filtered.map((character) => (
+                        <CharacterRow
+                          key={character.id}
+                          character={character}
+                          onSelect={handleSelect}
+                          folders={folderNames}
+                          onMoveToFolder={handleMoveToFolder}
+                          onDelete={onDeleteCharacter}
+                          onLongPress={() => openActionSheet(character)}
+                          countryName={getCountryName(character)}
+                          isMobile={isMobile}
+                          sortable={manual}
+                        />
+                      ))}
+                    </div>
+                  </SortableList>
+                }
+              />
+            ) : null}
+
+            {viewMode === 'grid' && !inFolder && folders.length > 0 ? (
+              <div className={`${LIST_GRID} mb-4`}>
+                {folders.map((folder) => (
+                  <FolderStack
+                    key={folder.name}
+                    name={folder.name}
+                    count={folder.count}
+                    covers={stackCover(folder.name)}
+                    onOpen={() => setFolderFilter(folder.name)}
+                    onContextMenu={(event) => {
+                      event.preventDefault()
+                      setStackMenu({ name: folder.name, at: { x: event.clientX, y: event.clientY } })
+                    }}
+                  />
+                ))}
+              </div>
+            ) : null}
+
+            {viewMode === 'grid' ? (
           <SortableList
               activation="longPress"
             ids={filtered.map((c) => c.id)}
@@ -259,7 +419,7 @@ export function CharacterList({
               ))}
             </div>
           </SortableList>
-        ) : (
+            ) : viewMode === 'list' ? (
           <SortableList
               activation="longPress"
             ids={filtered.map((c) => c.id)}
@@ -286,9 +446,12 @@ export function CharacterList({
               ))}
             </div>
           </SortableList>
+            ) : null}
+          </>
         )}
         <MobileFab viewMode={viewMode} onViewModeChange={handleViewChange} />
-      </div>
+        </div>
+      </ListShell>
 
       <MobileActionSheet
         open={actionSheet.open}
@@ -316,7 +479,59 @@ export function CharacterList({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+
+      {stackMenu ? (
+        <MediaContextMenu
+          at={stackMenu.at}
+          onClose={() => setStackMenu(null)}
+          items={[
+            {
+              label: '重命名',
+              icon: <Pencil size={13} strokeWidth={2} />,
+              onSelect: () => {
+                const name = stackMenu.name
+                setStackMenu(null)
+                setFolderDialog({ mode: 'rename', name })
+              },
+            },
+            {
+              label: '管理内容',
+              icon: <FolderOpen size={13} strokeWidth={2} />,
+              onSelect: () => {
+                const name = stackMenu.name
+                setStackMenu(null)
+                setFolderDialog({ mode: 'members', name })
+              },
+            },
+            {
+              label: '删除文件夹',
+              danger: true,
+              icon: <Trash2 size={13} strokeWidth={2} />,
+              onSelect: () => {
+                const name = stackMenu.name
+                setStackMenu(null)
+                void handleDeleteFolder(name)
+              },
+            },
+          ]}
+        />
+      ) : null}
+
+      <FolderManageDialog
+        open={folderDialog !== null}
+        mode={folderDialog?.mode ?? 'rename'}
+        folder={folderDialog?.name ?? null}
+        characters={characters}
+        onClose={() => setFolderDialog(null)}
+        onRename={handleRenameFolder}
+        onToggleMember={async (id, inFolderFlag) => {
+          const target = folderDialog?.name
+          if (!target) return
+          await moveCharacterToFolder(id, inFolderFlag ? target : null)
+          notifyDataUpdated()
+        }}
+      />
+    </>
   )
 }
 

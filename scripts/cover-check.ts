@@ -21,7 +21,7 @@ import {
   rgba,
   tintFromPixels,
 } from '../src/lib/cover/color'
-import { photoPlateHeight } from '../src/lib/cover/scene'
+import { photoDissolveStart, photoPlateHeight } from '../src/lib/cover/scene'
 import { normalizeTintMode } from '../src/lib/cover/tuning'
 
 const failures: string[] = []
@@ -330,35 +330,63 @@ function maxGradient(data: Uint8ClampedArray, row: number, offsetRow: number, wi
   check('缺省回 auto', normalizeTintMode(undefined) === 'auto')
 }
 
-// ── 11. 照片块：按宽度铺满，左右永远不裁 ────────────────────────────────
+// ── 11. 照片块：高度只看卡片比例，不看图片宽高比 ──────────────────────────
 //
-// 这条是「左右别裁」的防线：横图在卡片里只能靠**自然高度**结束（照片矮、下面留色块），
-// 只有竖图才会因为超过上限而被裁上下。一旦有人把 drawCover 换回来，这里会立刻红。
+// 封面卡的长宽比是固定的（实体卡 7:6），照片区也必须是**固定高度**：
+// 早先按「图片自然高度」算，3:2 占 78% 高、3:1 的横幅只占 39%，
+// 同一排卡片就成了两种版式。函数签名里已经没有图片宽高，这里锁住比例换算。
 
 {
-  const CARD_W = 400
-  const CARD_H = Math.round(CARD_W / (7 / 6)) // 默认 7:6 的卡
-  const CAP = 1 // 上限 100%
+  const CARD_H = 651
+  const RATIO = 0.78
 
-  // 横图 3:2：自然高度只有 67% 宽，必须小于卡片高度 —— 一点不裁
-  const wide = photoPlateHeight(CARD_W, CARD_H, 1500, 1000, CAP)
-  check('3:2 横图按宽度算高度', Math.abs(wide - Math.round(CARD_W / 1.5)) <= 1, `实际 ${wide}`)
-  check('3:2 横图不顶到画布底（下方留给色块）', wide < CARD_H, `${wide} vs ${CARD_H}`)
+  check('照片高度 = 卡片高度 × 比例', photoPlateHeight(CARD_H, RATIO) === Math.round(CARD_H * RATIO))
+  check('比例超过 100% 被夹到整张卡', photoPlateHeight(CARD_H, 2) === CARD_H)
+  check('比例过低时仍留 20% 下限', photoPlateHeight(CARD_H, 0) === Math.round(CARD_H * 0.2))
+  check('空卡片也有最小高度', photoPlateHeight(0, RATIO) >= 4)
 
-  // 和卡片同比例的图：铺满整张卡、正好不裁
-  const same = photoPlateHeight(CARD_W, CARD_H, 1400, 1200, CAP)
-  check('同比例图正好铺满', Math.abs(same - CARD_H) <= 1, `${same} vs ${CARD_H}`)
+  // 关键：3:1 与 3:2 的图拿到的是同一个照片区高度（图片只影响 cover 裁切，不影响版式）
+  const plate = photoPlateHeight(CARD_H, RATIO)
+  check('照片区与图片比例无关（3:1 / 3:2 同高）', plate === photoPlateHeight(CARD_H, RATIO))
+}
 
-  // 竖图：自然高度远超画布，被上限截住 —— 只裁上下
-  const tall = photoPlateHeight(CARD_W, CARD_H, 1000, 1500, CAP)
-  check('竖图被上限截住', tall === CARD_H, `${tall} vs ${CARD_H}`)
+// ── 12. 溶解带：按卡片高度给，照片区拖矮了也不会被压成硬边 ────────────────
+//
+// 常规照片（78% 高）的溶解带 = 卡片 15%（2026-11-05 从 11% 放宽，并成为参数）。
+// 厚度按卡片高度给，用户把「照片高度」拖到 40% 时也不会缩成一条线。
 
-  // 上限调低时，横图也只会更矮，绝不会更宽
-  const capped = photoPlateHeight(CARD_W, CARD_H, 1500, 1000, 0.5)
-  check('上限生效时只减少高度', Math.abs(capped - Math.round(CARD_H * 0.5)) <= 1, `实际 ${capped}`)
+{
+  const CARD_H = 651
 
-  // 极端比例不产出 0 / NaN
-  check('超宽图仍有最小高度', photoPlateHeight(CARD_W, CARD_H, 4000, 100, CAP) >= 4)
+  const standardPlate = photoPlateHeight(CARD_H, 0.78)
+  const standardStart = photoDissolveStart(CARD_H, standardPlate)
+  const standardBand = (1 - standardStart) * standardPlate
+  check('常规照片的溶解带 ≈ 卡片高 15%', Math.abs(standardBand - CARD_H * 0.15) <= 1.5, `${standardBand.toFixed(1)} / ${CARD_H}`)
+  check(
+    '常规照片约在照片 81% 处开始淡出',
+    Math.abs(standardStart - (1 - 0.15 / 0.78)) <= 0.005,
+    standardStart.toFixed(3),
+  )
+
+  // 面板把溶解带拖宽：起点必须提前，且宽度仍按卡片高度算
+  const wideStart = photoDissolveStart(CARD_H, standardPlate, 0.22)
+  check('溶解带参数变宽后起点提前', wideStart < standardStart, `${wideStart.toFixed(3)} / ${standardStart.toFixed(3)}`)
+  check(
+    '溶解带参数的厚度按卡片高度给',
+    Math.abs((1 - wideStart) * standardPlate - CARD_H * 0.22) <= 1.5,
+    `${((1 - wideStart) * standardPlate).toFixed(1)} / ${(CARD_H * 0.22).toFixed(1)}`,
+  )
+
+  // 照片区被拖到 40%：带子仍按卡片高度给
+  const shortPlate = photoPlateHeight(CARD_H, 0.4)
+  const shortStart = photoDissolveStart(CARD_H, shortPlate)
+  check('照片区拖矮后溶解带仍按卡片高度给', Math.abs((1 - shortStart) * shortPlate - CARD_H * 0.15) <= 1.5)
+  check('照片区拖矮后至少留一半不透明', shortStart >= 0.5 - 1e-9, shortStart.toFixed(3))
+
+  // 拖到最低的 20%：最多淡掉下半部分
+  const minPlate = photoPlateHeight(CARD_H, 0.2)
+  check('极端矮的照片最多淡掉下半部分', photoDissolveStart(CARD_H, minPlate) >= 0.5 - 1e-9)
+  check('没有照片高度时不淡出', photoDissolveStart(CARD_H, 0) === 1)
 }
 
 // ── 汇总 ────────────────────────────────────────────────────────────────

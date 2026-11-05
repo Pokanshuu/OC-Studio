@@ -11,7 +11,14 @@ import { renameEntry, reorderEntries, updateEntry } from '../services'
 import { useFields } from '@/lib/fields'
 import type { WorldFormData } from '../types'
 import { useWorldEntryDraft } from '../hooks/useWorldEntryDraft'
-import { WorldFrontmatter } from './WorldFrontmatter'
+import { WorldTitleField, WorldMetaFields } from './WorldFrontmatter'
+import { WorldCustomFields } from './WorldCustomFields'
+import { WorldCoverField } from './WorldCoverField'
+import { TemplateRenderer } from '@/components/shared/TemplateRenderer'
+import { MediaContextMenu } from '@/components/shared/MediaContextMenu'
+import { BTN_QUIET } from '@/lib/ui-tokens'
+import { useTemplates } from '@/lib/templates/store'
+import { useCategories } from '@/lib/categories/store'
 import { WorldTreePanel } from './WorldTreePanel'
 import { WorldEntryBody } from './WorldEntryBody'
 import { docHasRef, filterEntriesWithAncestors } from './world-content-utils'
@@ -35,10 +42,14 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
   const [treeCollapsed, setTreeCollapsed] = useState(false)
   const [treeQuery, setTreeQuery] = useState('')
   const [tags, setTags] = useState<number[]>([])
+  const [templateMenu, setTemplateMenu] = useState<{ x: number; y: number } | null>(null)
   const [bodyEditor, setBodyEditor] = useState<Editor | null>(null)
   const handledNavRef = useRef<number | null>(null)
   const worldFields = useFields('worldEntry')
   const showTags = worldFields.some((field) => field.id === 'tags')
+  // 词条编辑器走模板渲染循环（阶段一：顺序/开关来自模板，数据仍写原列）
+  const { templates } = useTemplates()
+  const categories = useCategories()
   const { createEntry } = useCreateEntry()
   const { deleteEntry } = useDeleteEntry()
   const { isMobile } = useDevice()
@@ -59,6 +70,16 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
   }, [])
 
   const { entry: currentEntry } = useEntry(selectedId)
+
+  // 模板解析顺序：单篇覆盖（模板:）→ 分类绑定 → 内置词条模板
+  const categoryTemplate = categories.find(
+    (category) => category.name === (currentEntry?.category ?? ''),
+  )?.template
+  const requestedTemplate = currentEntry?.template?.trim() || categoryTemplate
+  const entryTemplate =
+    templates.find((doc) => doc.id === requestedTemplate || doc.name === requestedTemplate) ??
+    templates.find((doc) => doc.id === 'entry')
+
 
   const {
     handleContentChange,
@@ -210,7 +231,21 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
         editor={bodyEditor}
         headerRight={
           currentEntry ? (
-            <EntityHistoryButton table="worldEntries" id={currentEntry.id} name={title} />
+            <>
+              {/* 单篇覆盖模板：落 `模板:` 键；「跟随分类」= 清空 */}
+              <button
+                type="button"
+                onClick={(event) => {
+                  const rect = event.currentTarget.getBoundingClientRect()
+                  setTemplateMenu({ x: Math.max(8, rect.right - 160), y: rect.bottom + 4 })
+                }}
+                className={BTN_QUIET}
+                title="这篇用哪个模板"
+              >
+                {entryTemplate?.name ?? '模板'}
+              </button>
+              <EntityHistoryButton table="worldEntries" id={currentEntry.id} name={title} />
+            </>
           ) : null
         }
       >
@@ -218,31 +253,54 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
           <div className="min-h-0 flex-1 overflow-y-auto">
             <div className="h-12 shrink-0" aria-hidden />
             <div className="mx-auto w-full max-w-3xl px-4 py-3 md:px-8 md:py-6">
-              <WorldFrontmatter
-                title={title}
-                onTitleChange={handleTitleChange}
-                tags={tags}
-                onTagsChange={handleTagsChange}
-                showTags={showTags}
-                backlinks={backlinks}
-                onSelectBacklink={(id) => {
-                  const target = entries.find((e) => e.id === id)
-                  if (target) void handleSelect(id, target)
-                }}
-                compact={false}
-              />
-              <div className="mt-8 border-t border-line" />
-              <div className="mt-8">
-                <WorldEntryBody
-                  selectedId={selectedId}
-                  pane={false}
-                  onReady={handleBodyReady}
-                  onContentChange={handleContentChange}
-                  onMentionClick={onMentionClick}
-                  onCharacterCount={onCharacterCount}
-                  onWikiLinkClick={onWikiLinkClick}
+              {entryTemplate ? (
+                <TemplateRenderer
+                  template={entryTemplate}
+                  render={(component) => {
+                    switch (component.id) {
+                      case 'cover':
+                        return <WorldCoverField entry={currentEntry} />
+                      case 'info':
+                        return (
+                          <div className="flex flex-col gap-3">
+                            <WorldTitleField title={title} onTitleChange={handleTitleChange} />
+                            <WorldCustomFields key={currentEntry.id} entry={currentEntry} />
+                          </div>
+                        )
+                      case 'tags':
+                        if (!showTags && backlinks.length === 0) return null
+                        return (
+                          <WorldMetaFields
+                            tags={tags}
+                            onTagsChange={handleTagsChange}
+                            showTags={showTags}
+                            backlinks={backlinks}
+                            onSelectBacklink={(id) => {
+                              const target = entries.find((e) => e.id === id)
+                              if (target) void handleSelect(id, target)
+                            }}
+                          />
+                        )
+                      case 'body':
+                        return (
+                          <WorldEntryBody
+                            selectedId={selectedId}
+                            pane={false}
+                            onReady={handleBodyReady}
+                            onContentChange={handleContentChange}
+                            onMentionClick={onMentionClick}
+                            onCharacterCount={onCharacterCount}
+                            onWikiLinkClick={onWikiLinkClick}
+                          />
+                        )
+                      default:
+                        return null
+                    }
+                  }}
                 />
-              </div>
+              ) : (
+                <div className="h-24" aria-hidden />
+              )}
             </div>
           </div>
         ) : loading ? (
@@ -261,6 +319,31 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
           </div>
         )}
       </EntityEditorShell>
+
+      {templateMenu ? (
+        <MediaContextMenu
+          at={templateMenu}
+          onClose={() => setTemplateMenu(null)}
+          items={[
+            {
+              label: currentEntry?.category ? `跟随分类（${currentEntry.category}）` : '默认模板',
+              onSelect: () => {
+                const id = selectedIdRef.current
+                if (id === null) return
+                void updateEntry(id, { template: '' }).then(() => refresh())
+              },
+            },
+            ...templates.map((template) => ({
+              label: template.name,
+              onSelect: () => {
+                const id = selectedIdRef.current
+                if (id === null) return
+                void updateEntry(id, { template: template.name }).then(() => refresh())
+              },
+            })),
+          ]}
+        />
+      ) : null}
     </>
   )
 }

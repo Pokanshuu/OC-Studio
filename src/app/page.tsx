@@ -21,6 +21,8 @@ import { WorldLayout } from '@/features/world/components/WorldLayout'
 import { TimelineView } from '@/features/timeline/components/TimelineView'
 import { GlobalAlbum } from '@/components/shared/GlobalAlbum'
 import { Dashboard } from '@/features/dashboard'
+import { CategorySection } from '@/features/categories/CategorySection'
+import { categoryIdFromItem, isCategoryItem } from '@/lib/categories/types'
 import { useEntityWorkspace } from '@/lib/use-entity-workspace'
 
 const MapView = dynamic(() => import('@/features/map').then((mod) => ({ default: mod.MapView })), {
@@ -48,6 +50,8 @@ export default function Home() {
     charactersLoading,
     characterView,
     charSlide,
+    categoryEntryTarget,
+    clearCategoryEntryTarget,
     clearNovelEntryTarget,
     clearWorldSelectedEntry,
     countrySlide,
@@ -212,6 +216,27 @@ export default function Home() {
       </div>
 
       <div
+        className="h-full section-fade overflow-y-auto section-fade-no-gutter max-md:pt-[calc(60px+var(--safe-top))] max-md:pb-[calc(60px+var(--safe-bottom))]"
+        data-visible={activeItem !== null && isCategoryItem(activeItem) ? "true" : "false"}
+      >
+        {activeItem !== null && isCategoryItem(activeItem) ? (
+          <CategorySection
+            key={categoryIdFromItem(activeItem)}
+            categoryId={categoryIdFromItem(activeItem)}
+            openEntryRequest={
+              categoryEntryTarget !== null && categoryEntryTarget.item === activeItem
+                ? { entryId: categoryEntryTarget.entryId, nonce: categoryEntryTarget.nonce }
+                : null
+            }
+            onOpenEntryConsumed={clearCategoryEntryTarget}
+            onMentionClick={handleMentionClick}
+            onCharacterCount={handleWorldCharCount}
+            onWikiLinkClick={handleWikiLinkClick}
+          />
+        ) : null}
+      </div>
+
+      <div
         className="h-full section-fade overflow-y-auto max-md:pt-[calc(60px+var(--safe-top))] max-md:pb-[calc(60px+var(--safe-bottom))]"
         data-visible={showTimeline ? "true" : "false"}
       >
@@ -272,6 +297,10 @@ export default function Home() {
           onNavigateToCountry={(id) => {
             setSource('relations')
             handleRelatedItemNavigate(id, 'country')
+          }}
+          onNavigateToWorld={(id) => {
+            setSource('relations')
+            handleRelatedItemNavigate(id, 'world')
           }}
         />
       </div>

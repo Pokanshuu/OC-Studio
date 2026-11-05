@@ -230,7 +230,7 @@ export function serializeCharacter(
   putIfChanged(out, existing, CHARACTER_KEYS.relations, relationDisk(entity, ctx), prev === null ? null : relationDisk(prev, ctx))
   putIfChanged(out, existing, CHARACTER_KEYS.order, writeNumber(entity.order), prev === null ? null : writeNumber(prev.order))
   putIfChanged(out, existing, CHARACTER_KEYS.folder, writeString(entity.folder ?? ''), prev === null ? null : writeString(prev.folder ?? ''))
-  putIfChanged(out, existing, CHARACTER_KEYS.kind, writeString(entity.kind ?? ''), prev === null ? null : writeString(prev.kind ?? ''))
+  putIfChanged(out, existing, CHARACTER_KEYS.legacyKind, writeString(entity.legacyKind ?? ''), prev === null ? null : writeString(prev.legacyKind ?? ''))
   putIfChanged(out, existing, CHARACTER_KEYS.graphPosition, writePosition(entity.graphPosition), prev === null ? null : writePosition(prev.graphPosition))
   putCustomFields(out, existing, 'character', entity.custom, prev === null ? undefined : prev.custom)
 
@@ -331,9 +331,13 @@ export function serializeWorldEntry(
   if (entity.category.trim() !== '') {
     putIfChanged(out, existing, WORLD_KEYS.category, writeString(entity.category), p === null ? null : writeString(p.category))
   }
+  putIfChanged(out, existing, WORLD_KEYS.summary, writeString(entity.summary ?? ''), p === null ? null : writeString(p.summary ?? ''))
+  putIfChanged(out, existing, WORLD_KEYS.cover, writeString(entity.cover ?? ''), p === null ? null : writeString(p.cover ?? ''))
+  putIfChanged(out, existing, WORLD_KEYS.template, writeString(entity.template ?? ''), p === null ? null : writeString(p.template ?? ''))
   putIfChanged(out, existing, WORLD_KEYS.parent, parentValue(entity), p === null ? null : parentValue(p))
   putIfChanged(out, existing, WORLD_KEYS.order, writeNumber(entity.order), p === null ? null : writeNumber(p.order))
   putIfChanged(out, existing, WORLD_KEYS.isConcept, writeBool(entity.isConcept), p === null ? null : writeBool(p.isConcept))
+  putIfChanged(out, existing, WORLD_KEYS.graphPosition, writePosition(entity.graphPosition), p === null ? null : writePosition(p.graphPosition))
   putIfChanged(out, existing, WORLD_KEYS.mapPosition, writePosition(entity.mapPosition), p === null ? null : writePosition(p.mapPosition))
   putIfChanged(out, existing, WORLD_KEYS.mapId, writeString(entity.mapId ?? ''), p === null ? null : writeString(p.mapId ?? ''))
   putIfChanged(out, existing, WORLD_KEYS.novelAuthor, writeString(entity.novelAuthor ?? ''), p === null ? null : writeString(p.novelAuthor ?? ''))
@@ -347,6 +351,8 @@ export function serializeWorldEntry(
   putIfChanged(out, existing, WORLD_KEYS.mapHeight, writeNumber(entity.mapHeight), p === null ? null : writeNumber(p.mapHeight))
   putIfChanged(out, existing, WORLD_KEYS.mapSeed, writeNumber(entity.mapSeed), p === null ? null : writeNumber(p.mapSeed))
   putIfChanged(out, existing, WORLD_KEYS.mapParams, writeString(entity.mapParams ?? ''), p === null ? null : writeString(p.mapParams ?? ''))
+  putIfChanged(out, existing, WORLD_KEYS.mapMode, writeString(entity.mapMode ?? ''), p === null ? null : writeString(p.mapMode ?? ''))
+  putIfChanged(out, existing, WORLD_KEYS.mapAnnotations, writeString(entity.mapAnnotations ?? ''), p === null ? null : writeString(p.mapAnnotations ?? ''))
   putIfChanged(out, existing, WORLD_KEYS.tags, tagNames(ctx, entity.tags), p === null ? null : tagNames(ctx, p.tags))
   putCustomFields(out, existing, 'worldEntry', entity.custom, p === null ? undefined : p.custom)
   return out

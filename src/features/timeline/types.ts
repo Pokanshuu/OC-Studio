@@ -7,6 +7,11 @@ export interface TimelineEvent {
   endTime?: string
   summary: string
   isMajor: boolean
+  /** 事件之间的关系（只在该时间线视图里画连线，不改数据） */
+  relations?: { targetId: number; relation: string }[]
+  /** 参与者（只用于时间线的参与者轨道，不改数据） */
+  characters?: number[]
+  countries?: number[]
   /**
    * 节点来源。缺省 = 真事件。
    * `birth` 是由角色生日合成的伪节点：不可拖拽（拖了会去改事件的 time），点击跳角色。
@@ -24,6 +29,9 @@ export function pickTimelineFields(event: Event): TimelineEvent {
     endTime: event.endTime,
     summary: event.summary,
     isMajor: event.isMajor,
+    relations: event.relations,
+    characters: event.characters,
+    countries: event.countries,
   }
 }
 

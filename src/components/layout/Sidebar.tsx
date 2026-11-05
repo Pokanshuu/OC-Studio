@@ -21,11 +21,20 @@ import {
   Settings,
   Trash2,
   Images,
+  Plus,
 } from 'lucide-react'
 import { useNavigation } from './NavigationContext'
 import { useSettingsTrigger } from './SettingsTriggerContext'
 import { useTrashOverlay } from './TrashOverlayContext'
 import { useSettings } from '@/lib/settings'
+import { categoryIconOf } from '@/lib/categories/icons'
+import { updateCategory, useCategories } from '@/lib/categories/store'
+import { categoryItemName } from '@/lib/categories/types'
+import type { Category } from '@/lib/categories/types'
+import { CategoryDialog } from '@/features/categories/CategoryDialog'
+import { MediaContextMenu } from '@/components/shared/MediaContextMenu'
+import { notifyDataUpdated } from '@/lib/data-events'
+import { toast } from 'sonner'
 import {
   DEFAULT_SIDEBAR_WIDTH,
   SIDEBAR_MAX_WIDTH,
@@ -75,6 +84,13 @@ export function Sidebar() {
   const { openSettings } = useSettingsTrigger()
   const { openTrash } = useTrashOverlay()
   const { settings, updateSetting } = useSettings()
+  const categories = useCategories()
+  const [categoryDialog, setCategoryDialog] = useState<
+    | { mode: 'create' }
+    | { mode: 'edit'; category: Category }
+    | null
+  >(null)
+  const [categoryMenu, setCategoryMenu] = useState<{ category: Category; at: { x: number; y: number } } | null>(null)
 
   const [dragWidth, setDragWidth] = useState<number | null>(null)
   // 宽度的真源在 localStorage（设置），服务端渲染读不到 —— 先按默认宽度出 HTML，
@@ -173,7 +189,67 @@ export function Sidebar() {
 
           <div className={GROUP_LABEL}>视图</div>
           {VIEW_ITEMS.map((item) => renderItem(item.label, item.icon))}
+
+          {/* 自定义分类：分类 = 模板 + 一组笔记（宠物 / 武器 都住在这里，不塞进角色） */}
+          <div className={GROUP_LABEL}>自定义分类</div>
+          {categories.filter((category) => category.enabled).map((category) => {
+            const Icon = categoryIconOf(category.icon)
+            const item = categoryItemName(category.id)
+            return (
+              <button
+                key={category.id}
+                onClick={() => setActiveItem(item)}
+                onContextMenu={(event) => {
+                  event.preventDefault()
+                  setCategoryMenu({ category, at: { x: event.clientX, y: event.clientY } })
+                }}
+                className={`${ITEM_BASE} ${activeItem === item ? ITEM_ON : ITEM_OFF}`}
+              >
+                <Icon size={16} strokeWidth={2} className="shrink-0" />
+                <span className="transparent-text">{category.name}</span>
+              </button>
+            )
+          })}
+          <button onClick={() => setCategoryDialog({ mode: 'create' })} className={`${ITEM_BASE} ${ITEM_OFF}`}>
+            <Plus size={16} strokeWidth={2} className="shrink-0" />
+            <span className="transparent-text">新建分类</span>
+          </button>
         </nav>
+
+        <CategoryDialog
+          open={categoryDialog !== null}
+          category={categoryDialog?.mode === 'edit' ? categoryDialog.category : undefined}
+          onClose={() => setCategoryDialog(null)}
+          onCreated={(created) => setActiveItem(categoryItemName(created.id))}
+          onDeleted={(id) => {
+            if (activeItem === categoryItemName(id)) setActiveItem(null)
+          }}
+        />
+
+        {categoryMenu ? (
+          <MediaContextMenu
+            at={categoryMenu.at}
+            onClose={() => setCategoryMenu(null)}
+            items={[
+              categoryMenu.category.builtin
+                ? {
+                    label: '停用',
+                    onSelect: () => {
+                      if (activeItem === categoryItemName(categoryMenu.category.id)) setActiveItem(null)
+                      void updateCategory(categoryMenu.category.id, { enabled: false })
+                        .then(() => notifyDataUpdated())
+                        .catch((err: unknown) => {
+                          toast.error('停用失败', { description: String(err) })
+                        })
+                    },
+                  }
+                : {
+                    label: '编辑分类',
+                    onSelect: () => setCategoryDialog({ mode: 'edit', category: categoryMenu.category }),
+                  },
+            ]}
+          />
+        ) : null}
 
         <div className="flex flex-col border-t border-line py-2">
           <button onClick={openTrash} className={`${ITEM_BASE} ${ITEM_OFF}`}>

@@ -1,5 +1,3 @@
-export type CharacterKind = 'character' | 'weapon' | 'pet'
-
 export interface RelatedCharacter {
   characterId?: number
   name: string
@@ -53,8 +51,6 @@ export interface Character {
   animationUrl?: string
   /** 角色文件夹名（空 / 缺省 = 未分组）；删文件夹不删角色 */
   folder?: string
-  /** 类别：角色 / 武器 / 宠物（缺省 = 角色） */
-  kind?: CharacterKind
   document?: unknown
   relatedCharacters: RelatedCharacter[]
   gallery: GalleryImage[]
@@ -66,6 +62,8 @@ export interface Character {
   order?: number
   /** 关系图里的坐标（用户拖过才有；落盘到 frontmatter 的 `graph_position`） */
   graphPosition?: GraphPosition
+  /** 旧版武器 / 宠物标记（`kind` / `类别`）；只用于一次性导入，导入后清掉 */
+  legacyKind?: string
   createdAt: number
   /** 自定义字段的值（键 = 字段表里的 key；内置字段仍然走各自的列） */
   custom?: Record<string, string>
@@ -165,16 +163,24 @@ export interface WorldEntry {
   aliases?: string[]
   content: string
   document?: unknown
+  /** 分类条目的封面（3:2 槽位，落盘键 cover）；普通词条一般不设 */
+  cover?: string
+  /** 一行简介（分类条目的副标题 / 列表摘要；落盘键 简介） */
+  summary?: string
   /**
    * 历史字段（已废弃）：层级只由 `parentId` 表达，界面不再编辑、新条目一律空。
    * 保留是为了读得懂老数据和已有 vault 文件里的 `分类:` 键 —— 写回时也不再动它。
    */
   category: string
+  /** 单篇覆盖的模板名（空 = 跟随分类 / 内置词条模板；落盘键 模板） */
+  template?: string
   parentId: number | null
   order: number
   isConcept: boolean
   /** 地图锚点：归一化 0–1（docs/地图.md §2）；没摆过就没有这个键 */
   mapPosition?: GraphPosition
+  /** 关系图坐标：分类条目进图后拖动才有的键；没摆过就交给力导向布局 */
+  graphPosition?: GraphPosition
   /** 所属地图（`.ocstudio/maps/` 的文件名）；空 = 主地图 */
   mapId?: string
   /** 小说根节点：作者 / 简介 / 目标字数 / 作品笔记（其它词条不会有） */
@@ -191,6 +197,10 @@ export interface WorldEntry {
   /** 生成用的种子与参数快照（JSON 字符串） */
   mapSeed?: number
   mapParams?: string
+  /** 当前显示的视图（`terrain` / `contour` / …）。只有生成过的地图才有 */
+  mapMode?: string
+  /** 政治标注（国界 / 道路）：JSON 字符串，坐标归一化 0–1（`features/map/annotations.ts`） */
+  mapAnnotations?: string
   /** 章节：大纲 / 备注（一行说明，不是正文） */
   chapterOutline?: string
   references: WorldReference[]

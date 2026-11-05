@@ -165,7 +165,8 @@ export function progressiveBlur(params: ProgressiveBlurParams): Uint8ClampedArra
     vertical(scratch, current)
   }
 
-  // 按行衰减 Alpha：照片在照片高度的 78% 之后逐渐消失，溶进铺满整张卡片的色块
+  // 按行衰减 Alpha：从 `fadeStart`（照片高度比）起逐渐消失，溶进铺满整张卡片的色块。
+  // 这个起点由 `scene.ts` 按**卡片高度**算，宽幅照片也能拿到同样厚的溶解带。
   const fade = fadeStart < 0 ? 0 : fadeStart > 1 ? 1 : fadeStart
   const fadeSpan = 1 - fade
   if (fadeSpan > 0) {

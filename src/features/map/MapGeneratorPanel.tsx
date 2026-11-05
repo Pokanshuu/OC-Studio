@@ -15,12 +15,17 @@ import { Dices, ImageDown, Save } from 'lucide-react'
 import {
   DEFAULT_MAP_PARAMS,
   MAP_VIEW_LABELS,
+  REGION_MAP_SIZE,
+  WORLD_MAP_HEIGHT,
+  WORLD_MAP_WIDTH,
   createMapGeneratorWorker,
   normalizeMapParams,
   type GeneratedMeta,
   type MapView,
+  type TerrainPreset,
   type WorkerRequest,
   type WorkerResponse,
+  type WorldMapKind,
   type WorldMapParams,
 } from '@/plugins/map-generator'
 import {
@@ -35,7 +40,7 @@ import {
 } from '@/lib/ui-tokens'
 import { saveBlobAs } from './export'
 
-const VIEWS: MapView[] = ['terrain', 'biome', 'temperature', 'moisture', 'contour']
+const VIEWS: MapView[] = ['terrain', 'contour', 'temperature', 'moisture', 'biome', 'political']
 
 /** 范围必须与 `plugins/map-generator/params.ts` 的 clamp 一致，否则滑块两端是死区 */
 const PARAM_FIELDS: Array<{ key: keyof WorldMapParams; label: string; min: number; max: number; step: number }> = [
@@ -44,8 +49,25 @@ const PARAM_FIELDS: Array<{ key: keyof WorldMapParams; label: string; min: numbe
   { key: 'lakeDensity', label: '湖泊密度', min: 0, max: 1, step: 0.05 },
   { key: 'riverDensity', label: '河流密度', min: 0, max: 1, step: 0.05 },
   { key: 'temperatureOffset', label: '温度偏移', min: -10, max: 10, step: 1 },
-  { key: 'moistureBias', label: '降水偏置', min: -1, max: 1, step: 0.1 },
+  { key: 'moistureBias', label: '降水偏置', min: -1, max: 1, step: 0.3 },
 ]
+
+/** 尺寸 = `kind` + 一对像素值；`kind` 同时决定地形的投影方式（世界 / 区域） */
+const SIZES: Array<{ value: WorldMapKind; label: string; width: number; height: number }> = [
+  { value: 'world', label: '世界', width: WORLD_MAP_WIDTH, height: WORLD_MAP_HEIGHT },
+  { value: 'region', label: '区域', width: REGION_MAP_SIZE, height: REGION_MAP_SIZE },
+]
+
+/** 大陆分布预设（`custom` 只读兼容，不给入口：它本来就等于当前参数） */
+const PRESETS: Array<{ value: TerrainPreset; label: string }> = [
+  { value: 'earth', label: '地球型' },
+  { value: 'three-continents', label: '三大陆' },
+  { value: 'islands', label: '群岛' },
+  { value: 'pangaea', label: '盘古' },
+]
+
+/** 参数里的小键（尺寸 / 大陆形态）：选中用浅底块，和视图那排同一套语义 */
+const CHIP = 'h-6 rounded-item px-2 text-[12px] transition-colors'
 
 /** 设计系统滑杆（同 TimelineToolbar）：轨道 4px、拇指 14px、无描边盒 */
 const RANGE_INPUT =
@@ -61,8 +83,14 @@ const RANGE_INPUT =
 export function MapGeneratorPanel({
   onUseAsBackground,
 }: {
-  /** 拿到 PNG 后交给宿主：落盘 + 设为当前地图底图 */
-  onUseAsBackground: (blob: Blob, size: { width: number; height: number }, seed: number, params: WorldMapParams) => Promise<void>
+  /** 拿到 PNG 后交给宿主：落盘 + 设为当前地图底图（带上是哪一档视图） */
+  onUseAsBackground: (
+    blob: Blob,
+    size: { width: number; height: number },
+    seed: number,
+    params: WorldMapParams,
+    view: MapView,
+  ) => Promise<void>
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const workerRef = useRef<Worker | null>(null)
@@ -222,7 +250,13 @@ export function MapGeneratorPanel({
       return
     }
     try {
-      await onUseAsBackground(blob, { width: current.width, height: current.height }, current.seed, current.params)
+      await onUseAsBackground(
+        blob,
+        { width: current.width, height: current.height },
+        current.seed,
+        current.params,
+        view,
+      )
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : '保存底图失败')
@@ -249,7 +283,76 @@ export function MapGeneratorPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 md:flex-row">
-      <aside className="flex w-full shrink-0 flex-col gap-4 overflow-y-auto md:w-64">
+      <aside className="flex w-full shrink-0 flex-col gap-3 md:w-64">
+        {/* 参数区自己滚，底部「用作底图 / PNG」固定可见：以前它们跟在滚动内容尾部，
+            屏矮一点就被推到视口外，生成完还得先往下翻才找得到出口 */}
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+        <section className="flex flex-col">
+          <div className="mb-1 flex items-center justify-between">
+            <h2 className={SECTION_TITLE_BARE}>形态</h2>
+            <span className="text-[11px] tabular-nums text-ink-faint">
+              {params.width} × {params.height}
+            </span>
+          </div>
+
+          <div className={LIST_END}>
+            <div className={FIELD_ROW}>
+              <span className={FIELD_LABEL}>尺寸</span>
+              <div className="flex gap-1">
+                {SIZES.map((size) => {
+                  const selected = params.kind === size.value && params.width === size.width
+                  return (
+                    <button
+                      key={size.value}
+                      type="button"
+                      onClick={() =>
+                        setParams((prev) => ({
+                          ...prev,
+                          kind: size.value,
+                          width: size.width,
+                          height: size.height,
+                        }))
+                      }
+                      aria-pressed={selected}
+                      className={`${CHIP} ${
+                        selected
+                          ? 'bg-[var(--oc-hover)] text-ink'
+                          : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
+                      }`}
+                    >
+                      {size.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className={FIELD_ROW}>
+              <span className={FIELD_LABEL}>大陆</span>
+              <div className="flex flex-wrap gap-1">
+                {PRESETS.map((preset) => {
+                  const selected = (params.terrainPreset ?? 'earth') === preset.value
+                  return (
+                    <button
+                      key={preset.value}
+                      type="button"
+                      onClick={() => setParams((prev) => ({ ...prev, terrainPreset: preset.value }))}
+                      aria-pressed={selected}
+                      className={`${CHIP} ${
+                        selected
+                          ? 'bg-[var(--oc-hover)] text-ink'
+                          : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        </section>
+
         <section className="flex flex-col">
           <div className="mb-1 flex items-center justify-between">
             <h2 className={SECTION_TITLE_BARE}>参数</h2>
@@ -311,7 +414,9 @@ export function MapGeneratorPanel({
           ))}
         </div>
 
-        <div className="mt-auto flex items-center gap-1">
+        </div>
+
+        <div className="flex shrink-0 items-center gap-1 border-t border-line pt-3">
           <button type="button" onClick={() => void handleUse()} disabled={!ready} className={BTN_PRIMARY}>
             <Save size={14} strokeWidth={2} />
             用作底图

@@ -4,7 +4,7 @@ import { db } from '@/lib/db'
 import { setBody, setFrontmatterKeys } from './frontmatter'
 import { appendJournal, type JournalDraft } from './journal'
 import { serializeEntity, type FrontmatterUpdates, type SerializeContext } from './serialize'
-import { allocateRelPath, normalizeRelPath, originalRelPathFromTrash, pickPreferredFolder, trashRelPath } from './vault-paths'
+import { allocateRelPath, novelChapterFileTitle, normalizeRelPath, originalRelPathFromTrash, pickPreferredFolder, trashRelPath } from './vault-paths'
 import {
   entityKey,
   getVaultSession,
@@ -17,6 +17,7 @@ import { serializeTagMeta } from './vault-tags'
 import { createLinkSerializer, documentOfEntity, serializeBody } from './markdown-bridge'
 import type { VaultEntityKind, VaultStorableKind } from './types'
 import type { Character, Country, Event, Tag, WorldEntry } from '@/types'
+import { NOVEL_CATEGORY } from '@/lib/novel'
 
 // ── 落盘队列 ────────────────────────────────────────────────────────────
 // 「文件是真源」的写半边。设计要点：
@@ -404,12 +405,41 @@ async function planTextWrite(
 
   let relPath = state?.relPath ?? ''
   if (isNew) {
-    const hint =
-      kind === 'character' && typeof row.countryId === 'number'
-        ? ctx.nameOf('country', row.countryId)
-        : undefined
-    const folder = pickPreferredFolder(kind, foldersOfKind(session, kind), hint)
-    relPath = allocateRelPath(kind, title, session.occupied, folder)
+    const isNovel = kind === 'worldEntry' && row.category === NOVEL_CATEGORY
+    let folder: string
+    let fileName = title
+    if (isNovel) {
+      // 小说 = 一套笔记：新库统一落 `小说/`，老库沿用已有小说文件所在目录
+      let novelFolder = '小说'
+      let foundFolder = false
+      let chapterNumber = 1
+      for (const previous of session.entries.values()) {
+        if (previous.table !== 'worldEntries') continue
+        const entity = previous.entity as WorldEntry | null
+        if (!entity || entity.category !== NOVEL_CATEGORY) continue
+        if (!foundFolder && previous.relPath.includes('/')) {
+          novelFolder = previous.relPath.slice(0, previous.relPath.indexOf('/'))
+          foundFolder = true
+        }
+        if (
+          row.parentId !== null &&
+          entity.parentId === row.parentId &&
+          entity.id !== id &&
+          (entity.order ?? 0) < (typeof row.order === 'number' ? row.order : 0)
+        ) {
+          chapterNumber += 1
+        }
+      }
+      folder = novelFolder
+      if (row.parentId !== null) fileName = novelChapterFileTitle(title, chapterNumber)
+    } else {
+      const hint =
+        kind === 'character' && typeof row.countryId === 'number'
+          ? ctx.nameOf('country', row.countryId)
+          : undefined
+      folder = pickPreferredFolder(kind, foldersOfKind(session, kind), hint)
+    }
+    relPath = allocateRelPath(kind, title, session.occupied, folder, fileName)
   }
 
   // 新文件必须写全字段（快照为 null），否则只会写出「变动过的键」

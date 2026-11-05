@@ -14,6 +14,8 @@ export const nodeTypes = {
   characterNode: CharacterNode,
   eventNode: EventNode,
   countryNode: CountryNode,
+  // 分类条目用 3:2 卡片（封面是 3:2，塞进圆形头像会被裁掉两边）
+  worldNode: CountryNode,
 }
 
 export const edgeTypes = {

@@ -1,5 +1,6 @@
 import type { Character, Country, Event, Period, ProjectMeta, Tag, WorldEntry } from '@/types'
 import { buildEntryTree, type WorldTreeNode } from '@/lib/world-tree'
+import type { ThemeTokens } from '@/lib/theme/presets'
 import { collectDocImages, escapeHtml, hasRichText, plainTextOf, renderRichText, type RenderOptions } from './render'
 import { SITE_CSS } from './styles'
 
@@ -14,9 +15,63 @@ export interface SiteData {
   periods: Period[]
 }
 
+/** 导出时保留哪些分区（缺省 = 全部保留）。 */
+export interface SiteSectionOptions {
+  timeline: boolean
+  characters: boolean
+  events: boolean
+  countries: boolean
+  world: boolean
+  relations: boolean
+}
+
+/** 静态站的纸色：由应用主题解析成一组令牌，不在这里读设置。 */
+export type SiteThemeTokens = ThemeTokens
+
 export interface BuildOptions {
   /** 图片 src → data URI；未命中的保持原样 */
   images: Map<string, string>
+  /** 站点标题（缺省 = 世界名） */
+  title?: string
+  /** 分区开关；关掉的分区不生成页面、不生成导航、引用回落成纯文本 */
+  sections?: Partial<SiteSectionOptions>
+  /** 固定纸色；缺省时跟随读者系统的亮暗 */
+  theme?: SiteThemeTokens
+}
+
+const DEFAULT_SECTIONS: SiteSectionOptions = {
+  timeline: true,
+  characters: true,
+  events: true,
+  countries: true,
+  world: true,
+  relations: true,
+}
+
+/**
+ * 分区开关的**唯一实现**：只在入口过滤一次数据，后面的页面生成 / 引用解析 /
+ * 导航都自然跟着走（被关掉的实体不存在，引用就会回落成纯文本）。
+ * 不要在各个渲染分支里散落 `if (enabled)`。
+ */
+function normalizeSections(sections?: Partial<SiteSectionOptions>): SiteSectionOptions {
+  const on = { ...DEFAULT_SECTIONS }
+  if (sections) {
+    for (const key of Object.keys(DEFAULT_SECTIONS) as (keyof SiteSectionOptions)[]) {
+      if (typeof sections[key] === 'boolean') on[key] = sections[key]
+    }
+  }
+  return on
+}
+
+export function applySiteSections(data: SiteData, sections?: Partial<SiteSectionOptions>): SiteData {
+  const on = normalizeSections(sections)
+  return {
+    ...data,
+    characters: on.characters ? data.characters : [],
+    events: on.events ? data.events : [],
+    countries: on.countries ? data.countries : [],
+    worldEntries: on.world ? data.worldEntries : [],
+  }
 }
 
 const ROUTE_BY_KIND: Record<string, string> = {
@@ -36,16 +91,20 @@ function yearOf(time: string | undefined): number | null {
   return Number.isFinite(value) ? (match[1] === '-' ? -value : value) : null
 }
 
-function timeLabel(time: string | undefined, endTime?: string): string {
+export function timeLabel(time: string | undefined, endTime?: string): string {
   const start = (time ?? '').trim()
   const end = (endTime ?? '').trim()
-  if (!start && !end) return '未定年'
+  if (!start) return end || '未定年'
   return end && end !== start ? `${start} ~ ${end}` : start
 }
 
-function dateLabel(ms: number | undefined): string {
+export function dateLabel(ms: number | undefined): string {
   if (!ms || !Number.isFinite(ms)) return ''
-  return new Date(ms).toISOString().slice(0, 10)
+  // 不能用 `toISOString()`：东八区凌晨会少一天。导出页脚 / 列表日期都按本地日历走。
+  const date = new Date(ms)
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${date.getFullYear()}-${month}-${day}`
 }
 
 function shortText(value: unknown, max = 90): string {
@@ -59,8 +118,15 @@ function fieldValue(...parts: (string | null | undefined)[]): string {
 
 // ── 构建器 ────────────────────────────────────────────────────────────
 
-export function buildSite(data: SiteData, options: BuildOptions): string {
+/** 写进 `<script>` 的字符串：转义 `<`，避免标题里的 `</script>` 把脚本截断。 */
+function scriptJson(value: string): string {
+  return JSON.stringify(value).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026')
+}
+
+export function buildSite(input: SiteData, options: BuildOptions): string {
   const { images } = options
+  const enabled = normalizeSections(options.sections)
+  const data = applySiteSections(input, enabled)
 
   const charactersById = new Map(data.characters.map((c) => [c.id, c]))
   const eventsById = new Map(data.events.map((e) => [e.id, e]))
@@ -97,14 +163,17 @@ export function buildSite(data: SiteData, options: BuildOptions): string {
   const fieldRow = (key: string, value: string): string =>
     value ? `<div class="field"><div class="key">${escapeHtml(key)}</div><div class="val">${value}</div></div>` : ''
 
-  const refLink = (kind: string, id: number, label: string): string =>
-    exists(kind, id)
-      ? `<a class="ref" href="#/${ROUTE_BY_KIND[kind]}/${id}">${escapeHtml(label)}</a>`
+  const refLink = (kind: string, id: number, label: string): string => {
+    const route = ROUTE_BY_KIND[kind] ?? 'world'
+    return exists(kind, id)
+      ? `<a class="ref" href="#/${route}/${id}">${escapeHtml(label)}</a>`
       : `<span>${escapeHtml(label)}</span>`
+  }
 
   // ── 概览 ──────────────────────────────────────────────────────────
 
   const worldName = (data.meta?.worldName ?? '').trim() || 'OC Studio'
+  const siteTitle = (options.title ?? '').trim() || worldName
   const tagline = (data.meta?.tagline ?? '').trim()
   const cover = img(data.meta?.coverUrl)
 
@@ -127,16 +196,20 @@ export function buildSite(data: SiteData, options: BuildOptions): string {
     world: '词条',
   }
 
+  const stats = [
+    enabled.characters ? { href: '#/characters', count: data.characters.length, label: '角色' } : null,
+    enabled.events ? { href: '#/events', count: data.events.length, label: '事件' } : null,
+    enabled.countries ? { href: '#/countries', count: data.countries.length, label: '国家' } : null,
+    enabled.world ? { href: '#/world', count: data.worldEntries.length, label: '词条' } : null,
+  ].filter((item): item is { href: string; count: number; label: string } => item !== null)
+
   const home = `
     ${cover ? `<img class="cover" src="${escapeHtml(cover)}" alt="">` : ''}
-    <h1 class="page-title">${escapeHtml(worldName)}</h1>
+    <h1 class="page-title">${escapeHtml(siteTitle)}</h1>
     ${tagline ? `<p class="page-sub">${escapeHtml(tagline)}</p>` : ''}
-    <div class="stats">
-      <a class="stat" href="#/characters"><div class="num">${data.characters.length}</div><div class="label">角色</div></a>
-      <a class="stat" href="#/events"><div class="num">${data.events.length}</div><div class="label">事件</div></a>
-      <a class="stat" href="#/countries"><div class="num">${data.countries.length}</div><div class="label">国家</div></a>
-      <a class="stat" href="#/world"><div class="num">${data.worldEntries.length}</div><div class="label">词条</div></a>
-    </div>
+    ${stats.length > 0 ? `<div class="stats">${stats
+      .map((item) => `<a class="stat" href="${item.href}"><div class="num">${item.count}</div><div class="label">${item.label}</div></a>`)
+      .join('')}</div>` : ''}
     ${
       featured.length > 0
         ? `<h2 class="section-title">${majors.length > 0 ? '主要角色' : '角色'}</h2>
@@ -195,7 +268,7 @@ export function buildSite(data: SiteData, options: BuildOptions): string {
     <h2 class="section-title">事件</h2>
     ${
       sortedEvents.length > 0
-        ? `<div class="rows">${sortedEvents.map((e) => eventRow(e)).join('')}</div>`
+        ? `<div class="rows timeline-rows">${sortedEvents.map((e) => eventRow(e)).join('')}</div>`
         : '<div class="empty">还没有事件</div>'
     }
   `
@@ -220,7 +293,7 @@ export function buildSite(data: SiteData, options: BuildOptions): string {
     ${sortedCharacters.length > 0 ? `<div class="grid" style="margin-top:22px">${sortedCharacters.map((c) => characterCard(c)).join('')}</div>` : '<div class="empty">还没有角色</div>'}
   `
 
-  const characterDetails = data.characters.map((c) => {
+  const characterDetails = sortedCharacters.map((c) => {
     const country = c.countryId ? countriesById.get(c.countryId) : undefined
     const relatedEvents = data.events.filter((e) => (e.characters ?? []).includes(c.id))
     const body = hasRichText(c.document) ? c.document : `${c.bio}\n\n${c.lifeStory}`
@@ -450,10 +523,17 @@ export function buildSite(data: SiteData, options: BuildOptions): string {
 
     return `
       <a class="crumb" href="#/world">← 词条</a>
+      ${w.cover ? `<img class="entry-cover" src="${escapeHtml(img(w.cover))}" alt="">` : ''}
       <h1 class="page-title">${escapeHtml(w.title || '未命名')}</h1>
+      ${w.summary ? `<p class="page-sub">${escapeHtml(w.summary)}</p>` : ''}
       <div class="fields">
         ${parent ? fieldRow('上级', `<a class="ref" href="#/world/${parent.id}">${escapeHtml(parent.title || '未命名')}</a>`) : ''}
         ${w.aliases?.length ? fieldRow('别名', escapeHtml(w.aliases.join('、'))) : ''}
+        ${w.category ? fieldRow('分类', escapeHtml(w.category)) : ''}
+        ${Object.entries(w.custom ?? {})
+          .filter(([, value]) => value.trim() !== '')
+          .map(([label, value]) => fieldRow(escapeHtml(label), escapeHtml(value)))
+          .join('')}
         ${fieldRow('标签', tagChips(w.tags))}
         ${fieldRow('引用', refs.join('、'))}
       </div>
@@ -463,6 +543,7 @@ export function buildSite(data: SiteData, options: BuildOptions): string {
 
   // ── 关系 ──────────────────────────────────────────────────────────
 
+  const seenRelations = new Set<string>()
   const characterRelations = data.characters.flatMap((c) =>
     c.relatedCharacters.map((r) => ({
       from: c.name,
@@ -471,7 +552,15 @@ export function buildSite(data: SiteData, options: BuildOptions): string {
       to: r.name,
       toId: r.characterId ?? null,
     })),
-  )
+  ).filter((row) => {
+    // 双方各存一次是现状；同一对只画一行（与关系图「同一对去重」同一口径）
+    const pair = row.toId !== null
+      ? [row.fromId, row.toId].sort((a, b) => a - b).join(':')
+      : [row.from, row.to].sort((a, b) => a.localeCompare(b, 'zh-Hans')).join(':')
+    if (seenRelations.has(pair)) return false
+    seenRelations.add(pair)
+    return true
+  })
 
   const relations = `
     <h1 class="page-title">关系</h1>
@@ -539,40 +628,79 @@ export function buildSite(data: SiteData, options: BuildOptions): string {
     { key: 'countries', label: '国家', count: data.countries.length },
     { key: 'world', label: '词条', count: data.worldEntries.length },
     { key: 'relations', label: '关系' },
-  ]
+  ].filter((item) => {
+    if (item.key === 'home') return true
+    if (item.key === 'timeline') return enabled.timeline
+    if (item.key === 'characters') return enabled.characters
+    if (item.key === 'events') return enabled.events
+    if (item.key === 'countries') return enabled.countries
+    if (item.key === 'world') return enabled.world
+    return enabled.relations
+  })
 
   const page = (route: string, html: string): string => `<section class="page" data-route="${route}">${html}</section>`
 
-  const sections = [
+  const pageMarkup = [
     page('home', home),
-    page('timeline', timeline),
-    page('characters', charactersList),
-    ...characterDetails.map((html, index) => page(`characters/${sortedCharacters[index].id}`, html)),
-    page('events', eventsList),
-    ...eventDetails.map((html, index) => page(`events/${data.events[index].id}`, html)),
-    page('countries', countriesList),
-    ...countryDetails.map((html, index) => page(`countries/${data.countries[index].id}`, html)),
-    page('world', worldList),
-    ...worldDetails.map((html, index) => page(`world/${data.worldEntries[index].id}`, html)),
-    page('relations', relations),
+    ...(enabled.timeline ? [page('timeline', timeline)] : []),
+    ...(enabled.characters
+      ? [
+          page('characters', charactersList),
+          ...characterDetails.map((html, index) => page(`characters/${sortedCharacters[index].id}`, html)),
+        ]
+      : []),
+    ...(enabled.events
+      ? [
+          page('events', eventsList),
+          ...eventDetails.map((html, index) => page(`events/${data.events[index].id}`, html)),
+        ]
+      : []),
+    ...(enabled.countries
+      ? [
+          page('countries', countriesList),
+          ...countryDetails.map((html, index) => page(`countries/${data.countries[index].id}`, html)),
+        ]
+      : []),
+    ...(enabled.world
+      ? [
+          page('world', worldList),
+          ...worldDetails.map((html, index) => page(`world/${data.worldEntries[index].id}`, html)),
+        ]
+      : []),
+    ...(enabled.relations ? [page('relations', relations)] : []),
   ].join('\n')
+
+  const themeStyle = options.theme
+    ? `:root {
+  --paper: ${escapeHtml(options.theme.paper)};
+  --paper-alt: ${escapeHtml(options.theme.paperAlt)};
+  --paper-card: ${escapeHtml(options.theme.paperCard)};
+  --line: ${escapeHtml(options.theme.line)};
+  --line-hover: ${escapeHtml(options.theme.lineHover)};
+  --ink: ${escapeHtml(options.theme.ink)};
+  --ink-muted: ${escapeHtml(options.theme.inkMuted)};
+  --ink-faint: ${escapeHtml(options.theme.inkFaint)};
+  --hover: ${escapeHtml(options.theme.hover)};
+}`
+    : ''
 
   return `<!doctype html>
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${escapeHtml(worldName)}</title>
-<meta name="description" content="${escapeHtml(tagline || `${worldName} — 世界观设定集`)}">
+<title>${escapeHtml(siteTitle)}</title>
+<meta name="description" content="${escapeHtml(tagline || `${siteTitle} — 世界观设定集`)}">
 <style>
 ${SITE_CSS}
+${themeStyle}
 </style>
 </head>
 <body>
 <div class="layout">
   <aside class="sidebar">
     <a class="brand" href="#/">
-      <div class="world">${escapeHtml(worldName)}</div>
+      <div class="world">${escapeHtml(siteTitle)}</div>
       ${tagline ? `<div class="tagline">${escapeHtml(tagline)}</div>` : ''}
     </a>
     <nav class="nav">
@@ -587,12 +715,13 @@ ${SITE_CSS}
     </nav>
   </aside>
   <main class="main">
-${sections}
+${pageMarkup}
     <div class="footer">由 OC Studio 导出 · ${escapeHtml(dateLabel(Date.now()))}</div>
   </main>
 </div>
 <script>
 (function () {
+  var siteTitle = ${scriptJson(siteTitle)};
   var pages = {};
   var nodes = document.querySelectorAll('[data-route]');
   for (var i = 0; i < nodes.length; i++) pages[nodes[i].getAttribute('data-route')] = nodes[i];
@@ -609,7 +738,9 @@ ${sections}
     }
     if (navKey === 'home') links[0].classList.add('on');
     window.scrollTo(0, 0);
-    document.title = (target.querySelector('.page-title') ? target.querySelector('.page-title').textContent + ' — ' : '') + ${JSON.stringify(worldName)};
+    var heading = target.querySelector('.page-title');
+    var headingText = heading ? heading.textContent : '';
+    document.title = headingText && headingText !== siteTitle ? headingText + ' — ' + siteTitle : siteTitle;
   }
   window.addEventListener('hashchange', show);
   show();
@@ -636,6 +767,7 @@ export function collectSiteImages(data: SiteData): string[] {
   }
   for (const c of data.countries) { push(c.flagUrl); push(c.headerUrl) }
   push(data.meta?.coverUrl)
+  for (const entry of data.worldEntries) push(entry.cover)
 
   const bodies: unknown[] = [
     ...data.characters.map((c) => c.document),

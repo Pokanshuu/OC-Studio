@@ -7,6 +7,7 @@ import {
   MiniMap,
   Panel,
   SelectionMode,
+  ViewportPortal,
   useNodesState,
   useEdgesState,
   BackgroundVariant,
@@ -29,6 +30,7 @@ import { updateEdgeStyle } from '../services'
 import { EdgeStylePanel, type EdgeStyleSelection } from './EdgeStylePanel'
 import { createRelationBetween, saveNodePosition } from '../services'
 import { computeForceLayout } from '../layout'
+import { nodeRect } from './floating-edge'
 import { exportRelationGraphPng } from '../export-graph'
 import { MobileRelationControls, DesktopRelationPanel } from './MobileRelationControls'
 import { FitViewOnLoad, ZoomReader } from './RelationGraphHelpers'
@@ -48,6 +50,7 @@ interface RelationGraphProps {
   onNavigateToCharacter?: (id: number) => void
   onNavigateToEvent?: (id: number) => void
   onNavigateToCountry?: (id: number) => void
+  onNavigateToWorld?: (id: number) => void
   visible?: boolean
 }
 
@@ -56,10 +59,20 @@ function pairKey(a: string, b: string): string {
   return [a, b].sort().join('||')
 }
 
+const ALIGN_THRESHOLD = 8
+const SNAP_GRID: [number, number] = [8, 8]
+const EMPTY_GUIDES: AlignGuides = { vertical: null, horizontal: null }
+
+interface AlignGuides {
+  vertical: { x: number; y1: number; y2: number } | null
+  horizontal: { y: number; x1: number; x2: number } | null
+}
+
 export function RelationGraph({
   onNavigateToCharacter,
   onNavigateToEvent,
   onNavigateToCountry,
+  onNavigateToWorld,
   visible,
 }: RelationGraphProps) {
   const { nodes: rawNodes, edges: rawEdges, loading, error, refresh } = useGraphData()
@@ -72,13 +85,17 @@ export function RelationGraph({
   const [showCharacters, setShowCharacters] = useState(true)
   const [showEvents, setShowEvents] = useState(true)
   const [showCountries, setShowCountries] = useState(true)
+  const [showWorlds, setShowWorlds] = useState(true)
   const [zoom, setZoom] = useState(1)
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
+  /** 停在某条边上时显示它的关系名（默认不显示，避免一屏全是标签） */
+  const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null)
   const [draft, setDraft] = useState<RelationDraft | null>(null)
   const [savingRelation, setSavingRelation] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [savingLayout, setSavingLayout] = useState(false)
   const [edgePanel, setEdgePanel] = useState<{ selection: EdgeStyleSelection; anchor: { x: number; y: number } } | null>(null)
+  const [guides, setGuides] = useState<AlignGuides>(EMPTY_GUIDES)
   const rfRef = useRef<ReactFlowInstance | null>(null)
 
   // 面板已经自带外点/取消失败的收口；这里再兜一层 Esc，画布上按 Esc 等价于点空白
@@ -126,11 +143,13 @@ export function RelationGraph({
           return showEvents
         case 'country':
           return showCountries
+        case 'world':
+          return showWorlds
         default:
           return true
       }
     })
-  }, [rawNodes, showCharacters, showEvents, showCountries])
+  }, [rawNodes, showCharacters, showEvents, showCountries, showWorlds])
 
   const layoutedNodes = useMemo(() => {
     // 只有**实体里存过坐标**的节点才钉住（用户拖过才有）。缓存不作数 ——
@@ -217,11 +236,26 @@ export function RelationGraph({
   const displayEdges = useMemo(() => {
     return routedEdges.map((edge) => {
       const opacity = hoveredNodeId ? (connectedEdgeIds.has(edge.id) ? 1 : 0.1) : null
+      // 关系名只在「悬停节点 / 悬停这条线 / 打开这条线的样式面板」时出现（`docs/关系图.md` §2）
+      const [sourceType, sourceIdRaw] = edge.source.split('-')
+      const [targetType, targetIdRaw] = edge.target.split('-')
+      const panelMatches =
+        edgePanel !== null &&
+        edgePanel.selection.sourceType === sourceType &&
+        edgePanel.selection.sourceId === Number(sourceIdRaw) &&
+        edgePanel.selection.targetType === targetType &&
+        edgePanel.selection.targetId === Number(targetIdRaw) &&
+        edgePanel.selection.relation === ((edge.data?.relation as string | undefined) ?? '')
+      const showLabel =
+        edge.id === hoveredEdgeId ||
+        panelMatches ||
+        (hoveredNodeId !== null && connectedEdgeIds.has(edge.id))
       return {
         ...edge,
         // 标签在 EdgeLabelRenderer 里渲染，拿不到画布的 onEdgeClick —— 把回调挂到边上
         data: {
           ...edge.data,
+          showLabel,
           onLabelClick: (point: { x: number; y: number }) => openEdgePanel(edge, point),
         },
         ...(opacity === null
@@ -229,7 +263,7 @@ export function RelationGraph({
           : { style: { ...(edge.style as Record<string, unknown>), opacity } }),
       }
     })
-  }, [routedEdges, hoveredNodeId, connectedEdgeIds, openEdgePanel])
+  }, [routedEdges, hoveredNodeId, hoveredEdgeId, connectedEdgeIds, edgePanel, openEdgePanel])
 
   const handleNodeClick = useCallback(
     (event: React.MouseEvent, node: Node) => {
@@ -249,18 +283,72 @@ export function RelationGraph({
         case 'country':
           onNavigateToCountry?.(entityId)
           break
+        case 'world':
+          onNavigateToWorld?.(entityId)
+          break
       }
     },
-    [onNavigateToCharacter, onNavigateToEvent, onNavigateToCountry],
+    [onNavigateToCharacter, onNavigateToEvent, onNavigateToCountry, onNavigateToWorld],
   )
 
   /** 拖拽结束 → 坐标写回实体（仓库模式下会落成 frontmatter 的 `graph_position`） */
-  const handleNodeDragStop = useCallback((_event: React.MouseEvent, node: Node) => {
+  const handleNodeDragStop = useCallback((_event: unknown, node: Node) => {
+    setGuides(EMPTY_GUIDES)
     const entityType = node.data?.entityType as RelationNodeType | undefined
     const entityId = node.data?.entityId as number | undefined
     if (!entityType || entityId === undefined) return
     void saveNodePosition(entityType, entityId, node.position.x, node.position.y)
   }, [])
+
+  /**
+   * 拖动中找对齐参考线（docs/关系图.md §3）：中心线在 8px 内对齐就画一条，
+   * 只做视觉提示，不强行吸过去 —— 吸附交给 `snapGrid` 的 8px 网格，二者互不抢手。
+   */
+  const handleNodeDrag = useCallback(
+    (_event: unknown, node: Node) => {
+      const moving = nodeRect({
+        x: node.position.x,
+        y: node.position.y,
+        width: node.measured?.width,
+        height: node.measured?.height,
+        entityType: node.data?.entityType,
+      })
+      const movingCenterX = moving.x + moving.width / 2
+      const movingCenterY = moving.y + moving.height / 2
+      let vertical: AlignGuides['vertical'] = null
+      let horizontal: AlignGuides['horizontal'] = null
+
+      for (const other of nodes) {
+        if (other.id === node.id) continue
+        const rect = nodeRect({
+          x: other.position.x,
+          y: other.position.y,
+          width: other.measured?.width,
+          height: other.measured?.height,
+          entityType: other.data?.entityType,
+        })
+        const centerX = rect.x + rect.width / 2
+        const centerY = rect.y + rect.height / 2
+        if (vertical === null && Math.abs(centerX - movingCenterX) <= ALIGN_THRESHOLD) {
+          vertical = {
+            x: centerX,
+            y1: Math.min(rect.y, moving.y) - 16,
+            y2: Math.max(rect.y + rect.height, moving.y + moving.height) + 16,
+          }
+        }
+        if (horizontal === null && Math.abs(centerY - movingCenterY) <= ALIGN_THRESHOLD) {
+          horizontal = {
+            y: centerY,
+            x1: Math.min(rect.x, moving.x) - 16,
+            x2: Math.max(rect.x + rect.width, moving.x + moving.width) + 16,
+          }
+        }
+        if (vertical !== null && horizontal !== null) break
+      }
+      setGuides({ vertical, horizontal })
+    },
+    [nodes],
+  )
 
   /**
    * 重新布局：无视已有坐标，整张图重跑力导向，并把新坐标写回实体。
@@ -476,9 +564,12 @@ export function RelationGraph({
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onNodeClick={handleNodeClick}
+        onNodeDrag={!isMobile ? handleNodeDrag : undefined}
         onNodeDragStop={handleNodeDragStop}
         onNodeMouseEnter={(_event, node) => setHoveredNodeId(node.id)}
         onNodeMouseLeave={() => setHoveredNodeId(null)}
+        onEdgeMouseEnter={(_event, edge) => setHoveredEdgeId(edge.id)}
+        onEdgeMouseLeave={() => setHoveredEdgeId(null)}
         onMove={handleMove}
         onConnect={handleConnect}
         // 移动端只读（docs/关系图.md）：禁拖、禁连、禁框选；样式面板仍可点开查看
@@ -490,9 +581,15 @@ export function RelationGraph({
         selectionOnDrag={!isMobile && mouseMode === 'right-pan'}
         selectionMode={SelectionMode.Partial}
         selectionKeyCode={!isMobile && mouseMode === 'left-pan' ? 'Shift' : null}
+        // 手摆精修：8px 网格吸附（docs/关系图.md §3）
+        snapToGrid={!isMobile}
+        snapGrid={SNAP_GRID}
         // 删除只能走编辑器（软删除 + 二次确认），画布上的 Backspace 只删本地状态、刷新就回来
         deleteKeyCode={null}
-        onPaneClick={() => setEdgePanel(null)}
+        onPaneClick={() => {
+          setEdgePanel(null)
+          setGuides(EMPTY_GUIDES)
+        }}
         onEdgeClick={(event, edge) => openEdgePanel(edge, { x: event.clientX, y: event.clientY })}
         isValidConnection={isValidConnection}
         connectionMode={ConnectionMode.Loose}
@@ -512,13 +609,47 @@ export function RelationGraph({
         <ZoomReader onInstance={handleInstance} />
         <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="var(--color-line)" />
 
+        {/* 对齐参考线：只在拖动中出现，画在 flow 坐标系里（随缩放/平移一起走） */}
+        <ViewportPortal>
+          {guides.vertical ? (
+            <div
+              aria-hidden
+              data-align-guide="vertical"
+              className="pointer-events-none absolute"
+              style={{
+                left: guides.vertical.x,
+                top: guides.vertical.y1,
+                width: 1,
+                height: guides.vertical.y2 - guides.vertical.y1,
+                background: 'var(--color-ink-faint)',
+              }}
+            />
+          ) : null}
+          {guides.horizontal ? (
+            <div
+              aria-hidden
+              data-align-guide="horizontal"
+              className="pointer-events-none absolute"
+              style={{
+                left: guides.horizontal.x1,
+                top: guides.horizontal.y,
+                width: guides.horizontal.x2 - guides.horizontal.x1,
+                height: 1,
+                background: 'var(--color-ink-faint)',
+              }}
+            />
+          ) : null}
+        </ViewportPortal>
+
         <DesktopRelationPanel
           showCharacters={showCharacters}
           showEvents={showEvents}
           showCountries={showCountries}
+          showWorlds={showWorlds}
           onToggleCharacters={() => setShowCharacters(!showCharacters)}
           onToggleEvents={() => setShowEvents(!showEvents)}
           onToggleCountries={() => setShowCountries(!showCountries)}
+          onToggleWorlds={() => setShowWorlds(!showWorlds)}
           zoom={zoom}
           onZoomChange={handleZoomChange}
           onRelayout={handleRelayout}
@@ -535,6 +666,7 @@ export function RelationGraph({
           <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full border border-line-hover bg-paper-card" />角色</span>
           <span className="flex items-center gap-1.5"><span className="h-2.5 w-4 border border-line bg-paper-card" />事件</span>
           <span className="flex items-center gap-1.5"><span className="h-3 w-3 border border-line bg-paper-card" />国家</span>
+          <span className="flex items-center gap-1.5"><span className="h-2.5 w-4 border border-line bg-paper-card" />分类</span>
         </Panel>
 
         <FitViewOnLoad key={filteredNodes.length} ready={filteredNodes.length > 0 && !loading} />
@@ -560,9 +692,11 @@ export function RelationGraph({
         showCharacters={showCharacters}
         showEvents={showEvents}
         showCountries={showCountries}
+        showWorlds={showWorlds}
         onToggleCharacters={() => setShowCharacters(!showCharacters)}
         onToggleEvents={() => setShowEvents(!showEvents)}
         onToggleCountries={() => setShowCountries(!showCountries)}
+        onToggleWorlds={() => setShowWorlds(!showWorlds)}
         zoom={zoom}
         onZoomChange={handleZoomChange}
         onRelayout={handleRelayout}

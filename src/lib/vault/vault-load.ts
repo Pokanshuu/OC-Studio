@@ -1,8 +1,10 @@
 import { db } from '@/lib/db'
-import { loadFieldConfig } from '@/lib/fields/store'
-import { getFieldConfig } from '@/lib/fields/store'
-import { FIELD_KINDS } from '@/lib/fields/types'
-import { setCustomFieldKeys } from './vault-field-keys'
+import { loadFieldConfig, readFieldConfigFromRoot, syncCustomFieldKeys } from '@/lib/fields/store'
+import { BUILTIN_TEMPLATES } from '@/lib/templates/defaults'
+import { collectTemplateFieldKeys } from '@/lib/templates/fields'
+import { parseTemplate } from '@/lib/templates/serialize'
+import { TEMPLATE_DIR, type TemplateDoc } from '@/lib/templates/types'
+import { setTemplateCustomFieldKeys } from './vault-field-keys'
 import type { VaultScanResult, VaultStorableKind } from './types'
 import { scanVault } from './scan'
 import { vaultFs } from './vault-fs'
@@ -242,30 +244,42 @@ export async function applyDataset(scan: VaultScanResult): Promise<void> {
   })
 }
 
-/** 把当前字段表里的自定义键登记给 scan / serialize（它们不 import 字段表，见 vault-field-keys） */
-function ensureCustomFieldKeys(): void {
-  const config = getFieldConfig()
-  const kinds: Partial<Record<'character' | 'event' | 'worldEntry', string[]>> = {}
-  for (const kind of FIELD_KINDS) {
-    const keys = config[kind]
-      .map((field) => field.key)
-      .filter((key): key is string => typeof key === 'string' && key !== '')
-    if (keys.length > 0) kinds[kind] = keys
-  }
-  setCustomFieldKeys(kinds)
-}
-
 /** 打开一个 vault：读盘 → 整库替换 → 建立会话。
  *  返回装载结果以便 UI 展示扫描报告。 */
 export async function loadVault(root: string): Promise<VaultLoadResult> {
   resetVaultWriteState()
-  ensureCustomFieldKeys()
+  // 扫描前先把两类字段键登记好：字段表（自建字段）+ 模板（宠物 / 武器的物种 / 材质…）。
+  // 会话建立前也要能读 `.ocstudio/fields.json` 与模板文件，否则 scan 会把它们当陌生键。
+  const [fieldConfig, templateFieldKeys] = await Promise.all([
+    readFieldConfigFromRoot(root),
+    readTemplateFieldKeys(root),
+  ])
+  syncCustomFieldKeys(fieldConfig)
+  setTemplateCustomFieldKeys({ worldEntry: templateFieldKeys })
   const result = await readVault(root)
   await applyDataset(result.scan)
   setVaultSession(result.session)
-  // 字段表跟文件夹走：会话建立后才能知道读哪个 fields.json
+  // 字段表跟文件夹走：会话建立后再正式装载一次（同一份文件）
   await loadFieldConfig()
   return result
+}
+
+/** 读模板文件里声明的字段键；内置模板总在（宠物 / 武器出厂字段不依赖盘上模板） */
+async function readTemplateFieldKeys(root: string): Promise<string[]> {
+  const docs: TemplateDoc[] = [...BUILTIN_TEMPLATES]
+  try {
+    const assets = await vaultFs.listAssets(root, TEMPLATE_DIR)
+    for (const file of assets) {
+      if (!file.name.toLowerCase().endsWith('.md')) continue
+      const bytes = await vaultFs.readBytes(root, file.relPath)
+      const text = new TextDecoder('utf-8').decode(new Uint8Array(bytes))
+      const parsed = parseTemplate(text, file.name.replace(/\.md$/i, ''))
+      if (parsed) docs.push(parsed)
+    }
+  } catch {
+    // 没有模板目录 / 单个文件坏了：字段以内置模板为准，不影响开库
+  }
+  return collectTemplateFieldKeys(docs)
 }
 
 /** 关闭当前 vault（数据留在 Dexie，只是不再往磁盘写） */

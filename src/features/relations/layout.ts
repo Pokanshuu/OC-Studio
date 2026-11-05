@@ -28,6 +28,7 @@ const COLLIDE_RADIUS: Record<RelationNodeType, number> = {
   character: 36,
   country: 52,
   event: 52,
+  world: 52,
 }
 
 /**
@@ -41,6 +42,8 @@ export const NODE_SIZE: Record<RelationNodeType, { w: number; h: number }> = {
   character: { w: 56, h: 84 },
   country: { w: 96, h: 84 },
   event: { w: 96, h: 84 },
+  // 分类条目：与事件 / 国家同宽的 3:2 封面卡
+  world: { w: 96, h: 84 },
 }
 
 /** 角色头像直径（圆形锚点半径 = 一半） */

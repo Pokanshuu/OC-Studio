@@ -32,7 +32,6 @@ function buildDefaultCharacter(
     avatars: data.avatars,
     tags: data.tags ?? [],
     isMajor: data.isMajor ?? false,
-    kind: data.kind ?? 'character',
     custom: data.custom ?? {},
     createdAt: now,
     updatedAt: now,
@@ -91,7 +90,6 @@ export async function updateCharacter(
     'bio',
     'lifeStory',
     'isMajor',
-    'kind',
   ]
 
   for (const field of fields) {

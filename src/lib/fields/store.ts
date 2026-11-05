@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react'
 import { db } from '@/lib/db'
 import { isVaultSupported, vaultFs } from '@/lib/vault/vault-fs'
 import { getVaultSession } from '@/lib/vault/vault-session'
+import { setCustomFieldKeys } from '@/lib/vault/vault-field-keys'
 import { defaultFieldConfig, defaultFields } from './defaults'
 import {
   CUSTOM_FIELD_PREFIX,
@@ -26,6 +27,21 @@ const listeners = new Set<() => void>()
 
 function emit(): void {
   for (const listener of listeners) listener()
+}
+
+/**
+ * 自定义字段键登记给 scan / serialize（它们不 import 字段表，见 `vault/vault-field-keys`）。
+ * 字段表一改就得重登记，否则新加的字段既读不回来也写不出去。
+ */
+export function syncCustomFieldKeys(config: FieldConfig): void {
+  const kinds: Partial<Record<FieldKind, string[]>> = {}
+  for (const kind of FIELD_KINDS) {
+    const keys = config[kind]
+      .map((field) => field.key)
+      .filter((key): key is string => typeof key === 'string' && key !== '')
+    if (keys.length > 0) kinds[kind] = keys
+  }
+  setCustomFieldKeys(kinds)
 }
 
 /** 把任意来源的数据收成合法配置：坏条目丢弃、内置字段补回默认 label/type */
@@ -84,12 +100,7 @@ export async function loadFieldConfig(): Promise<void> {
   const session = getVaultSession()
   try {
     if (session !== null && isVaultSupported()) {
-      if (await vaultFs.exists(session.root, FIELDS_REL_PATH)) {
-        const bytes = await vaultFs.readBytes(session.root, FIELDS_REL_PATH)
-        snapshot = normalize(JSON.parse(new TextDecoder().decode(new Uint8Array(bytes))))
-      } else {
-        snapshot = defaultFieldConfig()
-      }
+      snapshot = await readFieldConfigFromRoot(session.root)
     } else {
       const row = await db.meta.get(1)
       snapshot = row?.fields === undefined ? defaultFieldConfig() : normalize(row.fields)
@@ -97,12 +108,30 @@ export async function loadFieldConfig(): Promise<void> {
   } catch {
     snapshot = defaultFieldConfig()
   }
+  syncCustomFieldKeys(snapshot)
   emit()
+}
+
+/**
+ * 从指定文件夹读字段表 —— **扫描之前**就要用：自定义字段键不先登记，
+ * `scan` 读不回这些 frontmatter 键（`vault-load` 的会话还没建立时也要能读到）。
+ */
+export async function readFieldConfigFromRoot(root: string): Promise<FieldConfig> {
+  try {
+    if (await vaultFs.exists(root, FIELDS_REL_PATH)) {
+      const bytes = await vaultFs.readBytes(root, FIELDS_REL_PATH)
+      return normalize(JSON.parse(new TextDecoder().decode(new Uint8Array(bytes))))
+    }
+  } catch {
+    // 坏文件回落默认：字段表坏了不能让笔记库打不开
+  }
+  return defaultFieldConfig()
 }
 
 /** 写配置：先更新内存（界面立刻生效），再落盘；落盘失败抛出给调用方提示 */
 export async function saveFieldConfig(next: FieldConfig): Promise<void> {
   snapshot = next
+  syncCustomFieldKeys(next)
   emit()
 
   const session = getVaultSession()

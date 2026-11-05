@@ -176,6 +176,15 @@ export function MapAnchorPicker({
     close()
   }
 
+  // Esc 关闭：浮层挂在 #overlay-root，离开地图页时也要能收掉
+  useEffect(() => {
+    if (!open) return
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') close()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, close])
   const overlayRoot =
     portalContainer !== undefined
       ? portalContainer
@@ -185,7 +194,7 @@ export function MapAnchorPicker({
 
   const dialog = (
     <div
-      className="fixed inset-0 z-40 flex items-start justify-center bg-[var(--oc-scrim)] px-4 pt-[12vh]"
+      className="pointer-events-auto fixed inset-0 z-40 flex items-start justify-center bg-[var(--oc-scrim)] px-4 pt-[12vh]"
       onPointerDown={(event) => {
         if (event.target === event.currentTarget) close()
       }}

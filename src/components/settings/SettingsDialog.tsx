@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import type { SettingsSection } from "@/components/layout/SettingsTriggerContext"
 import { WorldTab } from "./tabs/WorldTab"
 import { GeneralTab } from "./tabs/GeneralTab"
 import { DataTab } from "./tabs/DataTab"
@@ -18,6 +19,8 @@ interface SettingsDialogProps {
   onOpenChange: (open: boolean) => void
   tab: string
   onTabChange: (tab: string) => void
+  /** 从别处跳进来时直接落到「世界」的二级页面（模板 / 分类 / 组件） */
+  section?: SettingsSection
 }
 
 const TAB_ITEMS = [
@@ -33,6 +36,7 @@ export function SettingsDialog({
   onOpenChange,
   tab,
   onTabChange,
+  section,
 }: SettingsDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -61,7 +65,8 @@ export function SettingsDialog({
           <div className="main-scroll min-h-0 flex-1 overflow-y-auto px-6 pb-6">
             {/* ---- world ---- */}
             <TabsContent value="world">
-              <WorldTab open={open} />
+              {/* key 让「从别处跳到某个二级页」时重新挂载，panel 直接用 section 初始化 */}
+              <WorldTab key={`${open ? 'open' : 'closed'}:${section ?? 'root'}`} open={open} section={section} />
             </TabsContent>
 
             <TabsContent value="general">

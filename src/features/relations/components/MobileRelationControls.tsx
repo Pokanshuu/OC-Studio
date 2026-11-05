@@ -1,6 +1,6 @@
 'use client'
 
-import { Calendar, CornerDownRight, Flag, ImageDown, Minus, Plus, RefreshCw, Spline, Users } from 'lucide-react'
+import { BookOpen, Calendar, CornerDownRight, Flag, ImageDown, Minus, Plus, RefreshCw, Spline, Users } from 'lucide-react'
 import { Panel } from '@xyflow/react'
 import { EDGE_STYLE_OPTIONS, type EdgeStyle } from '@/lib/edge-style'
 import { MIN_ZOOM } from './relation-graph-utils'
@@ -9,9 +9,11 @@ interface RelationControlsProps {
   showCharacters: boolean
   showEvents: boolean
   showCountries: boolean
+  showWorlds: boolean
   onToggleCharacters: () => void
   onToggleEvents: () => void
   onToggleCountries: () => void
+  onToggleWorlds: () => void
   zoom: number
   onZoomChange: (value: number) => void
   /** 重跑力导向布局（并把新坐标写回实体；桌面会带一次「撤销」） */
@@ -32,14 +34,16 @@ type FilterProps = Pick<
   | 'showCharacters'
   | 'showEvents'
   | 'showCountries'
+  | 'showWorlds'
   | 'onToggleCharacters'
   | 'onToggleEvents'
   | 'onToggleCountries'
+  | 'onToggleWorlds'
 >
 
 function RelationFilterButtons({
-  showCharacters, showEvents, showCountries,
-  onToggleCharacters, onToggleEvents, onToggleCountries,
+  showCharacters, showEvents, showCountries, showWorlds,
+  onToggleCharacters, onToggleEvents, onToggleCountries, onToggleWorlds,
 }: FilterProps) {
   return (
     <div className="flex items-center gap-1">
@@ -69,6 +73,17 @@ function RelationFilterButtons({
       >
         <Flag size={14} strokeWidth={2} />
         <span>国家</span>
+      </button>
+      <button
+        onClick={onToggleWorlds}
+        aria-label="显示分类条目"
+        aria-pressed={showWorlds}
+        className={`flex items-center gap-1 md:px-2 px-1.5 md:py-0.5 py-0 rounded-item text-[11px] md:text-xs transition-colors h-7 md:h-auto ${
+          showWorlds ? 'bg-[var(--oc-hover)] border border-line-hover text-ink' : 'text-ink-faint hover:text-ink-muted'
+        }`}
+      >
+        <BookOpen size={14} strokeWidth={2} />
+        <span className="max-md:hidden">分类</span>
       </button>
     </div>
   )

@@ -9,6 +9,9 @@ import { searchAllEntitiesFlat } from '@/lib/reference-registry'
 import type { ReferableEntity } from '@/lib/reference-registry'
 import { useEntityNavigate } from './EntityNavigateContext'
 import { useNavigation } from './NavigationContext'
+import { useCategories } from '@/lib/categories/store'
+import { categoryItemName } from '@/lib/categories/types'
+import { categoryIconOf } from '@/lib/categories/icons'
 import { MENU, MENU_GROUP_LABEL, MENU_ITEM_BASE } from '@/lib/ui-tokens'
 
 const TYPE_ICON_MAP: Record<string, typeof Users> = {
@@ -54,10 +57,31 @@ const CREATE_COMMANDS: { label: string; type: 'character' | 'event' | 'country';
 export function MenuBarSearch() {
   const { navigateToEntity } = useEntityNavigate()
   const { setActiveItem } = useNavigation()
+  const categories = useCategories()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<GroupedResults[]>([])
   const [isOpen, setIsOpen] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(0)
+
+  /** 输入时也把板块 / 分类命令带出来：搜「宠物」不该只有实体，还得能直接切过去 */
+  const sectionMatches = useMemo(() => {
+    const needle = query.trim().toLowerCase()
+    if (needle === '') return []
+    const sections = SECTION_COMMANDS.filter((cmd) => cmd.label.toLowerCase().includes(needle)).map(
+      (cmd) => ({ label: cmd.label, value: cmd.label, Icon: cmd.icon, group: '切换板块' }),
+    )
+    const used = new Set(sections.map((item) => item.label))
+    const categoryMatches = categories
+      .filter((category) => category.enabled && category.name.toLowerCase().includes(needle))
+      .filter((category) => !used.has(category.name))
+      .map((category) => ({
+        label: category.name,
+        value: categoryItemName(category.id),
+        Icon: categoryIconOf(category.icon),
+        group: '自定义分类',
+      }))
+    return [...sections, ...categoryMatches]
+  }, [query, categories])
 
   const inputRef = useRef<HTMLInputElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
@@ -222,50 +246,91 @@ export function MenuBarSearch() {
                       </button>
                     )
                   })}
+                  {categories.some((category) => category.enabled) ? (
+                    <>
+                      <div className={`mt-1 ${MENU_GROUP_LABEL}`}>自定义分类</div>
+                      {categories
+                        .filter((category) => category.enabled)
+                        .map((category) => {
+                          const Icon = categoryIconOf(category.icon)
+                          return (
+                            <button
+                              key={category.id}
+                              className={`${MENU_ITEM_BASE} text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink`}
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => handleSectionSelect(categoryItemName(category.id))}
+                            >
+                              <Icon size={14} strokeWidth={2} className="shrink-0 text-ink-faint" />
+                              <span>{category.name}</span>
+                            </button>
+                          )
+                        })}
+                    </>
+                  ) : null}
                 </div>
-              ) : results.length === 0 ? (
+              ) : results.length === 0 && sectionMatches.length === 0 ? (
                 <div className="px-3 py-4 text-center text-sm text-ink-faint">
                   无匹配结果
                 </div>
               ) : (
-                results.map((group) => {
-                  const groupStartIndex = results
-                    .slice(0, results.indexOf(group))
-                    .reduce((sum, g) => sum + g.items.length, 0)
-                  return (
-                    <div key={group.type}>
-                      <div className={MENU_GROUP_LABEL}>
-                        {group.label}
+                <>
+                  {results.map((group) => {
+                    const groupStartIndex = results
+                      .slice(0, results.indexOf(group))
+                      .reduce((sum, g) => sum + g.items.length, 0)
+                    return (
+                      <div key={group.type}>
+                        <div className={MENU_GROUP_LABEL}>
+                          {group.label}
+                        </div>
+                        {group.items.map((entity, idx) => {
+                          const globalIdx = groupStartIndex + idx
+                          const Icon = TYPE_ICON_MAP[entity.type] ?? Search
+                          return (
+                            <button
+                              key={entity.id}
+                              data-selected={globalIdx === selectedIndex}
+                              className={`${MENU_ITEM_BASE} ${
+                                globalIdx === selectedIndex
+                                  ? 'bg-[var(--oc-hover)] text-ink'
+                                  : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
+                              }`}
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => handleSelect(entity)}
+                            >
+                              {entity.type === 'character' ? (
+                                <Avatar src={getImageUrl(entity.avatarUrl, 'avatar')} size="sm" />
+                              ) : entity.type === 'country' ? (
+                                <Avatar src={getImageUrl(entity.avatarUrl, 'flag')} size="sm" type="flag" />
+                              ) : (
+                                <Icon size={14} strokeWidth={2} className="shrink-0 text-ink-faint" />
+                              )}
+                              <span className="truncate">{entity.name}</span>
+                            </button>
+                          )
+                        })}
                       </div>
-                      {group.items.map((entity, idx) => {
-                        const globalIdx = groupStartIndex + idx
-                        const Icon = TYPE_ICON_MAP[entity.type] ?? Search
-                        return (
+                    )
+                  })}
+                  {[...new Set(sectionMatches.map((item) => item.group))].map((groupName) => (
+                    <div key={groupName}>
+                      <div className={MENU_GROUP_LABEL}>{groupName}</div>
+                      {sectionMatches
+                        .filter((item) => item.group === groupName)
+                        .map((item) => (
                           <button
-                            key={entity.id}
-                            data-selected={globalIdx === selectedIndex}
-                            className={`${MENU_ITEM_BASE} ${
-                              globalIdx === selectedIndex
-                                ? 'bg-[var(--oc-hover)] text-ink'
-                                : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
-                            }`}
+                            key={`${groupName}-${item.label}`}
+                            className={`${MENU_ITEM_BASE} text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink`}
                             onMouseDown={(e) => e.preventDefault()}
-                            onClick={() => handleSelect(entity)}
+                            onClick={() => handleSectionSelect(item.value)}
                           >
-                            {entity.type === 'character' ? (
-                              <Avatar src={getImageUrl(entity.avatarUrl, 'avatar')} size="sm" />
-                            ) : entity.type === 'country' ? (
-                              <Avatar src={getImageUrl(entity.avatarUrl, 'flag')} size="sm" type="flag" />
-                            ) : (
-                              <Icon size={14} strokeWidth={2} className="shrink-0 text-ink-faint" />
-                            )}
-                            <span className="truncate">{entity.name}</span>
+                            <item.Icon size={14} strokeWidth={2} className="shrink-0 text-ink-faint" />
+                            <span className="truncate">{item.label}</span>
                           </button>
-                        )
-                      })}
+                        ))}
                     </div>
-                  )
-                })
+                  ))}
+                </>
               )}
             </div>,
             document.getElementById('overlay-root')!,

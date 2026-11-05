@@ -39,6 +39,9 @@ const LITERAL_ALLOWLIST = [
   'src/lib/entity-accent.ts',
   // 封面取色：从封面图里抽出来的色调（内容色，随图片变），不是界面样式
   'src/lib/cover/',
+  // 官方主题内置包：一份 theme.json 等价物的颜色字面量（主题数据，不是界面样式），
+  // 与标签色 / 地图色板同理；运行时由 applyThemePreset() 落到 CSS 变量
+  'src/lib/theme/presets.ts',
 ]
 
 interface Rule {

@@ -15,6 +15,7 @@ import { OverlayRoot } from "@/components/layout/OverlayRoot";
 import { Toaster } from "@/components/shared/toaster";
 import { NativeMenuBlocker } from "@/components/shared/NativeMenuBlocker";
 import { KeyboardProvider } from "@/lib/KeyboardContext";
+import { THEME_BOOT_SCRIPT } from "@/lib/theme/boot";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -41,7 +42,7 @@ export default function RootLayout({
       <head>
           <script
             dangerouslySetInnerHTML={{
-              __html: `(function(){try{var s=JSON.parse(localStorage.getItem('oc-studio-settings')||'{}');var t=s.theme||'auto';var d=t==='auto'?window.matchMedia('(prefers-color-scheme:dark)').matches:t==='dark';if(d){document.documentElement.classList.add('dark');document.documentElement.setAttribute('data-theme','dark')}if(window.__TAURI__||window.__TAURI_INTERNALS__){document.documentElement.classList.add('tauri-mica')}}catch(e){}})()`,
+              __html: THEME_BOOT_SCRIPT,
             }}
           />
         </head>

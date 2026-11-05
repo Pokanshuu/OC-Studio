@@ -3,7 +3,11 @@
 import { EDITOR_LAYOUT_OPTIONS, type EditorLayout } from "@/lib/editor-layout"
 import { COVER_TINT_MODE_OPTIONS, type CoverTintMode } from "@/lib/cover"
 import { EDGE_STYLE_OPTIONS, type EdgeStyle } from "@/lib/edge-style"
+import { THEME_PRESETS, type ThemePresetId } from "@/lib/theme/presets"
 
+// 单选圈：选中只加实心点，外圈最多到 `line-hover`。
+// 用墨色（`border-ink`）在深色底上会变成一只刺眼的白环，`line-hover` 才和界面其它
+// 分隔线一个强度。
 /** 设置页的共享控件：主题单选 + 开关样式常量（被「个性化」等 tab 使用）。 */
 export const THEME_OPTIONS = [
   { value: "light", label: "白天模式" },
@@ -25,7 +29,7 @@ export function LayoutRadio({
         <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
           <span
             className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border ${
-              value === opt.value ? 'border-ink' : 'border-line'
+              value === opt.value ? 'border-line-hover' : 'border-line'
             }`}
           >
             {value === opt.value ? <span className="h-1.5 w-1.5 rounded-full bg-ink" /> : null}
@@ -61,7 +65,7 @@ export function ThemeRadio({
         >
           <span
             className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border ${
-              value === opt.value ? 'border-ink' : 'border-line'
+              value === opt.value ? 'border-line-hover' : 'border-line'
             }`}
           >
             {value === opt.value ? <span className="h-1.5 w-1.5 rounded-full bg-ink" /> : null}
@@ -77,6 +81,51 @@ export function ThemeRadio({
           <span className="text-sm leading-none text-ink">{opt.label}</span>
         </label>
       ))}
+    </div>
+  )
+}
+
+/** 官方主题选择：一块「纸 + 两行墨」的小样，选中的那块抬起 */
+export function ThemePresetRadio({
+  value,
+  onChange,
+}: {
+  value: ThemePresetId
+  onChange: (v: ThemePresetId) => void
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {THEME_PRESETS.map((preset) => {
+        const selected = value === preset.id
+        return (
+          <label
+            key={preset.id}
+            className={`flex cursor-pointer flex-col items-center gap-1.5 rounded-control border px-2 py-2 focus-within:border-line-hover ${
+              selected ? 'border-line-hover bg-[var(--oc-hover)]' : 'border-line'
+            }`}
+          >
+            <span
+              className="flex h-7 w-12 flex-col justify-center gap-1 rounded-item border border-line px-1.5"
+              style={{ background: preset.preview.paper }}
+              aria-hidden
+            >
+              <span className="h-[2px] w-full rounded-full" style={{ background: preset.preview.ink }} />
+              <span className="h-[2px] w-2/3 rounded-full" style={{ background: preset.preview.ink, opacity: 0.5 }} />
+            </span>
+            <input
+              type="radio"
+              name="themePreset"
+              value={preset.id}
+              checked={selected}
+              onChange={() => onChange(preset.id as ThemePresetId)}
+              className="sr-only"
+            />
+            <span className={`text-[12px] leading-none ${selected ? 'text-ink' : 'text-ink-muted'}`}>
+              {preset.name}
+            </span>
+          </label>
+        )
+      })}
     </div>
   )
 }
@@ -111,7 +160,7 @@ export function MouseModeRadio({
         <label key={opt.value} className="flex cursor-pointer items-center gap-2">
           <span
             className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border ${
-              value === opt.value ? 'border-ink' : 'border-line'
+              value === opt.value ? 'border-line-hover' : 'border-line'
             }`}
           >
             {value === opt.value ? <span className="h-1.5 w-1.5 rounded-full bg-ink" /> : null}
@@ -145,7 +194,7 @@ export function EdgeStyleRadio({
         <label key={opt.value} className="flex cursor-pointer items-center gap-2">
           <span
             className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border ${
-              value === opt.value ? 'border-ink' : 'border-line'
+              value === opt.value ? 'border-line-hover' : 'border-line'
             }`}
           >
             {value === opt.value ? <span className="h-1.5 w-1.5 rounded-full bg-ink" /> : null}
@@ -179,7 +228,7 @@ export function CoverTintRadio({
         <label key={opt.value} className="flex cursor-pointer items-center gap-2">
           <span
             className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border ${
-              value === opt.value ? 'border-ink' : 'border-line'
+              value === opt.value ? 'border-line-hover' : 'border-line'
             }`}
           >
             {value === opt.value ? <span className="h-1.5 w-1.5 rounded-full bg-ink" /> : null}

@@ -20,6 +20,11 @@ const eslintConfig = defineConfig([
     // 设计参考 demo 与 IDE 本地状态（已在 .gitignore 里）
     "sample/**",
     ".vs/**",
+    // 本地浏览器自动化临时 profile：不是产品代码，扫进来会产出两万条无关告警
+    ".tmp-edge/**",
+    ".tmp-edge-cdp/**",
+    // 桌面壳 / 浏览器调试日志与 profile（已在 .gitignore 里）
+    "logs/**",
   ]),
   {
     rules: {

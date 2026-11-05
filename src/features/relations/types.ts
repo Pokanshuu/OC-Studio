@@ -3,7 +3,7 @@ import type { Node, Edge } from '@xyflow/react'
 export interface GraphNodeData extends Record<string, unknown> {
   id: string
   label: string
-  entityType: 'character' | 'event' | 'country'
+  entityType: 'character' | 'event' | 'country' | 'world'
   entityId: number
   subtitle?: string
   avatarUrl?: string

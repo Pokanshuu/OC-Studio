@@ -5,15 +5,21 @@ import { ArrowLeft, ChevronRight } from 'lucide-react'
 import { useInputContextMenu } from '@/lib/use-input-context-menu'
 import { useProjectMeta } from '@/features/project'
 import { ImageUploader } from '@/components/shared/ImageUploader'
-import { FieldSettings } from '@/components/settings/FieldSettings'
+import { TemplatesPanel } from '@/components/settings/TemplatesPanel'
+import { CategoriesPanel } from '@/components/settings/CategoriesPanel'
+import { ComponentsPanel } from '@/components/settings/ComponentsPanel'
+import { TagsPanel } from '@/features/tags/components/TagsPanel'
+import type { SettingsSection } from '@/components/layout/SettingsTriggerContext'
 import { ICON_BTN } from '@/lib/ui-tokens'
 
-export function WorldTab({ open }: { open: boolean }) {
+type Panel = 'root' | SettingsSection
+
+export function WorldTab({ open, section }: { open: boolean; section?: SettingsSection }) {
   const { meta, loading: metaLoading, save: saveMeta } = useProjectMeta()
   const worldNameRef = useInputContextMenu()
   const taglineRef = useInputContextMenu()
-  /** 二级界面：自定义表单字段（字段表太长，不铺在一级页面上） */
-  const [panel, setPanel] = useState<'root' | 'fields'>('root')
+  /** 二级界面：自定义组件 / 模板 / 分类（都太长，不铺在一级页面上） */
+  const [panel, setPanel] = useState<Panel>(section ?? 'root')
 
   const [worldName, setWorldName] = useState('')
   const [tagline, setTagline] = useState('')
@@ -90,12 +96,84 @@ export function WorldTab({ open }: { open: boolean }) {
           {/* 二级界面入口：字段表本身太长，收进下一级 */}
           <button
             type="button"
-            onClick={() => setPanel('fields')}
+            onClick={() => setPanel('components')}
             className="flex items-center justify-between border-t border-line pt-4 text-sm text-ink transition-colors hover:bg-transparent hover:text-ink-muted"
           >
-            <span>自定义表单字段</span>
+            <span>自定义组件</span>
             <ChevronRight size={16} strokeWidth={2} className="text-ink-faint" />
           </button>
+
+          <button
+            type="button"
+            onClick={() => setPanel('templates')}
+            className="flex items-center justify-between border-t border-line pt-4 text-sm text-ink transition-colors hover:bg-transparent hover:text-ink-muted"
+          >
+            <span>模板</span>
+            <ChevronRight size={16} strokeWidth={2} className="text-ink-faint" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setPanel('categories')}
+            className="flex items-center justify-between border-t border-line pt-4 text-sm text-ink transition-colors hover:bg-transparent hover:text-ink-muted"
+          >
+            <span>自定义分类</span>
+            <ChevronRight size={16} strokeWidth={2} className="text-ink-faint" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setPanel('tags')}
+            className="flex items-center justify-between border-t border-line pt-4 text-sm text-ink transition-colors hover:bg-transparent hover:text-ink-muted"
+          >
+            <span>标签</span>
+            <ChevronRight size={16} strokeWidth={2} className="text-ink-faint" />
+          </button>
+        </div>
+      ) : panel === 'categories' ? (
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPanel('root')}
+              aria-label="返回"
+              className={ICON_BTN}
+            >
+              <ArrowLeft size={16} strokeWidth={2} />
+            </button>
+            <span className="text-sm text-ink">自定义分类</span>
+          </div>
+          <CategoriesPanel />
+        </div>
+      ) : panel === 'components' ? (
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPanel('root')}
+              aria-label="返回"
+              className={ICON_BTN}
+            >
+              <ArrowLeft size={16} strokeWidth={2} />
+            </button>
+            <span className="text-sm text-ink">自定义组件</span>
+          </div>
+          <ComponentsPanel />
+        </div>
+      ) : panel === 'tags' ? (
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPanel('root')}
+              aria-label="返回"
+              className={ICON_BTN}
+            >
+              <ArrowLeft size={16} strokeWidth={2} />
+            </button>
+            <span className="text-sm text-ink">标签</span>
+          </div>
+          <TagsPanel />
         </div>
       ) : (
         <div className="flex flex-col gap-4">
@@ -108,9 +186,9 @@ export function WorldTab({ open }: { open: boolean }) {
             >
               <ArrowLeft size={16} strokeWidth={2} />
             </button>
-            <span className="text-sm text-ink">自定义表单字段</span>
+            <span className="text-sm text-ink">模板</span>
           </div>
-          <FieldSettings />
+          <TemplatesPanel />
         </div>
       )}
     </>

@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
 import { logOperation, pendingStamp } from '@/lib/sync'
 import { addCountryCharacter, addCountryEvent, removeCountryCharacter } from '@/lib/membership'
+import { isCodexEntry } from '@/lib/entry-kinds'
 import type { GraphNode, GraphEdge, RelationEndpoint, RelationNodeType } from './types'
 import { patchCharacterEdge, patchEventEdge, type EdgeStylePatch } from './edge-style'
 
@@ -9,15 +10,21 @@ export type CreateRelationResult =
   | { ok: false; reason: 'unsupported' | 'duplicate' | 'missing' }
 
 export async function buildGraphData(): Promise<{ nodes: GraphNode[]; edges: GraphEdge[] }> {
-  const [charactersRaw, eventsRaw, countriesRaw] = await Promise.all([
+  const [charactersRaw, eventsRaw, countriesRaw, worldsRaw] = await Promise.all([
     db.characters.toArray(),
     db.events.toArray(),
     db.countries.toArray(),
+    db.worldEntries.toArray(),
   ])
 
   const characters = charactersRaw.filter((c) => !c.deleted)
   const events = eventsRaw.filter((e) => !e.deleted)
   const countries = countriesRaw.filter((c) => !c.deleted)
+  // 只把「有引用关系的分类条目」放进图里：没有引用的笔记放进来只会变孤岛；
+  // 小说 / 地图笔记不算分类条目
+  const categoryEntries = worldsRaw.filter(
+    (entry) => !entry.deleted && Boolean(entry.category) && isCodexEntry(entry) && (entry.references?.length ?? 0) > 0,
+  )
 
   const nodes: GraphNode[] = []
   const edges: GraphEdge[] = []
@@ -27,7 +34,7 @@ export async function buildGraphData(): Promise<{ nodes: GraphNode[]; edges: Gra
   function addNode(
     id: string,
     label: string,
-    type: 'character' | 'event' | 'country',
+    type: 'character' | 'event' | 'country' | 'world',
     entityId: number,
     subtitle?: string,
     position?: { x: number; y: number },
@@ -117,6 +124,14 @@ export async function buildGraphData(): Promise<{ nodes: GraphNode[]; edges: Gra
     }
   }
 
+  for (const entry of categoryEntries) {
+    addNode(`world-${entry.id}`, entry.title, 'world', entry.id, entry.category, entry.graphPosition)
+    const node = nodes.find((n) => n.id === `world-${entry.id}`)
+    if (node) {
+      ;(node.data as Record<string, unknown>).flagUrl = entry.cover ?? ''
+    }
+  }
+
   for (const c of characters) {
     const sourceId = `character-${c.id}`
     for (const rc of c.relatedCharacters ?? []) {
@@ -143,6 +158,16 @@ export async function buildGraphData(): Promise<{ nodes: GraphNode[]; edges: Gra
           true,
         )
       }
+    }
+  }
+
+  // 分类条目 → 被引用实体（@ 引用 / [[内链]] 落在 references 上）
+  for (const entry of categoryEntries) {
+    const sourceId = `world-${entry.id}`
+    for (const reference of entry.references ?? []) {
+      const targetId = `${reference.targetType}-${reference.targetId}`
+      if (reference.targetType !== 'world' && reference.targetType !== 'character' && reference.targetType !== 'event' && reference.targetType !== 'country') continue
+      if (nodeIds.has(targetId)) addEdge(sourceId, targetId, '引用', true, { arrow: 'forward' }, true)
     }
   }
 
@@ -253,6 +278,9 @@ export async function saveNodePosition(
       break
     case 'country':
       await db.countries.update(entityId, updates)
+      break
+    case 'world':
+      await db.worldEntries.update(entityId, updates)
       break
   }
 }

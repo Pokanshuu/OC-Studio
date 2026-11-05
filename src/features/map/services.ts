@@ -176,6 +176,13 @@ export interface MapEntity {
   image?: string
   width?: number
   height?: number
+  /** 生成快照：有它才谈得上「切视图」（手传的底图没有） */
+  seed?: number
+  params?: string
+  /** 当前视图（`terrain` / `contour` / …） */
+  mode?: string
+  /** 政治标注（国界 / 道路）的原始 JSON；解析见 `annotations.ts` */
+  annotations?: string
   updatedAt: number
 }
 
@@ -189,9 +196,29 @@ export async function listMaps(): Promise<MapEntity[]> {
       image: row.mapImage,
       width: row.mapWidth,
       height: row.mapHeight,
+      seed: row.mapSeed,
+      params: row.mapParams,
+      mode: row.mapMode,
+      annotations: row.mapAnnotations,
       updatedAt: row.updatedAt ?? 0,
     }))
     .sort((a, b) => b.updatedAt - a.updatedAt)
+}
+
+/**
+ * 写政治标注（整条 JSON 覆盖）。
+ *
+ * 标注是**这张图自己的东西**，不欠任何实体：删掉一条不影响任何笔记，
+ * 所以不需要镜像写入，也不进 `logOperation` 的实体字段口径之外的地方。
+ */
+export async function setMapAnnotations(id: number, raw: string | undefined): Promise<void> {
+  const now = Date.now()
+  await db.worldEntries.update(id, {
+    mapAnnotations: raw && raw.length > 0 ? raw : undefined,
+    updatedAt: now,
+    ...pendingStamp(now),
+  })
+  await logOperation('worldEntries', id, 'map_annotations', '', raw ?? '')
 }
 
 /** 新建一张地图（一条笔记；底图之后单独设） */
@@ -243,7 +270,7 @@ export async function setMapBackground(
   id: number,
   image: string | null,
   size?: { width: number; height: number },
-  generation?: { seed: number; params: unknown },
+  generation?: { seed: number; params: unknown; view?: string },
 ): Promise<void> {
   const now = Date.now()
   await db.worldEntries.update(id, {
@@ -252,10 +279,30 @@ export async function setMapBackground(
     mapHeight: image ? size?.height : undefined,
     mapSeed: image && generation ? generation.seed : undefined,
     mapParams: image && generation ? JSON.stringify(generation.params) : undefined,
+    // 手传的底图没有视图可言，字段留空 = 界面不显示模式条
+    mapMode: image && generation ? (generation.view ?? 'terrain') : undefined,
     updatedAt: now,
     ...pendingStamp(now),
   })
   await logOperation('worldEntries', id, 'map_image', '', image ?? '')
+}
+
+/**
+ * 切当前视图（方案 A：**换底图**，不叠图层）。
+ *
+ * 只改两个键：`map_mode`（记住看哪一档）+ `map_image`（指向这一档的渲染文件）。
+ * 生成快照（`map_seed` / `map_params`）一个字节都不动 —— 它才是可重生成的真源，
+ * 所以来回切模式永远能得到同一张图，也不用为每档留一份参数。
+ */
+export async function setMapView(id: number, mode: string, image: string): Promise<void> {
+  const now = Date.now()
+  await db.worldEntries.update(id, {
+    mapMode: mode || undefined,
+    mapImage: image || undefined,
+    updatedAt: now,
+    ...pendingStamp(now),
+  })
+  await logOperation('worldEntries', id, 'map_mode', '', mode)
 }
 
 /**

@@ -14,6 +14,8 @@ export interface EdgeStylePatch {
   /** `undefined` = 不动；`null` = 清空回默认 */
   color?: string | null
   arrow?: RelationArrow | null
+  /** 关系名（改名）；空串 / `null` 视为不改 */
+  relation?: string | null
 }
 
 export interface EdgeStyle {
@@ -30,12 +32,13 @@ export function edgeStyleOf(edge: { color?: string; arrow?: RelationArrow }): Ed
  * 把补丁合并到一个边上，返回「要不要写」。
  * 合并后两者都没有 → `color` / `arrow` 键会被移除（不写空值进文件）。
  */
-export function applyEdgeStyle<T extends { color?: string; arrow?: RelationArrow }>(
+export function applyEdgeStyle<T extends { color?: string; arrow?: RelationArrow; relation?: string }>(
   edge: T,
   patch: EdgeStylePatch,
 ): { edge: T; changed: boolean } {
   let color = edge.color
   let arrow = edge.arrow
+  let relation = edge.relation
 
   if (patch.color !== undefined) {
     const next = patch.color === null ? undefined : normalizeRelationColor(patch.color)
@@ -46,12 +49,18 @@ export function applyEdgeStyle<T extends { color?: string; arrow?: RelationArrow
     arrow = next === 'none' ? undefined : next
   }
 
-  const changed = color !== edge.color || arrow !== edge.arrow
+  if (patch.relation !== undefined && patch.relation !== null) {
+    const next = patch.relation.trim().slice(0, 40)
+    if (next !== '') relation = next
+  }
+
+  const changed = color !== edge.color || arrow !== edge.arrow || relation !== edge.relation
   const next: T = { ...edge }
   if (color === undefined) delete (next as { color?: string }).color
   else next.color = color
   if (arrow === undefined) delete (next as { arrow?: RelationArrow }).arrow
   else next.arrow = arrow
+  if (relation !== undefined) (next as { relation?: string }).relation = relation
   return { edge: next, changed }
 }
 

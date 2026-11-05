@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import type { Editor } from '@tiptap/core'
-import type { Character, CharacterKind, GalleryImage, RelatedCharacter } from '@/types'
+import type { Character, GalleryImage, RelatedCharacter } from '@/types'
 import type { RelatedItem } from '@/components/shared/RelatedItemsSelector'
 import type { CharacterFormData } from '../types'
 import { useCharacterList } from './useCharacters'
@@ -54,8 +54,6 @@ interface CharacterValues {
   galleryUrls: string[]
   relatedCharacters: RelatedCharacter[]
   isMajor: boolean
-  /** 类别：角色 / 武器 / 宠物（老数据没有这一列时按角色算） */
-  kind: CharacterKind
   custom: Record<string, string>
   tags: number[]
 }
@@ -82,7 +80,6 @@ function valuesFromEntity(character: Character): CharacterValues {
     galleryUrls: toUrls(character.gallery),
     relatedCharacters: character.relatedCharacters ?? [],
     isMajor: character.isMajor ?? false,
-    kind: character.kind ?? 'character',
     custom: character.custom ?? {},
     tags: character.tags ?? [],
   }
@@ -115,7 +112,6 @@ function valuesSnapshot(values: CharacterValues): Record<string, unknown> {
       relation: rc.relation,
     })),
     isMajor: values.isMajor,
-    kind: values.kind,
     custom: values.custom,
     tags: values.tags,
   }
@@ -164,7 +160,6 @@ export function useCharacterForm(
     initial.relatedCharacters,
   )
   const [isMajor, setIsMajor] = useState(initial.isMajor)
-  const [kind, setKind] = useState<CharacterKind>(initial.kind)
   /** 自定义字段的值：键 = 字段表里的 key。内置字段不走这里（各有各的列） */
   const [custom, setCustom] = useState<Record<string, string>>(initial.custom)
 
@@ -184,12 +179,12 @@ export function useCharacterForm(
     name, aliasesStr, race, element, occupation, faction, nationalityLegacy, countryId,
     height, birthdayYear, birthdayMonth, birthdayDay,
     avatarUrl, headerUrl, animationUrl, avatarUrls, galleryUrls, relatedCharacters,
-    isMajor, kind, custom, tags,
+    isMajor, custom, tags,
   }), [
     name, aliasesStr, race, element, occupation, faction, nationalityLegacy, countryId,
     height, birthdayYear, birthdayMonth, birthdayDay,
     avatarUrl, headerUrl, animationUrl, avatarUrls, galleryUrls, relatedCharacters,
-    isMajor, kind, custom, tags,
+    isMajor, custom, tags,
   ])
 
   const snapshot = useMemo(() => valuesSnapshot(values), [values])
@@ -221,7 +216,6 @@ export function useCharacterForm(
     setGalleryUrls(next.galleryUrls)
     setRelatedCharacters(next.relatedCharacters)
     setIsMajor(next.isMajor)
-    setKind(next.kind)
     setCustom(next.custom)
     setTags(next.tags)
     markFieldsClean(nextKey)
@@ -371,7 +365,6 @@ export function useCharacterForm(
         avatars: avatarUrls.map((url) => ({ url, type: 'portrait' as const })),
         tags,
         isMajor,
-        kind,
         custom,
       })
       savedSnapshotRef.current = snapshotKey(snapshot)
@@ -410,7 +403,6 @@ export function useCharacterForm(
     relatedCharacters,
     tags,
     isMajor,
-    kind,
     custom,
     onSave,
     markSaving,
@@ -461,7 +453,7 @@ export function useCharacterForm(
     galleryUrls, setGalleryUrls,
     relatedCharacters, setRelatedCharacters,
     isMajor, setIsMajor,
-    kind, setKind,
+
     custom, setCustomValue,
     saving,
     docDirty,
