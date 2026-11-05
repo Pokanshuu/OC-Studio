@@ -436,6 +436,8 @@ if (country === undefined) {
 } else {
   eq('国家 · 制度/地理/文化', [country.system, country.geography, country.culture], ['君主制', '雪山与峡湾', '尚武'])
   eq('国家 · 描述', country.description, '雪原上的王国')
+  // 阶段二·一：国家侧的成员名单已退役 —— 盘上就算有也不读回来（真源在实体侧）
+  eq('国家 · 成员名单不再读回', [country.characters, country.events], [[], []])
 }
 
 const tagged = applyTagMeta(scan.dataset.tags.map((item) => item.entity), tagMeta)

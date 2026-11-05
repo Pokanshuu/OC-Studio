@@ -67,8 +67,9 @@ export const COUNTRY_KEYS = {
   culture: chain('culture', '文化'),
   flag: chain('flag', 'flagUrl', '旗帜'),
   header: chain('header', 'headerUrl'),
-  characters: chain('characters', '角色', '相关角色'),
-  events: chain('events', '事件', '相关事件'),
+  // `characters` / `events` 两格**已退役**（阶段二·一）：成员关系只有实体侧一份
+  // （`Character.countryId` / `Event.countries`），国家页的名单是查询结果。
+  // 从词汇表里摘掉 = 既不读也不写；盘上遗留的键原样留着，一个字节都不动。
   tags: chain('tags'),
   order: chain('order', '排序'),
   /** 关系图坐标：`{ x, y }`。只有用户拖过节点才有这个键 */

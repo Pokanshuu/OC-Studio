@@ -262,8 +262,8 @@ export function serializeCountry(
   putIfChanged(out, existing, COUNTRY_KEYS.culture, writeString(entity.culture), p === null ? null : writeString(p.culture))
   putIfChanged(out, existing, COUNTRY_KEYS.flag, writeString(entity.flagUrl ?? ''), p === null ? null : writeString(p.flagUrl ?? ''))
   putIfChanged(out, existing, COUNTRY_KEYS.header, writeString(entity.headerUrl ?? ''), p === null ? null : writeString(p.headerUrl ?? ''))
-  putIfChanged(out, existing, COUNTRY_KEYS.characters, namesOf(ctx, 'character', entity.characters), p === null ? null : namesOf(ctx, 'character', p.characters))
-  putIfChanged(out, existing, COUNTRY_KEYS.events, namesOf(ctx, 'event', entity.events), p === null ? null : namesOf(ctx, 'event', p.events))
+  // 成员名单不再落盘（阶段二·一）：角色侧国籍 / 事件侧相关国家才是真源。
+  // 盘上遗留的 `characters` / `events` 键我们不管，也不删（外科式写入只动自己持有的键）。
   putIfChanged(out, existing, COUNTRY_KEYS.tags, tagNames(ctx, entity.tags), p === null ? null : tagNames(ctx, p.tags))
   putIfChanged(out, existing, COUNTRY_KEYS.order, writeNumber(entity.order), p === null ? null : writeNumber(p.order))
   putIfChanged(out, existing, COUNTRY_KEYS.graphPosition, writePosition(entity.graphPosition), p === null ? null : writePosition(p.graphPosition))

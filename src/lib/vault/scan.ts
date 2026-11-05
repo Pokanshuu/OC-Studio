@@ -422,12 +422,10 @@ export function scanVault(options: ScanOptions): VaultScanResult {
         culture: readString(fm, COUNTRY_KEYS.culture),
         flagUrl: readString(fm, COUNTRY_KEYS.flag) || undefined,
         headerUrl: readString(fm, COUNTRY_KEYS.header) || undefined,
-        characters: readStringList(fm, COUNTRY_KEYS.characters)
-          .map((name) => lookupTarget(name, 'character')?.id)
-          .filter((id): id is number => id !== undefined),
-        events: readStringList(fm, COUNTRY_KEYS.events)
-          .map((name) => lookupTarget(name, 'event')?.id)
-          .filter((id): id is number => id !== undefined),
+        // 成员名单不读了（阶段二·一）：真源是角色的 `countryId` 与事件的 `countries`，
+        // 国家页的两个列表由查询得出。盘上遗留的键原样留着，不读也不删。
+        characters: [],
+        events: [],
         tags: tagIdsOf(note, COUNTRY_KEYS.tags),
         order: readNumber(fm, COUNTRY_KEYS.order),
         graphPosition: readPosition(fm, COUNTRY_KEYS.graphPosition),
