@@ -1,5 +1,6 @@
 'use client'
 
+import { type ReactNode } from 'react'
 import { FolderInput, FolderOpen, FolderPlus, RefreshCw } from 'lucide-react'
 
 import { useVault } from '@/lib/vault/vault-provider'
@@ -22,8 +23,11 @@ import {
  *
  * 「导入旧版本数据」只留在启动闸门：这里的菜单只有在已经绑定笔记库后才会出现，
  * 那时 Dexie 里装的就是这个库本身，再叫「旧版本数据」只会让人以为还有一份没搬的东西。
+ *
+ * `extra`：紧跟「概览」的那几项（创作时间线）由调用方给 —— 它们和「刷新 / 概览」是同一组
+ * （看这个库里发生了什么），放进尾部分隔线之前，别另起一组。
  */
-export function VaultMenuSection() {
+export function VaultMenuSection({ extra }: { extra?: ReactNode }) {
   const vault = useVault()
   if (!vault.supported) return null
 
@@ -68,6 +72,7 @@ export function VaultMenuSection() {
         <FolderOpen size={14} strokeWidth={2} />
         概览…
       </DropdownMenuItem>
+      {extra}
 
       <DropdownMenuSeparator />
     </>

@@ -118,7 +118,13 @@ export function MenuBarMenus() {
               <DropdownMenuTrigger>文件</DropdownMenuTrigger>
             </span>
             <DropdownMenuContent>
-              <VaultMenuSection />
+              <VaultMenuSection
+                extra={
+                  <DropdownMenuItem onClick={() => setJournalOpen(true)}>
+                    创作时间线...
+                  </DropdownMenuItem>
+                }
+              />
               <DropdownMenuItem onClick={handleImportClick}>
                 导入...
               </DropdownMenuItem>
