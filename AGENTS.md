@@ -78,7 +78,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - `src/lib/legacy/` — fork 数据**只读适配器**：`pr5-novels.ts`（`OCStudioNovels` 独立库 → 章节笔记）、`pr5-relations.ts`（`relations` 表 → 显式边）。三条规矩：只读、幂等、给报告
 - `src/lib/relation-colors.ts` — 关系线色板与箭头唯一源（12 档 `--oc-accent-*`、`arrowEnds()`、非法值收敛）；`features/relations/edge-style.ts` 负责「怎么改一条边」
 - `src/lib/theme-tokens.ts` — 主题令牌归属登记（`shell` / `page` / `both`），`npm run audit:theme` 双向自检
-- `src/lib/theme/` — **官方主题 v1（只换颜色）**。**主题不是插件**（2026-11-05 定）：它没有代码、没有权限面，只是 `Settings.themePreset` 选中的一组令牌，别再往 `lib/plugins/` 里登记：`presets.ts`（**11 套**：中性 4 套 纸白 / 亚麻 / 松烟 / 青瓷 + 七色 7 套 朱砂 / 琥珀 / 苇黄 / 苔绿 / 海青 / 靛蓝 / 紫苑（赤橙黄绿青蓝紫），亮暗各一套 `ThemeTokens` + `preview`；主题色是数据，已进 `design-audit` 白名单）· `apply.ts`（`applyThemePreset(id, isDark)` 往 `<html>` 写行内 `--oc-*` + `data-palette`）· `boot.ts`（首帧启动脚本，`layout.tsx` 的 `<head>` 里同步落值，防闪回默认纸白）· `background.ts`（**背景图 v1**：压缩到长边 2560 WebP → Tauri 写 `.ocstudio/backgrounds/`（Mock 用 data URL）→ `html.oc-background` 铺图 + 纸色 wash；外壳 35% 纸色；填充 / 平铺 / 固定；遮罩 20–80%；有图时关 Mica）。设置项是 `Settings.themePreset` / `backgroundImage`（相对路径或 data URL）/ `backgroundMode` / `backgroundScrim`，UI 在设置 › 个性化；`npm run audit:palettes` 查亮暗对比度。静态站与模板海报已消费令牌；整图导出（关系图 / 时间线）还没做，见 `docs/主题.md` §5
+- `src/lib/theme/` — **官方主题 v1（只换颜色）**。**主题不是插件**（2026-11-05 定）：它没有代码、没有权限面，只是 `Settings.themePreset` 选中的一组令牌，别再往 `lib/plugins/` 里登记：`presets.ts`（**11 套**：中性 4 套 纸白 / 亚麻 / 松烟 / 青瓷 + 七色 7 套 朱砂 / 琥珀 / 苇黄 / 苔绿 / 海青 / 靛蓝 / 紫苑（赤橙黄绿青蓝紫），亮暗各一套 `ThemeTokens` + `preview`；主题色是数据，已进 `design-audit` 白名单）· `apply.ts`（`applyThemePreset(id, isDark)` 往 `<html>` 写行内 `--oc-*` + `data-palette`）· `boot.ts`（首帧启动脚本，`layout.tsx` 的 `<head>` 里同步落值，防闪回默认纸白）。设置项只有 `Settings.themePreset`，UI 在设置 › 个性化。**应用级背景图整块移除**（2026-11-05：做不干净就别摆在界面上 —— 它和 Mica 互斥、遮罩调不好、还要往库里写文件，收不掉这些就不该有入口）；`npm run audit:palettes` 查亮暗对比度。静态站与模板海报已消费令牌；整图导出（关系图 / 时间线）还没做，见 `docs/主题.md` §5
 - `src/lib/media-download.ts` — 图片 / 动画「保存到…」（系统保存对话框 + Rust `save_bytes` 原子写）；**浏览器 / `cap serve` 用 `isNativePlatform()` 判定，不要用 `isCapacitor()`**：Capacitor core 在纯 Web 里也会注入 `window.Capacitor`，用错会把浏览器下载扔进 Filesystem 分支，表现成「导出成功但没有文件」；`src/lib/video-upload.ts` — OC 动画上传（库内 `附件/`）
 
 ### 核心上下文
@@ -93,7 +93,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - `src/lib/useBackButton.ts` — Capacitor 系统返回键处理
 - `src/lib/browser-compat.ts` — 浏览器兼容性检测：Chromium 版本、HarmonyOS/ArkWeb、安全区域降级估算与修正
 - `src/lib/reference-registry.ts` — @ 引用和 [[ 内链数据源注册
-- `src/lib/settings.tsx` — 主题 / 同步 / 界面偏好（**`themePreset`**（官方主题 id，见 `lib/theme/`）、**`backgroundImage` / `backgroundMode` / `backgroundScrim`**（应用级背景图，data URL + 三种铺法 + 遮罩）、`sidebarVisible`、`sidebarWidth`、`editorLayout`、`mouseMode`、**`timelineDetail`**（简 / 详）、**`timelineShowTracks`**（参与者轨道）、**`coverTintMode`**（封面卡彩色 / 黑白：黑白跟主题走，亮=纸色、暗=墨色））设置
+- `src/lib/settings.tsx` — 主题 / 同步 / 界面偏好（**`themePreset`**（官方主题 id，见 `lib/theme/`）、`sidebarVisible`、`sidebarWidth`、`editorLayout`、`mouseMode`、**`timelineDetail`**（简 / 详）、**`timelineShowTracks`**（参与者轨道）、**`coverTintMode`**（封面卡彩色 / 黑白：黑白跟主题走，亮=纸色、暗=墨色））设置
 - `src/lib/use-device.ts` — useDevice() (isMobile)
 - `src/lib/image-service.ts` — 图片全流程（含 Tauri/Capacitor/Browser 三环境适配）
 - `src/lib/image-crop.ts` — Canvas 裁剪引擎（getCroppedBlob 支持 Blob 入参 + HEIF 自动转换）
@@ -107,6 +107,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - `src/components/shared/ImageUploader.tsx` — 单图槽位（封面 / 头图 / 头像 / 世界封面 / 小说封面）：单击看大图，右键 / 长按出菜单；支持裁剪流水线
 - `src/components/shared/ImageCropper.tsx` — 全屏裁剪 + 缩放滑块（react-easy-crop）
 - `src/components/shared/PeriodDialog.tsx` — 时期添加/编辑弹窗
+- `src/features/world/components/WorldCoverField.tsx` — 词条 / 分类条目的封面槽位：**直接复用 `ProfileBannerEditor` 的头图**（全宽 3:2 + `StretchyHeader`），不要再改回固定宽度的 `ImageUploader`，否则同一份模板的 `cover` 会在角色页和分类页长成两种东西
 - `src/components/shared/image-gallery/` — 图片画廊：`ImageGallery`(壳/模式分发 + 统一菜单) + `ImageGallerySlider`(滑动模式) + `ImageGalleryGrid`(网格模式) + `useImageUpload`(新增 / 更换 / 编辑同一位置)
 - `src/components/shared/context-menu/` — 右键菜单内部：`context-menu-types` + `ContextMenuButton`(顶层与子菜单共用的项按钮) + `ContextSubMenu`
 - `src/components/shared/FilterSelect.tsx` — 通用筛选下拉（触发按钮 + portal 面板 + 点外关闭），样式由调用点传入
