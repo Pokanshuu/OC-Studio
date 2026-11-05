@@ -153,4 +153,25 @@ check('页边距越大页数越多', paginateNovel(flat, { format: '9:16', margi
 check('每页行数随字号变化', linesPerPage({ format: '9:16', fontSize: 20 }) < linesPerPage({ format: '9:16', fontSize: 12 }))
 check('页码连续（扉页也算一页）', withTitlePage.every((page, i) => page.index === i + 1))
 
+// ── 长书：页底不留孤零零的标题、不超容量
+const longChapters = Array.from({ length: 6 }, (_, chapterIndex) => ({
+  title: `第${chapterIndex + 1}章 长夜`,
+  depth: 2,
+  text: Array.from({ length: 12 + chapterIndex * 7 }, () => '正文一行，用来把这一页填满，看标题会不会落到底部。'.repeat(3)).join('\n\n'),
+}))
+const layouts = [
+  { format: '9:16' as const },
+  { format: '9:16' as const, chapterBreak: false },
+  { format: 'A4' as const, fontSize: 20, lineHeight: 2.2 },
+]
+for (const options of layouts) {
+  const built = paginateNovel(longChapters, options)
+  const bullet = JSON.stringify(options)
+  check(`页底不出现孤立标题 ${bullet}`, !built.some((page) => page.rows.length > 1 && page.rows[page.rows.length - 1]?.kind === 'title'))
+  check(
+    `每页行数不超过容量 ${bullet}`,
+    built.every((page) => page.rows.reduce((sum, row) => sum + (row.kind === 'title' ? 2 : 1), 0) <= linesPerPage(options)),
+  )
+}
+
 console.log(`\n共 ${passed} 项断言通过`)

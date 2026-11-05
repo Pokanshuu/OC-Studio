@@ -228,9 +228,13 @@ export function paginateNovel(chapters: NovelExportChapter[], input?: NovelPagin
       continue
     }
 
-    // 章节接着上一页排时，标题前面垫一行空行（贴着上一段会像正文的一部分）
-    if (pageHasBody && !needNewPage && used + TITLE_LINES + 1 <= capacity) {
-      addRow({ kind: 'gap' }, title)
+    // 章节接着上一页排时：标题前垫一行空行（贴着上一段会像正文的一部分）。
+    // 页底只剩一两行时**直接换页** —— 标题占两行，落在页脚就是「标题孤零零」，
+    // 而且下面没有正文，看起来像排版事故。
+    if (pageHasBody && !needNewPage) {
+      const remaining = capacity - used
+      if (remaining >= TITLE_LINES + 2) addRow({ kind: 'gap' }, title)
+      else if (remaining < TITLE_LINES + 1) needNewPage = true
     }
     addRow({ kind: 'title', text: title }, title)
     for (const row of rows) addRow(row, title)
