@@ -20,6 +20,7 @@ import {
   legacyImageSourcePath,
   type LegacyRows,
 } from '../src/lib/vault/export-dir'
+import { worldBodyOf } from '../src/lib/world-body'
 import {
   collectBodyImageRefs,
   collectCharacterAnimationRefs,
@@ -397,8 +398,11 @@ if (worldEntry === undefined) {
 } else {
   eq('词条 · 标题', worldEntry.title, '世界树')
   eq('词条 · 分类', worldEntry.category, '神话')
-  const parsed = JSON.parse(worldEntry.content) as { content?: { content?: { text?: string }[] }[] }
+  // 正文只存在于 `document`（`lib/world-body.ts`）；`content` 装载后必须是空串，
+  // 否则又变成两份真源 —— 这条断言就是防回退的那颗钉子。
+  const parsed = worldBodyOf(worldEntry) as { content?: { content?: { text?: string }[] }[] }
   eq('词条 · 正文', parsed.content?.[0]?.content?.[0]?.text, '支撑世界的巨树')
+  eq('词条 · content 不再镜像正文', worldEntry.content, '')
 }
 
 // 小说根 / 地图笔记：封面与底图是各自的字段图，落地必须一起带过去

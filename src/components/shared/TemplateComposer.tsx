@@ -15,12 +15,13 @@
  * 预览是**结构预览**（这一版）：按真实顺序画区块、真实的分隔线节奏、真实标题，
  * 但不假装填充内容 —— 内容要真实，就得拿一篇真实笔记来渲染，那是编辑器的活。
  */
+import { worldBodyOf } from '@/lib/world-body'
 import { useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { ArrowLeft, ChevronDown, ChevronUp, Download, GripVertical, Plus, SlidersHorizontal, X } from 'lucide-react'
 import { COMPONENT_BY_ID, COMPONENT_IDS } from '@/lib/templates/registry'
 import { isComponentWired } from '@/lib/templates/support'
-import { inlineParamDefs, templateParamsFor } from '@/lib/templates/params'
+import { templateParamsFor } from '@/lib/templates/params'
 import { templateFieldKeys } from '@/lib/templates/fields'
 import { saveTemplate, useTemplates } from '@/lib/templates/store'
 import type { TemplateComponent, TemplateComponentId, TemplateDoc } from '@/lib/templates/types'
@@ -30,9 +31,10 @@ import { useCategories } from '@/lib/categories/store'
 import type { Category } from '@/lib/categories/types'
 import { isCodexEntry } from '@/lib/entry-kinds'
 import { resolveImageUrl } from '@/lib/image-service'
-import { ImageExportDialog } from './ImageExportDialog'
-import type { TemplatePosterData } from './TemplatePoster'
+import { ExportCenter } from './export/ExportCenter'
+import type { PosterSubjectKind } from '@/lib/export/poster/subjects'
 import { ComponentSection } from './ComponentSection'
+import { TemplateComponentParams } from './TemplateParams'
 import { FullscreenViewer } from './FullscreenViewer'
 import { useEntityNavigate } from '@/components/layout/EntityNavigateContext'
 import { useSettingsTrigger } from '@/components/layout/SettingsTriggerContext'
@@ -57,6 +59,9 @@ interface PreviewData {
   galleryImages: string[]
   time: string
   location: string
+  /** 导出图片时直接定位到这一条（导出中心按 kind + id 重新读数据） */
+  subjectKind: PosterSubjectKind
+  subjectId: number
 }
 
 /** 正文可能是 Tiptap JSON 字符串，也可能是 HTML；预览只要纯文本 */
@@ -133,6 +138,8 @@ async function loadPreview(template: TemplateDoc, categories: Category[]): Promi
     ).filter(([, value]) => value.trim() !== '')
     return {
       ...empty,
+      subjectKind: 'character',
+      subjectId: character.id,
       title: character.name || '未命名',
       cover: character.headerUrl,
       summary: plainTextOf(character.bio),
@@ -161,6 +168,8 @@ async function loadPreview(template: TemplateDoc, categories: Category[]): Promi
     ).filter(([, value]) => value.trim() !== '')
     return {
       ...empty,
+      subjectKind: 'event',
+      subjectId: event.id,
       title: event.title || '未命名',
       cover: event.headerUrl,
       summary: plainTextOf(event.summary),
@@ -197,6 +206,8 @@ async function loadPreview(template: TemplateDoc, categories: Category[]): Promi
       .count()
     return {
       ...empty,
+      subjectKind: 'country',
+      subjectId: country.id,
       title: country.name || '未命名',
       cover: country.headerUrl || country.flagUrl,
       summary: plainTextOf(country.description),
@@ -234,7 +245,7 @@ async function loadPreview(template: TemplateDoc, categories: Category[]): Promi
     ) ?? (template.id === 'entry' ? entries[0] : undefined)
   if (!entry) return null
 
-  const body = plainTextOf(entry.content)
+  const body = plainTextOf(typeof worldBodyOf(entry) === 'string' ? (worldBodyOf(entry) as string) : JSON.stringify(worldBodyOf(entry)))
   const summary = (entry.summary ?? '').trim() || body.slice(0, 80)
   const declared = templateFieldKeys(template)
   const fieldKeys = declared ?? Object.keys(entry.custom ?? {})
@@ -244,6 +255,8 @@ async function loadPreview(template: TemplateDoc, categories: Category[]): Promi
 
   return {
     ...empty,
+    subjectKind: 'world',
+    subjectId: entry.id,
     title: entry.title || '未命名',
     cover: entry.cover,
     summary,
@@ -251,126 +264,6 @@ async function loadPreview(template: TemplateDoc, categories: Category[]): Promi
     tags: await tagNamesOf(entry.tags),
     body,
   }
-}
-
-/** 行内参数：只放轻量选项（分段按钮），重参数留给抽屉 */function TemplateParamRow({
-  component,
-  onChange,
-}: {
-  component: TemplateComponent
-  onChange: (key: string, value: string | number | boolean) => void
-}) {
-  const defs = inlineParamDefs(component.id)
-  if (defs.length === 0) return null
-  return (
-    <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-line bg-paper-alt px-3 py-2">
-      {defs.map((def) => {
-        const current = component.params?.[def.key] ?? def.fallback
-        return (
-          <div key={def.key} className="flex items-center gap-1.5">
-            <span className="text-[11px] text-ink-faint">{def.label}</span>
-            <div className="flex items-center gap-0.5">
-              {def.options.map((option) => {
-                const selected = current === option.value
-                return (
-                  <button
-                    key={String(option.value)}
-                    type="button"
-                    onClick={() => onChange(def.key, option.value)}
-                    aria-pressed={selected}
-                    className={`${CHIP} ${
-                      selected
-                        ? 'bg-[var(--oc-hover)] text-ink'
-                        : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-/** 模板字段（宠物 / 武器的基本信息组）：在这里增删，值落到模板 frontmatter 的 info.params.fields */
-function TemplateFieldsRow({
-  fields,
-  onChange,
-}: {
-  /** `undefined` = 不限制，使用字段表里的全部自定义字段 */
-  fields: string[] | undefined
-  onChange: (next: string[] | undefined) => void
-}) {
-  const [draft, setDraft] = useState('')
-  const list = fields ?? []
-
-  const add = (): void => {
-    const key = draft.trim()
-    if (key === '' || list.includes(key)) return
-    onChange([...list, key])
-    setDraft('')
-  }
-
-  return (
-    <div className="flex flex-col gap-2 border-b border-line bg-paper-alt px-3 py-2">
-      <div className="flex flex-wrap items-center gap-1.5">
-        <span className="text-[11px] text-ink-faint">字段</span>
-        {list.length === 0 ? (
-          <span className="text-[11px] text-ink-faint">全部字段</span>
-        ) : (
-          list.map((key) => (
-            <span key={key} className={`${CHIP} inline-flex items-center gap-1`}>
-              {key}
-              <button
-                type="button"
-                onClick={() => onChange(list.filter((item) => item !== key))}
-                aria-label={`移除字段「${key}」`}
-                className="text-ink-faint transition-colors hover:text-ink"
-              >
-                <X size={11} strokeWidth={2} />
-              </button>
-            </span>
-          ))
-        )}
-      </div>
-      <div className="flex items-center gap-2">
-        <input
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') {
-              event.preventDefault()
-              add()
-            }
-          }}
-          placeholder="字段名"
-          className="h-6 w-28 border-b border-line bg-transparent text-[12px] text-ink placeholder:text-ink-faint focus:border-line-hover focus:outline-none"
-        />
-        <button
-          type="button"
-          onClick={add}
-          disabled={draft.trim() === ''}
-          className={`${BTN_QUIET} h-6 px-1.5 text-[11px] disabled:opacity-40`}
-        >
-          <Plus size={11} strokeWidth={2} />
-          添加
-        </button>
-        {fields !== undefined ? (
-          <button
-            type="button"
-            onClick={() => onChange(undefined)}
-            className="ml-auto text-[11px] text-ink-faint transition-colors hover:text-ink"
-          >
-            全部字段
-          </button>
-        ) : null}
-      </div>
-    </div>
-  )
 }
 
 const PREVIEW_SAMPLE: Partial<Record<TemplateComponentId, string[]>> = {
@@ -401,7 +294,7 @@ export function TemplateComposer({
   const [paramsFor, setParamsFor] = useState<string | null>(null)
   const [previewData, setPreviewData] = useState<PreviewData | null>(null)
   const [viewer, setViewer] = useState<{ images: string[]; index: number } | null>(null)
-  const [imageExportOpen, setImageExportOpen] = useState(false)
+  const [exportCenterOpen, setExportCenterOpen] = useState(false)
   const active = templates.find((doc) => doc.id === activeId) ?? templates[0]
 
   // 右栏：有真实笔记就渲染真实内容；没有（实体模板 / 空库）才回落到结构示例
@@ -500,8 +393,6 @@ export function TemplateComposer({
   const overlayRoot = typeof document === 'undefined' ? null : document.getElementById('overlay-root')
 
   const paramComponent = paramsFor === null ? undefined : enabled.find((component) => component.id === paramsFor)
-  const paramDefs = paramComponent ? templateParamsFor(active.id, paramComponent.id, active) : []
-  const paramHasFields = paramDefs.some((def) => def.kind === 'fields')
   const paramMeta = paramComponent ? COMPONENT_BY_ID[paramComponent.id] : undefined
 
   /** 预览里的关系跳到真实实体：先收编排层和设置，再导航 */
@@ -523,18 +414,6 @@ export function TemplateComposer({
       : [previewData.cover, ...previewData.galleryImages].filter(
           (url): url is string => typeof url === 'string' && url !== '',
         )
-  const posterData: TemplatePosterData | null =
-    previewData === null
-      ? null
-      : {
-          title: previewData.title,
-          cover: previewData.cover,
-          fields: previewData.fields,
-          tags: previewData.tags,
-          summary: previewData.summary,
-          body: previewData.body,
-          templateName: active.name,
-        }
 
   const content = (
     <div className="pointer-events-auto fixed inset-0 z-50 flex flex-col bg-paper">
@@ -548,10 +427,10 @@ export function TemplateComposer({
         <div className="ml-auto flex shrink-0 items-center gap-1">
           <button
             type="button"
-            onClick={() => setImageExportOpen(true)}
-            disabled={posterData === null}
+            onClick={() => setExportCenterOpen(true)}
+            disabled={previewData === null}
             aria-label="导出图片"
-            className={`${BTN_QUIET} gap-1 ${posterData === null ? 'cursor-not-allowed opacity-50' : ''}`}
+            className={`${BTN_QUIET} gap-1 ${previewData === null ? 'cursor-not-allowed opacity-50' : ''}`}
           >
             <Download size={14} strokeWidth={2} />
             <span className="max-md:hidden">导出图片</span>
@@ -907,18 +786,12 @@ export function TemplateComposer({
             </header>
 
             <div className="min-h-0 flex-1 overflow-y-auto">
-              {inlineParamDefs(paramComponent.id).length > 0 ? (
-                <TemplateParamRow
-                  component={paramComponent}
-                  onChange={(key, value) => setParam(paramComponent.id, key, value)}
-                />
-              ) : null}
-              {paramHasFields && paramComponent.id === 'info' ? (
-                <TemplateFieldsRow
-                  fields={templateFieldKeys(active)}
-                  onChange={(next) => setFields(paramComponent.id, next)}
-                />
-              ) : null}
+              <TemplateComponentParams
+                doc={active}
+                component={paramComponent}
+                onChange={(key, value) => setParam(paramComponent.id, key, value)}
+                onFieldsChange={(next) => setFields(paramComponent.id, next)}
+              />
             </div>
 
             <footer className="shrink-0 border-t border-line p-3">
@@ -930,11 +803,13 @@ export function TemplateComposer({
         </div>
       ) : null}
 
-      <ImageExportDialog
-        open={imageExportOpen}
-        onOpenChange={setImageExportOpen}
-        data={posterData}
-      />
+      {exportCenterOpen && previewData !== null ? (
+        <ExportCenter
+          initialTab="poster"
+          initialSubject={{ kind: previewData.subjectKind, id: previewData.subjectId }}
+          onClose={() => setExportCenterOpen(false)}
+        />
+      ) : null}
 
       {viewer ? (
         <FullscreenViewer

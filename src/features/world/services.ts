@@ -6,6 +6,7 @@ import type { WorldEntry } from '@/types'
 import type { WorldFormData } from './types'
 import { isCodexEntry } from '@/lib/entry-kinds'
 import { getCategories, loadCategories } from '@/lib/categories/store'
+import { worldBodyPatch } from '@/lib/world-body'
 
 const TABLE = 'worldEntries'
 
@@ -127,13 +128,14 @@ export async function renameCategoryEntries(from: string, to: string): Promise<v
 export async function saveEntryContent(
   id: number,
   title: string,
-  content: string,
+  doc: unknown,
 ): Promise<void> {
   try {
     const now = Date.now()
+    // 正文只写 `document`，`content` 顺手清空 —— 两份真源必然漂，见 `lib/world-body.ts`
     await db.worldEntries.update(id, {
       title,
-      content,
+      ...worldBodyPatch(doc),
       updatedAt: now,
       ...pendingStamp(now),
     })

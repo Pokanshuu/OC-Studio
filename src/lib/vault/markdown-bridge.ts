@@ -87,9 +87,9 @@ export function applyDocumentBodies(scan: VaultScanResult): void {
     const doc = convert(item.relPath, item.bodyMarkdown)
     if (doc === null) continue
     item.entity.document = doc
-    // 词条编辑器读的是 content（JSON 字符串），不是 document —— 见
-    // features/world/components/world-content-utils.ts 的 parseEditorContent
-    item.entity.content = item.bodyMarkdown.trim() === '' ? '' : JSON.stringify(doc)
+    // 词条**只写 document**（`lib/world-body.ts`）：以前这里还顺手把同一份正文
+    // 序列化进 `content` 伺候老编辑器，两份真源必然漂，已收敛。
+    item.entity.content = ''
   }
 }
 
@@ -97,17 +97,19 @@ export function applyDocumentBodies(scan: VaultScanResult): void {
 export function documentOfEntity(kind: VaultStorableKind, entity: unknown): unknown | null {
   const record = entity as Record<string, unknown>
 
+  // 词条：`document` 是正字段，`content` 只剩老数据兜底（`lib/world-body.ts`）
   if (kind === 'worldEntry') {
+    if (record.document !== null && typeof record.document === 'object') return record.document
     const content = record.content
     if (typeof content === 'string' && content.trim() !== '') {
       try {
         const parsed: unknown = JSON.parse(content)
         if (parsed !== null && typeof parsed === 'object') return parsed
       } catch {
-        // content 是纯文本（历史数据），下面回落到 document
+        // content 是纯文本（历史数据），交给调用方按纯文本处理
       }
     }
-    return record.document ?? null
+    return null
   }
 
   return record.document ?? null

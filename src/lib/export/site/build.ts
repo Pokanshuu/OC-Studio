@@ -1,8 +1,11 @@
+import { worldBodyOf } from '@/lib/world-body'
 import type { Character, Country, Event, Period, ProjectMeta, Tag, WorldEntry } from '@/types'
 import { buildEntryTree, type WorldTreeNode } from '@/lib/world-tree'
 import type { ThemeTokens } from '@/lib/theme/presets'
 import { collectDocImages, escapeHtml, hasRichText, plainTextOf, renderRichText, type RenderOptions } from './render'
 import { SITE_CSS } from './styles'
+import { siteTemplateOf } from './templates'
+import type { SiteTemplateId } from './template-types'
 
 /** 展示站需要的全部数据（软删除的行由调用方过滤掉）。 */
 export interface SiteData {
@@ -37,6 +40,8 @@ export interface BuildOptions {
   sections?: Partial<SiteSectionOptions>
   /** 固定纸色；缺省时跟随读者系统的亮暗 */
   theme?: SiteThemeTokens
+  /** 版式；缺省 = 书斋（侧栏 / 纸书观感） */
+  template?: SiteTemplateId
 }
 
 const DEFAULT_SECTIONS: SiteSectionOptions = {
@@ -127,6 +132,7 @@ export function buildSite(input: SiteData, options: BuildOptions): string {
   const { images } = options
   const enabled = normalizeSections(options.sections)
   const data = applySiteSections(input, enabled)
+  const template = siteTemplateOf(options.template)
 
   const charactersById = new Map(data.characters.map((c) => [c.id, c]))
   const eventsById = new Map(data.events.map((e) => [e.id, e]))
@@ -685,6 +691,32 @@ export function buildSite(input: SiteData, options: BuildOptions): string {
 }`
     : ''
 
+  const navMarkup = navItems
+    .map(
+      (item) =>
+        `<a href="#/${item.key === 'home' ? '' : item.key}" data-nav="${item.key}"><span>${escapeHtml(item.label)}</span>${
+          item.count !== undefined ? `<span class="count">${item.count}</span>` : ''
+        }</a>`,
+    )
+    .join('')
+
+  const brandMarkup = `<a class="brand" href="#/">
+      <div class="world">${escapeHtml(siteTitle)}</div>
+      ${tagline ? `<div class="tagline">${escapeHtml(tagline)}</div>` : ''}
+    </a>`
+
+  // 外壳只有两种：侧栏（书斋）与顶栏（档案 / 画廊）。版式 CSS 按 body[data-template] 接管。
+  const shellMarkup =
+    template.shell === 'topbar'
+      ? `<header class="topbar">
+    ${brandMarkup}
+    <nav class="nav">${navMarkup}</nav>
+  </header>`
+      : `<aside class="sidebar">
+    ${brandMarkup}
+    <nav class="nav">${navMarkup}</nav>
+  </aside>`
+
   return `<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -694,27 +726,13 @@ export function buildSite(input: SiteData, options: BuildOptions): string {
 <meta name="description" content="${escapeHtml(tagline || `${siteTitle} — 世界观设定集`)}">
 <style>
 ${SITE_CSS}
+${template.css}
 ${themeStyle}
 </style>
 </head>
-<body>
+<body data-template="${template.id}">
 <div class="layout">
-  <aside class="sidebar">
-    <a class="brand" href="#/">
-      <div class="world">${escapeHtml(siteTitle)}</div>
-      ${tagline ? `<div class="tagline">${escapeHtml(tagline)}</div>` : ''}
-    </a>
-    <nav class="nav">
-      ${navItems
-        .map(
-          (item) =>
-            `<a href="#/${item.key === 'home' ? '' : item.key}" data-nav="${item.key}"><span>${escapeHtml(item.label)}</span>${
-              item.count !== undefined ? `<span class="count">${item.count}</span>` : ''
-            }</a>`,
-        )
-        .join('')}
-    </nav>
-  </aside>
+  ${shellMarkup}
   <main class="main">
 ${pageMarkup}
     <div class="footer">由 OC Studio 导出 · ${escapeHtml(dateLabel(Date.now()))}</div>
@@ -774,7 +792,7 @@ export function collectSiteImages(data: SiteData): string[] {
     ...data.characters.map((c) => c.document),
     ...data.events.map((e) => e.document),
     ...data.countries.map((c) => c.document),
-    ...data.worldEntries.map((w) => w.document ?? w.content),
+    ...data.worldEntries.map((w) => worldBodyOf(w)),
   ]
   for (const body of bodies) {
     for (const src of collectDocImages(body)) push(src)

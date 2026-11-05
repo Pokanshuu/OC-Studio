@@ -1,3 +1,4 @@
+import { worldBodyOf } from '@/lib/world-body'
 import type { Character, Country, Event, WorldEntry } from '@/types'
 
 // ── 实体图片引用的唯一收集器 ─────────────────────────────────────────────
@@ -175,9 +176,7 @@ export function collectWorldEntryImageRefs(
   options?: ImageRefOptions,
 ): ImageRef[] {
   const refs: ImageRef[] = []
-  const doc = collectBodyImageRefs(entry.content).length > 0
-    ? entry.content
-    : entry.document
+  const doc = worldBodyOf(entry)
   for (const url of collectBodyImageRefs(doc)) addRef(refs, url, 'body', options)
   addRef(refs, entry.cover, 'cover', options)
   addRef(refs, entry.novelCover, 'novelCover', options)

@@ -4,6 +4,7 @@
  * 分类条目是普通笔记，没有封面卡，所以只保留三种最有用的排法；
  * 手动排序留给下一步（`SortableList` + `order` 键）。
  */
+import { worldBodyOf } from '@/lib/world-body'
 import type { SortOption } from '@/components/shared/SortViewControls'
 import type { WorldEntry } from '@/types'
 import { compareManual, readSortKey, writeSortKey } from '@/lib/sort-manual'
@@ -72,21 +73,19 @@ export function entryMatchesQuery(entry: WorldEntry, query: string): boolean {
 }
 
 export function entryBodyText(entry: WorldEntry): string {
-  const raw = entry.content ?? ''
-  if (raw.trim() === '') return ''
-  try {
-    const doc = JSON.parse(raw) as unknown
-    const text: string[] = []
-    const walk = (node: unknown): void => {
-      if (node === null || typeof node !== 'object') return
-      const record = node as Record<string, unknown>
-      if (record.type === 'text' && typeof record.text === 'string') text.push(record.text)
-      const content = record.content
-      if (Array.isArray(content)) content.forEach(walk)
-    }
-    walk(doc)
-    return text.join(' ')
-  } catch {
-    return raw.replace(/<[^>]+>/g, ' ')
+  const body = worldBodyOf(entry)
+  if (typeof body === 'string') {
+    // 老数据：`content` 里直接是纯文本 / Markdown（可能带 HTML 标签）
+    return body.trim() === '' ? '' : body.replace(/<[^>]+>/g, ' ')
   }
+  const text: string[] = []
+  const walk = (node: unknown): void => {
+    if (node === null || typeof node !== 'object') return
+    const record = node as Record<string, unknown>
+    if (record.type === 'text' && typeof record.text === 'string') text.push(record.text)
+    const content = record.content
+    if (Array.isArray(content)) content.forEach(walk)
+  }
+  walk(body)
+  return text.join(' ')
 }

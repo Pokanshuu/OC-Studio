@@ -1,3 +1,4 @@
+import { worldBodyOf } from '@/lib/world-body'
 import { plainTextOf } from '@/lib/export/site'
 import type { Character, Country, Event, Tag, WorldEntry } from '@/types'
 import {
@@ -52,7 +53,7 @@ function aliasesOf(kind: EntityKind, entity: Character | Event | Country | World
 function bodyOf(kind: EntityKind, entity: Character | Event | Country | WorldEntry): string {
   if (kind === 'world') {
     const world = entity as WorldEntry
-    return plainTextOf(world.document ?? world.content).trim()
+    return plainTextOf(worldBodyOf(world)).trim()
   }
   if (kind === 'event') {
     const event = entity as Event

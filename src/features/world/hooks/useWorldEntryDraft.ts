@@ -5,7 +5,7 @@ import type { Editor } from '@tiptap/core'
 import type { WorldEntry } from '@/types'
 import { saveEntryContent } from '../services'
 import { syncReferenceLabels } from '@/lib/reference-sync'
-import { parseEditorContent } from '../components/world-content-utils'
+import { hasWorldBody, worldBodyOf } from '@/lib/world-body'
 
 /**
  * 待写草稿：内容与它的归属词条 id 绑在一起，避免切换词条时写错地方。
@@ -13,7 +13,8 @@ import { parseEditorContent } from '../components/world-content-utils'
 interface PendingSave {
   entryId: number
   title: string
-  content: string
+  /** Tiptap 文档对象（不再中途序列化成字符串，见 `lib/world-body.ts`） */
+  doc: object
 }
 
 /**
@@ -56,9 +57,8 @@ export function useWorldEntryDraft({
       saveTimerRef.current = null
     }
     try {
-      const doc = JSON.parse(pending.content) as Record<string, unknown>
-      const synced = await syncReferenceLabels(doc)
-      await saveEntryContent(pending.entryId, pending.title, JSON.stringify(synced))
+      const synced = await syncReferenceLabels(pending.doc as Record<string, unknown>)
+      await saveEntryContent(pending.entryId, pending.title, synced)
       // 期间若又攒了新草稿就别清掉它
       if (pendingSaveRef.current === pending) pendingSaveRef.current = null
       refresh()
@@ -70,8 +70,7 @@ export function useWorldEntryDraft({
   const scheduleSave = useCallback((newTitle: string, json: object) => {
     const entryId = selectedIdRef.current
     if (entryId == null) return
-    const contentStr = JSON.stringify(json)
-    pendingSaveRef.current = { entryId, title: newTitle, content: contentStr }
+    pendingSaveRef.current = { entryId, title: newTitle, doc: json }
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => {
       void flushSave()
@@ -98,9 +97,8 @@ export function useWorldEntryDraft({
     editorRef.current = editor
     saveEnabledRef.current = false
     const entry = currentEntryRef.current
-    if (entry && entry.id === selectedIdRef.current && entry.content) {
-      const content = parseEditorContent(entry.content)
-      editor.commands.setContent(content)
+    if (entry && entry.id === selectedIdRef.current && hasWorldBody(entry)) {
+      editor.commands.setContent(worldBodyOf(entry))
       setTimeout(() => {
         saveEnabledRef.current = true
       }, 300)
@@ -111,8 +109,7 @@ export function useWorldEntryDraft({
   useEffect(() => {
     if (currentEntry && editorRef.current && currentEntry.id === selectedId) {
       saveEnabledRef.current = false
-      const content = parseEditorContent(currentEntry.content)
-      editorRef.current.commands.setContent(content)
+      editorRef.current.commands.setContent(worldBodyOf(currentEntry))
       setTimeout(() => {
         saveEnabledRef.current = true
       }, 300)
@@ -125,7 +122,7 @@ export function useWorldEntryDraft({
       const pending = pendingSaveRef.current
       if (!pending) return
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-      void saveEntryContent(pending.entryId, pending.title, pending.content).catch((err) => {
+      void saveEntryContent(pending.entryId, pending.title, pending.doc).catch((err) => {
         console.error(`[WorldLayout] beforeunload 保存失败:`, err)
       })
     }

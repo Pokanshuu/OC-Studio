@@ -10,6 +10,7 @@
  *
  * 不做的：分页、版式、页眉页脚（版式交给导出目标，见 docs/小说.md §5）。
  */
+import { worldBodyOf } from '@/lib/world-body'
 import type { WorldEntry } from '@/types'
 import { buildEntryTree, type WorldTreeNode } from '@/lib/world-tree'
 
@@ -33,15 +34,11 @@ export interface NovelExportChapter {
   images?: string[]
 }
 
-function parseDoc(content: string): NovelDocNode | null {
-  if (!content.trim().startsWith('{')) return null
-  try {
-    const parsed: unknown = JSON.parse(content)
-    if (typeof parsed !== 'object' || parsed === null) return null
-    return parsed as NovelDocNode
-  } catch {
-    return null
-  }
+/** 章节正文：`lib/world-body.ts` 是唯一读入口（document 优先，老数据回落 content） */
+function parseDoc(entry: WorldEntry): NovelDocNode | null {
+  const body = worldBodyOf(entry)
+  if (typeof body !== 'object' || body === null) return null
+  return body as NovelDocNode
 }
 
 function inlineText(node: NovelDocNode, markdown: boolean): string {
@@ -115,7 +112,7 @@ function imageSources(node: NovelDocNode, out: string[]): void {
 
 /** 一章的插图源（正文顺序）；没有图片时返回空数组 */
 export function chapterImages(entry: WorldEntry): string[] {
-  const doc = parseDoc(entry.content)
+  const doc = parseDoc(entry)
   if (!doc) return []
   const out: string[] = []
   imageSources(doc, out)
@@ -124,10 +121,11 @@ export function chapterImages(entry: WorldEntry): string[] {
 
 /** 一章的正文：Tiptap JSON → Markdown / 纯文本 */
 export function chapterText(entry: WorldEntry, markdown: boolean): string {
-  const doc = parseDoc(entry.content)
+  const doc = parseDoc(entry)
   if (!doc) {
     // 老数据可能直接把纯文本 / Markdown 存在 content 里
-    return entry.content.trim()
+    const body = worldBodyOf(entry)
+    return typeof body === 'string' ? body.trim() : ''
   }
   const blocks = (doc.content ?? []).flatMap((node) => blockLines(node, markdown))
   return blocks.join(markdown ? '\n\n' : '\n').trim()

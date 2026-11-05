@@ -11,6 +11,7 @@
  * - 数据仍写 `worldEntries` 原列：标题 / 正文走 `useWorldEntryDraft`，标签 / 简介即时写
  * - 单篇也能覆盖模板（落 `模板:` 键），选项与词条编辑器共用一套菜单
  */
+import { worldBodyOf } from '@/lib/world-body'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/core'
 import { useQueryClient } from '@tanstack/react-query'
@@ -113,18 +114,16 @@ function CategoryEntryEditorInner({
   // 被引用：哪些笔记在正文里 [[链接]] / @ 引用了这一条（分类条目不在 getEntries 的列表里，单独扫）
   useEffect(() => {
     let cancelled = false
+    // 不能再用 `content.includes(id)` 预筛：正文现在存在 `document` 里（见 lib/world-body.ts），
+    // 老行的 content 是 JSON 字符串。统一走读入口，扫的是文档对象。
     void db.worldEntries
-      .filter((row) => !row.deleted && row.id !== entryId && typeof row.content === 'string' && row.content.includes(String(entryId)))
+      .filter((row) => !row.deleted && row.id !== entryId)
       .toArray()
       .then((rows) => {
         if (cancelled) return
         const found: { id: number; title: string }[] = []
         for (const row of rows) {
-          try {
-            if (docHasRef(JSON.parse(row.content), String(entryId))) found.push({ id: row.id, title: row.title })
-          } catch {
-            // 旧数据可能不是 JSON，忽略
-          }
+          if (docHasRef(worldBodyOf(row), String(entryId))) found.push({ id: row.id, title: row.title })
         }
         setBacklinks(found)
       })

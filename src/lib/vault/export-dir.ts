@@ -429,11 +429,10 @@ function rewriteBodyImages(rows: LegacyRows, map: Map<string, string>): void {
     const doc = documentOfEntity(kind, row)
     if (doc === null) return
     const next = swap(doc)
+    // 正文只写 `document`（`lib/world-body.ts`）：老代码这里还会顺手把同一份正文
+    // 序列化进 `content`，两份真源必然漂。迁移时不再镜像，`content` 一并清空。
     if (kind === 'worldEntry') {
-      // 词条的正文存在 content（JSON 字符串）里，document 只是派生
-      ;(row as { content?: string }).content = JSON.stringify(next)
-      ;(row as { document?: unknown }).document = next
-      return
+      ;(row as { content?: string }).content = ''
     }
     ;(row as { document?: unknown }).document = next
   }

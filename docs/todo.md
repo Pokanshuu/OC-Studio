@@ -176,7 +176,7 @@
 
 - [x] **P0 桌面开发壳起不来（已不再复现，2026-11-05 复测）**：结论要改。当时把 `HRESULT(0x800700AA)` 读成「WebView2 运行时坏了」，但 0x800700AA 就是 **`ERROR_BUSY`（资源在使用中）**：WebView2 起浏览器进程时，用户数据目录 `%LOCALAPPDATA%\com.ocstudio.ocstudio\EBWebView` 被**另一个还活着的实例**（或崩溃后没退干净的 `msedgewebview2.exe`）占着。复测：同一份 `156.0.4314.58`、不加任何环境变量，`target\release\app.exe` 与 `target\debug\app.exe` 都能起窗口并渲染（截图确认，见下条）。`scripts/tauri-dev.ps1` 不再猜结论，改成开跑前**打印事实**（运行时版本 / webview 进程数 / 数据目录锁 / 已有实例 PID）。**仍未确认**那次 APPCRASH（`msedge.dll`、`0x80000003`）是不是同一次事件的伴生现象 —— 现在无法复现，先按「启动前清干净残留实例」处理
 - [ ] **验证手段（留给后面的轮次，别再重复试错）**：窗口在后台、前台焦点被系统拦时，`SetForegroundWindow` + `mouse_event` **点不动**（截图字节完全不变）。只读核对用 `PrintWindow(hwnd, hdc, 2)`，能抓到窗口自身内容、不受遮挡与焦点影响。要真正**驱动**界面得换路子（自动化脚本 / 应用内命令面板），别在坐标点击上反复烧时间
-- [ ] **P1 World 正文收敛到 `document`**：现在 JSON 字符串（在用）与 `document` 对象（unused）两形态并存，读取处要分支
+- [x] **P1 World 正文收敛到 `document`**（2026-11-05）：`lib/world-body.ts` 成为唯一读入口（`worldBodyOf` / `hasWorldBody` / `worldBodyPatch`），`document` 是正字段、`content` 只作老数据兜底（JSON 字符串或纯文本都认）。装载不再把正文写两遍（`applyDocumentBodies` 只写 `document` 并把 `content` 清空），保存只写 `document`，迁移时也不再镜像。9 处读取点全部改走读入口：`TemplateComposer` / `category-list-utils` / `CategoryEntryEditor`（引用扫描不再靠 `content.includes` 预筛）/ `novel/export` / `poster/subjects` / `site/build` / `image-refs` / `capabilities` / `useWorldEntryDraft`（草稿管线不再中途 stringify 再 parse）。`npm run audit:world` 18 项断言盯着这条不变量，`vault-migrate-check` 涨到 70 项（新增「content 不再镜像正文」）
 - [ ] **P2 仓储 create/update 模板**：`listActive` / `getById` / `softDelete` 已收敛，create/update 因字段级日志与引用同步差异仍各自手写
 - [ ] **P3 命令面板与移动端搜索合并**：`MenuBarSearch` 与 `MobileSearchOverlay` 现在是两套 UI
 - [ ] **P2 封面卡参数定稿**：版式数字集中在 `src/lib/cover/tuning.ts`（「视图 → 封面卡参数」可实时拖，32 项算法自检见 `scripts/cover-check.ts`）。定稿后把 JSON 写回默认值，面板降级成隐藏调试口；细节见 `docs/封面卡.md`
