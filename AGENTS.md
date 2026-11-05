@@ -21,7 +21,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - `src/types/index.ts` — 全局类型定义（实体 `id: number` 必填、`Period` + `PERIOD_COLORS`、`ProjectMeta`）
 - `src/lib/sync.ts` — 操作日志 (`logOperation`) + 待同步时间戳 (`pendingStamp`)
 - `src/lib/repository.ts` — 泛型 CRUD 仓储原语（listActive / getById / softDelete）。签名是 `Table<T, number, TInsert>`，**第 3 个泛型位不可省**（否则推断会把行类型统一成写入类型，见 §已知差异）
-- `src/lib/membership.ts` — **成员关系镜像写入的唯一实现**：角色 `countryId`（国籍）⇄ 国家 `characters`、事件 `countries` ⇄ 国家 `events`。实体侧是权威、国家侧是镜像；关系图拖拽与角色 / 国家 / 事件三个编辑器的保存共用。只写一侧会出现「拖完只在国家里看到、角色国籍仍为空」
+- `src/lib/membership.ts` — **成员关系的单向应用**（阶段二·一之后，镜像已拆）：真源只有实体侧 —— 角色 `countryId`（国籍）、事件 `countries`（相关国家）。国家页的「相关角色 / 相关事件」**不是存储**，是查询（`features/countries/services.ts` 的 `listCountryCharacters` / `listCountryEvents`）。这里只剩 `applyCountryCharacters` / `applyCountryEvents`（国家编辑器的名单 → 写实体侧）与 `purgeCharacterReferences` / `purgeCountryReferences`（软删除清引用）。盘上遗留的 `country.characters` / `country.events` **不读、不写、不删**（`COUNTRY_KEYS` 已摘掉，扫描固定给空数组）。**不要再引入第二份名单**
 - `src/lib/env.ts` — 环境检测唯一权威（isTauri / isCapacitor / isNativePlatform）
 - `src/lib/version.ts` — 版本号单源（读 package.json）
 - `src/lib/open-external.ts` — 用系统浏览器打开外链（桌面走自建命令 `open_external`，见 `src-tauri/src/open.rs`；浏览器/Capacitor 走 `window.open`）。**Tauri 里 `target="_blank"` 是死的**，别再直接写 `<a>`
