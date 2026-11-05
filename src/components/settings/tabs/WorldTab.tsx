@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { ArrowLeft, ChevronRight, LayoutTemplate, FolderTree, Tag, ListTree } from 'lucide-react'
+import { ArrowLeft, ChevronRight, LayoutTemplate, FolderTree, Tag, ListTree, Waypoints } from 'lucide-react'
 import { useInputContextMenu } from '@/lib/use-input-context-menu'
 import { useProjectMeta } from '@/features/project'
 import { ImageUploader } from '@/components/shared/ImageUploader'
@@ -10,6 +10,8 @@ import { CategoriesPanel } from '@/components/settings/CategoriesPanel'
 import { ComponentsPanel } from '@/components/settings/ComponentsPanel'
 import { TagsPanel } from '@/features/tags/components/TagsPanel'
 import type { SettingsSection } from '@/components/layout/SettingsTriggerContext'
+import { EdgeStyleRadio, MouseModeRadio } from '@/components/settings/controls'
+import { useSettings } from '@/lib/settings'
 import {
   ICON_BTN,
   SETTINGS_GROUP_FIRST,
@@ -37,6 +39,7 @@ const ENTRY_ITEMS: ReadonlyArray<{
   { panel: 'templates', label: '模板', icon: LayoutTemplate },
   { panel: 'categories', label: '分类', icon: FolderTree },
   { panel: 'tags', label: '标签', icon: Tag },
+  { panel: 'relations', label: '关系图操作', icon: Waypoints },
 ]
 
 export function WorldTab({
@@ -49,6 +52,7 @@ export function WorldTab({
   target?: string
 }) {
   const { meta, loading: metaLoading, save: saveMeta } = useProjectMeta()
+  const { settings, updateSetting } = useSettings()
   const worldNameRef = useInputContextMenu()
   const taglineRef = useInputContextMenu()
   /** 二级界面：自定义组件 / 模板 / 分类（都太长，不铺在一级页面上） */
@@ -189,6 +193,28 @@ export function WorldTab({
             <span className="text-sm text-ink">标签</span>
           </div>
           <TagsPanel />
+        </div>
+      ) : panel === 'relations' ? (
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPanel('root')}
+              aria-label="返回"
+              className={ICON_BTN}
+            >
+              <ArrowLeft size={16} strokeWidth={2} />
+            </button>
+            <span className="text-sm text-ink">关系图操作</span>
+          </div>
+          <div className="grid grid-cols-[108px_minmax(0,1fr)] items-center gap-x-4">
+            <span className="text-[13px] leading-5 text-ink">鼠标</span>
+            <MouseModeRadio value={settings.mouseMode} onChange={(v) => updateSetting("mouseMode", v)} />
+          </div>
+          <div className="grid grid-cols-[108px_minmax(0,1fr)] items-center gap-x-4">
+            <span className="text-[13px] leading-5 text-ink">连线</span>
+            <EdgeStyleRadio value={settings.edgeStyle} onChange={(v) => updateSetting("edgeStyle", v)} />
+          </div>
         </div>
       ) : (
         <div className="flex flex-col gap-4">

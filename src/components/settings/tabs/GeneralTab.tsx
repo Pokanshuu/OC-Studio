@@ -11,7 +11,7 @@ import { compressBackgroundImage, BACKGROUND_MAX_SCRIM, BACKGROUND_MIN_SCRIM, ty
 import { BTN_QUIET } from '@/lib/ui-tokens'
 import { getVaultSession } from '@/lib/vault/vault-session'
 import { isVaultSupported, vaultFs } from '@/lib/vault/vault-fs'
-import { ThemeRadio, ThemePresetRadio, LayoutRadio, CoverTintRadio, MouseModeRadio, EdgeStyleRadio, SWITCH_CLASSES, SWITCH_DOT } from '../controls'
+import { ThemeRadio, ThemePresetRadio, LayoutRadio, CoverTintRadio, SWITCH_CLASSES, SWITCH_DOT } from '../controls'
 import { THEME_PRESETS } from '@/lib/theme/presets'
 export function GeneralTab() {
   const { settings, updateSetting } = useSettings()
@@ -291,22 +291,6 @@ export function GeneralTab() {
                   <CoverTintRadio
                     value={settings.coverTintMode}
                     onChange={(v) => updateSetting("coverTintMode", v)}
-                  />
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <span className="text-sm text-ink">关系图鼠标</span>
-                  <MouseModeRadio
-                    value={settings.mouseMode}
-                    onChange={(v) => updateSetting("mouseMode", v)}
-                  />
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <span className="text-sm text-ink">关系图连线</span>
-                  <EdgeStyleRadio
-                    value={settings.edgeStyle}
-                    onChange={(v) => updateSetting("edgeStyle", v)}
                   />
                 </div>
 

@@ -3,10 +3,11 @@
 import { createContext, useContext } from "react"
 
 /** 设置 › 世界 里的二级页面；从别处跳进来时用它直接落到对应面板 */
-export type SettingsSection = 'components' | 'templates' | 'categories' | 'tags'
+export type SettingsSection = 'components' | 'templates' | 'categories' | 'tags' | 'relations'
 
 interface SettingsTriggerContextValue {
-  openSettings: (tab?: string, section?: SettingsSection) => void
+  /** `target`：二级页里的具体对象（目前用于模板 id，直接打开某套模板） */
+  openSettings: (tab?: string, section?: SettingsSection, target?: string) => void
   closeSettings: () => void
 }
 
