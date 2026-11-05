@@ -269,6 +269,17 @@ check(
   tamperedGroup !== undefined && !tamperedGroup.fields.includes('并不存在的键'),
   '不存在的列键被读回进内置组件（界面上会出现死行）',
 )
+// 列型宿主的字段顺序与范围归 FieldConfig（字段表编辑器）；盘上的值不作数
+const reordered = normalizeInfoGroups([
+  { id: 'group-character', name: '角色', fields: ['birthday'] },
+]).find((group) => group.id === 'group-character')
+const characterDefaults = BUILTIN_INFO_GROUPS.find((group) => group.id === 'group-character')
+check(
+  reordered !== undefined &&
+    characterDefaults !== undefined &&
+    reordered.fields.join(',') === characterDefaults.fields.join(','),
+  '列型宿主的字段没有按 FieldConfig 投影（盘上的值越权了）',
+)
 if (failures === 0) {
   console.log(`  ✓ 通过（${COMPONENT_IDS.length} 个组件 / ${BUILTIN_TEMPLATES.length} 个内置模板）`)
   process.exit(0)

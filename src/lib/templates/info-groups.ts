@@ -131,6 +131,20 @@ function knownColumnKeys(host: InfoGroupHost | undefined, fields: string[]): str
   const known = new Set(BUILTIN_FIELDS[kind].map((field) => field.id))
   return fields.filter((field) => known.has(field))
 }
+/**
+ * 顺序与显示范围的**归属**（定死，别再猜）：
+ *
+ * - **列型宿主**（角色 / 事件 / 词条）：唯一源是 `lib/fields` 的 `FieldConfig`
+ *   —— 显示哪些字段、什么顺序都由字段表编辑器说了算。组件里那一份只是**投影**，
+ *   读回时直接按内置默认重建，忽略盘上的值（盘上写了也不作数）。
+ * - **笔记型宿主**（宠物 / 武器 / 自建）：组件就是唯一源，字段顺序随组件走。
+ */
+function projectColumnFields(id: string, fallback: string[]): string[] {
+  const builtin = BUILTIN_INFO_GROUPS.find((group) => group.id === id)
+  if (builtin === undefined) return fallback
+  if (builtin.for === 'note' || builtin.for === undefined) return fallback
+  return [...builtin.fields]
+}
 function clone(group: InfoGroup): InfoGroup {
   return { ...group, fields: [...group.fields] }
 }
@@ -161,7 +175,7 @@ function normalize(raw: unknown): InfoGroup[] {
     out.push({
       id,
       name,
-      fields: knownColumnKeys(host, fields),
+      fields: projectColumnFields(id, knownColumnKeys(host, fields)),
       builtin: record.builtin === true || isBuiltinInfoGroup(id),
       ...(host !== undefined ? { for: host } : {}),
     })
