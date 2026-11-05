@@ -35,7 +35,7 @@ import { updateCategory, useCategories } from '@/lib/categories/store'
 import { categoryItemName } from '@/lib/categories/types'
 import type { Category } from '@/lib/categories/types'
 import { toolItem } from '@/lib/entry-kinds'
-import { isPluginEnabled, isToolPlugin, usePlugins } from '@/lib/plugins'
+import { isPluginEnabled, isSidebarTool, usePlugins } from '@/lib/plugins'
 import { CategoryDialog } from '@/features/categories/CategoryDialog'
 import { MediaContextMenu } from '@/components/shared/MediaContextMenu'
 import { notifyDataUpdated } from '@/lib/data-events'
@@ -95,10 +95,22 @@ export function Sidebar() {
   const { openSettings } = useSettingsTrigger()
   const { openTrash } = useTrashOverlay()
   const { settings, updateSetting } = useSettings()
-  const categories = useCategories()
   const { plugins } = usePlugins()
-  /** 侧栏「工具」= 可用且已启用的功能插件 */
-  const toolPlugins = plugins.filter((plugin) => isToolPlugin(plugin) && isPluginEnabled(plugin))
+  const categories = useCategories()
+  /**
+   * 侧栏「工具」= 可用、已启用、**且占导航位**的功能插件。
+   *
+   * `nav: 'contextual'` 的（地图生成器）正式版不在这里 —— 它只为一张具体的地图
+   * 服务，入口在「地图」里（新建地图 → 生成底图）。摆在导航里会让人以为它是
+   * 独立工具、还要再选一次目标地图。
+   *
+   * **开发构建例外**：上下文插件的独立页面仍然列出来，否则那个页面没有入口、
+   * 没法单独调试。生产构建里 `NODE_ENV === 'production'`，这里为 false。
+   */
+  const showContextual = process.env.NODE_ENV !== 'production'
+  const toolPlugins = plugins.filter(
+    (plugin) => (isSidebarTool(plugin) || showContextual) && isPluginEnabled(plugin),
+  )
   const [categoryDialog, setCategoryDialog] = useState<
     | { mode: 'create' }
     | { mode: 'edit'; category: Category }

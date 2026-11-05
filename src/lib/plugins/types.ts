@@ -14,6 +14,9 @@
 
 export type PluginKind = 'tool' | 'theme' | 'skill'
 
+/** 插件怎么被打开：占导航位，还是只在上下文里出现（见 PluginManifest.nav） */
+export type PluginNav = 'sidebar' | 'contextual'
+
 /**
  * 权限项（`docs/插件.md` §3 的表）。
  *
@@ -45,6 +48,14 @@ export interface PluginManifest {
   enabledByDefault: boolean
   /** false = 界面里标「开发中」，不进侧栏、不能启用 */
   available: boolean
+  /**
+   * 导航位：它该怎么被打开。
+   *
+   * - sidebar（默认）：侧栏「工具」里列一条，任何时候都能进
+   * - contextual：**不占导航位**，只在某个具体上下文里出现
+   *   （地图生成器就是这种：它只为一张具体的地图服务，没有“泛泛地打开生成器”这回事）
+   */
+  nav?: PluginNav
 }
 
 export const PLUGIN_KIND_LABELS: Record<PluginKind, string> = {
@@ -68,4 +79,13 @@ export const DEFAULT_GRANTED: readonly PluginPermission[] = ['own-storage']
 /** 侧栏「工具」里能出现的插件 */
 export function isToolPlugin(manifest: PluginManifest): boolean {
   return manifest.kind === 'tool' && manifest.available
+}
+
+/**
+ * 是否**占侧栏导航位**。上下文插件（
+av: 'contextual'）返回 false ——
+ * 它不是“还没做完”，而是**故意不出现在导航里**，只在需要它的那个界面上出现。
+ */
+export function isSidebarTool(manifest: PluginManifest): boolean {
+  return isToolPlugin(manifest) && (manifest.nav ?? 'sidebar') === 'sidebar'
 }

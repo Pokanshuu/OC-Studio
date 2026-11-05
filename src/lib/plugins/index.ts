@@ -13,8 +13,10 @@ export {
   DEFAULT_GRANTED,
   PERMISSION_LABELS,
   PLUGIN_KIND_LABELS,
+  isSidebarTool,
   isToolPlugin,
   type PluginKind,
+  type PluginNav,
   type PluginManifest,
   type PluginPermission,
 } from './types'

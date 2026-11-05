@@ -26,6 +26,17 @@ export const MAP_GENERATOR_PLUGIN: PluginManifest = {
   source: 'builtin',
   enabledByDefault: true,
   available: true,
+  /**
+   * 生成器**不占侧栏导航位**。
+   *
+   * 它只为一张具体的地图服务：进「地图」→ 新建一张 → 生成底图，生成器就在
+   * 那里出现。没有「泛泛地打开生成器」这回事，摆在侧栏只会让人以为它是个
+   * 独立工具、还得再选一次目标地图。
+   *
+   * 页面本身（`features/tools/MapToolView`）**保留**：它是唯一能脱离地图、
+   * 直接指定目标地图调试生成的地方。从 设置 › 插件 里点进去。
+   */
+  nav: 'contextual',
 }
 
 export const AGENT_PLUGIN: PluginManifest = {
@@ -39,6 +50,8 @@ export const AGENT_PLUGIN: PluginManifest = {
   // 对话要网络与自己的存储；读库是逐项授权项（关掉后助手照常能聊，只是看不见库）
   permissions: ['network', 'own-storage', 'read-entities'],
   source: 'builtin',
+  // 助手有独立的对话界面，任何地方都不依赖上下文 —— 它占侧栏导航位
+  nav: 'sidebar',
   // 一方工具，和地图生成器一样出厂就在侧栏里可见：插件自己带设置页，
   // 没配端点时点进去是它的引导，而不是一块空白。藏起来只会让人找不到。
   enabledByDefault: true,
