@@ -174,7 +174,7 @@ export function MenuBarMenus() {
               <DropdownMenuSeparator />
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
-                  主题
+                  显示模式
                 </DropdownMenuSubTrigger>
                 <DropdownMenuSubContent>
                   <DropdownMenuItem onClick={() => updateSetting("theme", "light")}>
