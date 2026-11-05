@@ -72,7 +72,7 @@ function FieldRow({
   )
 }
 
-function FieldGroup({ kind }: { kind: FieldKind }) {
+function FieldGroup({ kind, showTitle = true }: { kind: FieldKind; showTitle?: boolean }) {
   const fields = useFieldConfig()[kind]
   const [draftName, setDraftName] = useState('')
 
@@ -107,19 +107,30 @@ function FieldGroup({ kind }: { kind: FieldKind }) {
 
   return (
     <section className="flex flex-col gap-2 border-b border-line pb-4 last:border-b-0 last:pb-0">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-ink">{FIELD_KIND_LABELS[kind]}</h3>
-        {missing.length > 0 ? (
-          <button
-            type="button"
-            onClick={() => commit([...fields, ...missing])}
-            className="flex items-center gap-1 text-[11px] text-ink-muted transition-colors hover:text-ink"
-          >
-            <RotateCcw size={12} strokeWidth={2} />
-            <span>加回 {missing.length} 项</span>
-          </button>
-        ) : null}
-      </div>
+      {showTitle ? (
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-medium text-ink">{FIELD_KIND_LABELS[kind]}</h3>
+          {missing.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => commit([...fields, ...missing])}
+              className="flex items-center gap-1 text-[11px] text-ink-muted transition-colors hover:text-ink"
+            >
+              <RotateCcw size={12} strokeWidth={2} />
+              <span>加回 {missing.length} 项</span>
+            </button>
+          ) : null}
+        </div>
+      ) : missing.length > 0 ? (
+        <button
+          type="button"
+          onClick={() => commit([...fields, ...missing])}
+          className="flex items-center gap-1 self-start text-[11px] text-ink-muted transition-colors hover:text-ink"
+        >
+          <RotateCcw size={12} strokeWidth={2} />
+          <span>加回 {missing.length} 项</span>
+        </button>
+      ) : null}
 
       <SortableList
         ids={fields.map((field) => field.id)}
@@ -176,35 +187,47 @@ function FieldGroup({ kind }: { kind: FieldKind }) {
  * 对该类实体的所有条目立刻生效。删内置字段只删「行」，不值清数据。
  */
 export function FieldSettings() {
-  const config = useFieldConfig()
-  const [confirmReset, setConfirmReset] = useState<FieldKind | null>(null)
-
   return (
     <div className="flex flex-col gap-4">
       {FIELD_KINDS.map((kind) => (
-        <div key={kind} className="flex flex-col gap-1">
-          <FieldGroup kind={kind} />
-          {config[kind].length !== defaultFields(kind).length ? (
-            <button
-              type="button"
-              onClick={() => setConfirmReset(kind)}
-              className="self-start text-[11px] text-ink-faint transition-colors hover:text-ink"
-            >
-              恢复默认字段
-            </button>
-          ) : null}
-        </div>
+        <FieldKindSettings key={kind} kind={kind} />
       ))}
+    </div>
+  )
+}
 
-      {confirmReset !== null ? (
+/**
+ * 单类实体的字段表 —— 「基本信息」面板点进去的那一屏（见 `BasicInfoPanel`）。
+ *
+ * 与 `FieldSettings` 的区别只是不再自带宽标题：进去时标题已经在页头上，
+ * 里面再写一遍「角色基本信息」就是同义反复。
+ */
+export function FieldKindSettings({ kind }: { kind: FieldKind }) {
+  const config = useFieldConfig()
+  const [confirmReset, setConfirmReset] = useState(false)
+
+  return (
+    <div className="flex flex-col gap-1">
+      <FieldGroup kind={kind} showTitle={false} />
+      {config[kind].length !== defaultFields(kind).length ? (
+        <button
+          type="button"
+          onClick={() => setConfirmReset(true)}
+          className="self-start text-[11px] text-ink-faint transition-colors hover:text-ink"
+        >
+          恢复默认字段
+        </button>
+      ) : null}
+
+      {confirmReset ? (
         <div className={`flex items-center gap-2 border border-line px-2 py-1.5 text-[12px] text-ink-muted ${ROUND_ITEM}`}>
-          <span>恢复「{FIELD_KIND_LABELS[confirmReset]}」默认字段？自建字段会保留。</span>
+          <span>恢复默认字段？自建字段会保留。</span>
           <button
             type="button"
             onClick={() => {
-              const kept = config[confirmReset].filter(isCustomField)
-              void replaceFields(confirmReset, [...defaultFields(confirmReset), ...kept])
-              setConfirmReset(null)
+              const kept = config[kind].filter(isCustomField)
+              void replaceFields(kind, [...defaultFields(kind), ...kept])
+              setConfirmReset(false)
             }}
             className="text-ink transition-colors hover:text-error"
           >
@@ -212,7 +235,7 @@ export function FieldSettings() {
           </button>
           <button
             type="button"
-            onClick={() => setConfirmReset(null)}
+            onClick={() => setConfirmReset(false)}
             className="text-ink-faint transition-colors hover:text-ink"
           >
             取消

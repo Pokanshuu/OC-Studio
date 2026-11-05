@@ -20,6 +20,8 @@
 - [x] **P1 分类收口 · 排序/搜索**（2026-11-05）：分类列表接 `CategoryListToolbar`（搜索 / 排序 / 移动端筛选条）、`SortableList` 手动拖拽、删除二次确认；排序与视图偏好落 `oc-categories-sort`
 - [x] **P1 词条自定义字段**（2026-11-05）：`worldEntry` 开放自建字段（`FieldDef.key` → `WorldEntry.custom`），世界编辑器与分类编辑器共用 `WorldCustomFields`；`.ocstudio/fields.json` 在扫描前登记自定义键（`readFieldConfigFromRoot`），自定义值能读回
 - [x] **P1 模板内字段编排**（2026-11-05）：宠物 / 武器把 `info.params.fields` 写进内置模板（物种 / 习性、材质 / 制造者）；`lib/templates/fields.ts` 解析，`WorldCustomFields` 按模板过滤，`TemplateComposer` 内联增删；模板字段键在扫描前登记（`vault/readTemplateFieldKeys`），值能读回
+- [x] **P1 基本信息拆两级 + 新建模板**（2026-11-05）：设置 › 世界 › 组件 › 基本信息改成两级 —— 一级列「基本信息模板」（角色 / 词条走 `lib/fields` 字段表；宠物 / 武器 / 自建模板走 `info.params.fields`；事件 / 国家标「开发中」，那张表还没接到渲染器），点进去才是那一份字段表；一级底部「新建模板」建笔记类模板并直接进字段页，可就地改名。`info.fields` 的消费方判定从「宠物 / 武器两条硬编码 id」改成 `TEMPLATE_PARAM_ANY_NOTE` + `isNoteTemplate`，任何笔记类模板都能声明字段（`BasicInfoPanel`）
+- [x] **P1 宠物 / 武器字段表对齐改版**（2026-11-05）：按 fork 的 `entity-info.ts` 补全两组字段 —— 宠物 15 项（物种 / 品种 / 性别 / 年龄 / 体型 / 体重 / 外观特征 / 性格 / 习性 / 饮食偏好 / 能力技能 / 出生日期 / 收养日期 / 栖息地 / 当前状态），武器 12 项（武器类型 / 材质 / 稀有度 / 尺寸 / 重量 / 制造者 / 铸造时间 / 来源 / 使用条件 / 能力效果 / 属性元素 / 当前状态）；那边给旧 `Character` 列做映射的 `legacy` 项没带过来（我们一律走 `custom`）
 - [x] **P2 分类条目进关系图**（2026-11-05）：只收「有引用的分类笔记」为 `world` 节点，引用落成「引用」边；双击节点打开分类条目；节点形态复用国家 3:2 卡片，封面走 `flagUrl`；拖动坐标落 `graph_position`（vault `WORLD_KEYS.graphPosition`）；筛选条增加「分类」开关（移动端图标）
 - [x] **P2 落盘对象标量**（2026-11-05）：`frontmatter.emitScalar` 对 `{ x, y }` 写 YAML flow mapping，不再把 `graph_position` / `map_position` 写成 `[object Object]`；`vault-migrate-check` 补分类条目封面 / 简介 / 自定义字段 / 关系图坐标断言，68 项
 - [x] **P2 分类视图**（2026-11-05）：目录 / 卡片 / 画廊三态（`CategoryViewToggle` + `CategoryCard` / `CategoryGalleryCard`），偏好 `oc-categories-view`；卡片 / 画廊已接 3:2 封面

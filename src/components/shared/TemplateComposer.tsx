@@ -495,7 +495,7 @@ export function TemplateComposer({
   const overlayRoot = typeof document === 'undefined' ? null : document.getElementById('overlay-root')
 
   const paramComponent = paramsFor === null ? undefined : enabled.find((component) => component.id === paramsFor)
-  const paramDefs = paramComponent ? templateParamsFor(active.id, paramComponent.id) : []
+  const paramDefs = paramComponent ? templateParamsFor(active.id, paramComponent.id, active) : []
   const paramHasFields = paramDefs.some((def) => def.kind === 'fields')
   const paramMeta = paramComponent ? COMPONENT_BY_ID[paramComponent.id] : undefined
 
@@ -581,7 +581,7 @@ export function TemplateComposer({
             {enabled.map((component, index) => {
               const meta = COMPONENT_BY_ID[component.id]
               const wired = isComponentWired(active.id, component.id)
-              const paramDefs = templateParamsFor(active.id, component.id)
+              const paramDefs = templateParamsFor(active.id, component.id, active)
               const hasParams = wired && paramDefs.length > 0
               return (
                 <div key={component.id} className="border-b border-line">

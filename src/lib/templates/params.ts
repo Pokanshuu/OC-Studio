@@ -6,6 +6,7 @@
  *
  * 这份文件不 import React，脚本与渲染器都能直接读。
  */
+import { isNoteTemplate } from './note'
 import type { TemplateComponent, TemplateComponentId, TemplateDoc } from './types'
 
 export interface TemplateParamOption {
@@ -93,26 +94,48 @@ export const TEMPLATE_PARAM_SCHEMA: Partial<Record<TemplateComponentId, Template
 /**
  * 参数只对**真正消费它的模板**开放。
  * 关系呈现目前只有角色编辑器接了；事件 / 国家的关联本来就是 chips。
- * `info.fields` 由宠物 / 武器的字段表消费（`lib/templates/fields.ts`）。
+ * `info.fields` 由「基本信息」字段表消费（`lib/templates/fields.ts`）——
+ * 它现在对**任何笔记类模板**开放（见 `TEMPLATE_PARAM_ANY_NOTE`），
+ * 这里登记的是内置的那几个，脚本与不带 doc 的调用按它兜底。
  */
 export const TEMPLATE_PARAM_SUPPORT: Partial<Record<TemplateComponentId, string[]>> = {
-  info: ['pet', 'weapon'],
+  info: ['pet', 'weapon', 'entry'],
   relations: ['character'],
   gallery: ['character'],
 }
 
-export function templateAcceptsParam(templateId: string, componentId: TemplateComponentId): boolean {
+/**
+ * 「这个组件对任何笔记类模板都开放」—— 判断要带 doc（`isNoteTemplate`）。
+ *
+ * 为什么需要它：基本信息字段表已经不是宠物 / 武器的专利，用户在设置里新建的
+ * 任何笔记类模板都该能声明自己的字段。硬编码一份 id 名单会漏掉自建模板。
+ */
+export const TEMPLATE_PARAM_ANY_NOTE: Partial<Record<TemplateComponentId, boolean>> = {
+  info: true,
+}
+
+export function templateAcceptsParam(
+  templateId: string,
+  componentId: TemplateComponentId,
+  doc?: TemplateDoc,
+): boolean {
   const defs = TEMPLATE_PARAM_SCHEMA[componentId]
   if (!defs || defs.length === 0) return false
-  return TEMPLATE_PARAM_SUPPORT[componentId]?.includes(templateId) ?? false
+  const listed = TEMPLATE_PARAM_SUPPORT[componentId]?.includes(templateId) ?? false
+  if (TEMPLATE_PARAM_ANY_NOTE[componentId]) {
+    // 有 doc 就以它为准（自建模板也认）；没有 doc 时只能按内置名单兜底
+    return doc ? isNoteTemplate(doc) : listed
+  }
+  return listed
 }
 
 /** 某个模板的某个组件能编的全部参数（含重参数；没有消费方时为空） */
 export function templateParamsFor(
   templateId: string,
   componentId: TemplateComponentId,
+  doc?: TemplateDoc,
 ): TemplateParamDef[] {
-  if (!templateAcceptsParam(templateId, componentId)) return []
+  if (!templateAcceptsParam(templateId, componentId, doc)) return []
   return TEMPLATE_PARAM_SCHEMA[componentId] ?? []
 }
 
@@ -147,7 +170,7 @@ export function validateTemplateParams(doc: TemplateDoc): string[] {
         errors.push(`「${doc.name}」的「${component.id}」没有参数 ${key}`)
         continue
       }
-      if (!templateAcceptsParam(doc.id, component.id)) {
+      if (!templateAcceptsParam(doc.id, component.id, doc)) {
         errors.push(`「${doc.name}」的「${component.id}」不该有参数（渲染器未消费）`)
         continue
       }

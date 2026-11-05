@@ -44,11 +44,31 @@ export const BUILTIN_TEMPLATES: TemplateDoc[] = [
     // 宠物 / 武器：**内置模板，但不预建分类**（分类在 settings 里按需启用，见 categories/builtins）。
     // 只接线词条真正有的四块 —— 不写封面 / 画廊这类还没有数据列的组件。
     // `fields` 是模板自己的「基本信息」字段：键 = frontmatter 同名键，值落 WorldEntry.custom。
+    // 字段清单对齐改版（`entity-info.ts` 的 pet / weapon 两组），删掉了那边给旧 `Character`
+    // 列做映射的 `legacy` 项 —— 我们这边一律走 custom，没有列要回落。
     id: 'pet',
     name: '宠物',
     aliases: ['伙伴'],
     components: components(['cover', 'info', 'tags', 'summary', 'body'], {
-      info: { fields: ['物种', '习性'] },
+      info: {
+        fields: [
+          '物种',
+          '品种',
+          '性别',
+          '年龄',
+          '体型',
+          '体重',
+          '外观特征',
+          '性格',
+          '习性',
+          '饮食偏好',
+          '能力技能',
+          '出生日期',
+          '收养日期',
+          '栖息地',
+          '当前状态',
+        ],
+      },
     }),
   },
   {
@@ -56,7 +76,22 @@ export const BUILTIN_TEMPLATES: TemplateDoc[] = [
     name: '武器',
     aliases: ['装备'],
     components: components(['cover', 'info', 'tags', 'summary', 'body'], {
-      info: { fields: ['材质', '制造者'] },
+      info: {
+        fields: [
+          '武器类型',
+          '材质',
+          '稀有度',
+          '尺寸',
+          '重量',
+          '制造者',
+          '铸造时间',
+          '来源',
+          '使用条件',
+          '能力效果',
+          '属性元素',
+          '当前状态',
+        ],
+      },
     }),
   },
 ]

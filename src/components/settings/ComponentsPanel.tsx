@@ -8,13 +8,13 @@
  * 这里按组件列入口，每个入口只负责自己的那份配置。
  *
  * 现阶段接上的只有：
- * - 基本信息 → 字段表（`FieldSettings`，读写 `.ocstudio/fields.json`）
- * - 正文 → 预设段落（还没做，先显示「开发中」）
+ * - 基本信息 → **两级**：先选基本信息模板（角色 / 词条 / 宠物 / 武器 / 自建），
+ *   点进去才是那一份字段表（`BasicInfoPanel`）
+ * - 正文 / 关系 / 画廊 → 还没做，先显示「开发中」
  */
 import { useState } from 'react'
-import { ArrowLeft, ChevronRight } from 'lucide-react'
-import { FieldSettings } from '@/components/settings/FieldSettings'
-import { ICON_BTN } from '@/lib/ui-tokens'
+import { ChevronRight } from 'lucide-react'
+import { BasicInfoPanel } from '@/components/settings/BasicInfoPanel'
 
 type Panel = 'list' | 'info'
 
@@ -29,17 +29,7 @@ export function ComponentsPanel() {
   const [panel, setPanel] = useState<Panel>('list')
 
   if (panel === 'info') {
-    return (
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-2">
-          <button type="button" onClick={() => setPanel('list')} aria-label="返回" className={ICON_BTN}>
-            <ArrowLeft size={16} strokeWidth={2} />
-          </button>
-          <span className="text-sm text-ink">基本信息</span>
-        </div>
-        <FieldSettings />
-      </div>
-    )
+    return <BasicInfoPanel onBack={() => setPanel('list')} />
   }
 
   return (
