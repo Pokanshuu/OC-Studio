@@ -262,6 +262,13 @@ export function BasicInfoPanel({ onBack, initialId }: { onBack: () => void; init
   const [deleting, setDeleting] = useState<InfoGroup | null>(null)
 
   const activeGroup = activeGroupId === null ? null : groups.find((group) => group.id === activeGroupId) ?? null
+  /**
+   * 列型宿主（角色 / 事件 / 词条）的组件**只是字段表的投影**：字段是真列 id、名字在
+   * `lib/fields` 里。深链进来（`group:group-character`，模板参数里的设置键就这么跳）
+   * 也必须落到字段表编辑器 —— 否则会看到一份 `aliases / race / isMajor` 的键名清单，
+   * 既没有中文名，也不该在那儿改。
+   */
+  const fieldKind = activeFieldKind ?? columnKindOf(activeGroup?.for) ?? null
   const usageOf = (groupId: string): typeof templates =>
     templates.filter((doc) =>
       doc.components.some(
@@ -290,19 +297,27 @@ export function BasicInfoPanel({ onBack, initialId }: { onBack: () => void; init
     })
   }
 
-  // 实体字段表
-  if (activeFieldKind !== null) {
+  // 实体字段表（列型宿主的唯一编辑面；深链进来的组件也落在这儿）
+  if (fieldKind !== null) {
     return (
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
-          <button type="button" onClick={() => setActiveFieldKind(null)} aria-label="返回" className={ICON_BTN}>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveFieldKind(null)
+              setActiveGroupId(null)
+            }}
+            aria-label="返回"
+            className={ICON_BTN}
+          >
             <ArrowLeft size={16} strokeWidth={2} />
           </button>
           <span className="text-sm font-medium text-ink">
-            {FIELD_ROWS.find((row) => row.fieldKind === activeFieldKind)?.label ?? activeFieldKind}
+            {FIELD_ROWS.find((row) => row.fieldKind === fieldKind)?.label ?? fieldKind}
           </span>
         </div>
-        <FieldKindSettings kind={activeFieldKind} />
+        <FieldKindSettings kind={fieldKind} />
       </div>
     )
   }
