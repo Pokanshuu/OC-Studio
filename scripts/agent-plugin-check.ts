@@ -76,7 +76,11 @@ async function main(): Promise<void> {
   for (const name of LIBRARY_TOOL_NAMES) {
     const spec = toolByName(name)
     check(`schema 存在：${name}`, Boolean(spec))
-    check(`${name} 只读免审批`, spec?.category === 'read' && spec?.requiresApproval === false)
+    const readOnly = spec?.name !== 'library_set_fields'
+    check(
+      `${name} ${readOnly ? '只读免审批' : '写入要审批'}`,
+      spec?.category === (readOnly ? 'read' : 'write') && spec?.requiresApproval === !readOnly,
+    )
   }
 
   const openAi = toOpenAiTools(ALL_TOOLS).map((tool) => {
@@ -138,6 +142,65 @@ async function main(): Promise<void> {
   const graph = await resolve('library_graph', { kind: 'character', id: 7, hops: 1 })
   check('关系图带出邻居', graph?.content.includes('沈砚') === true)
   check('关系图里含中心条目', graph?.content.includes('# 林知遥') === true)
+
+  // ── library_set_fields（写）────────────────────────────────────────────
+  const noWriter = await resolve('library_set_fields', { kind: 'character', id: 7, fields: { race: '精灵' } })
+  check('没注入 writer 时写不了', noWriter?.isError === true && noWriter?.content === '这个环境不能写库。')
+
+  const writes: Array<{ kind: string; id: number; patch: Record<string, string> }> = []
+  const writer = {
+    async setFields(kind: EntityKind, id: number, patch: Record<string, string>) {
+      writes.push({ kind, id, patch })
+      const row = characters.find((item) => item.id === id)
+      if (row) Object.assign(row, patch)
+    },
+  }
+  const resolveW = createLibraryToolExecutor(createCapabilities(store), writer)
+
+  const wrote = await resolveW('library_set_fields', {
+    kind: 'character',
+    id: 7,
+    fields: { race: '精灵', occupation: '观星人' },
+  })
+  check('写入成功', wrote?.isError === false, wrote?.content.slice(0, 60))
+  check('写入落到 writer 上', writes.length === 1 && writes[0]?.kind === 'character' && writes[0]?.id === 7)
+  check('只带白名单字段', Object.keys(writes[0]?.patch ?? {}).join('、') === 'race、occupation')
+  check('写完读回来给模型看', wrote?.content.includes('精灵') === true && wrote?.content.includes('观星人') === true)
+
+  const mixed = await resolveW('library_set_fields', {
+    kind: 'character',
+    id: 8,
+    fields: { bio: '剑客。', name: '改名' },
+  })
+  check('白名单外的键被挡下但仍写其余', mixed?.isError === false && mixed?.content.includes('已写入 bio') === true, mixed?.content.slice(0, 50))
+  check('被挡的键要点出来', JSON.stringify(mixed?.data).includes('name') === true)
+
+  const onlyRejected = await resolveW('library_set_fields', {
+    kind: 'character',
+    id: 8,
+    fields: { name: '改名' },
+  })
+  check('全是非法键时明确报错', onlyRejected?.isError === true && onlyRejected?.content.includes('不能写') === true)
+  check('全非法时不会真去写', writes.length === 2)
+
+  const worldWrite = await resolveW('library_set_fields', { kind: 'world', id: 1, fields: { title: 'x' } })
+  check('词条没有可写标量', worldWrite?.isError === true && worldWrite?.content.includes('没有可写') === true)
+
+  const emptyFields = await resolveW('library_set_fields', { kind: 'character', id: 7, fields: {} })
+  check('空 fields 报错', emptyFields?.isError === true)
+
+  const badFields = await resolveW('library_set_fields', { kind: 'character', id: 7, fields: 'x' })
+  check('fields 不是对象时报错', badFields?.isError === true)
+
+  const longValue = 'x'.repeat(5000)
+  await resolveW('library_set_fields', { kind: 'character', id: 7, fields: { bio: longValue } })
+  const lastPatch = writes[writes.length - 1]?.patch ?? {}
+  check('超长值被截断', (lastPatch.bio ?? '').length === 4000)
+
+  check(
+    'toolSummary 认 library_set_fields',
+    toolSummary({ id: 'c3', name: 'library_set_fields', args: '{"fields":{"race":"精灵"}}' } as never) === 'race',
+  )
 
   // ── 调用方身份 ────────────────────────────────────────────────────────
   check('调用方是助手本人', AGENT_CALLER.actor === 'agent:assistant')

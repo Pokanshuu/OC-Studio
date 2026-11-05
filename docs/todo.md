@@ -109,7 +109,8 @@
 - [x] **P1 助手 · 整目录移植**（2026-11-05 定稿）：**不再手写**。`src/plugins/agent/` + `src-tauri/src/agent/` 原样搬自 `D:\Codes\Simple-Agent`，上游更新整目录覆盖；宿主只留 `AgentPlugin.tsx` 一道缝。**会话树 / 分支切换 / 编辑重发 / 草稿 / 预设 / 压缩 / 工具循环 / 审批（allow·deny·always）/ 流式 markdown / i18n 一次性全有** —— 此前手写的那套（`lib/plugins/agent/` + `features/tools/agent/` + `AgentToolView`）已删除，不做两套。样式用 `scripts/scope-plugin-css.mjs` 收进 `.oc-agent-root`，宿主令牌同名同值
 - [ ] **P1 助手 · 存储边界**：会话在插件自己的 SQLite 里，**`.ocbak` 备份带不上**。要么备份时连插件库一起收，要么在备份界面明说不含助手会话 —— 二选一，别让用户以为备份等于全部
 - [x] **P1 助手 · 读库接上**（2026-11-05）：四个只读工具 `library_list` / `library_read` / `library_search` / `library_graph` 进了插件工具带（schema 在 `src/plugins/agent/core/agent/tools.ts`，执行在 `src/lib/capabilities/agent-tools.ts`，浏览器接线在 `src/plugins/agent/host/library-tools.ts`）。插件只认 `(name, args)`，不知道背后是 Dexie；不归宿主管的名字回 `null` 继续走它的文件工具。`npm run audit:agent` 33 项断言。**写入仍未开**
-- [ ] **P1 助手 · 写入**：工具循环能读了，还不能改库。要等 A4 的 `actor` 链路：写入必须走 `vault-persist`，journal 带 `actor: 'agent:assistant'`，并落到审批的「本会话允许」上
+- [x] **P1 助手 · 写标量字段**（2026-11-05）：`library_set_fields` 能改角色 / 事件 / 国家的标量文本（种族、职业、地点、地理……），**正文与改名故意不放**——正文要过 Markdown ⇄ Tiptap 的桥（要 `createLinkResolver(scan.index)`），改名会牵动文件名 / 撞名 / 全库 `[[链接]]` 回写，都不是一次字段写入能负责的。写入包装在 `runAsActorAsync('agent:assistant')` 里，落点是 Dexie 的 `update`，所以自动进 `vault-persist` 队列、写盘、并追加带 `actor` 的时间线。`requiresApproval: true` —— 每次改都要作者点同意
+- [ ] **P1 助手 · 写正文**：`library_set_body`。要拿到 vault 会话的链接索引才能把 Markdown 转成 Tiptap；转换失败的节点有 ` ```oc-document ` 兜底块，别让它把正文写坏
 - [ ] **P2 能力层读权限的闸在错的地方**：`READ_PERMISSION = 0` 是**地板**，所以 `requireRead()` 只拦得住「actor 不是 human / agent: / plugin:」，任何合法 actor 都读得到全库。真正的闸在**造 `Caller` 的那一处**（现在是 `agent-tools.ts` 里写死）。对外开放插件 / MCP 之前要把权限位改成真正的分级
 - [ ] **P2 主题插件对外开放**：把 `lib/theme/presets.ts` 的令牌升级成可导入的主题包 manifest（现在只是内置四套登记成插件，还没有「装一个主题」的入口）
 - [ ] **P2 A3 内置 agent**：对话壳（复用作者已有安卓原生 AI 应用里预留的 agent 能力）+ 官方 skill（角色讨论 / 设定补全 / 小说续写 / 一致性检查）+ 模型可换

@@ -25,9 +25,32 @@ export const LIBRARY_TOOL_NAMES = [
   'library_read',
   'library_search',
   'library_graph',
+  'library_set_fields',
 ] as const
 
 export type LibraryToolName = (typeof LIBRARY_TOOL_NAMES)[number]
+
+/**
+ * 可写字段白名单。
+ *
+ * **只放标量文本**：正文（`document` / `content`）要过 Markdown ⇄ Tiptap 的桥，
+ * 桥要拿到链接解析器（`createLinkResolver(scan.index)`），耦合更重 —— 那一版
+ * 单独做。名字更是故意不放：改名会改文件名、撞名去重、`[[链接]]` 全库回写，
+ * 不是一次字段写入能负责的事。
+ */
+const WRITABLE_FIELDS = {
+  character: ['race', 'element', 'occupation', 'faction', 'height', 'birthday', 'bio'],
+  event: ['time', 'endTime', 'location', 'summary'],
+  country: ['description', 'system', 'geography', 'culture'],
+  world: [],
+} as const satisfies Record<EntityKind, readonly string[]>
+
+const FIELD_MAX_LENGTH = 4000
+
+/** 写库动作：注入进来，执行器本身不碰 Dexie（脚本里也能跑） */
+export interface LibraryWriter {
+  setFields(kind: EntityKind, id: number, patch: Record<string, string>): Promise<void>
+}
 
 const KINDS: readonly EntityKind[] = ['character', 'event', 'country', 'world']
 
@@ -82,7 +105,7 @@ function summaryLine(row: { kind: EntityKind; id: number; title: string; aliases
  * 返回 `null` 表示这个名字不归宿主管，调用方继续走原来的路径（插件的 Rust
  * 文件工具）；返回结果就表示已经处理完。
  */
-export function createLibraryToolExecutor(capabilities: Capabilities) {
+export function createLibraryToolExecutor(capabilities: Capabilities, writer?: LibraryWriter) {
   return async function resolveLibraryTool(
     name: string,
     args: Record<string, unknown>,
@@ -139,6 +162,45 @@ export function createLibraryToolExecutor(capabilities: Capabilities) {
       if (!kind) return finish(fail('kind 必须是 character / event / country / world 之一。'))
       const id = numberOf(args.id, -1, 0, Number.MAX_SAFE_INTEGER)
       if (id < 0) return finish(fail('需要实体 id。'))
+      if (name === 'library_set_fields') {
+        if (!writer) return finish(fail('这个环境不能写库。'))
+        const writable: readonly string[] = WRITABLE_FIELDS[kind]
+        if (writable.length === 0) return finish(fail(`${KIND_LABEL[kind]}没有可写的标量字段。`))
+        const raw = args.fields
+        if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+          return finish(fail('fields 必须是一个对象，键是要改的字段名。'))
+        }
+        const patch: Record<string, string> = {}
+        const rejected: string[] = []
+        for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+          if (!writable.includes(key)) {
+            rejected.push(key)
+            continue
+          }
+          const text = textOf(value).slice(0, FIELD_MAX_LENGTH)
+          patch[key] = text
+        }
+        const keys = Object.keys(patch)
+        if (keys.length === 0) {
+          return finish(
+            fail(
+              rejected.length > 0
+                ? `这些字段不能写：${rejected.join('、')}。可写的是 ${writable.join(' / ')}。`
+                : 'fields 是空的。',
+            ),
+          )
+        }
+        await writer.setFields(kind, id, patch)
+        // 写完读回来给模型看：它得知道盘上现在是什么，而不是自己以为写了什么
+        const after = await capabilities.getEntity(AGENT_CALLER, kind, id)
+        return finish(
+          ok(`已写入 ${keys.join('、')}。现在这条是：\n\n${capabilities.buildCodexSlice(after)}`, {
+            written: keys,
+            rejected,
+          }),
+        )
+      }
+
       const hops = numberOf(args.hops, 1, 1, 2)
       const entries = await capabilities.graphSlice(AGENT_CALLER, kind, id, hops)
       const body = entries.map((entry) => capabilities.buildCodexSlice(entry)).join('\n\n---\n\n')

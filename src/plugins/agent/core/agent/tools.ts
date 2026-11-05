@@ -280,6 +280,36 @@ export const ALL_TOOLS: ToolSpec[] = [
       additionalProperties: false,
     },
   },
+  {
+    name: 'library_set_fields',
+    category: 'write',
+    requiresApproval: true,
+    description:
+      "Update scalar text fields of one library entry (a character's race / occupation / faction, " +
+      "an event's location, a country's geography, …). Read the entry first. Does not touch the " +
+      "body text and does not rename anything. An empty string clears the field.",
+    parameters: {
+      type: 'object',
+      properties: {
+        kind: {
+          type: 'string',
+          enum: ['character', 'event', 'country', 'world'],
+          description: 'Entity kind.',
+        },
+        id: { type: 'integer', description: 'Entity id.' },
+        fields: {
+          type: 'object',
+          description:
+            'Field name → new text. Characters accept race / element / occupation / faction / ' +
+            'height / birthday / bio; events accept time / endTime / location / summary; ' +
+            'countries accept description / system / geography / culture.',
+          additionalProperties: { type: 'string' },
+        },
+      },
+      required: ['kind', 'id', 'fields'],
+      additionalProperties: false,
+    },
+  },
 ]
 
 export const TOOL_NAMES = ALL_TOOLS.map((t) => t.name)
@@ -351,6 +381,12 @@ export function toolSummary(call: ToolCall): string {
     case 'library_read':
     case 'library_graph':
       return typeof args.kind === 'string' && typeof args.id === 'number' ? `${args.kind} #${args.id}` : ''
+    case 'library_set_fields': {
+      const fields = args.fields
+      if (fields === null || typeof fields !== 'object') return ''
+      const keys = Object.keys(fields as Record<string, unknown>)
+      return keys.length > 0 ? keys.join(' · ') : ''
+    }
     case 'library_search':
       return pick('query') ?? ''
     default:

@@ -8,9 +8,38 @@
  * 插件那边只认 `(name, args)` 这个签名，不知道背后是 Dexie、是 MCP 还是别的
  * （`docs/Agent接入.md` §传输层）。换实现只改这一个文件。
  */
-import { createLibraryToolExecutor } from '@/lib/capabilities/agent-tools'
+import { createLibraryToolExecutor, type LibraryWriter } from '@/lib/capabilities/agent-tools'
+import type { EntityKind } from '@/lib/capabilities/types'
 
 type Executor = ReturnType<typeof createLibraryToolExecutor>
+
+const TABLE_BY_KIND: Record<EntityKind, string> = {
+  character: 'characters',
+  event: 'events',
+  country: 'countries',
+  world: 'worldEntries',
+}
+
+/**
+ * 写库的落点：直接对 Dexie 表 `update`。
+ *
+ * 不去找 service 层是因为**不该绕过落盘链路，而 Dexie 就是那条链路本身** ——
+ * `vault-persist` 挂在 dbcore 中间件上，任何写都会进队列、序列化成 frontmatter、
+ * 走原子写，并在 flush 成功时追加一条带 `actor` 的时间线。所以这里只要两件事做对：
+ *   1. 包在 `runAsActorAsync('agent:assistant', …)` 里（时间线才认得出是谁）
+ *   2. 顺带把 `updatedAt` 推一下（列表按它排序）
+ */
+const writer: LibraryWriter = {
+  async setFields(kind, id, patch) {
+    const [{ db }, { runAsActorAsync }] = await Promise.all([
+      import('@/lib/db'),
+      import('@/lib/vault/actor'),
+    ])
+    await runAsActorAsync('agent:assistant', async () => {
+      await db.table(TABLE_BY_KIND[kind]).update(id, { ...patch, updatedAt: Date.now() })
+    })
+  },
+}
 
 let executor: Executor | null = null
 let loading: Promise<Executor> | null = null
@@ -22,7 +51,7 @@ async function loadExecutor(): Promise<Executor> {
       import('@/lib/capabilities'),
       import('@/lib/capabilities/dexie-store'),
     ])
-    executor = createLibraryToolExecutor(createCapabilities(createDexieCapabilityStore()))
+    executor = createLibraryToolExecutor(createCapabilities(createDexieCapabilityStore()), writer)
     return executor
   })()
   return loading
