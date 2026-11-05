@@ -108,7 +108,9 @@
 - [x] **P1 插件系统地基**（2026-11-05）：`src/lib/plugins/`（manifest 契约：三类 tool / theme / skill + 六项权限 + 可用标记；开关与逐项授权存 localStorage）；侧栏「工具」分组 + `工具:<id>` 导航键 + `ToolSection` 接线表；地图生成器搬成独立工具页（先选目标地图 → 参数 → 生成 → 用作底图）；设置 › 插件页签（开关 / 权限 / 版本 / 类型 / 添加与市场标开发中）；**主题即插件**：四套官方配色登记为 `kind: 'theme'`，个性化按插件开关过滤（当前在用的永远保留）。定稿口径写进 `docs/插件.md` §0.0
 - [x] **P1 助手 · 整目录移植**（2026-11-05 定稿）：**不再手写**。`src/plugins/agent/` + `src-tauri/src/agent/` 原样搬自 `D:\Codes\Simple-Agent`，上游更新整目录覆盖；宿主只留 `AgentPlugin.tsx` 一道缝。**会话树 / 分支切换 / 编辑重发 / 草稿 / 预设 / 压缩 / 工具循环 / 审批（allow·deny·always）/ 流式 markdown / i18n 一次性全有** —— 此前手写的那套（`lib/plugins/agent/` + `features/tools/agent/` + `AgentToolView`）已删除，不做两套。样式用 `scripts/scope-plugin-css.mjs` 收进 `.oc-agent-root`，宿主令牌同名同值
 - [ ] **P1 助手 · 存储边界**：会话在插件自己的 SQLite 里，**`.ocbak` 备份带不上**。要么备份时连插件库一起收，要么在备份界面明说不含助手会话 —— 二选一，别让用户以为备份等于全部
-- [ ] **P1 助手 · 接上宿主**：把插件里的 `read_file` / `run_shell` 换成 `lib/capabilities` 的 list / get / search / graphSlice；写入带 `actor` 走落盘链路。**不走 MCP**，进程内直调。这是「有机构成」那一步，现在还是各自独立
+- [x] **P1 助手 · 读库接上**（2026-11-05）：四个只读工具 `library_list` / `library_read` / `library_search` / `library_graph` 进了插件工具带（schema 在 `src/plugins/agent/core/agent/tools.ts`，执行在 `src/lib/capabilities/agent-tools.ts`，浏览器接线在 `src/plugins/agent/host/library-tools.ts`）。插件只认 `(name, args)`，不知道背后是 Dexie；不归宿主管的名字回 `null` 继续走它的文件工具。`npm run audit:agent` 33 项断言。**写入仍未开**
+- [ ] **P1 助手 · 写入**：工具循环能读了，还不能改库。要等 A4 的 `actor` 链路：写入必须走 `vault-persist`，journal 带 `actor: 'agent:assistant'`，并落到审批的「本会话允许」上
+- [ ] **P2 能力层读权限的闸在错的地方**：`READ_PERMISSION = 0` 是**地板**，所以 `requireRead()` 只拦得住「actor 不是 human / agent: / plugin:」，任何合法 actor 都读得到全库。真正的闸在**造 `Caller` 的那一处**（现在是 `agent-tools.ts` 里写死）。对外开放插件 / MCP 之前要把权限位改成真正的分级
 - [ ] **P2 主题插件对外开放**：把 `lib/theme/presets.ts` 的令牌升级成可导入的主题包 manifest（现在只是内置四套登记成插件，还没有「装一个主题」的入口）
 - [ ] **P2 A3 内置 agent**：对话壳（复用作者已有安卓原生 AI 应用里预留的 agent 能力）+ 官方 skill（角色讨论 / 设定补全 / 小说续写 / 一致性检查）+ 模型可换
 - [ ] **P2 A4 `actor` 留痕 + 受限写入**：journal 每条加 `actor`（**格式已落，写入侧未接**）；权限四级（只读 / 写正文 / 改结构 / 删除），默认只读，写入必须走落盘链路

@@ -17,6 +17,7 @@
 import { create } from 'zustand'
 import { cmd, patchMessage, rowToMessage } from '@/plugins/agent/api/bridge'
 import { streamCompletion } from '@/plugins/agent/api/chat'
+import { resolveLibraryTool } from '@/plugins/agent/host/library-tools'
 import {
   buildChatRequest,
   messageToOut,
@@ -369,7 +370,9 @@ export const useChatStore = create<ChatStore>((set, get) => {
         set({ activity: call.name })
         const args = parseToolArgs(call.args)
         try {
-          const response = await cmd.runTool(call.name, args, workspace ?? '')
+          // 宿主优先：设定库那几个工具在进程内执行，其余落回插件的文件工具层
+          const hosted = await resolveLibraryTool(call.name, args)
+          const response = hosted ?? (await cmd.runTool(call.name, args, workspace ?? ''))
           void cmd
             .auditToolCall(conversationId, call.name, call.args, !response.isError, response.durationMs)
             .catch(() => undefined)

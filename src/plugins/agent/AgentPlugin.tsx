@@ -16,12 +16,15 @@
  */
 
 import { useEffect, useState } from 'react'
+import { Wrench } from 'lucide-react'
 import { ToastProvider } from '@/plugins/agent/components/ui/primitives'
 import { Sidebar } from '@/plugins/agent/components/chat/Sidebar'
 import { ChatView } from '@/plugins/agent/components/chat/ChatView'
 import { SettingsView } from '@/plugins/agent/components/chat/SettingsView'
 import { flushSettings, useSettingsStore } from '@/plugins/agent/state/settings'
 import { useChatStore } from '@/plugins/agent/state/chat'
+import { isTauri } from '@/lib/env'
+import { CENTER_STATE } from '@/lib/ui-tokens'
 
 type SettingsTab = 'api' | 'agent' | 'appearance' | 'data' | 'about'
 
@@ -47,13 +50,26 @@ export function AgentPlugin() {
   const loadSettings = useSettingsStore((s) => s.load)
   const initChat = useChatStore((s) => s.init)
 
+  // 插件的库在网络另一端：Tauri 命令 + 系统 app data 下的 SQLite。浏览器里
+  // 没有这些命令，硬渲染只会得到一块空面板（每个 invoke 都 reject）。
+  // 先把「有没有后端」问清楚，再决定画什么。
+  const [native, setNative] = useState<boolean | null>(null)
+
   const [collapsed, setCollapsed] = useState(true)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('api')
 
   useEffect(() => {
+    // 必须等挂载后再问：`isTauri()` 读 window，服务端渲染时它不存在。
+    // 首帧先画空壳，拿到答案再换成真界面，避免水合不一致。
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 环境探测只能发生在客户端
+    setNative(isTauri())
+  }, [])
+
+  useEffect(() => {
+    if (native !== true) return
     void loadSettings().then(() => initChat())
-  }, [loadSettings, initChat])
+  }, [native, loadSettings, initChat])
 
   useEffect(() => {
     const handler = (event: Event) => {
@@ -72,6 +88,17 @@ export function AgentPlugin() {
     window.addEventListener('beforeunload', handler)
     return () => window.removeEventListener('beforeunload', handler)
   }, [])
+
+  if (native === false) {
+    return (
+      <div className={CENTER_STATE}>
+        <Wrench size={20} strokeWidth={2} className="text-ink-faint" />
+        <p className="text-sm text-ink-muted">桌面版才能用</p>
+      </div>
+    )
+  }
+
+  if (native === null) return <div className="h-full" />
 
   return (
     <div className="oc-agent-root flex h-full min-h-0" data-theme={dark ? 'dark' : 'light'}>

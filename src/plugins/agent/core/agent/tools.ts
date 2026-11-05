@@ -197,6 +197,89 @@ export const ALL_TOOLS: ToolSpec[] = [
       additionalProperties: false,
     },
   },
+  // ── OC Studio 宿主注入：设定库只读接口 ────────────────────────────────
+  // 这四个由宿主执行（`src/lib/capabilities/agent-tools.ts`），不走 Rust 文件层。
+  // 它们回答的是「这套设定里有什么」，比翻文件夹更接近作者真正想问的事。
+  {
+    name: 'library_list',
+    category: 'read',
+    requiresApproval: false,
+    description:
+      "List entries in the author's worldbuilding library (characters, events, countries, " +
+      "lore entries). Omit `kind` for an overview with counts. Newest edits first.",
+    parameters: {
+      type: 'object',
+      properties: {
+        kind: {
+          type: 'string',
+          enum: ['character', 'event', 'country', 'world'],
+          description: 'Entity kind to list. Omit for an overview of all four.',
+        },
+        limit: { type: 'integer', description: 'Max rows per kind (default 40, max 200).' },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'library_read',
+    category: 'read',
+    requiresApproval: false,
+    description:
+      'Read one library entry in full: fields, relations, related events in time order, ' +
+      'tags and body text, rendered as Markdown. Get the id from library_list or library_search.',
+    parameters: {
+      type: 'object',
+      properties: {
+        kind: {
+          type: 'string',
+          enum: ['character', 'event', 'country', 'world'],
+          description: 'Entity kind.',
+        },
+        id: { type: 'integer', description: 'Entity id, as shown in library_list.' },
+      },
+      required: ['kind', 'id'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'library_search',
+    category: 'read',
+    requiresApproval: false,
+    description:
+      'Search the library by title, alias or tag name. Does not scan body text, so prefer ' +
+      'library_list when you only want to browse.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Title, alias or tag fragment.' },
+        limit: { type: 'integer', description: 'Max hits (default 20, max 50).' },
+      },
+      required: ['query'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'library_graph',
+    category: 'read',
+    requiresApproval: false,
+    description:
+      'Walk the relationship graph around one entry for one or two hops. Related events count ' +
+      'as a hop, so this is the best way to ask "what happened to this character".',
+    parameters: {
+      type: 'object',
+      properties: {
+        kind: {
+          type: 'string',
+          enum: ['character', 'event', 'country', 'world'],
+          description: 'Entity kind.',
+        },
+        id: { type: 'integer', description: 'Entity id.' },
+        hops: { type: 'integer', description: 'How many hops (1 or 2, default 1).' },
+      },
+      required: ['kind', 'id'],
+      additionalProperties: false,
+    },
+  },
 ]
 
 export const TOOL_NAMES = ALL_TOOLS.map((t) => t.name)
@@ -263,6 +346,13 @@ export function toolSummary(call: ToolCall): string {
       const todos = args.todos
       return Array.isArray(todos) ? `${todos.length} 项` : ''
     }
+    case 'library_list':
+      return typeof args.kind === 'string' ? args.kind : '全部'
+    case 'library_read':
+    case 'library_graph':
+      return typeof args.kind === 'string' && typeof args.id === 'number' ? `${args.kind} #${args.id}` : ''
+    case 'library_search':
+      return pick('query') ?? ''
     default:
       return ''
   }
