@@ -269,3 +269,23 @@ export async function deleteInfoGroup(id: string): Promise<void> {
   if (isBuiltinInfoGroup(id)) throw new Error('内置基本信息组件不能删除')
   await saveInfoGroups(snapshot.filter((group) => group.id !== id))
 }
+
+/**
+ * 模板 → 宿主。只认内置模板的 id；用户复制的模板继承原 id 前缀（`character-2`），
+ * 因此按前缀匹配。认不出来就当没有宿主（可选全部组件）。
+ */
+export function infoGroupHostOfTemplate(templateId: string): InfoGroupHost | undefined {
+  const id = templateId.trim().toLowerCase()
+  if (id.startsWith('character')) return 'character'
+  if (id.startsWith('event')) return 'event'
+  if (id.startsWith('entry') || id.startsWith('world')) return 'world'
+  if (id.startsWith('pet') || id.startsWith('weapon') || id.startsWith('country')) return 'note'
+  return undefined
+}
+
+/** 某套模板能选的基本信息组件：宿主要么相同、要么没标宿主（自建的老组件） */
+export function selectableInfoGroups(templateId: string, groups: readonly InfoGroup[]): InfoGroup[] {
+  const host = infoGroupHostOfTemplate(templateId)
+  if (host === undefined) return [...groups]
+  return groups.filter((group) => group.for === undefined || group.for === host)
+}
