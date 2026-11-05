@@ -46,7 +46,7 @@
 - [x] **P2 图片导出预设**（2026-11-05）：`.ocstudio/exports.json`（浏览器退化为 `oc-export-presets`），保存 / 应用 / 删除命名预设；设置可标默认（`defaultImagePresetId` / `defaultSitePresetId`），打开弹窗自动套用
 - [x] **P2 网站导出预设**（2026-11-05）：复用 `exports.json` 的 `site` 段，保存 / 应用 / 删除站点标题 + 六个分区 + 纸色 + 内联图片；浏览器退化为 `oc-export-presets`
 - [x] **P2 内置导出预设**（2026-11-05）：角色卡 3:4 / 方卡 1:1 / 竖版 9:16 三项常驻，可应用、可设默认、不可删；改版式后另存为自定义预设
-- [ ] **P2 关系图整图导出**：`getNodesBounds` + `getViewportForBounds` 对 `.react-flow__viewport` 出图
+- [x] **P2 关系图整图导出**（其实早就有）：`features/relations/export-graph.ts` 走的是**离线重绘**而不是截 DOM —— 拿当前坐标与边型直接画到 canvas，不受视口缩放、遮挡、字体loading 影响，比 `getNodesBounds` + `html-to-image` 那套稳。这条待办是过时的，留着只会让人重复建设
 - [x] **P2 网页导出 · 逻辑审计**（2026-11-05）：`refLink` 未知 kind 不再生成 `#/undefined/...`、只有 `endTime` 时不再渲染「 ~ 2020」、`dateLabel` 改本地日历（东八区不再少一天）、角色详情页路由改为按列表排序后的 id（原来点 A 可能打开 B）；`npm run audit:site` 19 项断言
 - [x] **P2 网页导出 · 配置界面**（2026-11-05）：`SiteExportDialog`（预览左 / 配置右）；标题、六个分区开关、纸色三选、内联图片、桌面 / 手机预览；配置存 `oc-site-export`；预览与导出共用 `buildSite()`
 - [x] **P2 网页导出 · 时间线 / 详情 / 移动端 / 打印**（2026-11-05）：时间线改竖线 + 节点圆点；详情头像压进头图；移动端导航吸顶 + 横向滚动；`@media print` 去侧栏 / 去内边距 / 卡片不跨页；旧 HTML 正文降级成纯文本（不再画原始标签）
@@ -60,6 +60,7 @@
 - [x] **P3 删掉的字段能找回**（2026-11-05）：`lib/fields/orphans.ts` 扫实体的 `custom`，把「有值但字段表里没有」的键算出来；设置 › 基本信息 的每一类下面出现「找回 N 个有数据的字段」，点一下按原键名补回字段表（值一直在，加回即可见）。空值不算，避免删掉的行永远显示成可找回
 - [ ] **P3 阶段三**：通用记录模型（模板可定义全新实体类型）
 - [ ] **挂起 自定义集合（L2）**：等基于 `0.18.0` 的 fork 提 PR；需求见 `docs/自定义分类-需求文档.md`（已被 `docs/模板.md` 取代，仅作参考）。实现前先出冲突地图（`git merge-tree`），再按文档 P1–P4 分期，不要边合边改
+- [x] **改版超集 · 灵感**（2026-11-05）：改版有、main 完全没有的一项。`features/inspirations/`（`types` / `store` / `InspirationSection`），存 `.ocstudio/inspirations.json`，浏览器退 localStorage；左列表 + 右编辑器（复用 `EditorCore`），自动保存 600ms 防抖。「不是实体」是刻意的 —— 不进词条树 / 相册 / 关系图，也不落成 `.md`，否则半成品会淹没设定集。`npm run audit:inspirations` 24 项断言盯「不丢字」**尚未做**：改版里「灵感 ↔ 小说笔记」的双向挂接
 - [ ] **远期 社区模板包**（图片 / 网站模板导入）：依赖导出预设与阶段一先落地 → 见 `docs/插件.md` §1
 
 ---

@@ -35,6 +35,10 @@ const TreeTable = dynamic(() => import('@/features/tree-table').then((mod) => ({
   ssr: false,
 })
 
+const InspirationSection = dynamic(() => import('@/features/inspirations').then((mod) => ({ default: mod.InspirationSection })), { 
+  ssr: false,
+})
+
 const NovelSection = dynamic(() => import('@/features/novel').then((mod) => ({ default: mod.NovelSection })), {
   ssr: false,
 })
@@ -246,6 +250,14 @@ export default function Home() {
           onSelectEvent={handleTimelineSelectEvent}
           onSelectCharacter={handleTimelineSelectCharacter}
         />
+      </div>
+
+      {/* 灵感：随手记。不是实体，不进词条树 / 相册 / 关系图 */}
+      <div
+        className="h-full section-fade overflow-hidden section-fade-no-gutter max-md:pt-[calc(60px+var(--safe-top))] max-md:pb-[calc(60px+var(--safe-bottom))]"
+        data-visible={activeItem === '灵感' ? "true" : "false"}
+      >
+        <InspirationSection />
       </div>
 
       <div

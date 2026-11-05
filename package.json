@@ -19,6 +19,7 @@
     "audit:agent": "tsx scripts/agent-plugin-check.ts",
     "audit:map": "tsx scripts/map-anchor-check.ts",
     "audit:world": "tsx scripts/world-body-check.ts",
+    "audit:inspirations": "tsx scripts/inspirations-check.ts",
     "audit:actor": "tsx scripts/journal-actor-check.ts",
     "audit:paths": "tsx scripts/vault-paths-check.ts",
     "cap:dev": "npm run build && npx cap sync && npx cap open android",
