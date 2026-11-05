@@ -336,6 +336,28 @@ html.tauri-mica [data-statusbar] {
   background: transparent;
 }
 
+/* 应用级背景图（docs/主题.md §2）：图铺在 html 上，外壳让位；
+   内容区仍是 bg-paper 的纸，背景不会穿过正文。遮罩由 JS 按纸色算成 --oc-bg-wash。 */
+html.oc-background {
+  background-color: var(--oc-paper);
+  background-image: linear-gradient(var(--oc-bg-wash), var(--oc-bg-wash)), var(--oc-bg-image);
+  background-size: var(--oc-bg-size);
+  background-position: center;
+  background-repeat: var(--oc-bg-repeat);
+  background-attachment: var(--oc-bg-attachment);
+}
+
+html.oc-background body {
+  background: transparent !important;
+}
+
+html.oc-background [data-app-shell],
+html.oc-background [data-sidebar],
+html.oc-background [data-menubar],
+html.oc-background [data-statusbar] {
+  background: var(--oc-bg-shell);
+}
+
 /* 地图整屏时状态栏不属于画布，藏掉；否则 fixed 画布只盖到内容区底 */
 body[data-map-immersive='true'] [data-statusbar],
 body[data-map-immersive='true'] [data-dev-mock] {
@@ -880,116 +902,6 @@ body[data-map-immersive='true'] [data-dev-mock] {
     border-left: 0;
     border-top: 1px solid var(--oc-line);
   }
-
-}
-
-/* 导出中心的滑杆：轨道一条细线、拇指一个墨点。
-   原生 range 在 Windows / macOS / WebView2 里长得都不一样，这里统一成同一副样子。 */
-.oc-range {
-  height: 16px;
-  width: 100%;
-  cursor: pointer;
-  appearance: none;
-  background: transparent;
-}
-.oc-range:focus-visible {
-  outline: 1px solid var(--oc-line-hover);
-  outline-offset: 4px;
-  border-radius: 9999px;
-}
-.oc-range::-webkit-slider-runnable-track {
-  height: 2px;
-  border-radius: 9999px;
-  background: var(--oc-line-hover);
-}
-.oc-range::-webkit-slider-thumb {
-  appearance: none;
-  width: 12px;
-  height: 12px;
-  margin-top: -5px;
-  border: 0;
-  border-radius: 9999px;
-  background: var(--oc-ink);
-}
-.oc-range::-moz-range-track {
-  height: 2px;
-  border-radius: 9999px;
-  background: var(--oc-line-hover);
-}
-.oc-range::-moz-range-thumb {
-  width: 12px;
-  height: 12px;
-  border: 0;
-  border-radius: 9999px;
-  background: var(--oc-ink);
-}
-
-/* 导出中心 · 文档预览的正文排版。
-   正文 HTML 来自静态站那套渲染器（p / h2 / ul / blockquote / img…），
-   这里只给它一副「纸面」的字体与间距，不引第三方 prose 主题。 */
-.oc-doc-prose {
-  font-size: 12.5px;
-  line-height: 1.85;
-  color: var(--oc-ink);
-}
-.oc-doc-prose > :first-child { margin-top: 0; }
-.oc-doc-prose p { margin: 0.55em 0 0; }
-.oc-doc-prose h1,
-.oc-doc-prose h2,
-.oc-doc-prose h3,
-.oc-doc-prose h4 {
-  margin: 1.1em 0 0;
-  font-weight: 600;
-  line-height: 1.4;
-}
-.oc-doc-prose h1 { font-size: 1.3em; }
-.oc-doc-prose h2 { font-size: 1.2em; }
-.oc-doc-prose h3 { font-size: 1.1em; }
-.oc-doc-prose ul,
-.oc-doc-prose ol {
-  margin: 0.55em 0 0;
-  padding-left: 1.5em;
-}
-.oc-doc-prose ul { list-style: disc; }
-.oc-doc-prose ol { list-style: decimal; }
-.oc-doc-prose li { margin-top: 0.25em; }
-.oc-doc-prose blockquote {
-  margin: 0.75em 0 0;
-  padding-left: 0.8em;
-  border-left: 2px solid var(--oc-line-hover);
-  color: var(--oc-ink-muted);
-}
-.oc-doc-prose hr {
-  margin: 1em 0;
-  border: 0;
-  border-top: 1px solid var(--oc-line);
-}
-.oc-doc-prose a {
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-.oc-doc-prose code {
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 0.95em;
-}
-.oc-doc-prose pre {
-  margin-top: 0.75em;
-  padding: 0.75em;
-  overflow-x: auto;
-  background: var(--oc-paper-alt);
-}
-.oc-doc-prose img { max-width: 100%; margin-top: 0.75em; }
-.oc-doc-prose table {
-  width: 100%;
-  margin-top: 0.75em;
-  border-collapse: collapse;
-  font-size: 0.96em;
-}
-.oc-doc-prose th,
-.oc-doc-prose td {
-  padding: 4px 8px;
-  border-bottom: 1px solid var(--oc-line);
-  text-align: left;
 }
 
 @media (prefers-reduced-motion: reduce) {

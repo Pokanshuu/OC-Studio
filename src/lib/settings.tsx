@@ -10,6 +10,7 @@ import { normalizeTintMode } from "./cover/tuning"
 import { normalizeEdgeStyle, type EdgeStyle } from "./edge-style"
 import { normalizeThemePreset, type ThemePresetId } from "./theme/presets"
 import { applyThemePreset } from "./theme/apply"
+import { applyAppBackground, normalizeBackgroundMode, normalizeBackgroundScrim, type BackgroundMode } from "./theme/background"
 
 const STORAGE_KEY = "oc-studio-settings"
 
@@ -17,6 +18,11 @@ export interface Settings {
   theme: "light" | "dark" | "auto"
   /** 官方主题（只换纸色 / 墨色 / 线色，见 `lib/theme/presets.ts` 与 `docs/主题.md`） */
   themePreset: ThemePresetId
+  /** 应用级背景图（压缩后的 data URL；空 = 无背景） */
+  backgroundImage: string
+  backgroundMode: BackgroundMode
+  /** 背景遮罩强度：0.15–0.75，越高越能读字 */
+  backgroundScrim: number
   cloudSyncEnabled: boolean
   syncServerUrl: string
   autoStart: boolean
@@ -46,13 +52,14 @@ export interface Settings {
   defaultImagePresetId: string
   /** 默认网站预设 id（`.ocstudio/exports.json` 的 site 段） */
   defaultSitePresetId: string
-  /** 默认导出中心海报预设 id（`.ocstudio/exports.json` 的 poster 段） */
-  defaultPosterPresetId: string
 }
 
 const DEFAULT_SETTINGS: Settings = {
   theme: "auto",
   themePreset: "paper",
+  backgroundImage: "",
+  backgroundMode: "cover",
+  backgroundScrim: 0.35,
   cloudSyncEnabled: false,
   syncServerUrl: "",
   autoStart: false,
@@ -66,7 +73,6 @@ const DEFAULT_SETTINGS: Settings = {
   coverTintMode: "auto",
   defaultImagePresetId: "",
   defaultSitePresetId: "",
-  defaultPosterPresetId: "",
 }
 
 function loadSettings(): Settings {
@@ -88,10 +94,11 @@ function loadSettings(): Settings {
         coverTintMode: normalizeTintMode(merged.coverTintMode),
         // 手删过主题 / 导入坏值时不要留一个没有令牌的界面
         themePreset: normalizeThemePreset(merged.themePreset),
+        backgroundImage: typeof merged.backgroundImage === "string" ? merged.backgroundImage : "",
+        backgroundMode: normalizeBackgroundMode(merged.backgroundMode),
+        backgroundScrim: normalizeBackgroundScrim(merged.backgroundScrim),
         defaultImagePresetId: typeof merged.defaultImagePresetId === 'string' ? merged.defaultImagePresetId : '',
         defaultSitePresetId: typeof merged.defaultSitePresetId === 'string' ? merged.defaultSitePresetId : '',
-        defaultPosterPresetId:
-          typeof merged.defaultPosterPresetId === 'string' ? merged.defaultPosterPresetId : '',
       }
     }
   } catch {
@@ -139,6 +146,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       root.classList.toggle("dark", isDark)
       root.setAttribute("data-theme", isDark ? "dark" : "light")
       applyThemePreset(settings.themePreset, isDark)
+      applyAppBackground(
+        settings.backgroundImage,
+        settings.backgroundMode,
+        settings.backgroundScrim,
+        isDark,
+      )
 
       if (isTauri()) {
         try {
@@ -162,6 +175,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }, [
     settings.theme,
     settings.themePreset,
+    settings.backgroundImage,
+    settings.backgroundMode,
+    settings.backgroundScrim,
   ])
 
   const updateSetting = useCallback(
