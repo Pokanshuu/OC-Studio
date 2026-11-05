@@ -273,6 +273,8 @@ export function MapGeneratorPanel({
     seed: number,
     params: WorldMapParams,
     view: MapView,
+    /** 顺带把六档底图的渲染进度报上来（阶段 + 0–1） */
+    onProgress?: (stage: string, value: number) => void,
   ) => Promise<void>
   /** 「在这张图上重新生成」：把原来的种子带进来，调参后仍是同一片大陆 */
   initialSeed?: number
@@ -310,6 +312,56 @@ export function MapGeneratorPanel({
   const [error, setError] = useState<string | null>(null)
   /** 预览缩放：1 = 适应面板宽度。大图（3072×1536）不放大看不清海岸线 */
   const [zoom, setZoom] = useState(1)
+  const previewRef = useRef<HTMLDivElement | null>(null)
+  /** 拖动画面时的起点与当时的滚动量（放大到超过面板才有得拖） */
+  const panRef = useRef<{ id: number; x: number; y: number; left: number; top: number } | null>(null)
+  /** 画面是否真的超出面板：只有超了才接管拖拽，否则鼠标手势会吃掉双击等原生行为 */
+  const [pannable, setPannable] = useState(false)
+
+  useEffect(() => {
+    const node = previewRef.current
+    if (!node) return
+    const measure = (): void => {
+      setPannable(node.scrollWidth > node.clientWidth + 1 || node.scrollHeight > node.clientHeight + 1)
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [zoom, ready, meta])
+
+  /**
+   * 按住画面拖动 = 平移。
+   *
+   * 放大到 200% 以后只看得到地图的一角，靠滚动条挪太细了；触屏不接管
+   * （原生滚动更跟手），鼠标 / 笔才走拖拽。
+   */
+  const startPan = (event: React.PointerEvent<HTMLDivElement>): void => {
+    const node = previewRef.current
+    if (!node || !pannable || event.pointerType === 'touch' || event.button !== 0) return
+    panRef.current = {
+      id: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      left: node.scrollLeft,
+      top: node.scrollTop,
+    }
+    node.setPointerCapture(event.pointerId)
+  }
+
+  const movePan = (event: React.PointerEvent<HTMLDivElement>): void => {
+    const node = previewRef.current
+    const pan = panRef.current
+    if (!node || !pan || pan.id !== event.pointerId) return
+    node.scrollLeft = pan.left - (event.clientX - pan.x)
+    node.scrollTop = pan.top - (event.clientY - pan.y)
+  }
+
+  const endPan = (event: React.PointerEvent<HTMLDivElement>): void => {
+    const node = previewRef.current
+    if (panRef.current?.id === event.pointerId) panRef.current = null
+    if (node?.hasPointerCapture(event.pointerId)) node.releasePointerCapture(event.pointerId)
+  }
 
   const busy = progress !== null
 
@@ -499,9 +551,6 @@ export function MapGeneratorPanel({
           <section className="flex flex-col">
             <div className="mb-2 flex items-baseline justify-between gap-2">
               <p className="flex min-w-0 items-baseline gap-2"><span className={SECTION_LABEL}>形态</span>{mapName ? <span className="truncate text-[11px] text-ink-faint">写入「{mapName}」</span> : null}</p>
-              <span className="text-[11px] tabular-nums text-ink-faint">
-                {params.width} × {params.height}
-              </span>
             </div>
 
             <div className="grid grid-cols-2 gap-1 rounded-control border border-line bg-paper p-1">
@@ -654,16 +703,11 @@ export function MapGeneratorPanel({
             ))}
           </section>
 
-          {/* 一句必要的口径：同样的种子 + 参数一定出同一张图 */}
-          <section className="rounded-control border border-line bg-paper p-3">
-            <p className="flex items-center gap-1.5 text-[11px] text-ink">
-              <Lock size={12} strokeWidth={2} className="text-ink-faint" />
-              本地确定性生成
-            </p>
-            <p className="mt-1.5 text-[11px] leading-4 text-ink-muted">
-              相同的种子与参数会生成完全相同的地图。
-            </p>
-          </section>
+          {/* 一句必要的口径：同样的种子 + 参数一定出同一张图（不占一块卡片） */}
+          <p className="flex items-center gap-1.5 text-[11px] leading-4 text-ink-faint">
+            <Lock size={11} strokeWidth={2} />
+            同样的种子与参数，生成同一张地图
+          </p>
         </div>
 
         <button
@@ -702,7 +746,14 @@ export function MapGeneratorPanel({
           {/* canvas **必须一直在 DOM 里**：Worker 回传像素时是往这个元素上画的，
               以前生成前不渲染它，drawBuffer 拿到 null 就报「像素与宽高不一致」。
               没生成前用 visibility 藏起来，占位与比例照旧。 */}
-          <div className="min-h-0 flex-1 overflow-auto">
+          <div
+            ref={previewRef}
+            className={`min-h-0 flex-1 select-none overflow-auto ${pannable ? 'cursor-grab active:cursor-grabbing' : ''}`}
+            onPointerDown={startPan}
+            onPointerMove={movePan}
+            onPointerUp={endPan}
+            onPointerCancel={endPan}
+          >
             <canvas
               ref={canvasRef}
               className={`w-full bg-paper-card ${ROUND_ITEM} ${ready ? '' : 'invisible'}`}

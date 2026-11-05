@@ -42,4 +42,27 @@ const invalid = parseAnnotations(JSON.stringify([{ ...border, fill: '#FF0000' }]
 check('非法填充色被丢掉', invalid[0]?.fill === undefined)
 check('无填充时 stringify 不写 fill', !stringifyAnnotations([{ ...border, fill: undefined }])?.includes('fill'))
 
+// 线条色：国界与道路共用一档，和填充色互不影响（docs/地图.md §10）
+const road = {
+  id: 'r1',
+  kind: 'road' as const,
+  points: [{ x: 0.1, y: 0.1 }, { x: 0.3, y: 0.4 }],
+  color: '赤陶',
+}
+check('道路线条色能往返', parseAnnotations(stringifyAnnotations([road]))[0]?.color === '赤陶')
+check('道路不写填充色（仍成立）', !stringifyAnnotations([road])?.includes('fill'))
+check(
+  '国界的线条与填充各自独立',
+  (() => {
+    const parsed = parseAnnotations(stringifyAnnotations([{ ...border, color: '靛蓝' }]))[0]
+    return parsed?.color === '靛蓝' && parsed?.fill === '苔绿'
+  })(),
+)
+const badColor = parseAnnotations(JSON.stringify([{ ...road, color: '#FF0000' }]))
+check('非法线条色被丢掉', badColor[0]?.color === undefined)
+check(
+  '没选颜色时 stringify 不写 color',
+  !(stringifyAnnotations([{ ...road, color: undefined }]) ?? '').includes('color'),
+)
+
 console.log(`\n共 ${passed} 项断言通过`)

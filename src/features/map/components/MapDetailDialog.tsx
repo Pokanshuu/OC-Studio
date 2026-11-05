@@ -12,7 +12,7 @@
  */
 import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Check, ImageDown, Package, Pencil, RefreshCw, Trash2, X } from 'lucide-react'
+import { Check, Copy, ImageDown, Package, Pencil, RefreshCw, Trash2, X } from 'lucide-react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,6 +33,7 @@ import {
   INPUT_LINE,
   PANEL,
 } from '@/lib/ui-tokens'
+import { toast } from 'sonner'
 import { parseAnnotations } from '../annotations'
 import type { MapEntity } from '../services'
 
@@ -177,7 +178,22 @@ export function MapDetailDialog({
                 {map.name}
               </h3>
               <p className="mt-1 flex items-center gap-2 text-[11px] text-ink-faint">
-                {map.seed !== undefined ? <span className="tabular-nums">seed {map.seed}</span> : null}
+                {map.seed !== undefined ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void navigator.clipboard
+                        .writeText(String(map.seed))
+                        .then(() => toast.success('种子已复制'))
+                        .catch(() => toast.error('复制失败'))
+                    }}
+                    className="flex items-center gap-1 tabular-nums transition-colors hover:text-ink"
+                    title="复制种子（同种子 = 同一张图）"
+                  >
+                    seed {map.seed}
+                    <Copy size={11} strokeWidth={2} />
+                  </button>
+                ) : null}
                 <span>{kindLabel(map)}</span>
               </p>
             </div>

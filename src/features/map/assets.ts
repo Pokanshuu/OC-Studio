@@ -161,7 +161,28 @@ async function allocateAssetPath(root: string, fileName: string): Promise<string
   return candidate
 }
 
-/** 一档视图的固定文件名：同名地图 + 同一档永远指向同一个文件 */
+/**
+ * 这一档的图是不是已经在盘上。
+ *
+ * 生成地图时一次把六档都渲染存盘，切档就是换个路径 —— 但**老地图**只有当时切过
+ * 的那几档，所以要问一句。路径是相对库根的（`.ocstudio/maps/<名>-<视图>.png`），
+ * 不是文件名：`mapViewFileName()` 只给文件名，拼目录是调用方的事。
+ *
+ * 用 `vaultFs.exists`（一次 stat），不读整张图；浏览器 Mock 里底图是 `data:`/`blob:`，
+ * 那边没有文件系统，直接当存在（预览本来就只活在这一屏）。
+ */
+export async function mapImageExists(relPath: string): Promise<boolean> {
+  const path = relPath.trim()
+  if (path.length === 0) return false
+  if (/^(data:|blob:|https?:)/i.test(path)) return true
+  const session = getVaultSession()
+  if (session === null || !isVaultSupported()) return false
+  try {
+    return await vaultFs.exists(session.root, path)
+  } catch {
+    return false
+  }
+}
 export function mapViewFileName(mapName: string, view: string): string {
   const stem = sanitizeFileName(mapName.trim() || 'map')
   return `${stem}-${view}.png`

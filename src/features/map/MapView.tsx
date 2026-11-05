@@ -44,6 +44,7 @@ import { toast } from 'sonner'
 import { MediaContextMenu, type MediaMenuItem } from '@/components/shared/MediaContextMenu'
 import { MapGeneratorPanel } from './MapGeneratorPanel'
 import {
+  MAP_VIEW_LABELS,
   normalizeMapParams,
   type MapView as MapViewKind,
   type ProfilePoint,
@@ -74,7 +75,7 @@ import { MapDetailDialog } from './components/MapDetailDialog'
 import { MapSwitcher } from './components/MapSwitcher'
 import { ProfileDrawer } from './components/ProfileDrawer'
 import { useMapViewport } from './hooks/useMapViewport'
-import { deleteMapImage, mapViewFileName, saveMapImage } from './assets'
+import { deleteMapImage, mapImageExists, mapViewFileName, saveMapImage } from './assets'
 import {
   ANNOTATION_LABELS,
   annotationAt,
@@ -434,6 +435,7 @@ export function MapView() {
     seed: number,
     params: WorldMapParams,
     view: MapViewKind,
+    onProgress?: (stage: string, value: number) => void,
   ) => {
     if (!active) return
     const saved = await saveMapImage(blob, {
@@ -451,34 +453,71 @@ export function MapView() {
       },
       { seed, params, view },
     )
+
+    /**
+     * 其余五档**现在就画完存盘**：切档只是换一张图，不用再等 Worker 重画。
+     * 以前是切到哪档才画哪档，每次切都卡几秒 —— 社区反馈里最扎的一条。
+     * 单档失败不连坐：存下来的那几档照样能切，缺的那档切过去时再补。
+     */
+    const others = VIEWS.filter((item) => item !== view)
+    for (let index = 0; index < others.length; index += 1) {
+      const next = others[index]
+      onProgress?.(`渲染 ${MAP_VIEW_LABELS[next]}`, index / others.length)
+      try {
+        const png = await renderMapView({ seed, params, view: next })
+        await saveMapImage(png, {
+          name: active.name,
+          fileName: mapViewFileName(active.name, next),
+          replace: true,
+        })
+      } catch (err) {
+        console.warn('[map] 预渲染视图失败', next, err)
+      }
+    }
+    onProgress?.('', 1)
+
     await reload(active.id)
     notifyDataUpdated()
     setMode('draw')
   }
 
   /**
-   * 切档（方案 A）：用存下的种子 + 参数重画这一档，落成
-   * `.ocstudio/maps/<地图>-<视图>.png` 再指过去。
+   * 切档：**先看盘上有没有这一档**。
    *
-   * 每次都重画而不是查缓存文件：参数可能被重新生成改过，只有「种子 + 参数」
-   * 才能保证屏幕上这一档与当初看到的一致；文件名固定所以磁盘上不会堆积。
+   * 生成时一次存了六张（`<地图>-<视图>.png`），所以正常路径就是换个路径指过去 ——
+   * 几百毫秒的读图，不再是几秒的 Worker 重画。
+   * 老地图（这次改版之前生成的）只存过切过的那几档：缺哪档就现场补一张，补完同样落盘。
    */
   const handleSwitchView = async (view: MapViewKind) => {
     if (!active || switching) return
     if (active.mode === view) return
     if (!active.params) return
 
-    let params: WorldMapParams
-    try {
-      params = normalizeMapParams(JSON.parse(active.params) as WorldMapParams)
-    } catch {
-      toast.error('这张地图没有可用的生成参数')
+    // 盘上已经有这一档（生成时一次存了六张）→ 只换个路径，**不点亮任何进度**
+    const cached = `${MAP_ASSET_DIR}/${mapViewFileName(active.name, view)}`
+    if (await mapImageExists(cached)) {
+      try {
+        await setMapView(active.id, view, cached)
+        await reload(active.id)
+        notifyDataUpdated()
+      } catch (err) {
+        toast.error('切换视图失败', { description: messageOf(err) })
+      }
       return
     }
 
+    // 缺档（改版前生成的老地图）：现场补一张，这时才需要进度
     setSwitching(true)
     setSwitchProgress(null)
     try {
+      let params: WorldMapParams
+      try {
+        params = normalizeMapParams(JSON.parse(active.params) as WorldMapParams)
+      } catch {
+        toast.error('这张地图没有可用的生成参数')
+        return
+      }
+
       const blob = await renderMapView({
         seed: active.seed ?? 0,
         params,
