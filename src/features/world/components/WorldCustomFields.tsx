@@ -7,8 +7,9 @@
  * `WorldEntry.custom` 对应的那几行。分类条目（宠物 / 武器）也用它补字段，
  * 因此编辑器和分类编辑器共用同一份实现，不各写一套。
  *
- * 版式跟实体编辑器（角色基本信息）一字不差：`SECTION_TITLE` + 宽栏两列
- * （`FIELD_GRID` + `gap-x-10`），窄屏回落单列。
+ * 版式沿用实体编辑器的字段行（`SECTION_TITLE` + `FIELD_ROW` + `FIELD_LABEL`），
+ * 但分两块排：**整宽（多行）在前、两列（`FIELD_GRID` + `gap-x-10`）在后**。
+ * 两类交叉就会把这一节切成三截，见下方注释。
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
@@ -157,12 +158,12 @@ export function WorldCustomFields({
   if (fields.length === 0) return null
 
   /**
-   * 两类字段分开排：
-   * - **单行 / 数字 / 日期 / 开关** → 两列网格，一行一对
-   * - **多行** → 整宽，全部排在后面
+   * 两类字段不交叉，各占一块：
+   * - **多行** → 整宽（单列），聚在前
+   * - **单行 / 数字 / 日期 / 开关** → 两列网格，接在后面
    *
-   * 混排会在「多行占整行」那一格留下一个空位（前一格是单行时尤其明显），
-   * 版式看着像排版错了。分组之后两列始终成对，多行连成一片也好读。
+   * 混排（两列 → 整宽 → 两列）会把这一节切成三截，整宽那几行还各留半格空位，
+   * 看着像排版错了。分块之后整宽连成一片，两列也始终成对。
    */
   const rows = fields.flatMap((field) => {
     const key = field.key
@@ -189,14 +190,18 @@ export function WorldCustomFields({
   return (
     <section>
       <h3 className={SECTION_TITLE}>基本信息</h3>
-      {narrow.length > 0 ? (
-        <div className={`grid grid-cols-1 gap-x-10 sm:grid-cols-2 ${FIELD_GRID}`}>
-          {narrow.map((row) => renderRow(row, false))}
+      {wide.length > 0 ? (
+        <div className="flex flex-col [&>*:last-child]:border-b-0">
+          {wide.map((row) => renderRow(row, true))}
         </div>
       ) : null}
-      {wide.length > 0 ? (
-        <div className={`flex flex-col [&>*:last-child]:border-b-0 ${narrow.length > 0 ? 'mt-5' : ''}`}>
-          {wide.map((row) => renderRow(row, true))}
+      {narrow.length > 0 ? (
+        <div
+          className={`grid grid-cols-1 gap-x-10 sm:grid-cols-2 ${FIELD_GRID} ${
+            wide.length > 0 ? 'mt-5' : ''
+          }`}
+        >
+          {narrow.map((row) => renderRow(row, false))}
         </div>
       ) : null}
     </section>
