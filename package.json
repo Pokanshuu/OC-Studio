@@ -15,6 +15,8 @@
     "audit:site": "tsx scripts/site-export-check.ts",
     "audit:export": "tsx scripts/export-check.ts",
     "audit:document": "tsx scripts/document-check.ts",
+    "audit:novel": "tsx scripts/novel-export-check.ts",
+    "audit:graph": "tsx scripts/graph-export-check.ts",
     "audit:capabilities": "tsx scripts/capabilities-check.ts",
     "audit:agent": "tsx scripts/agent-plugin-check.ts",
     "audit:map": "tsx scripts/map-anchor-check.ts",

@@ -4,26 +4,49 @@
  * 导出中心 · 小说页签。
  *
  * 和「文档」页签不是一回事：小说是**按章节出成品**——PNG 逐页打包成 zip、Word / Markdown / TXT，
- * 页面尺寸 / 清晰度 / 背景只对 PNG 生效。所以它单独一个页签，而不是塞进文档里。
+ * 版式（四套预设 + 字号 / 行距 / 页边距 / 页码 / 扉页）只对 PNG 生效。所以它单独一个页签。
  *
- * 数据按 `novelId` 自己读（根笔记 + 它的子孙章节），调用方只要 `openExport({ tab: 'novel', novelId })`，
- * 不用把书和章节递进来。
+ * 左半边**直接是整本书的翻页预览**（`NovelReader`）：能翻页、能缩放，不必先看一张缩略图
+ * 再点开浮层 —— 那块横向空间本来就是用来读的。预览与 PNG 共用同一份分页（`pagination.ts`）
+ * 与同一份版式参数（`layout.ts`），所以看到的就是导出的。
+ *
+ * 数据按 `novelId` 自己读（根笔记 + 它的子孙章节），调用方只要 `openExport({ tab: 'novel', novelId })`。
  */
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
-import { BookOpen, Download, ImagePlus, Loader2 } from 'lucide-react'
+import { Download, ImagePlus, Loader2 } from 'lucide-react'
 import type { WorldEntry } from '@/types'
 import { db } from '@/lib/db'
 import { createZip, downloadBlob } from '@/lib/zip'
 import { flattenNovel, toMarkdown, toTxt } from '@/features/novel/export'
-import { PAGE_SIZES, type NovelPageFormat } from '@/features/novel/pagination'
-import { NOVEL_BACKGROUND_PRESETS, resolveNovelBackground, type NovelBackgroundKind } from '@/features/novel/background'
+import { PAGE_SIZES, paginateNovel, type NovelPageFormat } from '@/features/novel/pagination'
+import {
+  DEFAULT_NOVEL_LAYOUT,
+  NOVEL_FONT_OPTIONS,
+  NOVEL_LAYOUT_OPTIONS,
+  NOVEL_LAYOUT_PRESETS,
+  NOVEL_PAGE_NUMBER_OPTIONS,
+  NOVEL_TITLE_OPTIONS,
+  normalizeNovelLayout,
+  presetIdOf,
+  toPaginateOptions,
+  type NovelLayoutParams,
+  type NovelLayoutPresetId,
+  type NovelPageNumber,
+  type NovelTitleStyle,
+  type NovelFontKind,
+} from '@/features/novel/layout'
+import {
+  NOVEL_BACKGROUND_PRESETS,
+  resolveNovelBackground,
+  type NovelBackgroundKind,
+} from '@/features/novel/background'
 import { canvasToPngBytes, renderNovelPages } from '@/features/novel/render-pages'
+import { NovelReader } from '@/features/novel/NovelReader'
 import { buildNovelDocx } from '@/features/novel/docx'
 import { novelPageDoc } from '@/features/novel/preview-doc'
 import { PagePreview } from '@/components/shared/document/PagePreview'
-import { NovelPreview } from '@/features/novel/NovelPreview'
 import { BTN_PRIMARY, ROUND_CONTROL, ROUND_ITEM } from '@/lib/ui-tokens'
-import { ExportRow, ExportSection, Segmented } from './controls'
+import { ExportRow, ExportSection, Segmented, Slider, Toggle } from './controls'
 import { ExportPanelLayout } from './ExportPanelLayout'
 
 type ExportFormat = 'png' | 'docx' | 'markdown' | 'txt'
@@ -76,14 +99,12 @@ export function NovelPanel({ novelId }: { novelId?: number }) {
   const [format, setFormat] = useState<ExportFormat>('png')
   const [pageFormat, setPageFormat] = useState<NovelPageFormat>('9:16')
   const [scale, setScale] = useState(1)
+  const [layout, setLayout] = useState<NovelLayoutParams>(DEFAULT_NOVEL_LAYOUT)
   const [backgroundKind, setBackgroundKind] = useState<NovelBackgroundKind>('paper')
   const [backgroundImage, setBackgroundImage] = useState('')
   const [busy, setBusy] = useState(false)
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
-  const [pagePreview, setPagePreview] = useState<string | null>(null)
-  const [pageRendering, setPageRendering] = useState(false)
   const fileRef = useRef<HTMLInputElement | null>(null)
-  const [readerOpen, setReaderOpen] = useState(false)
 
   useEffect(() => {
     let alive = true
@@ -124,33 +145,21 @@ export function NovelPanel({ novelId }: { novelId?: number }) {
     [root],
   )
 
+  const meta = useMemo(
+    () => ({ title: book.title, author: book.author, synopsis: book.synopsis }),
+    [book],
+  )
+
   const plainChapters = useMemo(() => flattenNovel(chapters), [chapters])
   const previewDoc = useMemo(() => novelPageDoc(book, plainChapters), [book, plainChapters])
-
-  // PNG 的预览只能是真画出来的第一页；其余格式就是那张 A4 纸
-  useEffect(() => {
-    if (format !== 'png' || plainChapters.length === 0) return
-    let alive = true
-    void (async () => {
-      setPageRendering(true)
-      try {
-        const canvases = await renderNovelPages(plainChapters.slice(0, 1), {
-          format: pageFormat,
-          scale: Math.min(scale, 1.5),
-          background: { kind: backgroundKind, image: backgroundImage || undefined },
-        })
-        if (!alive) return
-        setPagePreview(canvases[0]?.toDataURL('image/png') ?? null)
-      } catch {
-        if (alive) setPagePreview(null)
-      } finally {
-        if (alive) setPageRendering(false)
-      }
-    })()
-    return () => {
-      alive = false
-    }
-  }, [format, pageFormat, scale, backgroundKind, backgroundImage, plainChapters])
+  const pages = useMemo(
+    () => paginateNovel(plainChapters, toPaginateOptions(layout, pageFormat, meta)),
+    [plainChapters, layout, pageFormat, meta],
+  )
+  const background = useMemo(
+    () => resolveNovelBackground(backgroundKind, backgroundImage),
+    [backgroundKind, backgroundImage],
+  )
 
   const handleBackgroundFile = (event: ChangeEvent<HTMLInputElement>): void => {
     const file = event.target.files?.[0]
@@ -164,6 +173,15 @@ export function NovelPanel({ novelId }: { novelId?: number }) {
     }
     reader.onerror = () => setError('读不到这张图片')
     reader.readAsDataURL(file)
+  }
+
+  const applyLayout = (patch: Partial<NovelLayoutParams>): void => {
+    setLayout((current) => normalizeNovelLayout({ ...current, ...patch }))
+  }
+
+  const applyPreset = (id: NovelLayoutPresetId): void => {
+    const preset = NOVEL_LAYOUT_PRESETS.find((item) => item.id === id)
+    if (preset) setLayout(preset.params)
   }
 
   const runExport = async (): Promise<void> => {
@@ -180,6 +198,8 @@ export function NovelPanel({ novelId }: { novelId?: number }) {
         const canvases = await renderNovelPages(plainChapters, {
           format: pageFormat,
           scale,
+          layout,
+          meta,
           background: { kind: backgroundKind, image: backgroundImage || undefined },
           onProgress: (done, total) => setProgress({ done, total }),
         })
@@ -216,6 +236,11 @@ export function NovelPanel({ novelId }: { novelId?: number }) {
     { value: 'custom', label: '自定义' },
   ]
 
+  const activePreset = presetIdOf(layout)
+  const presetHint = activePreset
+    ? NOVEL_LAYOUT_PRESETS.find((preset) => preset.id === activePreset)?.hint ?? ''
+    : '已微调'
+
   const summary =
     !loaded
       ? '正在读取…'
@@ -223,39 +248,34 @@ export function NovelPanel({ novelId }: { novelId?: number }) {
         ? error
         : `${plainChapters.length} 章 · ${
             format === 'png'
-              ? `${PAGE_SIZES[pageFormat].label} · ${scale}×`
+              ? `${PAGE_SIZES[pageFormat].label} · ${pages.length} 页`
               : FORMAT_OPTIONS.find((option) => option.value === format)?.label ?? ''
           }`
 
   return (
-    <>
-      <ExportPanelLayout
-      previewClassName="p-4"
+    <ExportPanelLayout
       preview={
         <>
-          <div className="mb-2 flex shrink-0 items-center justify-between gap-2 text-[11px] text-ink-faint">
-            <span className="truncate">{book.title}</span>
+          <div className="flex h-9 shrink-0 items-center justify-between gap-2 border-b border-line px-3 text-[11px] text-ink-faint">
+            <span className="truncate text-ink-muted">{book.title}</span>
             <span className="shrink-0 truncate">{summary}</span>
           </div>
-          <div className={`relative min-h-0 flex-1 overflow-hidden border border-line bg-paper-alt ${ROUND_CONTROL}`}>
-            {format === 'png' ? (
-              pagePreview !== null ? (
-                <div className="flex h-full items-center justify-center p-2">
-                  {pageRendering ? (
-                    <Loader2 size={16} strokeWidth={2} className="absolute animate-spin text-ink-faint" />
-                  ) : null}
-                  {/* eslint-disable-next-line @next/next/no-img-element -- 预览的是画布出的位图，不走 next/image */}
-                  <img src={pagePreview} alt="小说页面预览" className="max-h-full max-w-full object-contain" />
-                </div>
-              ) : (
-                <div className="flex h-full items-center justify-center text-[12px] text-ink-faint">
-                  {pageRendering ? '正在生成…' : error || '没有可导出的章节'}
-                </div>
-              )
-            ) : (
-              <PagePreview doc={previewDoc} emptyHint="没有可导出的章节" />
-            )}
-          </div>
+          {format === 'png' ? (
+            <NovelReader
+              pages={pages}
+              layout={layout}
+              format={pageFormat}
+              background={background}
+              meta={meta}
+              className="min-h-0 flex-1"
+            />
+          ) : (
+            <div className="min-h-0 flex-1 p-4">
+              <div className={`h-full overflow-hidden border border-line bg-paper-alt ${ROUND_CONTROL}`}>
+                <PagePreview doc={previewDoc} emptyHint="没有可导出的章节" />
+              </div>
+            </div>
+          )}
         </>
       }
       config={
@@ -286,6 +306,94 @@ export function NovelPanel({ novelId }: { novelId?: number }) {
                     ariaLabel="清晰度"
                     options={RESOLUTIONS.map((option) => ({ value: option.value, label: option.label }))}
                     onChange={(value: number) => setScale(value)}
+                  />
+                </ExportRow>
+              </ExportSection>
+
+              <ExportSection title="版式">
+                <Segmented
+                  value={(activePreset ?? '') as NovelLayoutPresetId}
+                  ariaLabel="版式"
+                  options={NOVEL_LAYOUT_OPTIONS}
+                  onChange={(value: NovelLayoutPresetId) => applyPreset(value)}
+                />
+                <p className="text-[11px] text-ink-faint">{presetHint}</p>
+
+                <ExportRow label="字体">
+                  <Segmented
+                    value={layout.font}
+                    ariaLabel="字体"
+                    options={NOVEL_FONT_OPTIONS}
+                    onChange={(value: NovelFontKind) => applyLayout({ font: value })}
+                  />
+                </ExportRow>
+                <ExportRow label="字号">
+                  <div className="w-40">
+                    <Slider
+                      value={layout.fontSize}
+                      min={12}
+                      max={22}
+                      step={1}
+                      ariaLabel="字号"
+                      format={(value) => `${value}px`}
+                      onChange={(value) => applyLayout({ fontSize: value })}
+                    />
+                  </div>
+                </ExportRow>
+                <ExportRow label="行距">
+                  <div className="w-40">
+                    <Slider
+                      value={layout.lineHeight}
+                      min={1.4}
+                      max={2.6}
+                      step={0.1}
+                      ariaLabel="行距"
+                      format={(value) => value.toFixed(1)}
+                      onChange={(value) => applyLayout({ lineHeight: value })}
+                    />
+                  </div>
+                </ExportRow>
+                <ExportRow label="页边距">
+                  <div className="w-40">
+                    <Slider
+                      value={layout.margin}
+                      min={24}
+                      max={96}
+                      step={2}
+                      ariaLabel="页边距"
+                      format={(value) => `${value}px`}
+                      onChange={(value) => applyLayout({ margin: value })}
+                    />
+                  </div>
+                </ExportRow>
+                <ExportRow label="章首">
+                  <Segmented
+                    value={layout.titleStyle}
+                    ariaLabel="章首标题"
+                    options={NOVEL_TITLE_OPTIONS}
+                    onChange={(value: NovelTitleStyle) => applyLayout({ titleStyle: value })}
+                  />
+                </ExportRow>
+                <ExportRow label="页码">
+                  <Segmented
+                    value={layout.pageNumber}
+                    ariaLabel="页码"
+                    options={NOVEL_PAGE_NUMBER_OPTIONS}
+                    onChange={(value: NovelPageNumber) => applyLayout({ pageNumber: value })}
+                  />
+                </ExportRow>
+                <ExportRow label="每章另起">
+                  <Toggle
+                    checked={layout.chapterBreak}
+                    ariaLabel="每章另起一页"
+                    onChange={(next) => applyLayout({ chapterBreak: next })}
+                  />
+                </ExportRow>
+                <ExportRow label="扉页">
+                  <Toggle
+                    checked={layout.titlePage}
+                    ariaLabel="正文前加一页扉页"
+                    onChange={(next) => applyLayout({ titlePage: next })}
                   />
                 </ExportRow>
               </ExportSection>
@@ -348,25 +456,17 @@ export function NovelPanel({ novelId }: { novelId?: number }) {
             </ExportSection>
           )}
 
-          <ExportSection title="预览">
-            <button
-              type="button"
-              onClick={() => setReaderOpen(true)}
-              disabled={plainChapters.length === 0}
-              className={`flex h-8 items-center justify-center gap-1.5 px-2 text-[12px] text-ink transition-colors hover:bg-[var(--oc-hover)] disabled:opacity-50 ${ROUND_ITEM}`}
-            >
-              <BookOpen size={14} strokeWidth={2} />
-              整本翻页预览
-            </button>
-          </ExportSection>
-
           {error !== '' && loaded ? <p className="text-[11px] text-error">{error}</p> : null}
         </>
       }
       footer={
         <>
           <span className="min-w-0 flex-1 truncate text-[11px] text-ink-faint">
-            {busy && progress !== null ? `正在导出 ${progress.done}/${progress.total}` : format === 'png' ? 'PNG · zip' : FORMAT_OPTIONS.find((option) => option.value === format)?.label}
+            {busy && progress !== null
+              ? `正在导出 ${progress.done}/${progress.total}`
+              : format === 'png'
+                ? `PNG · ${pages.length} 页 · zip`
+                : FORMAT_OPTIONS.find((option) => option.value === format)?.label}
           </span>
           <button
             type="button"
@@ -379,15 +479,6 @@ export function NovelPanel({ novelId }: { novelId?: number }) {
           </button>
         </>
       }
-      />
-
-      {readerOpen ? (
-        <NovelPreview
-          title={book.title}
-          chapters={plainChapters}
-          onClose={() => setReaderOpen(false)}
-        />
-      ) : null}
-    </>
+    />
   )
 }

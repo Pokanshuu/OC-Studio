@@ -8,6 +8,7 @@
  */
 import type { ReactNode } from 'react'
 import { Check, Star, X } from 'lucide-react'
+import { SWITCH_CLASSES, SWITCH_DOT } from '@/components/settings/controls'
 import { ROUND_ITEM } from '@/lib/ui-tokens'
 
 export const EXPORT_SECTION_LABEL = 'text-[11px] tracking-[0.08em] text-ink-faint'
@@ -74,6 +75,33 @@ export function Segmented<T extends string | number>({
         )
       })}
     </div>
+  )
+}
+
+/**
+ * 开关 —— 直接借设置页那一枚（`SWITCH_CLASSES` / `SWITCH_DOT`），
+ * 导出面板里不该长出第二种开关。
+ */
+export function Toggle({
+  checked,
+  onChange,
+  ariaLabel,
+}: {
+  checked: boolean
+  onChange: (next: boolean) => void
+  ariaLabel: string
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={ariaLabel}
+      onClick={() => onChange(!checked)}
+      className={`${SWITCH_CLASSES.base} ${checked ? SWITCH_CLASSES.on : SWITCH_CLASSES.off}`}
+    >
+      <span className={`${SWITCH_DOT} ${checked ? 'translate-x-[18px] bg-paper' : 'translate-x-[2px]'}`} />
+    </button>
   )
 }
 
