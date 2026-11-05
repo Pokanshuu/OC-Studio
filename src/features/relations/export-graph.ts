@@ -20,6 +20,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import type { Edge, Node } from '@xyflow/react'
 import type { EdgeStyle } from '@/lib/edge-style'
+import { cssVar, token, resolveColor, withAlpha, roundedRectPath, truncateText } from '@/lib/canvas-tokens'
 import { isTauri } from '@/lib/env'
 import { getImageUrl, getVaultImageContext } from '@/lib/image-service'
 import { blobFromLocalPath, isTauriRuntime, mimeFromPath } from '@/lib/local-media'
@@ -62,24 +63,6 @@ interface Point {
   y: number
 }
 
-function cssVar(name: string): string {
-  if (typeof window === 'undefined') return ''
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim()
-}
-
-/** 设计令牌是唯一源（globals.css）；读不到说明样式还没加载，直接报错而不是猜一个色 */
-function token(name: string): string {
-  const value = cssVar(name)
-  if (!value) throw new Error(`读取不到界面令牌 ${name}`)
-  return value
-}
-
-/** `var(--oc-accent-3)` → `#6A7A4C`（canvas 认不了 var()） */
-function resolveColor(cssColor: string): string {
-  const match = /^var\(\s*(--[\w-]+)\s*\)$/.exec(cssColor.trim())
-  return match ? token(match[1]) : cssColor
-}
-
 function readTokens(): ExportTokens {
   return {
     paper: token('--oc-paper'),
@@ -95,52 +78,6 @@ function readTokens(): ExportTokens {
 }
 
 /** 给令牌色加透明度（标签描边、点阵都要半透明；`#RRGGBB` / `rgb()` 都认） */
-function withAlpha(color: string, alpha: number): string {
-  const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color.trim())
-  if (hex) {
-    let value = hex[1]
-    if (value.length === 3) value = value.split('').map((c) => c + c).join('')
-    const numeric = parseInt(value, 16)
-    const r = (numeric >> 16) & 255
-    const g = (numeric >> 8) & 255
-    const b = numeric & 255
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`
-  }
-  const rgb = /^rgba?\(([^)]+)\)$/i.exec(color.trim())
-  if (rgb) {
-    const parts = rgb[1].split(',').map((part) => part.trim())
-    if (parts.length >= 3) return `rgba(${parts[0]}, ${parts[1]}, ${parts[2]}, ${alpha})`
-  }
-  return color
-}
-
-function roundedRectPath(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  radius: number,
-): void {
-  const r = Math.max(0, Math.min(radius, width / 2, height / 2))
-  ctx.beginPath()
-  ctx.moveTo(x + r, y)
-  ctx.arcTo(x + width, y, x + width, y + height, r)
-  ctx.arcTo(x + width, y + height, x, y + height, r)
-  ctx.arcTo(x, y + height, x, y, r)
-  ctx.arcTo(x, y, x + width, y, r)
-  ctx.closePath()
-}
-
-function truncateText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string {
-  if (ctx.measureText(text).width <= maxWidth) return text
-  let result = text
-  while (result.length > 1 && ctx.measureText(`${result}…`).width > maxWidth) {
-    result = result.slice(0, -1)
-  }
-  return `${result}…`
-}
-
 /** 等比填充 + 居中裁切（等价于 CSS `object-cover`） */
 function drawCover(
   ctx: CanvasRenderingContext2D,

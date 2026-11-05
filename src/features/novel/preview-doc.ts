@@ -6,8 +6,7 @@
  * 整本书一个分区（分区名留空 = 不画分区标题），卷 / 章 / 节靠 `depth` 分两级。
  */
 import { pageHtmlFromText, type PageDoc, type PageEntry } from '@/lib/export/page'
-import type { NovelExportChapter } from './export'
-import type { NovelExportBook } from './NovelExportDialog'
+import type { NovelExportBook, NovelExportChapter } from './export'
 
 export function novelPageDoc(book: NovelExportBook, chapters: NovelExportChapter[]): PageDoc {
   const entries: PageEntry[] = []

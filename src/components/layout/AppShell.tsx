@@ -7,6 +7,7 @@ import { StatusBar } from "@/components/layout/StatusBar"
 import { MobileTopBar } from "@/components/layout/MobileTopBar"
 import { MobileTabBar } from "@/components/layout/MobileTabBar"
 import { GlobalContextMenu } from "@/components/shared/GlobalContextMenu"
+import { ExportCenterProvider } from "@/components/shared/export/ExportCenterHost"
 import { MobileTextSelectionBar } from "@/components/shared/mobile-text-selection/MobileTextSelectionBar"
 import { SettingsDialog } from "@/components/settings/SettingsDialog"
 import { CoverTuningPanel } from "@/components/shared/cover/CoverTuningPanel"
@@ -42,6 +43,7 @@ function VaultCategoriesSync() {
   }, [root])
   return null
 }
+
 
 function TrashOverlayRenderer() {
   const { trashOpen, closeTrash } = useTrashOverlay()
@@ -216,6 +218,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <GlobalContextMenu>
+      <ExportCenterProvider>
       <SettingsTriggerContext.Provider value={{ openSettings, closeSettings }}>
         <TrashOverlayProvider>
           <EditorProvider>
@@ -243,9 +246,11 @@ export function AppShell({ children }: { children: ReactNode }) {
           target={settingsTarget}
         />
       </SettingsTriggerContext.Provider>
+      </ExportCenterProvider>
     </GlobalContextMenu>
   )
 }
+
 /**
  * 浏览器预览标记。
  *

@@ -32,7 +32,7 @@ import { useCategories } from '@/lib/categories/store'
 import type { Category } from '@/lib/categories/types'
 import { isCodexEntry } from '@/lib/entry-kinds'
 import { resolveImageUrl } from '@/lib/image-service'
-import { ExportCenter } from './export/ExportCenter'
+import { useExportCenter } from './export/ExportCenterHost'
 import type { PosterSubjectKind } from '@/lib/export/poster/subjects'
 import { ComponentSection } from './ComponentSection'
 import { TemplateComponentParams } from './TemplateParams'
@@ -345,7 +345,7 @@ export function TemplateComposer({
   const [paramsFor, setParamsFor] = useState<string | null>(null)
   const [previewData, setPreviewData] = useState<PreviewData | null>(null)
   const [viewer, setViewer] = useState<{ images: string[]; index: number } | null>(null)
-  const [exportCenterOpen, setExportCenterOpen] = useState(false)
+  const openExportCenter = useExportCenter()
   const active = templates.find((doc) => doc.id === activeId) ?? templates[0]
 
   // 右栏：有真实笔记就渲染真实内容；没有（实体模板 / 空库）才回落到结构示例
@@ -469,7 +469,7 @@ export function TemplateComposer({
         <div className="ml-auto flex shrink-0 items-center gap-1">
           <button
             type="button"
-            onClick={() => setExportCenterOpen(true)}
+            onClick={() => { if (previewData !== null) openExportCenter({ tab: 'poster', subject: { kind: previewData.subjectKind, id: previewData.subjectId } }) }}
             disabled={previewData === null}
             aria-label="导出图片"
             className={`${BTN_QUIET} gap-1 ${previewData === null ? 'cursor-not-allowed opacity-50' : ''}`}
@@ -893,13 +893,6 @@ export function TemplateComposer({
         </div>
       ) : null}
 
-      {exportCenterOpen && previewData !== null ? (
-        <ExportCenter
-          initialTab="poster"
-          initialSubject={{ kind: previewData.subjectKind, id: previewData.subjectId }}
-          onClose={() => setExportCenterOpen(false)}
-        />
-      ) : null}
 
       {viewer ? (
         <FullscreenViewer

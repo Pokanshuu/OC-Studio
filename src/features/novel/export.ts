@@ -22,6 +22,14 @@ export type NovelDocNode = {
   marks?: Array<{ type: string }>
 }
 
+/** 导出用的作品信息（书名 / 作者 / 简介 / 封面）—— 对话框、导出中心、Word 都读这一份 */
+export interface NovelExportBook {
+  title: string
+  author?: string
+  synopsis?: string
+  /** 封面：库内相对路径或 data URL（Word 里作为首图） */
+  cover?: string
+}
 export interface NovelExportChapter {
   title: string
   /** 1 = 卷/章，2 = 节 …（按树深度） */

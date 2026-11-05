@@ -46,6 +46,7 @@ import { PeriodBar } from './PeriodBar'
 import { EmptyTimeline } from './EmptyTimeline'
 import { BucketView } from './BucketView'
 import { TimelineToolbar } from './TimelineToolbar'
+import { useExportCenter } from '@/components/shared/export/ExportCenterHost'
 
 interface TimelineViewProps {
   onSelectEvent: (id: number) => void
@@ -57,6 +58,7 @@ export function TimelineView({ onSelectEvent, onSelectCharacter }: TimelineViewP
   const { isMobile } = useDevice()
   const { settings } = useSettings()
   const [editMode, setEditMode] = useState(false)
+  const openExportCenter = useExportCenter()
   const [filterMajor, setFilterMajor] = useState(false)
   const [characterFilter, setCharacterFilter] = useState<number | 'all'>('all')
   const [countryFilter, setCountryFilter] = useState<number | 'all'>('all')
@@ -346,6 +348,7 @@ export function TimelineView({ onSelectEvent, onSelectCharacter }: TimelineViewP
     onCountryFilterChange: setCountryFilter,
     countryOptions,
     onAddPeriod: periodEditor.openNewPeriodDialog,
+    onExport: () => openExportCenter({ tab: 'timeline' }),
   }
 
   /** 空态/全被筛掉时的工具栏：导航与缩放都不展示 */
@@ -705,6 +708,7 @@ export function TimelineView({ onSelectEvent, onSelectCharacter }: TimelineViewP
         title={periodEditor.actionSheet.title}
         actions={periodEditor.actionSheet.actions}
       />
+
     </div>
   )
 }

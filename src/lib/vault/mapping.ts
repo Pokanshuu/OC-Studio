@@ -18,6 +18,13 @@ const KEYWORD_RULES: KeywordRule[] = [
   { keywords: ['事件', '大事记', '编年', '年表', 'event', 'events', 'timeline', 'chronicle'], kind: 'event' },
   { keywords: ['标签', 'tag', 'tags'], kind: 'tag' },
   { keywords: ['时期', '纪元', '年代', 'period', 'periods', 'era', 'eras', 'epoch'], kind: 'period' },
+  // 小说与地图**也是笔记**（`worldEntries`），但要能在扫描后靠 category 认出来 ——
+  // 少这两条，`小说/` `地图/` 目录会被判成未映射、整批文件不落库（刷新后书架就空了）。
+  {
+    keywords: ['小说', '章节', '卷', 'novel', 'novels', 'story', 'stories', 'book', 'books', 'chapter', 'chapters'],
+    kind: 'worldEntry',
+  },
+  { keywords: ['地图', '图册', 'map', 'maps', 'atlas'], kind: 'worldEntry' },
   {
     keywords: [
       '世界观', '设定', '词条', '概念', '体系', '总纲', '地理', '历史', '文化', '组织', '物品', '生物',

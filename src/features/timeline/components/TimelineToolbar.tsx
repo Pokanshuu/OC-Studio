@@ -1,6 +1,6 @@
 'use client'
 
-import { ChevronLeft, ChevronRight, Lock, LockOpen, Plus } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Lock, LockOpen, Plus, ImageDown } from 'lucide-react'
 import { ICON_BTN_MD, PAGE_TITLE } from '@/lib/ui-tokens'
 import { MobileFilterBar } from '@/components/layout/MobileFilterBar'
 import type { FilterOption } from '../types'
@@ -27,6 +27,7 @@ export function TimelineToolbar({
   onCountryFilterChange,
   countryOptions,
   onAddPeriod,
+  onExport,
 }: {
   filterMajor: boolean
   setFilterMajor: (v: boolean) => void
@@ -48,6 +49,8 @@ export function TimelineToolbar({
   onCountryFilterChange: (val: number | 'all') => void
   countryOptions: FilterOption[]
   onAddPeriod?: () => void
+  /** 打开导出中心（时间线页签） */
+  onExport?: () => void
 }) {
   return (
     <>
@@ -121,6 +124,15 @@ export function TimelineToolbar({
               />
               <span className="text-[10px] text-ink-faint">年</span>
             </div>
+          ) : null}
+          {onExport ? (
+            <button onClick={onExport}
+              className="flex h-8 w-8 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink"
+              title="导出图片…"
+              aria-label="导出图片"
+            >
+              <ImageDown size={16} strokeWidth={2} />
+            </button>
           ) : null}
           <button onClick={onToggleEdit}
             className={`flex h-8 w-8 items-center justify-center transition-colors hover:bg-[var(--oc-hover)] ${editMode ? 'text-ink' : 'text-ink-muted hover:text-ink'}`}

@@ -6,7 +6,7 @@ import { tauriReadClipboard } from '@/lib/tauri-clipboard'
 import { useSettingsTrigger } from '@/components/layout/SettingsTriggerContext'
 import { useSettings } from '@/lib/settings'
 import { useImportExport } from '@/components/shared/ImportExportUI'
-import { ExportCenter } from '@/components/shared/export/ExportCenter'
+import { useExportCenter } from '@/components/shared/export/ExportCenterHost'
 import { JournalTimelineDialog } from '@/features/vault/components/JournalTimelineDialog'
 import { useActiveEditor } from '@/lib/editor-context'
 import { toggleCoverTuningPanel } from '@/lib/cover'
@@ -33,7 +33,7 @@ export function MenuBarMenus() {
   const { openSettings } = useSettingsTrigger()
   const { handleImportClick, dialog: importExportDialog } = useImportExport()
   const { activeEditor } = useActiveEditor()
-  const [exportCenterOpen, setExportCenterOpen] = useState(false)
+  const openExportCenter = useExportCenter()
   const [journalOpen, setJournalOpen] = useState(false)
 
   const handleUndo = useCallback(() => {
@@ -123,7 +123,7 @@ export function MenuBarMenus() {
                 导入...
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setExportCenterOpen(true)}>
+              <DropdownMenuItem onClick={() => openExportCenter()}>
                 导出中心...
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -235,7 +235,6 @@ export function MenuBarMenus() {
           </DropdownMenu>
         </div>
       {importExportDialog}
-      {exportCenterOpen ? <ExportCenter onClose={() => setExportCenterOpen(false)} /> : null}
       <JournalTimelineDialog open={journalOpen} onOpenChange={setJournalOpen} />
     </>
   )

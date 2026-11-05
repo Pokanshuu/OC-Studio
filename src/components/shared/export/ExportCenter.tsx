@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { ArrowLeft, Archive, FileText, Globe2, Image as ImageIcon, Share2 } from 'lucide-react'
+import { ArrowLeft, Archive, BookText, FileText, Globe2, Image as ImageIcon, Milestone, Share2 } from 'lucide-react'
 import { ICON_BTN, PAGE_TITLE } from '@/lib/ui-tokens'
 import { PosterPanel } from './PosterPanel'
 import { SitePanel } from './SitePanel'
 import { DocumentPanel } from './DocumentPanel'
 import { BackupPanel } from './BackupPanel'
 import { GraphPanel } from './GraphPanel'
+import { TimelinePanel } from './TimelinePanel'
+import { NovelPanel } from './NovelPanel'
 import type { PosterSubjectKind } from '@/lib/export/poster/subjects'
 
-export type ExportTabId = 'poster' | 'site' | 'document' | 'graph' | 'backup'
+export type ExportTabId = 'poster' | 'site' | 'document' | 'novel' | 'graph' | 'timeline' | 'backup'
 
 interface TabMeta {
   id: ExportTabId
@@ -21,7 +23,9 @@ const TABS: TabMeta[] = [
   { id: 'poster', label: '海报', icon: ImageIcon },
   { id: 'site', label: '网站', icon: Globe2 },
   { id: 'document', label: '文档', icon: FileText },
+  { id: 'novel', label: '小说', icon: BookText },
   { id: 'graph', label: '关系图', icon: Share2 },
+  { id: 'timeline', label: '时间线', icon: Milestone },
   { id: 'backup', label: '备份', icon: Archive },
 ]
 
@@ -29,13 +33,15 @@ const FOCUSABLE =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
 export interface ExportCenterProps {
+  /** 小说：按小说根笔记 id 打开（面板自己读章节） */
+  novelId?: number
   onClose: () => void
   initialTab?: ExportTabId
   /** 从实体编辑器 / 模板编排层打开时，直接落在这一条 */
   initialSubject?: { kind: PosterSubjectKind; id: number }
 }
 
-export function ExportCenter({ onClose, initialTab = 'poster', initialSubject }: ExportCenterProps) {
+export function ExportCenter({ onClose, initialTab = 'poster', initialSubject, novelId }: ExportCenterProps) {
   const [tab, setTab] = useState<ExportTabId>(initialTab)
   const [visited, setVisited] = useState<Set<ExportTabId>>(new Set([initialTab]))
   const rootRef = useRef<HTMLDivElement | null>(null)
@@ -108,7 +114,9 @@ export function ExportCenter({ onClose, initialTab = 'poster', initialSubject }:
     poster: <PosterPanel initialSubject={initialSubject} />,
     site: <SitePanel />,
     document: <DocumentPanel />,
+    novel: <NovelPanel novelId={novelId} />,
     graph: <GraphPanel />,
+    timeline: <TimelinePanel />,
     backup: <BackupPanel />,
   }
 

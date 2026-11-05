@@ -214,6 +214,21 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 24px 0; }
   .banner + .head { margin-top: -28px; }
 }
 
+
+/* ── 滚动条：跟宿主同一套（细轨 + 线色拇指） ─────────────
+   导出站自己在 iframe 里预览时，宿主的 ::-webkit-scrollbar 进不来这一层文档，
+   不写这段就会露出 WebView 原生滚动条（浅灰带箭头），跟纸色完全不是一回事。 */
+:root { scrollbar-width: thin; scrollbar-color: var(--line-hover) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--line-hover);
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--ink-faint); background-clip: padding-box; }
+::-webkit-scrollbar-corner { background: transparent; }
 /* ── 打印：只留内容，去掉导航与悬浮元素 ───────────────── */
 @media print {
   @page { margin: 16mm; }
