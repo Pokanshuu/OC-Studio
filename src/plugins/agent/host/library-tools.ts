@@ -48,6 +48,30 @@ const writer: LibraryWriter = {
       await db.table(TABLE_BY_KIND[kind]).update(id, { ...patch, updatedAt: Date.now() })
     })
   },
+  async create(kind, input) {
+    const { runAsActorAsync } = await loadWriteDeps()
+    const [defaults, characters, events, countries, world] = await Promise.all([
+      import('@/lib/entity-defaults'),
+      import('@/features/characters/services'),
+      import('@/features/events/services'),
+      import('@/features/countries/services'),
+      import('@/features/world/services'),
+    ])
+    // 走各 feature 的 `create*`，不要在这里手拼一行塞进 Dexie ——
+    // 那条路会漏掉操作日志与索引维护（见 `LibraryWriter.create` 的注释）。
+    return runAsActorAsync('agent:assistant', async () => {
+      if (kind === 'character') {
+        return characters.createCharacter({ ...defaults.newCharacterData(), name: input.title, ...input.fields })
+      }
+      if (kind === 'event') {
+        return events.createEvent({ ...defaults.newEventData(), title: input.title, ...input.fields })
+      }
+      if (kind === 'country') {
+        return countries.createCountry({ ...defaults.newCountryData(), name: input.title, ...input.fields })
+      }
+      return world.createEntry({ ...defaults.newWorldEntryData(), title: input.title, ...input.fields })
+    })
+  },
   async link(from, to, relation, toName) {
     const { db, runAsActorAsync } = await loadWriteDeps()
     const now = Date.now()

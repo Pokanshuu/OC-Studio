@@ -365,6 +365,33 @@ export const ALL_TOOLS: ToolSpec[] = [
       additionalProperties: false,
     },
   },
+  {
+    name: 'library_create',
+    category: 'write',
+    requiresApproval: true,
+    description:
+      'Create a new library entry of the given kind and return it. Only the title and the whitelisted ' +
+      'scalar fields can be set here; add the body afterwards with library_set_body and connections ' +
+      'with library_link.',
+    parameters: {
+      type: 'object',
+      properties: {
+        kind: {
+          type: 'string',
+          enum: ['character', 'event', 'country', 'world'],
+          description: 'Entity kind to create.',
+        },
+        title: { type: 'string', description: 'Title (or name, for characters and countries).' },
+        fields: {
+          type: 'object',
+          description: 'Optional scalar fields, same whitelist as library_set_fields.',
+          additionalProperties: { type: 'string' },
+        },
+      },
+      required: ['kind', 'title'],
+      additionalProperties: false,
+    },
+  },
 ]
 
 export const TOOL_NAMES = ALL_TOOLS.map((t) => t.name)
@@ -448,6 +475,8 @@ export function toolSummary(call: ToolCall): string {
       return typeof args.relation === 'string' && typeof args.toId === 'number'
         ? `${args.relation} → #${args.toId}`
         : ''
+    case 'library_create':
+      return typeof args.title === 'string' ? `新${typeof args.kind === 'string' ? args.kind : '条目'} · ${args.title}` : ''
     case 'library_search':
       return pick('query') ?? ''
     default:

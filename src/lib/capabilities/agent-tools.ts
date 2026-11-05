@@ -28,6 +28,7 @@ export const LIBRARY_TOOL_NAMES = [
   'library_set_fields',
   'library_set_body',
   'library_link',
+  'library_create',
 ] as const
 
 export type LibraryToolName = (typeof LIBRARY_TOOL_NAMES)[number]
@@ -54,6 +55,9 @@ const BODY_MAX_LENGTH = 20_000
 
 /** 关系标签长度上限：`同门` / `宿敌` 这种，不该是一段话 */
 const RELATION_MAX_LENGTH = 40
+
+/** 新条目标题上限：超过这个长度基本都是把正文塞进标题了 */
+const TITLE_MAX_LENGTH = 80
 
 /**
  * 允许建的关系边 —— **只收"真源在发起方"的那三种**（`AGENTS.md` 的成员关系单向原则）。
@@ -88,6 +92,16 @@ export interface LibraryWriter {
     relation: string,
     toName: string,
   ): Promise<{ changed: boolean }>
+  /**
+   * 新建一个条目，返回新 id。
+   *
+   * 落点必须走各 feature 的 `create*`（它会写操作日志、维护索引），
+   * 不要在这里手拼一行塞进 Dexie —— 那样会漏掉不变量。
+   */
+  create(
+    kind: EntityKind,
+    input: { title: string; fields: Record<string, string> },
+  ): Promise<number>
 }
 
 const KINDS: readonly EntityKind[] = ['character', 'event', 'country', 'world']
@@ -193,6 +207,34 @@ export function createLibraryToolExecutor(capabilities: Capabilities, writer?: L
         const rows = await capabilities.search(AGENT_CALLER, query, limit)
         if (rows.length === 0) return finish(ok(`没有匹配「${query}」的条目。`))
         return finish(ok(`匹配「${query}」${rows.length} 条：\n${rows.map(summaryLine).join('\n')}`, rows))
+      }
+
+      // library_create：新建条目（走各 feature 的 create*，不手拼行）
+      if (name === 'library_create') {
+        if (!writer) return finish(fail('这个环境不能写库。'))
+        const createKind = kindOf(args.kind)
+        if (!createKind) return finish(fail('kind 必须是 character / event / country / world 之一。'))
+        const title = textOf(args.title).slice(0, TITLE_MAX_LENGTH)
+        if (title === '') return finish(fail('title 不能为空。'))
+        const writable: readonly string[] = WRITABLE_FIELDS[createKind]
+        const fields: Record<string, string> = {}
+        if (args.fields !== undefined && args.fields !== null) {
+          if (typeof args.fields !== 'object' || Array.isArray(args.fields)) {
+            return finish(fail('fields 必须是一个对象，键是要填的字段名。'))
+          }
+          for (const [key, value] of Object.entries(args.fields as Record<string, unknown>)) {
+            if (!writable.includes(key)) continue
+            fields[key] = textOf(value).slice(0, FIELD_MAX_LENGTH)
+          }
+        }
+        const newId = await writer.create(createKind, { title, fields })
+        const created = await capabilities.getEntity(AGENT_CALLER, createKind, newId)
+        return finish(
+          ok(
+            `已新建${KIND_LABEL[createKind]}「${created.title}」（#${newId}）。\n\n${capabilities.buildCodexSlice(created)}`,
+            { id: newId, kind: createKind },
+          ),
+        )
       }
 
       // library_link：建一条关系边（真源只写发起方）

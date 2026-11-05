@@ -152,6 +152,7 @@ async function main(): Promise<void> {
   const writes: Array<{ kind: string; id: number; patch: Record<string, string> }> = []
   const bodies: Array<{ kind: string; id: number; markdown: string }> = []
   const links: Array<{ from: string; fromId: number; to: string; toId: number; relation: string }> = []
+  const creates: Array<{ kind: string; id: number; title: string; fields: Record<string, string> }> = []
   const writer = {
     async setFields(kind: EntityKind, id: number, patch: Record<string, string>) {
       writes.push({ kind, id, patch })
@@ -183,6 +184,14 @@ async function main(): Promise<void> {
         ]
       }
       return { changed: true }
+    },
+    async create(kind: EntityKind, input: { title: string; fields: Record<string, string> }) {
+      const id = 100 + creates.length
+      creates.push({ kind, id, title: input.title, fields: input.fields })
+      if (kind === 'character') {
+        characters.push(character({ id, name: input.title, ...input.fields }))
+      }
+      return id
     },
   }
   const resolveW = createLibraryToolExecutor(createCapabilities(store), writer)
@@ -325,6 +334,40 @@ async function main(): Promise<void> {
     'toolSummary 认 library_link',
     toolSummary({ id: 'c5', name: 'library_link', args: '{"toId":8,"relation":"同门"}' } as never) === '同门 → #8',
   )
+
+  // ── library_create（新建条目）──────────────────────────────────────────
+  const createNoWriter = await resolve('library_create', { kind: 'character', title: '新人' })
+  check('没注入 writer 时建不了', createNoWriter?.isError === true)
+
+  const created = await resolveW('library_create', {
+    kind: 'character',
+    title: '沈砚的师父',
+    fields: { race: '人类', occupation: '铸剑师', name: '改名' },
+  })
+  check('新建成功', created?.isError === false, created?.content.slice(0, 60))
+  check('新建落到 writer 上', creates.length === 1 && creates[0]?.title === '沈砚的师父')
+  check('新建只带白名单字段', Object.keys(creates[0]?.fields ?? {}).join('、') === 'race、occupation')
+  check('回执里有新 id', created?.content.includes('#100') === true, created?.content.slice(0, 40))
+
+  const emptyTitle = await resolveW('library_create', { kind: 'character', title: '   ' })
+  check('空标题被拒', emptyTitle?.isError === true && creates.length === 1)
+
+  const longTitle = await resolveW('library_create', { kind: 'character', title: '标'.repeat(120) })
+  check('超长标题被截断后仍能建', longTitle?.isError === false && creates.length === 2)
+
+  check('标题截到 80 字', (creates[1]?.title ?? '').length === 80, String((creates[1]?.title ?? '').length))
+  const badCreateKind = await resolveW('library_create', { kind: 'pet', title: 'x' })
+  check('非法 kind 被拒', badCreateKind?.isError === true && creates.length === 2)
+
+  const badCreateFields = await resolveW('library_create', { kind: 'character', title: 'x', fields: 'nope' })
+  check('fields 不是对象时报错', badCreateFields?.isError === true)
+
+  check(
+    'toolSummary 认 library_create',
+    toolSummary({ id: 'c6', name: 'library_create', args: '{"kind":"character","title":"新人"}' } as never) ===
+      '新character · 新人',
+  )
+
 
   // ── 调用方身份 ────────────────────────────────────────────────────────
   check('调用方是助手本人', AGENT_CALLER.actor === 'agent:assistant')
