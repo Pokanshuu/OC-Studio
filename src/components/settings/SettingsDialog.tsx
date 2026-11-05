@@ -1,6 +1,6 @@
 "use client"
 
-import { Database, Palette, Info, BookOpen } from "lucide-react"
+import { Database, Palette, Info, BookOpen, Blocks } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -12,6 +12,7 @@ import type { SettingsSection } from "@/components/layout/SettingsTriggerContext
 import { WorldTab } from "./tabs/WorldTab"
 import { GeneralTab } from "./tabs/GeneralTab"
 import { DataTab } from "./tabs/DataTab"
+import { PluginsTab } from "./tabs/PluginsTab"
 import { AboutTab } from "./tabs/AboutTab"
 
 interface SettingsDialogProps {
@@ -26,6 +27,8 @@ interface SettingsDialogProps {
 const TAB_ITEMS = [
   { value: "world", label: "世界", icon: BookOpen },
   { value: "general", label: "个性化", icon: Palette },
+  // 插件 = 功能 / 主题 / 技能三类扩展的统一管理面（开关 + 权限 + 安装）
+  { value: "plugins", label: "插件", icon: Blocks },
   // 「数据」= 原来的「数据」+「云」两个页签合并（本地数据 / 同步 按类别分区）
   { value: "data", label: "数据", icon: Database },
   { value: "about", label: "关于", icon: Info },
@@ -47,7 +50,7 @@ export function SettingsDialog({
 
         <Tabs value={tab} onValueChange={onTabChange} className="flex min-h-0 flex-1 flex-col">
           <div className="shrink-0 px-6">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               {TAB_ITEMS.map((item) => (
                 <TabsTrigger
                   key={item.value}
@@ -71,6 +74,10 @@ export function SettingsDialog({
 
             <TabsContent value="general">
               <GeneralTab />
+            </TabsContent>
+
+            <TabsContent value="plugins">
+              <PluginsTab />
             </TabsContent>
 
             <TabsContent value="data">

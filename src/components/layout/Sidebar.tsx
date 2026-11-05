@@ -22,6 +22,8 @@ import {
   Trash2,
   Images,
   Plus,
+  Wrench,
+  Wand2,
 } from 'lucide-react'
 import { useNavigation } from './NavigationContext'
 import { useSettingsTrigger } from './SettingsTriggerContext'
@@ -31,6 +33,8 @@ import { categoryIconOf } from '@/lib/categories/icons'
 import { updateCategory, useCategories } from '@/lib/categories/store'
 import { categoryItemName } from '@/lib/categories/types'
 import type { Category } from '@/lib/categories/types'
+import { toolItem } from '@/lib/entry-kinds'
+import { isPluginEnabled, isToolPlugin, usePlugins } from '@/lib/plugins'
 import { CategoryDialog } from '@/features/categories/CategoryDialog'
 import { MediaContextMenu } from '@/components/shared/MediaContextMenu'
 import { notifyDataUpdated } from '@/lib/data-events'
@@ -68,6 +72,11 @@ const ITEM_ON =
   "text-ink before:absolute before:inset-y-1.5 before:left-0 before:w-[2px] before:bg-ink before:content-['']"
 const GROUP_LABEL = 'px-4 pb-1.5 pt-3 text-[11px] tracking-[0.14em] text-ink-faint'
 
+/** 工具插件在侧栏的图标（插件 id → lucide 图标）；没登记的一律扳手 */
+const TOOL_ICONS: Record<string, typeof Users> = {
+  'official.map-generator': Wand2,
+}
+
 const subscribeNoop = () => () => {}
 
 /** 「客户端了吗」：服务端渲染 / 水合首屏为 false，水合完成后为 true（React 会补这次渲染，不报水合不一致） */
@@ -85,6 +94,9 @@ export function Sidebar() {
   const { openTrash } = useTrashOverlay()
   const { settings, updateSetting } = useSettings()
   const categories = useCategories()
+  const { plugins } = usePlugins()
+  /** 侧栏「工具」= 可用且已启用的功能插件 */
+  const toolPlugins = plugins.filter((plugin) => isToolPlugin(plugin) && isPluginEnabled(plugin))
   const [categoryDialog, setCategoryDialog] = useState<
     | { mode: 'create' }
     | { mode: 'edit'; category: Category }
@@ -214,6 +226,27 @@ export function Sidebar() {
             <Plus size={16} strokeWidth={2} className="shrink-0" />
             <span className="transparent-text">新建分类</span>
           </button>
+
+          {/* 工具：插件给的能力面板。装 / 关都在 设置 › 插件，这里只列已启用的 */}
+          {toolPlugins.length > 0 ? (
+            <>
+              <div className={GROUP_LABEL}>工具</div>
+              {toolPlugins.map((plugin) => {
+                const Icon = TOOL_ICONS[plugin.id] ?? Wrench
+                const item = toolItem(plugin.id)
+                return (
+                  <button
+                    key={plugin.id}
+                    onClick={() => setActiveItem(item)}
+                    className={`${ITEM_BASE} ${activeItem === item ? ITEM_ON : ITEM_OFF}`}
+                  >
+                    <Icon size={16} strokeWidth={2} className="shrink-0" />
+                    <span className="transparent-text">{plugin.name}</span>
+                  </button>
+                )
+              })}
+            </>
+          ) : null}
         </nav>
 
         <CategoryDialog
