@@ -41,11 +41,17 @@ export function SortSelect({
   const panelRef = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState({ x: 0, y: 0 })
 
-  useEffect(() => {
-    if (open && triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect()
-      setPos({ x: rect.left, y: rect.bottom + 4 })
+  // 位置必须和「打开」在同一次更新里算好：先按 (0,0) 渲染、再在 effect 里量真实坐标，
+  // 面板会先在左上角画一帧再跳回来（下拉「闪现再归位」）。
+  const toggle = useCallback(() => {
+    if (open) {
+      setOpen(false)
+      return
     }
+    const rect = triggerRef.current?.getBoundingClientRect()
+    if (!rect) return
+    setPos({ x: rect.left, y: rect.bottom + 4 })
+    setOpen(true)
   }, [open])
 
   const handleClickOutside = useCallback((e: MouseEvent) => {
@@ -69,7 +75,7 @@ export function SortSelect({
     <div>
       <button
         ref={triggerRef}
-        onClick={() => setOpen(!open)}
+        onClick={toggle}
         className={FILTER_TRIGGER}
       >
         <span>{getSortLabel(options, sortKey)}</span>

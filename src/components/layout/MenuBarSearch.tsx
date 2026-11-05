@@ -70,10 +70,12 @@ export function MenuBarSearch() {
   const searchWrapperRef = useRef<HTMLDivElement>(null)
   const [panelPos, setPanelPos] = useState({ x: 0, y: 0, width: 320 })
 
-  useEffect(() => {
-    if (!isOpen || !searchWrapperRef.current) return
-
-    const rect = searchWrapperRef.current.getBoundingClientRect()
+  // 位置必须和「打开」在同一次更新里算好：先按 (0,0) 渲染、再在 effect 里量真实坐标，
+  // 面板会先在左上角画一帧再跳回来（下拉「闪现再归位」）。
+  const placePanel = useCallback(() => {
+    const wrapper = searchWrapperRef.current
+    if (!wrapper) return
+    const rect = wrapper.getBoundingClientRect()
     // 结果是两行（标题 + 摘要），面板比输入框宽一点才装得下
     const width = Math.min(Math.max(rect.width, 320), window.innerWidth - 16)
     const left = Math.min(
@@ -81,7 +83,12 @@ export function MenuBarSearch() {
       window.innerWidth - width - 8,
     )
     setPanelPos({ x: left, y: rect.bottom + 4, width })
-  }, [isOpen])
+  }, [])
+
+  const openPanel = useCallback(() => {
+    placePanel()
+    setIsOpen(true)
+  }, [placePanel])
 
   /** 每次打开面板强制刷一次索引：刚改过的正文也要立刻搜得到 */
   useEffect(() => {
@@ -166,12 +173,12 @@ export function MenuBarSearch() {
         e.preventDefault()
         inputRef.current?.focus()
         inputRef.current?.select()
-        setIsOpen(true)
+        openPanel()
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [])
+  }, [openPanel])
 
   useEffect(() => {
     const el = panelRef.current
@@ -190,8 +197,8 @@ export function MenuBarSearch() {
           ref={inputRef}
           type="text"
           value={query}
-          onChange={(e) => { setQuery(e.target.value); setIsOpen(true); setSelectedIndex(0) }}
-          onFocus={() => setIsOpen(true)}
+          onChange={(e) => { setQuery(e.target.value); openPanel(); setSelectedIndex(0) }}
+          onFocus={openPanel}
           onBlur={() => { setTimeout(() => setIsOpen(false), 150) }}
           onKeyDown={handleKeyDown}
           placeholder="搜索标题、正文…"

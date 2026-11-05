@@ -220,7 +220,7 @@ npx tauri build   # Tauri 打包 (.exe/.msi)
 3. **系统右键菜单**：`GlobalContextMenu` 在 document 上统一拦截 —— 非文本区 `preventDefault()`（不弹 WebView 自带菜单），输入框 / textarea / 可编辑区保留系统菜单
 4. **数据层**：Dexie 唯一数据源，通过 hooks 访问，软删除默认启用
 5. **编辑器**：复用 EditorCore，不创建新实例
-6. **浮层**：必须 Portal 到 `#overlay-root`
+6. **浮层**：必须 Portal 到 `#overlay-root`；**坐标在打开前量好** —— 点击事件里量锚点，和 `open` 同一批 `setState`。禁止「先按 (0,0) 渲染、再在 `useEffect` 里量真实坐标」，中间会画一帧在左上角（下拉「闪现再归位」，`FilterSelect` / `SortSelect` / `MenuBarSearch` 已按此改）
 7. **代码风格**：TypeScript strict，禁止 `any`，`export function` 导出
 8. **移动端布局**：CSS-first 方案（`max-md:hidden`/`md:hidden`），不依赖 `useDevice()` 做壳切换
 9. **图标规则**：返回/关闭=ArrowLeft，折叠=ChevronLeft，展开=Menu，统一 `strokeWidth={2}`
