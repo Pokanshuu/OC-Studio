@@ -35,7 +35,7 @@ import { updateCategory, useCategories } from '@/lib/categories/store'
 import { categoryItemName } from '@/lib/categories/types'
 import type { Category } from '@/lib/categories/types'
 import { toolItem } from '@/lib/entry-kinds'
-import { isPluginEnabled, isSidebarTool, usePlugins } from '@/lib/plugins'
+import { isPluginEnabled, isSidebarTool, isToolPlugin, usePlugins } from '@/lib/plugins'
 import { CategoryDialog } from '@/features/categories/CategoryDialog'
 import { MediaContextMenu } from '@/components/shared/MediaContextMenu'
 import { notifyDataUpdated } from '@/lib/data-events'
@@ -109,7 +109,7 @@ export function Sidebar() {
    */
   const showContextual = process.env.NODE_ENV !== 'production'
   const toolPlugins = plugins.filter(
-    (plugin) => (isSidebarTool(plugin) || showContextual) && isPluginEnabled(plugin),
+    (plugin) => (isSidebarTool(plugin) || (showContextual && isToolPlugin(plugin))) && isPluginEnabled(plugin),
   )
   const [categoryDialog, setCategoryDialog] = useState<
     | { mode: 'create' }

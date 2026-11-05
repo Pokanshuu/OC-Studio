@@ -12,7 +12,7 @@
  * 这份文件不 import React，脚本与界面都能读。
  */
 
-export type PluginKind = 'tool' | 'theme' | 'skill'
+export type PluginKind = 'tool' | 'skill'
 
 /** 插件怎么被打开：占导航位，还是只在上下文里出现（见 PluginManifest.nav） */
 export type PluginNav = 'sidebar' | 'contextual'
@@ -60,7 +60,6 @@ export interface PluginManifest {
 
 export const PLUGIN_KIND_LABELS: Record<PluginKind, string> = {
   tool: '功能',
-  theme: '主题',
   skill: '技能',
 }
 

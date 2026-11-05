@@ -161,10 +161,261 @@ const CELADON: ThemePreset = {
   },
 }
 
-/** 默认主题排第一（设置里的选项顺序）。 */
-export const THEME_PRESETS: readonly ThemePreset[] = [PAPER, LINEN, PINE, CELADON]
+/**
+ * 七色 —— 赤橙黄绿青蓝紫。
+ *
+ * 前四套（纸白 / 亚麻 / 松烟 / 青瓷）是**中性**的：没有色相，像不同的纸。
+ * 这一组是有色相的：整块纸和墨都偏向同一个色相，但**彩度压得很低**（纸色
+ * 在 L*≈97、彩度 3–6），读正文时还是纸，不是色块。
+ *
+ * 硬约束来自 `npm run audit:palettes`：墨/纸 ≥ 7:1、次级文字/纸 ≥ 4.5:1、
+ * 辅助文字 ≥ 2.2:1、分隔线 ≥ 1.15:1。暗色不是把亮色反过来，是**同一色相压到
+ * L*≈12 的纸 + L*≈88 的墨** —— 直接取反会得到刺眼的荧光色。
+ */
+const VERMILION: ThemePreset = {
+  id: 'vermilion',
+  name: '朱砂',
+  scope: 'app',
+  preview: { paper: '#FBF5F4', ink: '#2E2222' },
+  tokens: {
+    light: {
+      paper: '#FBF5F4',
+      paperAlt: '#F7EFEE',
+      paperCard: '#F1E6E4',
+      line: '#E9DAD8',
+      lineHover: '#D8C2BF',
+      ink: '#2E2222',
+      inkMuted: '#6E5957',
+      inkFaint: '#A69390',
+      hover: 'rgba(46, 34, 34, 0.045)',
+    },
+    dark: {
+      paper: '#1B1515',
+      paperAlt: '#211A1A',
+      paperCard: '#282020',
+      line: '#332929',
+      lineHover: '#473838',
+      ink: '#ECE1E1',
+      inkMuted: '#B5A3A3',
+      inkFaint: '#7E6F6F',
+      hover: 'rgba(236, 225, 225, 0.06)',
+    },
+  },
+}
 
-export type ThemePresetId = 'paper' | 'linen' | 'pine' | 'celadon'
+const AMBER: ThemePreset = {
+  id: 'amber',
+  name: '琥珀',
+  scope: 'app',
+  preview: { paper: '#FCF7F1', ink: '#2F2720' },
+  tokens: {
+    light: {
+      paper: '#FCF7F1',
+      paperAlt: '#F8F0E6',
+      paperCard: '#F2E8DA',
+      line: '#EADCC9',
+      lineHover: '#D9C5A9',
+      ink: '#2F2720',
+      inkMuted: '#6F5F4E',
+      inkFaint: '#A69884',
+      hover: 'rgba(47, 39, 32, 0.045)',
+    },
+    dark: {
+      paper: '#1B1713',
+      paperAlt: '#211C17',
+      paperCard: '#28221C',
+      line: '#332B23',
+      lineHover: '#473C2F',
+      ink: '#EDE4D8',
+      inkMuted: '#B6A896',
+      inkFaint: '#7F7463',
+      hover: 'rgba(237, 228, 216, 0.06)',
+    },
+  },
+}
+
+const REED: ThemePreset = {
+  id: 'reed',
+  name: '苇黄',
+  scope: 'app',
+  preview: { paper: '#FBF8EE', ink: '#2E2B1F' },
+  tokens: {
+    light: {
+      paper: '#FBF8EE',
+      paperAlt: '#F7F3E4',
+      paperCard: '#F1ECD8',
+      line: '#E9E2C8',
+      lineHover: '#D8CFA9',
+      ink: '#2E2B1F',
+      inkMuted: '#6E6750',
+      inkFaint: '#A69E84',
+      hover: 'rgba(46, 43, 31, 0.045)',
+    },
+    dark: {
+      paper: '#1A1813',
+      paperAlt: '#201E18',
+      paperCard: '#27241C',
+      line: '#322E24',
+      lineHover: '#464032',
+      ink: '#ECE8D8',
+      inkMuted: '#B4AE96',
+      inkFaint: '#7D7863',
+      hover: 'rgba(236, 232, 216, 0.06)',
+    },
+  },
+}
+
+const MOSS: ThemePreset = {
+  id: 'moss',
+  name: '苔绿',
+  scope: 'app',
+  preview: { paper: '#F5FAF5', ink: '#222E22' },
+  tokens: {
+    light: {
+      paper: '#F5FAF5',
+      paperAlt: '#EEF6EE',
+      paperCard: '#E4F0E4',
+      line: '#D6E6D6',
+      lineHover: '#BCD8BC',
+      ink: '#222E22',
+      inkMuted: '#586C58',
+      inkFaint: '#92A592',
+      hover: 'rgba(34, 46, 34, 0.045)',
+    },
+    dark: {
+      paper: '#141B14',
+      paperAlt: '#192119',
+      paperCard: '#1F281F',
+      line: '#283328',
+      lineHover: '#384738',
+      ink: '#E1ECE1',
+      inkMuted: '#A3B5A3',
+      inkFaint: '#6E7F6E',
+      hover: 'rgba(225, 236, 225, 0.06)',
+    },
+  },
+}
+
+const DEEP_SEA: ThemePreset = {
+  id: 'deep-sea',
+  name: '海青',
+  scope: 'app',
+  preview: { paper: '#F3FAFA', ink: '#1F2D2D' },
+  tokens: {
+    light: {
+      paper: '#F3FAFA',
+      paperAlt: '#EBF5F5',
+      paperCard: '#E0EFEF',
+      line: '#D1E6E6',
+      lineHover: '#B6D6D6',
+      ink: '#1F2D2D',
+      inkMuted: '#556B6B',
+      inkFaint: '#8EA4A4',
+      hover: 'rgba(31, 45, 45, 0.045)',
+    },
+    dark: {
+      paper: '#131B1B',
+      paperAlt: '#182121',
+      paperCard: '#1E2828',
+      line: '#273333',
+      lineHover: '#374747',
+      ink: '#E1ECEC',
+      inkMuted: '#A2B5B5',
+      inkFaint: '#6D7F7F',
+      hover: 'rgba(225, 236, 236, 0.06)',
+    },
+  },
+}
+
+const INDIGO: ThemePreset = {
+  id: 'indigo',
+  name: '靛蓝',
+  scope: 'app',
+  preview: { paper: '#F4F7FC', ink: '#202636' },
+  tokens: {
+    light: {
+      paper: '#F4F7FC',
+      paperAlt: '#ECF1F9',
+      paperCard: '#E2E9F4',
+      line: '#D4DDEF',
+      lineHover: '#B9C6E2',
+      ink: '#202636',
+      inkMuted: '#576079',
+      inkFaint: '#9099AE',
+      hover: 'rgba(32, 38, 54, 0.045)',
+    },
+    dark: {
+      paper: '#15181F',
+      paperAlt: '#1A1E27',
+      paperCard: '#20252F',
+      line: '#292F3B',
+      lineHover: '#3A4252',
+      ink: '#E2E7F1',
+      inkMuted: '#A5AEC2',
+      inkFaint: '#707A8D',
+      hover: 'rgba(226, 231, 241, 0.06)',
+    },
+  },
+}
+
+const VIOLET: ThemePreset = {
+  id: 'violet',
+  name: '紫苑',
+  scope: 'app',
+  preview: { paper: '#F8F4FB', ink: '#282133' },
+  tokens: {
+    light: {
+      paper: '#F8F4FB',
+      paperAlt: '#F2EDF8',
+      paperCard: '#EBE3F3',
+      line: '#DFD4EC',
+      lineHover: '#CABADF',
+      ink: '#282133',
+      inkMuted: '#625776',
+      inkFaint: '#9B90AC',
+      hover: 'rgba(40, 33, 51, 0.045)',
+    },
+    dark: {
+      paper: '#17141F',
+      paperAlt: '#1D1927',
+      paperCard: '#241F2F',
+      line: '#2D273B',
+      lineHover: '#3F3752',
+      ink: '#E7E1F1',
+      inkMuted: '#ADA3C2',
+      inkFaint: '#776F8D',
+      hover: 'rgba(231, 225, 241, 0.06)',
+    },
+  },
+}
+
+/** 默认主题排第一（设置里的选项顺序）。中性在前，七色在后。 */
+export const THEME_PRESETS: readonly ThemePreset[] = [
+  PAPER,
+  LINEN,
+  PINE,
+  CELADON,
+  VERMILION,
+  AMBER,
+  REED,
+  MOSS,
+  DEEP_SEA,
+  INDIGO,
+  VIOLET,
+]
+
+export type ThemePresetId =
+  | 'paper'
+  | 'linen'
+  | 'pine'
+  | 'celadon'
+  | 'vermilion'
+  | 'amber'
+  | 'reed'
+  | 'moss'
+  | 'deep-sea'
+  | 'indigo'
+  | 'violet'
 
 export function isThemePresetId(value: unknown): value is ThemePresetId {
   return typeof value === 'string' && THEME_PRESETS.some((preset) => preset.id === value)

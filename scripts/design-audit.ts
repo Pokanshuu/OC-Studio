@@ -75,7 +75,9 @@ const RULES: Rule[] = [
   {
     name: 'radius-bare',
     why: '裸 rounded(4px) → 用语义名',
-    test: /\brounded\b(?!-)/,
+    // 只看「类名形态」：`rounded` 后紧跟 `=` / `>` 的是变量或 JSX 表达式，
+    // 不是类名（`const rounded = 0` / `${rounded > 0}` 都被误伤过）。
+    test: /\brounded\b(?!-)(?!\s*[=>])/,
   },
   {
     name: 'palette-color',
