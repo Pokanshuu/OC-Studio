@@ -14,7 +14,7 @@
  * 模板侧的选择器在 `TemplateParams`，两边共用同一份 `useInfoGroups()`。
  */
 import { useState } from 'react'
-import { ArrowLeft, ChevronRight, Plus, Trash2, X } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { FieldKindSettings } from '@/components/settings/FieldSettings'
 import {
@@ -27,10 +27,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { DragHandle, SortableList, moveId, useSortableItem } from '@/components/shared/list-dnd'
+import { SortableList, moveId } from '@/components/shared/list-dnd'
 import type { FieldKind } from '@/lib/fields'
 import type { InfoGroupHost } from '@/lib/templates/info-groups'
 import { SettingsFieldRow } from './FieldRow'
+import { SettingsEntryRow } from './EntryRow'
 import {
   createInfoGroup,
   deleteInfoGroup,
@@ -40,7 +41,7 @@ import {
   type InfoGroup,
 } from '@/lib/templates/info-groups'
 import { useTemplates } from '@/lib/templates/store'
-import { BTN_DANGER, BTN_QUIET, ICON_BTN, INPUT_LINE, ROUND_ITEM } from '@/lib/ui-tokens'
+import { BTN_DANGER, BTN_QUIET, ICON_BTN, INPUT_LINE, ROUND_ITEM, SETTINGS_EMPTY } from '@/lib/ui-tokens'
 
 /**
  * 实体字段表（`ready: false` = 那张表还没接到渲染器上，见 `lib/fields/types.ts`）。
@@ -121,7 +122,7 @@ function GroupFieldsSettings({ group }: { group: InfoGroup }) {
         </div>
       </SortableList>
 
-      {keys.length === 0 ? <p className="py-2 text-[12px] text-ink-faint">还没有字段</p> : null}
+      {keys.length === 0 ? <p className={SETTINGS_EMPTY}>还没有字段</p> : null}
 
       <div className="flex items-center gap-2">
         <input
@@ -297,39 +298,30 @@ export function BasicInfoPanel({ onBack, initialId }: { onBack: () => void; init
       {/* 一张列表：内置（角色 / 事件 / 词条 / 宠物 / 武器）+ 自建。
           原来这里是「字段表」和「基本信息组件」两组 —— 同一件事的两种存储。
           列型宿主（角色 / 事件 / 词条）点进去是字段表编辑器，笔记型宿主进组件编辑器。 */}
-      {groups.map((group) => {
-        const count = usageOf(group.id).length
-        const columnKind = columnKindOf(group.for)
-        const ready = columnKind !== "event"
-        return (
-          <button
-            key={group.id}
-            type="button"
-            disabled={!ready}
-            onClick={() => {
-              if (columnKind !== undefined) setActiveFieldKind(columnKind)
-              else setActiveGroupId(group.id)
-            }}
-            className="flex items-center justify-between border-b border-line py-2.5 text-left text-sm text-ink transition-colors hover:bg-[var(--oc-hover)] disabled:cursor-default disabled:text-ink-faint disabled:hover:bg-transparent"
-          >
-            <span className="flex min-w-0 items-center gap-2">
-              <span className="truncate">{group.name}</span>
-              {group.builtin ? null : <span className="shrink-0 text-[11px] text-ink-faint">自建</span>}
-            </span>
-            <span className="flex shrink-0 items-center gap-2 text-[11px] text-ink-faint">
-              {ready ? (
-                <>
-                  <span>{group.fields.length} 个字段</span>
-                  {columnKind === undefined ? <span>{count} 个模板</span> : null}
-                  <ChevronRight size={16} strokeWidth={2} />
-                </>
-              ) : (
-                <span>开发中</span>
-              )}
-            </span>
-          </button>
-        )
-      })}
+      <div className="mt-1 flex flex-col">
+        {groups.map((group) => {
+          const count = usageOf(group.id).length
+          const columnKind = columnKindOf(group.for)
+          const ready = columnKind !== 'event'
+          const meta = ready
+            ? columnKind === undefined
+              ? `${group.fields.length} 字段 · ${count} 模板`
+              : `${group.fields.length} 字段`
+            : '开发中'
+          return (
+            <SettingsEntryRow
+              key={group.id}
+              label={group.name}
+              meta={meta}
+              disabled={!ready}
+              onClick={() => {
+                if (columnKind !== undefined) setActiveFieldKind(columnKind)
+                else setActiveGroupId(group.id)
+              }}
+            />
+          )
+        })}
+      </div>
       <button type="button" onClick={createGroup} className={`${BTN_QUIET} mt-3 self-start`}>
         <Plus size={13} strokeWidth={2} />
         新建基本信息组件

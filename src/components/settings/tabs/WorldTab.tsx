@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { ArrowLeft, ChevronRight, LayoutTemplate, FolderTree, Tag, ListTree, Palette, Waypoints } from 'lucide-react'
+import { ArrowLeft, LayoutTemplate, FolderTree, Tag, ListTree, Palette, Waypoints } from 'lucide-react'
 import { useInputContextMenu } from '@/lib/use-input-context-menu'
 import { useProjectMeta } from '@/features/project'
 import { ImageUploader } from '@/components/shared/ImageUploader'
@@ -13,13 +13,8 @@ import type { SettingsSection } from '@/components/layout/SettingsTriggerContext
 import { EdgeStyleRadio, MouseModeRadio } from '@/components/settings/controls'
 import { ThemePanel } from '@/components/settings/ThemePanel'
 import { useSettings } from '@/lib/settings'
-import {
-  ICON_BTN,
-  SETTINGS_GROUP_FIRST,
-  SETTINGS_LABEL,
-  SETTINGS_ROW,
-  SETTINGS_ROW_TOP,
-} from '@/lib/ui-tokens'
+import { SettingsEntryRow } from '@/components/settings/EntryRow'
+import { ICON_BTN, SETTINGS_LABEL, SETTINGS_ROW } from '@/lib/ui-tokens'
 
 type Panel = 'root' | SettingsSection
 
@@ -132,23 +127,15 @@ export function WorldTab({
             />
           </div>
 
-          {/* 二级界面入口：四行同一套语法（图标 + 名称 + 箭头），命名不带「自定义」前缀 */}
           <div className="mt-2 flex flex-col border-t border-line">
-            {ENTRY_ITEMS.map((item) => {
-              const Icon = item.icon
-              return (
-                <button
-                  key={item.panel}
-                  type="button"
-                  onClick={() => setPanel(item.panel)}
-                  className="flex h-11 items-center gap-2.5 border-b border-line px-0.5 text-left text-[13px] text-ink transition-colors last:border-b-0 hover:text-ink-muted"
-                >
-                  <Icon size={15} strokeWidth={2} className="shrink-0 text-ink-muted" />
-                  <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                  <ChevronRight size={15} strokeWidth={2} className="shrink-0 text-ink-faint" />
-                </button>
-              )
-            })}
+            {ENTRY_ITEMS.map((item) => (
+              <SettingsEntryRow
+                key={item.panel}
+                icon={item.icon}
+                label={item.label}
+                onClick={() => setPanel(item.panel)}
+              />
+            ))}
           </div>
         </div>
       ) : panel === 'categories' ? (
@@ -162,7 +149,7 @@ export function WorldTab({
             >
               <ArrowLeft size={16} strokeWidth={2} />
             </button>
-            <span className="text-sm text-ink">自定义分类</span>
+            <span className="text-sm text-ink">分类</span>
           </div>
           <CategoriesPanel />
         </div>
@@ -177,7 +164,7 @@ export function WorldTab({
             >
               <ArrowLeft size={16} strokeWidth={2} />
             </button>
-            <span className="text-sm text-ink">自定义组件</span>
+            <span className="text-sm text-ink">字段组</span>
           </div>
           <ComponentsPanel target={target} />
         </div>
@@ -224,12 +211,12 @@ export function WorldTab({
             </button>
             <span className="text-sm text-ink">关系图操作</span>
           </div>
-          <div className="grid grid-cols-[108px_minmax(0,1fr)] items-center gap-x-4">
-            <span className="text-[13px] leading-5 text-ink">鼠标</span>
+          <div className={SETTINGS_ROW}>
+            <span className={SETTINGS_LABEL}>鼠标</span>
             <MouseModeRadio value={settings.mouseMode} onChange={(v) => updateSetting("mouseMode", v)} />
           </div>
-          <div className="grid grid-cols-[108px_minmax(0,1fr)] items-center gap-x-4">
-            <span className="text-[13px] leading-5 text-ink">连线</span>
+          <div className={SETTINGS_ROW}>
+            <span className={SETTINGS_LABEL}>连线</span>
             <EdgeStyleRadio value={settings.edgeStyle} onChange={(v) => updateSetting("edgeStyle", v)} />
           </div>
         </div>

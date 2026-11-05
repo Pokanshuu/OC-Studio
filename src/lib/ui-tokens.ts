@@ -51,6 +51,8 @@ export const SETTINGS_GROUP = 'mt-5 flex flex-col gap-3 border-t border-line pt-
 export const SETTINGS_GROUP_FIRST = 'flex flex-col gap-3'
 /** 组内更细的分隔（如「背景」下的铺法 / 遮罩），不占整行 */
 export const SETTINGS_HINT = 'text-[11px] leading-4 text-ink-faint'
+/** 列表里「这一栏还是空的」那一行：和列表行同高基线，别用小一号的灰字凑数 */
+export const SETTINGS_EMPTY = 'py-2 text-[13px] leading-5 text-ink-faint'
 
 /* ── 区块标题 ───────────────────────────────────────────
    衬线 15px：靠字族而非字号与 14px 的字段标签拉开层级。 */
@@ -190,6 +192,11 @@ export const NUMBER_INPUT =
    菜单容器**只有上下内边距**：左右不留白，行自带 px-3，hover 才能横向铺满。 */
 export const FLOAT_SHADOW = 'float-shadow'
 export const PANEL = `border border-line bg-paper/85 backdrop-blur-lg ${FLOAT_SHADOW} ${ROUND_PANEL}`
+/**
+ * 不透明面板：压在**图片 / 地图**这种花底上时用。
+ * `PANEL` 的 `bg-paper/85` 会把底图的颜色和纹理透上来 —— 看着像「遮罩失效」。
+ */
+export const PANEL_SOLID = `border border-line bg-paper ${FLOAT_SHADOW} ${ROUND_PANEL}`
 export const MENU = `border border-line bg-paper/85 backdrop-blur-lg py-1 ${FLOAT_SHADOW} ${ROUND_CONTROL}`
 /** 菜单行骨架：只含盒子与排版，不带文字色和 hover 底色（危险项 / 禁用项 / 高亮态用它） */
 export const MENU_ITEM_BASE =
@@ -203,8 +210,12 @@ export const CHIP = `inline-flex items-center gap-1 bg-paper-alt px-2 py-[3px] t
 /** chip 选中态：反相为实心墨色（只用于「选中」语义，不当按钮强调色用） */
 export const CHIP_ON = `inline-flex items-center gap-1 bg-ink px-2 py-[3px] text-[12px] text-paper ${ROUND_ITEM}`
 
-/* ── 空态 / 加载 ─────────────────────────────────────── */
-export const EMPTY_STATE = 'flex flex-1 flex-col items-center justify-center gap-2 py-24'
+/* ── 空态 / 加载 ───────────────────────────────────────
+   空态 = **一句话 + 一个主按钮**（`BTN_PRIMARY`），整块在内容区里**横向 + 纵向居中**。
+   要真居中，父级必须给出高度：`ListShell` 的滚动容器是 flex 列，
+   内容那一层加 `flex-1` 就会撑满可视区（见 `ListShell` 顶部注释）。
+   动作不许再写成可点的衬线小字（`EMPTY_HINT` 只留给侧栏 / 卡片里的行内入口）。 */
+export const EMPTY_STATE = 'flex flex-1 flex-col items-center justify-center gap-3 px-6 py-16 text-center'
 export const LOADING_TEXT = 'text-[13px] text-ink-faint'
 
 /* ── 列表页（网格 / 搜索） ─────────────────────────────

@@ -1,19 +1,12 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
-import { ImagePlus, Trash2 } from 'lucide-react'
-import { toast } from 'sonner'
 import { useSettings } from '@/lib/settings'
 import { useDevice } from '@/lib/use-device'
 import { isTauri as isTauriEnv } from '@/lib/env'
-import { compressBackgroundImage, BACKGROUND_MAX_SCRIM, BACKGROUND_MIN_SCRIM, type BackgroundMode } from '@/lib/theme/background'
-import { BTN_QUIET } from '@/lib/ui-tokens'
-import { getVaultSession } from '@/lib/vault/vault-session'
-import { isVaultSupported, vaultFs } from '@/lib/vault/vault-fs'
 import { ThemeRadio, LayoutRadio, SWITCH_CLASSES, SWITCH_DOT } from '../controls'
 import { SETTINGS_GROUP, SETTINGS_HINT, SETTINGS_LABEL, SETTINGS_ROW } from '@/lib/ui-tokens'
-import { THEME_PRESETS } from '@/lib/theme/presets'
 export function GeneralTab() {
   const { settings, updateSetting } = useSettings()
   const { isMobile } = useDevice()
@@ -22,8 +15,6 @@ export function GeneralTab() {
     return localStorage.getItem("blur-effect-enabled") === "true"
   })
   const [blurSupported, setBlurSupported] = useState(false)
-
-  const backgroundInputRef = useRef<HTMLInputElement>(null)
 
   const isTauri = isTauriEnv()
 

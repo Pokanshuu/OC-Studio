@@ -15,8 +15,8 @@
  * - 正文 → 预设段落还没做，显示「开发中」
  */
 import { useState } from 'react'
-import { ChevronRight } from 'lucide-react'
 import { BasicInfoPanel } from '@/components/settings/BasicInfoPanel'
+import { SettingsEntryRow } from '@/components/settings/EntryRow'
 import { TemplateParamPanel } from '@/components/settings/TemplateParamPanel'
 import type { TemplateComponentId } from '@/lib/templates/types'
 
@@ -36,11 +36,11 @@ const ROWS: Row[] = [
   { key: 'gallery', label: '画廊', component: 'gallery' },
 ]
 
-export function ComponentsPanel() {
-  const [panel, setPanel] = useState<Panel>('list')
+export function ComponentsPanel({ target }: { target?: string }) {
+  const [panel, setPanel] = useState<Panel>(target ? 'info' : 'list')
 
   if (panel === 'info') {
-    return <BasicInfoPanel onBack={() => setPanel('list')} />
+    return <BasicInfoPanel onBack={() => setPanel('list')} initialId={target} />
   }
   if (panel === 'relations' || panel === 'gallery') {
     return <TemplateParamPanel componentId={panel} onBack={() => setPanel('list')} />
@@ -51,20 +51,13 @@ export function ComponentsPanel() {
       {ROWS.map((row) => {
         const enabled = row.key === 'info' || row.component !== undefined
         return (
-          <button
+          <SettingsEntryRow
             key={row.key}
-            type="button"
+            label={row.label}
+            meta={enabled ? undefined : '开发中'}
             disabled={!enabled}
             onClick={() => setPanel(row.key)}
-            className="flex items-center justify-between border-b border-line py-2.5 text-left text-sm text-ink transition-colors hover:bg-[var(--oc-hover)] disabled:cursor-default disabled:text-ink-faint disabled:hover:bg-transparent"
-          >
-            <span>{row.label}</span>
-            {enabled ? (
-              <ChevronRight size={16} strokeWidth={2} className="text-ink-faint" />
-            ) : (
-              <span className="text-[11px] text-ink-faint">开发中</span>
-            )}
-          </button>
+          />
         )
       })}
     </div>

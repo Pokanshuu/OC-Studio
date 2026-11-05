@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, RotateCcw, X } from 'lucide-react'
+import { Plus, RotateCcw } from 'lucide-react'
 import {
   BUILTIN_FIELDS,
   FIELD_KINDS,
@@ -16,7 +16,7 @@ import {
   type FieldKind,
 } from '@/lib/fields'
 import { defaultFields } from '@/lib/fields/defaults'
-import { ICON_BTN, ROUND_ITEM } from '@/lib/ui-tokens'
+import { ROUND_ITEM, SETTINGS_EMPTY } from '@/lib/ui-tokens'
 import { SortableList, moveId } from '@/components/shared/list-dnd'
 import { SettingsFieldRow } from './FieldRow'
 
@@ -118,9 +118,7 @@ function FieldGroup({ kind, showTitle = true }: { kind: FieldKind; showTitle?: b
           ))}
         </div>
       </SortableList>
-      {fields.length === 0 ? (
-        <p className="py-2 text-[12px] text-ink-faint">这一类还没有字段</p>
-      ) : null}
+      {fields.length === 0 ? <p className={SETTINGS_EMPTY}>这一类还没有字段</p> : null}
 
       <div className="flex items-center gap-2">
         {FIELD_KIND_SUPPORTS_CUSTOM[kind] ? (
