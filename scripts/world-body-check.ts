@@ -60,6 +60,12 @@ function main(): void {
   check('保存正文走 worldBodyPatch', worldServices.includes('worldBodyPatch(doc)'))
   check('保存正文不再直接写 content', !/worldEntries\.update\(id,\s*\{\s*title,\s*content,/.test(worldServices))
 
+  // 助手写正文是另一个入口 —— 这里曾经漏过：它给词条单独拼了一份 JSON 写进 content，
+  // 等于把刚收敛掉的两份真源又装回来一份。
+  const hostTools = readFileSync(join(root, 'src/plugins/agent/host/library-tools.ts'), 'utf8')
+  check('助手写正文也走 worldBodyPatch', hostTools.includes('worldBodyPatch('))
+  check('助手写正文不再按 kind 分叉拼 JSON', !/kind === 'world' \? \{ content:/.test(hostTools))
+
   console.log(`词条正文收敛自检：${passed} 项断言通过`)
 }
 

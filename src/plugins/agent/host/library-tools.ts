@@ -39,12 +39,52 @@ const writer: LibraryWriter = {
   async setBody(kind, id, markdown) {
     const { db, runAsActorAsync } = await loadWriteDeps()
     const { bodyDocFromMarkdown } = await import('@/lib/vault/write-body')
-    const doc = bodyDocFromMarkdown(markdown)
-    // 词条的正文在 `content`（JSON 字符串），其余在 `document`（对象）——
-    // 这条口径由 `markdown-bridge.ts` 定，写入侧照抄，不另立一套。
-    const patch = kind === 'world' ? { content: JSON.stringify(doc) } : { document: doc }
+    const { worldBodyPatch } = await import('@/lib/world-body')
+    // 正文只写 `document`（`lib/world-body.ts`）—— 词条也一样。
+    // 以前这里对词条写 `content: JSON.stringify(doc)`，等于把刚收敛掉的两份真源
+    // 又装回来一份；`npm run audit:world` 里有断言钉着这条。
+    const patch = worldBodyPatch(bodyDocFromMarkdown(markdown))
     await runAsActorAsync('agent:assistant', async () => {
       await db.table(TABLE_BY_KIND[kind]).update(id, { ...patch, updatedAt: Date.now() })
+    })
+  },
+  async link(from, to, relation, toName) {
+    const { db, runAsActorAsync } = await loadWriteDeps()
+    const now = Date.now()
+    return runAsActorAsync('agent:assistant', async () => {
+      if (from.kind === 'character' && to.kind === 'character') {
+        const row = await db.characters.get(from.id)
+        if (!row) return { changed: false }
+        const list = row.relatedCharacters ?? []
+        if (list.some((item) => item.characterId === to.id)) return { changed: false }
+        await db.characters.update(from.id, {
+          relatedCharacters: [...list, { characterId: to.id, name: toName, relation }],
+          updatedAt: now,
+        })
+        return { changed: true }
+      }
+      if (from.kind === 'character' && to.kind === 'country') {
+        const row = await db.characters.get(from.id)
+        if (!row || row.countryId === to.id) return { changed: false }
+        // 国籍只有这一个真源；国家页的名单是查询，不写
+        await db.characters.update(from.id, { countryId: to.id, updatedAt: now })
+        return { changed: true }
+      }
+      if (from.kind === 'event' && (to.kind === 'character' || to.kind === 'country')) {
+        const row = await db.events.get(from.id)
+        if (!row) return { changed: false }
+        if (to.kind === 'character') {
+          const list = row.characters ?? []
+          if (list.includes(to.id)) return { changed: false }
+          await db.events.update(from.id, { characters: [...list, to.id], updatedAt: now })
+          return { changed: true }
+        }
+        const list = row.countries ?? []
+        if (list.includes(to.id)) return { changed: false }
+        await db.events.update(from.id, { countries: [...list, to.id], updatedAt: now })
+        return { changed: true }
+      }
+      return { changed: false }
     })
   },
 }

@@ -333,6 +333,38 @@ export const ALL_TOOLS: ToolSpec[] = [
       additionalProperties: false,
     },
   },
+  {
+    name: 'library_link',
+    category: 'write',
+    requiresApproval: true,
+    description:
+      'Record a relationship between two existing entries: character→character, character→country ' +
+      '(nationality), event→character (participant) or event→country. The link is stored on the ' +
+      'from side only. Idempotent: linking the same pair twice is a no-op.',
+    parameters: {
+      type: 'object',
+      properties: {
+        from: {
+          type: 'string',
+          enum: ['character', 'event', 'country', 'world'],
+          description: 'Kind of the entry that owns the link (the "from" side).',
+        },
+        fromId: { type: 'integer', description: 'From entity id.' },
+        to: {
+          type: 'string',
+          enum: ['character', 'event', 'country', 'world'],
+          description: 'Kind of the entry being pointed at.',
+        },
+        toId: { type: 'integer', description: 'To entity id.' },
+        relation: {
+          type: 'string',
+          description: 'Short label, e.g. 同门 / 宿敌 / 师承. Ignored for nationality links.',
+        },
+      },
+      required: ['from', 'fromId', 'to', 'toId', 'relation'],
+      additionalProperties: false,
+    },
+  },
 ]
 
 export const TOOL_NAMES = ALL_TOOLS.map((t) => t.name)
@@ -412,6 +444,10 @@ export function toolSummary(call: ToolCall): string {
     }
     case 'library_set_body':
       return typeof args.body === 'string' ? `${args.body.length} 字` : ''
+    case 'library_link':
+      return typeof args.relation === 'string' && typeof args.toId === 'number'
+        ? `${args.relation} → #${args.toId}`
+        : ''
     case 'library_search':
       return pick('query') ?? ''
     default:

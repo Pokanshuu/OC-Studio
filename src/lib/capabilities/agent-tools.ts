@@ -27,6 +27,7 @@ export const LIBRARY_TOOL_NAMES = [
   'library_graph',
   'library_set_fields',
   'library_set_body',
+  'library_link',
 ] as const
 
 export type LibraryToolName = (typeof LIBRARY_TOOL_NAMES)[number]
@@ -51,11 +52,42 @@ const FIELD_MAX_LENGTH = 4000
 /** 正文上限：比字段宽得多，但挡住「模型一口气吐一万字」这种事故 */
 const BODY_MAX_LENGTH = 20_000
 
+/** 关系标签长度上限：`同门` / `宿敌` 这种，不该是一段话 */
+const RELATION_MAX_LENGTH = 40
+
+/**
+ * 允许建的关系边 —— **只收"真源在发起方"的那三种**（`AGENTS.md` 的成员关系单向原则）。
+ *
+ * 国家页的「相关角色 / 相关事件」是查询，不是存储；所以这里没有 country → character，
+ * 只有 character → country（写 `countryId`，也就是国籍）。多写一份镜像就是又一个会漂的真源。
+ */
+const LINKABLE: readonly string[] = [
+  'character→character（`relatedCharacters`）',
+  'character→country（`countryId`，即国籍）',
+  'event→character（`characters`）',
+  'event→country（`countries`）',
+]
+
+function linkKeyOf(from: { kind: EntityKind; id: number }, to: { kind: EntityKind; id: number }): string | null {
+  const pair = `${from.kind}→${to.kind}`
+  return LINKABLE.some((item) => item.startsWith(pair)) ? pair : null
+}
+
 /** 写库动作：注入进来，执行器本身不碰 Dexie（脚本里也能跑） */
 export interface LibraryWriter {
   setFields(kind: EntityKind, id: number, patch: Record<string, string>): Promise<void>
   /** 整篇正文替换。`markdown` 会过 vault 的 Markdown → Tiptap 桥 */
   setBody(kind: EntityKind, id: number, markdown: string): Promise<void>
+  /**
+   * 建一条关系边。**真源只写在发起方**（全局唯一的单向原则）。
+   * 返回 `changed = false` 表示这条已经存在，什么都没动。
+   */
+  link(
+    from: { kind: EntityKind; id: number },
+    to: { kind: EntityKind; id: number },
+    relation: string,
+    toName: string,
+  ): Promise<{ changed: boolean }>
 }
 
 const KINDS: readonly EntityKind[] = ['character', 'event', 'country', 'world']
@@ -161,6 +193,44 @@ export function createLibraryToolExecutor(capabilities: Capabilities, writer?: L
         const rows = await capabilities.search(AGENT_CALLER, query, limit)
         if (rows.length === 0) return finish(ok(`没有匹配「${query}」的条目。`))
         return finish(ok(`匹配「${query}」${rows.length} 条：\n${rows.map(summaryLine).join('\n')}`, rows))
+      }
+
+      // library_link：建一条关系边（真源只写发起方）
+      if (name === 'library_link') {
+        if (!writer) return finish(fail('这个环境不能写库。'))
+        const fromKind = kindOf(args.from)
+        const toKind = kindOf(args.to)
+        if (!fromKind || !toKind) {
+          return finish(fail('from / to 必须是 character / event / country / world 之一。'))
+        }
+        const fromId = numberOf(args.fromId, -1, 0, Number.MAX_SAFE_INTEGER)
+        const toId = numberOf(args.toId, -1, 0, Number.MAX_SAFE_INTEGER)
+        if (fromId < 0 || toId < 0) return finish(fail('需要 fromId 与 toId。'))
+        if (fromKind === toKind && fromId === toId) return finish(fail('不能连到自己。'))
+        if (linkKeyOf({ kind: fromKind, id: fromId }, { kind: toKind, id: toId }) === null) {
+          return finish(fail(`不支持 ${fromKind} → ${toKind}。能建的是：${LINKABLE.join('、')}。`))
+        }
+        const relation = textOf(args.relation).slice(0, RELATION_MAX_LENGTH)
+        if (relation === '') return finish(fail('relation 不能为空，写清楚是什么关系。'))
+        // 两端都要真的存在，否则会写出一条指向空气的边
+        const [fromEntry, toEntry] = await Promise.all([
+          capabilities.getEntity(AGENT_CALLER, fromKind, fromId),
+          capabilities.getEntity(AGENT_CALLER, toKind, toId),
+        ])
+        const linked = await writer.link(
+          { kind: fromKind, id: fromId },
+          { kind: toKind, id: toId },
+          relation,
+          toEntry.title,
+        )
+        return finish(
+          ok(
+            linked.changed
+              ? `已建立 ${fromEntry.title} → ${toEntry.title}（${relation}）。`
+              : `${fromEntry.title} 与 ${toEntry.title} 之间已经有这条关系，没有改动。`,
+            { changed: linked.changed },
+          ),
+        )
       }
 
       // library_graph

@@ -151,6 +151,7 @@ async function main(): Promise<void> {
 
   const writes: Array<{ kind: string; id: number; patch: Record<string, string> }> = []
   const bodies: Array<{ kind: string; id: number; markdown: string }> = []
+  const links: Array<{ from: string; fromId: number; to: string; toId: number; relation: string }> = []
   const writer = {
     async setFields(kind: EntityKind, id: number, patch: Record<string, string>) {
       writes.push({ kind, id, patch })
@@ -161,6 +162,27 @@ async function main(): Promise<void> {
       bodies.push({ kind, id, markdown })
       const row = characters.find((item) => item.id === id)
       if (row) Object.assign(row, { bio: markdown })
+    },
+    async link(
+      from: { kind: EntityKind; id: number },
+      to: { kind: EntityKind; id: number },
+      relation: string,
+      toName: string,
+    ) {
+      // 幂等语义与真实现一致：同一对已经连过就返回 changed: false
+      const exists = links.some(
+        (item) => item.fromId === from.id && item.to === to.kind && item.toId === to.id,
+      )
+      if (exists) return { changed: false }
+      links.push({ from: from.kind, fromId: from.id, to: to.kind, toId: to.id, relation })
+      const row = characters.find((item) => item.id === from.id)
+      if (row) {
+        row.relatedCharacters = [
+          ...(row.relatedCharacters ?? []),
+          { characterId: to.id, name: toName, relation },
+        ]
+      }
+      return { changed: true }
     },
   }
   const resolveW = createLibraryToolExecutor(createCapabilities(store), writer)
@@ -272,6 +294,37 @@ async function main(): Promise<void> {
   }
   check('没有会话时不抛异常', !threw)
   check('没有会话时仍产出 doc', degraded !== null)
+
+  // ── library_link（建关系边）────────────────────────────────────────────
+  const linkNoWriter = await resolve('library_link', { from: 'character', fromId: 7, to: 'character', toId: 8, relation: '同门' })
+  check('没注入 writer 时连不了', linkNoWriter?.isError === true)
+
+  const linked = await resolveW('library_link', { from: 'character', fromId: 7, to: 'character', toId: 8, relation: '同门' })
+  check('建边成功', linked?.isError === false, linked?.content.slice(0, 60))
+  check('边落到 writer 上', links.length === 1 && links[0]?.from === 'character' && links[0]?.to === 'character')
+  check('两边标题都在回执里', linked?.content.includes('林知遥') === true && linked?.content.includes('沈砚') === true)
+
+  const again = await resolveW('library_link', { from: 'character', fromId: 7, to: 'character', toId: 8, relation: '同门' })
+  check('同一条边重复连是空操作', again?.isError === false && again?.content.includes('没有改动') === true)
+  check('重复连没有再写一次', links.length === 1)
+
+  const selfLink = await resolveW('library_link', { from: 'character', fromId: 7, to: 'character', toId: 7, relation: '自己' })
+  check('不能连到自己', selfLink?.isError === true)
+
+  const badPair = await resolveW('library_link', { from: 'country', fromId: 1, to: 'character', toId: 7, relation: '所属' })
+  check('国家→角色被拒（真源在角色侧）', badPair?.isError === true && badPair?.content.includes('不支持') === true)
+
+  const emptyRelation = await resolveW('library_link', { from: 'character', fromId: 7, to: 'character', toId: 8, relation: '  ' })
+  check('空关系名被拒', emptyRelation?.isError === true)
+
+  const missingTo = await resolveW('library_link', { from: 'character', fromId: 7, to: 'character', toId: 999, relation: '同门' })
+  check('目标不存在时报错', missingTo?.isError === true)
+  check('目标不存在时没有写边', links.length === 1)
+
+  check(
+    'toolSummary 认 library_link',
+    toolSummary({ id: 'c5', name: 'library_link', args: '{"toId":8,"relation":"同门"}' } as never) === '同门 → #8',
+  )
 
   // ── 调用方身份 ────────────────────────────────────────────────────────
   check('调用方是助手本人', AGENT_CALLER.actor === 'agent:assistant')
