@@ -25,20 +25,21 @@ export type InfoGroupHost = 'character' | 'event' | 'world' | 'note'
 /**
  * 笔记型字段的控件类型（列型宿主不用它 —— 那边的控件由 `lib/fields` 的 `FieldDef.type` 决定）。
  *
- * 只有五种：写作面上真正需要区分的就这几类，再往上加就变成表单设计器了（`docs/模板.md §12`）。
+ * 只有四种：写作面上真正需要区分的就这几类，再往上加就变成表单设计器了（`docs/模板.md §12`）。
+ * **没有「多行」**：长文本归正文组件（富文本），基本信息只管结构化短字段 —— 在这里开一个
+ * 多行框，等于在正文旁边再造一份长篇正文，两边还会各写各的。
  * 存成字符串，读回来认不出来的一律回 `text`，不因为一个坏值把整份组件读废。
  */
-export type InfoFieldType = 'text' | 'longtext' | 'number' | 'date' | 'boolean'
+export type InfoFieldType = 'text' | 'number' | 'date' | 'boolean'
 
 export const INFO_FIELD_TYPE_LABELS: Record<InfoFieldType, string> = {
   text: '单行',
-  longtext: '多行',
   number: '数字',
   date: '日期',
   boolean: '开关',
 }
 
-const INFO_FIELD_TYPES: InfoFieldType[] = ['text', 'longtext', 'number', 'date', 'boolean']
+const INFO_FIELD_TYPES: InfoFieldType[] = ['text', 'number', 'date', 'boolean']
 
 export function isInfoFieldType(value: unknown): value is InfoFieldType {
   return typeof value === 'string' && (INFO_FIELD_TYPES as string[]).includes(value)
@@ -104,24 +105,17 @@ export const BUILTIN_INFO_GROUPS: InfoGroup[] = [
       '年龄',
       '体型',
       '体重',
-      '外观特征',
-      '性格',
-      '习性',
       '饮食偏好',
-      '能力技能',
       '出生日期',
       '收养日期',
       '栖息地',
       '当前状态',
     ],
-    // 出厂就给几项非单行：这几列天生是多行 / 数字 / 日期，别让用户一个个点
+    // 出厂就给几项非单行：这几列天生是数字 / 日期，别让用户一个个点。
+    // 外观 / 性格 / 习性 / 能力技能不在这里 —— 那几段是正文，不是字段。
     types: {
       年龄: 'number',
       体重: 'number',
-      外观特征: 'longtext',
-      性格: 'longtext',
-      习性: 'longtext',
-      能力技能: 'longtext',
       出生日期: 'date',
       收养日期: 'date',
     },
@@ -140,16 +134,13 @@ export const BUILTIN_INFO_GROUPS: InfoGroup[] = [
       '制造者',
       '铸造时间',
       '来源',
-      '使用条件',
-      '能力效果',
       '属性元素',
       '当前状态',
     ],
+    // 使用条件 / 能力效果不进字段表：两段都是正文
     types: {
       重量: 'number',
       铸造时间: 'date',
-      使用条件: 'longtext',
-      能力效果: 'longtext',
     },
   },
 ]

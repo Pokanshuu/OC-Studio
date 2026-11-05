@@ -311,11 +311,14 @@ check(
     reordered.fields.join(',') === characterDefaults.fields.join(','),
   '列型宿主的字段没有按 FieldConfig 投影（盘上的值越权了）',
 )
-/* ── 字段类型：只有笔记型组件有，且必须是五种之一 ───────────────────── */
+/* ── 字段类型：只有笔记型组件有，且必须是四种之一（没有「多行」）────────── */
 
 const petBuiltin = BUILTIN_INFO_GROUPS.find((group) => group.id === 'group-pet')
 check(petBuiltin?.types?.['出生日期'] === 'date', '内置宠物组件的出生日期不是日期类型')
-check(petBuiltin?.types?.['外观特征'] === 'longtext', '内置宠物组件的外观特征不是多行类型')
+check(
+  petBuiltin !== undefined && !petBuiltin.fields.includes('外观特征'),
+  '内置宠物组件还留着长文字段（那几段归正文）',
+)
 check(infoFieldTypeOf(petBuiltin, '品种') === 'text', '没设类型的字段没有回落到单行')
 check(infoFieldTypeOf(undefined, 'x') === 'text', '组件不存在时类型访问炸了')
 
@@ -323,14 +326,18 @@ const typedSaved = normalizeInfoGroups([
   {
     id: 'group-pet',
     name: '宠物',
-    fields: ['年龄', '性格'],
-    types: { 年龄: 'number', 性格: 'longtext', 不存在的键: 'date', 性格2: '看不懂' },
+    fields: ['年龄', '性格', '退役'],
+    types: { 年龄: 'number', 性格: 'boolean', 退役: 'longtext', 不存在的键: 'date', 性格2: '看不懂' },
   },
 ]).find((group) => group.id === 'group-pet')
 check(typedSaved?.types?.['年龄'] === 'number', '笔记型组件的字段类型没存住')
-check(typedSaved?.types?.['性格'] === 'longtext', '笔记型组件的第二个字段类型丢了')
+check(typedSaved?.types?.['性格'] === 'boolean', '笔记型组件的第二个字段类型丢了')
 check(typedSaved !== undefined && !('不存在的键' in (typedSaved.types ?? {})), '已删除字段的类型仍留在盘上')
 check(typedSaved !== undefined && !('性格2' in (typedSaved.types ?? {})), '不认识的类型被读回来了')
+check(
+  typedSaved !== undefined && !('退役' in (typedSaved.types ?? {})),
+  '已退役的「多行」类型被读回来了（应当回落单行）',
+)
 
 // 列型宿主：控件归字段表，组件里写的类型不作数
 const columnTyped = normalizeInfoGroups([

@@ -31,7 +31,7 @@ export function SettingsFieldRow({
   /** 落盘用的键（给了才显示第二个输入框；显示名可以跟它不同） */
   keyValue?: string
   onKeyChange?: (next: string) => void
-  /** 名称右边的控件（基本信息组件的「单行 / 多行 / 数字…」选择） */
+  /** 名称右边的控件（基本信息组件的「单行 / 数字 / 日期 / 开关」选择） */
   typeSlot?: ReactNode
   onRename: (next: string) => void
   onRemove: () => void

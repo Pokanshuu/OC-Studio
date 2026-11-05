@@ -7,11 +7,13 @@
  * `WorldEntry.custom` 对应的那几行。分类条目（宠物 / 武器）也用它补字段，
  * 因此编辑器和分类编辑器共用同一份实现，不各写一套。
  *
- * 版式沿用实体编辑器的字段行（`SECTION_TITLE` + `FIELD_ROW` + `FIELD_LABEL`），
- * 但分两块排：**整宽（多行）在前、两列（`FIELD_GRID` + `gap-x-10`）在后**。
- * 两类交叉就会把这一节切成三截，见下方注释。
+ * 版式跟实体编辑器（角色基本信息）一字不差：`SECTION_TITLE` + 宽栏两列
+ * （`FIELD_GRID` + `gap-x-10`），窄屏回落单列。
+ *
+ * **只有单行控件**：长文本归正文组件。这里若开多行框，等于在正文旁边再造
+ * 一份长篇正文 —— 两边各写各的，写的人自己都不知道该写哪边。
  */
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import type { WorldEntry } from '@/types'
 import { useFields, type FieldDef } from '@/lib/fields'
@@ -20,49 +22,9 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { updateEntry } from '@/features/world/services'
 import { FIELD_GRID, FIELD_INPUT, FIELD_LABEL, FIELD_ROW, SECTION_TITLE } from '@/lib/ui-tokens'
 
-/** 一行的高度（`leading-6`）—— 折叠 / 展开都按它算，别和 class 里的行高各写一个数 */
-const LINE = 24
-/** 展开后至少三行：空着的一行撑不住「这里能写一段」的观感 */
-const MIN_LINES = 3
-
-/**
- * 多行字段。**空着且没聚焦时只占一行**（写作面上不预留空地），
- * 聚焦或有内容 → 三行起，超过三行跟着内容长高。
- *
- * 高度是量出来的（`scrollHeight`），不是 `rows` 写死的：一旦写死，
- * 三行以上的内容就只能在框里滚，看不见自己写了多少。
- */
-function LongTextField({ value, onChange }: { value: string; onChange: (next: string) => void }) {
-  const ref = useRef<HTMLTextAreaElement | null>(null)
-  const [focused, setFocused] = useState(false)
-
-  const resize = useCallback(() => {
-    const el = ref.current
-    if (el === null) return
-    el.style.height = 'auto'
-    const lines = focused || value !== '' ? MIN_LINES : 1
-    el.style.height = `${Math.max(el.scrollHeight, lines * LINE)}px`
-  }, [focused, value])
-
-  // 布局阶段量，避免「先画一行再跳到三行」的闪动
-  useLayoutEffect(resize, [resize])
-
-  return (
-    <textarea
-      ref={ref}
-      rows={1}
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
-      className="w-full resize-none overflow-hidden bg-transparent text-sm leading-6 text-ink placeholder:text-ink-faint focus:outline-none"
-    />
-  )
-}
-
 /**
  * 一个字段的控件。类型来自模板选中的基本信息组件（`InfoGroup.types`）：
- * 单行 / 多行 / 数字 / 日期 / 开关 —— 只这五种，别在这里悄悄长出第六种。
+ * 单行 / 数字 / 日期 / 开关 —— 只这四种，别在这里悄悄长出第五种。
  *
  * 值一律存字符串（`WorldEntry.custom` 是 `Record<string,string>`）：
  * 开关存 `'true' | 'false'`，日期存 `YYYY-MM-DD`，数字存原始文本（不做运算，只做录入）。
@@ -80,9 +42,6 @@ function FieldControl({
     return (
       <Checkbox checked={value === 'true'} onCheckedChange={(checked) => onChange(checked === true ? 'true' : 'false')} />
     )
-  }
-  if (type === 'longtext') {
-    return <LongTextField value={value} onChange={onChange} />
   }
   return (
     <input
@@ -157,53 +116,27 @@ export function WorldCustomFields({
 
   if (fields.length === 0) return null
 
-  /**
-   * 两类字段不交叉，各占一块：
-   * - **多行** → 整宽（单列），聚在前
-   * - **单行 / 数字 / 日期 / 开关** → 两列网格，接在后面
-   *
-   * 混排（两列 → 整宽 → 两列）会把这一节切成三截，整宽那几行还各留半格空位，
-   * 看着像排版错了。分块之后整宽连成一片，两列也始终成对。
-   */
   const rows = fields.flatMap((field) => {
     const key = field.key
     if (key === undefined) return []
     return [{ field, key, type: fieldTypes?.[key] ?? ('text' as InfoFieldType) }]
   })
-  const narrow = rows.filter((row) => row.type !== 'longtext')
-  const wide = rows.filter((row) => row.type === 'longtext')
-
-  const renderRow = (row: (typeof rows)[number], wideRow: boolean) => (
-    <div
-      key={row.field.id}
-      className={`${FIELD_ROW} ${wideRow ? 'flex-col items-stretch gap-1' : ''}`}
-    >
-      <span className={FIELD_LABEL}>{fieldLabels?.[row.key] ?? row.field.label}</span>
-      <FieldControl
-        type={row.type}
-        value={values[row.key] ?? ''}
-        onChange={(next) => handleChange(row.key, next)}
-      />
-    </div>
-  )
 
   return (
     <section>
       <h3 className={SECTION_TITLE}>基本信息</h3>
-      {wide.length > 0 ? (
-        <div className="flex flex-col [&>*:last-child]:border-b-0">
-          {wide.map((row) => renderRow(row, true))}
-        </div>
-      ) : null}
-      {narrow.length > 0 ? (
-        <div
-          className={`grid grid-cols-1 gap-x-10 sm:grid-cols-2 ${FIELD_GRID} ${
-            wide.length > 0 ? 'mt-5' : ''
-          }`}
-        >
-          {narrow.map((row) => renderRow(row, false))}
-        </div>
-      ) : null}
+      <div className={`grid grid-cols-1 gap-x-10 sm:grid-cols-2 ${FIELD_GRID}`}>
+        {rows.map((row) => (
+          <div key={row.field.id} className={FIELD_ROW}>
+            <span className={FIELD_LABEL}>{fieldLabels?.[row.key] ?? row.field.label}</span>
+            <FieldControl
+              type={row.type}
+              value={values[row.key] ?? ''}
+              onChange={(next) => handleChange(row.key, next)}
+            />
+          </div>
+        ))}
+      </div>
     </section>
   )
 }
