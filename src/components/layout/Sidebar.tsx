@@ -59,12 +59,11 @@ const CODEX_ITEMS = [
   { label: '国家', icon: Flag },
 ] as const
 
+/** 视图 = 看世界的几个角度（相册与回收站固定在底部，不在这组） */
 const VIEW_ITEMS = [
-  { label: '时间线', icon: Clock },
   { label: '地图', icon: Map },
+  { label: '时间线', icon: Clock },
   { label: '关系图', icon: GitBranch },
-  { label: '相册', icon: Images },
-  { label: '树表', icon: Table2 },
 ] as const
 
 const ITEM_BASE =
@@ -206,6 +205,9 @@ export function Sidebar() {
             <span className="transparent-text">主页</span>
           </button>
 
+          {/* 树表紧跟在主页后面：它是「把整库摊开看」的那一张表，不属于任何一组视图 */}
+          {renderItem('树表', Table2)}
+
           {/* 图鉴 = 从世界里抽出来的条目；创作 = 你自己的世界（词条树） */}
           <div className={GROUP_LABEL}>图鉴</div>
           {CODEX_ITEMS.map((item) => renderItem(item.label, item.icon))}
@@ -216,7 +218,29 @@ export function Sidebar() {
           <div className={GROUP_LABEL}>视图</div>
           {VIEW_ITEMS.map((item) => renderItem(item.label, item.icon))}
 
-          {/* 自定义分类：分类 = 模板 + 一组笔记（宠物 / 武器 都住在这里，不塞进角色） */}
+          {/* 工具：插件给的能力面板。装 / 关都在 设置 › 插件，这里只列已启用的 */}
+          {toolPlugins.length > 0 ? (
+            <>
+              <div className={GROUP_LABEL}>工具</div>
+              {toolPlugins.map((plugin) => {
+                const Icon = TOOL_ICONS[plugin.id] ?? Wrench
+                const item = toolItem(plugin.id)
+                return (
+                  <button
+                    key={plugin.id}
+                    onClick={() => setActiveItem(item)}
+                    className={`${ITEM_BASE} ${activeItem === item ? ITEM_ON : ITEM_OFF}`}
+                  >
+                    <Icon size={16} strokeWidth={2} className="shrink-0" />
+                    <span className="transparent-text">{plugin.name}</span>
+                  </button>
+                )
+              })}
+            </>
+          ) : null}
+
+          {/* 自定义分类：分类 = 模板 + 一组笔记（宠物 / 武器 都住在这里，不塞进角色）。
+              排在工具之后 —— 它是自己长出来的那一层，位置贴着底部固定区。 */}
           <div className={GROUP_LABEL}>自定义分类</div>
           {categories.filter((category) => category.enabled).map((category) => {
             const Icon = categoryIconOf(category.icon)
@@ -240,27 +264,6 @@ export function Sidebar() {
             <Plus size={16} strokeWidth={2} className="shrink-0" />
             <span className="transparent-text">新建分类</span>
           </button>
-
-          {/* 工具：插件给的能力面板。装 / 关都在 设置 › 插件，这里只列已启用的 */}
-          {toolPlugins.length > 0 ? (
-            <>
-              <div className={GROUP_LABEL}>工具</div>
-              {toolPlugins.map((plugin) => {
-                const Icon = TOOL_ICONS[plugin.id] ?? Wrench
-                const item = toolItem(plugin.id)
-                return (
-                  <button
-                    key={plugin.id}
-                    onClick={() => setActiveItem(item)}
-                    className={`${ITEM_BASE} ${activeItem === item ? ITEM_ON : ITEM_OFF}`}
-                  >
-                    <Icon size={16} strokeWidth={2} className="shrink-0" />
-                    <span className="transparent-text">{plugin.name}</span>
-                  </button>
-                )
-              })}
-            </>
-          ) : null}
         </nav>
 
         <CategoryDialog
@@ -298,7 +301,9 @@ export function Sidebar() {
           />
         ) : null}
 
+        {/* 底部固定区：相册 / 回收站 / 设置 —— 不是「内容」，一直贴在最下面 */}
         <div className="flex flex-col border-t border-line py-2">
+          {renderItem('相册', Images)}
           <button onClick={openTrash} className={`${ITEM_BASE} ${ITEM_OFF}`}>
             <Trash2 size={16} strokeWidth={2} className="shrink-0" />
             <span className="transparent-text">回收站</span>
