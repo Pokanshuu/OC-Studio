@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * 树形表格（W5）：角色 / 事件 / 国家 / 词条 的同源表格视图。
+ * 表格（树形表格，原「树表」页，W5）：角色 / 事件 / 国家 / 词条 的同源表格视图。
  *
  * 口径（`docs/todo.md` §1、`docs/模板.md` §1.4）：
  * - 词条 / 国家 / 角色的**层级与分组只由 `parentId` / `countryId` 决定**，
@@ -352,7 +352,7 @@ export function TreeTable({
       <div className="md:hidden h-[calc(60px+var(--safe-top))]" aria-hidden />
 
       <PageToolbar
-        title="树形表格"
+        title="表格"
         className="md:px-6"
         actions={
           <>

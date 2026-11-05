@@ -2,10 +2,10 @@
  * 「新建一条实体」时的默认值 —— **唯一源**。
  *
  * 这些字面量原先散在 `lib/use-entity-workspace.ts` 的四个 `handleCreateX` 里；
- * 树形表格的「新增」也要造同样的空行，抄第二份就会漂（改了一边另一边不知情）。
+ * 表格（树形表格）的「新增」也要造同样的空行，抄第二份就会漂（改了一边另一边不知情）。
  *
  * 这里只给**数据**，不负责落库、不负责导航：谁新建，谁决定建完停在哪
- * （工作区会打开编辑器，树表留在表里）。
+ * （工作区会打开编辑器，表格留在表里）。
  */
 import type { WorldFormData } from '@/features/world/types'
 import type { CountryFormData } from '@/features/countries/types'

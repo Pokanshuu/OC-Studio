@@ -61,6 +61,7 @@ const CODEX_ITEMS = [
 
 /** 视图 = 看世界的几个角度（相册与回收站固定在底部，不在这组） */
 const VIEW_ITEMS = [
+  { label: '表格', icon: Table2 },
   { label: '地图', icon: Map },
   { label: '时间线', icon: Clock },
   { label: '关系图', icon: GitBranch },
@@ -204,9 +205,6 @@ export function Sidebar() {
             <House size={16} strokeWidth={2} className="shrink-0" />
             <span className="transparent-text">主页</span>
           </button>
-
-          {/* 树表紧跟在主页后面：它是「把整库摊开看」的那一张表，不属于任何一组视图 */}
-          {renderItem('树表', Table2)}
 
           {/* 图鉴 = 从世界里抽出来的条目；创作 = 你自己的世界（词条树） */}
           <div className={GROUP_LABEL}>图鉴</div>

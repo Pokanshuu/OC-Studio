@@ -47,7 +47,7 @@ export function useEntityWorkspace() {  const { activeItem: desktopActiveItem, s
         : mobileNav.section === 'album' ? '相册'
         : mobileNav.section === 'novel' ? '小说'
         : mobileNav.section === 'map' ? '地图'
-        : mobileNav.section === 'tree' ? '树表'
+        : mobileNav.section === 'tree' ? '表格'
         : mobileNav.section === 'category' ? desktopActiveItem
         : mobileNav.section === 'home' ? null
         : desktopActiveItem)
@@ -617,7 +617,7 @@ export function useEntityWorkspace() {  const { activeItem: desktopActiveItem, s
   const showTimeline = activeItem === '时间线'
   const showNovel = activeItem === '小说'
   const showInspiration = activeItem === '灵感'
-  const showTreeTable = activeItem === '树表'
+  const showTreeTable = activeItem === '表格'
   const showMap = activeItem === '地图'
   const showRelations = activeItem === '关系图'
   const showAlbum = activeItem === '相册'

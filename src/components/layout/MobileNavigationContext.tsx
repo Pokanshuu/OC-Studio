@@ -8,7 +8,7 @@ export type MobileSection =
   | 'timeline'
   | 'relations'
   | 'album'
-  /** 底栏放不下的新区块（更多 → 小说 / 地图 / 树表 / 主页 / 自定义分类） */
+  /** 底栏放不下的新区块（更多 → 小说 / 地图 / 表格 / 主页 / 自定义分类） */
   | 'home'
   | 'novel'
   | 'map'

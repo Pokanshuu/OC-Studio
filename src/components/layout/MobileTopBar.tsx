@@ -22,7 +22,7 @@ const SECTION_TITLES: Record<string, string> = {
   home: '主页',
   novel: '小说',
   map: '地图',
-  tree: '树表',
+  tree: '表格',
   category: '分类',
 }
 
@@ -36,7 +36,7 @@ const MORE_ITEMS: Array<{ label: string; section: 'home' | 'novel' | 'map' | 'tr
   { label: '主页', section: 'home', icon: House },
   { label: '小说', section: 'novel', icon: BookText },
   { label: '地图', section: 'map', icon: Map },
-  { label: '树表', section: 'tree', icon: Table2 },
+  { label: '表格', section: 'tree', icon: Table2 },
 ]
 
 export function MobileTopBar() {
