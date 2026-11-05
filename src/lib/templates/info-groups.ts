@@ -31,14 +31,46 @@ export interface InfoGroup {
   fields: string[]
   /** 内置组件：可改、不可删（删了下次读盘会回来） */
   builtin?: boolean
+  /**
+   * 宿主：这份字段属于哪类实体。
+   *
+   * - character / vent / world：字段是**实体列 id**（ace / irthday），
+   *   值读列、控件由 lib/fields/defaults.ts 的 	ype 决定
+   * - 
+ote：字段是**自建键**（物种 / 材质），值落 WorldEntry.custom`n   *
+   * 它只决定「哪些模板能选到这份组件」，不改变字段的读写方式。
+   */
+  for?: InfoGroupHost
 }
 
 /** 内置基本信息组件：宠物 / 武器的出厂字段表 */
 export const BUILTIN_INFO_GROUPS: InfoGroup[] = [
   {
+    id: 'group-character',
+    name: '角色',
+    builtin: true,
+    for: 'character',
+    fields: BUILTIN_FIELDS.character.map((field) => field.id),
+  },
+  {
+    id: 'group-event',
+    name: '事件',
+    builtin: true,
+    for: 'event',
+    fields: BUILTIN_FIELDS.event.map((field) => field.id),
+  },
+  {
+    id: 'group-world',
+    name: '词条',
+    builtin: true,
+    for: 'world',
+    fields: BUILTIN_FIELDS.worldEntry.map((field) => field.id),
+  },
+  {
     id: 'group-pet',
     name: '宠物',
     builtin: true,
+    for: 'note',
     fields: [
       '物种',
       '品种',
@@ -61,6 +93,7 @@ export const BUILTIN_INFO_GROUPS: InfoGroup[] = [
     id: 'group-weapon',
     name: '武器',
     builtin: true,
+    for: 'note',
     fields: [
       '武器类型',
       '材质',
