@@ -119,18 +119,14 @@ export function ThemePresetRadio({
               onChange={() => onChange(preset.id as ThemePresetId)}
               className="peer sr-only"
             />
-            {/* 一枚圆点就是一套纸色：纸色做底、墨色做内圈，选中时外面再套一圈墨 */}
+            {/* 一枚圆点就是一套纸色。用的是**样品色**而不是纸色本身：
+                纸色都压到接近中性，拿它画圆点几乎分不出色相。 */}
             <span
               aria-hidden
-              className={`block h-6 w-6 rounded-full border transition-[box-shadow,border-color] peer-focus-visible:border-line-hover ${
-                selected ? 'border-line-hover' : 'border-line hover:border-line-hover'
+              className={`block h-6 w-6 rounded-full border transition-colors peer-focus-visible:border-line-hover ${
+                selected ? 'border-ink' : 'border-transparent hover:border-line-hover'
               }`}
-              style={{
-                background: preset.preview.paper,
-                boxShadow: selected
-                  ? `inset 0 0 0 2px ${preset.preview.ink}, inset 0 0 0 5px ${preset.preview.paper}`
-                  : `inset 0 0 0 2px ${preset.preview.paper}, inset 0 0 0 4px ${preset.preview.ink}33`,
-              }}
+              style={{ background: preset.swatch }}
             />
           </label>
         )
