@@ -2,6 +2,11 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+/* 助手插件自带的样式表：已在生成时收进 `.oc-agent-root` 作用域，不会泄进宿主。
+   生成脚本 `scripts/scope-plugin-css.mjs`，上游更新时重跑即可。 */
+@import "../plugins/agent/styles/agent-scoped.css";
+@import "../plugins/agent/styles/markdown-scoped.css";
+
 /* 自动内容扫描不要进构建产物：Tauri target / Android build 里是几十 MB 的二进制和压缩 JS，
    扫进来会把 Tailwind 的 PostCSS 进程撑到 OOM（它们也不产生任何类名）。 */
 @source not "../../src-tauri";
@@ -882,6 +887,21 @@ body[data-map-immersive='true'] [data-dev-mock] {
 }
 .overlay-panel {
   animation: overlay-panel-in 160ms ease-out;
+}
+
+/* 导出中心：窄屏上下分区。预览固定高度，配置区吃剩余并自己滚动。
+   不用 `max-md:h-[..]` —— 那一档在列向 flex 里会被 `flex-basis: 0` 吃掉。 */
+@media (max-width: 767px) {
+  .export-panel { flex-direction: column; }
+  .export-preview { flex: none; height: 46vh; }
+  .export-config {
+    width: 100%;
+    min-height: 0;
+    flex: 1 1 0%;
+    overflow: hidden;
+    border-left: 0;
+    border-top: 1px solid var(--oc-line);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

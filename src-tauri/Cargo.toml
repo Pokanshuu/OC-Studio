@@ -29,3 +29,30 @@ window-vibrancy = "0.7"
 windows-version = "0.1"
 tauri-plugin-clipboard-manager = "2.3.2"
 
+# ── 助手插件（照 Simple-Agent 的清单原样引）──────────────────────────────
+tauri-plugin-opener = "2"
+tokio = { version = "1", features = [
+  "rt-multi-thread",
+  "sync",
+  "time",
+  "macros",
+  "process",
+  "io-util",
+] }
+reqwest = { version = "0.12", default-features = false, features = [
+  "json",
+  "stream",
+  "rustls-tls",
+  "gzip",
+] }
+futures-util = "0.3"
+rusqlite = { version = "0.41", features = ["bundled"] }
+keyring = "4"
+uuid = { version = "1", features = ["v4"] }
+anyhow = "1"
+zip = { version = "9", default-features = false, features = ["deflate"] }
+regex = "1"
+walkdir = "2"
+base64 = "0.23"
+percent-encoding = "2"
+

@@ -1,0 +1,365 @@
+/* 由 scripts/scope-plugin-css.mjs 从插件源码生成，勿手改。作用域：.oc-agent-root */
+.oc-agent-root .md{
+font-size: calc(15px * var(--font-scale));
+  line-height: 1.75;
+  color: var(--oc-ink);
+
+  word-break: normal;
+  overflow-wrap: break-word;
+  line-break: strict;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+.oc-agent-root [data-lang='zh'] .md{
+text-align: justify;
+  text-justify: inter-ideograph;
+}
+.oc-agent-root .md-block{
+display: block;
+}
+.oc-agent-root .md-block > :first-child{
+margin-top: 0;
+}
+.oc-agent-root .md-block > :last-child{
+margin-bottom: 0;
+}
+.oc-agent-root .md p{
+margin: 0 0 0.55em;
+}
+.oc-agent-root .md-block p:last-child{
+margin-bottom: 0;
+}
+.oc-agent-root .md h1, .oc-agent-root .md h2, .oc-agent-root .md h3, .oc-agent-root .md h4, .oc-agent-root .md h5, .oc-agent-root .md h6{
+margin: 1.1em 0 0.45em;
+  font-family: var(--font-serif);
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+  color: var(--oc-ink);
+}
+.oc-agent-root .md-block > h1:first-child, .oc-agent-root .md-block > h2:first-child, .oc-agent-root .md-block > h3:first-child, .oc-agent-root .md-block > h4:first-child{
+margin-top: 0.1em;
+}
+.oc-agent-root .md h1{
+font-size: 1.5em;
+}
+.oc-agent-root .md h2{
+font-size: 1.28em;
+}
+.oc-agent-root .md h3{
+font-size: 1.14em;
+}
+.oc-agent-root .md h4{
+font-size: 1.02em;
+}
+.oc-agent-root .md h5, .oc-agent-root .md h6{
+font-size: 0.96em;
+  color: var(--oc-ink-muted);
+}
+.oc-agent-root .md ul, .oc-agent-root .md ol{
+margin: 0 0 0.55em;
+  padding-left: 1.4em;
+}
+.oc-agent-root .md li{
+margin: 0.16em 0;
+}
+.oc-agent-root .md li > p{
+margin: 0.2em 0;
+}
+.oc-agent-root .md li::marker{
+color: var(--oc-ink-faint);
+}
+.oc-agent-root .md ul ul, .oc-agent-root .md ol ol, .oc-agent-root .md ul ol, .oc-agent-root .md ol ul{
+margin: 0.2em 0;
+}
+.oc-agent-root .md blockquote{
+margin: 0.35em 0;
+  padding: 0.05em 0 0.05em 0.9em;
+  border-left: 2px solid var(--oc-line-hover);
+  color: var(--oc-ink-muted);
+}
+.oc-agent-root .md blockquote p:last-child{
+margin-bottom: 0;
+}
+.oc-agent-root .md hr{
+border: none;
+  border-top: 1px solid var(--oc-line);
+  margin: 1em 0;
+}
+.oc-agent-root .md a{
+color: var(--oc-ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--oc-line-hover);
+}
+.oc-agent-root .md a:hover{
+text-decoration-color: var(--oc-ink-muted);
+}
+.oc-agent-root .md strong{
+font-weight: 600;
+}
+.oc-agent-root .md code{
+overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  padding: 0.1em 0.34em;
+  border-radius: var(--r-item);
+  background: var(--oc-paper-card);
+  word-break: break-word;
+}
+.oc-agent-root .md pre code{
+padding: 0;
+  background: none;
+  font-size: inherit;
+}
+.oc-agent-root .md img{
+max-width: 100%;
+  border-radius: var(--r-item);
+}
+.oc-agent-root .md-table-wrap{
+overflow-x: auto;
+  margin: 0.4em 0;
+  border: 1px solid var(--oc-line);
+  border-radius: var(--r-item);
+  max-width: 100%;
+}
+.oc-agent-root .md table{
+border-collapse: collapse;
+  width: max-content;
+  min-width: 100%;
+  font-size: 0.94em;
+}
+.oc-agent-root .md th, .oc-agent-root .md td{
+padding: 5px 10px;
+  border-bottom: 1px solid var(--oc-line);
+  text-align: left;
+  vertical-align: top;
+}
+.oc-agent-root .md th{
+background: var(--oc-paper-alt);
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--oc-ink);
+}
+.oc-agent-root .md tr:last-child td{
+border-bottom: none;
+}
+.oc-agent-root .md li:has(.task-check){
+list-style: none;
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin-left: -1.1em;
+}
+.oc-agent-root .md li:has(.task-check) > p{
+margin: 0;
+  min-width: 0;
+}
+.oc-agent-root .md li .task-check{
+display: inline-grid;
+  place-items: center;
+  flex: 0 0 15px;
+  width: 15px;
+  height: 15px;
+  margin-top: 4px;
+  border-radius: var(--r-item);
+  border: 1px solid var(--oc-line-hover);
+  background: transparent;
+  font-size: 9px;
+  line-height: 1;
+  color: var(--oc-paper);
+}
+.oc-agent-root .md .task-check.checked{
+background: var(--oc-ink-muted);
+  border-color: var(--oc-ink-muted);
+}
+.oc-agent-root .code-block{
+margin: 0.4em 0;
+  border: 1px solid var(--oc-line);
+  border-radius: var(--r-item);
+  background: var(--oc-paper-card);
+  overflow: hidden;
+}
+.oc-agent-root .code-head{
+display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 4px 3px 10px;
+  min-height: 26px;
+}
+.oc-agent-root .code-lang{
+font-family: var(--font-mono);
+  font-size: calc(11px * var(--font-scale));
+  color: var(--oc-ink-muted);
+}
+.oc-agent-root .code-meta{
+font-size: calc(11px * var(--font-scale));
+  color: var(--oc-ink-faint);
+  font-variant-numeric: tabular-nums;
+  flex: 1;
+}
+.oc-agent-root .code-copy{
+display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--r-item);
+  font-size: calc(11px * var(--font-scale));
+  color: var(--oc-ink-faint);
+  transition: background var(--dur-fast) var(--ease-quiet),
+    color var(--dur-fast) var(--ease-quiet);
+}
+.oc-agent-root .code-copy:hover{
+background: var(--oc-hover);
+  color: var(--oc-ink-muted);
+}
+.oc-agent-root .code-copy.copied{
+color: var(--oc-ink-muted);
+}
+.oc-agent-root .code-body{
+display: flex;
+  align-items: stretch;
+  overflow: auto;
+  max-height: 460px;
+  position: relative;
+  overscroll-behavior: contain;
+}
+.oc-agent-root .code-block.collapsed .code-body{
+max-height: 300px;
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, rgb(0 0 0) 74%, transparent 100%);
+}
+.oc-agent-root .code-gutter{
+position: sticky;
+  left: 0;
+  z-index: 1;
+  flex: 0 0 auto;
+
+  white-space: pre;
+  padding: 6px 8px 8px 10px;
+  text-align: right;
+  user-select: none;
+  font-family: var(--font-mono);
+  font-size: calc(11.5px * var(--font-scale));
+  line-height: 1.62;
+  color: var(--oc-ink-faint);
+  background: var(--oc-paper-card);
+  border-right: 1px solid var(--oc-line);
+  font-variant-numeric: tabular-nums;
+}
+.oc-agent-root .code-pre{
+margin: 0;
+  padding: 6px 12px 8px;
+  font-family: var(--font-mono);
+  font-size: calc(12.2px * var(--font-scale));
+  line-height: 1.62;
+  color: var(--oc-ink);
+  white-space: pre;
+  tab-size: 2;
+  flex: 1 0 auto;
+}
+.oc-agent-root .code-expand{
+display: block;
+  width: 100%;
+  padding: 5px;
+  text-align: center;
+  font-size: calc(11px * var(--font-scale));
+  color: var(--oc-ink-faint);
+  border-top: 1px solid var(--oc-line);
+  transition: background var(--dur-fast) var(--ease-quiet),
+    color var(--dur-fast) var(--ease-quiet);
+}
+.oc-agent-root .code-expand:hover{
+background: var(--oc-hover);
+  color: var(--oc-ink-muted);
+}
+.oc-agent-root[data-theme='light']{
+--hl-keyword: #7a4b8f;
+  --hl-string: #4a6b4f;
+  --hl-number: #8a6136;
+  --hl-comment: #a5a098;
+  --hl-func: #3f5a7a;
+  --hl-type: #3d6b6b;
+  --hl-attr: #8a5560;
+  --hl-meta: #6e6a63;
+}
+.oc-agent-root[data-theme='dark']{
+--hl-keyword: #c3a6d4;
+  --hl-string: #a6c9a9;
+  --hl-number: #d8b98a;
+  --hl-comment: #6e6a63;
+  --hl-func: #a8bfd6;
+  --hl-type: #93c4c4;
+  --hl-attr: #d4a3ad;
+  --hl-meta: #a5a098;
+}
+.oc-agent-root .hljs-keyword, .oc-agent-root .hljs-selector-tag, .oc-agent-root .hljs-literal, .oc-agent-root .hljs-doctag{
+color: var(--hl-keyword);
+}
+.oc-agent-root .hljs-string, .oc-agent-root .hljs-regexp, .oc-agent-root .hljs-addition, .oc-agent-root .hljs-template-variable{
+color: var(--hl-string);
+}
+.oc-agent-root .hljs-number, .oc-agent-root .hljs-symbol, .oc-agent-root .hljs-bullet, .oc-agent-root .hljs-link{
+color: var(--hl-number);
+}
+.oc-agent-root .hljs-comment, .oc-agent-root .hljs-quote{
+color: var(--hl-comment);
+  font-style: italic;
+}
+.oc-agent-root .hljs-title, .oc-agent-root .hljs-title.function_, .oc-agent-root .hljs-section, .oc-agent-root .hljs-selector-id{
+color: var(--hl-func);
+}
+.oc-agent-root .hljs-type, .oc-agent-root .hljs-class .hljs-title, .oc-agent-root .hljs-title.class_, .oc-agent-root .hljs-built_in, .oc-agent-root .hljs-selector-class{
+color: var(--hl-type);
+}
+.oc-agent-root .hljs-attr, .oc-agent-root .hljs-attribute, .oc-agent-root .hljs-variable, .oc-agent-root .hljs-property, .oc-agent-root .hljs-selector-attr{
+color: var(--hl-attr);
+}
+.oc-agent-root .hljs-meta, .oc-agent-root .hljs-meta .hljs-keyword, .oc-agent-root .hljs-tag, .oc-agent-root .hljs-punctuation{
+color: var(--hl-meta);
+}
+.oc-agent-root .hljs-name, .oc-agent-root .hljs-tag .hljs-name{
+color: var(--hl-keyword);
+}
+.oc-agent-root .hljs-params, .oc-agent-root .hljs-subst{
+color: var(--oc-ink);
+}
+.oc-agent-root .hljs-emphasis{
+font-style: italic;
+}
+.oc-agent-root .hljs-strong{
+font-weight: 600;
+}
+.oc-agent-root .hljs-deletion{
+color: var(--oc-error);
+}
+.oc-agent-root .md .alert{
+border-left: 2px solid var(--oc-ink-faint);
+  padding: 6px 0 6px 10px;
+  margin: 0.4em 0;
+  background: transparent;
+}
+.oc-agent-root .md .alert::before{
+content: attr(data-alert);
+  display: block;
+  font-size: calc(11px * var(--font-scale));
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--oc-ink-faint);
+  margin-bottom: 2px;
+}
+.oc-agent-root .md .alert[data-alert='WARNING']{
+border-left-color: var(--oc-warning);
+}
+.oc-agent-root .md .alert[data-alert='WARNING']::before{
+color: var(--oc-warning);
+}
+.oc-agent-root .md .alert[data-alert='CAUTION']{
+border-left-color: var(--oc-error);
+}
+.oc-agent-root .md .alert[data-alert='CAUTION']::before{
+color: var(--oc-error);
+}

@@ -63,7 +63,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - `src/features/project/` — 项目元信息（单例 `meta` 表，id 固定为 1）
 - `src/lib/world-tree.ts` — **词条树唯一实现**（`buildEntryTree`）。层级只由 `parentId` 表达；编辑器目录与静态站导出共用同一份排序。`parentId` 悬空（父级被删）时该条当根，不消失
 - `src/features/dashboard/` — 概览（主页）首屏。世界封面（`meta.coverUrl`，设置 → 世界）就是这一页的头图（`StretchyHeader`，3:2）；没设封面时不占位
-- `src/lib/export/` — 导出器：`payload`（.ocbak + 图片内联）/ `markdown` / `download` / `site`（**静态展示站**：`render` 正文→HTML、`styles` 设计令牌、`build` 组装单文件 `index.html`；`applySiteSections` 是分区开关唯一实现，`SiteExportConfig` 带标题 / 分区 / 纸色 / 内联图片）；`src/components/shared/SiteExportDialog.tsx` 是发布界面（左预览 / 右配置，配置存 `oc-site-export`）；`src/lib/export.ts` 只是 barrel。`npm run audit:site` 查导出逻辑
+- `src/lib/export/` — 导出器：`payload`（.ocbak + 图片内联）/ `markdown`（可选分区）/ `download` / `site`（**静态展示站**：`render` 正文→HTML、`styles` 基础令牌、`templates` 三套版式（书斋 / 档案 / 画廊）、`build` 按 `shell` 输出侧栏或顶栏并组装单文件 `index.html`；`applySiteSections` 是分区开关唯一实现，`SiteExportConfig` 带标题 / 分区 / 纸色 / 内联图片 / 版式）/ **`poster`**（海报：`types` 契约、`catalog` 六套版式元数据、`options` 校验与夹取、`subjects` 实体→`PosterData`）。**`src/components/shared/export/ExportCenter.tsx` 是统一导出界面**（海报 / 网站 / 文档 / 备份四个页签，左预览右配置），入口在 `文件 › 导出中心`、`设置 › 数据`、移动端「更多」、模板编排「导出图片」；海报版式组件在 `src/components/shared/poster/`（`PosterCanvas` + `blocks` + `templates/`）。`src/lib/export.ts` 只是 barrel。`npm run audit:site` 查站点导出（46 项）、`npm run audit:export` 查海报契约（82 项）；**改这块先读 `docs/导出器.md`**
 - `src/components/shared/` — 共享组件
 - `src/components/ui/` — shadcn/ui 基础组件
 - `src/components/layout/` — 布局（AppShell, Sidebar, MenuBar + MenuBarMenus/MenuBarSearch/WindowControls, StatusBar, OverlayRoot, MobileTopBar, MobileTabBar, MobileFilterBar, MobileFab）
@@ -72,11 +72,12 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - `src/features/map/` — 地图（**视图**，不是实体）：`services.ts`（`normalizeAnchor` / `groupAnchors` / `setAnchor` / `setMapView` / `listMapAssets` / 地图笔记 CRUD）、`MapView.tsx`（整屏画布 + 浮层 + 拖动写回 + 底图）、`components/MapViewStrip.tsx`（**视图条**：切一档 = 换一张底图）、`components/MapLibraryDialog.tsx`（**地图库 / 详情**：尺寸 / 类型 / 锚点数 / 标注数 / 重命名 / 删除 / 新建）、`MapView.tsx` 的整屏开关（`body[data-map-immersive]` 藏状态栏与 Mock 标）、`render-view.ts`（用存的 `map_seed` + `map_params` 在插件 Worker 里重画一档 → PNG）、`annotations.ts`（**政治标注**模型：国界 / 道路 + JSON 读写 + 命中测试；国界可带 `fill` 色板名）、`components/AnnotationLayer.tsx`（`viewBox="0 0 1 1"` 的 SVG 矢量层；国界填充 22%）。锚点落实体 `map_position`（归一化 0–1）+ `map_id`；**点归实体、线归地图** —— 锚点存实体，国界 / 道路存地图笔记的 `map_annotations`；底图与每档渲染图都在 `.ocstudio/maps/`（后者固定名 `<地图名>-<视图>.png`，原地覆盖）；当前档位记 `map_mode`
 - `src/features/tree-table/` — 树形表格：**只做渲染层**，词条树仍走 `buildEntryTree`；四个页签（词条 / 国家 / 角色 / 事件）
 - `src/plugins/map-generator/` — **第一个官方插件**（内置模块 + 插件形状接口）：`manifest.ts` + `index.ts`（唯一对外边界）+ `kernel/`（纯算法）+ `worker.ts`。不碰 Dexie / localStorage / DOM / 用户文件；内置侧只留地图视图
+- `src/plugins/agent/` — **第二个官方插件（助手）**，整目录**原样搬自 `D:\Codes\Simple-Agent`**，不是我们写的：`core/`（纯 TS：SSE 解析 / 消息树 / 请求排序 / token 估算 / `agent/{loop,tools,prompt,trace}` 工具循环与 `allow·deny·always` 审批 / `markdown/` 流式渲染）+ `state/`（zustand）+ `api/`（Tauri 命令桥）+ `components/`（16 个）+ `i18n/`。**上游更新时整目录覆盖，不要手改**；`AgentPlugin.tsx` 是唯一的宿主持有文件（挂载点 + 亮暗同步 + 引导）。Rust 侧在 `src-tauri/src/agent/`（同样原样搬，只把 `crate::x` 改成 `crate::agent::x`）。**存储是插件自己的**：系统 app data 下的一只 SQLite（`rusqlite`），钥匙串存密钥 —— 跟 `.ocstudio/` 笔记库**没有关系**，`own-storage` 这条权限说的就是这个。样式用 `scripts/scope-plugin-css.mjs` 收进 `.oc-agent-root` 作用域后再由 `globals.css` 引入，宿主令牌同名同值（`--oc-paper/ink/line`），不会泄进宿主
 - `src/lib/legacy/` — fork 数据**只读适配器**：`pr5-novels.ts`（`OCStudioNovels` 独立库 → 章节笔记）、`pr5-relations.ts`（`relations` 表 → 显式边）。三条规矩：只读、幂等、给报告
 - `src/lib/relation-colors.ts` — 关系线色板与箭头唯一源（12 档 `--oc-accent-*`、`arrowEnds()`、非法值收敛）；`features/relations/edge-style.ts` 负责「怎么改一条边」
 - `src/lib/theme-tokens.ts` — 主题令牌归属登记（`shell` / `page` / `both`），`npm run audit:theme` 双向自检
-- `src/lib/theme/` — **官方主题 v1（只换颜色）**：`presets.ts`（4 套：纸白 / 亚麻 / 松烟 / 青瓷，亮暗各一套 `ThemeTokens` + `preview`；主题色是数据，已进 `design-audit` 白名单）· `apply.ts`（`applyThemePreset(id, isDark)` 往 `<html>` 写行内 `--oc-*` + `data-palette`）· `boot.ts`（首帧启动脚本，`layout.tsx` 的 `<head>` 里同步落值，防闪回默认纸白）· `background.ts`（**背景图 v1**：压缩到长边 2560 WebP → Tauri 写 `.ocstudio/backgrounds/`（Mock 用 data URL）→ `html.oc-background` 铺图 + 纸色 wash；外壳 35% 纸色；填充 / 平铺 / 固定；遮罩 20–80%；有图时关 Mica）。设置项是 `Settings.themePreset` / `backgroundImage`（相对路径或 data URL）/ `backgroundMode` / `backgroundScrim`，UI 在设置 › 个性化；`npm run audit:palettes` 查亮暗对比度。静态站与模板海报已消费令牌；角色卡 / 整图导出还没做，见 `docs/主题.md` §5
-- `src/lib/media-download.ts` — 图片 / 动画「保存到…」（系统保存对话框 + Rust `save_bytes` 原子写）；`src/lib/video-upload.ts` — OC 动画上传（库内 `附件/`）
+- `src/lib/theme/` — **官方主题 v1（只换颜色）**：`presets.ts`（4 套：纸白 / 亚麻 / 松烟 / 青瓷，亮暗各一套 `ThemeTokens` + `preview`；主题色是数据，已进 `design-audit` 白名单）· `apply.ts`（`applyThemePreset(id, isDark)` 往 `<html>` 写行内 `--oc-*` + `data-palette`）· `boot.ts`（首帧启动脚本，`layout.tsx` 的 `<head>` 里同步落值，防闪回默认纸白）· `background.ts`（**背景图 v1**：压缩到长边 2560 WebP → Tauri 写 `.ocstudio/backgrounds/`（Mock 用 data URL）→ `html.oc-background` 铺图 + 纸色 wash；外壳 35% 纸色；填充 / 平铺 / 固定；遮罩 20–80%；有图时关 Mica）。设置项是 `Settings.themePreset` / `backgroundImage`（相对路径或 data URL）/ `backgroundMode` / `backgroundScrim`，UI 在设置 › 个性化；`npm run audit:palettes` 查亮暗对比度。静态站与模板海报已消费令牌；整图导出（关系图 / 时间线）还没做，见 `docs/主题.md` §5
+- `src/lib/media-download.ts` — 图片 / 动画「保存到…」（系统保存对话框 + Rust `save_bytes` 原子写）；**浏览器 / `cap serve` 用 `isNativePlatform()` 判定，不要用 `isCapacitor()`**：Capacitor core 在纯 Web 里也会注入 `window.Capacitor`，用错会把浏览器下载扔进 Filesystem 分支，表现成「导出成功但没有文件」；`src/lib/video-upload.ts` — OC 动画上传（库内 `附件/`）
 
 ### 核心上下文
 - `src/lib/editor-context.tsx` — ActiveEditorProvider（追踪当前聚焦编辑器）
@@ -100,14 +101,15 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - `src/lib/adapters/browser-adapter.ts` — 浏览器环境图片适配器
 
 ### 图片系统组件
-- `src/components/shared/ImageUploader.tsx` — 通用上传（支持裁剪流水线）
+**统一交互口径**：所有可编辑图片 **单击看大图，右键（移动端长按）出菜单**；图上不铺整块「更换封面 / 更换头像」遮罩，也不压删除 / 加号圆钮。菜单动作固定为「查看大图 / 更换 / 编辑 / 保存到… / 移除」，由调用方按槽位能力裁剪。入口是 `src/lib/use-media-menu.ts`。
+- `src/components/shared/ImageUploader.tsx` — 单图槽位（封面 / 头图 / 头像 / 世界封面 / 小说封面）：单击看大图，右键 / 长按出菜单；支持裁剪流水线
 - `src/components/shared/ImageCropper.tsx` — 全屏裁剪 + 缩放滑块（react-easy-crop）
 - `src/components/shared/PeriodDialog.tsx` — 时期添加/编辑弹窗
-- `src/components/shared/image-gallery/` — 图片画廊：`ImageGallery`(壳/模式分发) + `ImageGallerySlider`(滑动模式) + `ImageGalleryGrid`(网格模式) + `useImageUpload`(选文件→裁剪→落盘)
+- `src/components/shared/image-gallery/` — 图片画廊：`ImageGallery`(壳/模式分发 + 统一菜单) + `ImageGallerySlider`(滑动模式) + `ImageGalleryGrid`(网格模式) + `useImageUpload`(新增 / 更换 / 编辑同一位置)
 - `src/components/shared/context-menu/` — 右键菜单内部：`context-menu-types` + `ContextMenuButton`(顶层与子菜单共用的项按钮) + `ContextSubMenu`
 - `src/components/shared/FilterSelect.tsx` — 通用筛选下拉（触发按钮 + portal 面板 + 点外关闭），样式由调用点传入
 - `src/components/settings/` — 设置弹窗（`SettingsDialog` 壳 + `tabs/{World,General,Data,About}Tab` + `controls` 开关/单选框常量 + `credits.ts` 关于页的开源致谢清单）。「数据」页签 = 原数据 + 云合并；**AI 页签已删除**（见约束 15）
-- `src/components/shared/ProfileBannerEditor.tsx` — 头图+头像编辑（头图由 `StretchyHeader` 承载）
+- `src/components/shared/ProfileBannerEditor.tsx` — 头图+头像编辑（头图由 `StretchyHeader` 承载）；**无 hover 遮罩**：单击看大图，右键 / 长按出「更换 / 编辑 / 保存到… / 删除」
 - `src/components/shared/StretchyHeader.tsx` — **弹性头图容器**：下拉放大（框跟着长高、头图等比放大所以不变形，左右多出来的被裁、上下不裁；含 Windows/Android 无原生回弹时的合成量）、滚动折叠、折叠视差。rAF 直写 style、不进 state；`prefers-reduced-motion` 下整体关闭。滚动容器按最近的 `overflow-y: auto` 祖先自动找
 - `src/components/shared/FullscreenViewer.tsx` — 全屏查看
 
@@ -166,7 +168,8 @@ cargo test --manifest-path src-tauri/Cargo.toml --lib         # 含 IPC 线格�
 - `src/lib/use-input-context-menu.ts` — 移动端 input 组件级长按菜单 hook，在元素自身绑定事件，不监听 document
 - `src/lib/tauri-clipboard.ts` — Tauri 剪贴板管理器封装（`tauriReadClipboard`）
 - `src/components/shared/DeleteButton.tsx` — 桌面端删除按钮（含 AlertDialog 二次确认）
-- `src/lib/useLongPress.ts` — 长按 hook（320ms 阈值，8px 移动容差）
+- `src/lib/useLongPress.ts` — 长按 hook（320ms 阈值，8px 移动容差；回调带按下坐标，长按后吞掉合成 click）
+- `src/lib/use-media-menu.ts` — **图片右键 / 长按菜单唯一呼出入口**：`handlersFor(target)` 展开到图片元素上，桌面右键与移动端长按落到同一套 `MediaContextMenu`
 - `src/lib/haptics.ts` — Capacitor 触觉反馈封装
 
 ### 配置
@@ -186,7 +189,8 @@ npm run audit:design  # 设计令牌体检（0 违规才算过）
 npm run audit:theme   # 主题令牌归属（shell / page / both）
 npm run audit:palettes  # 官方主题亮暗对比度
 npm run audit:templates  # 模板与实现漂移（组件登记 / 往返 / 别名）
-npm run audit:site   # 静态站导出逻辑（角色路由 / 时间标签 / 本地日期 / 未知引用 / 分区 / 标题纸色）
+npm run audit:site   # 静态站导出逻辑（角色路由 / 时间标签 / 本地日期 / 未知引用 / 分区 / 标题纸色 / 三套版式）
+npm run audit:export  # 海报契约（六套版式 / 元数据 / 画布 / 选项兜底 / 正文顺序）
 npm run audit:capabilities  # 只读能力层（权限入口 / 列表 / 读取 / 搜索 / 切片）
 npm run audit:map    # 地图锚点 + 国界填充色
 npm run cap:dev   # Capacitor 构建 + 同步 + 打开 Android Studio
@@ -239,8 +243,8 @@ npx tauri build   # Tauri 打包 (.exe/.msi)
 - 仓储层（`lib/repository.ts`）的 `Table<T, number, TInsert>` 第 3 个泛型位、实体 `id: number` 必填、`EntityTable` 的用法是**互相咬合**的：省掉第 3 个泛型位会让 `listActive` / `getById` 的返回值被推断成「id 可选」，从而在全项目催生 `as number` 断言。改动前先读 `src/lib/repository.ts` 顶部注释
 
 ## 待办与改进清单
-- 详见 `docs/todo.md`（按领域分节，与下面九份文档一一对应；已完成的不留档）
-- 九份领域文档（每个领域一份，改动前先读对应的那份）：
+- 详见 `docs/todo.md`（按领域分节，与下面十份文档一一对应；已完成的不留档）
+- 十份领域文档（每个领域一份，改动前先读对应的那份）：
   - `docs/模板.md` — 组件化模板（组件分级、文件格式、视觉契约、模板/导出/标签管理界面）
   - `docs/时间线.md` — 参与者轨道、事件连线、关键节点
   - `docs/关系图.md` — 静态手摆（**实时物理已放弃**）、正交边、节点形态
@@ -250,4 +254,5 @@ npx tauri build   # Tauri 打包 (.exe/.msi)
   - `docs/Agent接入.md` — 库 API + MCP/插件适配器、权限分级、`actor` 留痕
   - `docs/小说.md` — 章节 = 笔记、大纲用 `parentId`、导出器
   - `docs/地图.md` — 地图是视图不是实体；锚点归一化存在实体上
+  - `docs/导出器.md` — 全局导出中心（海报六套版式 / 静态站三套版式 / 文档 / 备份；预览、参数、预设）
 - 自定义集合（L2）需求见 `docs/自定义分类-需求文档.md`（**已被 `docs/模板.md` 取代**，仅作参考）；**未实现**，实现前先出 fork 冲突地图（`git merge-tree`）

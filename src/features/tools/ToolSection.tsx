@@ -13,7 +13,7 @@ import { toolIdFromItem } from '@/lib/entry-kinds'
 import { MAP_GENERATOR_PLUGIN, AGENT_PLUGIN } from '@/lib/plugins/official'
 import { CENTER_STATE } from '@/lib/ui-tokens'
 import { MapToolView } from './MapToolView'
-import { AgentToolView } from './AgentToolView'
+import { AgentPlugin } from '@/plugins/agent/AgentPlugin'
 
 export function ToolSection({ item }: { item: string }) {
   const pluginId = toolIdFromItem(item)
@@ -30,7 +30,7 @@ export function ToolSection({ item }: { item: string }) {
 
   // 插件视图的接线表：id → 组件。加一个工具就是在这里加一行。
   if (manifest.id === MAP_GENERATOR_PLUGIN.id) return <MapToolView />
-  if (manifest.id === AGENT_PLUGIN.id) return <AgentToolView />
+  if (manifest.id === AGENT_PLUGIN.id) return <AgentPlugin />
 
   return (
     <div className={CENTER_STATE}>

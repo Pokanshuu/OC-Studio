@@ -9,6 +9,14 @@
 
 ## 1. 模板更新 → `docs/模板.md`
 
+- [x] **P1 全局导出中心**（2026-11-05）：`components/shared/export/ExportCenter.tsx`（海报 / 网站 / 文档 / 备份四页签，左预览右配置）；入口收口到 `文件 › 导出中心`、`设置 › 数据`、移动端「更多」、模板编排「导出图片」；删除旧 `ImageExportDialog` / `TemplatePoster` / `SiteExportDialog`；规格见 `docs/导出器.md`
+- [x] **P1 海报 · 六套版式**（2026-11-05）：刊首 / 夜色 / 档案 / 胶片 / 素白 / 双栏（`components/shared/poster/templates/`，`catalog.ts` 元数据）；`PosterFlow` 统一八个正文块的顺序 / 显隐 / 对齐 / 列数；封面位置 / 图片倍率 / 标题与整版字号 / 六种背景可调；`html-to-image` 2× PNG（2160×2880）
+- [x] **P1 静态站 · 三套版式**（2026-11-05）：书斋（侧栏）/ 档案（顶栏 + 编号）/ 画廊（满幅封面 + 3 列）；`build.ts` 按 `shell` 输出，`body[data-template]` + 追加 CSS；`SiteExportDialog` 的配置已并入导出中心；`audit:site` 46 项
+- [x] **P1 导出预设 v2**（2026-11-05）：`.ocstudio/exports.json` 增加 `poster` 段（`image` 段只读保留）；内置海报预设三个；`defaultPosterPresetId`
+- [x] **P1 浏览器导出修复**（2026-11-05）：`media-download` 的 Capacitor 分支改用 `isNativePlatform()` —— Capacitor core 在纯 Web 里也会注入 `window.Capacitor`，旧写法会把浏览器 PNG 导出扔进 Filesystem，表现为「提示成功但没有文件」
+- [ ] **P2 导出 · 真实笔记库验收**：浏览器 Mock 的封面是占位图；用带真封面 / 大图 / 超长正文 / 中文长标题的库把六套版式与三套站再过一遍
+- [ ] **P3 海报自由画布**：任意拖拽坐标 / 图层（当前只做位置档位 + 倍率 + 对齐 + 块顺序）。等有真实需求再做，否则六套版式会在任意坐标下散架
+
 - [x] **P1 阶段一·地基**（2026-11-04）：`src/lib/templates/`（类型 / 组件登记 / 内置模板 / frontmatter 序列化 / 库优先存取）+ `ComponentSection` 壳 + 设置 › 世界 › 模板（开关 / 排序 / 恢复默认）+ `npm run audit:templates`
 - [x] **P1 阶段一·接管渲染**（2026-11-05）：`TemplateRenderer` 已接 **词条 / 事件 / 国家 / 角色 / 分类条目**（零迁移，顺序与开关来自模板）；单篇笔记绑定模板（frontmatter `模板:` 键）已落，分类条目就地编辑（`CategoryEntryEditor`），不再跳世界观
 - [x] **P2 阶段一·组件参数**（2026-11-05）：`gallery.columns` / `gallery.mode` / `relations.presentation` / `title` 已接角色编辑器（`CharacterFrontmatter`）；参数契约收在 `lib/templates/params.ts`，以 `info.fields` 兼容宠物 / 武器的字段表；`audit:templates` 新增「值合法 / 有消费方 / 能往返」三项，编排行内直接改参数
@@ -98,9 +106,9 @@
 - [x] **P2 A1 只读能力层**（2026-11-05）：`src/lib/capabilities/`（`Caller` 权限入口 / list / get / search / graphSlice）+ Dexie 适配器；`scripts/capabilities-check.ts` 19 项断言。**没有 MCP / REST 传输层**
 - [x] **P2 A2 图鉴切片装配**（2026-11-05）：`buildCodexSlice()` 把字段 / 关系 / 相关事件 / 标签 / 正文装配成 markdown；**还没被导出卡 / 静态站复用**（先保住唯一实现）
 - [x] **P1 插件系统地基**（2026-11-05）：`src/lib/plugins/`（manifest 契约：三类 tool / theme / skill + 六项权限 + 可用标记；开关与逐项授权存 localStorage）；侧栏「工具」分组 + `工具:<id>` 导航键 + `ToolSection` 接线表；地图生成器搬成独立工具页（先选目标地图 → 参数 → 生成 → 用作底图）；设置 › 插件页签（开关 / 权限 / 版本 / 类型 / 添加与市场标开发中）；**主题即插件**：四套官方配色登记为 `kind: 'theme'`，个性化按插件开关过滤（当前在用的永远保留）。定稿口径写进 `docs/插件.md` §0.0
-- [x] **P1 助手 · 对话壳**（2026-11-05）：`lib/plugins/agent/`（`config.ts` 端点 / 模型 / 密钥存 localStorage；`chat.ts` 自己解析 OpenAI 兼容 SSE，不引 SDK，增量按帧刷进 state）+ `AgentToolView`（模型配置页 + 消息列表 + 输入框 + 停止；界面用宿主令牌，不做聊天 App 皮肤）。插件从 `available: false` 打开，出厂不启用（没填端点前点进去只是空壳）
-- [ ] **P1 助手 · 工具循环**：把 Simple-Agent 的 `read_file` / `run_shell` 那套换成 `lib/capabilities` 的 list / get / search / graphSlice；保留审批（逐次 / 本会话 / 只读）；写入要带 `actor` 走落盘链路。**不走 MCP**，进程内直调
-- [ ] **P2 助手 · 会话持久化**：现在刷新即散。要么存 `meta`（单会话），要么像 Simple-Agent 一样做消息树（编辑重发只加兄弟版本）——先定一个，别两套都做
+- [x] **P1 助手 · 整目录移植**（2026-11-05 定稿）：**不再手写**。`src/plugins/agent/` + `src-tauri/src/agent/` 原样搬自 `D:\Codes\Simple-Agent`，上游更新整目录覆盖；宿主只留 `AgentPlugin.tsx` 一道缝。**会话树 / 分支切换 / 编辑重发 / 草稿 / 预设 / 压缩 / 工具循环 / 审批（allow·deny·always）/ 流式 markdown / i18n 一次性全有** —— 此前手写的那套（`lib/plugins/agent/` + `features/tools/agent/` + `AgentToolView`）已删除，不做两套。样式用 `scripts/scope-plugin-css.mjs` 收进 `.oc-agent-root`，宿主令牌同名同值
+- [ ] **P1 助手 · 存储边界**：会话在插件自己的 SQLite 里，**`.ocbak` 备份带不上**。要么备份时连插件库一起收，要么在备份界面明说不含助手会话 —— 二选一，别让用户以为备份等于全部
+- [ ] **P1 助手 · 接上宿主**：把插件里的 `read_file` / `run_shell` 换成 `lib/capabilities` 的 list / get / search / graphSlice；写入带 `actor` 走落盘链路。**不走 MCP**，进程内直调。这是「有机构成」那一步，现在还是各自独立
 - [ ] **P2 主题插件对外开放**：把 `lib/theme/presets.ts` 的令牌升级成可导入的主题包 manifest（现在只是内置四套登记成插件，还没有「装一个主题」的入口）
 - [ ] **P2 A3 内置 agent**：对话壳（复用作者已有安卓原生 AI 应用里预留的 agent 能力）+ 官方 skill（角色讨论 / 设定补全 / 小说续写 / 一致性检查）+ 模型可换
 - [ ] **P2 A4 `actor` 留痕 + 受限写入**：journal 每条加 `actor`（**格式已落，写入侧未接**）；权限四级（只读 / 写正文 / 改结构 / 删除），默认只读，写入必须走落盘链路

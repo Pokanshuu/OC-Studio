@@ -5,8 +5,10 @@
  * 地图生成器的算法与 Worker 早就关在 `src/plugins/map-generator/` 里（那条
  * `index.ts` 边界就是将来的沙箱线），这里只是把它的身份登记进宿主。
  *
- * 助手（`agent`）现在标 `available: false`：界面里能看到、能读它的权限说明，
- * 但侧栏不出入口 —— 免得点进去是块空壳。实装顺序见 `docs/插件.md` §0.2。
+ * 助手（`agent`）是**整目录移植物**：`src/plugins/agent/` + `src-tauri/src/agent/`
+ * 原样搬自 `D:\Codes\Simple-Agent`，宿主只留 `AgentPlugin.tsx` 一道缝。它自带
+ * 存储（插件自己的 SQLite）与网络（Rust 侧流式），所以这里只登记身份与权限。
+ * 出厂不开：要先填端点与密钥才有意义。
  */
 import { MAP_GENERATOR_API_VERSION, MAP_GENERATOR_MANIFEST } from '@/plugins/map-generator'
 import { THEME_PLUGINS } from './themes'
