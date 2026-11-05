@@ -11,7 +11,7 @@
  * 每个请求带递增 `requestId`，只认最新那一个的响应：重新生成时旧结果直接丢弃。
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Dices, ImageDown, Save } from 'lucide-react'
+import { Dices, ImageDown, Minus, Plus, Save } from 'lucide-react'
 import {
   BIOME_COLORS,
   BIOME_NAMES,
@@ -34,6 +34,7 @@ import {
   BTN_PRIMARY,
   BTN_QUIET,
   FIELD_LABEL,
+  ICON_BTN,
   FIELD_ROW,
   LIST_END,
   MENU_ITEM_BASE,
@@ -84,6 +85,8 @@ const RANGE_INPUT =
 
 export function MapGeneratorPanel({
   onUseAsBackground,
+  initialSeed,
+  initialParams,
 }: {
   /** 拿到 PNG 后交给宿主：落盘 + 设为当前地图底图（带上是哪一档视图） */
   onUseAsBackground: (
@@ -93,6 +96,10 @@ export function MapGeneratorPanel({
     params: WorldMapParams,
     view: MapView,
   ) => Promise<void>
+  /** 「在这张图上重新生成」：把原来的种子带进来，调参后仍是同一片大陆 */
+  initialSeed?: number
+  /** 原来的参数（JSON 字符串，来自 `map_params`）；解析不了就当没有 */
+  initialParams?: string
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const workerRef = useRef<Worker | null>(null)
@@ -103,13 +110,24 @@ export function MapGeneratorPanel({
   /** Worker 的 message 回调要保持稳定（effect 只建一次），最新闭包放这里 */
   const handleResponseRef = useRef<(message: WorkerResponse) => void>(() => {})
 
-  const [params, setParams] = useState<WorldMapParams>(() => normalizeMapParams(DEFAULT_MAP_PARAMS))
-  const [seed, setSeed] = useState(() => Math.floor(Math.random() * 1_000_000))
+  const [params, setParams] = useState<WorldMapParams>(() => {
+    if (initialParams) {
+      try {
+        return normalizeMapParams(JSON.parse(initialParams) as WorldMapParams)
+      } catch {
+        // 坏参数当没有：生成器永远从一份合法参数起步
+      }
+    }
+    return normalizeMapParams(DEFAULT_MAP_PARAMS)
+  })
+  const [seed, setSeed] = useState(() => initialSeed ?? Math.floor(Math.random() * 1_000_000))
   const [view, setView] = useState<MapView>('terrain')
   const [progress, setProgress] = useState<{ stage: string; value: number } | null>(null)
   const [meta, setMeta] = useState<GeneratedMeta | null>(null)
   const [ready, setReady] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  /** 预览缩放：1 = 适应面板宽度。大图（3072×1536）不放大看不清海岸线 */
+  const [zoom, setZoom] = useState(1)
 
   const busy = progress !== null
 
@@ -435,15 +453,42 @@ export function MapGeneratorPanel({
         </div>
       </aside>
 
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div className="relative flex min-h-0 flex-1 flex-col">
         <div className="min-h-0 flex-1 overflow-auto">
           <canvas
-            ref={canvasRef}
-            className={`w-full border border-line bg-paper ${ROUND_ITEM}`}
-            style={{ aspectRatio: `${canvasWidth} / ${canvasHeight}` }}
+            className={`border border-line bg-paper ${ROUND_ITEM}`}
+            style={{ aspectRatio: `${canvasWidth} / ${canvasHeight}`, width: `${zoom * 100}%` }}
           />
         </div>
 
+        <div className="pointer-events-auto absolute right-3 top-3 z-10 flex items-center gap-0.5 rounded-control border border-line bg-paper/90 px-1 py-0.5 float-shadow">
+          <button
+            type="button"
+            className={ICON_BTN}
+            onClick={() => setZoom((value) => Math.max(0.5, Math.round((value - 0.25) * 4) / 4))}
+            disabled={zoom <= 0.5}
+            title="缩小"
+          >
+            <Minus size={13} strokeWidth={2} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setZoom(1)}
+            className="min-w-[46px] px-1 text-[11px] tabular-nums text-ink-muted transition-colors hover:text-ink"
+            title="适应宽度"
+          >
+            {Math.round(zoom * 100)}%
+          </button>
+          <button
+            type="button"
+            className={ICON_BTN}
+            onClick={() => setZoom((value) => Math.min(4, Math.round((value + 0.25) * 4) / 4))}
+            disabled={zoom >= 4}
+            title="放大"
+          >
+            <Plus size={13} strokeWidth={2} />
+          </button>
+        </div>
         {meta ? (
           <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[11px] tabular-nums text-ink-faint">
             <span>
