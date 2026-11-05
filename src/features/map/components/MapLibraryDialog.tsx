@@ -12,7 +12,7 @@
  */
 import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Check, Library, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { Check, Library, Map as MapIcon, Pencil, Plus, Trash2, X } from 'lucide-react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,6 +34,7 @@ import {
   ROUND_ITEM,
 } from '@/lib/ui-tokens'
 import { parseAnnotations } from '../annotations'
+import { readMapImageBlob } from '../assets'
 import type { MapEntity } from '../services'
 
 interface MapLibraryDialogProps {
@@ -61,6 +62,49 @@ function sizeLabel(map: MapEntity): string {
   return `${map.width} × ${map.height}`
 }
 
+/**
+ * 一行地图的缩略预览。
+ *
+ * 直接用**底图本身**，不另生成缩略图：底图就在 `.ocstudio/maps/` 里，
+ * 多存一份只会多一份要同步的东西（这也和改版的 `makeMapThumbnail` 不同 ——
+ * 那份是为它的卡片布局生成的内联 data URL，我们是列表行，取原图更省事）。
+ * 没有底图的条目给一个占位方块，避免列表高低不齐。
+ */
+function MapPreview({ reference }: { reference: string | undefined }) {
+  const [url, setUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!reference) {
+      setUrl(null)
+      return
+    }
+    let revoked = false
+    let objectUrl: string | null = null
+    void readMapImageBlob(reference)
+      .then((blob) => {
+        if (revoked) return
+        objectUrl = URL.createObjectURL(blob)
+        setUrl(objectUrl)
+      })
+      .catch(() => {
+        if (!revoked) setUrl(null)
+      })
+    return () => {
+      revoked = true
+      if (objectUrl !== null) URL.revokeObjectURL(objectUrl)
+    }
+  }, [reference])
+
+  return (
+    <span className="flex h-10 w-14 shrink-0 items-center justify-center overflow-hidden border border-line bg-paper-card rounded-item">
+      {url === null ? (
+        <MapIcon size={14} strokeWidth={2} className="text-ink-faint" />
+      ) : (
+        <img src={url} alt="" className="h-full w-full object-cover" />
+      )}
+    </span>
+  )
+}
 export function MapLibraryDialog({
   maps,
   activeId,
@@ -193,6 +237,7 @@ export function MapLibraryDialog({
                       active ? 'bg-[var(--oc-hover)]' : 'hover:bg-[var(--oc-hover)]'
                     } ${ROUND_ITEM}`}
                   >
+                    <MapPreview reference={map.image} />
                     <button
                       type="button"
                       onClick={() => {
