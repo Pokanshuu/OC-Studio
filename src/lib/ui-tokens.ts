@@ -46,9 +46,14 @@ export const FIELD_LABEL_BLOCK = 'mb-1.5 block text-[13px] text-ink-muted'
 export const SETTINGS_TOGGLE_ROW = 'flex items-center justify-between gap-4'
 export const SETTINGS_FIELD = 'flex min-w-0 flex-col gap-2'
 export const SETTINGS_LABEL = 'text-[13px] leading-5 text-ink'
-/** 分组：除第一组外都带上边线（第一组用 `SETTINGS_GROUP_FIRST`）—— 一行一个类，别就地写 */
+/**
+ * 一组「标签在上」的字段（单选组 / 色板）：**字段之间 24px**，比开关行的 12px 松。
+ * 12px 时下一组的标签只比它自己的控件远一点点 —— 两条设置读起来像同一条的续行。
+ */
+export const SETTINGS_FIELD_GROUP_FIRST = 'flex flex-col gap-6'
+export const SETTINGS_FIELD_GROUP = 'mt-5 flex flex-col gap-6 border-t border-line pt-5'
+/** 分组：除第一组外都带上边线（`SETTINGS_GROUP`）—— 一行一个类，别就地写 */
 export const SETTINGS_GROUP = 'mt-5 flex flex-col gap-3 border-t border-line pt-5'
-export const SETTINGS_GROUP_FIRST = 'flex flex-col gap-3'
 /** 组内更细的分隔（如「背景」下的铺法 / 遮罩），不占整行 */
 export const SETTINGS_HINT = 'text-[11px] leading-4 text-ink-faint'
 /** 列表里「这一栏还是空的」那一行：和列表行同高基线，别用小一号的灰字凑数 */

@@ -13,8 +13,8 @@ import { RelationsPanel } from '../RelationsPanel'
 import { ThemeRadio, LayoutRadio, SWITCH_CLASSES, SWITCH_DOT } from '../controls'
 import {
   SETTINGS_FIELD,
+  SETTINGS_FIELD_GROUP_FIRST,
   SETTINGS_GROUP,
-  SETTINGS_GROUP_FIRST,
   SETTINGS_HINT,
   SETTINGS_LABEL,
   SETTINGS_TOGGLE_ROW,
@@ -100,7 +100,7 @@ export function GeneralTab() {
   return (
     <div className="flex flex-col">
       {/* 先给最常改的两个单选组（显示模式 / 编辑界面），二级页入口排在它们后面 */}
-      <div className={SETTINGS_GROUP_FIRST}>
+      <div className={SETTINGS_FIELD_GROUP_FIRST}>
         <div className={SETTINGS_FIELD}>
           <span className={SETTINGS_LABEL}>显示模式</span>
           <ThemeRadio
