@@ -7,14 +7,16 @@
 import { BUILTIN_TEMPLATES } from '../src/lib/templates/defaults'
 import { COMPONENT_BY_ID, COMPONENT_IDS } from '../src/lib/templates/registry'
 import { parseTemplate, serializeTemplate, unknownComponentIds } from '../src/lib/templates/serialize'
-import { WIRED_BY_TEMPLATE } from '../src/lib/templates/support'
+import { WIRED_BY_TEMPLATE, isComponentWired } from '../src/lib/templates/support'
 import {
   TEMPLATE_PARAM_SCHEMA,
   TEMPLATE_PARAM_SUPPORT,
   validateTemplateParams,
 } from '../src/lib/templates/params'
-import { isNoteTemplate } from '../src/lib/templates/note'
+import { isNoteTemplate, NOTE_COMPONENT_IDS } from '../src/lib/templates/note'
 import { templateFieldKeys } from '../src/lib/templates/fields'
+import { BUILTIN_INFO_GROUPS, isBuiltinInfoGroup, selectableInfoGroups } from '../src/lib/templates/info-groups'
+import { BUILTIN_FIELDS } from '../src/lib/fields/defaults'
 import { BUILTIN_CATEGORIES } from '../src/lib/categories/builtins'
 import type { TemplateDoc } from '../src/lib/templates/types'
 
@@ -123,6 +125,24 @@ for (const id of ['character', 'event', 'country']) {
   check(doc !== undefined && !isNoteTemplate(doc), `实体模板 ${id} 不应出现在分类模板选择里`)
 }
 
+// 9b. 自建模板走笔记渲染路径：笔记组件必须算「已接线」，否则新建的模板
+//     每个组件都显示「开发中」，连「基本信息」都选不了（用户实测踩到过）
+for (const id of NOTE_COMPONENT_IDS) {
+  check(COMPONENT_IDS.includes(id), `笔记组件登记里有未登记组件：${id}`)
+  check(isComponentWired('custom-demo', id), `自建模板的 ${id} 不算已接线`)
+}
+for (const id of COMPONENT_IDS) {
+  if (NOTE_COMPONENT_IDS.includes(id)) continue
+  check(!isComponentWired('custom-demo', id), `自建模板的 ${id} 不该算已接线`)
+}
+for (const id of ['pet', 'weapon']) {
+  const wired = WIRED_BY_TEMPLATE[id] ?? []
+  check(
+    NOTE_COMPONENT_IDS.every((component) => wired.includes(component)),
+    `内置笔记模板 ${id} 的接线表与笔记组件不一致`,
+  )
+}
+
 // 10. 模板字段（宠物 / 武器）必须能往返：YAML 数组 ⇄ string[]
 for (const id of ['pet', 'weapon']) {
   const doc = BUILTIN_TEMPLATES.find((item) => item.id === id)
@@ -160,7 +180,8 @@ for (const [componentId, defs] of Object.entries(TEMPLATE_PARAM_SCHEMA)) {
   const keys = defs?.map((def) => def.key) ?? []
   check(keys.length === new Set(keys).size, `组件 ${componentId} 的参数键重复`)
   for (const def of defs ?? []) {
-    if (def.kind === 'fields') continue
+    // 值域是用户数据的参数（组件 id / 旧字段表）没有静态选项
+    if (def.kind !== 'choice') continue
     check(def.options.length > 0, `参数 ${componentId}.${def.key} 没有可选值`)
     check(
       def.options.some((option) => option.value === def.fallback),
@@ -206,6 +227,38 @@ check(
 )
 check(validateTemplateParams(withParams).length === 0, '合法参数被校验器判错')
 
+/* ── 内置基本信息组件：字段必须真能显示 ─────────────────────────────── */
+
+const COLUMN_HOSTS: Record<string, 'character' | 'event' | 'worldEntry'> = {
+  character: 'character',
+  event: 'event',
+  world: 'worldEntry',
+}
+
+for (const group of BUILTIN_INFO_GROUPS) {
+  check(group.for !== undefined, `内置组件「${group.name}」没标宿主`)
+  check(group.fields.length > 0, `内置组件「${group.name}」没有出厂字段`)
+  const columnKind = group.for !== undefined ? COLUMN_HOSTS[group.for] : undefined
+  if (columnKind === undefined) continue
+  const known = new Set(BUILTIN_FIELDS[columnKind].map((field) => field.id))
+  for (const key of group.fields) {
+    check(known.has(key), `内置组件「${group.name}」的字段 ${key} 不在 ${columnKind} 的字段表里`)
+  }
+}
+
+// 内置组件必须被 isBuiltinInfoGroup 认出来（否则界面允许删掉它，下次读盘又回来）
+for (const group of BUILTIN_INFO_GROUPS) {
+  check(isBuiltinInfoGroup(group.id), `内置组件「${group.name}」没被 isBuiltinInfoGroup 覆盖`)
+}
+
+// 选择器过滤：角色模板不能选到宠物组件
+const petGroup = BUILTIN_INFO_GROUPS.find((group) => group.id === 'group-pet')
+if (petGroup) {
+  const forCharacter = selectableInfoGroups('character', BUILTIN_INFO_GROUPS)
+  check(!forCharacter.includes(petGroup), '角色模板仍能选到宠物组件')
+  const forPet = selectableInfoGroups('pet', BUILTIN_INFO_GROUPS)
+  check(forPet.includes(petGroup), '宠物模板选不到宠物组件')
+}
 if (failures === 0) {
   console.log(`  ✓ 通过（${COMPONENT_IDS.length} 个组件 / ${BUILTIN_TEMPLATES.length} 个内置模板）`)
   process.exit(0)
