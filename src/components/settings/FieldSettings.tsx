@@ -11,6 +11,7 @@ import {
   newCustomFieldId,
   replaceFields,
   useFieldConfig,
+  useOrphanFieldKeys,
   type FieldDef,
   type FieldKind,
 } from '@/lib/fields'
@@ -75,6 +76,8 @@ function FieldRow({
 function FieldGroup({ kind, showTitle = true }: { kind: FieldKind; showTitle?: boolean }) {
   const fields = useFieldConfig()[kind]
   const [draftName, setDraftName] = useState('')
+  /** 数据里还在、表里已经没有的键：删了行不等于删了值，得留一条找回的路 */
+  const { keys: orphanKeys } = useOrphanFieldKeys(kind, fields)
 
   const missing = BUILTIN_FIELDS[kind].filter(
     (builtin) => !fields.some((field) => field.id === builtin.id),
@@ -129,6 +132,22 @@ function FieldGroup({ kind, showTitle = true }: { kind: FieldKind; showTitle?: b
         >
           <RotateCcw size={12} strokeWidth={2} />
           <span>加回 {missing.length} 项</span>
+        </button>
+      ) : null}
+
+      {orphanKeys.length > 0 ? (
+        <button
+          type="button"
+          onClick={() =>
+            commit([
+              ...fields,
+              ...orphanKeys.map((key) => ({ id: newCustomFieldId(), label: key, type: 'text' as const, key })),
+            ])
+          }
+          className="flex items-center gap-1 self-start text-[11px] text-ink-muted transition-colors hover:text-ink"
+        >
+          <Plus size={12} strokeWidth={2} />
+          <span>找回 {orphanKeys.length} 个有数据的字段</span>
         </button>
       ) : null}
 
