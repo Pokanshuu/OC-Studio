@@ -27,14 +27,18 @@ function extensionOf(name: string): string {
  * 把一份 Blob 存到用户选的位置。
  * 返回落盘的绝对路径（浏览器下是文件名）；用户取消返回 `null`。
  */
-export async function saveBlobAs(blob: Blob, name: string): Promise<string | null> {
+export async function saveBlobAs(
+  blob: Blob,
+  name: string,
+  options: { filterName?: string } = {},
+): Promise<string | null> {
   const fileName = name.trim().length > 0 ? name : 'map.png'
 
   if (isTauri()) {
     const { save } = await import('@tauri-apps/plugin-dialog')
     const target = await save({
       defaultPath: fileName,
-      filters: [{ name: '图片', extensions: [extensionOf(fileName)] }],
+      filters: [{ name: options.filterName ?? '图片', extensions: [extensionOf(fileName)] }],
     })
     if (target === null) return null
     const bytes = new Uint8Array(await blob.arrayBuffer())
@@ -80,6 +84,8 @@ export interface MapExportOptions {
   withAnchors?: boolean
   /** 输出倍率：1 = 按底图原始像素，默认 1 */
   scale?: number
+  /** 输出格式：PNG 无损（默认）/ JPG 给需要小体积的场合 */
+  format?: 'png' | 'jpg'
 }
 
 interface LoadedMapImage {
@@ -262,8 +268,8 @@ function drawAnchors(
   }
 }
 
-function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob | null> {
-  return new Promise((resolve) => canvas.toBlob((blob) => resolve(blob), 'image/png'))
+function canvasToBlob(canvas: HTMLCanvasElement, mime = 'image/png', quality?: number): Promise<Blob | null> {
+  return new Promise((resolve) => canvas.toBlob((blob) => resolve(blob), mime, quality))
 }
 
 function exportTimestamp(date = new Date()): string {
@@ -277,12 +283,14 @@ function exportTimestamp(date = new Date()): string {
  * - 底图 / 尺寸读不到时 **throw**（调用方负责 toast）；用户取消保存返回 `null`
  * - 锚点坐标是归一化 0–1；越界值按边界夹取，坏数据跳过
  * - 桌面走系统保存对话框 + Rust `save_bytes`，浏览器退回下载（与 `saveBlobAs` 一致）
+ * - JPG 先铺一层纸色：JPEG 没有 alpha，直接压透明像素会变成纯黑
  */
-export async function exportMapPng(
+export async function exportMapImage(
   map: MapExportMap,
   anchors: readonly MapExportAnchor[],
   options: MapExportOptions = {},
 ): Promise<string | null> {
+  const format = options.format === 'jpg' ? 'jpg' : 'png'
   const requestedScale = options.scale ?? 1
   const scale = Number.isFinite(requestedScale) ? Math.min(4, Math.max(0.1, requestedScale)) : 1
 
@@ -305,14 +313,20 @@ export async function exportMapPng(
 
     ctx.imageSmoothingEnabled = true
     ctx.imageSmoothingQuality = 'high'
+    if (format === 'jpg') {
+      ctx.fillStyle = cssColor('--oc-paper', 'Canvas')
+      ctx.fillRect(0, 0, width, height)
+    }
     ctx.drawImage(loaded.image, 0, 0, width, height)
 
     if (options.withAnchors !== false) drawAnchors(ctx, anchors, width, height)
 
-    const blob = await canvasToBlob(canvas)
-    if (blob === null) throw new Error('地图导出失败：无法生成 PNG')
+    const blob =
+      format === 'jpg' ? await canvasToBlob(canvas, 'image/jpeg', 0.92) : await canvasToBlob(canvas)
+    if (blob === null) throw new Error(`地图导出失败：无法生成 ${format.toUpperCase()}`)
 
-    const fileName = options.fileName?.trim() || `地图-${exportTimestamp()}.png`
+    const fallbackName = `地图-${exportTimestamp()}.${format}`
+    const fileName = options.fileName?.trim() || fallbackName
     return await saveBlobAs(blob, fileName)
   } finally {
     loaded.release()

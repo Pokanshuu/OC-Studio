@@ -153,6 +153,8 @@ export function useMapViewport(aspectRatio: number, resetKey?: string | number):
   }, [])
 
   // 量容器。窗口 / 侧栏 / 页头变化都会重新 fit；尺寸变化时复位到居中。
+  // 依赖 `resetKey`：视口状态被提到宿主（浮层里的缩放条要和画布共用同一个视口）之后，
+  // 画布是「地图读到之后」才挂上的 —— 只跑一次的话 ref 还是空的，永远量不到尺寸。
   useEffect(() => {
     const element = viewportRef.current
     if (!element) return
@@ -171,7 +173,7 @@ export function useMapViewport(aspectRatio: number, resetKey?: string | number):
     const observer = new ResizeObserver(update)
     observer.observe(element)
     return () => observer.disconnect()
-  }, [])
+  }, [resetKey])
 
   // 首次量到尺寸、换图（比例变化）、容器尺寸变化 → 复位到「整张图居中、倍率 1」
   useEffect(() => {
@@ -211,7 +213,9 @@ export function useMapViewport(aspectRatio: number, resetKey?: string | number):
     [applyView],
   )
 
-  // 原生 wheel 监听：React 的 wheel 在部分 WebView 上是 passive，preventDefault 会失效
+  // 原生 wheel 监听：React 的 wheel 在部分 WebView 上是 passive，preventDefault 会失效。
+  // 依赖 `resetKey` 和量尺寸那个 effect 同一个理由：视口状态提到宿主之后，这个 hook 在
+  // 画布挂载**之前**就跑过一次，那时 `viewportRef.current` 还是 null，只跑一次就再也不接滚轮了。
   useEffect(() => {
     const element = viewportRef.current
     if (!element) return
@@ -222,7 +226,7 @@ export function useMapViewport(aspectRatio: number, resetKey?: string | number):
     }
     element.addEventListener('wheel', onWheel, { passive: false })
     return () => element.removeEventListener('wheel', onWheel)
-  }, [zoomAt])
+  }, [zoomAt, resetKey])
 
   const zoomBy = useCallback(
     (factor: number) => {

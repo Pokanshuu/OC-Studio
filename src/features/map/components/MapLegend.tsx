@@ -8,10 +8,12 @@
  * 图例一旦自己配色就会和地图像素对不上，那比没有图例更糟 ——
  * 改渲染色阶时这里要同步改（两处都是「图自己的调色板」，不是界面令牌）。
  *
+ * **不再自己是一块浮层**：它渲染在「图层」面板里（`MapControlBar`），所以这里只出内容。
+ * 面板已经有底色与模糊，再套一层 `PANEL` 会叠成两层磨砂。
+ *
  * 只放色块与两端标签，不写说明句：标签本身已经说明了一切（约束 13）。
  */
 import { BIOME_COLORS, BIOME_NAMES } from '@/plugins/map-generator'
-import { PANEL } from '@/lib/ui-tokens'
 
 const DEEP_OCEAN = 'rgb(20 40 52)'
 const SHALLOW_OCEAN = 'rgb(77 118 128)'
@@ -40,40 +42,41 @@ function Ramp({ gradient, from, to }: { gradient: string; from: string; to: stri
 }
 
 export function MapLegend({ view }: { view: string }) {
-  return (
-    <div className={`pointer-events-auto w-[168px] p-2 ${PANEL}`} role="note" aria-label="图例">
-      {view === 'biome' ? (
-        <div className="grid grid-cols-2 gap-x-2 gap-y-1">
-          {BIOME_NAMES.map((name, index) => (
-            <div key={name} className="flex min-w-0 items-center gap-1">
-              <span
-                className="h-2 w-2 shrink-0 rounded-item"
-                style={{ background: BIOME_COLORS[index] ?? 'transparent' }}
-              />
-              <span className="truncate text-[11px] text-ink-muted">{name}</span>
-            </div>
-          ))}
-        </div>
-      ) : view === 'political' ? (
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-1.5">
-            <span className="h-2 w-4 shrink-0 rounded-item border border-line bg-[var(--oc-hover)]" />
-            <span className="text-[11px] text-ink-muted">国界</span>
+  if (view === 'biome') {
+    return (
+      <div className="grid grid-cols-2 gap-x-2 gap-y-1">
+        {BIOME_NAMES.map((name, index) => (
+          <div key={name} className="flex min-w-0 items-center gap-1">
+            <span
+              className="h-2 w-2 shrink-0 rounded-item"
+              style={{ background: BIOME_COLORS[index] ?? 'transparent' }}
+            />
+            <span className="truncate text-[11px] text-ink-muted">{name}</span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <svg width="16" height="2" aria-hidden>
-              <line x1="0" y1="1" x2="16" y2="1" stroke="currentColor" strokeWidth="1.5" strokeDasharray="4 2" />
-            </svg>
-            <span className="text-[11px] text-ink-muted">道路</span>
-          </div>
+        ))}
+      </div>
+    )
+  }
+
+  if (view === 'political') {
+    return (
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-1.5">
+          <span className="h-2 w-4 shrink-0 rounded-item border border-line bg-[var(--oc-hover)]" />
+          <span className="text-[11px] text-ink-muted">国界</span>
         </div>
-      ) : view === 'temperature' ? (
-        <Ramp gradient={TEMP_RAMP} from="−30℃" to="42℃" />
-      ) : view === 'moisture' ? (
-        <Ramp gradient={MOISTURE_RAMP} from="干旱" to="湿润" />
-      ) : (
-        <Ramp gradient={TERRAIN_RAMP} from="低" to="高" />
-      )}
-    </div>
-  )
+        <div className="flex items-center gap-1.5">
+          <svg width="16" height="2" aria-hidden>
+            <line x1="0" y1="1" x2="16" y2="1" stroke="currentColor" strokeWidth="1.5" strokeDasharray="4 2" />
+          </svg>
+          <span className="text-[11px] text-ink-muted">道路</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (view === 'temperature') return <Ramp gradient={TEMP_RAMP} from="−30℃" to="42℃" />
+  if (view === 'moisture') return <Ramp gradient={MOISTURE_RAMP} from="干旱" to="湿润" />
+
+  return <Ramp gradient={TERRAIN_RAMP} from="低" to="高" />
 }

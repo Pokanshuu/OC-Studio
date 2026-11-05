@@ -11,11 +11,11 @@
  * 每个请求带递增 `requestId`，只认最新那一个的响应：重新生成时旧结果直接丢弃。
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Dices, ImageDown, Minus, Plus, Save } from 'lucide-react'
+import { Dices, ImageDown, Lock, Minus, Plus, Save, Wand2 } from 'lucide-react'
 import {
-  BIOME_COLORS,
-  BIOME_NAMES,
   DEFAULT_MAP_PARAMS,
+  MAP_MAX_SIZE,
+  MAP_MIN_SIZE,
   MAP_VIEW_LABELS,
   REGION_MAP_SIZE,
   WORLD_MAP_HEIGHT,
@@ -33,27 +33,143 @@ import {
 import {
   BTN_PRIMARY,
   BTN_QUIET,
-  FIELD_LABEL,
   ICON_BTN,
-  FIELD_ROW,
-  LIST_END,
-  MENU_ITEM_BASE,
+  NUMBER_INPUT,
+  FLOAT_BAR,
+  FLOAT_BAR_ICON,
+  PANEL,
   ROUND_ITEM,
-  SECTION_TITLE_BARE,
 } from '@/lib/ui-tokens'
+import { MapLegend } from './components/MapLegend'
 import { saveBlobAs } from './export'
 
 const VIEWS: MapView[] = ['terrain', 'contour', 'temperature', 'moisture', 'biome', 'political']
 
-/** 范围必须与 `plugins/map-generator/params.ts` 的 clamp 一致，否则滑块两端是死区 */
-const PARAM_FIELDS: Array<{ key: keyof WorldMapParams; label: string; min: number; max: number; step: number }> = [
-  { key: 'landCoverage', label: '陆地比例', min: 0.08, max: 0.62, step: 0.02 },
-  { key: 'mountainStrength', label: '山脉强度', min: 0, max: 1, step: 0.05 },
-  { key: 'lakeDensity', label: '湖泊密度', min: 0, max: 1, step: 0.05 },
-  { key: 'riverDensity', label: '河流密度', min: 0, max: 1, step: 0.05 },
-  { key: 'temperatureOffset', label: '温度偏移', min: -10, max: 10, step: 1 },
-  { key: 'moistureBias', label: '降水偏置', min: -1, max: 1, step: 0.3 },
+function pct(value: number): string {
+  return `${Math.round(value * 100)}%`
+}
+
+function signedPct(value: number): string {
+  const amount = Math.round(value * 100)
+  return `${amount > 0 ? '+' : ''}${amount}%`
+}
+
+/**
+ * 滑块。上下限必须与 `plugins/map-generator/params.ts` 的 clamp 逐项一致，
+ * 否则滑块两端是死区（拖到头数字不动，看起来像坏了）。
+ * 右侧那个数字是**当前值**：没有它，用户只能靠滑块位置猜自己调到了哪。
+ */
+interface ParamField {
+  key: keyof WorldMapParams
+  label: string
+  min: number
+  max: number
+  step: number
+  format: (value: number) => string
+  /** 光看名字猜不出后果的才给一句（文案预算：≤ 20 字、只占一行） */
+  hint?: string
+}
+
+/** 面积类参数存的是「占全图的比例」，显示成百分比 */
+function areaPct(value: number): string {
+  return `${(value * 100).toFixed(3)}%`
+}
+
+/** 参数分两组：地形 / 气候是一组，湖泊自己一组（它有三个数，混在一起太挤） */
+const PARAM_GROUPS: Array<{ label?: string; fields: ParamField[] }> = [
+  {
+    fields: [
+      { key: 'landCoverage', label: '陆地覆盖', min: 0.08, max: 0.62, step: 0.01, format: pct },
+      { key: 'mountainStrength', label: '山脉强度', min: 0, max: 1, step: 0.01, format: pct },
+      { key: 'plateauStrength', label: '高原强度', min: 0, max: 1, step: 0.01, format: pct },
+      {
+        key: 'plainBias',
+        label: '平原偏置',
+        min: -1,
+        max: 1,
+        step: 0.05,
+        format: signedPct,
+        hint: '提高平原占比；负值增加丘陵与破碎地形。',
+      },
+      {
+        key: 'temperatureOffset',
+        label: '温度偏移',
+        min: -10,
+        max: 10,
+        step: 1,
+        format: (value) => `${value > 0 ? '+' : ''}${value}°C`,
+      },
+      { key: 'moistureBias', label: '降水偏置', min: -1, max: 1, step: 0.05, format: signedPct },
+      { key: 'riverDensity', label: '河流密度', min: 0, max: 1, step: 0.01, format: pct },
+      {
+        key: 'latitudeSpan',
+        label: '纬度跨度',
+        min: 100,
+        max: 170,
+        step: 5,
+        format: (value) => `${Math.round(value)}°`,
+        hint: '控制极地到赤道的温差；越大，冰原与雨林越极端。',
+      },
+    ],
+  },
+  {
+    label: '湖泊',
+    fields: [
+      { key: 'lakeDensity', label: '湖泊密度', min: 0, max: 1, step: 0.01, format: pct },
+      { key: 'lakeMinArea', label: '最小面积', min: 0.00005, max: 0.01, step: 0.00005, format: areaPct },
+      { key: 'lakeMaxArea', label: '最大面积', min: 0.0005, max: 0.05, step: 0.0005, format: areaPct },
+    ],
+  },
 ]
+
+/** 分组小标题：比正文小一档、只靠字距与颜色分层 */
+const SECTION_LABEL = 'text-[11px] tracking-[0.08em] text-ink-faint'
+
+/**
+ * 堆叠式滑块：标签与当前值一行，滑杆下一行，必要时再加一句小字。
+ * 不用「字段行 + 横线」那套：参数一多就是一片线，层级反而没了。
+ */
+function ParamSlider({
+  label,
+  hint,
+  value,
+  min,
+  max,
+  step,
+  display,
+  onChange,
+  disabled = false,
+}: {
+  label: string
+  hint?: string
+  value: number
+  min: number
+  max: number
+  step: number
+  display: string
+  onChange: (value: number) => void
+  disabled?: boolean
+}) {
+  return (
+    <label className={`flex flex-col gap-1 ${disabled ? 'opacity-60' : ''}`}>
+      <span className="flex items-baseline justify-between gap-2 leading-4">
+        <span className="text-[12px] text-ink">{label}</span>
+        <span className="text-[11px] tabular-nums text-ink-muted">{display}</span>
+      </span>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        disabled={disabled}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className={RANGE_INPUT}
+      />
+      {hint ? <span className="text-[11px] leading-4 text-ink-faint">{hint}</span> : null}
+    </label>
+  )
+}
 
 /** 尺寸 = `kind` + 一对像素值；`kind` 同时决定地形的投影方式（世界 / 区域） */
 const SIZES: Array<{ value: WorldMapKind; label: string; width: number; height: number }> = [
@@ -61,20 +177,81 @@ const SIZES: Array<{ value: WorldMapKind; label: string; width: number; height: 
   { value: 'region', label: '区域', width: REGION_MAP_SIZE, height: REGION_MAP_SIZE },
 ]
 
-/** 大陆分布预设（`custom` 只读兼容，不给入口：它本来就等于当前参数） */
-const PRESETS: Array<{ value: TerrainPreset; label: string }> = [
-  { value: 'earth', label: '地球型' },
-  { value: 'three-continents', label: '三大陆' },
-  { value: 'islands', label: '群岛' },
-  { value: 'pangaea', label: '盘古' },
+/**
+ * 大陆分布预设（`custom` 只读兼容，不给入口：它本来就等于当前参数）。
+ * 四个选项的值差得远，光看名字猜不出会生成什么，所以每个带一句「长什么样」。
+ */
+const PRESETS: Array<{ value: TerrainPreset; label: string; hint: string }> = [
+  { value: 'earth', label: '地球型大陆', hint: '南北大陆，约 70% 海洋' },
+  { value: 'three-continents', label: '三大洲', hint: '三块大陆，少量岛屿' },
+  { value: 'islands', label: '多岛屿世界', hint: '群岛为主，海洋约 85%' },
+  { value: 'pangaea', label: '盘古大陆', hint: '一整块超级大陆' },
 ]
 
-/** 参数里的小键（尺寸 / 大陆形态）：选中用浅底块，和视图那排同一套语义 */
-const CHIP = 'h-6 rounded-item px-2 text-[12px] transition-colors'
+/**
+ * 数字输入：**不用 `type="number"`** —— 系统那对步进箭头够不着令牌（暗色下是一块白底），
+ * 和 `<datalist>` / `type="date"` 同一类问题。外观走 `NUMBER_INPUT`，行为在这里：
+ * 只收数字、↑/↓ 步进、失焦夹进范围。
+ *
+ * 需要一份本地草稿：输入途中把「3」立刻夹成 512，人就永远敲不出「3072」。
+ */
+function NumericField({
+  value,
+  min,
+  max,
+  step,
+  label,
+  widthClass,
+  onCommit,
+}: {
+  value: number
+  min: number
+  max: number
+  step: number
+  label: string
+  widthClass: string
+  onCommit: (value: number) => void
+}) {
+  const [draft, setDraft] = useState(String(value))
+  // 外部改了这个值（「随机种子」、生成后回填）时，草稿跟上
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 外部改了值，草稿必须同步，没有可派生的来源
+    setDraft(String(value))
+  }, [value])
+
+  const clamp = (next: number): number => Math.min(max, Math.max(min, next))
+
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      value={draft}
+      aria-label={label}
+      onChange={(event) => {
+        const digits = event.target.value.replace(/[^\d]/g, '')
+        setDraft(digits)
+        if (digits !== '') onCommit(Number(digits))
+      }}
+      onBlur={() => {
+        const next = clamp(Number(draft) || value)
+        setDraft(String(next))
+        onCommit(next)
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
+        event.preventDefault()
+        const next = clamp((Number(draft) || 0) + (event.key === 'ArrowUp' ? step : -step))
+        setDraft(String(next))
+        onCommit(next)
+      }}
+      className={`${NUMBER_INPUT} ${widthClass}`}
+    />
+  )
+}
 
 /** 设计系统滑杆（同 TimelineToolbar）：轨道 4px、拇指 14px、无描边盒 */
 const RANGE_INPUT =
-  'h-6 min-w-0 flex-1 cursor-pointer appearance-none bg-transparent ' +
+  'h-4 w-full cursor-pointer appearance-none bg-transparent ' +
   '[&::-webkit-slider-runnable-track]:h-1 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-line ' +
   '[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:-mt-1 [&::-webkit-slider-thumb]:h-3.5 ' +
   '[&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-ink-muted ' +
@@ -87,6 +264,7 @@ export function MapGeneratorPanel({
   onUseAsBackground,
   initialSeed,
   initialParams,
+  mapName,
 }: {
   /** 拿到 PNG 后交给宿主：落盘 + 设为当前地图底图（带上是哪一档视图） */
   onUseAsBackground: (
@@ -100,6 +278,8 @@ export function MapGeneratorPanel({
   initialSeed?: number
   /** 原来的参数（JSON 字符串，来自 `map_params`）；解析不了就当没有 */
   initialParams?: string
+  /** 生成结果写到哪张地图 —— 生成器没有地图库下拉，目标得写出来 */
+  mapName?: string
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const workerRef = useRef<Worker | null>(null)
@@ -122,6 +302,8 @@ export function MapGeneratorPanel({
   })
   const [seed, setSeed] = useState(() => initialSeed ?? Math.floor(Math.random() * 1_000_000))
   const [view, setView] = useState<MapView>('terrain')
+  /** 等高线间隔（米）：只在等高线视图里看得见，改它要重画这一档 */
+  const [contourInterval, setContourInterval] = useState(100)
   const [progress, setProgress] = useState<{ stage: string; value: number } | null>(null)
   const [meta, setMeta] = useState<GeneratedMeta | null>(null)
   const [ready, setReady] = useState(false)
@@ -189,7 +371,7 @@ export function MapGeneratorPanel({
       setReady(true)
       setError(null)
       // 初始图是地形；按当前视图再要一张（地形直接命中 Worker 缓存）
-      send((requestId) => ({ type: 'render', requestId, view }))
+      send((requestId) => ({ type: 'render', requestId, view, contourInterval }))
       return
     }
 
@@ -248,7 +430,7 @@ export function MapGeneratorPanel({
   const switchView = (next: MapView) => {
     if (next === view) return
     setView(next)
-    if (ready) send((requestId) => ({ type: 'render', requestId, view: next }))
+    if (ready) send((requestId) => ({ type: 'render', requestId, view: next, contourInterval }))
   }
 
   const canvasBlob = (): Promise<Blob | null> =>
@@ -276,9 +458,13 @@ export function MapGeneratorPanel({
         current.seed,
         current.params,
         view,
+        // 六档底图一次性画完存盘：进度接着用生成器那条胶囊
+        (stage, value) => setProgress({ stage, value }),
       )
+      setProgress(null)
       setError(null)
     } catch (err) {
+      setProgress(null)
       setError(err instanceof Error ? err.message : '保存底图失败')
     }
   }
@@ -302,128 +488,206 @@ export function MapGeneratorPanel({
   const canvasHeight = meta?.height ?? params.height
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 md:flex-row">
-      <aside className="flex w-full shrink-0 flex-col gap-3 md:w-64">
-        {/* 参数区自己滚，底部「用作底图 / PNG」固定可见：以前它们跟在滚动内容尾部，
-            屏矮一点就被推到视口外，生成完还得先往下翻才找得到出口 */}
-        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
-        <section className="flex flex-col">
-          <div className="mb-1 flex items-center justify-between">
-            <h2 className={SECTION_TITLE_BARE}>形态</h2>
-            <span className="text-[11px] tabular-nums text-ink-faint">
-              {params.width} × {params.height}
-            </span>
-          </div>
-
-          <div className={LIST_END}>
-            <div className={FIELD_ROW}>
-              <span className={FIELD_LABEL}>尺寸</span>
-              <div className="flex gap-1">
-                {SIZES.map((size) => {
-                  const selected = params.kind === size.value && params.width === size.width
-                  return (
-                    <button
-                      key={size.value}
-                      type="button"
-                      onClick={() =>
-                        setParams((prev) => ({
-                          ...prev,
-                          kind: size.value,
-                          width: size.width,
-                          height: size.height,
-                        }))
-                      }
-                      aria-pressed={selected}
-                      className={`${CHIP} ${
-                        selected
-                          ? 'bg-[var(--oc-hover)] text-ink'
-                          : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
-                      }`}
-                    >
-                      {size.label}
-                    </button>
-                  )
-                })}
-              </div>
+    <div className="flex h-full min-h-0 flex-col gap-4 md:flex-row">
+      {/* 左：形态 + 参数（自己滚），生成钉在底部 —— 屏矮时也不用先往下翻才找得到出口 */}
+            {/* 左：形态 / 大陆 / 参数 / 湖泊，生成钉在底部。
+          版式对齐 oc_editor 的生成器：**分组 + 堆叠滑块**（标签与数值一行，滑杆下一行，
+          需要解释的给一句小字），不再是一排排带横线的字段行 —— 参数多起来那会变成
+          「全是线线线」，分组和留白才是层级。 */}
+      <aside className="flex min-h-0 w-full shrink-0 flex-col md:w-[300px]">
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1">
+          <section className="flex flex-col">
+            <div className="mb-2 flex items-baseline justify-between gap-2">
+              <p className="flex min-w-0 items-baseline gap-2"><span className={SECTION_LABEL}>形态</span>{mapName ? <span className="truncate text-[11px] text-ink-faint">写入「{mapName}」</span> : null}</p>
+              <span className="text-[11px] tabular-nums text-ink-faint">
+                {params.width} × {params.height}
+              </span>
             </div>
 
-            <div className={FIELD_ROW}>
-              <span className={FIELD_LABEL}>大陆</span>
-              <div className="flex flex-wrap gap-1">
-                {PRESETS.map((preset) => {
-                  const selected = (params.terrainPreset ?? 'earth') === preset.value
-                  return (
-                    <button
-                      key={preset.value}
-                      type="button"
-                      onClick={() => setParams((prev) => ({ ...prev, terrainPreset: preset.value }))}
-                      aria-pressed={selected}
-                      className={`${CHIP} ${
-                        selected
-                          ? 'bg-[var(--oc-hover)] text-ink'
-                          : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
-                      }`}
-                    >
-                      {preset.label}
-                    </button>
-                  )
-                })}
-              </div>
+            <div className="grid grid-cols-2 gap-1 rounded-control border border-line bg-paper p-1">
+              {SIZES.map((size) => {
+                const selected = params.kind === size.value && params.width === size.width
+                return (
+                  <button
+                    key={size.value}
+                    type="button"
+                    onClick={() =>
+                      setParams((prev) => ({
+                        ...prev,
+                        kind: size.value,
+                        width: size.width,
+                        height: size.height,
+                      }))
+                    }
+                    aria-pressed={selected}
+                    className={`h-7 text-[12px] transition-colors ${ROUND_ITEM} ${
+                      selected ? 'bg-paper-card text-ink' : 'text-ink-muted hover:text-ink'
+                    }`}
+                  >
+                    {size.label}
+                  </button>
+                )
+              })}
             </div>
-          </div>
-        </section>
 
-        <section className="flex flex-col">
-          <div className="mb-1 flex items-center justify-between">
-            <h2 className={SECTION_TITLE_BARE}>参数</h2>
-            <button
-              type="button"
-              onClick={() => setSeed(Math.floor(Math.random() * 1_000_000))}
-              className={BTN_QUIET}
-              title="换一个种子"
-            >
-              <Dices size={14} strokeWidth={2} />
-              <span className="tabular-nums">{seed}</span>
-            </button>
-          </div>
-
-          <div className={LIST_END}>
-            {PARAM_FIELDS.map((field) => (
-              <label key={field.key} className={FIELD_ROW}>
-                <span className={FIELD_LABEL}>{field.label}</span>
-                <input
-                  type="range"
-                  min={field.min}
-                  max={field.max}
-                  step={field.step}
-                  value={Number(params[field.key] ?? 0)}
-                  onChange={(event) =>
-                    setParams((prev) => ({ ...prev, [field.key]: Number(event.target.value) }))
-                  }
-                  className={RANGE_INPUT}
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <label className="flex flex-col gap-1">
+                <span className="text-[11px] text-ink-faint">宽度</span>
+                <NumericField
+                  value={params.width}
+                  min={MAP_MIN_SIZE}
+                  max={MAP_MAX_SIZE}
+                  step={64}
+                  label="宽度"
+                  widthClass="w-full"
+                  onCommit={(next) => setParams((prev) => ({ ...prev, width: next }))}
                 />
               </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-[11px] text-ink-faint">高度</span>
+                <NumericField
+                  value={params.height}
+                  min={MAP_MIN_SIZE}
+                  max={MAP_MAX_SIZE}
+                  step={64}
+                  label="高度"
+                  widthClass="w-full"
+                  onCommit={(next) => setParams((prev) => ({ ...prev, height: next }))}
+                />
+              </label>
+            </div>
+          </section>
+
+          <section className="flex flex-col">
+            <p className={`mb-2 ${SECTION_LABEL}`}>大陆形态</p>
+            <div className="grid grid-cols-2 gap-1.5">
+              {PRESETS.map((preset) => {
+                const selected = (params.terrainPreset ?? 'earth') === preset.value
+                return (
+                  <button
+                    key={preset.value}
+                    type="button"
+                    onClick={() =>
+                      setParams((prev) => ({ ...prev, terrainPreset: preset.value }))
+                    }
+                    aria-pressed={selected}
+                    className={`flex flex-col gap-0.5 border px-2 py-1.5 text-left transition-colors ${ROUND_ITEM} ${
+                      selected
+                        ? 'border-ink bg-paper-card'
+                        : 'border-line hover:border-line-hover'
+                    }`}
+                  >
+                    <span className="text-[12px] text-ink">{preset.label}</span>
+                    <span className="text-[11px] leading-4 text-ink-faint">{preset.hint}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+
+          <section className="flex flex-col gap-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <p className={SECTION_LABEL}>参数</p>
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] tracking-[0.06em] text-ink-faint">SEED</span>
+                <NumericField
+                  value={seed}
+                  min={0}
+                  max={999_999_999}
+                  step={1}
+                  label="种子"
+                  widthClass="w-20"
+                  onCommit={setSeed}
+                />
+                <button
+                  type="button"
+                  onClick={() => setSeed(Math.floor(Math.random() * 1_000_000))}
+                  className={ICON_BTN}
+                  title="随机种子"
+                  aria-label="随机种子"
+                >
+                  <Dices size={13} strokeWidth={2} />
+                </button>
+              </div>
+            </div>
+
+            {PARAM_GROUPS[0].fields.map((field) => (
+              <ParamSlider
+                key={field.key}
+                label={field.label}
+                hint={field.hint}
+                value={Number(params[field.key] ?? 0)}
+                min={field.min}
+                max={field.max}
+                step={field.step}
+                display={field.format(Number(params[field.key] ?? 0))}
+                onChange={(next) => setParams((prev) => ({ ...prev, [field.key]: next }))}
+              />
             ))}
-          </div>
 
-          <button
-            type="button"
-            onClick={generate}
-            disabled={busy}
-            className={`${BTN_PRIMARY} mt-3 w-full justify-center`}
-          >
-            生成
-          </button>
-        </section>
+            <ParamSlider
+              label="等高线间隔"
+              value={contourInterval}
+              min={50}
+              max={500}
+              step={50}
+              display={`${contourInterval}m`}
+              onChange={setContourInterval}
+              disabled={!ready}
+            />
+          </section>
 
-        <div className="flex flex-col gap-1" role="group" aria-label="视图">
+          <section className="flex flex-col gap-2.5 border-t border-line pt-4">
+            <p className={SECTION_LABEL}>湖泊配置</p>
+            {PARAM_GROUPS[1].fields.map((field) => (
+              <ParamSlider
+                key={field.key}
+                label={field.label}
+                hint={field.hint}
+                value={Number(params[field.key] ?? 0)}
+                min={field.min}
+                max={field.max}
+                step={field.step}
+                display={field.format(Number(params[field.key] ?? 0))}
+                onChange={(next) => setParams((prev) => ({ ...prev, [field.key]: next }))}
+              />
+            ))}
+          </section>
+
+          {/* 一句必要的口径：同样的种子 + 参数一定出同一张图 */}
+          <section className="rounded-control border border-line bg-paper p-3">
+            <p className="flex items-center gap-1.5 text-[11px] text-ink">
+              <Lock size={12} strokeWidth={2} className="text-ink-faint" />
+              本地确定性生成
+            </p>
+            <p className="mt-1.5 text-[11px] leading-4 text-ink-muted">
+              相同的种子与参数会生成完全相同的地图。
+            </p>
+          </section>
+        </div>
+
+        <button
+          type="button"
+          onClick={generate}
+          disabled={busy}
+          className={`${BTN_PRIMARY} mt-3 w-full justify-center`}
+        >
+          生成
+        </button>
+      </aside>
+
+
+      {/* 右：视图 → 预览 → 统计与出口 */}
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex flex-wrap items-center gap-0.5" role="group" aria-label="视图">
           {VIEWS.map((item) => (
             <button
               key={item}
               type="button"
               onClick={() => switchView(item)}
               aria-pressed={view === item}
-              className={`${MENU_ITEM_BASE} ${
+              disabled={!ready}
+              className={`h-6 px-2 text-[12px] transition-colors disabled:opacity-40 ${ROUND_ITEM} ${
                 view === item
                   ? 'bg-[var(--oc-hover)] text-ink'
                   : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
@@ -434,120 +698,151 @@ export function MapGeneratorPanel({
           ))}
         </div>
 
-        </div>
-
-        <div className="flex shrink-0 items-center gap-1 border-t border-line pt-3">
-          <button type="button" onClick={() => void handleUse()} disabled={!ready} className={BTN_PRIMARY}>
-            <Save size={14} strokeWidth={2} />
-            用作底图
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleExport()}
-            disabled={!ready}
-            className={`${BTN_QUIET} disabled:opacity-40`}
-          >
-            <ImageDown size={14} strokeWidth={2} />
-            PNG
-          </button>
-        </div>
-      </aside>
-
-      <div className="relative flex min-h-0 flex-1 flex-col">
-        <div className="min-h-0 flex-1 overflow-auto">
-          <canvas
-            className={`border border-line bg-paper ${ROUND_ITEM}`}
-            style={{ aspectRatio: `${canvasWidth} / ${canvasHeight}`, width: `${zoom * 100}%` }}
-          />
-        </div>
-
-        <div className="pointer-events-auto absolute right-3 top-3 z-10 flex items-center gap-0.5 rounded-control border border-line bg-paper/90 px-1 py-0.5 float-shadow">
-          <button
-            type="button"
-            className={ICON_BTN}
-            onClick={() => setZoom((value) => Math.max(0.5, Math.round((value - 0.25) * 4) / 4))}
-            disabled={zoom <= 0.5}
-            title="缩小"
-          >
-            <Minus size={13} strokeWidth={2} />
-          </button>
-          <button
-            type="button"
-            onClick={() => setZoom(1)}
-            className="min-w-[46px] px-1 text-[11px] tabular-nums text-ink-muted transition-colors hover:text-ink"
-            title="适应宽度"
-          >
-            {Math.round(zoom * 100)}%
-          </button>
-          <button
-            type="button"
-            className={ICON_BTN}
-            onClick={() => setZoom((value) => Math.min(4, Math.round((value + 0.25) * 4) / 4))}
-            disabled={zoom >= 4}
-            title="放大"
-          >
-            <Plus size={13} strokeWidth={2} />
-          </button>
-        </div>
-        {meta ? (
-          <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[11px] tabular-nums text-ink-faint">
-            <span>
-              陆地 <span className="text-ink">{(meta.stats.landRatio * 100).toFixed(1)}%</span>
-            </span>
-            <span>
-              最高峰 <span className="text-ink">{Math.round(meta.stats.maxElevation).toLocaleString('zh-CN')} m</span>
-            </span>
-            <span>
-              河流格 <span className="text-ink">{meta.stats.riverCells.toLocaleString('zh-CN')}</span>
-            </span>
-            <span>
-              湖泊 <span className="text-ink">{meta.stats.lakeCount}</span>
-            </span>
-            <span>
-              生物群系 <span className="text-ink">{meta.stats.biomeCount}</span>
-            </span>
-            <span>
-              平均降水 <span className="text-ink">{Math.round(meta.stats.meanPrecipitation)} mm</span>
-            </span>
+        <div className="relative mt-3 flex min-h-[240px] flex-1 flex-col overflow-hidden">
+          {/* canvas **必须一直在 DOM 里**：Worker 回传像素时是往这个元素上画的，
+              以前生成前不渲染它，drawBuffer 拿到 null 就报「像素与宽高不一致」。
+              没生成前用 visibility 藏起来，占位与比例照旧。 */}
+          <div className="min-h-0 flex-1 overflow-auto">
+            <canvas
+              ref={canvasRef}
+              className={`w-full bg-paper-card ${ROUND_ITEM} ${ready ? '' : 'invisible'}`}
+              style={{ aspectRatio: `${canvasWidth} / ${canvasHeight}`, width: `${zoom * 100}%` }}
+            />
           </div>
-        ) : null}
 
-        {view === 'biome' ? (
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ink-faint">
-            {BIOME_NAMES.map((name, id) =>
-              name ? (
-                <span key={name} className="flex items-center gap-1">
-                  <span
-                    className="h-2 w-2 shrink-0 rounded-full"
-                    style={{ backgroundColor: BIOME_COLORS[id] ?? 'transparent' }}
-                  />
-                  {name}
-                </span>
-              ) : null,
-            )}
-          </div>
-        ) : null}
-        <div className="mt-2 flex min-h-5 items-center gap-2">
-          {progress ? (
-            <>
+          {ready ? null : (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
               <div
-                role="progressbar"
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuenow={Math.round(progress.value * 100)}
-                className="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-line"
+                className={`pointer-events-auto flex w-[264px] flex-col items-center gap-3 p-5 text-center ${PANEL}`}
               >
-                <div
-                  className="h-full rounded-full bg-ink-muted transition-[width] duration-150"
-                  style={{ width: `${Math.round(progress.value * 100)}%` }}
-                />
+                <Wand2 size={20} strokeWidth={2} className="text-ink-faint" />
+                <p className="text-sm text-ink-muted">还没有生成底图</p>
+                <button
+                  type="button"
+                  onClick={generate}
+                  disabled={busy}
+                  className={`${BTN_PRIMARY} w-full justify-center`}
+                >
+                  生成地图
+                </button>
               </div>
-              <span className="max-w-[50%] shrink-0 truncate text-xs text-ink-faint">{progress.stage}</span>
-            </>
-          ) : error ? (
-            <p className="text-xs text-error">{error}</p>
+            </div>
+          )}
+
+          {ready ? (
+            <div className={`pointer-events-none absolute right-3 top-3 w-[168px] p-2 ${PANEL}`}>
+              <MapLegend view={view} />
+            </div>
+          ) : null}
+
+          {ready ? (
+            <div className={`pointer-events-auto absolute bottom-3 right-3 ${FLOAT_BAR}`}>
+              <button
+                type="button"
+                className={FLOAT_BAR_ICON}
+                onClick={() => setZoom((value) => Math.max(0.5, Math.round((value - 0.25) * 4) / 4))}
+                disabled={zoom <= 0.5}
+                title="缩小"
+                aria-label="缩小"
+              >
+                <Minus size={13} strokeWidth={2} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setZoom(1)}
+                className="min-w-[46px] px-1 text-[11px] tabular-nums text-ink-muted transition-colors hover:text-ink"
+                title="适应宽度"
+              >
+                {Math.round(zoom * 100)}%
+              </button>
+              <button
+                type="button"
+                className={FLOAT_BAR_ICON}
+                onClick={() => setZoom((value) => Math.min(4, Math.round((value + 0.25) * 4) / 4))}
+                disabled={zoom >= 4}
+                title="放大"
+                aria-label="放大"
+              >
+                <Plus size={13} strokeWidth={2} />
+              </button>
+            </div>
+          ) : null}
+
+          {progress ? (
+            <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">
+              <div className={`flex w-[280px] items-center gap-2 px-3 py-2 ${PANEL}`}>
+                <div
+                  role="progressbar"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={Math.round(progress.value * 100)}
+                  className="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-line"
+                >
+                  <div
+                    className="h-full rounded-full bg-ink-muted transition-[width] duration-150"
+                    style={{ width: `${Math.round(progress.value * 100)}%` }}
+                  />
+                </div>
+                <span className="shrink-0 text-[11px] text-ink-faint">{progress.stage}</span>
+              </div>
+            </div>
           ) : null}
         </div>
+
+        <div className="mt-2 flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-4 gap-y-1 text-[11px] tabular-nums text-ink-faint">
+            {meta ? (
+              <>
+                <span>
+                  陆地 <span className="text-ink">{(meta.stats.landRatio * 100).toFixed(1)}%</span>
+                </span>
+                <span>
+                  最高峰{' '}
+                  <span className="text-ink">
+                    {Math.round(meta.stats.maxElevation).toLocaleString('zh-CN')} m
+                  </span>
+                </span>
+                <span>
+                  河流格 <span className="text-ink">{meta.stats.riverCells.toLocaleString('zh-CN')}</span>
+                </span>
+                <span>
+                  湖泊 <span className="text-ink">{meta.stats.lakeCount}</span>
+                </span>
+                <span>
+                  生物群系 <span className="text-ink">{meta.stats.biomeCount}</span>
+                </span>
+                <span>
+                  平均降水 <span className="text-ink">{Math.round(meta.stats.meanPrecipitation)} mm</span>
+                </span>
+              </>
+            ) : (
+              <span>全部计算在本机 Web Worker 内完成</span>
+            )}
+          </div>
+
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => void handleUse()}
+              disabled={!ready || busy}
+              className={BTN_PRIMARY}
+            >
+              <Save size={14} strokeWidth={2} />
+              用作底图
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleExport()}
+              disabled={!ready || busy}
+              className={`${BTN_QUIET} disabled:opacity-40`}
+            >
+              <ImageDown size={14} strokeWidth={2} />
+              PNG
+            </button>
+          </div>
+        </div>
+
+        {error ? <p className="mt-1 text-xs text-error">{error}</p> : null}
       </div>
     </div>
   )

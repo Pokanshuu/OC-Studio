@@ -7,6 +7,8 @@
  * - 线（国界多边形、道路折线）没有实体可以寄放，所以单独存在地图笔记的
  *   `map_annotations` 里（一条 JSON 字符串，和 `map_params` 同一个路数）。
  * - 国界的**填充色**也落在这里（`fill`，存色板中文名），只给面用；道路无填充。
+ * - **线条色**（`color`）国界与道路都有；空 = 固定深墨（不跟主题翻）——
+ *   底图是用户内容，主题的 `ink` 在暗色下会变成浅灰，铺在浅色地图上几乎看不见。
  *
  * 坐标是归一化 0–1，与锚点同一套口径：换分辨率、换底图都不用重画。
  */
@@ -24,6 +26,8 @@ export interface MapAnnotation {
   kind: AnnotationKind
   /** 至少 2 个点；`border` 是闭合多边形，`road` 是折线 */
   points: AnnotationPoint[]
+  /** 线条色（`RELATION_COLORS` 的中文名）；空 = 固定深墨 */
+  color?: string
   /** 国界填充色（`RELATION_COLORS` 的中文名）；空 = 只画淡墨底 */
   fill?: string
 }
@@ -88,9 +92,16 @@ export function parseAnnotations(raw: string | undefined): MapAnnotation[] {
     const points = normalizePoints(record.points)
     if (points.length < minPoints(kind)) continue
     const id = typeof record.id === 'string' && record.id !== '' ? record.id : newAnnotationId()
-    // 只有国界有填充色；非法色名一律丢掉（不猜色）
+    // 颜色只认色板里的中文名（不猜色）；填充只有国界有
+    const color = normalizeRelationColor(record.color)
     const fill = kind === 'border' ? normalizeRelationColor(record.fill) : undefined
-    out.push({ id, kind, points, ...(fill ? { fill } : {}) })
+    out.push({
+      id,
+      kind,
+      points,
+      ...(color ? { color } : {}),
+      ...(fill ? { fill } : {}),
+    })
   }
   return out
 }
@@ -102,6 +113,7 @@ export function stringifyAnnotations(items: readonly MapAnnotation[]): string | 
     id: item.id,
     kind: item.kind,
     points: item.points.map((point) => ({ x: round4(point.x), y: round4(point.y) })),
+    ...(item.color ? { color: item.color } : {}),
     ...(item.kind === 'border' && item.fill ? { fill: item.fill } : {}),
   }))
   return JSON.stringify(payload)

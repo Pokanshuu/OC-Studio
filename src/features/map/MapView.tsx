@@ -9,15 +9,39 @@
  * - 实体锚点存 `map_position`（归一化 0–1）+ `map_id`（**地图名字**，因为 id 只在本次会话有效）
  * - 拖动锚点 = 写回实体，不新建任何表
  *
- * 版式：与列表页同一个 48px 页头（`TOOLBAR` 的形态），移动端折成两行、不粘顶；
- * 锚点是压在图上的小圆角标签（不是胶囊），移动端只读。
+ * 版式（2026-11-06 改版）：整屏画布 + **四个角**，每个角只回答一个问题：
+ *   左上「我在看哪张图」/ 左下「我在看什么」/ 右下「我能改什么」/ 右上「模式与输出」。
+ * 底部中轴只留一条控制条（图层 + 底图档位），手绘底图没有档位时它自己缩成一枚按钮。
+ * 界面按「这张图能做什么」裁剪：导入的底图没有六档、没有图例，这两段整段不渲染。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Activity, Layers, MapPin, Maximize2, Minimize2, Palette, PenLine, Plus, Route, Trash2, Wand2 } from 'lucide-react'
+import {
+  Activity,
+  ArrowLeft,
+  Check,
+  ChevronDown,
+  Eraser,
+  ImageDown,
+  Library,
+  MapPin,
+  Maximize2,
+  Minimize2,
+  Minus,
+  MoreHorizontal,
+  Package,
+  PackageOpen,
+  Palette,
+  PenLine,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Route,
+  Trash2,
+  Upload,
+  Wand2,
+} from 'lucide-react'
 import { toast } from 'sonner'
-import { MediaContextMenu } from '@/components/shared/MediaContextMenu'
-import { MenuSurface } from '@/components/shared/menu/MenuSurface'
-import { RELATION_COLORS, relationColorValue } from '@/lib/relation-colors'
+import { MediaContextMenu, type MediaMenuItem } from '@/components/shared/MediaContextMenu'
 import { MapGeneratorPanel } from './MapGeneratorPanel'
 import {
   normalizeMapParams,
@@ -25,7 +49,6 @@ import {
   type ProfilePoint,
   type WorldMapParams,
 } from '@/plugins/map-generator'
-
 
 import { useEntityNavigate } from '@/components/layout/EntityNavigateContext'
 import { useDevice } from '@/lib/use-device'
@@ -35,18 +58,22 @@ import {
   BTN_PRIMARY,
   BTN_QUIET,
   CENTER_STATE,
+  FLOAT_BAR,
+  FLOAT_BAR_ICON,
+  FLOAT_BAR_TEXT,
+  FLOAT_SKIN,
+  FLOAT_STACK,
   LOADING_TEXT,
-  MENU_ITEM,
 } from '@/lib/ui-tokens'
 import { notifyDataUpdated } from '@/lib/data-events'
 import { MapAnchorPicker, type MapAnchorSelection } from './components/MapAnchorPicker'
+import { AnnotationColorMenu } from './components/AnnotationColorMenu'
 import { MapCanvas, type AnnotationDraft } from './components/MapCanvas'
-import { MapLibraryDialog } from './components/MapLibraryDialog'
-import { MapModeCard } from './components/MapModeCard'
-import { MapLegend } from './components/MapLegend'
-import { ProfileDrawer } from './components/ProfileDrawer'
+import { MapControlBar } from './components/MapControlBar'
+import { MapDetailDialog } from './components/MapDetailDialog'
 import { MapSwitcher } from './components/MapSwitcher'
-import { MapViewStrip } from './components/MapViewStrip'
+import { ProfileDrawer } from './components/ProfileDrawer'
+import { useMapViewport } from './hooks/useMapViewport'
 import { deleteMapImage, mapViewFileName, saveMapImage } from './assets'
 import {
   ANNOTATION_LABELS,
@@ -59,7 +86,8 @@ import {
   type AnnotationPoint,
   type MapAnnotation,
 } from './annotations'
-import { exportMapPng } from './export'
+import { exportMapImage } from './export'
+import { exportMapArchive, importMapArchiveFile } from './archive-io'
 import { renderMapProfile, renderMapView } from './render-view'
 import {
   createMap,
@@ -85,10 +113,10 @@ const NAV_TYPE: Record<AnchorKind, string> = {
 }
 
 /**
- * 视图条上的档位。
+ * 控制条上的档位。
  *
  * 不含 `profile`：剖面是**抽屉**（沿一条线取高度剖面），不是一张满屏底图，
- * 切过去会把整张地图换成一条剖面图，那不是这个条要干的事。
+ * 切过去会把整张地图换成一条剖面图，那不是这条控制条要干的事。
  */
 const VIEWS: readonly MapViewKind[] = [
   'terrain',
@@ -99,9 +127,72 @@ const VIEWS: readonly MapViewKind[] = [
   'political',
 ]
 
+/** 压在画布上的小工具按钮：图标 24 见方，浮条里再嵌一层 */
+const TOOL_BTN = `flex h-7 w-7 shrink-0 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink rounded-item`
+
 function messageOf(err: unknown): string {
   if (err instanceof Error) return err.message
   return typeof err === 'string' ? err : String(err)
+}
+
+interface MoreMenuOptions {
+  hasImage: boolean
+  exporting: boolean
+  onExport: () => void
+  onExportArchive: () => void
+  onImportArchive: () => void
+  onPickBackground: () => void
+  onRemoveBackground: () => void
+  onGenerate: () => void
+  onOpenLibrary: () => void
+}
+
+/**
+ * 右上「⋯」的条目：**点开时才构建**（不在渲染期拼闭包、也不在渲染期读 ref）。
+ * 顺序固定为「导出 / 底图 / 生成 / 地图库」，只有「有没有底图」决定哪几项在。
+ */
+function buildMoreItems(options: MoreMenuOptions): MediaMenuItem[] {
+  const items: MediaMenuItem[] = []
+  if (options.hasImage) {
+    items.push({
+      label: options.exporting ? '导出中…' : '导出图片',
+      icon: <ImageDown size={13} strokeWidth={2} />,
+      onSelect: options.onExport,
+    })
+    items.push({
+      label: '导出地图包',
+      icon: <Package size={13} strokeWidth={2} />,
+      onSelect: options.onExportArchive,
+    })
+  }
+  items.push({
+    label: '导入地图包…',
+    icon: <PackageOpen size={13} strokeWidth={2} />,
+    onSelect: options.onImportArchive,
+  })
+  items.push({
+    label: options.hasImage ? '更换底图' : '设置底图',
+    icon: <Upload size={13} strokeWidth={2} />,
+    onSelect: options.onPickBackground,
+  })
+  if (options.hasImage) {
+    items.push({
+      label: '移除底图',
+      icon: <Eraser size={13} strokeWidth={2} />,
+      onSelect: options.onRemoveBackground,
+    })
+  }
+  items.push({
+    label: '生成地图',
+    icon: <Wand2 size={13} strokeWidth={2} />,
+    onSelect: options.onGenerate,
+  })
+  items.push({
+    label: '地图详情',
+    icon: <Library size={13} strokeWidth={2} />,
+    onSelect: options.onOpenLibrary,
+  })
+  return items
 }
 
 export function MapView() {
@@ -115,22 +206,17 @@ export function MapView() {
     if (typeof window === 'undefined') return 'view'
     return localStorage.getItem('oc-map-mode') === 'edit' ? 'edit' : 'view'
   })
-  const toggleMapMode = (): void => {
-    const next = mapMode === 'view' ? 'edit' : 'view'
-    setMapMode(next)
-    localStorage.setItem('oc-map-mode', next)
-  }
   const [layers, setLayers] = useState<MapLayerState[]>(() =>
     DEFAULT_MAP_LAYERS.map((layer) => ({ ...layer })),
   )
   const [anchorPickerOpen, setAnchorPickerOpen] = useState(false)
-  const [layerCardOpen, setLayerCardOpen] = useState(false)
   const [switcherOpen, setSwitcherOpen] = useState(false)
   const [libraryOpen, setLibraryOpen] = useState(false)
   /** 整屏地图：把页面壳让出来，只留画布与浮层 */
   const [immersive, setImmersive] = useState(false)
   const [exporting, setExporting] = useState(false)
-  /** 正在换视图：档位暂时不可点，进度给视图条底那条细线 */
+  const [importing, setImporting] = useState(false)
+  /** 正在换视图：档位暂时不可点，进度给控制条底那条细线 */
   const [switching, setSwitching] = useState(false)
   const [switchProgress, setSwitchProgress] = useState<number | null>(null)
   /** 正在画的标注（国界 / 道路） */
@@ -148,11 +234,21 @@ export function MapView() {
     anchor: MapAnchor
     target: MapAnnotation | null
   } | null>(null)
-  /** 国界填充色的小面板：右键国界 →「填充色」 */
-  const [fillMenu, setFillMenu] = useState<{ target: MapAnnotation; at: { x: number; y: number } } | null>(null)
+  /** 国界 / 道路的颜色面板：线条色 + （国界）填充色 */
+  const [paintMenu, setPaintMenu] = useState<{ target: MapAnnotation; at: { x: number; y: number } } | null>(null)
+  /** 右上「⋯」：低频输出（导出 / 底图 / 生成 / 地图库），条目在点开时构建 */
+  const [moreMenu, setMoreMenu] = useState<{
+    at: { x: number; y: number }
+    items: MediaMenuItem[]
+  } | null>(null)
+  /** 右下「标注」：画国界 / 画道路 / 取剖面 */
+  const [toolMenu, setToolMenu] = useState<{ x: number; y: number } | null>(null)
+  /** 生成器的起点：从地图库「重新生成」带过来的种子与参数；`null` = 全新一张 */
+  const [generatorPreset, setGeneratorPreset] = useState<{ seed?: number; params?: string } | null>(null)
 
   const activeIdRef = useRef<number | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const archiveInputRef = useRef<HTMLInputElement | null>(null)
 
   const { isMobile } = useDevice()
   const { activeItem } = useNavigation()
@@ -170,11 +266,12 @@ export function MapView() {
     if (activeItem === '地图') return
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 离开分区就得把浮层收回闭合态，这个值没有可派生的来源
     setAnchorPickerOpen(false)
-    setLayerCardOpen(false)
     setSwitcherOpen(false)
     setLibraryOpen(false)
     setImmersive(false)
     setCanvasMenu(null)
+    setMoreMenu(null)
+    setToolMenu(null)
     setDraft(null)
   }, [activeItem])
 
@@ -197,8 +294,23 @@ export function MapView() {
     }
   }, [immersive])
 
+  // 地图列表是浮层：Esc 也能收
+  useEffect(() => {
+    if (!switcherOpen) return
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') setSwitcherOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [switcherOpen])
+
   const active = maps.find((map) => map.id === activeId) ?? maps[0] ?? null
   const activeName = active?.name ?? ''
+
+  // 缩放 / 平移的视口：浮层里的缩放条与画布共用同一个 —— 所以状态提到这里，
+  // `MapCanvas` 只负责把 stage 画出来（见 `hooks/useMapViewport` 的 resetKey 说明）。
+  const aspectRatio = active?.width && active?.height ? active.width / active.height : 16 / 9
+  const viewport = useMapViewport(aspectRatio, active?.id ?? 0)
 
   const reload = useCallback(async (keepId?: number | null) => {
     try {
@@ -234,6 +346,7 @@ export function MapView() {
   const selectMap = useCallback((id: number | null) => {
     activeIdRef.current = id
     setActiveId(id)
+    setSwitcherOpen(false)
   }, [])
 
   /** 空 map_id 的锚点先都算在当前地图上；一旦拖动就归属到这张图 */
@@ -268,6 +381,16 @@ export function MapView() {
     return { counts, unassigned }
   }, [points])
 
+  /**
+   * 这张图有没有「底图档位」：只有生成过的地图才有可重画的快照。
+   * 导入的底图没有 —— 六档与图例对它是无意义的，整段不渲染。
+   */
+  const canSwitchView = Boolean(active?.image && active.params && active.seed !== undefined)
+  const activeView: MapViewKind =
+    active && VIEWS.includes((active.mode ?? 'terrain') as MapViewKind)
+      ? ((active.mode ?? 'terrain') as MapViewKind)
+      : 'terrain'
+
   const handleToggleLayer = (kind: MapLayerKind) => {
     setLayers((previous) =>
       previous.map((layer) => (layer.kind === kind ? { ...layer, visible: !layer.visible } : layer)),
@@ -278,10 +401,27 @@ export function MapView() {
     setLayers((previous) => previous.map((layer) => ({ ...layer, visible: true })))
   }
 
+  /** 查看 / 编辑：唯一模式开关，入口与出口都在右上角原位 */
+  const applyMapMode = (next: 'view' | 'edit'): void => {
+    setMapMode(next)
+    localStorage.setItem('oc-map-mode', next)
+    if (next === 'view') {
+      setDraft(null)
+      setCanvasMenu(null)
+      setToolMenu(null)
+      setAnchorPickerOpen(false)
+    }
+  }
+
+  const toggleMapMode = (): void => {
+    applyMapMode(mapMode === 'view' ? 'edit' : 'view')
+  }
+
   const handleCreate = async () => {
     try {
       const id = await createMap()
       await reload(id)
+      setSwitcherOpen(false)
       notifyDataUpdated()
     } catch (err) {
       toast.error('新建地图失败', { description: messageOf(err) })
@@ -317,7 +457,7 @@ export function MapView() {
   }
 
   /**
-   * 切视图（方案 A）：用存下的种子 + 参数重画这一档，落成
+   * 切档（方案 A）：用存下的种子 + 参数重画这一档，落成
    * `.ocstudio/maps/<地图>-<视图>.png` 再指过去。
    *
    * 每次都重画而不是查缓存文件：参数可能被重新生成改过，只有「种子 + 参数」
@@ -483,9 +623,9 @@ export function MapView() {
     [annotations],
   )
 
-  const startDraft = (kind: AnnotationKind) => {
-    const origin = canvasMenu?.anchor
+  const startDraft = (kind: AnnotationKind, origin?: MapAnchor) => {
     setCanvasMenu(null)
+    setToolMenu(null)
     setDraftPurpose('annotation')
     setDraft({ kind, points: origin ? [{ x: origin.x, y: origin.y }] : [] })
   }
@@ -522,9 +662,9 @@ export function MapView() {
     }
   }
 
-  const startProfile = () => {
-    const origin = canvasMenu?.anchor
+  const startProfile = (origin?: MapAnchor) => {
     setCanvasMenu(null)
+    setToolMenu(null)
     setDraftPurpose('profile')
     setDraft({ kind: 'road', points: origin ? [{ x: origin.x, y: origin.y }] : [] })
   }
@@ -561,9 +701,17 @@ export function MapView() {
     await persistAnnotations(annotations.filter((item) => item.id !== target.id))
   }
 
+  /** 给标注换线条色；`undefined` = 回到默认（固定深墨） */
+  const setAnnotationColor = async (target: MapAnnotation, color: string | undefined): Promise<void> => {
+    setPaintMenu(null)
+    await persistAnnotations(
+      annotations.map((item) => (item.id === target.id ? { ...item, color } : item)),
+    )
+  }
+
   /** 给国界换填充色；`undefined` = 去掉填充（回到淡墨底） */
   const setAnnotationFill = async (target: MapAnnotation, fill: string | undefined): Promise<void> => {
-    setFillMenu(null)
+    setPaintMenu(null)
     await persistAnnotations(
       annotations.map((item) => (item.id === target.id ? { ...item, fill } : item)),
     )
@@ -579,20 +727,28 @@ export function MapView() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [draft])
 
-  const handleExport = async () => {
-    if (!active?.image) return
-    const safeName = active.name.replace(/[\\/:*?"<>|]+/g, '-').trim() || '地图'
+  /** 打开系统文件选择：底图入口有两处（画布空态 / 右上「⋯」），统一走这一个 */
+  const pickBackground = useCallback(() => {
+    fileInputRef.current?.click()
+  }, [])
+
+  /** 把某一张图导出成图片：锚点取**属于这张图的**（空 `map_id` 的旧锚点也算） */
+  const handleExportMap = async (map: MapEntity, format: 'png' | 'jpg' = 'png'): Promise<void> => {
+    if (!map.image) return
+    const safeName = map.name.replace(/[\\/:*?"<>|]+/g, '-').trim() || '地图'
     setExporting(true)
     try {
-      await exportMapPng(
-        { image: active.image, width: active.width, height: active.height },
-        shown.map((point) => ({
-          x: point.anchor.x,
-          y: point.anchor.y,
-          title: point.title,
-          kind: point.kind,
-        })),
-        { fileName: `地图-${safeName}.png` },
+      await exportMapImage(
+        { image: map.image, width: map.width, height: map.height },
+        points
+          .filter((point) => point.mapId === '' || point.mapId === map.name)
+          .map((point) => ({
+            x: point.anchor.x,
+            y: point.anchor.y,
+            title: point.title,
+            kind: point.kind,
+          })),
+        { fileName: `地图-${safeName}.${format}`, format },
       )
     } catch (err) {
       toast.error('导出失败', { description: messageOf(err) })
@@ -601,22 +757,75 @@ export function MapView() {
     }
   }
 
+  const handleExport = async (): Promise<void> => {
+    if (!active) return
+    await handleExportMap(active)
+  }
+
+  /** 导出 `.ocmap`：底图 + 生成快照 + 标注，拿到的人能接着编辑 */
+  const handleExportArchive = async (map: MapEntity): Promise<void> => {
+    setExporting(true)
+    try {
+      await exportMapArchive(map)
+    } catch (err) {
+      toast.error('导出地图包失败', { description: messageOf(err) })
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  /** 导入 `.ocmap`：建一张新地图（重名自动去重），然后切过去 */
+  const handleImportArchive = async (file: File): Promise<void> => {
+    setImporting(true)
+    try {
+      const result = await importMapArchiveFile(file)
+      await reload(result.id)
+      notifyDataUpdated()
+      const notes = result.warnings.length > 0 ? result.warnings.join('；') : undefined
+      toast.success(`已导入「${result.name}」`, { description: notes })
+    } catch (err) {
+      toast.error('导入地图包失败', { description: messageOf(err) })
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  const onArchivePicked = async (event: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    await handleImportArchive(file)
+  }
+
+  /**
+   * 打开生成器。带上 `preset` 就是「在这张图上重新生成」：
+   * 种子与参数原样带过去，调几下参数再生成，出来的还是同一片大陆。
+   */
+  const openGenerator = (preset?: { seed?: number; params?: string }): void => {
+    setGeneratorPreset(preset ?? null)
+    setMode('generate')
+    setLibraryOpen(false)
+    setSwitcherOpen(false)
+    setCanvasMenu(null)
+    setToolMenu(null)
+    setDraft(null)
+    // 剖面抽屉在画布下方占 160px，进生成器时它只会把预览挤扁
+    setProfile(null)
+    setProfileError(null)
+  }
+
   const menuTarget = canvasMenu?.target ?? null
   const canvasMenuItems = [
     // 已有标注压在最上面，但**不替换**画线入口：国界是多边形，右键落在面里是常态
     ...(menuTarget
       ? [
-          ...(menuTarget.kind === 'border'
-            ? [
-                {
-                  label: menuTarget.fill ? `填充色：${menuTarget.fill}` : '填充色...',
-                  icon: <Palette size={13} strokeWidth={2} />,
-                  onSelect: () => {
-                    if (canvasMenu) setFillMenu({ target: menuTarget, at: canvasMenu.at })
-                  },
-                },
-              ]
-            : []),
+          {
+            label: '颜色...',
+            icon: <Palette size={13} strokeWidth={2} />,
+            onSelect: () => {
+              if (canvasMenu) setPaintMenu({ target: menuTarget, at: canvasMenu.at })
+            },
+          },
           {
             label: `删除${ANNOTATION_LABELS[menuTarget.kind]}`,
             danger: true,
@@ -628,18 +837,34 @@ export function MapView() {
     {
       label: '画国界',
       icon: <PenLine size={13} strokeWidth={2} />,
-      onSelect: () => startDraft('border'),
+      onSelect: () => {
+        const origin = canvasMenu?.anchor
+        startDraft('border', origin)
+      },
     },
     {
       label: '画道路',
       icon: <Route size={13} strokeWidth={2} />,
-      onSelect: () => startDraft('road'),
+      onSelect: () => {
+        const origin = canvasMenu?.anchor
+        startDraft('road', origin)
+      },
     },
     {
       label: '取地形剖面',
       icon: <Activity size={13} strokeWidth={2} />,
-      onSelect: () => startProfile(),
+      onSelect: () => {
+        const origin = canvasMenu?.anchor
+        startProfile(origin)
+      },
     },
+  ]
+
+  /** 右下「标注」：画线入口从「右键才知道」变成看得见 */
+  const toolItems: MediaMenuItem[] = [
+    { label: '画国界', icon: <PenLine size={13} strokeWidth={2} />, onSelect: () => startDraft('border') },
+    { label: '画道路', icon: <Route size={13} strokeWidth={2} />, onSelect: () => startDraft('road') },
+    { label: '取地形剖面', icon: <Activity size={13} strokeWidth={2} />, onSelect: () => startProfile() },
   ]
 
   if (loading) {
@@ -655,10 +880,20 @@ export function MapView() {
       <div className={CENTER_STATE}>
         <MapPin size={20} strokeWidth={2} className="text-ink-faint" />
         <p className="text-sm text-ink-muted">还没有地图</p>
-        <button type="button" onClick={() => void handleCreate()} className={BTN_PRIMARY}>
-          <Plus size={14} strokeWidth={2} />
-          新建地图
-        </button>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => void handleCreate()} className={BTN_PRIMARY}>
+            新建地图
+          </button>
+          <button
+            type="button"
+            onClick={() => archiveInputRef.current?.click()}
+            disabled={importing}
+            className={BTN_QUIET}
+          >
+            <PackageOpen size={13} strokeWidth={2} />
+            导入地图包
+          </button>
+        </div>
       </div>
     )
   }
@@ -673,23 +908,27 @@ export function MapView() {
         className="hidden"
         onChange={(event) => void handleFileChange(event)}
       />
+      <input
+        ref={archiveInputRef}
+        type="file"
+        accept=".ocmap,application/json"
+        className="hidden"
+        onChange={(event) => void onArchivePicked(event)}
+      />
       <div className="relative h-full w-full overflow-hidden">
-        {mode === 'generate' ? (
-          <div className="absolute inset-0 overflow-y-auto px-4 pb-6 pt-16 md:overflow-hidden md:px-6">
-            <MapGeneratorPanel onUseAsBackground={handleGenerated} />
-          </div>
-        ) : active ? (
+        {active ? (
           <MapCanvas
             map={active}
+            viewport={viewport}
             points={shown}
             allLayersOff={allLayersOff}
             onMoveAnchor={handleMoveAnchor}
             onCommitAnchor={handleCommitAnchor}
             onRemoveAnchor={handleRemoveAnchor}
             onOpenAnchor={handleOpenAnchor}
-            onAddAnchor={() => setAnchorPickerOpen(true)}
             onEnableAllLayers={handleEnableAllLayers}
-            onPickBackground={() => fileInputRef.current?.click()}
+            onPickBackground={pickBackground}
+            onGenerate={() => openGenerator()}
             readOnly={mapMode === 'view'}
             annotations={annotations}
             draft={draft}
@@ -699,164 +938,232 @@ export function MapView() {
           />
         ) : (
           <div className="flex h-full items-center justify-center">
-            <p className="text-sm text-ink-muted">还没有地图，左上角新建一张</p>
+            <p className="text-sm text-ink-muted">还没有地图</p>
           </div>
         )}
 
-        {/* 顶部浮层：地图名 + 查看 / 编辑 */}
-        <div className="pointer-events-none absolute inset-x-3 top-3 z-20 flex items-start justify-between gap-2">
-          <div className="pointer-events-auto flex min-w-0 items-center gap-1.5 rounded-control border border-line bg-paper/85 px-2.5 py-1 backdrop-blur-lg float-shadow">
-            <span className="truncate text-[13px] text-ink">{active?.name ?? '地图'}</span>
-            <span className="shrink-0 text-[11px] tabular-nums text-ink-faint">{shown.length} 个锚点</span>
+        {/* 生成器是一整块工作区，盖在画布上（画布保持挂载：视口尺寸不能因为切走一次就丢） */}
+        {mode === 'generate' ? (
+          <div className="absolute inset-0 z-10 overflow-y-auto bg-paper px-4 pb-6 pt-16 md:overflow-hidden md:px-6">
+            <MapGeneratorPanel
+              onUseAsBackground={handleGenerated}
+              mapName={active?.name}
+              initialSeed={generatorPreset?.seed}
+              initialParams={generatorPreset?.params}
+            />
           </div>
-          <div className="pointer-events-auto flex shrink-0 items-center gap-1.5">
+        ) : null}
+
+        {/* 地图列表打开时的点外关闭层：压住画布，但不挡顶部与底部浮层 */}
+        {switcherOpen ? (
+          <div
+            className="absolute inset-0 z-10"
+            onClick={() => setSwitcherOpen(false)}
+            aria-hidden
+          />
+        ) : null}
+
+        {/* 顶栏：左 = 我在看哪张图，右 = 模式与输出 */}
+        <div className="pointer-events-none absolute inset-x-3 top-3 z-20 flex items-start justify-between gap-2">
+          {mode === 'draw' && active ? (
+            <div className="pointer-events-auto relative min-w-0">
+              <button
+                type="button"
+                onClick={() => setSwitcherOpen((previous) => !previous)}
+                aria-expanded={switcherOpen}
+                aria-haspopup="dialog"
+                aria-label="切换地图"
+                className={`flex h-8 min-w-0 max-w-[min(56vw,340px)] items-center gap-1.5 px-2.5 text-left transition-colors hover:bg-[var(--oc-hover)] ${FLOAT_SKIN}`}
+              >
+                <span className="min-w-0 truncate text-[13px] text-ink">{active.name}</span>
+                <ChevronDown
+                  size={13}
+                  strokeWidth={2}
+                  className={`shrink-0 text-ink-faint transition-transform duration-150 ${
+                    switcherOpen ? 'rotate-180' : ''
+                  }`}
+                />
+                <span className="shrink-0 text-[11px] tabular-nums text-ink-faint max-sm:hidden">
+                  {shown.length} 个锚点
+                </span>
+              </button>
+
+              {switcherOpen ? (
+                <div className="absolute left-0 top-full z-30 mt-2 w-[320px] max-w-[calc(100vw-24px)]">
+                  <MapSwitcher
+                    maps={maps}
+                    activeId={active.id}
+                    anchorCount={(map) => anchorStats.counts.get(map.name) ?? 0}
+                    onSelect={selectMap}
+                    onCreate={() => void handleCreate()}
+                    onRename={(id, name) => {
+                      void renameMap(id, name).then(() => reload())
+                    }}
+                    onDelete={(id) => {
+                      void deleteMap(id).then(() => reload())
+                    }}
+                    onOpenDetail={() => {
+                      setSwitcherOpen(false)
+                      setLibraryOpen(true)
+                    }}
+                  />
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <span />
+          )}
+
+          <div className={`pointer-events-auto shrink-0 ${FLOAT_BAR}`}>
+            {mode === 'generate' ? (
+              <button type="button" onClick={() => setMode('draw')} className={FLOAT_BAR_TEXT}>
+                <ArrowLeft size={13} strokeWidth={2} />
+                画布
+              </button>
+            ) : null}
+
             <button
               type="button"
               onClick={() => setImmersive((previous) => !previous)}
-              className={BTN_QUIET}
+              className={FLOAT_BAR_ICON}
               title={immersive ? '退出全屏' : '全屏'}
               aria-label={immersive ? '退出全屏' : '全屏'}
             >
               {immersive ? <Minimize2 size={14} strokeWidth={2} /> : <Maximize2 size={14} strokeWidth={2} />}
             </button>
-            {mode === 'generate' ? (
-              <button type="button" onClick={() => setMode('draw')} className={BTN_QUIET}>
-                回到画布
-              </button>
-            ) : null}
+
             {mode === 'draw' ? (
               <button
                 type="button"
                 onClick={toggleMapMode}
-                className={mapMode === 'edit' ? BTN_PRIMARY : BTN_QUIET}
+                aria-pressed={mapMode === 'edit'}
+                className={`${FLOAT_BAR_TEXT} max-md:hidden ${
+                  mapMode === 'edit' ? 'bg-[var(--oc-hover)] text-ink' : ''
+                }`}
               >
-                {mapMode === 'edit' ? '完成' : '编辑地图'}
+                {mapMode === 'edit' ? (
+                  <Check size={13} strokeWidth={2} />
+                ) : (
+                  <Pencil size={13} strokeWidth={2} />
+                )}
+                {mapMode === 'edit' ? '完成' : '编辑'}
+              </button>
+            ) : null}
+
+            {mode === 'draw' ? (
+              <button
+                type="button"
+                onClick={(event) => {
+                  const rect = event.currentTarget.getBoundingClientRect()
+                  setMoreMenu({
+                    at: { x: rect.left, y: rect.bottom + 6 },
+                    items: buildMoreItems({
+                      hasImage: Boolean(active?.image),
+                      exporting,
+                      onExport: () => {
+                        if (!exporting) void handleExport()
+                      },
+                      onExportArchive: () => {
+                        if (active && !exporting) void handleExportArchive(active)
+                      },
+                      onImportArchive: () => archiveInputRef.current?.click(),
+                      onPickBackground: pickBackground,
+                      onRemoveBackground: () => void handleRemoveBackground(),
+                      onGenerate: () => openGenerator(),
+                      onOpenLibrary: () => setLibraryOpen(true),
+                    }),
+                  })
+                }}
+                className={FLOAT_BAR_ICON}
+                aria-label="更多"
+                title="更多"
+              >
+                <MoreHorizontal size={15} strokeWidth={2} />
               </button>
             ) : null}
           </div>
         </div>
 
-        {/* 地图选择器（天气那种卡片列表），从头像卡片顶部的箭头打开 */}
-        {switcherOpen ? (
-          <div className="pointer-events-none absolute bottom-3 left-3 z-30">
-            <MapSwitcher
-              maps={maps}
-              activeId={active?.id ?? null}
-              onSelect={(id) => {
-                selectMap(id)
-                setSwitcherOpen(false)
-              }}
-              onCreate={() => { void handleCreate(); setSwitcherOpen(false) }}
-              onRename={(id, name) => {
-                void renameMap(id, name).then(() => reload())
-              }}
-              onDelete={(id) => {
-                void deleteMap(id).then(() => reload())
-              }}
-              onOpenLibrary={() => {
-                setSwitcherOpen(false)
-                setLibraryOpen(true)
-              }}
-              onClose={() => setSwitcherOpen(false)}
-            />
-          </div>
-        ) : null}
-        {libraryOpen ? (
-          <MapLibraryDialog
-            maps={maps}
-            activeId={active?.id ?? null}
-            anchorCounts={anchorStats.counts}
-            unassignedAnchors={anchorStats.unassigned}
-            onClose={() => setLibraryOpen(false)}
-            onSelect={(id) => {
-              selectMap(id)
-              setLibraryOpen(false)
-            }}
-            onCreate={async () => {
-              await handleCreate()
-              setLibraryOpen(false)
-            }}
-            onRename={async (id, name) => {
-              await renameMap(id, name)
-              await reload()
-            }}
-            onDelete={async (id) => {
-              await deleteMap(id)
-              await reload()
-            }}
-          />
-        ) : null}
-        {/* 左下浮层：图层 / 操作（编辑态才有操作） */}
-        {mode === 'draw' ? (
+        {/* 左下 / 底部居中：一条控制条（图层 + 底图档位） */}
+        {mode === 'draw' && active ? (
           <div className="pointer-events-none absolute bottom-3 left-3 z-20">
-            {layerCardOpen ? (
-              <MapModeCard
-                layers={layers}
-                onToggleLayer={handleToggleLayer}
-                onClose={() => setLayerCardOpen(false)}
-                canEdit={mapMode === 'edit'}
-                hasMap={Boolean(active)}
-                hasImage={Boolean(active?.image)}
-                exporting={exporting}
-                onAddAnchor={() => setAnchorPickerOpen(true)}
-                onPickBackground={() => fileInputRef.current?.click()}
-                onRemoveBackground={() => void handleRemoveBackground()}
-                onGenerate={() => setMode('generate')}
-                onExport={() => void handleExport()}
-                mapName={active?.name ?? '地图'}
-                onOpenSwitcher={() => {
-                  setLayerCardOpen(false)
-                  setSwitcherOpen(true)
-                }}
-                onOpenLibrary={() => {
-                  setLayerCardOpen(false)
-                  setSwitcherOpen(false)
-                  setLibraryOpen(true)
-                }}
-              />
-            ) : (
-              <button
-                type="button"
-                onClick={() => setLayerCardOpen(true)}
-                className="pointer-events-auto flex h-9 items-center gap-2 rounded-panel border border-line bg-paper/85 px-3 text-[13px] text-ink backdrop-blur-lg float-shadow transition-colors hover:bg-[var(--oc-hover)]"
-              >
-                <Layers size={15} strokeWidth={2} />
-                图层
-              </button>
-            )}
-          </div>
-        ) : null}
-        {/* 没有底图时，生成器是一级入口：藏在「编辑态 › 图层 › 生成地图」三层里没人找得到 */}
-        {mode === 'draw' && active && !active.image ? (
-          <div className="pointer-events-none absolute bottom-3 left-1/2 z-20 -translate-x-1/2">
-            <button
-              type="button"
-              onClick={() => setMode('generate')}
-              className={`${BTN_PRIMARY} pointer-events-auto`}
-            >
-              <Wand2 size={14} strokeWidth={2} />
-              生成地图
-            </button>
-          </div>
-        ) : null}
-        {/* 视图条：只有生成过的地图才有（手传底图没有可重画的快照） */}
-        {mode === 'draw' && active?.image && active.params && active.seed !== undefined ? (
-          <div className="pointer-events-none absolute bottom-3 left-1/2 z-20 hidden -translate-x-1/2 md:block">
-            <MapViewStrip
-              views={VIEWS}
-              active={active.mode ?? 'terrain'}
+            <MapControlBar
+              views={canSwitchView ? VIEWS : []}
+              activeView={activeView}
               busy={switching}
               progress={switchProgress}
-              onSelect={(view) => void handleSwitchView(view)}
+              onSelectView={(view) => void handleSwitchView(view)}
+              layers={layers}
+              onToggleLayer={handleToggleLayer}
+              legendView={canSwitchView ? activeView : null}
             />
           </div>
         ) : null}
-        {/* 图例：压在左下、图层按钮上方。没有它那几张色块图就是无名颜色 */}
-        {mode === 'draw' && active?.image && !draft ? (
-          <div className="pointer-events-none absolute bottom-14 left-3 z-10 hidden md:block">
-            <MapLegend view={active.mode ?? 'terrain'} />
+
+        {/* 右下：编辑态才有「标记 / 标注」，缩放常驻 */}
+        {mode === 'draw' && active?.image ? (
+          <div className="pointer-events-none absolute bottom-3 right-3 z-20 flex flex-col items-end gap-2">
+            {mapMode === 'edit' ? (
+              <div className={`pointer-events-auto max-md:hidden ${FLOAT_STACK}`}>
+                <button
+                  type="button"
+                  onClick={() => setAnchorPickerOpen(true)}
+                  className={TOOL_BTN}
+                  title="添加锚点"
+                  aria-label="添加锚点"
+                >
+                  <MapPin size={15} strokeWidth={2} />
+                </button>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    const rect = event.currentTarget.getBoundingClientRect()
+                    setToolMenu({ x: rect.left, y: rect.top })
+                  }}
+                  className={TOOL_BTN}
+                  title="标注"
+                  aria-label="标注"
+                >
+                  <PenLine size={15} strokeWidth={2} />
+                </button>
+              </div>
+            ) : null}
+
+            <div className={`pointer-events-auto ${FLOAT_BAR}`}>
+              <button
+                type="button"
+                onClick={viewport.zoomOut}
+                className={FLOAT_BAR_ICON}
+                aria-label="缩小"
+                title="缩小"
+              >
+                <Minus size={14} strokeWidth={2} />
+              </button>
+              <span className="w-9 text-center text-[11px] tabular-nums text-ink-faint">
+                {Math.round(viewport.scale * 100)}%
+              </span>
+              <button
+                type="button"
+                onClick={viewport.zoomIn}
+                className={FLOAT_BAR_ICON}
+                aria-label="放大"
+                title="放大"
+              >
+                <Plus size={14} strokeWidth={2} />
+              </button>
+              <button
+                type="button"
+                onClick={viewport.reset}
+                className={FLOAT_BAR_ICON}
+                aria-label="复位"
+                title="复位"
+              >
+                <RotateCcw size={14} strokeWidth={2} />
+              </button>
+            </div>
           </div>
         ) : null}
+
         {/* 画线中：计数 + 完成 / 取消（不放说明文字，按钮自己会说） */}
         {draft ? (
           <div className="pointer-events-none absolute bottom-16 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1.5">
@@ -882,6 +1189,7 @@ export function MapView() {
           </div>
         ) : null}
       </div>
+
       {profile || profileLoading || profileError ? (
         <ProfileDrawer
           points={profile?.points ?? []}
@@ -895,50 +1203,60 @@ export function MapView() {
           }}
         />
       ) : null}
+
       <MapAnchorPicker
         open={anchorPickerOpen}
         mapName={activeName}
         onClose={() => setAnchorPickerOpen(false)}
         onSelect={(selection) => void handleAddAnchor(selection)}
       />
+
+      {libraryOpen && active ? (
+        <MapDetailDialog
+          map={active}
+          anchorCount={anchorStats.counts.get(active.name) ?? 0}
+          unassignedAnchors={anchorStats.unassigned}
+          canDelete={maps.length > 1}
+          onClose={() => setLibraryOpen(false)}
+          onRename={async (id, name) => {
+            await renameMap(id, name)
+            await reload()
+          }}
+          onDelete={async (id) => {
+            await deleteMap(id)
+            await reload()
+          }}
+          onEdit={() => {
+            applyMapMode('edit')
+            setLibraryOpen(false)
+          }}
+          onRegenerate={() => openGenerator({ seed: active.seed, params: active.params })}
+          onExport={() => handleExportMap(active)}
+          onExportJpg={() => handleExportMap(active, 'jpg')}
+          onExportArchive={() => handleExportArchive(active)}
+        />
+      ) : null}
+
+      {moreMenu ? (
+        <MediaContextMenu at={moreMenu.at} onClose={() => setMoreMenu(null)} items={moreMenu.items} />
+      ) : null}
+
+      {toolMenu ? (
+        <MediaContextMenu at={toolMenu} onClose={() => setToolMenu(null)} items={toolItems} />
+      ) : null}
+
       {canvasMenu ? (
         <MediaContextMenu at={canvasMenu.at} onClose={() => setCanvasMenu(null)} items={canvasMenuItems} />
       ) : null}
-      {fillMenu ? (
-        <MenuSurface
-          at={fillMenu.at}
-          onClose={() => setFillMenu(null)}
-          width={200}
-          ariaLabel="国界填充色"
-        >
-          <button
-            type="button"
-            onClick={() => void setAnnotationFill(fillMenu.target, undefined)}
-            className={`${MENU_ITEM} justify-between`}
-          >
-            <span>无填充</span>
-            {!fillMenu.target.fill ? <span className="text-[11px] text-ink-faint">当前</span> : null}
-          </button>
-          <div className="grid grid-cols-6 gap-1.5 px-3 py-2">
-            {RELATION_COLORS.map((color) => {
-              const active = fillMenu.target.fill === color.name
-              return (
-                <button
-                  key={color.name}
-                  type="button"
-                  aria-label={color.name}
-                  aria-pressed={active}
-                  title={color.name}
-                  onClick={() => void setAnnotationFill(fillMenu.target, color.name)}
-                  className={`h-5 w-5 rounded-full border transition-colors ${
-                    active ? 'border-ink' : 'border-transparent hover:border-line-hover'
-                  }`}
-                  style={{ backgroundColor: relationColorValue(color.name) }}
-                />
-              )
-            })}
-          </div>
-        </MenuSurface>
+
+      {paintMenu ? (
+        <AnnotationColorMenu
+          target={paintMenu.target}
+          at={paintMenu.at}
+          onClose={() => setPaintMenu(null)}
+          onColor={(color) => void setAnnotationColor(paintMenu.target, color)}
+          onFill={(fill) => void setAnnotationFill(paintMenu.target, fill)}
+        />
       ) : null}
     </div>
   )
