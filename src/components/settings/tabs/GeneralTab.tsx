@@ -11,7 +11,8 @@ import { compressBackgroundImage, BACKGROUND_MAX_SCRIM, BACKGROUND_MIN_SCRIM, ty
 import { BTN_QUIET } from '@/lib/ui-tokens'
 import { getVaultSession } from '@/lib/vault/vault-session'
 import { isVaultSupported, vaultFs } from '@/lib/vault/vault-fs'
-import { ThemeRadio, ThemePresetRadio, LayoutRadio, CoverTintRadio, SWITCH_CLASSES, SWITCH_DOT } from '../controls'
+import { ThemeRadio, LayoutRadio, SWITCH_CLASSES, SWITCH_DOT } from '../controls'
+import { SETTINGS_GROUP, SETTINGS_HINT, SETTINGS_LABEL, SETTINGS_ROW } from '@/lib/ui-tokens'
 import { THEME_PRESETS } from '@/lib/theme/presets'
 export function GeneralTab() {
   const { settings, updateSetting } = useSettings()
@@ -52,81 +53,50 @@ export function GeneralTab() {
       }).catch(() => {})
     } catch {}
   }
+  const switchRow = (label: React.ReactNode, checked: boolean, disabled: boolean, onToggle: () => void, extra?: React.ReactNode) => (
+    <div className={SETTINGS_ROW}>
+      <span className={SETTINGS_LABEL}>{label}</span>
+      <div className="flex flex-col items-start gap-1">
+        <button
+          role="switch"
+          aria-checked={checked}
+          disabled={disabled}
+          onClick={onToggle}
+          className={`${SWITCH_CLASSES.base} ${checked ? SWITCH_CLASSES.on : SWITCH_CLASSES.off} ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+        >
+          <span className={`${SWITCH_DOT} ${checked ? "translate-x-[18px] bg-paper" : "translate-x-[2px]"}`} />
+        </button>
+        {extra}
+      </div>
+    </div>
+  )
+
   return (
-    <>
-              <div className="flex flex-col gap-5">
-                <label className="flex items-center justify-between">
-                  {/* 禁用态由 opacity + 光标表达，不再补「桌面端支持」这类次级标签 */}
-                  <span className="text-sm text-ink">开机自启动</span>
-                  <button
-                    role="switch"
-                    aria-checked={settings.autoStart}
-                    disabled={isMobile}
-                    onClick={() =>
-                      updateSetting("autoStart", !settings.autoStart)
-                    }
-                    className={`${SWITCH_CLASSES.base} ${
-                      settings.autoStart ? SWITCH_CLASSES.on : SWITCH_CLASSES.off
-                    } ${isMobile ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  >
-                    <span
-                      className={`${SWITCH_DOT} ${
-                        settings.autoStart
-                          ? "translate-x-[18px] bg-paper"
-                          : "translate-x-[2px]"
-                      }`}
-                    />
-                  </button>
-                </label>
-
-                <div className="flex flex-col gap-2">
-                  <span className="text-sm text-ink">显示模式</span>
-                  <ThemeRadio
-                    value={settings.theme}
-                    onChange={(v) =>
-                      updateSetting("theme", v as "light" | "dark" | "auto")
-                    }
-                  />
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <span className="text-sm text-ink">编辑界面样式</span>
-                  <LayoutRadio
-                    value={settings.editorLayout}
-                    onChange={(v) => updateSetting("editorLayout", v)}
-                  />
-                </div>
-
-                <div className="flex flex-col gap-3 pt-2 border-t border-line">
-                  <label className="flex items-center justify-between">
-                    <span className="text-sm text-ink">启用窗口模糊效果</span>
-                    <button
-                      role="switch"
-                      aria-checked={blurEnabled}
-                      disabled={toggleDisabled || settings.backgroundImage !== ''}
-                      onClick={handleBlurToggle}
-                      className={`${SWITCH_CLASSES.base} ${
-                        blurEnabled ? SWITCH_CLASSES.on : SWITCH_CLASSES.off
-                      } ${toggleDisabled || settings.backgroundImage !== '' ? "opacity-50 cursor-not-allowed" : ""}`}
-                    >
-                      <span
-                        className={`${SWITCH_DOT} ${
-                          blurEnabled
-                            ? "translate-x-[18px] bg-paper"
-                            : "translate-x-[2px]"
-                        }`}
-                      />
-                    </button>
-                  </label>
-                  {settings.backgroundImage !== '' ? (
-                    <span className="text-[11px] text-ink-faint">与背景图互斥</span>
-                  ) : null}
-                </div>
-              </div>
-
-    </>
+    <div className="flex flex-col gap-3">
+      {switchRow("开机自启动", settings.autoStart, isMobile, () => updateSetting("autoStart", !settings.autoStart))}
+      <div className={SETTINGS_ROW}>
+        <span className={SETTINGS_LABEL}>显示模式</span>
+        <ThemeRadio
+          value={settings.theme}
+          onChange={(v) => updateSetting("theme", v as "light" | "dark" | "auto")}
+        />
+      </div>
+      <div className={SETTINGS_ROW}>
+        <span className={SETTINGS_LABEL}>编辑界面</span>
+        <LayoutRadio
+          value={settings.editorLayout}
+          onChange={(v) => updateSetting("editorLayout", v)}
+        />
+      </div>
+      <div className={SETTINGS_GROUP}>
+        {switchRow(
+          "窗口模糊",
+          blurEnabled,
+          toggleDisabled || settings.backgroundImage !== "",
+          handleBlurToggle,
+          settings.backgroundImage !== "" ? <span className={SETTINGS_HINT}>与背景图互斥</span> : null,
+        )}
+      </div>
+    </div>
   )
 }
-
-
-
