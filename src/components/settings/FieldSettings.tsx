@@ -21,7 +21,6 @@ import { SortableList, moveId } from '@/components/shared/list-dnd'
 import { SettingsFieldRow } from './FieldRow'
 
 /** 行实现统一在 `FieldRow.tsx`（列型 / 组件型共用一套语法） */
-const FieldRow = SettingsFieldRow
 
 function FieldGroup({ kind, showTitle = true }: { kind: FieldKind; showTitle?: boolean }) {
   const fields = useFieldConfig()[kind]
