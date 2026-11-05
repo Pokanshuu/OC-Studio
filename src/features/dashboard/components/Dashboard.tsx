@@ -10,7 +10,8 @@ import { useCharacterList } from '@/features/characters/hooks/useCharacters'
 import { useEventList } from '@/features/events/hooks/useEvents'
 import { useCountryList } from '@/features/countries/hooks/useCountries'
 import { useEntryList } from '@/features/world/hooks/useWorldEntries'
-import { MEDIA_IMG, PAGE_TITLE, SECTION_TITLE } from '@/lib/ui-tokens'
+import { useOverviewCounts } from '../hooks/useOverviewCounts'
+import { MEDIA_IMG, PAGE_TITLE, ROUND_ITEM, SECTION_TITLE } from '@/lib/ui-tokens'
 
 interface DashboardProps {
   /** 打开某个实体 */
@@ -58,6 +59,7 @@ export function Dashboard({ onNavigate, onOpenSection }: DashboardProps) {
   const { events } = useEventList()
   const { countries } = useCountryList()
   const { entries } = useEntryList()
+  const { novels, maps } = useOverviewCounts()
 
   const coverSrc = meta.coverUrl.trim() ? resolveImageUrl(meta.coverUrl, 'header') : ''
 
@@ -82,6 +84,8 @@ export function Dashboard({ onNavigate, onOpenSection }: DashboardProps) {
     { label: '事件', value: events.length, item: '事件' },
     { label: '国家', value: countries.length, item: '国家' },
     { label: '词条', value: entries.length, item: '世界观' },
+    { label: '小说', value: novels, item: '小说' },
+    { label: '地图', value: maps, item: '地图' },
   ]
 
   const isEmpty =
@@ -113,34 +117,19 @@ export function Dashboard({ onNavigate, onOpenSection }: DashboardProps) {
           ) : null}
         </header>
 
-        {/* 概览数字：行自带 px-2，外层 -mx-2 抵消，保证文字仍与上方标题对齐 */}
-        <div className="mt-10 -mx-2 grid grid-cols-2 gap-x-10 sm:grid-cols-4">
+        {/* 概览：六格排成 3 × 2 —— 角色 / 事件 / 国家 · 词条 / 小说 / 地图。
+            行自带 px-2，外层 -mx-2 抵消，保证文字仍与上方标题对齐。
+            每格「标签靠左、数字靠右」，底线从标签连到数字 —— 这是表格的读法；
+            数字各自居中会跟底线脱开，看着像三块浮着的字。 */}
+        <div className="mt-10 -mx-2 grid grid-cols-2 gap-x-8 sm:grid-cols-3">
           {stats.map((s) => (
             <button
               key={s.label}
               onClick={() => onOpenSection(s.item)}
-              className="group row-rule flex items-baseline justify-between px-2 py-2 text-left transition-colors"
+              className={`group row-rule flex items-baseline justify-between px-2 py-2 text-left transition-colors hover:bg-[var(--oc-hover)] ${ROUND_ITEM}`}
             >
               <span className="text-[13px] text-ink-muted transition-colors group-hover:text-ink">{s.label}</span>
               <span className="font-serif text-[15px] text-ink tabular-nums">{s.value}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* 其它入口：小说 / 地图 / 树表 —— 与左侧栏同一批目的地，不多造概念 */}
-        <div className="mt-6 -mx-2 flex flex-wrap items-center gap-x-6 gap-y-2 px-2 text-[13px]">
-          {[
-            { label: '小说', item: '小说' },
-            { label: '地图', item: '地图' },
-            { label: '树表', item: '树表' },
-          ].map((entry) => (
-            <button
-              key={entry.item}
-              type="button"
-              onClick={() => onOpenSection(entry.item)}
-              className="text-ink-muted transition-colors hover:text-ink"
-            >
-              {entry.label}
             </button>
           ))}
         </div>
