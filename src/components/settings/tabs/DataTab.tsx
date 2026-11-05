@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { useImportExport } from '@/components/shared/ImportExportUI'
-import { SiteExportDialog } from '@/components/shared/SiteExportDialog'
+import { ExportCenter } from '@/components/shared/export/ExportCenter'
 import { useSettings } from '@/lib/settings'
 import { importLegacyNovels } from '@/lib/legacy/pr5-novels-import'
 import { importLegacyRelations } from '@/lib/legacy/pr5-relations-import'
@@ -19,7 +19,7 @@ import { SWITCH_CLASSES, SWITCH_DOT } from '../controls'
 export function DataTab() {
   const { handleExport, handleImportClick, dialog } = useImportExport()
   const { settings } = useSettings()
-  const [siteExportOpen, setSiteExportOpen] = useState(false)
+  const [exportCenterOpen, setExportCenterOpen] = useState(false)
   const [importingLegacy, setImportingLegacy] = useState(false)
 
   /** 老版本（fork）数据：小说在独立库、关系在单独的 relations 表；都是只读 + 幂等导入 */
@@ -64,6 +64,7 @@ export function DataTab() {
         >
           导出完整备份 (.ocbak)
         </button>
+        <p className="text-xs text-ink-faint">不含助手会话</p>
         <button
           onClick={() => void handleImportLegacy()}
           disabled={importingLegacy}
@@ -72,10 +73,10 @@ export function DataTab() {
           {importingLegacy ? '正在导入…' : '从旧版本导入（小说 / 关系）...'}
         </button>
         <button
-          onClick={() => setSiteExportOpen(true)}
+          onClick={() => setExportCenterOpen(true)}
           className="touch-feedback flex h-8 items-center justify-center px-3 text-[13px] text-ink transition-colors hover:bg-[var(--oc-hover)]"
         >
-          发布为静态网站...
+          导出中心...
         </button>
       </section>
 
@@ -116,7 +117,9 @@ export function DataTab() {
       </section>
 
       {dialog}
-      {siteExportOpen ? <SiteExportDialog onClose={() => setSiteExportOpen(false)} /> : null}
+      {exportCenterOpen ? (
+        <ExportCenter initialTab="site" onClose={() => setExportCenterOpen(false)} />
+      ) : null}
     </div>
   )
 }
