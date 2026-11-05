@@ -1,4 +1,5 @@
 import { db } from '@/lib/db'
+import { resetSearchIndex } from '@/lib/search'
 import { loadFieldConfig, readFieldConfigFromRoot, syncCustomFieldKeys } from '@/lib/fields/store'
 import { BUILTIN_TEMPLATES } from '@/lib/templates/defaults'
 import { collectTemplateFieldKeys } from '@/lib/templates/fields'
@@ -244,6 +245,8 @@ export async function applyDataset(scan: VaultScanResult): Promise<void> {
       },
     )
   })
+  // 整库换过了：搜索索引里旧库的正文缓存不能留（同 id / 同 updatedAt 会串味）
+  resetSearchIndex()
 }
 
 /** 打开一个 vault：读盘 → 整库替换 → 建立会话。

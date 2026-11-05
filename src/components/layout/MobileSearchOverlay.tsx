@@ -1,41 +1,21 @@
 'use client'
 
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { Search, Users, Calendar, Flag, BookOpen, X } from 'lucide-react'
-import { searchAllEntitiesFlat } from '@/lib/reference-registry'
+import { Search, X } from 'lucide-react'
+import { refreshSearchIndex, searchGlobal, type GlobalSearchGroup, type GlobalSearchHit } from '@/lib/search'
+import { searchTerms } from '@/lib/search/matcher'
+import { SearchHitRow } from '@/components/shared/search/SearchHitRow'
 import { useEntityNavigate } from '@/components/layout/EntityNavigateContext'
 import { useKeyboard } from '@/lib/KeyboardContext'
 import { useInputContextMenu } from '@/lib/use-input-context-menu'
-import type { ReferableEntity } from '@/lib/reference-registry'
-import { Avatar } from '@/components/shared/Avatar'
-import { getImageUrl } from '@/lib/image-service'
-
-const TYPE_ICON_MAP: Record<string, typeof Users> = {
-  character: Users,
-  event: Calendar,
-  country: Flag,
-  world: BookOpen,
-}
-
-const TYPE_LABEL_MAP: Record<string, string> = {
-  character: '角色',
-  event: '事件',
-  country: '国家',
-  world: '词条',
-}
-
-interface GroupedResults {
-  type: string
-  label: string
-  items: ReferableEntity[]
-}
 
 export function MobileSearchOverlay({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { navigateToEntity } = useEntityNavigate()
   const { viewportHeight: keyboardHeight } = useKeyboard()
   const [query, setQuery] = useState('')
-  const [results, setResults] = useState<GroupedResults[]>([])
+  const [groups, setGroups] = useState<GlobalSearchGroup[]>([])
+  const [searching, setSearching] = useState(false)
   const inputMenuRef = useInputContextMenu()
   const inputElRef = useRef<HTMLInputElement | null>(null)
   const inputRef = useCallback((el: HTMLInputElement | null) => {
@@ -43,41 +23,48 @@ export function MobileSearchOverlay({ open, onClose }: { open: boolean; onClose:
     inputElRef.current = el
   }, [inputMenuRef])
 
+  const terms = useMemo(() => searchTerms(query), [query])
+
   // Focus input on mount (autoFocus alone is unreliable in portals)
   useEffect(() => {
     setTimeout(() => inputElRef.current?.focus(), 100)
   }, [])
 
+  /** 打开面板时强制刷新索引：刚改过的正文也要立刻搜得到 */
+  useEffect(() => {
+    if (open) void refreshSearchIndex().catch(() => {})
+  }, [open])
+
   useEffect(() => {
     if (!open) return
+    let cancelled = false
     const timer = setTimeout(() => {
-      void (async () => {
-        if (!query.trim()) {
-          setResults([])
-          return
-        }
-        const entities = await searchAllEntitiesFlat(query)
-        const groups: Record<string, ReferableEntity[]> = {}
-        for (const e of entities) {
-          if (!groups[e.type]) groups[e.type] = []
-          if (groups[e.type].length < 8) groups[e.type].push(e)
-        }
-        const grouped: GroupedResults[] = []
-        for (const type of ['character', 'event', 'country', 'world']) {
-          if (groups[type] && groups[type].length > 0) {
-            grouped.push({ type, label: TYPE_LABEL_MAP[type] ?? type, items: groups[type] })
-          }
-        }
-        setResults(grouped)
-      })()
-    }, 200)
-    return () => clearTimeout(timer)
+      if (!query.trim()) {
+        setGroups([])
+        setSearching(false)
+        return
+      }
+      setSearching(true)
+      void searchGlobal(query)
+        .then((found) => {
+          if (cancelled) return
+          setGroups(found)
+          setSearching(false)
+        })
+        .catch(() => {
+          if (cancelled) return
+          setGroups([])
+          setSearching(false)
+        })
+    }, 180)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
   }, [query, open])
 
-  const handleSelect = useCallback((entity: ReferableEntity) => {
-    const numId = Number(entity.id)
-    if (Number.isNaN(numId)) return
-    navigateToEntity(numId, entity.type)
+  const handleSelect = useCallback((hit: GlobalSearchHit) => {
+    navigateToEntity(hit.id, hit.kind)
     onClose()
   }, [navigateToEntity, onClose])
 
@@ -98,40 +85,27 @@ export function MobileSearchOverlay({ open, onClose }: { open: boolean; onClose:
           style={{ paddingBottom: `${inputBarHeight + keyboardHeight}px` }}
         >
           <div className="mx-auto w-full max-w-lg">
-            {results.length === 0 ? (
+            {groups.length === 0 ? (
               <div className="flex items-center justify-center py-16 text-sm text-ink-faint">
-                {query.trim() ? '无匹配结果' : ''}
+                {searching ? '搜索中…' : query.trim() ? '无匹配结果' : ''}
               </div>
             ) : (
               <div className="space-y-4">
-                {results.map((group) => (
-                  <div key={group.type} className="overflow-hidden rounded-item border border-line bg-paper-card">
-                    <div className="px-3 py-1 text-xs font-medium text-ink-faint border-b border-line">
-                      {group.label}
+                {groups.map((group) => (
+                  <div key={group.kind} className="overflow-hidden rounded-item border border-line bg-paper-card">
+                    <div className="border-b border-line px-3 py-1 text-xs font-medium text-ink-faint">
+                      {group.label} · {group.total > group.hits.length ? `${group.hits.length}+` : group.total}
                     </div>
                     <div>
-                      {group.items.map((entity) => {
-                        const Icon = TYPE_ICON_MAP[entity.type] ?? Search
-                        return (
-                          <button
-                            key={entity.id}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleSelect(entity)
-                            }}
-                            className="flex w-full items-center gap-3 px-3 py-3 text-left text-ink transition-colors active:bg-[var(--oc-hover)]"
-                          >
-                            {entity.type === 'character' ? (
-                              <Avatar src={getImageUrl(entity.avatarUrl, 'avatar')} size="sm" />
-                            ) : entity.type === 'country' ? (
-                              <Avatar src={getImageUrl(entity.avatarUrl, 'flag')} size="sm" type="flag" />
-                            ) : (
-                              <Icon size={20} strokeWidth={2} className="shrink-0 text-ink-faint" />
-                            )}
-                            <span className="truncate text-sm">{entity.name}</span>
-                          </button>
-                        )
-                      })}
+                      {group.hits.map((hit) => (
+                        <SearchHitRow
+                          key={`${hit.kind}:${hit.id}`}
+                          hit={hit}
+                          terms={terms}
+                          variant="touch"
+                          onSelect={() => handleSelect(hit)}
+                        />
+                      ))}
                     </div>
                   </div>
                 ))}
@@ -156,7 +130,7 @@ export function MobileSearchOverlay({ open, onClose }: { open: boolean; onClose:
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="搜索角色、事件、国家、词条..."
+          placeholder="搜索标题、正文…"
           className="flex-1 bg-transparent text-ink placeholder:text-ink-faint text-base outline-none"
           autoFocus
           enterKeyHint="search"

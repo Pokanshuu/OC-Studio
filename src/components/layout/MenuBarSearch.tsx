@@ -3,36 +3,15 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { Search, Users, Calendar, Flag, BookOpen, Clock, GitBranch, Images } from 'lucide-react'
-import { Avatar } from '@/components/shared/Avatar'
-import { getImageUrl } from '@/lib/image-service'
-import { searchAllEntitiesFlat } from '@/lib/reference-registry'
-import type { ReferableEntity } from '@/lib/reference-registry'
+import { refreshSearchIndex, searchGlobal, type GlobalSearchGroup, type GlobalSearchHit } from '@/lib/search'
+import { searchTerms } from '@/lib/search/matcher'
+import { SearchHitRow } from '@/components/shared/search/SearchHitRow'
 import { useEntityNavigate } from './EntityNavigateContext'
 import { useNavigation } from './NavigationContext'
 import { useCategories } from '@/lib/categories/store'
 import { categoryItemName } from '@/lib/categories/types'
 import { categoryIconOf } from '@/lib/categories/icons'
 import { MENU, MENU_GROUP_LABEL, MENU_ITEM_BASE } from '@/lib/ui-tokens'
-
-const TYPE_ICON_MAP: Record<string, typeof Users> = {
-  character: Users,
-  event: Calendar,
-  country: Flag,
-  world: BookOpen,
-}
-
-interface GroupedResults {
-  type: string
-  label: string
-  items: ReferableEntity[]
-}
-
-const TYPE_LABEL_MAP: Record<string, string> = {
-  character: '角色',
-  event: '事件',
-  country: '国家',
-  world: '词条',
-}
 
 const SECTION_COMMANDS: { label: string; icon: typeof Users }[] = [
   { label: '角色', icon: Users },
@@ -51,17 +30,20 @@ const CREATE_COMMANDS: { label: string; type: 'character' | 'event' | 'country';
 ]
 
 /**
- * 顶栏搜索（Ctrl/Cmd+K 聚焦）：实体模糊搜索 + 快速新建 / 切换板块。
- * 状态与快捷键都在本组件内；浮层 portal 到 #overlay-root。
+ * 顶栏搜索（Ctrl/Cmd+K 聚焦）：标题 / 别名 / 字段 / **正文** 全文检索 + 快速新建 / 切换板块。
+ * 搜索内核与移动端共用 `lib/search`；两套壳只是版式不同。
  */
 export function MenuBarSearch() {
   const { navigateToEntity } = useEntityNavigate()
   const { setActiveItem } = useNavigation()
   const categories = useCategories()
   const [query, setQuery] = useState('')
-  const [results, setResults] = useState<GroupedResults[]>([])
+  const [groups, setGroups] = useState<GlobalSearchGroup[]>([])
+  const [searching, setSearching] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(0)
+
+  const terms = useMemo(() => searchTerms(query), [query])
 
   /** 输入时也把板块 / 分类命令带出来：搜「宠物」不该只有实体，还得能直接切过去 */
   const sectionMatches = useMemo(() => {
@@ -86,52 +68,63 @@ export function MenuBarSearch() {
   const inputRef = useRef<HTMLInputElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const searchWrapperRef = useRef<HTMLDivElement>(null)
-  const [panelPos, setPanelPos] = useState({ x: 0, y: 0, width: 256 })
+  const [panelPos, setPanelPos] = useState({ x: 0, y: 0, width: 320 })
 
   useEffect(() => {
     if (!isOpen || !searchWrapperRef.current) return
 
     const rect = searchWrapperRef.current.getBoundingClientRect()
-    setPanelPos({ x: rect.left, y: rect.bottom + 4, width: rect.width })
+    // 结果是两行（标题 + 摘要），面板比输入框宽一点才装得下
+    const width = Math.min(Math.max(rect.width, 320), window.innerWidth - 16)
+    const left = Math.min(
+      Math.max(8, rect.left - (width - rect.width) / 2),
+      window.innerWidth - width - 8,
+    )
+    setPanelPos({ x: left, y: rect.bottom + 4, width })
   }, [isOpen])
 
-  const flatItems = useMemo(
-    () => results.flatMap((g) => g.items),
-    [results],
-  )
+  /** 每次打开面板强制刷一次索引：刚改过的正文也要立刻搜得到 */
+  useEffect(() => {
+    if (isOpen) void refreshSearchIndex().catch(() => {})
+  }, [isOpen])
 
+  const flatItems = useMemo(() => groups.flatMap((group) => group.hits), [groups])
   const selectedItem = flatItems[selectedIndex] ?? null
 
-  const doSearch = useCallback(async (q: string) => {
-    if (!q.trim()) {
-      setResults([])
-      return
-    }
-    const entities = await searchAllEntitiesFlat(q)
-    const groups: Record<string, ReferableEntity[]> = {}
-    for (const e of entities) {
-      if (!groups[e.type]) groups[e.type] = []
-      if (groups[e.type].length < 8) groups[e.type].push(e)
-    }
-    const grouped: GroupedResults[] = []
-    for (const type of ['character', 'event', 'country', 'world']) {
-      if (groups[type] && groups[type].length > 0) {
-        grouped.push({ type, label: TYPE_LABEL_MAP[type] ?? type, items: groups[type] })
+  useEffect(() => {
+    let cancelled = false
+    const timer = setTimeout(() => {
+      if (!query.trim()) {
+        setGroups([])
+        setSearching(false)
+        return
       }
+      setSearching(true)
+      void searchGlobal(query)
+        .then((found) => {
+          if (cancelled) return
+          setGroups(found)
+          setSelectedIndex(0)
+          setSearching(false)
+        })
+        .catch(() => {
+          if (cancelled) return
+          setGroups([])
+          setSearching(false)
+        })
+    }, 180)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
     }
-    setResults(grouped)
-    setSelectedIndex(0)
+  }, [query])
+
+  const closeSearch = useCallback(() => {
+    setIsOpen(false)
   }, [])
 
-  useEffect(() => {
-    const timer = setTimeout(() => { void doSearch(query) }, 200)
-    return () => clearTimeout(timer)
-  }, [query, doSearch])
-
-  const handleSelect = useCallback((entity: ReferableEntity) => {
-    const numId = Number(entity.id)
-    if (Number.isNaN(numId)) return
-    navigateToEntity(numId, entity.type)
+  const handleSelect = useCallback((hit: GlobalSearchHit) => {
+    navigateToEntity(hit.id, hit.kind)
     setIsOpen(false)
     setQuery('')
     inputRef.current?.blur()
@@ -162,10 +155,10 @@ export function MenuBarSearch() {
       e.preventDefault()
       if (selectedItem) handleSelect(selectedItem)
     } else if (e.key === 'Escape') {
-      setIsOpen(false)
+      closeSearch()
       inputRef.current?.blur()
     }
-  }, [flatItems, selectedItem, handleSelect])
+  }, [flatItems.length, selectedItem, handleSelect, closeSearch])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -187,158 +180,145 @@ export function MenuBarSearch() {
     if (activeEl) {
       activeEl.scrollIntoView({ block: 'nearest' })
     }
-  }, [selectedIndex])
-  return (      <div className="absolute left-1/2 -translate-x-1/2">
-        <div className="relative" ref={searchWrapperRef}>
-          <Search size={13} strokeWidth={2} className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-ink-faint" />
-          <input
-            ref={inputRef}
-            type="text"
-            value={query}
-            onChange={(e) => { setQuery(e.target.value); setIsOpen(true); setSelectedIndex(0) }}
-            onFocus={() => setIsOpen(true)}
-            onBlur={() => { setTimeout(() => setIsOpen(false), 150) }}
-            onKeyDown={handleKeyDown}
-            placeholder="搜索..."
-            className="h-6 w-40 border-b border-transparent bg-transparent pl-7 pr-3 text-[12px] text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none sm:w-56 lg:w-64 xl:w-96"
-          />
+  }, [selectedIndex, groups])
 
-          {isOpen
-            ? createPortal(
-                <div
-                  ref={panelRef}
-                  className={`fixed max-h-[320px] overflow-auto pointer-events-auto ${MENU}`}
-                  style={{
-                    left: panelPos.x,
-                    top: panelPos.y,
-                    width: panelPos.width,
-                  }}
-                >
-              {query.trim() === '' ? (
-                <div>
-                  <div className={MENU_GROUP_LABEL}>快速新建</div>
-                  {CREATE_COMMANDS.map((cmd) => {
-                    const Icon = cmd.icon
-                    return (
-                      <button
-                        key={cmd.label}
-                        className={`${MENU_ITEM_BASE} text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink`}
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => handleCreateSelect(cmd.type)}
-                      >
-                        <Icon size={14} strokeWidth={2} className="shrink-0 text-ink-faint" />
-                        <span>{cmd.label}</span>
-                      </button>
-                    )
-                  })}
-                  <div className={`mt-1 ${MENU_GROUP_LABEL}`}>切换板块</div>
-                  {SECTION_COMMANDS.map((cmd) => {
-                    const Icon = cmd.icon
-                    return (
-                      <button
-                        key={cmd.label}
-                        className={`${MENU_ITEM_BASE} text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink`}
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => handleSectionSelect(cmd.label)}
-                      >
-                        <Icon size={14} strokeWidth={2} className="shrink-0 text-ink-faint" />
-                        <span>{cmd.label}</span>
-                      </button>
-                    )
-                  })}
-                  {categories.some((category) => category.enabled) ? (
-                    <>
-                      <div className={`mt-1 ${MENU_GROUP_LABEL}`}>自定义分类</div>
-                      {categories
-                        .filter((category) => category.enabled)
-                        .map((category) => {
-                          const Icon = categoryIconOf(category.icon)
-                          return (
+  return (
+    <div className="absolute left-1/2 -translate-x-1/2">
+      <div className="relative" ref={searchWrapperRef}>
+        <Search size={13} strokeWidth={2} className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-ink-faint" />
+        <input
+          ref={inputRef}
+          type="text"
+          value={query}
+          onChange={(e) => { setQuery(e.target.value); setIsOpen(true); setSelectedIndex(0) }}
+          onFocus={() => setIsOpen(true)}
+          onBlur={() => { setTimeout(() => setIsOpen(false), 150) }}
+          onKeyDown={handleKeyDown}
+          placeholder="搜索标题、正文…"
+          className="h-6 w-40 border-b border-transparent bg-transparent pl-7 pr-3 text-[12px] text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none sm:w-56 lg:w-64 xl:w-96"
+        />
+
+        {isOpen
+          ? createPortal(
+              <div
+                ref={panelRef}
+                className={`fixed max-h-[380px] overflow-auto pointer-events-auto ${MENU}`}
+                style={{
+                  left: panelPos.x,
+                  top: panelPos.y,
+                  width: panelPos.width,
+                }}
+              >
+                {query.trim() === '' ? (
+                  <div>
+                    <div className={MENU_GROUP_LABEL}>快速新建</div>
+                    {CREATE_COMMANDS.map((cmd) => {
+                      const Icon = cmd.icon
+                      return (
+                        <button
+                          key={cmd.label}
+                          className={`${MENU_ITEM_BASE} text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink`}
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => handleCreateSelect(cmd.type)}
+                        >
+                          <Icon size={14} strokeWidth={2} className="shrink-0 text-ink-faint" />
+                          <span>{cmd.label}</span>
+                        </button>
+                      )
+                    })}
+                    <div className={`mt-1 ${MENU_GROUP_LABEL}`}>切换板块</div>
+                    {SECTION_COMMANDS.map((cmd) => {
+                      const Icon = cmd.icon
+                      return (
+                        <button
+                          key={cmd.label}
+                          className={`${MENU_ITEM_BASE} text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink`}
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => handleSectionSelect(cmd.label)}
+                        >
+                          <Icon size={14} strokeWidth={2} className="shrink-0 text-ink-faint" />
+                          <span>{cmd.label}</span>
+                        </button>
+                      )
+                    })}
+                    {categories.some((category) => category.enabled) ? (
+                      <>
+                        <div className={`mt-1 ${MENU_GROUP_LABEL}`}>自定义分类</div>
+                        {categories
+                          .filter((category) => category.enabled)
+                          .map((category) => {
+                            const Icon = categoryIconOf(category.icon)
+                            return (
+                              <button
+                                key={category.id}
+                                className={`${MENU_ITEM_BASE} text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink`}
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => handleSectionSelect(categoryItemName(category.id))}
+                              >
+                                <Icon size={14} strokeWidth={2} className="shrink-0 text-ink-faint" />
+                                <span>{category.name}</span>
+                              </button>
+                            )
+                          })}
+                      </>
+                    ) : null}
+                  </div>
+                ) : groups.length === 0 && sectionMatches.length === 0 ? (
+                  <div className="px-3 py-4 text-center text-sm text-ink-faint">
+                    {searching ? '搜索中…' : '无匹配结果'}
+                  </div>
+                ) : (
+                  <>
+                    {groups.map((group, groupIndex) => {
+                      const groupStartIndex = groups
+                        .slice(0, groupIndex)
+                        .reduce((sum, item) => sum + item.hits.length, 0)
+                      return (
+                        <div key={group.kind}>
+                          <div className={MENU_GROUP_LABEL}>
+                            {group.label} · {group.total > group.hits.length ? `${group.hits.length}+` : group.total}
+                          </div>
+                          {group.hits.map((hit, index) => {
+                            const globalIdx = groupStartIndex + index
+                            return (
+                              <SearchHitRow
+                                key={`${hit.kind}:${hit.id}`}
+                                hit={hit}
+                                terms={terms}
+                                variant="menu"
+                                active={globalIdx === selectedIndex}
+                                onSelect={() => handleSelect(hit)}
+                              />
+                            )
+                          })}
+                        </div>
+                      )
+                    })}
+                    {[...new Set(sectionMatches.map((item) => item.group))].map((groupName) => (
+                      <div key={groupName}>
+                        <div className={MENU_GROUP_LABEL}>{groupName}</div>
+                        {sectionMatches
+                          .filter((item) => item.group === groupName)
+                          .map((item) => (
                             <button
-                              key={category.id}
+                              key={`${groupName}-${item.label}`}
                               className={`${MENU_ITEM_BASE} text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink`}
                               onMouseDown={(e) => e.preventDefault()}
-                              onClick={() => handleSectionSelect(categoryItemName(category.id))}
+                              onClick={() => handleSectionSelect(item.value)}
                             >
-                              <Icon size={14} strokeWidth={2} className="shrink-0 text-ink-faint" />
-                              <span>{category.name}</span>
+                              <item.Icon size={14} strokeWidth={2} className="shrink-0 text-ink-faint" />
+                              <span className="truncate">{item.label}</span>
                             </button>
-                          )
-                        })}
-                    </>
-                  ) : null}
-                </div>
-              ) : results.length === 0 && sectionMatches.length === 0 ? (
-                <div className="px-3 py-4 text-center text-sm text-ink-faint">
-                  无匹配结果
-                </div>
-              ) : (
-                <>
-                  {results.map((group) => {
-                    const groupStartIndex = results
-                      .slice(0, results.indexOf(group))
-                      .reduce((sum, g) => sum + g.items.length, 0)
-                    return (
-                      <div key={group.type}>
-                        <div className={MENU_GROUP_LABEL}>
-                          {group.label}
-                        </div>
-                        {group.items.map((entity, idx) => {
-                          const globalIdx = groupStartIndex + idx
-                          const Icon = TYPE_ICON_MAP[entity.type] ?? Search
-                          return (
-                            <button
-                              key={entity.id}
-                              data-selected={globalIdx === selectedIndex}
-                              className={`${MENU_ITEM_BASE} ${
-                                globalIdx === selectedIndex
-                                  ? 'bg-[var(--oc-hover)] text-ink'
-                                  : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
-                              }`}
-                              onMouseDown={(e) => e.preventDefault()}
-                              onClick={() => handleSelect(entity)}
-                            >
-                              {entity.type === 'character' ? (
-                                <Avatar src={getImageUrl(entity.avatarUrl, 'avatar')} size="sm" />
-                              ) : entity.type === 'country' ? (
-                                <Avatar src={getImageUrl(entity.avatarUrl, 'flag')} size="sm" type="flag" />
-                              ) : (
-                                <Icon size={14} strokeWidth={2} className="shrink-0 text-ink-faint" />
-                              )}
-                              <span className="truncate">{entity.name}</span>
-                            </button>
-                          )
-                        })}
+                          ))}
                       </div>
-                    )
-                  })}
-                  {[...new Set(sectionMatches.map((item) => item.group))].map((groupName) => (
-                    <div key={groupName}>
-                      <div className={MENU_GROUP_LABEL}>{groupName}</div>
-                      {sectionMatches
-                        .filter((item) => item.group === groupName)
-                        .map((item) => (
-                          <button
-                            key={`${groupName}-${item.label}`}
-                            className={`${MENU_ITEM_BASE} text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink`}
-                            onMouseDown={(e) => e.preventDefault()}
-                            onClick={() => handleSectionSelect(item.value)}
-                          >
-                            <item.Icon size={14} strokeWidth={2} className="shrink-0 text-ink-faint" />
-                            <span className="truncate">{item.label}</span>
-                          </button>
-                        ))}
-                    </div>
-                  ))}
-                </>
-              )}
-            </div>,
-            document.getElementById('overlay-root')!,
-          ) : null}
-        </div>
+                    ))}
+                  </>
+                )}
+              </div>,
+              document.getElementById('overlay-root')!,
+            )
+          : null}
       </div>
+    </div>
   )
 }
-
-
-

@@ -1,5 +1,4 @@
-import { worldBodyOf } from '@/lib/world-body'
-import { plainTextOf } from '@/lib/export/site'
+import { entityBodyText } from '@/lib/entity-text'
 import type { Character, Country, Event, Tag, WorldEntry } from '@/types'
 import {
   CapabilityError,
@@ -51,20 +50,8 @@ function aliasesOf(kind: EntityKind, entity: Character | Event | Country | World
 }
 
 function bodyOf(kind: EntityKind, entity: Character | Event | Country | WorldEntry): string {
-  if (kind === 'world') {
-    const world = entity as WorldEntry
-    return plainTextOf(worldBodyOf(world)).trim()
-  }
-  if (kind === 'event') {
-    const event = entity as Event
-    return (plainTextOf(event.document) || [event.summary, event.content].filter(Boolean).join('\n\n')).trim()
-  }
-  if (kind === 'country') {
-    const country = entity as Country
-    return (plainTextOf(country.document) || [country.description, country.system, country.geography, country.culture].filter(Boolean).join('\n\n')).trim()
-  }
-  const character = entity as Character
-  return (plainTextOf(character.document) || [character.bio, character.lifeStory].filter(Boolean).join('\n\n')).trim()
+  // 正文口径与全局搜索共用同一份实现（`lib/entity-text.ts`）
+  return entityBodyText(kind, entity)
 }
 
 interface Context {
