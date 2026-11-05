@@ -7,8 +7,9 @@
  * - 其余：底图档位（六档）。**只有生成过的地图才有**，手绘底图整段不渲染，
  *   这一条自己缩成一枚按钮 —— 界面按「这张图能做什么」裁剪，而不是给两种图套同一套控件。
  *
- * 语法：一条 `CONTROL` 浮条，左端图标钮 + 1px 竖线 + 等宽文字档位；
+ * 语法：一条 `CONTROL` 浮条，左端图标钮 + 1px 竖线 + 每一档「图标 + 文字」；
  * 选中是浅底块（不是页签下划线：切档换的是整张底图，不是同一份内容的分页）。
+ * 图标只表达「这一档看的是什么」（表在 `map-view-icons.tsx`），不承担选中态。
  *
  * 切档要几百毫秒到几秒：整条暂时禁用，当前档位压暗，浮条底边给一条 2px 进度线。
  */
@@ -23,6 +24,7 @@ import {
   ROUND_ITEM,
 } from '@/lib/ui-tokens'
 import { MAP_LAYER_LABELS, type MapLayerKind, type MapLayerState } from '../types'
+import { MAP_VIEW_ICONS } from './map-view-icons'
 import { MapLegend } from './MapLegend'
 
 interface MapControlBarProps {
@@ -122,6 +124,7 @@ export function MapControlBar({
             <div className="flex items-center gap-0.5 max-md:hidden">
               {views.map((view) => {
                 const selected = activeView === view
+                const Icon = MAP_VIEW_ICONS[view]
                 return (
                   <button
                     key={view}
@@ -129,12 +132,13 @@ export function MapControlBar({
                     onClick={() => onSelectView(view)}
                     disabled={busy}
                     aria-pressed={selected}
-                    className={`h-6 shrink-0 px-2 text-[12px] transition-colors disabled:opacity-50 ${ROUND_ITEM} ${
+                    className={`flex h-6 shrink-0 items-center gap-1 px-1.5 text-[12px] transition-colors disabled:opacity-50 ${ROUND_ITEM} ${
                       selected
                         ? 'bg-[var(--oc-hover)] text-ink'
                         : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
                     }`}
                   >
+                    <Icon size={12} strokeWidth={2} className="shrink-0" />
                     {MAP_VIEW_LABELS[view]}
                   </button>
                 )
