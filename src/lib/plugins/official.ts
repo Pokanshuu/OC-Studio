@@ -34,10 +34,12 @@ export const AGENT_PLUGIN: PluginManifest = {
   version: '0.1.0',
   apiVersion: 1,
   description: '和设定库对话，读写条目',
-  permissions: ['read-entities', 'subscribe-data', 'own-storage'],
+  // 对话壳先只用网络与自己的存储；读库要等工具循环接上能力层再逐项授权
+  permissions: ['network', 'own-storage'],
   source: 'builtin',
+  // 出厂不开：要先填端点与密钥才有意义，默认开只会变成「点进去一片空白」
   enabledByDefault: false,
-  available: false,
+  available: true,
 }
 
 /** 出厂清单（顺序 = 设置里的顺序；侧栏「工具」只取 kind: 'tool' 的那些） */
