@@ -12,7 +12,7 @@
  */
 import { useState } from 'react'
 import { Folder, Pencil, Plus, Trash2, X } from 'lucide-react'
-import { CHIP, CHIP_ON, INLINE_INPUT } from '@/lib/ui-tokens'
+import { CHIP, CHIP_EDIT, CHIP_ON, INLINE_INPUT } from '@/lib/ui-tokens'
 import { MediaContextMenu } from '@/components/shared/MediaContextMenu'
 import { useDevice } from '@/lib/use-device'
 import {
@@ -43,7 +43,8 @@ export function CharacterFolderBar({
   ungrouped: number
   total: number
   value: FolderFilter
-  onChange: (next: FolderFilter) => void
+  /** 切换筛选：带上点击事件，列表拿它算「打开 / 返回文件夹」动画的原点 */
+  onChange: (next: FolderFilter, event?: React.MouseEvent<HTMLElement>) => void
   onRename: (from: string, to: string) => Promise<void>
   onDelete: (name: string) => Promise<void>
   /** 新建（可能是空的）文件夹；成功后清空输入 */
@@ -87,14 +88,14 @@ export function CharacterFolderBar({
     <div className="flex flex-wrap items-center gap-1.5 px-6 pb-3">
       <button
         type="button"
-        onClick={() => onChange('all')}
+        onClick={(event) => onChange('all', event)}
         className={value === 'all' ? CHIP_ON : `${CHIP} transition-colors hover:text-ink`}
       >
         全部 {total}
       </button>
       <button
         type="button"
-        onClick={() => onChange('ungrouped')}
+        onClick={(event) => onChange('ungrouped', event)}
         className={value === 'ungrouped' ? CHIP_ON : `${CHIP} transition-colors hover:text-ink`}
       >
         未分组 {ungrouped}
@@ -106,7 +107,13 @@ export function CharacterFolderBar({
         return (
         <span
           key={folder.name}
-          className={`relative ${active ? CHIP_ON : `${CHIP} transition-colors hover:text-ink`}`}
+          className={`relative ${
+            renaming === folder.name
+              ? CHIP_EDIT
+              : active
+                ? CHIP_ON
+                : `${CHIP} transition-colors hover:text-ink`
+          }`}
           onMouseEnter={() => setHovered(folder.name)}
           onMouseLeave={() => setHovered((current) => (current === folder.name ? null : current))}
           onFocus={() => setHovered(folder.name)}
@@ -135,7 +142,7 @@ export function CharacterFolderBar({
           ) : (
             <button
               type="button"
-              onClick={() => onChange(folder.name)}
+              onClick={(event) => onChange(folder.name, event)}
               className="flex min-w-0 items-center gap-1"
             >
               <Folder size={12} strokeWidth={2} />

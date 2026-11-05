@@ -31,11 +31,37 @@ const DATA_PREFIX = 'data:'
 const DONE = '[DONE]'
 const MAX_RAW_ERROR_LENGTH = 300
 
+/**
+ * Pull plain text out of the shapes providers use for `delta.content`:
+ * a string (the norm), content parts (`[{ type: 'text', text }]`), or `{ text }`.
+ * Anything unrecognised contributes nothing instead of dropping the whole chunk.
+ */
+function readStreamText(value: unknown): string {
+  if (typeof value === 'string') return value
+  if (Array.isArray(value)) {
+    return value
+      .map((part) => {
+        if (typeof part === 'string') return part
+        if (part && typeof part === 'object' && typeof (part as { text?: unknown }).text === 'string') {
+          return (part as { text: string }).text
+        }
+        return ''
+      })
+      .join('')
+  }
+  if (value && typeof value === 'object' && typeof (value as { text?: unknown }).text === 'string') {
+    return (value as { text: string }).text
+  }
+  return ''
+}
+
 interface ChunkDelta {
   role?: string
-  content?: string | null
-  reasoning_content?: string | null
-  reasoning?: string | null
+  /** OpenAI-compatible providers send a string; some proxies send content parts. */
+  content?: unknown
+  reasoning_content?: unknown
+  reasoning?: unknown
+  text?: unknown
   tool_calls?: Array<{
     index?: number
     id?: string
@@ -106,12 +132,15 @@ export function parseSseLine(line: string): StreamEvent[] {
 
   const delta = chunk.choices?.[0]?.delta
   if (delta) {
-    const reasoning = delta.reasoning_content ?? delta.reasoning
-    if (typeof reasoning === 'string' && reasoning.length > 0) {
+    const reasoning = readStreamText(delta.reasoning_content ?? delta.reasoning)
+    if (reasoning.length > 0) {
       events.push({ type: 'reasoning', text: reasoning })
     }
-    if (typeof delta.content === 'string' && delta.content.length > 0) {
-      events.push({ type: 'content', text: delta.content })
+    // `content` 是字符串是常态；数组 / {text} 是部分兼容网关的写法。
+    // 只认字符串会把整段正文丢掉 —— 收到的只有思考、正文永远是空的。
+    const content = readStreamText(delta.content ?? delta.text)
+    if (content.length > 0) {
+      events.push({ type: 'content', text: content })
     }
     if (Array.isArray(delta.tool_calls) && delta.tool_calls.length > 0) {
       const deltas: ToolCallDelta[] = []

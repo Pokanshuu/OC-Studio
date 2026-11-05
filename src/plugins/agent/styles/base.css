@@ -6,18 +6,14 @@
    内容面零阴影，浮层只有一档阴影。
    ═══════════════════════════════════════════════════════════════════════════ */
 
+/* 颜色一律来自宿主：亮暗、11 套纸色、背景图 wash 都在 `html` 上，
+   这里再抄一份就等于把主题锁死（换纸色只换一半）。宿主 @theme 里没有的两档
+   语义色在这里映射一次；其余全部继承。 */
 :root {
-  --font-sans: -apple-system, 'Segoe UI', 'Noto Sans SC', 'PingFang SC',
-    'Microsoft YaHei UI', 'Microsoft YaHei', system-ui, sans-serif;
-  --font-serif: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'STZhongsong', SimSun,
-    Georgia, serif;
-  --font-mono: 'JetBrains Mono', 'Cascadia Code', 'SF Mono', Consolas, 'Liberation Mono',
-    monospace;
-
-  /* 只有三档圆角 + 两种非档位形态 */
-  --r-item: 4px;
-  --r-control: 6px;
-  --r-panel: 8px;
+  /* 圆角 / 阴影同样只有宿主那一套来源（globals.css 的 @theme 与 --oc-shadow-float） */
+  --r-item: var(--radius-item);
+  --r-control: var(--radius-control);
+  --r-panel: var(--radius-panel);
   --r-full: 999px;
 
   --dur-fast: 150ms;
@@ -28,55 +24,18 @@
   --sidebar-w: 232px;
   --statusbar-h: 24px;
   --row-h: 32px;
+  /* 正文列与输入框共用同一个宽度：正文容器左右各 24 内边距，
+     所以它的 max-width 是 --chat-width + 48，文字外缘正好压在输入框边缘上。 */
+  --chat-width: 720px;
 
-  --float-shadow: 0 8px 24px rgba(43, 43, 43, 0.14);
-}
-
-[data-theme='light'] {
-  --oc-paper: #fefcf8;
-  --oc-paper-alt: #faf7f2;
-  --oc-paper-card: #f3efe9;
-
-  --oc-line: #e7e3dc;
-  --oc-line-hover: #d6d0c4;
-
-  --oc-ink: #2b2b2b;
-  --oc-ink-muted: #6e6a63;
-  --oc-ink-faint: #a5a098;
-
-  --oc-error: #b36651;
-  --oc-danger: #9c5f4d;
-  --oc-warning: #c68d44;
-  --oc-success: #a5a098;
-
-  --oc-hover: rgba(43, 43, 43, 0.045);
-  --oc-scrim: rgba(43, 43, 43, 0.15);
-  --oc-error-light: rgba(179, 102, 81, 0.1);
-}
-
-[data-theme='dark'] {
-  --oc-paper: #1c1b1a;
-  --oc-paper-alt: #242321;
-  --oc-paper-card: #2d2b28;
-
-  --oc-line: #38352f;
-  --oc-line-hover: #4a4642;
-
-  --oc-ink: #e3dfd8;
-  --oc-ink-muted: #a5a098;
-  --oc-ink-faint: #6e6a63;
-
-  --oc-error: #b36651;
-  --oc-danger: #9c5f4d;
-  --oc-warning: #c68d44;
-  --oc-success: #a5a098;
-
-  --oc-hover: rgba(227, 223, 216, 0.06);
-  --oc-scrim: rgba(12, 12, 12, 0.45);
-  --oc-error-light: rgba(179, 102, 81, 0.16);
+  --float-shadow: var(--oc-shadow-float);
 }
 
 /* ── reset ─────────────────────────────────────────────────────────────── */
+
+/* 盒模型只收回自己的作用域；尺寸交给宿主容器 / 各个挂载点自己给。
+   这一条原本是给插件独立窗口用的（`html, body, #root` 全屏），移植后
+   `.oc-agent-root` 也挂在弹层里 —— 再强制 100% 会让浮层包一层全屏 div。 */
 
 *,
 *::before,
@@ -84,17 +43,9 @@
   box-sizing: border-box;
 }
 
-html,
-body,
-#root {
-  height: 100%;
-  width: 100%;
-  margin: 0;
-  overflow: hidden;
-}
-
+/* 宿主的内容区已经是一块 `bg-paper`：这里不再铺第二层底色，只定正文字号与行高 */
 body {
-  background: var(--oc-paper-alt);
+  background: transparent;
   color: var(--oc-ink);
   font-family: var(--font-sans);
   font-size: calc(15px * var(--font-scale));
@@ -204,6 +155,11 @@ a:hover {
   min-width: 0;
   overflow: hidden;
   position: relative;
+  /* 列表侧是一块「次级纸色」，对话侧保持 paper —— 宿主的世界观树 /
+     编辑器左列表都是这样区分的（`WorldTreePanel` 用 `bg-paper-alt`），
+     只画一条线在暗色下几乎看不见。 */
+  background: var(--oc-paper-alt);
+  border-right: 1px solid var(--oc-line);
 }
 
 .sidebar.collapsed {
@@ -289,8 +245,12 @@ a:hover {
 .sidebar-top {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 8px 8px 6px;
+  gap: 6px;
+  /* 与宿主列表页的左侧面板同一套：48px 页头 + 一条底线 */
+  flex: 0 0 48px;
+  height: 48px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--oc-line);
 }
 
 .sidebar-scroll {
@@ -298,18 +258,20 @@ a:hover {
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 2px 6px 8px;
+  /* 满宽条：容器不留左右内边距，行自己给 (px-3) */
+  padding: 4px 0 8px;
 }
 
 .sidebar-section {
-  padding: 10px 6px 3px;
+  padding: 8px 12px 4px;
   font-size: calc(11px * var(--font-scale));
   font-weight: 400;
   color: var(--oc-ink-faint);
 }
 
 .sidebar-footer {
-  padding: 4px 6px 6px;
+  padding: 4px 0 8px;
+  border-top: 1px solid var(--oc-line);
   display: flex;
   flex-direction: column;
   gap: 1px;
@@ -319,7 +281,7 @@ a:hover {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 8px;
+  padding: 6px 12px;
   /* 满宽条：容器无左右内边距，内边距由行给 */
   border-radius: var(--r-item);
   cursor: pointer;
@@ -378,7 +340,20 @@ a:hover {
 }
 
 .search-box {
-  padding: 0 8px 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--oc-line);
+}
+
+.sidebar-title {
+  min-width: 0;
+  font-family: var(--font-serif);
+  font-size: calc(18px * var(--font-scale));
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--oc-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ── 页头（48px，粘顶） ────────────────────────────────────────────────── */
@@ -389,16 +364,19 @@ a:hover {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 0 8px 0 12px;
+  padding: 0 12px;
   border-bottom: 1px solid var(--oc-line);
   background: color-mix(in srgb, var(--oc-paper) 85%, transparent);
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(16px);
   z-index: 5;
 }
 
 .page-title {
-  flex: 1;
+  /* 标题是文字，不是控件：**不铺悬停底色**（`--oc-hover` 只给真正的按钮 / 行）。
+     按钮盒子也只包住文字 —— `flex: 1` 会把焦点圈拉成一条横贯页头的长条。 */
+  flex: 0 1 auto;
   min-width: 0;
+  margin-right: auto;
   font-family: var(--font-serif);
   font-size: calc(18px * var(--font-scale));
   font-weight: 700;
@@ -417,8 +395,20 @@ a:hover {
   text-overflow: ellipsis;
 }
 
+/* 全局 `button:hover` 会给**任何**按钮铺一块底色，这里显式收掉 */
 .page-title:hover {
-  background: var(--oc-hover);
+  background: transparent;
+}
+
+/* 系统焦点圈是 WebView 默认的 2px 纯白方框（暗色下尤其扎眼）。
+   文字类焦点改成一条底划线：跟正文链接 / 输入框「一条线」是同一套语言，
+   键盘可达性不丢，也不会在页头里画出一个白框。 */
+.page-title:focus-visible {
+  outline: none;
+  text-decoration: underline;
+  text-decoration-color: var(--oc-line-hover);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
 }
 
 .page-actions {
@@ -481,12 +471,12 @@ a:hover {
 
 .btn.danger {
   background: var(--oc-danger);
-  color: var(--oc-paper);
+  color: var(--oc-danger-ink);
 }
 
 .btn.danger:hover {
-  background: var(--oc-danger);
-  color: var(--oc-paper);
+  background: var(--oc-danger-hover);
+  color: var(--oc-danger-ink);
   opacity: 0.9;
 }
 
@@ -809,43 +799,21 @@ a:hover {
   gap: 12px;
 }
 
-/* ── 浮层：只有一档阴影，不带 ring ────────────────────────────────────── */
-
-.scrim {
-  position: fixed;
-  inset: 0;
-  background: var(--oc-scrim);
-  z-index: 40;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-}
-
-.dialog {
-  width: min(520px, 100%);
-  max-height: min(82vh, 760px);
-  background: color-mix(in srgb, var(--oc-paper) 92%, transparent);
-  backdrop-filter: blur(16px);
-  border: 1px solid var(--oc-line);
-  border-radius: var(--r-panel);
-  box-shadow: var(--float-shadow);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.dialog.wide {
-  width: min(880px, 100%);
-  height: min(80vh, 820px);
-  max-height: none;
-}
+/* ── 浮层 ───────────────────────────────────────────────────────────────
+   弹窗与菜单的外壳由宿主给（`components/ui/dialog` + `ui-tokens` 的 MENU），
+   这里只留内容排版：页头 / 滚动体 / 页脚。 */
 
 .dialog-head {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 14px 12px 12px 18px;
+  padding: 16px 16px 8px;
   flex: 0 0 auto;
+}
+
+/* 设置弹窗是宿主「设置」那一档：内容列 24px，页头跟着对齐 */
+.settings-dialog .dialog-head {
+  padding: 16px 24px 8px;
 }
 
 .dialog-title {
@@ -859,19 +827,19 @@ a:hover {
 }
 
 .dialog-body {
-  padding: 0 18px 4px;
+  padding: 0 16px 8px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   min-height: 0;
 }
 
 .dialog-foot {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 12px 14px;
+  gap: 8px;
+  padding: 12px 16px;
   flex: 0 0 auto;
 }
 
@@ -883,7 +851,7 @@ a:hover {
 .settings-tabs {
   display: flex;
   border-bottom: 1px solid var(--oc-line);
-  padding: 0 18px;
+  padding: 0 24px;
   flex: 0 0 auto;
 }
 
@@ -919,26 +887,36 @@ a:hover {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 16px 18px 20px;
+  padding: 16px 24px 24px;
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 20px;
 }
 
-/* 菜单：容器无左右内边距，行 px-3 自带 */
+/* 菜单外壳：与宿主 `MENU` 令牌同值（描边 / 85% 纸色 + 模糊 / 唯一一档阴影 /
+   6px 圆角 / 只留上下内边距）。行自带 px，hover 才能横向铺满。
+   注意这里仍用类名而不是 Tailwind：插件根上的 `button` 重置是**未分层**的 CSS，
+   优先级高于 `@layer utilities`，混用会把行内边距打回 0。 */
 .menu {
   position: fixed;
   min-width: 168px;
   max-height: min(58vh, 420px);
-  overflow-y: auto;
   overscroll-behavior: contain;
-  background: color-mix(in srgb, var(--oc-paper) 92%, transparent);
+  background: color-mix(in srgb, var(--oc-paper) 85%, transparent);
   backdrop-filter: blur(16px);
   border: 1px solid var(--oc-line);
   border-radius: var(--r-control);
   box-shadow: var(--float-shadow);
   padding: 4px 0;
   z-index: 60;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  pointer-events: auto;
+}
+
+.menu.scroll {
+  overflow-y: auto;
 }
 
 .menu-item {
@@ -946,7 +924,8 @@ a:hover {
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 5px 12px;
+  padding: 4px 12px;
+  border-radius: var(--r-item);
   font-size: calc(13px * var(--font-scale));
   color: var(--oc-ink);
   text-align: left;
@@ -978,31 +957,27 @@ a:hover {
   margin: 4px 8px;
 }
 
-/* Toast：左下角，paper-card + 1px 线 + 12px + 4px 圆角 */
-.toasts {
-  position: fixed;
-  left: 14px;
-  bottom: calc(var(--statusbar-h) + 10px);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  z-index: 70;
-  pointer-events: none;
+.menu-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
-.toast {
-  padding: 7px 11px;
-  border-radius: var(--r-item);
-  background: var(--oc-paper-card);
-  border: 1px solid var(--oc-line);
-  box-shadow: var(--float-shadow);
-  color: var(--oc-ink);
-  font-size: calc(12px * var(--font-scale));
-  max-width: 60vw;
+.menu-footer {
+  flex: 0 0 auto;
+  border-top: 1px solid var(--oc-line);
+  padding: 4px 0;
 }
 
-.toast.error {
-  color: var(--oc-error);
+/* 菜单行左侧固定槽位：只有选中项画勾，其余行文字不会左右跳 */
+.menu-item-slot {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  display: inline-grid;
+  place-items: center;
+  color: var(--oc-ink-muted);
 }
 
 /* ── 对话 ─────────────────────────────────────────────────────────────── */
@@ -1010,14 +985,25 @@ a:hover {
 .chat-scroll {
   flex: 1 1 0;
   min-height: 0;
+  min-width: 0;
   overflow-y: auto;
   overflow-x: hidden;
+  /* 空态要能在整块消息区里居中；消息本身仍然从顶部开始排 */
+  display: flex;
+  flex-direction: column;
 }
 
 .chat-inner {
-  max-width: 720px;
+  /* 720 的正文列 + 左右各 24 内边距；输入框本身是 720（含边框） */
+  width: 100%;
+  /* 关键：flex 子项的 min-width:auto 会让工具卡里的长代码把整列撑宽，
+     max-width 就失效了 —— 宽度会随内容「随机」跳。 */
+  min-width: 0;
+  max-width: calc(var(--chat-width) + 48px);
   margin: 0 auto;
-  padding: 20px 24px 8px;
+  /* 给浮起来的输入区让出位置：滚到底时最后一条消息仍停在输入框上方，
+     而滚到一半时消息可以穿到输入框背后被模糊。 */
+  padding: 20px 24px 200px;
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -1026,6 +1012,7 @@ a:hover {
 .msg-row {
   display: flex;
   width: 100%;
+  min-width: 0;
   gap: 10px;
 }
 
@@ -1064,6 +1051,7 @@ a:hover {
 
 .assistant-body {
   width: 100%;
+  min-width: 0;
   font-size: calc(15px * var(--font-scale));
 }
 
@@ -1155,33 +1143,156 @@ a:hover {
 /* 与消息之间既不画线、也不铺一条底色带：输入框直接浮在文字下面 */
 .composer-dock {
   flex: 0 0 auto;
-  padding: 6px 24px 10px;
+  padding: 8px 24px 12px;
   background: transparent;
 }
 
-/* 输入区是一个盒子：浅底 + 1px 线 + 6px 圆角，居中 */
+/* 输入区 = 宿主的浮层皮肤（FLOAT_SKIN）：85% 纸色 + 模糊 + 1px 线 + 唯一一档阴影。
+   不再用实心 paper-card：浮在正文上方时，底下的文字透一点上来才像一块浮层。 */
 .composer {
-  max-width: 720px;
+  max-width: var(--chat-width);
   margin: 0 auto;
   width: 100%;
   display: flex;
   flex-direction: column;
-  background: var(--oc-paper-card);
+  background: color-mix(in srgb, var(--oc-paper) 85%, transparent);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
   border: 1px solid var(--oc-line);
   border-radius: var(--r-control);
-  padding: 6px 10px 4px;
-  transition: border-color var(--dur-fast) var(--ease-quiet);
+  box-shadow: var(--float-shadow);
+  padding: 8px 12px;
+  transition: border-color var(--dur-fast) var(--ease-quiet),
+    background-color var(--dur-fast) var(--ease-quiet);
 }
 
 .composer:focus-within {
   border-color: var(--oc-line-hover);
+  background: color-mix(in srgb, var(--oc-paper) 92%, transparent);
 }
 
 .composer-attachments {
   display: flex;
   flex-wrap: wrap;
+  gap: 8px;
+  padding-bottom: 8px;
+}
+
+/* ── 输入框上方的资料 tag（扮演 / 创作） ─────────────────────────────── */
+
+.composer-context {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
-  padding-bottom: 6px;
+  padding-bottom: 8px;
+}
+
+.composer-context-label {
+  font-size: calc(11px * var(--font-scale));
+  color: var(--oc-ink-faint);
+}
+
+.context-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  max-width: 220px;
+  border-radius: var(--r-item);
+  background: var(--oc-paper-card);
+  color: var(--oc-ink-muted);
+  font-size: calc(12px * var(--font-scale));
+  white-space: nowrap;
+}
+
+.context-tag.primary,
+.context-tag.on {
+  color: var(--oc-ink);
+}
+
+.context-tag.add {
+  gap: 4px;
+  padding: 0 8px;
+  background: transparent;
+  color: var(--oc-ink-faint);
+}
+
+.context-tag.add:hover {
+  background: var(--oc-hover);
+  color: var(--oc-ink);
+}
+
+.context-tag-main {
+  display: flex;
+  align-items: center;
+  max-width: 160px;
+  height: 24px;
+  padding: 0 2px 0 8px;
+  color: inherit;
+}
+
+.context-tag-x {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 24px;
+  color: var(--oc-ink-faint);
+}
+
+.context-tag-x:hover {
+  color: var(--oc-ink);
+}
+
+/* 选择器里的行：满宽、hover 出浅底，选中用浅底块 + 勾 */
+.pick-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 2px 0;
+}
+
+.pick-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: var(--r-item);
+  color: var(--oc-ink-muted);
+  font-size: calc(13px * var(--font-scale));
+  text-align: left;
+}
+
+.pick-row:hover {
+  background: var(--oc-hover);
+  color: var(--oc-ink);
+}
+
+.pick-row.on {
+  background: var(--oc-paper-card);
+  color: var(--oc-ink);
+}
+
+.pick-check {
+  width: 14px;
+  flex: 0 0 14px;
+  display: grid;
+  place-items: center;
+  color: var(--oc-ink-muted);
+}
+
+.pick-role {
+  margin-left: auto;
+  font-size: calc(11px * var(--font-scale));
+  color: var(--oc-ink-faint);
+}
+
+.pick-empty {
+  padding: 8px;
+  font-size: calc(12px * var(--font-scale));
+  color: var(--oc-ink-faint);
 }
 
 .composer-input {
@@ -1394,6 +1505,7 @@ a:hover {
   flex-direction: column;
   gap: 6px;
   margin: 2px 0 10px;
+  min-width: 0;
 }
 
 .step {
@@ -1431,6 +1543,7 @@ a:hover {
   border-radius: var(--r-item);
   overflow: hidden;
   margin-top: 2px;
+  min-width: 0;
 }
 
 .tool-head {
@@ -1641,8 +1754,31 @@ a:hover {
 
 /* 输入区栈：composer + 任务清单 + 回到底部，作为一整块贴底 */
 .composer-stack {
-  position: relative;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
   flex: 0 0 auto;
+}
+
+/* 底部渐隐：消息滚到输入区下面时，先被浮层模糊、再在底部化开，
+   而不是硬生生被输入框「截断」。 */
+.chat-fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 170px;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    transparent 35%,
+    color-mix(in srgb, var(--oc-paper) 60%, transparent) 70%,
+    var(--oc-paper) 100%
+  );
 }
 
 /* 钉在输入区栈的顶边右侧，不再用「面板底部 - N px」这种写死的数字 */
@@ -1723,7 +1859,7 @@ a:hover {
 
 /* 输入框下面那一行：居中、11px、只有数字 */
 .composer-meta {
-  max-width: 720px;
+  max-width: var(--chat-width);
   margin: 6px auto 0;
   display: flex;
   align-items: center;
@@ -1744,38 +1880,6 @@ a:hover {
 .pill.locked:hover {
   background: transparent;
   color: var(--oc-ink-faint);
-}
-
-/* 带固定底部的菜单：上面的列表滚动，底部的开关组钉住 */
-.menu.with-footer {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  padding-bottom: 0;
-}
-
-.menu-scroll {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-.menu-footer {
-  flex: 0 0 auto;
-  border-top: 1px solid var(--oc-line);
-  padding: 4px 0;
-  background: color-mix(in srgb, var(--oc-paper) 92%, transparent);
-}
-
-/* 菜单行左侧固定槽位：只有选中项画勾，其余行文字不会左右跳 */
-.menu-item-slot {
-  width: 14px;
-  height: 14px;
-  flex: 0 0 14px;
-  display: inline-grid;
-  place-items: center;
-  color: var(--oc-ink-muted);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -1810,9 +1914,10 @@ a:hover {
   box-shadow: 0 1px 0 0 var(--oc-line-hover);
 }
 
+/* 聚焦只加深底线：浮层只有一档阴影，不再叠双环 */
 .composer:focus-within {
   border-color: var(--oc-line-hover);
-  box-shadow: 0 0 0 1px var(--oc-line-hover), 0 0 0 4px var(--oc-hover);
+  box-shadow: var(--float-shadow);
 }
 
 /* 3. 暗色下字重整体降一档（Segoe UI 的 600/700 在深底上会糊） */
@@ -1909,6 +2014,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
 }
 
 /* 8. 正文换行更聪明，避免孤字 */
@@ -1930,7 +2036,6 @@ body {
 .icon-btn:active,
 .pill:active,
 .send-btn:active,
-.menu-item:active,
 .code-copy:active {
   /* 380ms / 阻尼 18 的近似：低阻尼、轻微过冲 */
   transition: transform 380ms cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -2000,6 +2105,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
 }
 
 .trace-reasoning .disclosure {
@@ -2054,7 +2160,7 @@ body {
 /* 任务清单停靠区：运行态信息，长在输入框上方，滚动时不跟着消息跑掉 */
 .todo-dock {
   flex: 0 0 auto;
-  max-width: 720px;
+  max-width: var(--chat-width);
   width: 100%;
   margin: 0 auto 6px;
   padding: 0 0;

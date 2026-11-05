@@ -1,4 +1,4 @@
-import type { WorldEntry } from '@/types'
+import type { GalleryImage, WorldEntry } from '@/types'
 
 export type { WorldEntry }
 
@@ -9,6 +9,15 @@ export interface WorldFormData {
   summary?: string
   /** 封面（3:2 槽位；落盘键 cover） */
   cover?: string
+  /** 头像 / 单张图片 / 图集（模板的 avatar / image / gallery 三个组件） */
+  avatar?: string
+  image?: string
+  gallery?: GalleryImage[]
+  /** 时间组件（落盘键 time / endTime；形态与事件一致） */
+  time?: string
+  endTime?: string
+  /** 地点组件（落盘键 location） */
+  location?: string
   document?: unknown
   parentId: number | null
   order: number

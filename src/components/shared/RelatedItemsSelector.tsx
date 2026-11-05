@@ -17,21 +17,11 @@ interface RelatedItemsSelectorProps {
   placeholder: string
   onNavigateItem?: (id: number) => void
   maxItems?: number
-  /** 已选项由外部（如关系表）呈现时，隐藏这里的 chip 列表 */
-  hideSelected?: boolean
-  /** 弹层对齐方向：放在标题行右侧时用 right */
-  panelAlign?: 'left' | 'right'
-  /** 已选项的附加标签（如关系名）：按 id 取值，非空时跟在名称后面 */
-  labels?: Record<number, string>
-  /** 提供后标签变成 chip 内的行内输入（给关联起名，如事件之间的关系） */
-  onLabelChange?: (id: number, value: string) => void
-  labelPlaceholder?: string
 }
 
 /**
- * 关联项选择器。
- * 布局为**单行内联**：已选 chip 与「＋ 添加」同处一个 flex-wrap 容器，
- * 不会像旧的纵向堆叠那样把按钮挤到第二行、造成行高翻倍。
+ * 单类实体的字段选择器（国籍这类「只能选一个本库实体」的字段）。
+ * 关系区块不用它：关系要跨类型、要分组和起名，统一走 `relations/RelationPicker`。
  */
 export function RelatedItemsSelector({
   items,
@@ -40,11 +30,6 @@ export function RelatedItemsSelector({
   placeholder,
   onNavigateItem,
   maxItems,
-  hideSelected = false,
-  panelAlign = 'left',
-  labels,
-  onLabelChange,
-  labelPlaceholder = '关系',
 }: RelatedItemsSelectorProps) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -113,7 +98,7 @@ export function RelatedItemsSelector({
   }, [])
 
   const isFull = maxItems !== undefined && selectedIds.length >= maxItems
-  const showChips = !hideSelected && selectedItems.length > 0
+  const showChips = selectedItems.length > 0
 
   return (
     <div ref={containerRef} className="flex flex-wrap items-center gap-1.5">
@@ -128,18 +113,6 @@ export function RelatedItemsSelector({
               >
                 {item.name}
               </button>
-              {onLabelChange ? (
-                <input
-                  type="text"
-                  value={labels?.[item.id] ?? ''}
-                  onChange={(e) => onLabelChange(item.id, e.target.value)}
-                  placeholder={labelPlaceholder}
-                  aria-label={`${item.name}的${labelPlaceholder}`}
-                  className="w-12 bg-transparent text-[12px] text-ink-muted placeholder:text-ink-faint focus:outline-none"
-                />
-              ) : labels?.[item.id] ? (
-                <span className="text-[12px] text-ink-faint">{labels[item.id]}</span>
-              ) : null}
               <button
                 type="button"
                 onClick={() => removeItem(item.id)}
@@ -153,7 +126,7 @@ export function RelatedItemsSelector({
         : null}
 
       {open ? (
-        <div className={`relative ${panelAlign === 'right' ? 'w-56' : 'w-44'}`}>
+        <div className="relative w-44">
           <input
             ref={inputRef}
             type="text"
@@ -172,9 +145,7 @@ export function RelatedItemsSelector({
           />
           {filtered.length > 0 ? (
             <div
-              className={`absolute top-full z-50 mt-1 max-h-48 min-w-[220px] overflow-auto ${MENU} ${
-                panelAlign === 'right' ? 'right-0' : 'left-0'
-              }`}
+              className={`absolute left-0 top-full z-50 mt-1 max-h-48 min-w-[220px] overflow-auto ${MENU}`}
             >
               {filtered.map((item) => (
                 <button
@@ -194,11 +165,7 @@ export function RelatedItemsSelector({
               ))}
             </div>
           ) : search.trim() ? (
-            <div
-              className={`absolute top-full z-50 mt-1 min-w-[220px] ${MENU} ${
-                panelAlign === 'right' ? 'right-0' : 'left-0'
-              }`}
-            >
+            <div className={`absolute left-0 top-full z-50 mt-1 min-w-[220px] ${MENU}`}>
               <p className="px-3 py-2 text-[12px] text-ink-faint">未找到匹配项</p>
             </div>
           ) : null}

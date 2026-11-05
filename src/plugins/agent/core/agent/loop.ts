@@ -76,10 +76,15 @@ const DENIED_RESULT: ToolResult = {
 export async function runAgentLoop(deps: AgentLoopDeps): Promise<AgentLoopResult> {
   const steps: AgentStep[] = []
   const working: OutMessage[] = [...deps.history]
+  // 工具用够多之后强制收口：模型很容易一直调工具、最后一轮只回 reasoning，
+  // 界面上就只剩一片空白。到这一步不再给工具，逼它用文字回答。
+  const FORCE_ANSWER_AFTER = 20
+  let forcedRetry = false
 
   for (let index = 0; index < deps.maxSteps; index++) {
     if (deps.signal.aborted) return { steps, error: null, stopped: true, exhausted: false }
 
+    const forceAnswer = index >= FORCE_ANSWER_AFTER
     const step: AgentStep = {
       index,
       content: '',
@@ -94,7 +99,12 @@ export async function runAgentLoop(deps: AgentLoopDeps): Promise<AgentLoopResult
     let failure: string | null = null
     let sawToolCalls = false
 
-    const body = deps.buildBody(working, deps.tools)
+    const body = deps.buildBody(
+      forceAnswer
+        ? [...working, { role: 'user', content: '（系统）工具调用已经够了：停止调用工具，直接用文字给出结论。' }]
+        : working,
+      forceAnswer ? [] : deps.tools,
+    )
 
     await deps.stream(body, deps.signal, (event) => {
       switch (event.type) {
@@ -130,6 +140,15 @@ export async function runAgentLoop(deps: AgentLoopDeps): Promise<AgentLoopResult
     const calls = accumulator.list()
     if (!sawToolCalls || calls.length === 0) {
       // No tools wanted: this turn's text is the answer.
+      if (step.content.trim() === '' && !forcedRetry) {
+        // 模型这一轮只回了 reasoning / 空内容：再问一次，逼它出正文
+        forcedRetry = true
+        working.push({
+          role: 'user',
+          content: '（系统）你上一轮没有输出正文。请直接用文字给出最终答复。',
+        })
+        continue
+      }
       return { steps, error: null, stopped: false, exhausted: false }
     }
 

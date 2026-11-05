@@ -21,6 +21,7 @@ import {
   readPosition,
   readString,
   readStringList,
+  ownedKeys,
   readTimestamp,
   type KeyChain,
 } from './fields'
@@ -93,7 +94,13 @@ function readCustomFields(
   fm: Record<string, unknown>,
   kind: 'character' | 'event' | 'worldEntry',
 ): Record<string, string> | undefined {
-  const keys = customFieldKeys(kind)
+  /**
+   * 已经被词汇表占用的键不再当自定义字段读：`时间` / `地点` / `简介` 这些
+   * 现在是模板组件的第一类列，同一份事实若两边都读，改一处另一处不动
+   * （落盘时后写的还会盖掉先写的）。自定义字段撞了名就换一个键。
+   */
+  const owned = new Set(ownedKeys(kind))
+  const keys = customFieldKeys(kind).filter((key) => !owned.has(key))
   if (keys.length === 0) return undefined
   const out: Record<string, string> = {}
   for (const key of keys) {
@@ -422,6 +429,10 @@ export function scanVault(options: ScanOptions): VaultScanResult {
         culture: readString(fm, COUNTRY_KEYS.culture),
         flagUrl: readString(fm, COUNTRY_KEYS.flag) || undefined,
         headerUrl: readString(fm, COUNTRY_KEYS.header) || undefined,
+        gallery: readImageList(fm, COUNTRY_KEYS.gallery).map((item) => ({
+          url: item.url,
+          caption: item.caption,
+        })),
         // 成员名单不读了（阶段二·一）：真源是角色的 `countryId` 与事件的 `countries`，
         // 国家页的两个列表由查询得出。这里的字段已经摘掉 —— 盘上遗留的键原样留着，
         // 不读也不删（写回也不会碰，`COUNTRY_KEYS` 里没有它们）。
@@ -507,6 +518,15 @@ export function scanVault(options: ScanOptions): VaultScanResult {
         // 但老笔记里已有的值仍然读回来 —— 迁移时不至于把它弄丢。
         category: readString(fm, WORLD_KEYS.category),
         cover: readString(fm, WORLD_KEYS.cover) || undefined,
+        avatar: readString(fm, WORLD_KEYS.avatar) || undefined,
+        image: readString(fm, WORLD_KEYS.image) || undefined,
+        gallery: readImageList(fm, WORLD_KEYS.gallery).map((item) => ({
+          url: item.url,
+          caption: item.caption,
+        })),
+        time: readString(fm, WORLD_KEYS.time) || undefined,
+        endTime: readString(fm, WORLD_KEYS.endTime) || undefined,
+        location: readString(fm, WORLD_KEYS.location) || undefined,
         summary: readString(fm, WORLD_KEYS.summary) || undefined,
         template: readString(fm, WORLD_KEYS.template) || undefined,
         parentId: lookupTarget(parentName, 'worldEntry')?.id ?? null,

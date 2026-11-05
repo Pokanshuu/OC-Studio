@@ -7,6 +7,7 @@ import { EntityDocumentBody } from '@/components/editor/EntityDocumentBody'
 import { EditorBodyPane } from '@/components/editor/EditorBodyPane'
 import { EditorSplitPane } from '@/components/editor/EditorSplitPane'
 import { EntityEditorShell } from '@/components/shared/EntityEditorShell'
+import { TalkToAgentButton } from '@/components/shared/TalkToAgentButton'
 import type { Character } from '@/types'
 import { EntityHistoryButton } from '@/features/vault'
 import { useEditorLayout } from '@/lib/use-editor-layout'
@@ -136,6 +137,12 @@ function CharacterEditorInner({
 
   const headerActions = (
     <>
+      <TalkToAgentButton
+        kind="character"
+        id={character.id}
+        title={form.name}
+        onBeforeOpen={form.handleSave}
+      />
       <EntityHistoryButton table="characters" id={character.id} name={form.name} />
       <button
         onClick={form.handleSave}
@@ -211,9 +218,8 @@ function CharacterEditorInner({
               compact={false}
               onNavigateToCharacter={onNavigateToCharacter}
               onNavigateToCountry={onNavigateToCountry}
+              body={body}
             />
-            <div className="mt-8 border-t border-line" />
-            <div className="mt-8">{body}</div>
           </div>
         </div>
       )}

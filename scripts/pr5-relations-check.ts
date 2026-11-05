@@ -27,7 +27,7 @@ check('关系名取 label', character[0]?.relation === '同伴')
 check('颜色带过来', character[0]?.color === '苔绿')
 check('箭头带过来', character[0]?.arrow === 'both')
 check('空 label 退化成「关系」', (plan.characterEdges.get(3) ?? [])[0]?.relation === '关系')
-check('arrow=none 不写', (plan.characterEdges.get(3) ?? [])[0]?.arrow === undefined)
+check('arrow=none 保留为显式无箭头', (plan.characterEdges.get(3) ?? [])[0]?.arrow === 'none')
 check('事件边单独分组', (plan.eventEdges.get(5) ?? [])[0]?.relation === '关联')
 check('国家参与 / 已删除计入 skipped', plan.skipped === 2)
 

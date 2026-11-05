@@ -22,6 +22,10 @@ const VERSION = 1
 let snapshot: Category[] = []
 let loaded = false
 let loading: Promise<void> | null = null
+/** 上次成功装载对应的库根；换库 / 启动早于会话就绪时靠它触发重读 */
+let loadedRoot: string | null = null
+/** 读盘报错（不是「文件不存在」）：此时禁止写回，否则会用内置默认表覆盖用户盘上的分类 */
+let readFailed = false
 const listeners = new Set<() => void>()
 
 function emit(): void {
@@ -83,29 +87,51 @@ function vaultRoot(): string | null {
   return (getVaultSession()?.root ?? null)
 }
 
+/**
+ * 装载分类表。
+ *
+ * **按库根判断新鲜度**：启动时这次调用可能发生在会话还没建立（或者用户换了库）的时候，
+ * 那时读不到 `.ocstudio/categories.json`，结果就是「刷新后侧栏分类全没了」。
+ * 所以记住上次装载用的是哪个根，根一变就重读（`AppShell` 也会在 root 变化时再喊一次）。
+ *
+ * 读失败**不覆盖**已有表：一次 I/O 抖动不该让侧栏清空，更不该让下一次保存
+ * 把盘上的分类写成内置默认表（那才是真的丢数据）。
+ */
 export async function loadCategories(force = false): Promise<void> {
   if (loading) return loading
-  if (loaded && !force) return
+  const root = vaultRoot()
+  // 桌面版但会话还没建好（启动早期）：**不要**退到 localStorage ——
+  // 那是浏览器预览的那份，混进来就会出现「侧栏的分类不是笔记库里的」。
+  // 直接从这儿返回，等库根出现后 `VaultCategoriesSync` 会再喊一次。
+  if (root === null && isVaultSupported()) return
+  if (!force && loaded && loadedRoot === root) return
   loading = (async () => {
+    let next = snapshot
+    let failed = false
     try {
-      const root = vaultRoot()
       if (root) {
         if (await vaultFs.exists(root, CATEGORIES_REL_PATH)) {
           const bytes = await vaultFs.readBytes(root, CATEGORIES_REL_PATH)
           const payload = JSON.parse(new TextDecoder().decode(new Uint8Array(bytes))) as { categories?: unknown }
-          snapshot = mergeBuiltins(normalize(payload?.categories))
+          next = mergeBuiltins(normalize(payload?.categories))
         } else {
-          snapshot = mergeBuiltins([])
+          next = mergeBuiltins([])
         }
       } else if (typeof window !== 'undefined') {
         const raw = localStorage.getItem(LS_KEY)
-        snapshot = raw === null
+        next = raw === null
           ? mergeBuiltins([])
           : mergeBuiltins(normalize((JSON.parse(raw) as { categories?: unknown })?.categories))
+      } else {
+        next = mergeBuiltins([])
       }
     } catch {
-      snapshot = mergeBuiltins([])
+      failed = true
+      next = snapshot.length > 0 ? snapshot : mergeBuiltins([])
     } finally {
+      snapshot = next
+      loadedRoot = root
+      readFailed = failed
       loaded = true
       loading = null
       emit()
@@ -114,13 +140,17 @@ export async function loadCategories(force = false): Promise<void> {
   return loading
 }
 
+/**
+ * 保存分类表：**先落盘，成功后才换内存**。
+ *
+ * 反过来的话，写失败时界面照样会显示新分类 —— 用户看到「建好了」，刷新就没了。
+ * 现在写失败会抛给调用方（弹窗 / 开关会把错误显示出来），内存保持与磁盘一致。
+ */
 export async function saveCategories(next: Category[]): Promise<void> {
+  if (readFailed) throw new Error('分类表上次没有读成功，先刷新笔记库再改')
   const ordered = mergeBuiltins(normalize(next)).map((category, index) => ({ ...category, order: index }))
-  snapshot = ordered
-  loaded = true
-  emit()
-
   const root = vaultRoot()
+
   if (root) {
     try {
       await vaultFs.mkdir(root, '.ocstudio')
@@ -132,9 +162,19 @@ export async function saveCategories(next: Category[]): Promise<void> {
     ])
     const failed = results.find((result) => !result.ok)
     if (failed !== undefined) throw new Error(failed.error ?? '写入分类失败')
-    return
+  } else if (isVaultSupported()) {
+    // 桌面版没有库根 = 会话还没建好。不能悄悄写进 localStorage（刷新就没了），
+    // 也不能假装成功 —— 直接抛，由调用方把「稍后再试」显示出来。
+    throw new Error('笔记库还没准备好，稍后再试')
+  } else if (typeof window !== 'undefined') {
+    localStorage.setItem(LS_KEY, serialize(ordered))
   }
-  if (typeof window !== 'undefined') localStorage.setItem(LS_KEY, serialize(ordered))
+
+  snapshot = ordered
+  loaded = true
+  loadedRoot = root
+  readFailed = false
+  emit()
 }
 
 export function getCategories(): Category[] {
@@ -161,12 +201,14 @@ export async function createCategory(input: {
   const name = input.name.trim()
   if (name === '') throw new Error('分类名不能为空')
   if (snapshot.some((category) => category.name === name)) throw new Error(`已经有叫「${name}」的分类了`)
+  // 排在最后：内置分类出厂 order 是 1000 / 1001，直接用 length 会让新分类跑到最前面
+  const maxOrder = snapshot.reduce((max, category) => Math.max(max, category.order), -1)
   const category: Category = {
     id: newCategoryId(),
     name,
     template: (input.template ?? 'entry').trim() || 'entry',
     icon: input.icon ?? DEFAULT_CATEGORY_ICON,
-    order: snapshot.length,
+    order: maxOrder + 1,
     enabled: true,
   }
   await saveCategories([...snapshot, category])

@@ -59,6 +59,15 @@ function main(): void {
   check('完全不是对象时给空表', normalizeInspirations('nope').length === 0)
   check('null 给空表', normalizeInspirations(null).length === 0)
 
+  // ── 升级成笔记后留下的那个 id ──────────────────────────────────────────
+  const promoted = normalizeInspirations({ items: [{ id: 'p1', promotedId: 42 }] })
+  check('保留 promotedId', promoted[0]?.promotedId === 42)
+  const notPromoted = normalizeInspirations({ items: [{ id: 'p2' }] })
+  check('没升级就没有这个键', notPromoted[0] !== undefined && 'promotedId' in notPromoted[0] === false)
+  const badPromoted = normalizeInspirations({ items: [{ id: 'p3', promotedId: 'x' }] })
+  check('非法 promotedId 丢掉', badPromoted[0] !== undefined && 'promotedId' in badPromoted[0] === false)
+  const roundTripPromoted = parseInspirations(serializeInspirations([item({ id: 'p4', promotedId: 7 })]))
+  check('promotedId 往返还在', roundTripPromoted[0]?.promotedId === 7)
   // ── 往返不丢字 ────────────────────────────────────────────────────────
   const tricky = item({
     id: 'round-trip',

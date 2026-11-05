@@ -9,6 +9,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { open, save } from '@tauri-apps/plugin-dialog'
 import { openUrl } from '@tauri-apps/plugin-opener'
+import { Dialog as HostDialog, DialogContent } from '@/components/ui/dialog'
+import { AgentLayer } from '@/plugins/agent/host/plugin-layer'
 import { Icon } from '@/plugins/agent/components/ui/Icon'
 import {
   Dialog,
@@ -60,41 +62,49 @@ export function SettingsView({
   if (!visible) return null
 
   return (
-    <div className="scrim" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <div
-        className="dialog wide"
-        style={{ display: 'flex', flexDirection: 'column' }}
-        onMouseDown={(event) => event.stopPropagation()}
+    <HostDialog
+      open={visible}
+      onOpenChange={(next) => {
+        if (!next) onClose()
+      }}
+    >
+      <DialogContent
+        showCloseButton={false}
+        className="flex h-[min(80vh,820px)] w-[min(880px,calc(100vw-2rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-none"
       >
-        <div className="dialog-head">
-          <div className="dialog-title">{t('settings.title')}</div>
-          <button className="icon-btn" onClick={onClose} aria-label={t('common.close')}>
-            <Icon name="close" size={16} />
-          </button>
-        </div>
+        <AgentLayer className="flex min-h-0 flex-1 flex-col">
+          <div className="settings-dialog flex min-h-0 flex-1 flex-col">
+            <div className="dialog-head">
+              <div className="dialog-title">{t('settings.title')}</div>
+              <button className="icon-btn" onClick={onClose} aria-label={t('common.close')}>
+                <Icon name="close" size={16} />
+              </button>
+            </div>
 
-        <div className="settings-tabs">
-          {(['api', 'agent', 'appearance', 'data', 'about'] as Tab[]).map((value) => (
-            <button
-              key={value}
-              type="button"
-              className={`settings-tab${active === value ? ' active' : ''}`}
-              onClick={() => setActive(value)}
-            >
-              {t(`settings.tab.${value}`)}
-            </button>
-          ))}
-        </div>
+            <div className="settings-tabs">
+              {(['api', 'agent', 'appearance', 'data', 'about'] as Tab[]).map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={`settings-tab${active === value ? ' active' : ''}`}
+                  onClick={() => setActive(value)}
+                >
+                  {t(`settings.tab.${value}`)}
+                </button>
+              ))}
+            </div>
 
-        <div className="settings-body">
-          {active === 'api' && <ApiTab />}
-          {active === 'agent' && <AgentTab />}
-          {active === 'appearance' && <AppearanceTab />}
-          {active === 'data' && <DataTab />}
-          {active === 'about' && <AboutTab />}
-        </div>
-      </div>
-    </div>
+            <div className="settings-body">
+              {active === 'api' && <ApiTab />}
+              {active === 'agent' && <AgentTab />}
+              {active === 'appearance' && <AppearanceTab />}
+              {active === 'data' && <DataTab />}
+              {active === 'about' && <AboutTab />}
+            </div>
+          </div>
+        </AgentLayer>
+      </DialogContent>
+    </HostDialog>
   )
 }
 
@@ -512,26 +522,6 @@ function AgentTab() {
   const settings = useSettingsStore((s) => s.settings)
   const patch = useSettingsStore((s) => s.patch)
 
-  const [workspaceInfo, setWorkspaceInfo] = useState<{ fileCount: number; root: string } | null>(null)
-
-  useEffect(() => {
-    const workspace = settings.agent.workspace
-    if (!workspace) {
-      setWorkspaceInfo(null)
-      return
-    }
-    void cmd
-      .workspaceInfo(workspace)
-      .then((info) => setWorkspaceInfo({ fileCount: info.fileCount, root: info.root }))
-      .catch(() => setWorkspaceInfo(null))
-  }, [settings.agent.workspace])
-
-  const pickWorkspace = async () => {
-    const picked = await open({ directory: true, multiple: false })
-    if (!picked || Array.isArray(picked)) return
-    patch((current) => ({ ...current, agent: { ...current.agent, workspace: picked } }))
-  }
-
   const toggleTool = (name: string) => {
     patch((current) => {
       const enabled = current.agent.enabledTools.includes(name)
@@ -552,31 +542,6 @@ function AgentTab() {
     <>
       <div className="section">
         <div className="section-title">{t('settings.tab.agent')}</div>
-
-        <Field
-          label={t('settings.agentWorkspace')}
-          hint={
-            workspaceInfo
-              ? `${workspaceInfo.root} · ${workspaceInfo.fileCount} files`
-              : t('settings.agentWorkspaceHint')
-          }
-        >
-          <div className="row">
-            <input className="input" readOnly value={settings.agent.workspace ?? ''} placeholder={t('composer.noWorkspace')} />
-            <button className="btn quiet" onClick={() => void pickWorkspace()}>
-              <Icon name="folder" size={14} />
-              {t('composer.pickWorkspace')}
-            </button>
-            {settings.agent.workspace && (
-              <button
-                className="btn"
-                onClick={() => patch((current) => ({ ...current, agent: { ...current.agent, workspace: null } }))}
-              >
-                {t('settings.clearKey')}
-              </button>
-            )}
-          </div>
-        </Field>
 
         <FieldRow label={t('settings.maxSteps')} hint={t('settings.maxStepsHint')}>
           <input

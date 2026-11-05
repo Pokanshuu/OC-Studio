@@ -17,7 +17,9 @@
 import { create } from 'zustand'
 import { cmd, patchMessage, rowToMessage } from '@/plugins/agent/api/bridge'
 import { streamCompletion } from '@/plugins/agent/api/chat'
-import { resolveLibraryTool } from '@/plugins/agent/host/library-tools'
+import { isLibraryTool, libraryAccessGranted, resolveLibraryTool } from '@/plugins/agent/host/library-tools'
+import { buildAgentSessionContextBlock, writeNovelChapter } from '@/plugins/agent/host/session-context'
+import { bindPendingAgentSessionContext, getAgentSessionContext } from '@/lib/plugins/agent-session'
 import {
   buildChatRequest,
   messageToOut,
@@ -160,8 +162,12 @@ function pathOf(all: Message[]): Message[] {
   return activePath(all)
 }
 
-/** Compose the final system prompt: mode persona + presets + user prompt. */
-function systemPromptFor(conversation: Conversation, workspace: string | null): string {
+/** Compose the final system prompt: mode persona + host context + presets + user prompt. */
+function systemPromptFor(
+  conversation: Conversation,
+  workspace: string | null,
+  hostContext = '',
+): string {
   const settings = useSettingsStore.getState().settings
   const presets = useSettingsStore.getState().presets
   const language = resolveLang(settings.ui.language)
@@ -185,6 +191,8 @@ function systemPromptFor(conversation: Conversation, workspace: string | null): 
     : buildSystemPrompt(conversation.mode, ctx)
 
   const parts: string[] = [base]
+  // 设定资料（扮演 / 创作）：数据段放在人设之后、用户预设之前
+  if (hostContext.trim()) parts.push(hostContext.trim())
   for (const preset of presets) {
     if (settings.enabledPresets.includes(preset.id) && preset.content.trim()) {
       parts.push(preset.content.trim())
@@ -261,6 +269,8 @@ export const useChatStore = create<ChatStore>((set, get) => {
       currentId: created.id,
       pendingTitle: null,
     }))
+    // 「和新会话聊之前选好的资料」绑到真实 id 上
+    bindPendingAgentSessionContext(created.id)
     void cmd.clearDraftTitle('').catch(() => undefined)
     return created
   }
@@ -271,14 +281,35 @@ export const useChatStore = create<ChatStore>((set, get) => {
     const conversation = get().conversations.find((c) => c.id === conversationId)
     if (!conversation) return
 
-    const workspace = conversation.workspace ?? settings.agent.workspace
+    // 工作目录固定为当前笔记库（宿主在 AgentPlugin 里写死），
+    // 会话上的旧 workspace 一律不再生效 —— 换库之后不能再读旧目录。
+    const workspace = settings.agent.workspace
     const isAgent = conversation.mode === 'AGENT'
-    const tools: ToolSpec[] = isAgent && workspace ? toolsFor(settings.agent.enabledTools) : []
+    const sessionContext = getAgentSessionContext(conversationId)
+    const novelWritable =
+      conversation.mode === 'CREATIVE' &&
+      Boolean(sessionContext?.novelWritable) &&
+      sessionContext?.novelRootId != null
+    // agent：全套工具；创作：只给「写回新章节」这一件；扮演：不给工具。
+    const toolsAllowed = isAgent || novelWritable
+    // 宿主没授权「读实体」时，这些工具**不发给模型**：广告了却调不动，
+    // 模型会反复试、再花一轮解释为什么失败。
+    const libraryAllowed = libraryAccessGranted()
+    const tools: ToolSpec[] = toolsAllowed && workspace
+      ? toolsFor(settings.agent.enabledTools).filter((tool) => {
+          if (conversation.mode === 'CREATIVE') return tool.name === 'novel_write_chapter'
+          return libraryAllowed || !isLibraryTool(tool.name)
+        })
+      : []
 
     const path = pathOf(get().allMessages).filter((m) => m.id !== assistantId)
     const outgoing = orderedOutgoingMessages(path, get().compaction)
     const history: OutMessage[] = []
-    const systemPrompt = systemPromptFor(conversation, workspace)
+    const systemPrompt = systemPromptFor(
+      conversation,
+      workspace,
+      await buildAgentSessionContextBlock(conversation.mode, conversationId),
+    )
     if (systemPrompt.trim()) {
       history.push({ role: 'system', content: systemPrompt })
     }
@@ -321,7 +352,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
       history,
       tools,
       // 0 = 不限步数：现代模型基本不会无意义地空转，真正的刹车是用户按停止。
-      maxSteps: isAgent && workspace ? (settings.agent.maxSteps > 0 ? settings.agent.maxSteps : Number.POSITIVE_INFINITY) : 1,
+      maxSteps: toolsAllowed && workspace ? (settings.agent.maxSteps > 0 ? settings.agent.maxSteps : Number.POSITIVE_INFINITY) : 1,
       signal: controller.signal,
       buildBody: (messages, specs) =>
         buildChatRequest({
@@ -372,7 +403,10 @@ export const useChatStore = create<ChatStore>((set, get) => {
         try {
           // 宿主优先：设定库那几个工具在进程内执行，其余落回插件的文件工具层
           const hosted = await resolveLibraryTool(call.name, args)
-          const response = hosted ?? (await cmd.runTool(call.name, args, workspace ?? ''))
+          const response = hosted ??
+            (call.name === 'novel_write_chapter'
+              ? await writeNovelChapter(conversationId, args)
+              : await cmd.runTool(call.name, args, workspace ?? ''))
           void cmd
             .auditToolCall(conversationId, call.name, call.args, !response.isError, response.durationMs)
             .catch(() => undefined)

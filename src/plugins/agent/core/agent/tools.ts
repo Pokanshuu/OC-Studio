@@ -392,6 +392,24 @@ export const ALL_TOOLS: ToolSpec[] = [
       additionalProperties: false,
     },
   },
+  {
+    name: 'novel_write_chapter',
+    category: 'write',
+    requiresApproval: true,
+    description:
+      'Create a NEW chapter under the novel selected for this creative-writing conversation and write ' +
+      'its body as Markdown. Never overwrites existing chapters. Only available when the author turned ' +
+      'on write-back for this conversation.',
+    parameters: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: 'Chapter title.' },
+        markdown: { type: 'string', description: 'Chapter body in Markdown.' },
+      },
+      required: ['title', 'markdown'],
+      additionalProperties: false,
+    },
+  },
 ]
 
 export const TOOL_NAMES = ALL_TOOLS.map((t) => t.name)
@@ -477,6 +495,8 @@ export function toolSummary(call: ToolCall): string {
         : ''
     case 'library_create':
       return typeof args.title === 'string' ? `新${typeof args.kind === 'string' ? args.kind : '条目'} · ${args.title}` : ''
+    case 'novel_write_chapter':
+      return typeof args.title === 'string' ? args.title : ''
     case 'library_search':
       return pick('query') ?? ''
     default:

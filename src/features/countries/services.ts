@@ -38,6 +38,7 @@ function buildDefaultCountry(data: CountryFormData, overrides: Partial<Country> 
     system: data.system,
     geography: data.geography,
     culture: data.culture,
+    gallery: data.gallery,
     tags: data.tags ?? [],
     createdAt: now,
     updatedAt: now,
@@ -94,6 +95,18 @@ export async function updateCountry(id: number, data: Partial<CountryFormData>):
   if (data.tags !== undefined) {
     ;(updates as Record<string, unknown>).tags = data.tags
     await logOperation(TABLE, id, 'tags', JSON.stringify(existing.tags ?? []), JSON.stringify(data.tags))
+  }
+
+  // 图集是对象数组：日志走 JSON，`String()` 会变成一串 [object Object]
+  if (data.gallery !== undefined) {
+    ;(updates as Record<string, unknown>).gallery = data.gallery
+    await logOperation(
+      TABLE,
+      id,
+      'gallery',
+      JSON.stringify(existing.gallery ?? []),
+      JSON.stringify(data.gallery),
+    )
   }
 
   if (data.document !== undefined) {

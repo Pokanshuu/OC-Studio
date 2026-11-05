@@ -8,11 +8,14 @@
  *
  * 内置分类（宠物 / 武器）**默认关闭**：行尾是开关，打开后侧栏才出现入口；
  * 名字 / 图标 / 模板是出厂定义，不在这里改（要改就复制成自建分类）。
+ *
+ * 顺序就是侧栏顺序：拖左侧手柄改，落 `categories.json` 的 `order`
+ * （和「基本信息」的字段表是同一套 `SortableList`，手感一致）。
  */
-import { useEffect, useState } from 'react'
+import { createElement, useEffect, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { toast } from 'sonner'
-import { updateCategory, useCategories } from '@/lib/categories/store'
+import { reorderCategories, updateCategory, useCategories } from '@/lib/categories/store'
 import { useTemplates } from '@/lib/templates/store'
 import { categoryIconOf } from '@/lib/categories/icons'
 import type { Category } from '@/lib/categories/types'
@@ -20,6 +23,7 @@ import { CategoryDialog } from '@/features/categories/CategoryDialog'
 import { importLegacyCharacters, legacyKindCount } from '@/features/categories/legacy-import'
 import { notifyDataUpdated } from '@/lib/data-events'
 import { SWITCH_CLASSES, SWITCH_DOT } from '@/components/settings/controls'
+import { DragHandle, SortableList, moveId, useSortableItem } from '@/components/shared/list-dnd'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,7 +34,84 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { BTN_QUIET } from '@/lib/ui-tokens'
+import { BTN_QUIET, ROUND_ITEM, SETTINGS_EMPTY } from '@/lib/ui-tokens'
+
+/** 一行：拖手柄排序 · 名称 · （内置）开关 /（自建）模板名 */
+function CategorySettingRow({
+  category,
+  templateName,
+  onEdit,
+  onToggle,
+}: {
+  category: Category
+  templateName: (id: string) => string
+  onEdit: (category: Category) => void
+  onToggle: (category: Category) => void
+}) {
+  const { setNodeRef, style, attributes, listeners } = useSortableItem(category.id, false)
+  const name = (
+    <>
+      {createElement(categoryIconOf(category.icon), {
+        size: 14,
+        strokeWidth: 2,
+        className: 'shrink-0 text-ink-muted',
+      })}
+      <span className="min-w-0 flex-1 truncate">{category.name}</span>
+      <span className="shrink-0 text-[11px] text-ink-faint">
+        {category.builtin ? '内置' : templateName(category.template)}
+      </span>
+    </>
+  )
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-1 border-b border-line py-2 text-sm text-ink ${ROUND_ITEM} ${
+        // 悬停单位是整行：只有自建分类可点（内置分类只能开关，整行就不是按钮）
+        category.builtin ? '' : 'cursor-pointer transition-colors hover:bg-[var(--oc-hover)]'
+      }`}
+      onClick={
+        category.builtin
+          ? undefined
+          : (event) => {
+              // 拖手柄 / 名字按钮 / 开关各自处理点击
+              if ((event.target as HTMLElement).closest('button')) return
+              onEdit(category)
+            }
+      }
+    >
+      <DragHandle handleProps={{ attributes, listeners }} className="ml-0.5 shrink-0" />
+      {category.builtin ? (
+        <div className="flex min-w-0 flex-1 items-center gap-2 pl-1">{name}</div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => onEdit(category)}
+          className="flex min-w-0 flex-1 items-center gap-2 px-1 text-left hover:bg-transparent"
+        >
+          {name}
+        </button>
+      )}
+      {category.builtin ? (
+        <button
+          type="button"
+          role="switch"
+          aria-checked={category.enabled}
+          aria-label={`${category.name}是否显示在侧栏`}
+          onClick={() => onToggle(category)}
+          className={`${SWITCH_CLASSES.base} ${category.enabled ? SWITCH_CLASSES.on : SWITCH_CLASSES.off}`}
+        >
+          <span
+            className={`${SWITCH_DOT} ${
+              category.enabled ? 'translate-x-[18px] bg-paper' : 'translate-x-[2px]'
+            }`}
+          />
+        </button>
+      ) : null}
+    </div>
+  )
+}
 
 export function CategoriesPanel() {
   const categories = useCategories()
@@ -57,6 +138,15 @@ export function CategoriesPanel() {
       })
   }
 
+  const handleReorder = (activeId: number | string, overId: number | string): void => {
+    const ids = categories.map((category) => category.id)
+    const next = moveId(ids, String(activeId), String(overId))
+    if (next === ids) return
+    void reorderCategories(next).catch((err: unknown) => {
+      toast.error('排序保存失败', { description: String(err) })
+    })
+  }
+
   const runLegacyImport = (): void => {
     setImporting(true)
     void importLegacyCharacters()
@@ -77,54 +167,23 @@ export function CategoriesPanel() {
   return (
     <div className="flex flex-col">
       {categories.length === 0 ? (
-        <p className="py-3 text-[12px] text-ink-faint">还没有分类</p>
+        <p className={SETTINGS_EMPTY}>还没有分类</p>
       ) : (
-        categories.map((category) => {
-          const Icon = categoryIconOf(category.icon)
-          const row = (
-            <>
-              <Icon size={14} strokeWidth={2} className="shrink-0 text-ink-muted" />
-              <span className="min-w-0 flex-1 truncate">{category.name}</span>
-              <span className="shrink-0 text-[11px] text-ink-faint">
-                {category.builtin ? '内置' : templateName(category.template)}
-              </span>
-            </>
-          )
-          return (
-            <div
+        <SortableList
+          ids={categories.map((category) => category.id)}
+          onReorder={handleReorder}
+          layout="list"
+        >
+          {categories.map((category) => (
+            <CategorySettingRow
               key={category.id}
-              className="flex items-center gap-2 border-b border-line py-2 text-sm text-ink"
-            >
-              {category.builtin ? (
-                <div className="flex min-w-0 flex-1 items-center gap-2">{row}</div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setDialog({ mode: 'edit', category })}
-                  className="flex min-w-0 flex-1 items-center gap-2 rounded-item px-1 text-left transition-colors hover:bg-[var(--oc-hover)]"
-                >
-                  {row}
-                </button>
-              )}
-              {category.builtin ? (
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={category.enabled}
-                  aria-label={`${category.name}是否显示在侧栏`}
-                  onClick={() => toggleBuiltin(category)}
-                  className={`${SWITCH_CLASSES.base} ${category.enabled ? SWITCH_CLASSES.on : SWITCH_CLASSES.off}`}
-                >
-                  <span
-                    className={`${SWITCH_DOT} ${
-                      category.enabled ? 'translate-x-[18px] bg-paper' : 'translate-x-[2px]'
-                    }`}
-                  />
-                </button>
-              ) : null}
-            </div>
-          )
-        })
+              category={category}
+              templateName={templateName}
+              onEdit={(target) => setDialog({ mode: 'edit', category: target })}
+              onToggle={toggleBuiltin}
+            />
+          ))}
+        </SortableList>
       )}
 
       {legacy.total > 0 ? (

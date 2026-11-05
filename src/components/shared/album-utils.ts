@@ -44,12 +44,17 @@ export const CATEGORY_TREE: TopCategory[] = [
     children: [
       { key: 'country:flag', label: '标志', sourceType: 'country', category: 'flag' },
       { key: 'country:header', label: '封面', sourceType: 'country', category: 'header' },
+      { key: 'country:gallery', label: '画廊', sourceType: 'country', category: 'gallery' },
       { key: 'country:body', label: '正文图片', sourceType: 'country', category: 'body' },
     ],
   },
   {
     key: 'worldEntry', label: '词条',
     children: [
+      { key: 'worldEntry:avatar', label: '头像', sourceType: 'worldEntry', category: 'avatar' },
+      { key: 'worldEntry:image', label: '图片', sourceType: 'worldEntry', category: 'image' },
+      { key: 'worldEntry:gallery', label: '画廊', sourceType: 'worldEntry', category: 'gallery' },
+      { key: 'worldEntry:cover', label: '封面', sourceType: 'worldEntry', category: 'cover' },
       { key: 'worldEntry:body', label: '正文图片', sourceType: 'worldEntry', category: 'body' },
     ],
   },
@@ -119,7 +124,7 @@ export function getEntryImageUrl(entry: AlbumEntry): string {
   const typeMap: Record<string, string> = {
     avatar: 'avatar', fullbody: 'avatar',
     header: 'avatar', gallery: 'avatar', flag: 'flag',
-    body: 'avatar', cover: 'avatar',
+    body: 'avatar', cover: 'avatar', image: 'avatar',
   }
   const url = resolveImageUrl(entry.url)
   if (url.includes('/defaults/')) return url

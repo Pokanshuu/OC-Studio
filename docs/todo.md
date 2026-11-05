@@ -19,6 +19,7 @@
 
 - [x] **P1 阶段一·地基**（2026-11-04）：`src/lib/templates/`（类型 / 组件登记 / 内置模板 / frontmatter 序列化 / 库优先存取）+ `ComponentSection` 壳 + 设置 › 世界 › 模板（开关 / 排序 / 恢复默认）+ `npm run audit:templates`
 - [x] **P1 阶段一·接管渲染**（2026-11-05）：`TemplateRenderer` 已接 **词条 / 事件 / 国家 / 角色 / 分类条目**（零迁移，顺序与开关来自模板）；单篇笔记绑定模板（frontmatter `模板:` 键）已落，分类条目就地编辑（`CategoryEntryEditor`），不再跳世界观
+- [x] **P1 十一组件全部实装**（2026-11-06）：呈现抽进 `components/shared/template-blocks/`（时间 / 地点 / 简介 / 画廊 / 图片 / 头像），实体编辑器与笔记编辑器共用；笔记宿主由 `features/world/components/note/NoteTemplateContent` 一处分发（世界观 / 分类条目不再各写 switch）；`WorldEntry` 补 `avatar / image / gallery / time / endTime / location` 六列（frontmatter 同名键）；笔记「关系」= `parentId` 父子 + 正文引用查询（`useNoteLinks`）；事件补 `images`、国家补 `gallery` / `description` 编辑入口；`support.ts` 三个实体模板全部登记，`note.ts` 的判据收敛成「含正文」；**「添加组件」按宿主收窄**（`availableComponents()`：实体模板不再出现它没有的列）；`audit:templates` / `audit:design` / `vault-migrate-check` 通过
 - [x] **P2 阶段一·组件参数**（2026-11-05）：`gallery.columns` / `gallery.mode` / `relations.presentation` / `title` 已接角色编辑器（`CharacterFrontmatter`）；参数契约收在 `lib/templates/params.ts`，以 `info.fields` 兼容宠物 / 武器的字段表；`audit:templates` 新增「值合法 / 有消费方 / 能往返」三项，编排行内直接改参数
 - [x] **P2 阶段一·参数抽屉**（2026-11-05）：右侧 360px 抽屉（`TemplateComposer`）承载 `relations` / `gallery` 的选择参数与 `info.fields` 字段编排；Esc / 点遮罩 / 完成关闭
 - [x] **P2 阶段一·完整编排层**（2026-11-05）：全宽覆盖层（左模板列表 / 中编排 / 右结构预览）+ 组件参数行内编辑（`TemplateComposer`）
@@ -32,7 +33,7 @@
 - [x] **P1 宠物 / 武器字段表对齐改版**（2026-11-05）：按 fork 的 `entity-info.ts` 补全两组字段 —— 宠物 15 项（物种 / 品种 / 性别 / 年龄 / 体型 / 体重 / 外观特征 / 性格 / 习性 / 饮食偏好 / 能力技能 / 出生日期 / 收养日期 / 栖息地 / 当前状态），武器 12 项（武器类型 / 材质 / 稀有度 / 尺寸 / 重量 / 制造者 / 铸造时间 / 来源 / 使用条件 / 能力效果 / 属性元素 / 当前状态）；那边给旧 `Character` 列做映射的 `legacy` 项没带过来（我们一律走 `custom`）
 - [x] **P2 分类条目进关系图**（2026-11-05）：只收「有引用的分类笔记」为 `world` 节点，引用落成「引用」边；双击节点打开分类条目；节点形态复用国家 3:2 卡片，封面走 `flagUrl`；拖动坐标落 `graph_position`（vault `WORLD_KEYS.graphPosition`）；筛选条增加「分类」开关（移动端图标）
 - [x] **P2 落盘对象标量**（2026-11-05）：`frontmatter.emitScalar` 对 `{ x, y }` 写 YAML flow mapping，不再把 `graph_position` / `map_position` 写成 `[object Object]`；`vault-migrate-check` 补分类条目封面 / 简介 / 自定义字段 / 关系图坐标断言，68 项
-- [x] **P2 分类视图**（2026-11-05）：目录 / 卡片 / 画廊三态（`CategoryViewToggle` + `CategoryCard` / `CategoryGalleryCard`），偏好 `oc-categories-view`；卡片 / 画廊已接 3:2 封面
+- [x] **P2 分类视图**（2026-11-05）：目录 / 卡片 / 画廊三态（视图切换已并入共享 `ViewToggle`；`CategoryCard` / `CategoryGalleryCard`），偏好 `oc-categories-view`；卡片 / 画廊已接 3:2 封面
 - [x] **P1 分类封面槽位**（2026-11-05）：`WorldEntry.cover` + `WorldCoverField`（世界 / 分类编辑器共用），vault `cover` / `封面图`，卡片 / 列表缩略图与备份引用都接上
 - [x] **P2 静态站分类详情**（2026-11-05）：词条详情页输出 3:2 封面、简介、分类名与自定义字段（宠物物种 / 习性、武器材质 / 制造者），`collectSiteImages` 收录 `WorldEntry.cover`；`audit:site` 23 项
 - [x] **P2 分类画廊**（2026-11-05）：`CoverFlow` 顶排 + `VerticalSplit` 底排目录，`oc-categories-gallery-split` 记高度；无图时衬线首字占位
@@ -41,6 +42,7 @@
 - [x] **P2 预览交互**（2026-11-05）：封面 / 画廊缩略图点开 `FullscreenViewer`，可左右切换、Esc 关闭
 - [x] **P3 预览关系跳转**（2026-11-05）：点关系 → 关编排层 / 设置 → `navigateToEntity` 打开真实角色 / 事件
 - [x] **P3 预览标签跳转**（2026-11-05）：点标签 → 关编排层 → 设置 › 世界 › 标签管理（标签暂无限定列表页）
+- [x] **P1 关系组件实装**（2026-11-05）：角色 / 事件 / 国家共用 `components/shared/relations/RelationsSection`（表格 / 紧凑 / 图三档，`relations.presentation` 写回模板，窄栏强制紧凑）；「关联」并入「关系」，`CharacterRelationSection` / `EventRelationSection` / `CountryRelationSection` 删除；标签拆成 `TagsSection` 独立 block（字段表里的 `tags` 行不再渲染，配置兼容）；添加浮层按类型分组、可搜索
 - [x] **P2 模板海报导出**（2026-11-05）：`TemplatePoster` 1080 宽排版 + `html-to-image` `toPng` + `downloadMediaFile` 落盘；导出弹窗可选内容组件 / 留白 / 背景 / 署名，选项记 `oc-image-export`，文件名按标题，浏览器实测 `示例角色C.png`
 - [x] **P2 模板编排 · 移动端**（2026-11-05）：窄屏隐藏左模板列表 / 右预览，只留编排列；顶栏收成返回图标 + 标题 + 导出图标 + 完成
 - [x] **P2 图片导出预设**（2026-11-05）：`.ocstudio/exports.json`（浏览器退化为 `oc-export-presets`），保存 / 应用 / 删除命名预设；设置可标默认（`defaultImagePresetId` / `defaultSitePresetId`），打开弹窗自动套用
@@ -109,7 +111,10 @@
 - [x] **P2 A1 只读能力层**（2026-11-05）：`src/lib/capabilities/`（`Caller` 权限入口 / list / get / search / graphSlice）+ Dexie 适配器；`scripts/capabilities-check.ts` 19 项断言。**没有 MCP / REST 传输层**
 - [x] **P2 A2 图鉴切片装配**（2026-11-05）：`buildCodexSlice()` 把字段 / 关系 / 相关事件 / 标签 / 正文装配成 markdown；**还没被导出卡 / 静态站复用**（先保住唯一实现）
 - [x] **P1 插件系统地基**（2026-11-05）：`src/lib/plugins/`（manifest 契约：三类 tool / theme / skill + 六项权限 + 可用标记；开关与逐项授权存 localStorage）；侧栏「工具」分组 + `工具:<id>` 导航键 + `ToolSection` 接线表；地图生成器搬成独立工具页（先选目标地图 → 参数 → 生成 → 用作底图）；设置 › 插件页签（开关 / 权限 / 版本 / 类型 / 添加与市场标开发中）；**主题即插件**：四套官方配色登记为 `kind: 'theme'`，个性化按插件开关过滤（当前在用的永远保留）。定稿口径写进 `docs/插件.md` §0.0
-- [x] **P1 助手 · 整目录移植**（2026-11-05 定稿）：**不再手写**。`src/plugins/agent/` + `src-tauri/src/agent/` 原样搬自 `D:\Codes\Simple-Agent`，上游更新整目录覆盖；宿主只留 `AgentPlugin.tsx` 一道缝。**会话树 / 分支切换 / 编辑重发 / 草稿 / 预设 / 压缩 / 工具循环 / 审批（allow·deny·always）/ 流式 markdown / i18n 一次性全有** —— 此前手写的那套（`lib/plugins/agent/` + `features/tools/agent/` + `AgentToolView`）已删除，不做两套。样式用 `scripts/scope-plugin-css.mjs` 收进 `.oc-agent-root`，宿主令牌同名同值
+- [x] **P1 助手 · 整目录移植**（2026-11-05 定稿）：**不再手写**。`src/plugins/agent/` + `src-tauri/src/agent/` 原样搬自 `D:\Codes\Simple-Agent`；**逻辑目录**（`core/` `state/` `api/` `i18n/`）上游更新可整目录覆盖，UI 层按宿主设计系统改造（见下一条）。**会话树 / 分支切换 / 编辑重发 / 草稿 / 预设 / 压缩 / 工具循环 / 审批（allow·deny·always）/ 流式 markdown / i18n 一次性全有** —— 此前手写的那套（`lib/plugins/agent/` + `features/tools/agent/` + `AgentToolView`）已删除，不做两套
+- [x] **P1 助手 · 界面统一 + 组件复用**（2026-11-05）：三件事一起收口 —— ① `styles/base.css` 去掉自带调色板，颜色 / 圆角 / 阴影全部继承宿主 `--oc-*`（新增 `--oc-error·warning·success` 并登记 `audit:theme`），换纸色 / 暗色 / 背景图面板一起变；② 浮层统一进 `#overlay-root` 并包 `.oc-agent-root`（**原来 portal 到 `document.body`，落在作用域外，弹窗和菜单是裸 DOM**）；③ 弹窗复用宿主 `components/ui/dialog`、菜单与 `MENU` 同值、toast 走全站 sonner，会话列表宽度可拖（原来传入的是两个 noop）。边界写进 `docs/插件.md` §0
+- [x] **P1 助手 · 读库权限闸**（2026-11-05）：`read-entities` 默认关，没开时 `library_*` 不进本轮请求（`state/chat.ts` 按 `libraryAccessGranted()` 过滤），执行器兜底回可读错误；`grantedPermissions` / `isPluginEnabled` 补 `ensureLoaded()`，重启后不用先打开设置页才认得授权
+- [x] **P1 助手 · 和助手聊聊**（2026-11-05）：角色 / 事件 / 国家 / 词条编辑器页头一个按钮（`components/shared/TalkToAgentButton.tsx`）。先保存当前条目 → `lib/plugins/agent-bridge.ts` 存一次性 `{ kind, id, title }` → 切到助手页后开新会话、预填「先用 `library_read` 读一遍」的提示词，**不自动发送**。未授权「读实体」时不渲染
 - [ ] **P1 助手 · 存储边界**：会话在插件自己的 SQLite 里，**`.ocbak` 备份带不上**。要么备份时连插件库一起收，要么在备份界面明说不含助手会话 —— 二选一，别让用户以为备份等于全部
 - [x] **P1 助手 · 读库接上**（2026-11-05）：四个只读工具 `library_list` / `library_read` / `library_search` / `library_graph` 进了插件工具带（schema 在 `src/plugins/agent/core/agent/tools.ts`，执行在 `src/lib/capabilities/agent-tools.ts`，浏览器接线在 `src/plugins/agent/host/library-tools.ts`）。插件只认 `(name, args)`，不知道背后是 Dexie；不归宿主管的名字回 `null` 继续走它的文件工具。`npm run audit:agent` 33 项断言。**写入仍未开**
 - [x] **P1 助手 · 写标量字段**（2026-11-05）：`library_set_fields` 能改角色 / 事件 / 国家的标量文本（种族、职业、地点、地理……），**正文与改名故意不放**——正文要过 Markdown ⇄ Tiptap 的桥（要 `createLinkResolver(scan.index)`），改名会牵动文件名 / 撞名 / 全库 `[[链接]]` 回写，都不是一次字段写入能负责的。写入包装在 `runAsActorAsync('agent:assistant')` 里，落点是 Dexie 的 `update`，所以自动进 `vault-persist` 队列、写盘、并追加带 `actor` 的时间线。`requiresApproval: true` —— 每次改都要作者点同意
@@ -183,14 +188,15 @@
 - [ ] **验证手段（留给后面的轮次，别再重复试错）**：窗口在后台、前台焦点被系统拦时，`SetForegroundWindow` + `mouse_event` **点不动**（截图字节完全不变）。只读核对用 `PrintWindow(hwnd, hdc, 2)`，能抓到窗口自身内容、不受遮挡与焦点影响。要真正**驱动**界面得换路子（自动化脚本 / 应用内命令面板），别在坐标点击上反复烧时间
 - [x] **P1 World 正文收敛到 `document`**（2026-11-05）：`lib/world-body.ts` 成为唯一读入口（`worldBodyOf` / `hasWorldBody` / `worldBodyPatch`），`document` 是正字段、`content` 只作老数据兜底（JSON 字符串或纯文本都认）。装载不再把正文写两遍（`applyDocumentBodies` 只写 `document` 并把 `content` 清空），保存只写 `document`，迁移时也不再镜像。9 处读取点全部改走读入口：`TemplateComposer` / `category-list-utils` / `CategoryEntryEditor`（引用扫描不再靠 `content.includes` 预筛）/ `novel/export` / `poster/subjects` / `site/build` / `image-refs` / `capabilities` / `useWorldEntryDraft`（草稿管线不再中途 stringify 再 parse）。`npm run audit:world` 18 项断言盯着这条不变量，`vault-migrate-check` 涨到 70 项（新增「content 不再镜像正文」）
 - [ ] **P2 仓储 create/update 模板**：`listActive` / `getById` / `softDelete` 已收敛，create/update 因字段级日志与引用同步差异仍各自手写
-- [ ] **P3 命令面板与移动端搜索合并**：`MenuBarSearch` 与 `MobileSearchOverlay` 现在是两套 UI
+- [x] **P1 全局搜索搜正文**（2026-11-06）：`lib/search/` 成为顶栏 `Ctrl/Cmd+K` 与移动端搜索共用的内核 —— 标题 / 别名 / 字段 / 正文四路匹配（多词 AND），正文按 `updatedAt` 缓存、打开面板强制刷新，结果按类型分组并带命中摘要与关键词高亮；`lib/entity-text.ts` 统一「实体正文纯文本」（能力层与搜索同一口径）。`npm run audit:search` 25 项；`@` / `[[` 仍只认名字，不走正文
+- [ ] **P3 命令面板与移动端搜索合并**：内核（`lib/search`）与结果行（`SearchHitRow`）已经共用，顶栏菜单与移动端全屏仍是两套壳
 - [ ] **P2 封面卡参数定稿**：版式数字集中在 `src/lib/cover/tuning.ts`（「视图 → 封面卡参数」可实时拖，32 项算法自检见 `scripts/cover-check.ts`）。定稿后把 JSON 写回默认值，面板降级成隐藏调试口；细节见 `docs/封面卡.md`
 - [ ] **P2 Rust 化（只搬「数据已在磁盘、结果很小、纯函数」的活）**：
   - [ ] **扫描分段**（收益最大）：`vault_scan` 现在把每个 `.md` 全文塞进 IPC（`VaultFile.content`，见 `src-tauri/src/vault.rs`），JS 再逐篇 parse。改成 Rust 切出 frontmatter（`serde_yaml` → `serde_json::Value`）+ body + mtime，TS 只做词表映射 —— **`lib/vault/fields.ts` 仍是唯一词汇表，一行不搬**，所以不会长出第二套规则
   - [ ] **全库 mtime 比对命令**：一次遍历返回「被外部改动的路径」，给上面的导出前检查用（别在 JS 里 N 次 IPC）
   - [ ] **缩略图**：Rust `image` crate 生成 256px，缓存到 `.ocstudio/thumbs/`（相册 / 列表滚动的大头）
   - [ ] **导出图片编码**：`.ocbak` 与静态站的内联图片改由 Rust 读字节直接出 base64（现在 TS 里 `FileReader` + 字符串拼接，大库导出内存翻倍）
-  - **明确不搬**：Markdown ⇄ Tiptap 桥（往返规范化规则是唯一真源，搬过去必然漂移）· 力导向布局（正确解法是 Web Worker，且关系图已改静态手摆）· sha256（已是 `crypto.subtle` 原生）· 全文搜索（要索引 + 中文分词，另立项）
+  - **明确不搬**：Markdown ⇄ Tiptap 桥（往返规范化规则是唯一真源，搬过去必然漂移）· 力导向布局（正确解法是 Web Worker，且关系图已改静态手摆）· sha256（已是 `crypto.subtle` 原生）· 全文搜索（`lib/search` 已是按需子串索引；要做分词 / 常驻倒排再另立项）
 - [ ] **P2 重命名联动文件名**：现在改标题只写 frontmatter `title`，文件仍叫旧名 —— 标题与文件名分叉后，`[[标题]]` 只能靠 scan 的宽容键解析，Obsidian 侧认不到。需要「改名 + 移动文件 + 更新被引用链接」一条链
 - [ ] **P3 正文桥的既有归因失败**：段落首行缩进空格被吞、`<small>` 内加粗被合并进同一段 —— `vault-markdown-check` 基线里一直红着的那 1 项，属规范化边界，非回归
 - [ ] **挂起 小说 fork 合并**：合并后再做编辑器大纲（要对齐章节结构，现在的 `OutlinePanel` 只是雏形），并拍板 `Ctrl+B` / `Ctrl+K` 键位
@@ -212,7 +218,7 @@ AI 功能（代码已整体删除）· 编辑 / 浏览双模式 · 标签交互 
 - 小说：章节 = 笔记（`parentId`）、书架（封面 2:3）、作品信息 / 章节大纲、导出 Word·Markdown·TXT、分页预览（9:16·16:9·A4）、旧库导入
 - 地图：锚点 `map_position` / `map_id`（归一化）、锚点服务、`MapView` 画布、`.ocstudio/maps/` 底图（Rust `vault_list_assets`）
 - 关系：边颜色 / 箭头落 frontmatter、画布消费、并行边、点边改样式面板、旧 `relations` 表只读兼容
-- 树表：四页签（词条 / 国家 / 角色 / 事件）、树仍走 `buildEntryTree`；主页补三入口
+- 树表：四页签（词条 / 国家 / 角色 / 事件）；词条树走 `buildEntryTree`，国家树 / 角色按国家分组 / 搜索保留祖先在 `tree-table-rows.ts`；就地改名 / 种族 / 职业 / 所属国家，行内新增子项 / 删除（子项提升）；主页补三入口
 - 角色：文件夹四动作（`folder` 键）、照片·动画「保存到…」、OC 动画上传（`类别` 已废弃，见 §1 自定义分类）
 - 兼容：`.ocbak` version 2、小说旧库、关系旧表；地图旧 `db.maps` 明示不导入
 - 下一代地基：插件形状接口、主题令牌登记（`audit:theme`）、journal `actor` 留痕

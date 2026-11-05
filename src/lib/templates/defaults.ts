@@ -11,8 +11,14 @@ import type { BuiltinTemplateId, TemplateComponent, TemplateDoc } from './types'
 function components(
   ids: TemplateComponent['id'][],
   params: Partial<Record<TemplateComponent['id'], TemplateComponent['params']>> = {},
+  /** 默认关闭的组件：仍留在列表里，用户想开就开 */
+  off: TemplateComponent['id'][] = [],
 ): TemplateComponent[] {
-  return ids.map((id) => ({ id, enabled: true, ...(params[id] === undefined ? {} : { params: params[id] }) }))
+  return ids.map((id) => ({
+    id,
+    enabled: !off.includes(id),
+    ...(params[id] === undefined ? {} : { params: params[id] }),
+  }))
 }
 
 export const BUILTIN_TEMPLATES: TemplateDoc[] = [
@@ -20,19 +26,30 @@ export const BUILTIN_TEMPLATES: TemplateDoc[] = [
     id: 'character',
     name: '角色',
     aliases: ['人物'],
-    components: components(['cover', 'info', 'relations', 'tags', 'gallery', 'summary', 'body']),
+    // 头像单独成一个组件：封面里已经含头像，所以默认关，想单摆时再开
+    components: components(
+      ['cover', 'avatar', 'info', 'relations', 'tags', 'gallery', 'summary', 'body'],
+      {},
+      ['avatar'],
+    ),
   },
   {
     id: 'event',
     name: '事件',
     aliases: [],
-    components: components(['cover', 'info', 'time', 'place', 'relations', 'tags', 'gallery', 'summary', 'body']),
+    // 简介紧跟地点：它是「一句话概括」，不是文末的附录
+    components: components(['cover', 'info', 'time', 'place', 'summary', 'relations', 'tags', 'gallery', 'body']),
   },
   {
     id: 'country',
     name: '国家',
     aliases: ['势力'],
-    components: components(['cover', 'info', 'relations', 'tags', 'gallery', 'summary', 'body']),
+    // 封面里已经含旗帜；「头像」组件单独摆旗帜时再开
+    components: components(
+      ['cover', 'avatar', 'info', 'relations', 'tags', 'gallery', 'summary', 'body'],
+      {},
+      ['avatar'],
+    ),
   },
   {
     id: 'entry',
@@ -42,33 +59,13 @@ export const BUILTIN_TEMPLATES: TemplateDoc[] = [
   },
   {
     // 宠物 / 武器：**内置模板，但不预建分类**（分类在 settings 里按需启用，见 categories/builtins）。
-    // 只接线词条真正有的四块 —— 不写封面 / 画廊这类还没有数据列的组件。
-    // `fields` 是模板自己的「基本信息」字段：键 = frontmatter 同名键，值落 WorldEntry.custom。
-    // 字段清单对齐改版（`entity-info.ts` 的 pet / weapon 两组），删掉了那边给旧 `Character`
-    // 列做映射的 `legacy` 项 —— 我们这边一律走 custom，没有列要回落。
+    // 基本信息**不内嵌字段**，只选择内置的基本信息组件（`group-pet` / `group-weapon`）——
+    // 组件独立存在，可以被别的模板复用，名字也不跟模板绑定。
     id: 'pet',
     name: '宠物',
     aliases: ['伙伴'],
     components: components(['cover', 'info', 'tags', 'summary', 'body'], {
-      info: {
-        fields: [
-          '物种',
-          '品种',
-          '性别',
-          '年龄',
-          '体型',
-          '体重',
-          '外观特征',
-          '性格',
-          '习性',
-          '饮食偏好',
-          '能力技能',
-          '出生日期',
-          '收养日期',
-          '栖息地',
-          '当前状态',
-        ],
-      },
+      info: { group: 'group-pet' },
     }),
   },
   {
@@ -76,22 +73,7 @@ export const BUILTIN_TEMPLATES: TemplateDoc[] = [
     name: '武器',
     aliases: ['装备'],
     components: components(['cover', 'info', 'tags', 'summary', 'body'], {
-      info: {
-        fields: [
-          '武器类型',
-          '材质',
-          '稀有度',
-          '尺寸',
-          '重量',
-          '制造者',
-          '铸造时间',
-          '来源',
-          '使用条件',
-          '能力效果',
-          '属性元素',
-          '当前状态',
-        ],
-      },
+      info: { group: 'group-weapon' },
     }),
   },
 ]

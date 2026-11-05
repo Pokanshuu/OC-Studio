@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Download, Maximize2, Trash2, X } from 'lucide-react'
 import { RelatedItemsSelector } from '@/components/shared/RelatedItemsSelector'
-import { TagPicker } from '@/features/tags'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   AlertDialog,
@@ -123,14 +122,12 @@ export function CharacterInfoSection({
   }
 
   const renderRow = (field: FieldDef) => {
-    const wide = field.type === 'tags'
-    const rowClass = wide
-      ? `${FIELD_ROW_TOP}${compact ? '' : ' sm:col-span-2'}`
-      : FIELD_ROW
+    // 标签是独立区块（`docs/模板.md §6.4`），不再占基本信息的一行
+    if (field.id === 'tags') return null
 
     if (field.type === 'bool') {
       return (
-        <label key={field.id} className={`${rowClass} cursor-pointer`}>
+        <label key={field.id} className={`${FIELD_ROW} cursor-pointer`}>
           <span className={FIELD_LABEL}>{field.label}</span>
           <Checkbox
             checked={form.isMajor}
@@ -140,20 +137,9 @@ export function CharacterInfoSection({
       )
     }
 
-    if (field.type === 'tags') {
-      return (
-        <div key={field.id} className={rowClass}>
-          <span className={FIELD_LABEL}>{field.label}</span>
-          <div className="min-w-0 flex-1">
-            <TagPicker selectedIds={form.tags} onChange={form.setTags} />
-          </div>
-        </div>
-      )
-    }
-
     if (field.type === 'country') {
       return (
-        <div key={field.id} className={rowClass}>
+        <div key={field.id} className={FIELD_ROW}>
           <span className={FIELD_LABEL}>{field.label}</span>
           <div className="min-w-0 flex-1">
             {form.countries.length > 0 ? (
@@ -182,7 +168,7 @@ export function CharacterInfoSection({
     // 年份填了才会出现在时间线上（`出生` 节点）。
     if (field.id === 'birthday') {
       return (
-        <div key={field.id} className={rowClass}>
+        <div key={field.id} className={FIELD_ROW}>
           <span className={FIELD_LABEL}>{field.label}</span>
           <div className="flex min-w-0 flex-1 items-center gap-1">
             <input value={form.birthdayYear} onChange={(e) => form.setBirthdayYear(e.target.value)} placeholder="年" className={DATE_INPUT} />
@@ -198,7 +184,7 @@ export function CharacterInfoSection({
       // 自定义字段
       const key = field.key ?? field.id
       return (
-        <div key={field.id} className={rowClass}>
+        <div key={field.id} className={FIELD_ROW}>
           <span className={FIELD_LABEL}>{field.label}</span>
           <input
             type="text"
@@ -211,7 +197,7 @@ export function CharacterInfoSection({
     }
 
     return (
-      <div key={field.id} className={rowClass}>
+      <div key={field.id} className={FIELD_ROW}>
         <span className={FIELD_LABEL}>{field.label}</span>
         <input
           type="text"

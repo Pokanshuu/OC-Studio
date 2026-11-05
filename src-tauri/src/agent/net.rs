@@ -177,7 +177,25 @@ async fn run_stream(
                 cancelled = true;
                 break;
             }
-            next = stream.next() => next,
+            next = tokio::time::timeout(std::time::Duration::from_secs(120), stream.next()) => {
+                match next {
+                    Ok(next) => next,
+                    // 连接还在、但模型 120 秒不吐任何字节：不能无限等。
+                    // 以前这里会一直挂着，界面永远停在「生成中」。
+                    Err(_) => {
+                        emit(
+                            app,
+                            error_payload(
+                                stream_id,
+                                None,
+                                None,
+                                Some("模型 120 秒没有响应，已中断这次生成。".into()),
+                            ),
+                        );
+                        return Ok(());
+                    }
+                }
+            }
         };
 
         let Some(chunk) = chunk else { break };

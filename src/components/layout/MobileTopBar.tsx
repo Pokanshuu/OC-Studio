@@ -1,9 +1,10 @@
 'use client'
 
 import { createElement, useState } from 'react'
-import { BookText, House, Map, MoreHorizontal, Search, Settings, Menu, Table2, Trash2 } from 'lucide-react'
+import { BookText, Download, House, Map, MoreHorizontal, Search, Settings, Menu, Table2, Trash2 } from 'lucide-react'
 import { MobileSearchOverlay } from './MobileSearchOverlay'
 import { MobileActionSheet, type ActionItem } from '@/components/shared/MobileActionSheet'
+import { ExportCenter } from '@/components/shared/export/ExportCenter'
 import { useMobileNavigation, type GallerySubTab } from './MobileNavigationContext'
 import { useSettingsTrigger } from './SettingsTriggerContext'
 import { useTrashOverlay } from './TrashOverlayContext'
@@ -47,6 +48,7 @@ export function MobileTopBar() {
   const { title: pageTitle } = useMobilePageHeader()
   const [searchOpen, setSearchOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
 
   const isGallery = section === 'gallery'
   const needsMenu = section === 'wiki' || section === 'album'
@@ -74,6 +76,15 @@ export function MobileTopBar() {
         setMoreOpen(false)
       },
     })),
+    {
+      id: 'export-center',
+      label: '导出中心',
+      icon: <Download size={20} strokeWidth={2} />,
+      onPress: () => {
+        setMoreOpen(false)
+        setExportOpen(true)
+      },
+    },
   ]
 
   return (
@@ -155,6 +166,7 @@ export function MobileTopBar() {
         title="更多"
         actions={moreActions}
       />
+      {exportOpen ? <ExportCenter onClose={() => setExportOpen(false)} /> : null}
     </div>
   )
 }

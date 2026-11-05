@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { ArrowLeft, LayoutTemplate, FolderTree, Tag, ListTree, Palette, Waypoints } from 'lucide-react'
+import { LayoutTemplate, FolderTree, Tag, ListTree } from 'lucide-react'
 import { useInputContextMenu } from '@/lib/use-input-context-menu'
 import { useProjectMeta } from '@/features/project'
 import { ImageUploader } from '@/components/shared/ImageUploader'
@@ -10,11 +10,8 @@ import { CategoriesPanel } from '@/components/settings/CategoriesPanel'
 import { ComponentsPanel } from '@/components/settings/ComponentsPanel'
 import { TagsPanel } from '@/features/tags/components/TagsPanel'
 import type { SettingsSection } from '@/components/layout/SettingsTriggerContext'
-import { EdgeStyleRadio, MouseModeRadio } from '@/components/settings/controls'
-import { ThemePanel } from '@/components/settings/ThemePanel'
-import { useSettings } from '@/lib/settings'
 import { SettingsEntryRow } from '@/components/settings/EntryRow'
-import { ICON_BTN, SETTINGS_LABEL, SETTINGS_ROW } from '@/lib/ui-tokens'
+import { SettingsSubPage } from '@/components/settings/SubPage'
 
 type Panel = 'root' | SettingsSection
 
@@ -25,18 +22,18 @@ type Panel = 'root' | SettingsSection
  * `自定义` 只是其中两个的实现细节。带前缀和不带前缀混排，读起来像两个层级的东西。
  * 图标只出现在**一级**的入口行上；进到二级页面以后标题就只是「返回 + 文字」，
  * 同一个东西不在两级各标一次。
+ *
+ * 「主题」「关系图操作」不在这里：它们是外观 / 操作偏好，归**个性化**。
  */
 const ENTRY_ITEMS: ReadonlyArray<{
   panel: SettingsSection
   label: string
   icon: typeof ListTree
 }> = [
-  { panel: 'components', label: '字段组', icon: ListTree },
+  { panel: 'components', label: '组件', icon: ListTree },
   { panel: 'templates', label: '模板', icon: LayoutTemplate },
   { panel: 'categories', label: '分类', icon: FolderTree },
   { panel: 'tags', label: '标签', icon: Tag },
-  { panel: 'theme', label: '主题', icon: Palette },
-  { panel: 'relations', label: '关系图操作', icon: Waypoints },
 ]
 
 export function WorldTab({
@@ -49,10 +46,9 @@ export function WorldTab({
   target?: string
 }) {
   const { meta, loading: metaLoading, save: saveMeta } = useProjectMeta()
-  const { settings, updateSetting } = useSettings()
   const worldNameRef = useInputContextMenu()
   const taglineRef = useInputContextMenu()
-  /** 二级界面：自定义组件 / 模板 / 分类（都太长，不铺在一级页面上） */
+  /** 二级界面：组件 / 模板 / 分类 / 标签（都太长，不铺在一级页面上） */
   const [panel, setPanel] = useState<Panel>(section ?? 'root')
 
   const [worldName, setWorldName] = useState('')
@@ -71,171 +67,102 @@ export function WorldTab({
     if (!open) touchedRef.current = false
   }, [open])
 
+  if (panel === 'categories') {
+    return (
+      <SettingsSubPage title="分类" onBack={() => setPanel('root')}>
+        <CategoriesPanel />
+      </SettingsSubPage>
+    )
+  }
+
+  if (panel === 'components') {
+    return (
+      <SettingsSubPage title="组件" onBack={() => setPanel('root')}>
+        <ComponentsPanel target={target} />
+      </SettingsSubPage>
+    )
+  }
+
+  if (panel === 'tags') {
+    return (
+      <SettingsSubPage title="标签" onBack={() => setPanel('root')}>
+        <TagsPanel />
+      </SettingsSubPage>
+    )
+  }
+
+  if (panel === 'templates') {
+    return (
+      <SettingsSubPage title="模板" onBack={() => setPanel('root')}>
+        <TemplatesPanel initialId={target} />
+      </SettingsSubPage>
+    )
+  }
+
   return (
-    <>
-      {panel === 'root' ? (
-        <div className="flex flex-col gap-5">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm text-ink">世界名称</label>
-            <input
-              ref={worldNameRef}
-              type="text"
-              value={worldName}
-              onChange={(e) => {
-                touchedRef.current = true
-                setWorldName(e.target.value)
-                void saveMeta({ worldName: e.target.value })
-              }}
-              placeholder="例：雾海纪元"
-              className="h-8 w-full border-b border-line bg-transparent text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
-            />
-          </div>
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm text-ink">世界名称</label>
+        <input
+          ref={worldNameRef}
+          type="text"
+          value={worldName}
+          onChange={(e) => {
+            touchedRef.current = true
+            setWorldName(e.target.value)
+            void saveMeta({ worldName: e.target.value })
+          }}
+          placeholder="例：雾海纪元"
+          className="h-8 w-full border-b border-line bg-transparent text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
+        />
+      </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm text-ink">简介</label>
-            <input
-              ref={taglineRef}
-              type="text"
-              value={tagline}
-              onChange={(e) => {
-                touchedRef.current = true
-                setTagline(e.target.value)
-                void saveMeta({ tagline: e.target.value })
-              }}
-              placeholder="例：被潮汐统治的群岛世界"
-              className="h-8 w-full border-b border-line bg-transparent text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
-            />
-          </div>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm text-ink">简介</label>
+        <input
+          ref={taglineRef}
+          type="text"
+          value={tagline}
+          onChange={(e) => {
+            touchedRef.current = true
+            setTagline(e.target.value)
+            void saveMeta({ tagline: e.target.value })
+          }}
+          placeholder="例：被潮汐统治的群岛世界"
+          className="h-8 w-full border-b border-line bg-transparent text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
+        />
+      </div>
 
-          <div className="flex flex-col items-center gap-1.5">
-            <span className="self-start text-sm text-ink">封面</span>
-            <ImageUploader
-              value={coverUrl}
-              onChange={(path) => {
-                touchedRef.current = true
-                setCoverUrl(path)
-                void saveMeta({ coverUrl: path })
-              }}
-              onRemove={() => {
-                touchedRef.current = true
-                setCoverUrl('')
-                void saveMeta({ coverUrl: '' })
-              }}
-              aspectRatio="3:2"
-              placeholderText="上传封面"
-              size="lg"
-            />
-          </div>
+      <div className="flex flex-col items-center gap-1.5">
+        <span className="self-start text-sm text-ink">封面</span>
+        <ImageUploader
+          value={coverUrl}
+          onChange={(path) => {
+            touchedRef.current = true
+            setCoverUrl(path)
+            void saveMeta({ coverUrl: path })
+          }}
+          onRemove={() => {
+            touchedRef.current = true
+            setCoverUrl('')
+            void saveMeta({ coverUrl: '' })
+          }}
+          aspectRatio="3:2"
+          placeholderText="上传封面"
+          size="lg"
+        />
+      </div>
 
-          <div className="mt-2 flex flex-col border-t border-line">
-            {ENTRY_ITEMS.map((item) => (
-              <SettingsEntryRow
-                key={item.panel}
-                icon={item.icon}
-                label={item.label}
-                onClick={() => setPanel(item.panel)}
-              />
-            ))}
-          </div>
-        </div>
-      ) : panel === 'categories' ? (
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setPanel('root')}
-              aria-label="返回"
-              className={ICON_BTN}
-            >
-              <ArrowLeft size={16} strokeWidth={2} />
-            </button>
-            <span className="text-sm text-ink">分类</span>
-          </div>
-          <CategoriesPanel />
-        </div>
-      ) : panel === 'components' ? (
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setPanel('root')}
-              aria-label="返回"
-              className={ICON_BTN}
-            >
-              <ArrowLeft size={16} strokeWidth={2} />
-            </button>
-            <span className="text-sm text-ink">字段组</span>
-          </div>
-          <ComponentsPanel target={target} />
-        </div>
-      ) : panel === 'tags' ? (
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setPanel('root')}
-              aria-label="返回"
-              className={ICON_BTN}
-            >
-              <ArrowLeft size={16} strokeWidth={2} />
-            </button>
-            <span className="text-sm text-ink">标签</span>
-          </div>
-          <TagsPanel />
-        </div>
-      ) : panel === 'theme' ? (
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setPanel('root')}
-              aria-label="返回"
-              className={ICON_BTN}
-            >
-              <ArrowLeft size={16} strokeWidth={2} />
-            </button>
-            <span className="text-sm text-ink">主题</span>
-          </div>
-          <ThemePanel />
-        </div>
-      ) : panel === 'relations' ? (
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setPanel('root')}
-              aria-label="返回"
-              className={ICON_BTN}
-            >
-              <ArrowLeft size={16} strokeWidth={2} />
-            </button>
-            <span className="text-sm text-ink">关系图操作</span>
-          </div>
-          <div className={SETTINGS_ROW}>
-            <span className={SETTINGS_LABEL}>鼠标</span>
-            <MouseModeRadio value={settings.mouseMode} onChange={(v) => updateSetting("mouseMode", v)} />
-          </div>
-          <div className={SETTINGS_ROW}>
-            <span className={SETTINGS_LABEL}>连线</span>
-            <EdgeStyleRadio value={settings.edgeStyle} onChange={(v) => updateSetting("edgeStyle", v)} />
-          </div>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setPanel('root')}
-              aria-label="返回"
-              className={ICON_BTN}
-            >
-              <ArrowLeft size={16} strokeWidth={2} />
-            </button>
-            <span className="text-sm text-ink">模板</span>
-          </div>
-          <TemplatesPanel initialId={target} />
-        </div>
-      )}
-    </>
+      <div className="mt-2 flex flex-col border-t border-line">
+        {ENTRY_ITEMS.map((item) => (
+          <SettingsEntryRow
+            key={item.panel}
+            icon={item.icon}
+            label={item.label}
+            onClick={() => setPanel(item.panel)}
+          />
+        ))}
+      </div>
+    </div>
   )
 }

@@ -10,7 +10,20 @@
  * - 不靠 state 驱动透视：滚动时 rAF 直接读几何位置写 `transform`，与 `StretchyHeader` 同一套做法
  * - `prefers-reduced-motion` 下关闭透视与缩放，退化成普通横排
  */
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+
+/**
+ * 是否在画廊（Cover Flow）里。
+ *
+ * 封面卡据此决定「文字 / 头像要不要跟着卡片放大」：画廊的卡片由栏高决定大小、
+ * 可以拖到很大；网格视图的卡片尺寸是布局给的，默认窗口下已经够大，
+ * 再按宽度放大就会变成「字比图还抢眼」。
+ */
+const CoverFlowContext = createContext(false)
+
+export function useInCoverFlow(): boolean {
+  return useContext(CoverFlowContext)
+}
 
 interface CoverFlowProps {
   children: ReactNode[]
@@ -232,28 +245,30 @@ export function CoverFlow({
   }, [])
 
   return (
-    <div
-      ref={scrollerRef}
-      className={`coverflow-scroll flex h-full snap-x snap-mandatory items-center gap-6 overflow-x-auto overflow-y-hidden ${
-        fill ? '' : 'py-8'
-      } ${className}`}
-      style={{
-        scrollPaddingLeft: `calc(50% - ${width / 2}px)`,
-        scrollPaddingRight: `calc(50% - ${width / 2}px)`,
-      }}
-    >
-      {/* 首尾留白：让第一张 / 最后一张也能停在正中间 */}
-      <div className="shrink-0" style={{ width: `calc(50% - ${width / 2}px)` }} aria-hidden />
-      {children.map((child, index) => (
-        <div
-          key={index}
-          className="shrink-0 snap-center transition-transform will-change-transform"
-          style={{ width }}
-        >
-          {child}
-        </div>
-      ))}
-      <div className="shrink-0" style={{ width: `calc(50% - ${width / 2}px)` }} aria-hidden />
-    </div>
+    <CoverFlowContext.Provider value>
+      <div
+        ref={scrollerRef}
+        className={`coverflow-scroll flex h-full snap-x snap-mandatory items-center gap-6 overflow-x-auto overflow-y-hidden ${
+          fill ? '' : 'py-8'
+        } ${className}`}
+        style={{
+          scrollPaddingLeft: `calc(50% - ${width / 2}px)`,
+          scrollPaddingRight: `calc(50% - ${width / 2}px)`,
+        }}
+      >
+        {/* 首尾留白：让第一张 / 最后一张也能停在正中间 */}
+        <div className="shrink-0" style={{ width: `calc(50% - ${width / 2}px)` }} aria-hidden />
+        {children.map((child, index) => (
+          <div
+            key={index}
+            className="shrink-0 snap-center transition-transform will-change-transform"
+            style={{ width }}
+          >
+            {child}
+          </div>
+        ))}
+        <div className="shrink-0" style={{ width: `calc(50% - ${width / 2}px)` }} aria-hidden />
+      </div>
+    </CoverFlowContext.Provider>
   )
 }

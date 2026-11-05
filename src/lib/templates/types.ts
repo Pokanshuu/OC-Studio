@@ -18,6 +18,7 @@ export type BuiltinTemplateId = 'character' | 'event' | 'country' | 'entry' | 'p
  */
 export type TemplateComponentId =
   | 'cover'
+  | 'avatar'
   | 'info'
   | 'relations'
   | 'tags'

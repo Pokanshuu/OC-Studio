@@ -7,6 +7,10 @@
 import { getVaultSession } from '@/lib/vault/vault-session'
 import { isVaultSupported, vaultFs } from '@/lib/vault/vault-fs'
 import type { SiteSectionOptions } from './site/build'
+import type { SiteTemplateId } from './site/template-types'
+import { DEFAULT_SITE_TEMPLATE } from './site/template-types'
+import { DEFAULT_POSTER_OPTIONS, type PosterOptions } from './poster/types'
+import { normalizePosterOptions } from './poster/options'
 
 export const EXPORT_PRESETS_FILE = '.ocstudio/exports.json'
 
@@ -68,13 +72,15 @@ export const BUILTIN_IMAGE_PRESETS: ImageExportPreset[] = [
   },
 ]
 
-export type SiteThemeChoice = 'current' | 'paper' | 'auto'
+export type SiteThemeChoice = 'current' | 'paper' | 'auto' | 'night'
 
 export interface SiteExportPresetConfig {
   title: string
   sections: SiteSectionOptions
   theme: SiteThemeChoice
   inlineImages: boolean
+  /** 静态站版式；老预设没有这个键 → 落到书斋 */
+  template?: SiteTemplateId
 }
 
 export interface SiteExportPreset {
@@ -83,10 +89,61 @@ export interface SiteExportPreset {
   config: SiteExportPresetConfig
 }
 
+/** 海报预设（导出中心「海报」页签用） */
+export interface PosterExportPreset {
+  id: string
+  name: string
+  options: PosterOptions
+  /** 内置预设：可应用、可设默认，但不可删 */
+  builtin?: boolean
+}
+
+/** 三个海报起点：杂志封面 / 夜色 / 档案 */
+export const BUILTIN_POSTER_PRESETS: PosterExportPreset[] = [
+  {
+    id: 'builtin-poster-editorial',
+    name: '经典角色卡',
+    builtin: true,
+    options: {
+      ...DEFAULT_POSTER_OPTIONS,
+      template: 'editorial',
+      ratio: 'card',
+      background: 'paper',
+    },
+  },
+  {
+    id: 'builtin-poster-noir',
+    name: '夜色竖版',
+    builtin: true,
+    options: {
+      ...DEFAULT_POSTER_OPTIONS,
+      template: 'noir',
+      ratio: 'portrait',
+      background: 'ink',
+      showBody: false,
+      showRelations: false,
+    },
+  },
+  {
+    id: 'builtin-poster-archive',
+    name: '档案页',
+    builtin: true,
+    options: {
+      ...DEFAULT_POSTER_OPTIONS,
+      template: 'archive',
+      ratio: 'card',
+      background: 'grid',
+      showBody: false,
+    },
+  },
+]
+
 export interface ExportPresetsFile {
-  version: 1
+  /** v2 起多出 poster 段；读 v1 时自动补空 */
+  version: 2
   image: ImageExportPreset[]
   site: SiteExportPreset[]
+  poster: PosterExportPreset[]
 }
 
 const DEFAULT_SECTIONS: SiteSectionOptions = {
@@ -98,7 +155,7 @@ const DEFAULT_SECTIONS: SiteSectionOptions = {
   relations: true,
 }
 
-const EMPTY_PRESETS: ExportPresetsFile = { version: 1, image: [], site: [] }
+const EMPTY_PRESETS: ExportPresetsFile = { version: 2, image: [], site: [], poster: [] }
 const LOCAL_KEY = 'oc-export-presets'
 
 function normalizeOptions(value: unknown): ImageExportOptions {
@@ -120,10 +177,14 @@ function normalizeOptions(value: unknown): ImageExportOptions {
 
 function normalizeSite(value: unknown): SiteExportPresetConfig {
   if (value === null || typeof value !== 'object') {
-    return { title: '', sections: DEFAULT_SECTIONS, theme: 'current', inlineImages: true }
+    return { title: '', sections: DEFAULT_SECTIONS, theme: 'current', inlineImages: true, template: DEFAULT_SITE_TEMPLATE }
   }
   const record = value as Partial<SiteExportPresetConfig>
   const sections = record.sections ?? DEFAULT_SECTIONS
+  const template =
+    record.template === 'book' || record.template === 'archive' || record.template === 'gallery'
+      ? record.template
+      : DEFAULT_SITE_TEMPLATE
   return {
     title: typeof record.title === 'string' ? record.title : '',
     sections: {
@@ -134,8 +195,12 @@ function normalizeSite(value: unknown): SiteExportPresetConfig {
       world: sections.world !== false,
       relations: sections.relations !== false,
     },
-    theme: record.theme === 'paper' || record.theme === 'auto' ? record.theme : 'current',
+    theme:
+      record.theme === 'paper' || record.theme === 'auto' || record.theme === 'night'
+        ? record.theme
+        : 'current',
     inlineImages: record.inlineImages !== false,
+    template,
   }
 }
 
@@ -170,7 +235,21 @@ function normalizePresets(value: unknown): ExportPresetsFile {
         })
         .filter((item): item is SiteExportPreset => item !== null)
     : []
-  return { version: 1, image, site }
+  const poster = Array.isArray((record as { poster?: unknown }).poster)
+    ? ((record as { poster: unknown[] }).poster
+        .map((item) => {
+          if (item === null || typeof item !== 'object') return null
+          const row = item as { id?: unknown; name?: unknown; options?: unknown }
+          if (typeof row.name !== 'string' || row.name.trim() === '') return null
+          return {
+            id: typeof row.id === 'string' && row.id !== '' ? row.id : row.name,
+            name: row.name.trim(),
+            options: normalizePosterOptions(row.options),
+          }
+        })
+        .filter((item): item is PosterExportPreset => item !== null))
+    : []
+  return { version: 2, image, site, poster }
 }
 
 async function readFile(): Promise<ExportPresetsFile> {
@@ -221,7 +300,7 @@ export async function saveImagePreset(name: string, options: ImageExportOptions)
   const image = existing
     ? current.image.map((preset) => (preset.id === existing.id ? { ...preset, options } : preset))
     : [...current.image, { id, name: trimmed, options }]
-  const next: ExportPresetsFile = { version: 1, image, site: current.site }
+  const next: ExportPresetsFile = { version: 2, image, site: current.site, poster: current.poster }
   await writeFile(next)
   return next
 }
@@ -229,9 +308,10 @@ export async function saveImagePreset(name: string, options: ImageExportOptions)
 export async function deleteImagePreset(id: string): Promise<ExportPresetsFile> {
   const current = await readFile()
   const next: ExportPresetsFile = {
-    version: 1,
+    version: 2,
     image: current.image.filter((preset) => preset.id !== id),
     site: current.site,
+    poster: current.poster,
   }
   await writeFile(next)
   return next
@@ -246,7 +326,7 @@ export async function saveSitePreset(name: string, config: SiteExportPresetConfi
   const site = existing
     ? current.site.map((preset) => (preset.id === existing.id ? { ...preset, config } : preset))
     : [...current.site, { id, name: trimmed, config }]
-  const next: ExportPresetsFile = { version: 1, image: current.image, site }
+  const next: ExportPresetsFile = { version: 2, image: current.image, site, poster: current.poster }
   await writeFile(next)
   return next
 }
@@ -254,9 +334,36 @@ export async function saveSitePreset(name: string, config: SiteExportPresetConfi
 export async function deleteSitePreset(id: string): Promise<ExportPresetsFile> {
   const current = await readFile()
   const next: ExportPresetsFile = {
-    version: 1,
+    version: 2,
     image: current.image,
     site: current.site.filter((preset) => preset.id !== id),
+    poster: current.poster,
+  }
+  await writeFile(next)
+  return next
+}
+
+export async function savePosterPreset(name: string, options: PosterOptions): Promise<ExportPresetsFile> {
+  const trimmed = name.trim()
+  if (trimmed === '') throw new Error('预设名不能为空')
+  const current = await readFile()
+  const id = crypto.randomUUID?.() ?? `${Date.now()}`
+  const existing = current.poster.find((preset) => preset.name === trimmed)
+  const poster = existing
+    ? current.poster.map((preset) => (preset.id === existing.id ? { ...preset, options } : preset))
+    : [...current.poster, { id, name: trimmed, options }]
+  const next: ExportPresetsFile = { version: 2, image: current.image, site: current.site, poster }
+  await writeFile(next)
+  return next
+}
+
+export async function deletePosterPreset(id: string): Promise<ExportPresetsFile> {
+  const current = await readFile()
+  const next: ExportPresetsFile = {
+    version: 2,
+    image: current.image,
+    site: current.site,
+    poster: current.poster.filter((preset) => preset.id !== id),
   }
   await writeFile(next)
   return next

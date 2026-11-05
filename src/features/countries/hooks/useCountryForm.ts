@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react'
 import type { Editor } from '@tiptap/core'
-import type { Country } from '@/types'
+import type { Country, GalleryImage } from '@/types'
 import type { CountryFormData } from '../types'
 import { useCharacterList } from '@/features/characters/hooks/useCharacters'
 import { useEventList } from '@/features/events/hooks/useEvents'
@@ -10,7 +10,7 @@ import { useSaveStatus } from '@/components/layout/SaveStatusContext'
 import { toast } from 'sonner'
 import { useEditorDirty } from '@/components/layout/useEditorDirty'
 import { describeDocDiff, sameDocIgnoringTrailingSpacer, snapshotKey, useDirtySnapshot } from '@/lib/dirty'
-import type { RelatedItem } from '@/components/shared/RelatedItemsSelector'
+import { FACT_RELATION, type RelationCandidate, type RelationRow, type RelationTargetKind } from '@/components/shared/relations/types'
 
 /** 政治制度 / 地理环境 / 人文风貌三段合并成一份正文文档 */
 export function mergeCountrySections(system: string, geography: string, culture: string): string | undefined {
@@ -25,16 +25,20 @@ export function mergeCountrySections(system: string, geography: string, culture:
 /** 表单里可编辑的全部字段 —— 装载、回灌、脏判断共用这一份形状 */
 interface CountryValues {
   name: string
+  description: string
   flagUrl: string
   headerUrl: string
+  gallery: GalleryImage[]
   tags: number[]
 }
 
 function valuesFromEntity(country: Country): CountryValues {
   return {
     name: country.name,
+    description: country.description,
     flagUrl: country.flagUrl ?? '',
     headerUrl: country.headerUrl ?? '',
+    gallery: country.gallery ?? [],
     tags: country.tags ?? [],
   }
 }
@@ -43,8 +47,10 @@ function valuesFromEntity(country: Country): CountryValues {
 function valuesSnapshot(values: CountryValues): Record<string, unknown> {
   return {
     name: values.name,
+    description: values.description,
     flagUrl: values.flagUrl,
     headerUrl: values.headerUrl,
+    gallery: values.gallery.map((image) => image.url),
     tags: values.tags,
   }
 }
@@ -67,8 +73,10 @@ export function useCountryForm(
   const [initial] = useState(() => valuesFromEntity(country))
 
   const [name, setName] = useState(initial.name)
+  const [description, setDescription] = useState(initial.description)
   const [flagUrl, setFlagUrl] = useState(initial.flagUrl)
   const [headerUrl, setHeaderUrl] = useState(initial.headerUrl)
+  const [gallery, setGallery] = useState<GalleryImage[]>(initial.gallery)
   const [saving, setSaving] = useState(false)
   const [tags, setTags] = useState(initial.tags)
 
@@ -107,8 +115,8 @@ export function useCountryForm(
   const savedSnapshotRef = useRef<string | null>(null)
 
   const values = useMemo<CountryValues>(() => ({
-    name, flagUrl, headerUrl, tags,
-  }), [name, flagUrl, headerUrl, tags])
+    name, description, flagUrl, headerUrl, gallery, tags,
+  }), [name, description, flagUrl, headerUrl, gallery, tags])
 
   const snapshot = useMemo(() => valuesSnapshot(values), [values])
   const { dirty: fieldsDirty, diffSummary, markClean: markFieldsClean } = useDirtySnapshot(snapshot)
@@ -127,8 +135,10 @@ export function useCountryForm(
     const nextKey = snapshotKey(valuesSnapshot(next))
     if (nextKey === savedSnapshotRef.current) return
     setName(next.name)
+    setDescription(next.description)
     setFlagUrl(next.flagUrl)
     setHeaderUrl(next.headerUrl)
+    setGallery(next.gallery)
     setTags(next.tags)
     // 名单没有本地副本要回灌：清掉覆盖就自动跟着查询走
     setEditedCharIds(null)
@@ -170,13 +180,14 @@ export function useCountryForm(
       await onSave(country.id, {
         name,
         parentId: country.parentId,
-        description: '',
+        description,
         document,
         system: country.system,
         geography: country.geography,
         culture: country.culture,
         flagUrl,
         headerUrl,
+        gallery,
         characters: characterIds,
         events: eventIds,
         tags,
@@ -198,7 +209,7 @@ export function useCountryForm(
     }
   }, [
     country.id, country.parentId, country.system, country.geography, country.culture,
-    name, flagUrl, headerUrl, characterIds, eventIds, tags,
+    name, description, flagUrl, headerUrl, gallery, characterIds, eventIds, tags,
     onSave, markSaving, markFieldsClean, reportDirty, snapshot,
   ])
 
@@ -219,55 +230,113 @@ export function useCountryForm(
     ].filter(Boolean).join(' + '),
   )
 
-  const relatedCharacterItems: RelatedItem[] = useMemo(
-    () =>
-      allCharacters.map((c) => ({
-        id: c.id,
-        name: c.name,
-        subtitle: c.aliases.length > 0 ? c.aliases.join('、') : undefined,
-      })),
-    [allCharacters],
+  /**
+   * 关系组件的数据：国家侧没有自己的关系数组，成员名单是**实体侧的查询**
+   * （`docs/模板.md §1.4`）。所以这里只有事实边（居民 / 发生于），关系名只读；
+   * 新增 / 移除仍走「查询 + 本地覆盖」，保存时才写回实体侧（`membership.ts`）。
+   */
+  const relationRows = useMemo<RelationRow[]>(() => {
+    const characterById = new Map(allCharacters.map((item) => [item.id, item]))
+    const eventById = new Map(allEvents.map((item) => [item.id, item]))
+    const rows: RelationRow[] = []
+
+    characterIds.forEach((id, index) => {
+      const target = characterById.get(id)
+      rows.push({
+        key: `character-${id}-${index}`,
+        kind: 'character',
+        targetId: id,
+        name: target?.name ?? '未命名',
+        relation: FACT_RELATION.belongs,
+        relationEditable: false,
+        index,
+      })
+    })
+
+    eventIds.forEach((id, index) => {
+      const target = eventById.get(id)
+      rows.push({
+        key: `event-${id}-${index}`,
+        kind: 'event',
+        targetId: id,
+        name: target?.title ?? '未命名',
+        relation: FACT_RELATION.occurredAt,
+        relationEditable: false,
+        index,
+      })
+    })
+
+    return rows
+  }, [allCharacters, allEvents, characterIds, eventIds])
+
+  const relationCandidates = useMemo<RelationCandidate[]>(() => {
+    const linkedCharacters = new Set(characterIds)
+    const linkedEvents = new Set(eventIds)
+    return [
+      ...allCharacters
+        // 已经有别的国籍的人不做候选：保存时 `applyCountryCharacters` 不会抢过来，
+        // 加进来只会在保存后凭空消失
+        .filter(
+          (item) =>
+            !linkedCharacters.has(item.id) &&
+            (item.countryId === undefined || item.countryId === null || item.countryId === country.id),
+        )
+        .map((item) => ({
+          kind: 'character' as const,
+          targetId: item.id,
+          name: item.name,
+          subtitle: item.aliases.length > 0 ? item.aliases.join('、') : undefined,
+        })),
+      ...allEvents
+        .filter((item) => !linkedEvents.has(item.id))
+        .map((item) => ({
+          kind: 'event' as const,
+          targetId: item.id,
+          name: item.title,
+          subtitle: item.time || undefined,
+        })),
+    ]
+  }, [allCharacters, allEvents, characterIds, country.id, eventIds])
+
+  const addRelation = useCallback(
+    (kind: RelationTargetKind, targetId: number) => {
+      if (kind === 'character') {
+        setEditedCharIds([...characterIds, targetId])
+      } else if (kind === 'event') {
+        setEditedEventIds([...eventIds, targetId])
+      }
+    },
+    [characterIds, eventIds],
   )
 
-  const relatedEventItems: RelatedItem[] = useMemo(
-    () =>
-      allEvents.map((e) => ({
-        id: e.id,
-        name: e.title,
-        subtitle: e.time,
-      })),
-    [allEvents],
-  )
-
-  const relatedCharacterIds = useMemo(
-    () => characterIds.filter((id): id is number => typeof id === 'number'),
-    [characterIds],
-  )
-
-  const relatedEventIds = useMemo(
-    () => eventIds.filter((id): id is number => typeof id === 'number'),
-    [eventIds],
+  const removeRelation = useCallback(
+    (row: RelationRow) => {
+      if (row.index === undefined) return
+      if (row.kind === 'character') {
+        setEditedCharIds(characterIds.filter((_, index) => index !== row.index))
+      } else if (row.kind === 'event') {
+        setEditedEventIds(eventIds.filter((_, index) => index !== row.index))
+      }
+    },
+    [characterIds, eventIds],
   )
 
   return {
     name, setName,
+    description, setDescription,
     flagUrl, setFlagUrl,
     headerUrl, setHeaderUrl,
+    gallery, setGallery,
     saving,
     docDirty,
-    /** 名单：`editable*` 是给 UI 的名字，值来自「查询 + 本地覆盖」 */
-    editableCharIds: characterIds,
-    setEditableCharIds: setEditedCharIds,
-    editableEventIds: eventIds,
-    setEditableEventIds: setEditedEventIds,
     tags, setTags,
     handleSave,
     handleDocReady,
     handleDocChange,
-    relatedCharacterItems,
-    relatedEventItems,
-    relatedCharacterIds: characterIds,
-    relatedEventIds: eventIds,
+    relationRows,
+    relationCandidates,
+    addRelation,
+    removeRelation,
   }
 }
 

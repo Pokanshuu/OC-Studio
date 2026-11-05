@@ -1,3 +1,5 @@
+import type { GalleryImage } from '@/types'
+
 export interface CountryFormData {
   name: string
   parentId: number | null
@@ -8,6 +10,8 @@ export interface CountryFormData {
   culture: string
   flagUrl?: string
   headerUrl?: string
+  /** 图集（模板「画廊」组件的槽位） */
+  gallery?: GalleryImage[]
   characters?: number[]
   events?: number[]
   tags: number[]

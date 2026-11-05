@@ -22,6 +22,8 @@ export type ImageCategory =
   | 'flag'
   | 'cover'
   | 'body'
+  /** 模板「图片」组件的单图槽位（与画廊分开统计） */
+  | 'image'
   /** 角色 OC 动画（视频，落在 `附件/`）；不进相册的静态图分组 */
   | 'animation'
   /** 词条 · 小说封面（2:3 槽位） */
@@ -161,6 +163,7 @@ export function collectCountryImageRefs(country: Country, options?: ImageRefOpti
   const refs: ImageRef[] = []
   addRef(refs, country.flagUrl, 'flag', options)
   addRef(refs, country.headerUrl, 'header', options)
+  for (const url of listUrls(country.gallery)) addRef(refs, url, 'gallery', options)
   for (const url of collectBodyImageRefs(country.document)) addRef(refs, url, 'body', options)
   return refs
 }
@@ -179,6 +182,10 @@ export function collectWorldEntryImageRefs(
   const doc = worldBodyOf(entry)
   for (const url of collectBodyImageRefs(doc)) addRef(refs, url, 'body', options)
   addRef(refs, entry.cover, 'cover', options)
+  // 模板组件的三个图片槽位：头像 / 单图 / 图集
+  addRef(refs, entry.avatar, 'avatar', options)
+  addRef(refs, entry.image, 'image', options)
+  for (const url of listUrls(entry.gallery)) addRef(refs, url, 'gallery', options)
   addRef(refs, entry.novelCover, 'novelCover', options)
   addRef(refs, entry.mapImage, 'map', options)
   return refs

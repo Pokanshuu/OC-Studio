@@ -1,2 +1,2 @@
 export { TreeTable } from './TreeTable'
-export { flattenTree } from './TreeTable'
+export type { TreeTableKind } from './TreeTable'

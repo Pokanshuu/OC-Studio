@@ -73,6 +73,7 @@ function subscribe(listener: () => void): () => void {
 }
 
 export function isPluginEnabled(manifest: PluginManifest): boolean {
+  ensureLoaded()
   return state.enabled[manifest.id] ?? manifest.enabledByDefault
 }
 
@@ -82,6 +83,7 @@ export function isPluginActive(manifest: PluginManifest): boolean {
 }
 
 export function grantedPermissions(manifest: PluginManifest): PluginPermission[] {
+  ensureLoaded()
   const list = state.granted[manifest.id]
   if (list === undefined) return [...DEFAULT_GRANTED]
   return list

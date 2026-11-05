@@ -7,6 +7,7 @@ import {
   TAG_KEYS,
   WORLD_KEYS,
   chainKeys,
+  ownedKeys,
   writeBool,
   writeNumber,
   writePosition,
@@ -111,7 +112,10 @@ function putCustomFields(
   current: Record<string, string> | undefined,
   previous: Record<string, string> | undefined,
 ): void {
+  // 词汇表已占用的键归第一类列管（时间 / 地点 / 简介…），自定义字段撞名不写
+  const owned = new Set(ownedKeys(kind))
   for (const key of customFieldKeys(kind)) {
+    if (owned.has(key)) continue
     const now = writeString(current?.[key] ?? '')
     const before = previous === undefined ? undefined : writeString(previous[key] ?? '')
     if (now === undefined && before === undefined) continue
@@ -173,7 +177,8 @@ function relationDisk(
       const row: Record<string, unknown> = { name: resolved }
       if (item.relation) row.relation = item.relation
       if (item.color) row.color = item.color
-      if (item.arrow && item.arrow !== 'none') row.arrow = item.arrow
+      // `none` 也要写：角色边不写 = 默认双向，写 `none` 才是真的不要箭头
+      if (item.arrow) row.arrow = item.arrow
       return row
     })
     .filter((row): row is Record<string, unknown> => row !== null)
@@ -193,7 +198,7 @@ function eventRelationDisk(
       const row: Record<string, unknown> = { name: resolved }
       if (item.relation) row.relation = item.relation
       if (item.color) row.color = item.color
-      if (item.arrow && item.arrow !== 'none') row.arrow = item.arrow
+      if (item.arrow) row.arrow = item.arrow
       return row
     })
     .filter((row): row is Record<string, unknown> => row !== null)
@@ -262,6 +267,7 @@ export function serializeCountry(
   putIfChanged(out, existing, COUNTRY_KEYS.culture, writeString(entity.culture), p === null ? null : writeString(p.culture))
   putIfChanged(out, existing, COUNTRY_KEYS.flag, writeString(entity.flagUrl ?? ''), p === null ? null : writeString(p.flagUrl ?? ''))
   putIfChanged(out, existing, COUNTRY_KEYS.header, writeString(entity.headerUrl ?? ''), p === null ? null : writeString(p.headerUrl ?? ''))
+  putIfChanged(out, existing, COUNTRY_KEYS.gallery, imageListDisk(entity.gallery ?? []), p === null ? null : imageListDisk(p.gallery ?? []))
   // 成员名单不再落盘（阶段二·一）：角色侧国籍 / 事件侧相关国家才是真源。
   // 盘上遗留的 `characters` / `events` 键我们不管，也不删（外科式写入只动自己持有的键）。
   putIfChanged(out, existing, COUNTRY_KEYS.tags, tagNames(ctx, entity.tags), p === null ? null : tagNames(ctx, p.tags))
@@ -333,6 +339,12 @@ export function serializeWorldEntry(
   }
   putIfChanged(out, existing, WORLD_KEYS.summary, writeString(entity.summary ?? ''), p === null ? null : writeString(p.summary ?? ''))
   putIfChanged(out, existing, WORLD_KEYS.cover, writeString(entity.cover ?? ''), p === null ? null : writeString(p.cover ?? ''))
+  putIfChanged(out, existing, WORLD_KEYS.avatar, writeString(entity.avatar ?? ''), p === null ? null : writeString(p.avatar ?? ''))
+  putIfChanged(out, existing, WORLD_KEYS.image, writeString(entity.image ?? ''), p === null ? null : writeString(p.image ?? ''))
+  putIfChanged(out, existing, WORLD_KEYS.gallery, imageListDisk(entity.gallery ?? []), p === null ? null : imageListDisk(p.gallery ?? []))
+  putIfChanged(out, existing, WORLD_KEYS.time, writeString(entity.time ?? ''), p === null ? null : writeString(p.time ?? ''))
+  putIfChanged(out, existing, WORLD_KEYS.endTime, writeString(entity.endTime ?? ''), p === null ? null : writeString(p.endTime ?? ''))
+  putIfChanged(out, existing, WORLD_KEYS.location, writeString(entity.location ?? ''), p === null ? null : writeString(p.location ?? ''))
   putIfChanged(out, existing, WORLD_KEYS.template, writeString(entity.template ?? ''), p === null ? null : writeString(p.template ?? ''))
   putIfChanged(out, existing, WORLD_KEYS.parent, parentValue(entity), p === null ? null : parentValue(p))
   putIfChanged(out, existing, WORLD_KEYS.order, writeNumber(entity.order), p === null ? null : writeNumber(p.order))

@@ -4,9 +4,6 @@
  */
 
 import {
-  createContext,
-  useCallback,
-  useContext,
   useEffect,
   useId,
   useMemo,
@@ -15,6 +12,10 @@ import {
   type ReactNode,
 } from 'react'
 import { createPortal } from 'react-dom'
+import { toast } from 'sonner'
+import { Dialog as HostDialog, DialogContent } from '@/components/ui/dialog'
+import { cn } from '@/lib/utils'
+import { AgentLayer, agentOverlayContainer } from '@/plugins/agent/host/plugin-layer'
 import { Icon, type IconName } from './Icon'
 
 // ── buttons ─────────────────────────────────────────────────────────────────
@@ -210,6 +211,12 @@ export function FieldRow({
 
 // ── dialog ──────────────────────────────────────────────────────────────────
 
+/**
+ * 弹窗外壳直接复用宿主的 `components/ui/dialog`（Base UI）：遮罩、焦点圈、
+ * Esc / 点外关闭、挂到 `#overlay-root`、进出场动画都由它统一提供。
+ * 这里只保留插件的页头 / 滚动体 / 页脚排版，内容包一层 `AgentLayer`
+ * 让 `.oc-agent-root` 作用域的样式与令牌生效。
+ */
 export function Dialog({
   open,
   onClose,
@@ -227,43 +234,33 @@ export function Dialog({
   wide?: boolean
   headExtra?: ReactNode
 }) {
-  useEffect(() => {
-    if (!open) return
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.stopPropagation()
-        onClose()
-      }
-    }
-    window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
-  }, [open, onClose])
-
-  if (!open) return null
-
-  return createPortal(
-    <div
-      className="scrim"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose()
+  return (
+    <HostDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose()
       }}
     >
-      <div
-        className={`dialog${wide ? ' wide' : ''}`}
-        role="dialog"
-        aria-modal="true"
-        onMouseDown={(event) => event.stopPropagation()}
+      <DialogContent
+        showCloseButton={false}
+        className={cn(
+          'flex flex-col gap-0 overflow-hidden p-0 sm:max-w-none',
+          wide
+            ? 'h-[min(80vh,820px)] w-[min(880px,calc(100vw-2rem))]'
+            : 'max-h-[min(82vh,760px)] w-[min(520px,calc(100vw-2rem))]',
+        )}
       >
-        <div className="dialog-head">
-          <div className="dialog-title">{title}</div>
-          {headExtra}
-          <IconButton icon="close" label="Close" onClick={onClose} />
-        </div>
-        <div className="dialog-body">{children}</div>
-        {footer && <div className="dialog-foot">{footer}</div>}
-      </div>
-    </div>,
-    document.body,
+        <AgentLayer className="flex min-h-0 flex-1 flex-col">
+          <div className="dialog-head">
+            <div className="dialog-title">{title}</div>
+            {headExtra}
+            <IconButton icon="close" label="Close" onClick={onClose} />
+          </div>
+          <div className="dialog-body">{children}</div>
+          {footer && <div className="dialog-foot">{footer}</div>}
+        </AgentLayer>
+      </DialogContent>
+    </HostDialog>
   )
 }
 
@@ -274,6 +271,11 @@ export interface MenuAnchor {
   y: number
 }
 
+/**
+ * 锚定到坐标的菜单。外壳取宿主的 `MENU` 令牌（同一档描边 / 模糊 / 阴影 /
+ * 圆角 / 行高），不再自带一套 `.menu` 样式；位置仍由这里按视口夹取，
+ * 因为它锚的是「右键点 / 按钮下沿」，不是某个 trigger。
+ */
 export function Menu({
   anchor,
   onClose,
@@ -332,17 +334,22 @@ export function Menu({
 
   if (!anchor) return null
 
+  const container = agentOverlayContainer()
+  if (!container) return null
+
   return createPortal(
-    <div
-      ref={ref}
-      className={`menu${footer ? ' with-footer' : ''}`}
-      style={{ left: position?.left ?? anchor.x, top: position?.top ?? anchor.y, visibility: position ? 'visible' : 'hidden' }}
-      onMouseDown={(event) => event.stopPropagation()}
-    >
-      {footer ? <div className="menu-scroll">{children}</div> : children}
-      {footer && <div className="menu-footer">{footer}</div>}
-    </div>,
-    document.body,
+    <AgentLayer>
+      <div
+        ref={ref}
+        className={`menu${footer ? ' with-footer' : ' scroll'}`}
+        style={{ left: position?.left ?? anchor.x, top: position?.top ?? anchor.y, visibility: position ? 'visible' : 'hidden' }}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        {footer ? <div className="menu-scroll">{children}</div> : children}
+        {footer && <div className="menu-footer">{footer}</div>}
+      </div>
+    </AgentLayer>,
+    container,
   )
 }
 
@@ -366,7 +373,6 @@ export function MenuItem({
       className={`menu-item${danger ? ' danger' : ''}`}
       onClick={onClick}
       disabled={disabled}
-      style={disabled ? { opacity: 0.45, cursor: 'not-allowed' } : undefined}
     >
       {/* Fixed slot: a list with one checked row must not shift the others. */}
       <span className="menu-item-slot">{icon ? <Icon name={icon} size={14} /> : null}</span>
@@ -381,50 +387,29 @@ export function MenuSeparator() {
 
 // ── toasts ──────────────────────────────────────────────────────────────────
 
-interface ToastItem {
-  id: number
-  text: string
-  kind: 'info' | 'error'
-}
-
 interface ToastApi {
   show: (text: string, kind?: 'info' | 'error') => void
 }
 
-const ToastContext = createContext<ToastApi>({ show: () => undefined })
-
+/**
+ * 提示走宿主的 sonner（`app/layout.tsx` 里挂了 `<Toaster />`）：
+ * 位置、纸色、暗色、动效与全站一致，不再自带一套 `.toasts` portal。
+ */
 export function useToast(): ToastApi {
-  return useContext(ToastContext)
+  return useMemo(
+    () => ({
+      show: (text: string, kind: 'info' | 'error' = 'info') => {
+        if (kind === 'error') toast.error(text)
+        else toast(text)
+      },
+    }),
+    [],
+  )
 }
 
+/** 兼容调用点：宿主已有全局 Toaster，这里只做透传 */
 export function ToastProvider({ children }: { children: ReactNode }) {
-  const [items, setItems] = useState<ToastItem[]>([])
-
-  const show = useCallback((text: string, kind: 'info' | 'error' = 'info') => {
-    const id = Date.now() + Math.random()
-    setItems((current) => [...current, { id, text, kind }])
-    setTimeout(() => {
-      setItems((current) => current.filter((item) => item.id !== id))
-    }, kind === 'error' ? 6000 : 3200)
-  }, [])
-
-  const api = useMemo(() => ({ show }), [show])
-
-  return (
-    <ToastContext.Provider value={api}>
-      {children}
-      {createPortal(
-        <div className="toasts">
-          {items.map((item) => (
-            <div key={item.id} className={`toast${item.kind === 'error' ? ' error' : ''}`}>
-              {item.text}
-            </div>
-          ))}
-        </div>,
-        document.body,
-      )}
-    </ToastContext.Provider>
-  )
+  return <>{children}</>
 }
 
 // ── misc ────────────────────────────────────────────────────────────────────

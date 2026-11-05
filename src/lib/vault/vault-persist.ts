@@ -345,7 +345,8 @@ function fileBaseOf(kind: VaultEntityKind, id: number): string | undefined {
   return name.replace(/\.md$/i, '')
 }
 
-/** 把更新表合并进 frontmatter 快照（写成功后用它更新基准） */function mergeFrontmatter(
+/** 把更新表合并进 frontmatter 快照（写成功后用它更新基准） */
+function mergeFrontmatter(
   current: Record<string, unknown>,
   updates: FrontmatterUpdates,
 ): Record<string, unknown> {

@@ -113,6 +113,50 @@ export function SortSelect({
   )
 }
 
+/** 视图切换：卡片 / 画廊 / 列表，当前项用墨色，其余淡出 */
+export function ViewToggle({
+  viewMode,
+  onViewModeChange,
+}: {
+  viewMode: ViewMode
+  onViewModeChange: (mode: ViewMode) => void
+}) {
+  return (
+    <div className="flex items-center">
+      <button
+        onClick={() => onViewModeChange('grid')}
+        aria-label="卡片视图"
+        title="卡片"
+        className={`flex h-8 w-8 items-center justify-center ${ROUND_ITEM} transition-colors ${
+          viewMode === 'grid' ? 'text-ink' : 'text-ink-faint hover:text-ink-muted'
+        }`}
+      >
+        <LayoutGrid size={16} strokeWidth={2} />
+      </button>
+      <button
+        onClick={() => onViewModeChange('gallery')}
+        aria-label="画廊视图"
+        title="画廊"
+        className={`flex h-8 w-8 items-center justify-center ${ROUND_ITEM} transition-colors ${
+          viewMode === 'gallery' ? 'text-ink' : 'text-ink-faint hover:text-ink-muted'
+        }`}
+      >
+        <GalleryHorizontalEnd size={16} strokeWidth={2} />
+      </button>
+      <button
+        onClick={() => onViewModeChange('list')}
+        aria-label="列表视图"
+        title="列表"
+        className={`flex h-8 w-8 items-center justify-center ${ROUND_ITEM} transition-colors ${
+          viewMode === 'list' ? 'text-ink' : 'text-ink-faint hover:text-ink-muted'
+        }`}
+      >
+        <List size={16} strokeWidth={2} />
+      </button>
+    </div>
+  )
+}
+
 export interface SortViewControlsProps {
   sortKey: string
   onSortChange: (key: string) => void
@@ -131,39 +175,7 @@ export function SortViewControls({
   return (
     <>
       <SortSelect sortKey={sortKey} onChange={onSortChange} options={sortOptions} />
-      {/* 视图切换：卡片 / 画廊 / 列表，当前项用墨色，其余淡出 */}
-      <div className="flex items-center">
-        <button
-          onClick={() => onViewModeChange('grid')}
-          aria-label="卡片视图"
-          title="卡片"
-          className={`flex h-8 w-8 items-center justify-center ${ROUND_ITEM} transition-colors ${
-            viewMode === 'grid' ? 'text-ink' : 'text-ink-faint hover:text-ink-muted'
-          }`}
-        >
-          <LayoutGrid size={16} strokeWidth={2} />
-        </button>
-        <button
-          onClick={() => onViewModeChange('gallery')}
-          aria-label="画廊视图"
-          title="画廊"
-          className={`flex h-8 w-8 items-center justify-center ${ROUND_ITEM} transition-colors ${
-            viewMode === 'gallery' ? 'text-ink' : 'text-ink-faint hover:text-ink-muted'
-          }`}
-        >
-          <GalleryHorizontalEnd size={16} strokeWidth={2} />
-        </button>
-        <button
-          onClick={() => onViewModeChange('list')}
-          aria-label="列表视图"
-          title="列表"
-          className={`flex h-8 w-8 items-center justify-center ${ROUND_ITEM} transition-colors ${
-            viewMode === 'list' ? 'text-ink' : 'text-ink-faint hover:text-ink-muted'
-          }`}
-        >
-          <List size={16} strokeWidth={2} />
-        </button>
-      </div>
+      <ViewToggle viewMode={viewMode} onViewModeChange={onViewModeChange} />
     </>
   )
 }

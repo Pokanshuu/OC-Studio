@@ -44,11 +44,7 @@ function ReasoningLine({ text, streaming }: { text: string; streaming: boolean }
         {!open && <span className="count truncate">{preview}</span>}
         <Icon name={open ? 'chevron-up' : 'chevron-down'} size={12} />
       </div>
-      <div className={`collapse${open ? ' open' : ''}`}>
-        <div>
-          <div className="thinking-body">{text}</div>
-        </div>
-      </div>
+      {open && <div className="thinking-body">{text}</div>}
     </div>
   )
 }
@@ -56,16 +52,18 @@ function ReasoningLine({ text, streaming }: { text: string; streaming: boolean }
 export function StepTimeline({
   steps,
   streaming,
+  defaultOpen = false,
 }: {
   steps: AgentStep[]
   streaming: boolean
+  /** 没有正文时默认摊开：否则只剩一行「执行过程」，看着像什么都没发生 */
+  defaultOpen?: boolean
 }) {
   const t = useT()
-  // 默认收起；这一轮在跑的时候自动展开，一轮结束自动收起。手动点过之后听用户的。
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(defaultOpen)
   useEffect(() => {
-    setOpen(streaming)
-  }, [streaming])
+    setOpen(streaming ? true : defaultOpen)
+  }, [streaming, defaultOpen])
 
   if (steps.length === 0) return null
 
@@ -95,7 +93,7 @@ export function StepTimeline({
         <Icon name={open ? 'chevron-up' : 'chevron-down'} size={12} />
       </div>
 
-      <div className={`collapse${open ? ' open' : ''}`}>
+      {open && (
         <div className="steps-list">
           {steps.map((step) => {
             const lastStep = step === steps[steps.length - 1]
@@ -128,7 +126,7 @@ export function StepTimeline({
             )
           })}
         </div>
-      </div>
+      )}
     </div>
   )
 }

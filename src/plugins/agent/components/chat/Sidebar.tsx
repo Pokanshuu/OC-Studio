@@ -19,6 +19,7 @@ import {
 } from '@/plugins/agent/components/ui/primitives'
 import { useChatStore } from '@/plugins/agent/state/chat'
 import { useLang, useT } from '@/plugins/agent/i18n'
+import { useVault } from '@/lib/vault/vault-provider'
 import { cmd } from '@/plugins/agent/api/bridge'
 import type { Conversation, SearchHit } from '@/plugins/agent/core/types'
 
@@ -88,6 +89,17 @@ export function Sidebar({
 
   const conversations = useChatStore((s) => s.conversations)
   const currentId = useChatStore((s) => s.currentId)
+  const { root: vaultRoot } = useVault()
+  // 会话按笔记库隔离：`workspace` 是建会话时的库根。别的库的会话不列出来，
+  // 免得在一个世界里点开另一个世界的聊天。没有 workspace 的老会话照常显示。
+  const visibleConversations = useMemo(
+    () => conversations.filter((conversation) => !conversation.workspace || conversation.workspace === vaultRoot),
+    [conversations, vaultRoot],
+  )
+  const visibleIds = useMemo(
+    () => new Set(visibleConversations.map((conversation) => conversation.id)),
+    [visibleConversations],
+  )
   const selectConversation = useChatStore((s) => s.selectConversation)
   const newConversation = useChatStore((s) => s.newConversation)
   const renameConversation = useChatStore((s) => s.renameConversation)
@@ -104,15 +116,21 @@ export function Sidebar({
   const [searching, setSearching] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
 
+  // 搜索结果也只留当前笔记库的会话（命中行里没有 workspace，用 id 查）
+  const visibleHits = useMemo(
+    () => hits.filter((hit) => visibleIds.has(hit.conversationId)),
+    [hits, visibleIds],
+  )
+
   const groups = useMemo(
     () =>
-      groupConversations(conversations, {
+      groupConversations(visibleConversations, {
         pinned: t('conv.pinned'),
         today: t('conv.today'),
         yesterday: t('conv.yesterday'),
         earlier: t('conv.earlier'),
       }),
-    [conversations, t],
+    [visibleConversations, t],
   )
 
   const runSearch = useCallback(async (text: string) => {
@@ -179,11 +197,15 @@ export function Sidebar({
       />
 
       <div className="sidebar-top">
-        <button type="button" className="btn primary grow" onClick={() => void newConversation()}>
-          <Icon name="plus" size={14} />
-          {t('nav.newChat')}
-        </button>
-        <IconButton icon="sidebar" label={t('nav.collapse')} onClick={onToggle} />
+        <IconButton icon="chevron-left" label={t('nav.collapse')} onClick={onToggle} className="lg" />
+        <h2 className="sidebar-title">{t('nav.conversations')}</h2>
+        <span className="grow" />
+        <IconButton
+          icon="plus"
+          label={t('nav.newChat')}
+          onClick={() => void newConversation()}
+          className="lg"
+        />
       </div>
 
       <div className="search-box">
@@ -209,10 +231,10 @@ export function Sidebar({
         {query.trim().length > 0 ? (
           <>
             {searching && <div className="sidebar-section">{t('common.loading')}</div>}
-            {!searching && hits.length === 0 && (
+            {!searching && visibleHits.length === 0 && (
               <div className="sidebar-section">{t('search.empty')}</div>
             )}
-            {hits.map((hit) => (
+            {visibleHits.map((hit) => (
               <div
                 key={hit.conversationId}
                 className={`conv-item${hit.conversationId === currentId ? ' active' : ''}`}

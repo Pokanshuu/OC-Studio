@@ -10,9 +10,12 @@ import {
   type SiteSectionOptions,
   type SiteThemeTokens,
 } from './build'
+import type { SiteTemplateId } from './template-types'
 
 export { applySiteSections, buildSite, collectSiteImages } from './build'
 export type { SiteData, BuildOptions, SiteSectionOptions, SiteThemeTokens } from './build'
+export { SITE_TEMPLATES, siteTemplateOf } from './templates'
+export type { SiteTemplateId, SiteTemplateMeta, SiteShell, SiteHero } from './template-types'
 export { renderRichText, plainTextOf, hasRichText, collectDocImages, escapeHtml } from './render'
 
 /** 一次静态站导出的配置（弹窗只负责收集，真正的开关语义在 `buildSite` 里）。 */
@@ -25,6 +28,8 @@ export interface SiteExportConfig {
   theme?: SiteThemeTokens
   /** 是否把图片内联成 data URI（默认 true；单文件离线打开需要） */
   inlineImages?: boolean
+  /** 版式：书斋 / 档案 / 画廊 */
+  template?: SiteTemplateId
 }
 
 /** 从当前会话读一份静态站数据（软删除的行不导出）。 */
@@ -76,6 +81,7 @@ export async function buildStaticSite(config: SiteExportConfig = {}): Promise<st
     title: config.title,
     sections: config.sections,
     theme: config.theme,
+    template: config.template,
   }
   return buildSite(data, options)
 }

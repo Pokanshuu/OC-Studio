@@ -26,6 +26,23 @@ import { useKeyboard } from "@/lib/KeyboardContext"
 import { useBackButton } from "@/lib/useBackButton"
 import { getChromiumVersion, isBelowTargetVersion, isHarmonyOS, getHarmonyOSVersion, isSafeAreaEnvAvailable, estimateSafeAreaInsets, getSafeAreaBottomCorrection, isMobilePlatform } from "@/lib/browser-compat"
 
+/**
+ * 分类表随库走：**不能挂在 Sidebar 上**（关闭侧栏 / 手机上 Sidebar 不渲染时，
+ * 分类页、移动端「更多」和世界目录过滤都会拿到空表）。
+ *
+ * 为什么单独抽成一个组件：`useVault()` 的 value 里还有写盘状态，每次落盘都会变 ——
+ * 挂在 AppShell 本体上会让整个外壳跟着重渲染。这里只订阅库根，换了库才重读。
+ * 依赖 root 也是必需的：启动那一下可能早于会话就绪（root 还是 null），
+ * 少了这一条就会出现「刷新后侧栏的分类没了」。
+ */
+function VaultCategoriesSync() {
+  const { root } = useVault()
+  useEffect(() => {
+    void loadCategories()
+  }, [root])
+  return null
+}
+
 function TrashOverlayRenderer() {
   const { trashOpen, closeTrash } = useTrashOverlay()
   if (!trashOpen) return null
@@ -97,10 +114,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsTab, setSettingsTab] = useState("general")
   const [settingsSection, setSettingsSection] = useState<SettingsSection | undefined>(undefined)
+  const [settingsTarget, setSettingsTarget] = useState<string | undefined>(undefined)
 
-  const openSettings = useCallback((tab?: string, section?: SettingsSection) => {
+  const openSettings = useCallback((tab?: string, section?: SettingsSection, target?: string) => {
     setSettingsTab(tab ?? "general")
     setSettingsSection(section)
+    setSettingsTarget(target)
     setSettingsOpen(true)
   }, [])
 
@@ -117,9 +136,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   // 移动端：HarmonyOS 检测 + 安全区域 polyfill
   useEffect(() => {
     void loadFieldConfig()
-    // 分类表不能挂在 Sidebar 上：关闭侧栏 / 手机上 Sidebar 不渲染时，
-    // 分类页、移动端「更多」和世界目录过滤都会拿到空表
-    void loadCategories()
   }, [])
 
   useEffect(() => {
@@ -211,6 +227,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </AppShellChrome>
                   <TrashOverlayRenderer />
                   <VaultSurfaces />
+                  <VaultCategoriesSync />
                   <DevMockBadge />
                 </MobilePageHeaderProvider>
               </MobileNavigationProvider>
@@ -223,6 +240,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           tab={settingsTab}
           onTabChange={setSettingsTab}
           section={settingsSection}
+          target={settingsTarget}
         />
       </SettingsTriggerContext.Provider>
     </GlobalContextMenu>

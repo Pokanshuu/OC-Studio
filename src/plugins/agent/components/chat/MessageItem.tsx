@@ -180,7 +180,11 @@ function MessageItemImpl({
         ) : (
           <div className="assistant-body">
             {(hasToolCalls || message.steps.length > 1) && (
-              <StepTimeline steps={timelineSteps} streaming={streaming} />
+              <StepTimeline
+                steps={timelineSteps}
+                streaming={streaming}
+                defaultOpen={!streaming && answer.text.trim().length === 0}
+              />
             )}
 
             {/*
@@ -193,6 +197,7 @@ function MessageItemImpl({
                 text={reasoningText}
                 reasoningStreaming={reasoningIsLive}
                 thinkingMs={message.thinkingMs}
+                defaultOpen={!streaming && answer.text.trim().length === 0}
               />
             )}
 
@@ -202,9 +207,11 @@ function MessageItemImpl({
               </div>
             ) : answer.text.trim().length > 0 ? (
               <MarkdownText content={answer.text} streaming={streaming} />
-            ) : (
-              streaming && <TypingDots />
-            )}
+            ) : streaming ? (
+              <TypingDots />
+            ) : message.steps.length > 0 ? (
+              <div className="field-hint">{t('msg.noAnswer')}</div>
+            ) : null}
 
             {message.status === 'ERROR' && (
               <div className="banner error" style={{ marginTop: 8 }}>

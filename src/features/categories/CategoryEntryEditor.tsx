@@ -7,37 +7,32 @@
  * 早先后点「新建」只是把 `activeItem` 设成「世界观」，于是人被扔进词条树 + 空白编辑区 ——
  * 那是词条编辑器，不是分类条目编辑器。这里给它一个自己的壳：
  *
- * - 页头是分类名 + 返回，正文按 `分类绑定的模板` 渲染（模板里没接线的组件不出现）
+ * - 页头与实体编辑器同一套壳（`EntityEditorShell`：48px 顶栏、格式工具条居中、
+ *   返回在左、模板 / 历史在右），正文按 `分类绑定的模板` 渲染（模板里没接线的组件不出现）
  * - 数据仍写 `worldEntries` 原列：标题 / 正文走 `useWorldEntryDraft`，标签 / 简介即时写
  * - 单篇也能覆盖模板（落 `模板:` 键），选项与词条编辑器共用一套菜单
  */
-import { worldBodyOf } from '@/lib/world-body'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Editor } from '@tiptap/core'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import type { WorldEntry } from '@/types'
 import { EntityHistoryButton } from '@/features/vault'
-import { EditorToolbar } from '@/components/editor/EditorToolbar'
 import { useEntry } from '@/features/world/hooks/useWorldEntries'
 import { useWorldEntryDraft } from '@/features/world/hooks/useWorldEntryDraft'
+import { useNoteLinks } from '@/features/world/hooks/useNoteLinks'
 import { WorldEntryBody } from '@/features/world/components/WorldEntryBody'
-import { WorldCoverField } from '@/features/world/components/WorldCoverField'
-import { WorldCustomFields } from '@/features/world/components/WorldCustomFields'
-import { WorldMetaFields, WorldTitleField } from '@/features/world/components/WorldFrontmatter'
-import { docHasRef } from '@/features/world/components/world-content-utils'
+import { NoteTemplateContent } from '@/features/world/components/note/NoteTemplateContent'
+import { templateFieldKeys, templateFieldLabels, templateFieldTypes } from '@/lib/templates/fields'
 import { updateEntry } from '@/features/world/services'
-import { db } from '@/lib/db'
 import { useFields } from '@/lib/fields'
 import { useTemplates } from '@/lib/templates/store'
 import { noteTemplates } from '@/lib/templates/note'
-import { templateFieldKeys } from '@/lib/templates/fields'
+import { useInfoGroups } from '@/lib/templates/info-groups'
 import type { Category } from '@/lib/categories/types'
-import { TemplateRenderer } from '@/components/shared/TemplateRenderer'
-import { ListShell } from '@/components/shared/ListShell'
-import { PageToolbar } from '@/components/shared/PageToolbar'
+import { EntityEditorShell } from '@/components/shared/EntityEditorShell'
 import { MediaContextMenu } from '@/components/shared/MediaContextMenu'
-import { BTN_QUIET, CENTER_STATE, LOADING_TEXT, SECTION_TITLE_BARE } from '@/lib/ui-tokens'
+import { BTN_QUIET, CENTER_STATE, LOADING_TEXT } from '@/lib/ui-tokens'
 
 interface CategoryEntryEditorProps {
   entryId: number
@@ -85,19 +80,15 @@ function CategoryEntryEditorInner({
   const entryId = entry.id
   const queryClient = useQueryClient()
   const { templates } = useTemplates()
+  const infoGroups = useInfoGroups()
   const worldFields = useFields('worldEntry')
   const showTags = worldFields.some((field) => field.id === 'tags')
 
   const [title, setTitle] = useState(entry.title)
   const [tags, setTags] = useState<number[]>(entry.tags ?? [])
-  const [summary, setSummary] = useState(entry.summary ?? '')
-  const [backlinks, setBacklinks] = useState<{ id: number; title: string }[]>([])
   const [templateOverride, setTemplateOverride] = useState<string | null>(null)
   const [templateMenu, setTemplateMenu] = useState<{ x: number; y: number } | null>(null)
   const [bodyEditor, setBodyEditor] = useState<Editor | null>(null)
-  const summaryTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const savedSummaryRef = useRef(entry.summary ?? '')
-  const summaryRef = useRef(entry.summary ?? '')
 
   const refresh = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: ['worldEntries'] })
@@ -111,27 +102,8 @@ function CategoryEntryEditorInner({
     setTitle,
   })
 
-  // 被引用：哪些笔记在正文里 [[链接]] / @ 引用了这一条（分类条目不在 getEntries 的列表里，单独扫）
-  useEffect(() => {
-    let cancelled = false
-    // 不能再用 `content.includes(id)` 预筛：正文现在存在 `document` 里（见 lib/world-body.ts），
-    // 老行的 content 是 JSON 字符串。统一走读入口，扫的是文档对象。
-    void db.worldEntries
-      .filter((row) => !row.deleted && row.id !== entryId)
-      .toArray()
-      .then((rows) => {
-        if (cancelled) return
-        const found: { id: number; title: string }[] = []
-        for (const row of rows) {
-          if (docHasRef(worldBodyOf(row), String(entryId))) found.push({ id: row.id, title: row.title })
-        }
-        setBacklinks(found)
-      })
-      .catch(() => {})
-    return () => {
-      cancelled = true
-    }
-  }, [entryId])
+  // 被引用：哪些笔记在正文里 [[链接]] / @ 引用了这一条（与世界编辑器共用同一份查询）
+  const { backlinks } = useNoteLinks(entryId)
 
   // 模板解析顺序：单篇覆盖（模板:）→ 分类绑定 → 内置词条模板
   const requestedTemplate =
@@ -144,8 +116,16 @@ function CategoryEntryEditorInner({
     templates[0]
   /** 模板自己的字段（宠物：物种 / 习性；武器：材质 / 制造者）；没声明 = 字段表全部自定义字段 */
   const fieldKeys = useMemo(
-    () => (entryTemplate ? templateFieldKeys(entryTemplate) : undefined),
-    [entryTemplate],
+    () => (entryTemplate ? templateFieldKeys(entryTemplate, infoGroups) : undefined),
+    [entryTemplate, infoGroups],
+  )
+  const fieldTypes = useMemo(
+    () => (entryTemplate ? templateFieldTypes(entryTemplate, infoGroups) : undefined),
+    [entryTemplate, infoGroups],
+  )
+  const fieldLabels = useMemo(
+    () => (entryTemplate ? templateFieldLabels(entryTemplate, infoGroups) : undefined),
+    [entryTemplate, infoGroups],
   )
 
   const handleTagsChange = useCallback((ids: number[]) => {
@@ -155,50 +135,20 @@ function CategoryEntryEditorInner({
     })
   }, [entryId])
 
-  const saveSummary = useCallback(async (value: string) => {
-    if (value === savedSummaryRef.current) return
-    try {
-      await updateEntry(entryId, { summary: value })
-      savedSummaryRef.current = value
-    } catch (err) {
-      toast.error('简介保存失败', { description: err instanceof Error ? err.message : String(err) })
-    }
-  }, [entryId])
-
-  const handleSummaryChange = useCallback((value: string) => {
-    setSummary(value)
-    summaryRef.current = value
-    if (summaryTimer.current) clearTimeout(summaryTimer.current)
-    summaryTimer.current = setTimeout(() => {
-      summaryTimer.current = null
-      void saveSummary(value)
-    }, 800)
-  }, [saveSummary])
-
   const handleBack = useCallback(async () => {
-    if (summaryTimer.current) {
-      clearTimeout(summaryTimer.current)
-      summaryTimer.current = null
-    }
     try {
-      await saveSummary(summary)
       await flushSave()
     } finally {
       onBack()
     }
-  }, [flushSave, onBack, saveSummary, summary])
+  }, [flushSave, onBack])
 
-  // 切条目 / 卸载时把还没落盘的标题、正文、简介补上
+  // 卸载时把还没落盘的标题 / 正文补上（简介 / 时间 / 地点由各自的区块 flush）
   useEffect(() => {
     return () => {
-      if (summaryTimer.current) {
-        clearTimeout(summaryTimer.current)
-        summaryTimer.current = null
-      }
-      void saveSummary(summaryRef.current)
       void flushSave()
     }
-  }, [flushSave, saveSummary])
+  }, [flushSave])
 
   const handleBodyReady = (editor: Editor) => {
     setBodyEditor(editor)
@@ -207,104 +157,62 @@ function CategoryEntryEditorInner({
 
   return (
     <>
-      <ListShell
-        header={() => (
+      <EntityEditorShell
+        title={category.name}
+        onBack={() => void handleBack()}
+        editor={bodyEditor}
+        headerRight={
           <>
-            <PageToolbar
-              title={category.name}
-              sticky={false}
-              hideTitleOnMobile
-              onBack={() => void handleBack()}
-              actions={
-                <>
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      const rect = event.currentTarget.getBoundingClientRect()
-                      setTemplateMenu({ x: Math.max(8, rect.right - 160), y: rect.bottom + 4 })
-                    }}
-                    className={BTN_QUIET}
-                    title="这篇用哪个模板"
-                  >
-                    {entryTemplate?.name ? `模板 · ${entryTemplate.name}` : '模板'}
-                  </button>
-                  <EntityHistoryButton table="worldEntries" id={entry.id} name={title} />
-                </>
-              }
-            />
-            {bodyEditor ? (
-              <div className="flex h-10 items-center px-3">
-                <EditorToolbar editor={bodyEditor} embedded />
-              </div>
-            ) : null}
-          </>
-        )}
-        bodyClassName="px-4 md:px-6"
-      >
-        <div className="mx-auto w-full max-w-3xl pb-24 pt-3">
-          {entryTemplate ? (
-            <TemplateRenderer
-              template={entryTemplate}
-              render={(component) => {
-                switch (component.id) {
-                  case 'cover':
-                    return <WorldCoverField entry={entry} />
-                  case 'info':
-                    return (
-                      <div className="flex flex-col gap-3">
-                        <WorldTitleField
-                          title={title}
-                          onTitleChange={handleTitleChange}
-                          placeholder="名称"
-                        />
-                        <WorldCustomFields key={entry.id} entry={entry} fieldKeys={fieldKeys} />
-                      </div>
-                    )
-                  case 'tags':
-                    if (!showTags && backlinks.length === 0) return null
-                    return (
-                      <WorldMetaFields
-                        tags={tags}
-                        onTagsChange={handleTagsChange}
-                        showTags={showTags}
-                        backlinks={backlinks}
-                        onSelectBacklink={(id) => onWikiLinkClick?.(String(id))}
-                      />
-                    )
-                  case 'summary':
-                    return (
-                      <section>
-                        <h3 className={`mb-3 ${SECTION_TITLE_BARE}`}>简介</h3>
-                        <textarea
-                          value={summary}
-                          onChange={(event) => handleSummaryChange(event.target.value)}
-                          rows={3}
-                          placeholder="一句话说明"
-                          className="w-full resize-none bg-transparent text-sm leading-6 text-ink placeholder:text-ink-faint focus:outline-none"
-                        />
-                      </section>
-                    )
-                  case 'body':
-                    return (
-                      <WorldEntryBody
-                        selectedId={entryId}
-                        pane={false}
-                        placeholder="编写内容… 输入 @ 引用，输入 / 插入块"
-                        onReady={handleBodyReady}
-                        onContentChange={handleContentChange}
-                        onMentionClick={onMentionClick}
-                        onCharacterCount={onCharacterCount}
-                        onWikiLinkClick={onWikiLinkClick}
-                      />
-                    )
-                  default:
-                    return null
-                }
+            <button
+              type="button"
+              onClick={(event) => {
+                const rect = event.currentTarget.getBoundingClientRect()
+                setTemplateMenu({ x: Math.max(8, rect.right - 160), y: rect.bottom + 4 })
               }}
-            />
-          ) : null}
+              className={BTN_QUIET}
+              title="这篇用哪个模板"
+            >
+              {entryTemplate?.name ? `模板 · ${entryTemplate.name}` : '模板'}
+            </button>
+            <EntityHistoryButton table="worldEntries" id={entry.id} name={title} />
+          </>
+        }
+      >
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="h-12 shrink-0" aria-hidden />
+          <div className="mx-auto w-full max-w-3xl px-4 py-3 md:px-8 md:py-6">
+            {entryTemplate ? (
+              <NoteTemplateContent
+                entry={entry}
+                template={entryTemplate}
+                title={title}
+                onTitleChange={handleTitleChange}
+                titlePlaceholder="名称"
+                tags={tags}
+                onTagsChange={handleTagsChange}
+                showTags={showTags}
+                backlinks={backlinks}
+                onNavigateNote={(id) => onWikiLinkClick?.(String(id))}
+                body={
+                  <WorldEntryBody
+                    selectedId={entryId}
+                    pane={false}
+                    placeholder="编写内容… 输入 @ 引用，输入 / 插入块"
+                    onReady={handleBodyReady}
+                    onContentChange={handleContentChange}
+                    onMentionClick={onMentionClick}
+                    onCharacterCount={onCharacterCount}
+                    onWikiLinkClick={onWikiLinkClick}
+                  />
+                }
+                fieldKeys={fieldKeys}
+                fieldTypes={fieldTypes}
+                fieldLabels={fieldLabels}
+              />
+            ) : null}
+          </div>
         </div>
-      </ListShell>
+      </EntityEditorShell>
 
       {templateMenu ? (
         <MediaContextMenu

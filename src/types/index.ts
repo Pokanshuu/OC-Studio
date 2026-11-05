@@ -136,6 +136,8 @@ export interface Country {
   culture: string
   flagUrl?: string
   headerUrl?: string
+  /** 图集（模板「画廊」组件；落盘键 gallery） */
+  gallery?: GalleryImage[]
   /**
    * 阶段二·一收尾：国家侧的成员名单 `characters` / `events` **已从类型里摘掉**。
    *
@@ -171,6 +173,17 @@ export interface WorldEntry {
   document?: unknown
   /** 分类条目的封面（3:2 槽位，落盘键 cover）；普通词条一般不设 */
   cover?: string
+  /** 头像（1:1 槽位，落盘键 avatar）；模板「头像」组件写这里 */
+  avatar?: string
+  /** 单张图片（落盘键 image）；模板「图片」组件写这里 */
+  image?: string
+  /** 图集（落盘键 gallery）；模板「画廊」组件写这里 */
+  gallery?: GalleryImage[]
+  /** 开始时间 / 结束时间（落盘键 time / endTime）；模板「时间」组件写这里 */
+  time?: string
+  endTime?: string
+  /** 地点（落盘键 location）；模板「地点」组件写这里 */
+  location?: string
   /** 一行简介（分类条目的副标题 / 列表摘要；落盘键 简介） */
   summary?: string
   /**

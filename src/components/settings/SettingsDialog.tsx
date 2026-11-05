@@ -20,8 +20,10 @@ interface SettingsDialogProps {
   onOpenChange: (open: boolean) => void
   tab: string
   onTabChange: (tab: string) => void
-  /** 从别处跳进来时直接落到「世界」的二级页面（模板 / 分类 / 组件） */
+  /** 从别处跳进来时直接落到「世界」的二级页面（模板 / 分类 / 组件 / 标签） */
   section?: SettingsSection
+  /** 二级页里的具体对象：目前是模板 id，用来直接打开某套模板 */
+  target?: string
 }
 
 const TAB_ITEMS = [
@@ -40,6 +42,7 @@ export function SettingsDialog({
   tab,
   onTabChange,
   section,
+  target,
 }: SettingsDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -68,8 +71,13 @@ export function SettingsDialog({
           <div className="main-scroll min-h-0 flex-1 overflow-y-auto px-6 pb-6">
             {/* ---- world ---- */}
             <TabsContent value="world">
-              {/* key 让「从别处跳到某个二级页」时重新挂载，panel 直接用 section 初始化 */}
-              <WorldTab key={`${open ? 'open' : 'closed'}:${section ?? 'root'}`} open={open} section={section} />
+              {/* key 让「从别处跳到某个二级页 / 某套模板」时重新挂载，panel 与 activeId 直接初始化 */}
+              <WorldTab
+                key={`${open ? 'open' : 'closed'}:${section ?? 'root'}:${target ?? ''}`}
+                open={open}
+                section={section}
+                target={target}
+              />
             </TabsContent>
 
             <TabsContent value="general">

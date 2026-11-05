@@ -20,7 +20,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
 } from 'react'
 import { createPortal } from 'react-dom'
-import { Check, Plus, Trash2, X } from 'lucide-react'
+import { Check, Plus, SlidersHorizontal, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTemplates } from '@/lib/templates/store'
 import { noteTemplates } from '@/lib/templates/note'
@@ -368,29 +368,44 @@ function CategoryDialogBody({ category, onClose, onCreated, onDeleted }: Omit<Ca
               {selectableTemplates.map((doc) => {
                 const selected = template === doc.id
                 return (
-                  <label
+                  <div
                     key={doc.id}
-                    className={`row-rule flex cursor-pointer items-center gap-2.5 rounded-item px-2 py-2.5 text-[13px] transition-colors hover:bg-[var(--oc-hover)] has-[:focus-visible]:bg-[var(--oc-hover)] ${
+                    className={`row-rule flex items-center gap-1 rounded-item px-2 py-2.5 text-[13px] transition-colors hover:bg-[var(--oc-hover)] has-[:focus-visible]:bg-[var(--oc-hover)] ${
                       selected ? 'text-ink' : 'text-ink-muted'
                     }`}
                   >
-                    <span
-                      className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
-                        selected ? 'border-ink-muted' : 'border-line'
-                      }`}
+                    <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5">
+                      <span
+                        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
+                          selected ? 'border-ink-muted' : 'border-line'
+                        }`}
+                      >
+                        {selected ? <span className="h-2 w-2 rounded-full bg-ink-muted" /> : null}
+                      </span>
+                      <input
+                        type="radio"
+                        name={templateGroup}
+                        value={doc.id}
+                        checked={selected}
+                        onChange={() => setTemplate(doc.id)}
+                        className="sr-only"
+                      />
+                      <span className="min-w-0 flex-1 truncate">{doc.name}</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        skipRestoreRef.current = true
+                        onClose()
+                        openSettings('world', 'templates', doc.id)
+                      }}
+                      title="编辑模板"
+                      aria-label={`编辑模板「${doc.name}」`}
+                      className={`${ICON_BTN} shrink-0`}
                     >
-                      {selected ? <span className="h-2 w-2 rounded-full bg-ink-muted" /> : null}
-                    </span>
-                    <input
-                      type="radio"
-                      name={templateGroup}
-                      value={doc.id}
-                      checked={selected}
-                      onChange={() => setTemplate(doc.id)}
-                      className="sr-only"
-                    />
-                    <span className="min-w-0 flex-1 truncate">{doc.name}</span>
-                  </label>
+                      <SlidersHorizontal size={13} strokeWidth={2} />
+                    </button>
+                  </div>
                 )
               })}
             </div>

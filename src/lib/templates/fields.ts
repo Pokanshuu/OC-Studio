@@ -10,7 +10,7 @@
  */
 import type { TemplateDoc } from './types'
 import { isNoteTemplate } from './note'
-import { getInfoGroups, type InfoGroup } from './info-groups'
+import { getInfoGroups, type InfoFieldType, type InfoGroup } from './info-groups'
 
 const SPLIT = /[,，、]/
 
@@ -67,4 +67,39 @@ export function collectTemplateFieldKeys(docs: TemplateDoc[], groups?: readonly 
     for (const key of templateFieldKeys(doc, groups) ?? []) out.add(key)
   }
   return [...out]
+}
+
+/**
+ * 模板基本信息每个字段的**控件类型**（只有笔记型组件有；列型宿主归 `lib/fields`）。
+ *
+ * 与 `templateFieldKeys` 同源 —— 键从哪来，类型就从哪来，别让两处各算一遍。
+ */
+export function templateFieldTypes(
+  doc: TemplateDoc,
+  groups?: readonly InfoGroup[],
+): Record<string, InfoFieldType> | undefined {
+  const info = doc.components.find((component) => component.id === 'info')
+  const groupId = info?.params?.group
+  if (typeof groupId !== 'string' || groupId === '') return undefined
+  const group = (groups ?? getInfoGroups()).find((item) => item.id === groupId)
+  if (!group || (group.for !== undefined && group.for !== 'note')) return undefined
+  return group.types && Object.keys(group.types).length > 0 ? { ...group.types } : undefined
+}
+
+/**
+ * 模板基本信息的**显示名**（键 → 名字）。
+ *
+ * 和 `templateFieldKeys` / `templateFieldTypes` 同一套取法：有 group 读 group，
+ * 列型宿主返回 `undefined`（那边的显示名在 `FieldConfig` 里）。
+ */
+export function templateFieldLabels(
+  doc: TemplateDoc,
+  groups?: readonly InfoGroup[],
+): Record<string, string> | undefined {
+  const info = doc.components.find((component) => component.id === 'info')
+  const groupId = info?.params?.group
+  if (typeof groupId !== 'string' || groupId === '') return undefined
+  const group = (groups ?? getInfoGroups()).find((item) => item.id === groupId)
+  if (!group || (group.for !== undefined && group.for !== 'note')) return undefined
+  return group.labels && Object.keys(group.labels).length > 0 ? { ...group.labels } : undefined
 }

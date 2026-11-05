@@ -20,9 +20,10 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { ArrowLeft, ChevronDown, ChevronUp, Download, GripVertical, Plus, SlidersHorizontal, X } from 'lucide-react'
 import { COMPONENT_BY_ID, COMPONENT_IDS } from '@/lib/templates/registry'
-import { isComponentWired } from '@/lib/templates/support'
+import { isComponentAvailable, isComponentWired } from '@/lib/templates/support'
 import { templateParamsFor } from '@/lib/templates/params'
 import { templateFieldKeys } from '@/lib/templates/fields'
+import { useInfoGroups, type InfoGroup } from '@/lib/templates/info-groups'
 import { saveTemplate, useTemplates } from '@/lib/templates/store'
 import type { TemplateComponent, TemplateComponentId, TemplateDoc } from '@/lib/templates/types'
 import type { TemplateParamValue } from '@/lib/templates/params'
@@ -49,6 +50,8 @@ interface PreviewRelation {
 interface PreviewData {
   title: string
   cover?: string
+  avatar?: string
+  image?: string
   summary: string
   fields: [string, string][]
   tags: string[]
@@ -116,7 +119,11 @@ function recentFirst<T extends { updatedAt: number }>(rows: T[]): T[] {
 }
 
 /** 拿一条真实数据做预览：角色 / 事件 / 国家，或最近一篇对应模板的笔记 */
-async function loadPreview(template: TemplateDoc, categories: Category[]): Promise<PreviewData | null> {
+async function loadPreview(
+  template: TemplateDoc,
+  categories: Category[],
+  groups: readonly InfoGroup[],
+): Promise<PreviewData | null> {
   const empty = {
     relations: [] as string[],
     relationTargets: [] as PreviewRelation[],
@@ -142,6 +149,7 @@ async function loadPreview(template: TemplateDoc, categories: Category[]): Promi
       subjectId: character.id,
       title: character.name || '未命名',
       cover: character.headerUrl,
+      avatar: character.avatarUrl,
       summary: plainTextOf(character.bio),
       body: plainTextOf(character.lifeStory),
       fields,
@@ -166,6 +174,34 @@ async function loadPreview(template: TemplateDoc, categories: Category[]): Promi
         ['地点', event.location],
       ] as [string, string][]
     ).filter(([, value]) => value.trim() !== '')
+    // 关系区块包含参与者（角色 / 国家）与相关事件，预览按同一顺序取真实名字
+    const [participantRows, relatedRows] = await Promise.all([
+      Promise.all([
+        ...(event.characters ?? []).map((id) => db.characters.get(id)),
+        ...(event.countries ?? []).map((id) => db.countries.get(id)),
+      ]),
+      Promise.all((event.relations ?? []).map((relation) => db.events.get(relation.targetId))),
+    ])
+    const relationTargets: PreviewRelation[] = [
+      ...(event.characters ?? []).flatMap((id, index) => {
+        const target = participantRows[index]
+        return target && !target.deleted
+          ? [{ label: `${target.name} · 参与`, id, type: 'character' }]
+          : []
+      }),
+      ...(event.countries ?? []).flatMap((id, index) => {
+        const target = participantRows[(event.characters ?? []).length + index]
+        return target && !target.deleted
+          ? [{ label: `${target.name} · 发生于`, id, type: 'country' }]
+          : []
+      }),
+      ...(event.relations ?? []).flatMap((relation, index) => {
+        const target = relatedRows[index]
+        return target && !target.deleted
+          ? [{ label: `${target.title} · ${relation.relation}`, id: relation.targetId, type: 'event' }]
+          : []
+      }),
+    ]
     return {
       ...empty,
       subjectKind: 'event',
@@ -176,12 +212,8 @@ async function loadPreview(template: TemplateDoc, categories: Category[]): Promi
       body: plainTextOf(event.content),
       fields,
       tags: await tagNamesOf(event.tags),
-      relations: [...new Set(event.relations.map((relation) => relation.relation))],
-      relationTargets: event.relations.map((relation) => ({
-        label: relation.relation || '关联',
-        id: relation.targetId,
-        type: 'event',
-      })),
+      relations: relationTargets.map((relation) => relation.label),
+      relationTargets,
       gallery: event.images.map((image) => image.caption || '图片'),
       galleryImages: event.images.map((image) => image.url),
       time: event.time,
@@ -199,25 +231,36 @@ async function loadPreview(template: TemplateDoc, categories: Category[]): Promi
         ['文化', country.culture],
       ] as [string, string][]
     ).filter(([, value]) => value.trim() !== '')
-    // 名单不再存在国家行上（阶段二·一）：预览里的计数直接按实体侧统计
-    const memberCharacters = await db.characters.filter((row) => !row.deleted && row.countryId === country.id).count()
-    const memberEvents = await db.events
-      .filter((row) => !row.deleted && (row.countries ?? []).includes(country.id))
-      .count()
+    // 名单不再存在国家行上（阶段二·一）：预览按实体侧查询，与编辑器同一份数据
+    const [memberCharacters, memberEvents] = await Promise.all([
+      db.characters.filter((row) => !row.deleted && row.countryId === country.id).toArray(),
+      db.events.filter((row) => !row.deleted && (row.countries ?? []).includes(country.id)).toArray(),
+    ])
+    const relationTargets: PreviewRelation[] = [
+      ...memberCharacters.map((member) => ({
+        label: `${member.name} · 属于`,
+        id: member.id,
+        type: 'character',
+      })),
+      ...memberEvents.map((item) => ({
+        label: `${item.title} · 发生于`,
+        id: item.id,
+        type: 'event',
+      })),
+    ]
     return {
       ...empty,
       subjectKind: 'country',
       subjectId: country.id,
       title: country.name || '未命名',
       cover: country.headerUrl || country.flagUrl,
+      avatar: country.flagUrl,
       summary: plainTextOf(country.description),
       body: plainDocument(country.document),
       fields,
       tags: await tagNamesOf(country.tags),
-      relations: [
-        memberCharacters > 0 ? `${memberCharacters} 个角色` : '',
-        memberEvents > 0 ? `${memberEvents} 个事件` : '',
-      ].filter((line) => line !== ''),
+      relations: relationTargets.map((relation) => relation.label),
+      relationTargets,
       gallery: [],
     }
   }
@@ -247,7 +290,7 @@ async function loadPreview(template: TemplateDoc, categories: Category[]): Promi
 
   const body = plainTextOf(typeof worldBodyOf(entry) === 'string' ? (worldBodyOf(entry) as string) : JSON.stringify(worldBodyOf(entry)))
   const summary = (entry.summary ?? '').trim() || body.slice(0, 80)
-  const declared = templateFieldKeys(template)
+  const declared = templateFieldKeys(template, groups)
   const fieldKeys = declared ?? Object.keys(entry.custom ?? {})
   const fields = fieldKeys
     .map((key) => [key, (entry.custom?.[key] ?? '').trim()] as [string, string])
@@ -259,15 +302,22 @@ async function loadPreview(template: TemplateDoc, categories: Category[]): Promi
     subjectId: entry.id,
     title: entry.title || '未命名',
     cover: entry.cover,
+    avatar: entry.avatar,
+    image: entry.image,
     summary,
     fields,
     tags: await tagNamesOf(entry.tags),
     body,
+    gallery: (entry.gallery ?? []).map((image) => image.caption || '图片'),
+    galleryImages: (entry.gallery ?? []).map((image) => image.url),
+    time: entry.time ?? '',
+    location: entry.location ?? '',
   }
 }
 
 const PREVIEW_SAMPLE: Partial<Record<TemplateComponentId, string[]>> = {
   cover: ['（封面 / 头图）'],
+  avatar: ['（头像）'],
   info: ['名称', '一句话'],
   relations: ['关系一行'],
   tags: ['标签'],
@@ -288,6 +338,7 @@ export function TemplateComposer({
 }) {
   const { templates } = useTemplates()
   const categories = useCategories()
+  const infoGroups = useInfoGroups()
   const { navigateToEntity } = useEntityNavigate()
   const { closeSettings, openSettings } = useSettingsTrigger()
   const [activeId, setActiveId] = useState(initialId)
@@ -301,7 +352,7 @@ export function TemplateComposer({
   useEffect(() => {
     let alive = true
     setPreviewData(null)
-    void loadPreview(active, categories)
+    void loadPreview(active, categories, infoGroups)
       .then((preview) => {
         if (alive) setPreviewData(preview)
       })
@@ -311,7 +362,7 @@ export function TemplateComposer({
     return () => {
       alive = false
     }
-  }, [active, categories])
+  }, [active, categories, infoGroups])
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
@@ -329,8 +380,11 @@ export function TemplateComposer({
   if (!active) return null
 
   const enabled = active.components.filter((component) => component.enabled)
+  /** 添加列表只给这个宿主真存得住的组件（实体模板没有的列不再出现） */
   const disabled = COMPONENT_IDS.filter(
-    (id) => !active.components.some((component) => component.id === id && component.enabled),
+    (id) =>
+      isComponentAvailable(active.id, id) &&
+      !active.components.some((component) => component.id === id && component.enabled),
   )
 
   const persist = (next: TemplateDoc): void => {
@@ -368,24 +422,12 @@ export function TemplateComposer({
   const setParam = (componentId: TemplateComponentId, key: string, value: TemplateParamValue): void => {
     persist({
       ...active,
-      components: active.components.map((component) =>
-        component.id === componentId
-          ? { ...component, params: { ...component.params, [key]: value } }
-          : component,
-      ),
-    })
-  }
-
-  /** 字段参数是重参数：`undefined` 表示删掉这个键（回落到字段表全部自定义字段） */
-  const setFields = (componentId: TemplateComponentId, next: string[] | undefined): void => {
-    persist({
-      ...active,
       components: active.components.map((component) => {
         if (component.id !== componentId) return component
-        const params = { ...component.params }
-        if (next === undefined) delete params.fields
-        else params.fields = next
-        return { ...component, params: Object.keys(params).length === 0 ? undefined : params }
+        const params = { ...component.params, [key]: value }
+        // 选了基本信息组件就清掉旧的内联字段：关系只由「选择」决定
+        if (key === 'group') delete params.fields
+        return { ...component, params }
       }),
     })
   }
@@ -411,7 +453,7 @@ export function TemplateComposer({
   const previewImages =
     previewData === null
       ? []
-      : [previewData.cover, ...previewData.galleryImages].filter(
+      : [previewData.cover, previewData.avatar, previewData.image, ...previewData.galleryImages].filter(
           (url): url is string => typeof url === 'string' && url !== '',
         )
 
@@ -467,6 +509,9 @@ export function TemplateComposer({
               const wired = isComponentWired(active.id, component.id)
               const paramDefs = templateParamsFor(active.id, component.id, active)
               const hasParams = wired && paramDefs.length > 0
+              const groupId = typeof component.params?.group === 'string' ? component.params.group : ''
+              const groupName =
+                component.id === 'info' ? infoGroups.find((group) => group.id === groupId)?.name : undefined
               return (
                 <div key={component.id} className="border-b border-line">
                   <div className="flex items-center gap-2 py-2">
@@ -475,6 +520,7 @@ export function TemplateComposer({
                       {meta?.label ?? component.id}
                     </span>
                     {!wired ? <span className="shrink-0 text-[11px] text-ink-faint">开发中</span> : null}
+                    {groupName ? <span className="shrink-0 text-[11px] text-ink-faint">{groupName}</span> : null}
                     {hasParams ? (
                       <button
                         type="button"
@@ -551,7 +597,7 @@ export function TemplateComposer({
             ) : (
               enabled.map((component, index) => {
                 const meta = COMPONENT_BY_ID[component.id]
-                const fields = component.id === 'info' ? templateFieldKeys(active) : undefined
+                const fields = component.id === 'info' ? templateFieldKeys(active, infoGroups) : undefined
                 const lines =
                   fields !== undefined && fields.length > 0
                     ? fields
@@ -580,6 +626,51 @@ export function TemplateComposer({
                       ) : (
                         <div className="flex aspect-[3/2] items-center justify-center rounded-item bg-paper-alt text-[11px] text-ink-faint">
                           封面
+                        </div>
+                      )
+                      break
+                    case 'avatar':
+                      body = previewData.avatar ? (
+                        <button
+                          type="button"
+                          onClick={() => setViewer({ images: previewImages, index: previewImages.indexOf(previewData.avatar ?? '') })}
+                          className="block"
+                          aria-label="查看头像大图"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element -- 库内相对路径，静态导出没有 next/image loader */}
+                          <img
+                            src={resolveImageUrl(previewData.avatar, 'avatar')}
+                            alt=""
+                            className="h-16 w-16 cursor-zoom-in rounded-full object-cover"
+                          />
+                        </button>
+                      ) : (
+                        <div className="h-16 w-16 rounded-full bg-paper-alt" />
+                      )
+                      break
+                    case 'image':
+                      body = previewData.image ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setViewer({
+                              images: previewImages,
+                              index: previewImages.indexOf(previewData.image ?? ''),
+                            })
+                          }
+                          className="block w-full"
+                          aria-label="查看图片大图"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element -- 库内相对路径，静态导出没有 next/image loader */}
+                          <img
+                            src={resolveImageUrl(previewData.image, 'gallery')}
+                            alt=""
+                            className="aspect-[3/2] w-full cursor-zoom-in rounded-item object-cover"
+                          />
+                        </button>
+                      ) : (
+                        <div className="flex aspect-[3/2] items-center justify-center rounded-item bg-paper-alt text-[11px] text-ink-faint">
+                          图片
                         </div>
                       )
                       break
@@ -677,7 +768,7 @@ export function TemplateComposer({
                                 onClick={() =>
                                   setViewer({
                                     images: previewImages,
-                                    index: imageIndex + (previewData.cover ? 1 : 0),
+                                    index: previewImages.indexOf(url),
                                   })
                                 }
                                 aria-label="查看画廊大图"
@@ -790,7 +881,6 @@ export function TemplateComposer({
                 doc={active}
                 component={paramComponent}
                 onChange={(key, value) => setParam(paramComponent.id, key, value)}
-                onFieldsChange={(next) => setFields(paramComponent.id, next)}
               />
             </div>
 

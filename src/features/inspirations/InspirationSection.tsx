@@ -8,13 +8,17 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/core'
-import { Lightbulb, Plus, Trash2 } from 'lucide-react'
+import { Lightbulb, Plus, Sparkles, Trash2 } from 'lucide-react'
 import { EditorCore } from '@/components/editor/EditorCore'
-import { BTN_PRIMARY, CENTER_STATE, ICON_BTN, TITLE_INPUT } from '@/lib/ui-tokens'
+import { BTN_PRIMARY, BTN_QUIET, CENTER_STATE, ICON_BTN, TITLE_INPUT } from '@/lib/ui-tokens'
+import { newWorldEntryData } from '@/lib/entity-defaults'
+import { createEntry, saveEntryContent } from '@/features/world/services'
+import { useNavigation } from '@/components/layout/NavigationContext'
 import {
   createInspiration,
   deleteInspiration,
   loadInspirations,
+  markPromoted,
   updateInspiration,
   useInspirations,
 } from './store'
@@ -36,9 +40,11 @@ function formatDay(ts: number): string {
 
 export function InspirationSection() {
   const items = useInspirations()
+  const { setActiveItem } = useNavigation()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [title, setTitle] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [promotedTitle, setPromotedTitle] = useState<string | null>(null)
 
   const editorRef = useRef<Editor | null>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -115,6 +121,34 @@ export function InspirationSection() {
       setError(err instanceof Error ? err.message : '删除失败')
     }
   }, [items, selected])
+
+  /**
+   * 变成笔记：灵感是草稿，定下来的东西该进设定集。
+   *
+   * 两跳都走已有的正确通道，不新开写路径：
+   *   1. `createEntry` 建条目（写操作日志、维护索引）
+   *   2. `saveEntryContent` 写正文 —— 它写的是 `document`，不是退役的 `content`
+   * 正文直接取**当前编辑器实例**的 JSON，不经过 HTML 往返，格式原样保留。
+   */
+  const handlePromote = useCallback(async () => {
+    if (selected === null) return
+    const doc = editorRef.current?.getJSON()
+    if (doc === undefined) {
+      setError('编辑器还没准备好')
+      return
+    }
+    try {
+      await flush()
+      const title = inspirationLabel(selected)
+      const entryId = await createEntry({ ...newWorldEntryData(), title })
+      await saveEntryContent(entryId, title, doc)
+      await markPromoted(selected.id, entryId)
+      setError(null)
+      setPromotedTitle(title)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '变成笔记失败')
+    }
+  }, [flush, selected])
 
   const handleTitleChange = useCallback(
     (value: string) => {
@@ -205,10 +239,31 @@ export function InspirationSection() {
                 placeholder="标题"
                 className={`${TITLE_INPUT} min-w-0 flex-1`}
               />
+              <button
+                type="button"
+                className={BTN_QUIET}
+                onClick={() => void handlePromote()}
+                title="变成笔记"
+              >
+                <Sparkles size={13} strokeWidth={2} />
+                变成笔记
+              </button>
               <button type="button" className={ICON_BTN} onClick={() => void handleDelete()} title="删除">
                 <Trash2 size={14} strokeWidth={2} />
               </button>
             </div>
+            {selected.promotedId !== undefined || promotedTitle !== null ? (
+              <div className="flex items-center gap-2 px-4 pb-1 text-[11px] text-ink-faint">
+                <span>已变成笔记「{promotedTitle ?? inspirationLabel(selected)}」</span>
+                <button
+                  type="button"
+                  className="transition-colors hover:text-ink"
+                  onClick={() => setActiveItem('世界观')}
+                >
+                  打开
+                </button>
+              </div>
+            ) : null}
             <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6">
               <EditorCore
                 key={selected.id}

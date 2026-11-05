@@ -187,6 +187,26 @@ export async function deleteCharacter(id: number): Promise<void> {
 }
 
 /**
+ * 表格里的「所属国家」下拉：`null` = 清空国籍。
+ *
+ * 不能走 `updateCharacter({ countryId: undefined })` —— `undefined` 在那里表示
+ * 「这个字段没改」，于是「选回未归属」永远不会落库。落库形态与 `lib/membership.ts`
+ * 一致：没有国籍就是 `null`（角色表单清空国籍时写的也是它）。
+ */
+export async function assignCharacterCountry(id: number, countryId: number | null): Promise<void> {
+  const existing = await db.characters.get(id)
+  if (!existing) throw new Error(`Character not found: ${id}`)
+  if ((existing.countryId ?? null) === countryId) return
+  const now = Date.now()
+  await db.characters.update(id, {
+    countryId,
+    updatedAt: now,
+    ...pendingStamp(now),
+  } as unknown as Partial<Character>)
+  await logOperation(TABLE, id, 'countryId', String(existing.countryId ?? ''), String(countryId ?? ''))
+}
+
+/**
  * 手动排序：把 `character` 的顺序写成 0..n-1。
  * 只写真的变了的行；**不碰 updatedAt**（排序不是编辑，别让它窜到「按编辑时间」前面）。
  */

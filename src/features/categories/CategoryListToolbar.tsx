@@ -2,15 +2,14 @@
 
 /**
  * 分类列表页头 —— 与角色 / 事件列表同一套形态：
- * 桌面「标题 + 搜索 + 排序 + 新建」，移动端一条 `MobileFilterBar`（排序 + 新建）。
+ * 桌面「标题 + 搜索 + 排序 + 视图 + 新建」，移动端一条 `MobileFilterBar`。
  *
- * 分类条目是普通笔记，没有封面卡，所以不放「卡片 / 画廊 / 列表」三态切换；
- * 其余控件全部复用列表页的共享件，避免这一页长成另一种东西。
+ * 排序、视图切换、新建全部复用共享件（`SortViewControls` / `ViewToggle`），
+ * 不再单独维护一份分类专用的图标组。
  */
 import { Plus, Search } from 'lucide-react'
-import { SortSelect } from '@/components/shared/SortViewControls'
+import { SortSelect, SortViewControls, ViewToggle } from '@/components/shared/SortViewControls'
 import { MobileFilterBar } from '@/components/layout/MobileFilterBar'
-import { CategoryViewToggle } from './CategoryViewToggle'
 import {
   BTN_PRIMARY,
   MOBILE_FILTER_BTN,
@@ -61,16 +60,17 @@ export function CategoryListToolbar({
               className={SEARCH_INPUT}
             />
           </div>
-          <SortSelect
+          <SortViewControls
             sortKey={sortKey}
-            onChange={(key) => onSortKeyChange(key as CategorySortKey)}
-            options={CATEGORY_SORT_OPTIONS}
+            onSortChange={(key) => onSortKeyChange(key as CategorySortKey)}
+            sortOptions={CATEGORY_SORT_OPTIONS}
+            viewMode={viewMode}
+            onViewModeChange={(mode) => onViewModeChange(mode as CategoryViewMode)}
           />
-          <CategoryViewToggle viewMode={viewMode} onChange={onViewModeChange} />
         </div>
         <button type="button" onClick={onCreate} className={BTN_PRIMARY}>
           <Plus size={16} strokeWidth={2} />
-          <span>新建</span>
+          <span>新建条目</span>
         </button>
       </div>
 
@@ -81,7 +81,7 @@ export function CategoryListToolbar({
           options={CATEGORY_SORT_OPTIONS}
         />
         <div className="flex items-center gap-2">
-          <CategoryViewToggle viewMode={viewMode} onChange={onViewModeChange} />
+          <ViewToggle viewMode={viewMode} onViewModeChange={onViewModeChange} />
           <button type="button" onClick={onCreate} className={MOBILE_FILTER_BTN}>
             <Plus size={14} strokeWidth={2} />
             <span>新建</span>

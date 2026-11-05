@@ -36,6 +36,8 @@ import {
 } from './background'
 import { canvasToPngBytes, renderNovelPages } from './render-pages'
 import { buildNovelDocx } from './docx'
+import { novelPageDoc } from './preview-doc'
+import { PagePreview } from '@/components/shared/document/PagePreview'
 
 export interface NovelExportBook {
   title: string
@@ -113,6 +115,8 @@ export function NovelExportDialog({ open, book, entries, onClose }: NovelExportD
   const fileRef = useRef<HTMLInputElement | null>(null)
 
   const plainChapters = useMemo(() => flattenNovel(entries), [entries])
+  // 预览与 Word 用的是同一批章节（PNG 走画布另渲染）
+  const previewDoc = useMemo(() => novelPageDoc(book, plainChapters), [book, plainChapters])
 
   useEffect(() => {
     if (!open) return
@@ -227,7 +231,7 @@ export function NovelExportDialog({ open, book, entries, onClose }: NovelExportD
       }}
     >
       <div
-        className={`flex w-[min(560px,100%)] flex-col overflow-hidden ${PANEL}`}
+        className={`flex w-[min(720px,100%)] flex-col overflow-hidden ${PANEL}`}
         onClick={(event) => event.stopPropagation()}
       >
         <header className="flex h-12 shrink-0 items-center justify-between border-b border-line pl-4 pr-2">
@@ -261,6 +265,17 @@ export function NovelExportDialog({ open, book, entries, onClose }: NovelExportD
               ))}
             </div>
           </section>
+
+          {format !== 'png' ? (
+            <section>
+              <p className="mb-2 text-sm font-medium text-ink">预览</p>
+              <div
+                className={`h-[38vh] max-h-[420px] min-h-[220px] overflow-hidden border border-line bg-paper-alt ${ROUND_CONTROL}`}
+              >
+                <PagePreview doc={previewDoc} emptyHint="没有可导出的章节" />
+              </div>
+            </section>
+          ) : null}
 
           {format === 'png' ? (
             <>

@@ -1,15 +1,19 @@
 /**
- * 「笔记类模板」判定 —— 分类条目（`worldEntries`）能真正渲染的模板。
+ * 「笔记类模板」判定 —— 分类 / 词条能真正渲染的模板。
  *
- * 分类条目只有标题 / 标签 / 简介 / 正文四块数据；模板里如果配了封面、关系、画廊，
- * 这些组件在 `CategoryEntryEditor` 里只会返回 `null`。与其让用户选到一个「看起来
- * 有封面、实际什么都没有」的模板，不如在这里把选择面收窄。
+ * 2026-11-06 起，**十一个组件在笔记宿主上都实装了**（标题 / 头像 / 图片 / 画廊 /
+ * 时间 / 地点 / 简介 / 关系 / 标签 / 封面 / 正文）：词条行新增了 `avatar` / `image` /
+ * `gallery` / `time` / `endTime` / `location` 六列，关系由 `parentId` 与正文引用派生。
+ * 于是「笔记类模板」不再是「只支持五个组件的模板」，而只是「含正文的模板」——
+ * 实体模板（角色 / 事件 / 国家）复制到分类里也能正常渲染每一块。
  *
  * 纯函数，脚本和 UI 共用。
  */
+import { COMPONENT_IDS } from './registry'
 import type { TemplateComponentId, TemplateDoc } from './types'
 
-const NOTE_COMPONENT_IDS: TemplateComponentId[] = ['cover', 'info', 'tags', 'summary', 'body']
+/** 笔记渲染路径真正画得出来的组件：现在是全部（保留这个名字，别处按它过滤） */
+export const NOTE_COMPONENT_IDS: TemplateComponentId[] = [...COMPONENT_IDS]
 
 export function isNoteTemplate(doc: TemplateDoc): boolean {
   const enabled = doc.components.filter((component) => component.enabled)

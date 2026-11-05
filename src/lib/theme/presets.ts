@@ -35,11 +35,20 @@ export interface ThemePreset {
   tokens: { light: ThemeTokens; dark: ThemeTokens }
   /** 选择器上的两枚色点：纸色与墨色（不写进 CSS，只在 UI 里当示意） */
   preview: { paper: string; ink: string }
+  /**
+   * 圆点用的**样品色**。
+   *
+   * 纸色与墨色都被刻意压到接近中性（朱砂的墨是 #2E2222，红几乎看不见），直接拿它们
+   * 画圆点，8 套里能分出 3 套就算不错。样品色取同一色相的中调（L*≈55–65），
+   * 只用于那个圆点，不参与界面渲染 —— 纸还是淡的，圆点才是看得清的。
+   */
+  swatch: string
 }
 
 const PAPER: ThemePreset = {
   id: 'paper',
   name: '纸白',
+  swatch: '#9A8F82',
   scope: 'app',
   preview: { paper: '#FEFCF8', ink: '#2B2B2B' },
   tokens: {
@@ -68,40 +77,10 @@ const PAPER: ThemePreset = {
   },
 }
 
-const LINEN: ThemePreset = {
-  id: 'linen',
-  name: '亚麻',
-  scope: 'app',
-  preview: { paper: '#FBF6EA', ink: '#2F2A20' },
-  tokens: {
-    light: {
-      paper: '#FBF6EA',
-      paperAlt: '#F6F0E1',
-      paperCard: '#EFE7D4',
-      line: '#E4DAC5',
-      lineHover: '#D2C5AB',
-      ink: '#2F2A20',
-      inkMuted: '#6C6353',
-      inkFaint: '#A29884',
-      hover: 'rgba(47, 42, 32, 0.045)',
-    },
-    dark: {
-      paper: '#1F1B15',
-      paperAlt: '#27221B',
-      paperCard: '#302A21',
-      line: '#3D362B',
-      lineHover: '#514738',
-      ink: '#E8E0D2',
-      inkMuted: '#ACA18E',
-      inkFaint: '#6F6656',
-      hover: 'rgba(232, 224, 210, 0.06)',
-    },
-  },
-}
-
 const PINE: ThemePreset = {
   id: 'pine',
   name: '松烟',
+  swatch: '#5F6870',
   scope: 'app',
   preview: { paper: '#F7F9F7', ink: '#232A26' },
   tokens: {
@@ -133,6 +112,7 @@ const PINE: ThemePreset = {
 const CELADON: ThemePreset = {
   id: 'celadon',
   name: '青瓷',
+  swatch: '#6E96A0',
   scope: 'app',
   preview: { paper: '#F6F8FA', ink: '#222B33' },
   tokens: {
@@ -175,6 +155,7 @@ const CELADON: ThemePreset = {
 const VERMILION: ThemePreset = {
   id: 'vermilion',
   name: '朱砂',
+  swatch: '#B2554C',
   scope: 'app',
   preview: { paper: '#FBF5F4', ink: '#2E2222' },
   tokens: {
@@ -206,6 +187,7 @@ const VERMILION: ThemePreset = {
 const AMBER: ThemePreset = {
   id: 'amber',
   name: '琥珀',
+  swatch: '#B57C3A',
   scope: 'app',
   preview: { paper: '#FCF7F1', ink: '#2F2720' },
   tokens: {
@@ -237,6 +219,7 @@ const AMBER: ThemePreset = {
 const REED: ThemePreset = {
   id: 'reed',
   name: '苇黄',
+  swatch: '#A89440',
   scope: 'app',
   preview: { paper: '#FBF8EE', ink: '#2E2B1F' },
   tokens: {
@@ -268,6 +251,7 @@ const REED: ThemePreset = {
 const MOSS: ThemePreset = {
   id: 'moss',
   name: '苔绿',
+  swatch: '#62854F',
   scope: 'app',
   preview: { paper: '#F5FAF5', ink: '#222E22' },
   tokens: {
@@ -299,6 +283,7 @@ const MOSS: ThemePreset = {
 const DEEP_SEA: ThemePreset = {
   id: 'deep-sea',
   name: '海青',
+  swatch: '#3F8791',
   scope: 'app',
   preview: { paper: '#F3FAFA', ink: '#1F2D2D' },
   tokens: {
@@ -330,6 +315,7 @@ const DEEP_SEA: ThemePreset = {
 const INDIGO: ThemePreset = {
   id: 'indigo',
   name: '靛蓝',
+  swatch: '#5069A8',
   scope: 'app',
   preview: { paper: '#F4F7FC', ink: '#202636' },
   tokens: {
@@ -361,6 +347,7 @@ const INDIGO: ThemePreset = {
 const VIOLET: ThemePreset = {
   id: 'violet',
   name: '紫苑',
+  swatch: '#84639F',
   scope: 'app',
   preview: { paper: '#F8F4FB', ink: '#282133' },
   tokens: {
@@ -392,7 +379,6 @@ const VIOLET: ThemePreset = {
 /** 默认主题排第一（设置里的选项顺序）。中性在前，七色在后。 */
 export const THEME_PRESETS: readonly ThemePreset[] = [
   PAPER,
-  LINEN,
   PINE,
   CELADON,
   VERMILION,
@@ -406,7 +392,6 @@ export const THEME_PRESETS: readonly ThemePreset[] = [
 
 export type ThemePresetId =
   | 'paper'
-  | 'linen'
   | 'pine'
   | 'celadon'
   | 'vermilion'

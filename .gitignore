@@ -73,6 +73,9 @@ Thumbs.db
 # 临时浏览器配置（Tailwind 自动扫描会读非 ignore 文件，浏览器 profile 有几百 MB 二进制）
 /.tmp-edge*/
 
+# 本地验证产物（截图 / 下载 / 一次性 CDP 脚本），不进仓库
+/tmp/
+
 # 编辑器配置
 .vscode/
 .vs/

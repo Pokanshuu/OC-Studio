@@ -4,6 +4,8 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import type { Editor } from '@tiptap/core'
 import type { Character, GalleryImage, RelatedCharacter } from '@/types'
 import type { RelatedItem } from '@/components/shared/RelatedItemsSelector'
+import type { RelationCandidate, RelationRow, RelationTargetKind } from '@/components/shared/relations/types'
+import type { RelationArrow } from '@/lib/relation-colors'
 import type { CharacterFormData } from '../types'
 import { useCharacterList } from './useCharacters'
 import { useCountryList } from '@/features/countries/hooks/useCountries'
@@ -56,6 +58,8 @@ interface CharacterValues {
   isMajor: boolean
   custom: Record<string, string>
   tags: number[]
+  /** 一行简介（`bio`）：列表卡摘要 / 模板「简介」组件 */
+  bio: string
 }
 
 function valuesFromEntity(character: Character): CharacterValues {
@@ -82,6 +86,7 @@ function valuesFromEntity(character: Character): CharacterValues {
     isMajor: character.isMajor ?? false,
     custom: character.custom ?? {},
     tags: character.tags ?? [],
+    bio: character.bio ?? '',
   }
 }
 
@@ -110,10 +115,14 @@ function valuesSnapshot(values: CharacterValues): Record<string, unknown> {
     related: values.relatedCharacters.map((rc) => ({
       characterId: rc.characterId ?? null,
       relation: rc.relation,
+      // 箭头 / 颜色是边上的数据：改了也算这一次编辑（否则改完不会提示保存）
+      arrow: rc.arrow ?? null,
+      color: rc.color ?? null,
     })),
     isMajor: values.isMajor,
     custom: values.custom,
     tags: values.tags,
+    bio: values.bio,
   }
 }
 
@@ -123,7 +132,7 @@ export interface InboundRelation {
   fromName: string
   relation: string
   color?: string
-  arrow?: string
+  arrow?: RelationArrow
 }
 
 /**
@@ -160,6 +169,8 @@ export function useCharacterForm(
     initial.relatedCharacters,
   )
   const [isMajor, setIsMajor] = useState(initial.isMajor)
+  /** 一行简介：模板「简介」组件可改；列表卡摘要也读它 */
+  const [bio, setBio] = useState(initial.bio)
   /** 自定义字段的值：键 = 字段表里的 key。内置字段不走这里（各有各的列） */
   const [custom, setCustom] = useState<Record<string, string>>(initial.custom)
 
@@ -179,12 +190,12 @@ export function useCharacterForm(
     name, aliasesStr, race, element, occupation, faction, nationalityLegacy, countryId,
     height, birthdayYear, birthdayMonth, birthdayDay,
     avatarUrl, headerUrl, animationUrl, avatarUrls, galleryUrls, relatedCharacters,
-    isMajor, custom, tags,
+    isMajor, custom, tags, bio,
   }), [
     name, aliasesStr, race, element, occupation, faction, nationalityLegacy, countryId,
     height, birthdayYear, birthdayMonth, birthdayDay,
     avatarUrl, headerUrl, animationUrl, avatarUrls, galleryUrls, relatedCharacters,
-    isMajor, custom, tags,
+    isMajor, custom, tags, bio,
   ])
 
   const snapshot = useMemo(() => valuesSnapshot(values), [values])
@@ -218,23 +229,12 @@ export function useCharacterForm(
     setIsMajor(next.isMajor)
     setCustom(next.custom)
     setTags(next.tags)
+    setBio(next.bio)
     markFieldsClean(nextKey)
   }, [character, markFieldsClean, saving])
 
   const { characters: allCharacters } = useCharacterList()
   const { countries } = useCountryList()
-
-  const characterItems: RelatedItem[] = useMemo(
-    () =>
-      allCharacters
-        .filter((c) => c.id !== character.id)
-        .map((c) => ({
-          id: c.id,
-          name: c.name,
-          subtitle: c.aliases.length > 0 ? c.aliases.join('、') : undefined,
-        })),
-    [allCharacters, character.id],
-  )
 
   /**
    * 反向关系：遍历全体角色，收集「谁在自己的关系表里记了我」。
@@ -262,30 +262,97 @@ export function useCharacterForm(
     )
   }, [allCharacters, character.id])
 
-  const relatedCharacterIds = useMemo(
+  /**
+   * 关系组件的数据（`docs/模板.md §6.3`）：自有关系可改名 / 移除，
+   * 「来自」是反查结果，只读。名字取对方**当前**的 `name`，对方改名能立刻反映。
+   */
+  const relationRows = useMemo<RelationRow[]>(() => {
+    const byId = new Map(allCharacters.map((item) => [item.id, item]))
+    return relatedCharacters.map((relation, index) => {
+      const target = relation.characterId === undefined ? undefined : byId.get(relation.characterId)
+      return {
+        key: `character-${relation.characterId ?? relation.name}-${index}`,
+        kind: 'character',
+        targetId: relation.characterId,
+        name: target?.name ?? relation.name,
+        relation: relation.relation,
+        relationEditable: true,
+        directional: true,
+        defaultArrow: 'both',
+        arrow: relation.arrow,
+        index,
+        color: relation.color,
+      }
+    })
+  }, [allCharacters, relatedCharacters])
+
+  const inboundRelationRows = useMemo<RelationRow[]>(
     () =>
-      relatedCharacters
-        .filter((rc): rc is RelatedCharacter & { characterId: number } => rc.characterId !== undefined)
-        .map((rc) => rc.characterId),
-    [relatedCharacters],
+      inboundRelations.map((relation, index) => ({
+        key: `inbound-character-${relation.fromId}-${index}`,
+        kind: 'character',
+        targetId: relation.fromId,
+        name: relation.fromName,
+        relation: relation.relation,
+        relationEditable: false,
+        directional: true,
+        defaultArrow: 'both',
+        arrow: relation.arrow,
+        readonly: true,
+      })),
+    [inboundRelations],
   )
 
-  const handleRelatedCharactersChange = useCallback(
-    (ids: number[]) => {
-      const next: RelatedCharacter[] = ids.map((id) => {
-        const existing = relatedCharacters.find((rc) => rc.characterId === id)
-        if (existing) return existing
-        const c = allCharacters.find((ch) => ch.id === id)
-        return {
-          characterId: id,
-          name: c ? c.name : '',
-          relation: '',
-        }
-      })
-      setRelatedCharacters(next)
+  const relationCandidates = useMemo<RelationCandidate[]>(() => {
+    const linked = new Set(
+      relatedCharacters
+        .map((relation) => relation.characterId)
+        .filter((id): id is number => id !== undefined),
+    )
+    return allCharacters
+      .filter((item) => item.id !== character.id && !linked.has(item.id))
+      .map((item) => ({
+        kind: 'character' as const,
+        targetId: item.id,
+        name: item.name,
+        subtitle: item.aliases.length > 0 ? item.aliases.join('、') : undefined,
+      }))
+  }, [allCharacters, character.id, relatedCharacters])
+
+  const addRelation = useCallback(
+    (kind: RelationTargetKind, targetId: number) => {
+      if (kind !== 'character') return
+      const target = allCharacters.find((item) => item.id === targetId)
+      if (!target) return
+      setRelatedCharacters((previous) =>
+        previous.some((relation) => relation.characterId === targetId)
+          ? previous
+          : [...previous, { characterId: targetId, name: target.name, relation: '' }],
+      )
     },
-    [allCharacters, relatedCharacters],
+    [allCharacters],
   )
+
+  const removeRelation = useCallback((row: RelationRow) => {
+    setRelatedCharacters((previous) => previous.filter((_, index) => index !== row.index))
+  }, [])
+
+  const renameRelation = useCallback((row: RelationRow, value: string) => {
+    setRelatedCharacters((previous) =>
+      previous.map((relation, index) =>
+        index === row.index ? { ...relation, relation: value } : relation,
+      ),
+    )
+  }, [])
+
+  /** 命名边的箭头：无 / 正向 / 反向 / 双向；成员关系不经过它 */
+  const setRelationArrow = useCallback((row: RelationRow, arrow: RelationArrow) => {
+    setRelatedCharacters((previous) =>
+      previous.map((relation, index) =>
+        index === row.index ? { ...relation, arrow } : relation,
+      ),
+    )
+  }, [])
 
   const countryItems: RelatedItem[] = useMemo(
     () =>
@@ -357,7 +424,7 @@ export function useCharacterForm(
         avatarUrl,
         headerUrl,
         animationUrl,
-        bio: character.bio,
+        bio,
         lifeStory: character.lifeStory,
         document,
         relatedCharacters,
@@ -381,8 +448,8 @@ export function useCharacterForm(
     }
   }, [
     character.id,
-    character.bio,
     character.lifeStory,
+    bio,
     avatarUrl,
     headerUrl,
     animationUrl,
@@ -449,6 +516,7 @@ export function useCharacterForm(
     headerUrl, setHeaderUrl,
     animationUrl, setAnimationUrl,
     tags, setTags,
+    bio, setBio,
     avatarUrls, setAvatarUrls,
     galleryUrls, setGalleryUrls,
     relatedCharacters, setRelatedCharacters,
@@ -462,10 +530,14 @@ export function useCharacterForm(
     handleDocChange,
     allCharacters,
     countries,
-    characterItems,
     inboundRelations,
-    relatedCharacterIds,
-    handleRelatedCharactersChange,
+    relationRows,
+    inboundRelationRows,
+    relationCandidates,
+    addRelation,
+    removeRelation,
+    renameRelation,
+    setRelationArrow,
     countryItems,
     selectedCountryIds,
     handleCountryChange,

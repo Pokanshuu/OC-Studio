@@ -8,10 +8,28 @@
  * 插件那边只认 `(name, args)` 这个签名，不知道背后是 Dexie、是 MCP 还是别的
  * （`docs/Agent接入.md` §传输层）。换实现只改这一个文件。
  */
-import { createLibraryToolExecutor, type LibraryWriter } from '@/lib/capabilities/agent-tools'
+import { createLibraryToolExecutor, LIBRARY_TOOL_NAMES, type LibraryWriter } from '@/lib/capabilities/agent-tools'
 import type { EntityKind } from '@/lib/capabilities/types'
+import { hasPermission, isPluginActive } from '@/lib/plugins'
+import { AGENT_PLUGIN } from '@/lib/plugins/official'
 
 type Executor = ReturnType<typeof createLibraryToolExecutor>
+
+/**
+ * 读实体是**逐项授权**（默认关）。没开时：
+ * - `isLibraryTool` 让调用方把这些工具从本轮请求里摘掉（模型看不到 = 不会去调）
+ * - `resolveLibraryTool` 仍然兜底回一句可读错误（万一历史上已经把工具名发出去）
+ *
+ * 闸放在宿主这一侧，而不是插件设置里 —— 插件自带的工具开关是“我想让它用哪些”，
+ * 宿主的授权是“它能不能看见库”，两者不能互相顶替。
+ */
+export function libraryAccessGranted(): boolean {
+  return isPluginActive(AGENT_PLUGIN) && hasPermission(AGENT_PLUGIN, 'read-entities')
+}
+
+export function isLibraryTool(name: string): boolean {
+  return (LIBRARY_TOOL_NAMES as readonly string[]).includes(name)
+}
 
 const TABLE_BY_KIND: Record<EntityKind, string> = {
   character: 'characters',
@@ -146,6 +164,13 @@ export async function resolveLibraryTool(
   name: string,
   args: Record<string, unknown>,
 ): Promise<{ content: string; isError: boolean; data?: unknown; durationMs: number } | null> {
+  if (isLibraryTool(name) && !libraryAccessGranted()) {
+    return {
+      content: '作者没有开启「读实体」权限，这个环境看不到设定库。可以在 设置 › 插件 › 助手 里打开。',
+      isError: true,
+      durationMs: 0,
+    }
+  }
   const run = await loadExecutor()
   return run(name, args)
 }

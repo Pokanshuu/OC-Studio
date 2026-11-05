@@ -55,8 +55,11 @@ export function ComponentSection({
           <h3 className={SECTION_TITLE_BARE}>{title}</h3>
           {action}
         </div>
+      ) : action ? (
+        // 没有标题但仍要有动作（画廊关掉标题时的「添加」）：动作靠右，别把入口一起藏掉
+        <div className="flex items-center justify-end gap-3">{action}</div>
       ) : null}
-      {hasContent ? <div className={title ? 'mt-3' : ''}>{children}</div> : null}
+      {hasContent ? <div className={title || action ? 'mt-3' : ''}>{children}</div> : null}
     </section>
   )
 }

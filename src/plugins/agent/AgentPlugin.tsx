@@ -15,7 +15,7 @@
  * 除这里以外，插件目录里的代码一律不改 —— 上游更新直接覆盖。
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Wrench } from 'lucide-react'
 import { ToastProvider } from '@/plugins/agent/components/ui/primitives'
 import { Sidebar } from '@/plugins/agent/components/chat/Sidebar'
@@ -23,10 +23,22 @@ import { ChatView } from '@/plugins/agent/components/chat/ChatView'
 import { SettingsView } from '@/plugins/agent/components/chat/SettingsView'
 import { flushSettings, useSettingsStore } from '@/plugins/agent/state/settings'
 import { useChatStore } from '@/plugins/agent/state/chat'
+import { agentContextPrompt, takeAgentContext } from '@/lib/plugins/agent-bridge'
+import { clearPendingAgentSessionContext } from '@/lib/plugins/agent-session'
 import { isTauri } from '@/lib/env'
+import { useVault } from '@/lib/vault/vault-provider'
 import { CENTER_STATE } from '@/lib/ui-tokens'
 
 type SettingsTab = 'api' | 'agent' | 'appearance' | 'data' | 'about'
+
+/**
+ * 会话列表的宽度。宿主的侧栏是 112–168，这里放的是会话标题（更长），
+ * 所以另给一档 180–340；宽度只活在这个组件里，不落盘 —— 助手是插件，
+ * 不给它再开一个 localStorage 键。
+ */
+const SIDEBAR_DEFAULT = 232
+const SIDEBAR_MIN = 180
+const SIDEBAR_MAX = 340
 
 /** 跟着宿主的 `.dark` 走，插件不自己决定主题 */
 function useHostDark(): boolean {
@@ -49,15 +61,45 @@ export function AgentPlugin() {
   const loaded = useSettingsStore((s) => s.loaded)
   const loadSettings = useSettingsStore((s) => s.load)
   const initChat = useChatStore((s) => s.init)
+  const conversations = useChatStore((s) => s.conversations)
+  const currentId = useChatStore((s) => s.currentId)
+  const workspace = useSettingsStore((s) => s.settings.agent.workspace)
+  // 工作目录固定为当前笔记库：不做选择、不落用户偏好。
+  const { root: vaultRoot } = useVault()
 
   // 插件的库在网络另一端：Tauri 命令 + 系统 app data 下的 SQLite。浏览器里
   // 没有这些命令，硬渲染只会得到一块空面板（每个 invoke 都 reject）。
   // 先把「有没有后端」问清楚，再决定画什么。
   const [native, setNative] = useState<boolean | null>(null)
 
-  const [collapsed, setCollapsed] = useState(true)
+  // 会话列表默认展开：上游窗口壳的默认值也是展开，收起后只剩一条「新对话」，
+  // 第一次进来会以为这里没有历史会话。
+  const [collapsed, setCollapsed] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('api')
+
+  const rootRef = useRef<HTMLDivElement>(null)
+  const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT)
+  const resizing = useRef(false)
+
+  useEffect(() => {
+    const clamp = (value: number) => Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, value))
+    const onMove = (event: PointerEvent) => {
+      if (!resizing.current) return
+      // clientX 是视口坐标：宿主侧栏 / 菜单栏都在左边，得先减去内容区的左边界
+      const left = rootRef.current?.getBoundingClientRect().left ?? 0
+      setSidebarWidth(clamp(event.clientX - left))
+    }
+    const onUp = () => {
+      resizing.current = false
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+  }, [])
 
   useEffect(() => {
     // 必须等挂载后再问：`isTauri()` 读 window，服务端渲染时它不存在。
@@ -67,8 +109,46 @@ export function AgentPlugin() {
   }, [])
 
   useEffect(() => {
+    // 必须在设置装载之后再写：`load()` 会用 SQLite 里的旧值整体覆盖一次。
+    if (!loaded || !vaultRoot || workspace === vaultRoot) return
+    useSettingsStore.getState().patch((current) => ({
+      ...current,
+      agent: { ...current.agent, workspace: vaultRoot },
+    }))
+  }, [loaded, vaultRoot, workspace])
+
+  useEffect(() => {
+    // 切换笔记库：会话是**按库绑定**的（conversation.workspace 就是建会话时的库根）。
+    // 当前会话属于旧库时，先回到「新会话」；旧会话仍留在它自己的库下，
+    // 列表里由 Sidebar 按库过滤，不会串到另一个世界。
+    if (!vaultRoot || !currentId) return
+    const current = conversations.find((conversation) => conversation.id === currentId)
+    if (!current?.workspace || current.workspace === vaultRoot) return
+    clearPendingAgentSessionContext()
+    void useChatStore.getState().newConversation()
+  }, [vaultRoot, currentId, conversations])
+
+  useEffect(() => {
     if (native !== true) return
-    void loadSettings().then(() => initChat())
+    let cancelled = false
+    void (async () => {
+      await loadSettings()
+      await initChat()
+      if (cancelled) return
+
+      // 「和助手聊聊」留下的一次性请求：开一个新会话，把「聊谁」预填进输入框。
+      // 不自动发送 —— 花 token 的动作由用户按发送。
+      const request = takeAgentContext()
+      if (!request) return
+      const chat = useChatStore.getState()
+      await chat.newConversation()
+      // 标题跟着这条请求走；会话是首次发送时才落库的，所以写在这里有效。
+      useChatStore.setState({ pendingTitle: `关于《${request.title}》` })
+      chat.setDraft(agentContextPrompt(request))
+    })()
+    return () => {
+      cancelled = true
+    }
   }, [native, loadSettings, initChat])
 
   useEffect(() => {
@@ -101,18 +181,29 @@ export function AgentPlugin() {
   if (native === null) return <div className="h-full" />
 
   return (
-    <div className="oc-agent-root flex h-full min-h-0" data-theme={dark ? 'dark' : 'light'}>
+    <div
+      ref={rootRef}
+      className="oc-agent-root flex h-full min-h-0"
+      data-theme={dark ? 'dark' : 'light'}
+      style={{ ['--oc-sidebar-w' as string]: `${sidebarWidth}px` }}
+    >
       <ToastProvider>
         <div className="shell-body">
           {!collapsed && (
             <Sidebar
               onToggle={() => setCollapsed(true)}
               onOpenSettings={() => setSettingsOpen(true)}
-              onStartResize={() => undefined}
-              onResetWidth={() => undefined}
+              onStartResize={() => {
+                resizing.current = true
+              }}
+              onResetWidth={() => setSidebarWidth(SIDEBAR_DEFAULT)}
             />
           )}
-          <ChatView collapsed={collapsed} onToggleSidebar={() => setCollapsed((value) => !value)} />
+          {/* ChatView 是一组 fragment（页头 / 消息区 / 输入区），必须包一层
+              纵向容器；直接放进 `.shell-body`（flex row）会变成三列，输入框跑到右上角。 */}
+          <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+            <ChatView collapsed={collapsed} onToggleSidebar={() => setCollapsed((value) => !value)} />
+          </div>
           <SettingsView open={settingsOpen} tab={settingsTab} onClose={() => setSettingsOpen(false)} />
         </div>
       </ToastProvider>

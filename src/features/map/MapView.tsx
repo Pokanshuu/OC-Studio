@@ -1006,13 +1006,15 @@ export function MapView() {
         <div className="pointer-events-none absolute inset-x-3 top-3 z-20 flex items-start justify-between gap-2">
           {mode === 'draw' && active ? (
             <div className="pointer-events-auto relative min-w-0">
+              {/* 悬停只把纸变实：叠 `--oc-hover` 会把 `bg-paper/85` 整个顶掉，
+                  卡片就只剩 6% 墨，地图直接从字底下透上来（看着像一块半透明绿）。 */}
               <button
                 type="button"
                 onClick={() => setSwitcherOpen((previous) => !previous)}
                 aria-expanded={switcherOpen}
                 aria-haspopup="dialog"
                 aria-label="切换地图"
-                className={`flex h-8 min-w-0 max-w-[min(56vw,340px)] items-center gap-1.5 px-2.5 text-left transition-colors hover:bg-[var(--oc-hover)] ${FLOAT_SKIN}`}
+                className={`flex h-8 min-w-0 max-w-[min(56vw,340px)] items-center gap-1.5 px-2.5 text-left transition-colors hover:bg-paper ${FLOAT_SKIN}`}
               >
                 <span className="min-w-0 truncate text-[13px] text-ink">{active.name}</span>
                 <ChevronDown

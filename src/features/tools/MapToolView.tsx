@@ -110,7 +110,8 @@ export function MapToolView() {
       </div>
 
       <div className="min-h-0 flex-1">
-        <MapGeneratorPanel onUseAsBackground={handleUse} />
+        {/* 生成器没有地图库下拉：目标得写出来，否则用户不知道这一版写到哪张图上 */}
+        <MapGeneratorPanel onUseAsBackground={handleUse} mapName={active?.name} />
       </div>
     </div>
   )

@@ -52,15 +52,22 @@ function bodyText(document: unknown, fallback: string): string {
   return fromDoc !== '' ? fromDoc : plainTextOf(fallback).trim()
 }
 
+/**
+ * 字段值一律过一遍纯文本。
+ *
+ * 老库的 `体制` / `地理` / `文化` / `制度` / `职业` 这些字段存的是**富文本 HTML**
+ * （`<p>…</p>`），海报是成品图，不能把标签当字印上去；自定义字段同理。
+ */
 function pushField(target: PosterField[], label: string, value: string | undefined | null): void {
-  const trimmed = (value ?? '').trim()
+  const trimmed = text(value)
   if (trimmed !== '') target.push({ label, value: trimmed })
 }
 
 function pushCustom(target: PosterField[], custom: Record<string, string> | undefined): void {
   if (!custom) return
   for (const [label, value] of Object.entries(custom)) {
-    if (typeof value === 'string' && value.trim() !== '') target.push({ label, value: value.trim() })
+    const trimmed = text(value)
+    if (trimmed !== '') target.push({ label, value: trimmed })
   }
 }
 
@@ -128,7 +135,7 @@ function characterData(character: Character, countries: Country[]): PosterData {
 
   return {
     title: character.name.trim() || '未命名',
-    subtitle: [character.race, character.occupation].filter((value) => value.trim() !== '').join(' · '),
+    subtitle: [character.race, character.occupation].filter((value) => (value ?? '').trim() !== '').join(' · '),
     kindLabel: POSTER_SUBJECT_LABELS.character,
     templateName: findTemplateByName('角色')?.name ?? '角色',
     cover,
@@ -194,7 +201,7 @@ function countryData(country: Country, characters: Character[], countries: Count
 
   return {
     title: country.name.trim() || '未命名',
-    subtitle: country.system.trim(),
+    subtitle: text(country.system),
     kindLabel: POSTER_SUBJECT_LABELS.country,
     templateName: findTemplateByName('国家')?.name ?? '国家',
     cover: uniqueImages([country.headerUrl, country.flagUrl])[0],
@@ -250,9 +257,12 @@ function worldData(
     summary: text(entry.summary ?? ''),
     body: bodyText(worldBodyOf(entry), ''),
     relations: references,
-    gallery: [],
-    time: '',
-    location: '',
+    // 2026-11-06：笔记也有模板组件的图片 / 时间 / 地点槽位了，海报按同一份数据出
+    gallery: uniqueImages([entry.image, ...(entry.gallery ?? []).map((image) => image.url)]),
+    time: [entry.time, entry.endTime]
+      .filter((value) => (value ?? '').trim() !== '')
+      .join(' ~ '),
+    location: (entry.location ?? '').trim(),
   }
 }
 
@@ -296,14 +306,14 @@ export async function listPosterSubjects(): Promise<Record<PosterSubjectKind, Po
       kind: 'event',
       id: event.id,
       title: event.title.trim() || '未命名',
-      subtitle: [event.time, event.location].filter((value) => (value ?? '').trim() !== '').join(' · '),
+      subtitle: [text(event.time), text(event.location)].filter((value) => (value ?? '').trim() !== '').join(' · '),
       thumb: uniqueImages([event.headerUrl, ...event.images.map((image) => image.url)])[0],
     })),
     country: toSubjects(countries, (country) => ({
       kind: 'country',
       id: country.id,
       title: country.name.trim() || '未命名',
-      subtitle: country.system.trim(),
+      subtitle: text(country.system),
       thumb: uniqueImages([country.flagUrl, country.headerUrl])[0],
     })),
     world: toSubjects(entries, (entry) => ({
@@ -337,7 +347,7 @@ export async function loadPosterSubject(kind: PosterSubjectKind, id: number): Pr
       kind,
       id,
       title: character.name,
-      subtitle: character.race,
+      subtitle: text(character.race),
       thumb: character.avatarUrl,
       updatedAt: character.updatedAt,
     })
@@ -350,7 +360,7 @@ export async function loadPosterSubject(kind: PosterSubjectKind, id: number): Pr
       kind,
       id,
       title: event.title,
-      subtitle: event.time,
+      subtitle: text(event.time),
       thumb: event.headerUrl,
       updatedAt: event.updatedAt,
     })
@@ -363,7 +373,7 @@ export async function loadPosterSubject(kind: PosterSubjectKind, id: number): Pr
       kind,
       id,
       title: country.name,
-      subtitle: country.system,
+      subtitle: text(country.system),
       thumb: country.flagUrl,
       updatedAt: country.updatedAt,
     })

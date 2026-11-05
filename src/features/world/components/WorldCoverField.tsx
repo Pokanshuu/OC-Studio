@@ -1,15 +1,17 @@
 'use client'
 
 /**
- * 分类条目的封面槽位（3:2）—— 世界编辑器与分类编辑器共用。
+ * 分类条目 / 词条的封面槽位（3:2）—— 世界编辑器与分类编辑器共用。
  *
- * 封面会出现在分类卡片上，也会进 `.ocbak` / 文件夹落地（`lib/image-refs.ts`）；
- * 这里只负责选图 / 裁剪 / 落盘，写法与角色封面同一套 `ImageUploader`。
+ * **与角色 / 事件 / 国家封面是同一个组件**（`ProfileBannerEditor` 的头图：
+ * `StretchyHeader` 撑满内容宽度、3:2、下拉放大 / 滚动折叠 / 单击看大图 / 右键菜单）。
+ * 这里只负责把封面写回 `WorldEntry.cover`；不再自己摆一个固定宽度的缩略图槽，
+ * 否则同一份模板里的 `cover` 会在角色页和分类页长成两种东西。
  */
 import { useState } from 'react'
 import { toast } from 'sonner'
 import type { WorldEntry } from '@/types'
-import { ImageUploader } from '@/components/shared/ImageUploader'
+import { ProfileBannerEditor } from '@/components/shared/ProfileBannerEditor'
 import { updateEntry } from '@/features/world/services'
 
 export function WorldCoverField({ entry }: { entry: WorldEntry }) {
@@ -23,16 +25,10 @@ export function WorldCoverField({ entry }: { entry: WorldEntry }) {
   }
 
   return (
-    <div className="flex justify-center">
-      <ImageUploader
-        value={cover}
-        onChange={save}
-        onRemove={() => save('')}
-        aspectRatio="3:2"
-        size="lg"
-        enableCrop
-        placeholderText="上传封面"
-      />
-    </div>
+    <ProfileBannerEditor
+      headerUrl={cover}
+      onHeaderChange={save}
+      onHeaderRemove={() => save('')}
+    />
   )
 }

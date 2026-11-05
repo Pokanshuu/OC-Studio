@@ -23,7 +23,8 @@ interface FolderStackProps {
   covers?: string[]
   /** 卡片比例，默认 7:6（与实体封面卡一致） */
   aspect?: number
-  onOpen: () => void
+  /** 打开（进夹）：把点击事件交回去，宿主拿它算展开动画的原点 */
+  onOpen: (event: React.MouseEvent<HTMLElement>) => void
   onContextMenu?: (event: React.MouseEvent) => void
   onLongPress?: () => void
   /** 右上角动作（移动端用动作表，桌面用右键；一般留空） */
@@ -43,7 +44,7 @@ export function FolderStack({
   const front = covers.filter(Boolean).slice(0, 1)[0]
 
   return (
-    <div className="group relative">
+    <div className="group relative touch-feedback">
       <button
         type="button"
         onClick={onOpen}

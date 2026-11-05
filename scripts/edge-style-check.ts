@@ -10,12 +10,18 @@ function check(name: string, ok: boolean) {
   else { console.error(`  FAIL ${name}`); process.exitCode = 1 }
 }
 
-const base = { color: '苔绿' as string | undefined, arrow: 'both' as const }
+const base: { color?: string; arrow?: 'none' | 'forward' | 'reverse' | 'both' } = {
+  color: '苔绿',
+  arrow: 'both',
+}
 const setColor = applyEdgeStyle(base, { color: '玫瑰' })
 check('改颜色生效', setColor.edge.color === '玫瑰' && setColor.changed)
 
 const clearArrow = applyEdgeStyle({ ...base }, { arrow: 'none' })
-check('arrow=none 被清掉', clearArrow.edge.arrow === undefined && clearArrow.changed)
+check('arrow=none 保留为显式无箭头', clearArrow.edge.arrow === 'none' && clearArrow.changed)
+
+const resetArrow = applyEdgeStyle({ ...base }, { arrow: null })
+check('arrow=null 真正清掉（回到默认）', resetArrow.edge.arrow === undefined)
 
 const clearColor = applyEdgeStyle({ ...base }, { color: null })
 check('color=null 被清掉', clearColor.edge.color === undefined)

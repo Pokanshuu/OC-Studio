@@ -11,6 +11,7 @@ import {
   ArrowDown,
   ArrowUp,
   Brain,
+  BookOpen,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -30,6 +31,7 @@ import {
   Layers,
   List,
   Loader2,
+  Menu as MenuIcon,
   MoreHorizontal,
   PanelLeft,
   Paperclip,
@@ -67,6 +69,8 @@ export type IconName =
   | 'chevron-left'
   | 'chevron-right'
   | 'sidebar'
+  | 'menu'
+  | 'book'
   | 'pin'
   | 'image'
   | 'paperclip'
@@ -109,6 +113,8 @@ const GLYPHS: Record<IconName, LucideIcon> = {
   'chevron-left': ChevronLeft,
   'chevron-right': ChevronRight,
   sidebar: PanelLeft,
+  menu: MenuIcon,
+  book: BookOpen,
   pin: Pin,
   image: ImageIcon,
   paperclip: Paperclip,

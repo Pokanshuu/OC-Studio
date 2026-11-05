@@ -92,6 +92,18 @@ export async function updateEvent(id: number, data: Partial<EventFormData>): Pro
     )
   }
 
+  // 图集是对象数组：日志走 JSON，`String()` 会变成一串 [object Object]
+  if (data.images !== undefined) {
+    ;(updates as Record<string, unknown>).images = data.images
+    await logOperation(
+      TABLE,
+      id,
+      'images',
+      JSON.stringify(existing.images ?? []),
+      JSON.stringify(data.images),
+    )
+  }
+
   if (data.characters !== undefined) {
     ;(updates as Record<string, unknown>).characters = data.characters
     await logOperation(

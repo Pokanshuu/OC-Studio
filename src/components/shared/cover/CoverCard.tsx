@@ -14,7 +14,9 @@
  */
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { Folder } from 'lucide-react'
 import { DragHandle, useSortableItem } from '@/components/shared/list-dnd'
+import { useInCoverFlow } from '@/components/shared/CoverFlow'
 import { useLongPress } from '@/lib/useLongPress'
 import { useCoverTuning } from '@/lib/cover'
 import {
@@ -67,9 +69,10 @@ interface CoverCardProps {
 }
 
 /**
- * 文字 / 头像随卡片放大（2026-11-05）：
- * 卡片宽度超过 `TEXT_SCALE_START` 后等比放大，最多 `TEXT_SCALE_MAX` 倍。
- * 网格小卡保持面板里的原始尺寸（不再缩小，保证可读），画廊大卡的文字与头像跟着长。
+ * 文字 / 头像随卡片放大（2026-11-05，**仅画廊**）：
+ * Cover Flow 里的卡片由栏高决定大小、可以拖得很大，宽度超过 `TEXT_SCALE_START`
+ * 后等比放大，最多 `TEXT_SCALE_MAX` 倍。
+ * 网格视图的卡片尺寸是布局给的，保持面板原始尺寸 —— 否则默认窗口下字会大得离谱。
  */
 const TEXT_SCALE_START = 220
 const TEXT_SCALE_MAX = 1.8
@@ -109,7 +112,7 @@ export function CoverCard({
   aspect,
   photoHeight,
 }: CoverCardProps) {
-  const { setNodeRef, style, attributes, listeners, longPress: longPressSort, cardAttributes, cardListeners } =
+  const { setNodeRef, style, attributes, listeners, longPress: longPressSort, cardAttributes, cardListeners, mergeTarget, mergeHover, mergeEnabled } =
     useSortableItem(id, !sortable)
   // 长按拖动和「长按动作表」抢同一个手势：排序模式下让拖动赢
   const longPress = useLongPress({
@@ -119,6 +122,8 @@ export function CoverCard({
   const tuning = useCoverTuning()
   // 黑白模式下块色跟主题走（亮 = 纸色、暗 = 墨色），文字也得跟着翻
   const mono = useSettings().settings.coverTintMode === 'mono'
+  // 只有画廊里的卡片跟着放大；网格的卡片尺寸由布局决定，保持面板原始尺寸
+  const inCoverFlow = useInCoverFlow()
 
   /*
    * 规范：**模糊从标题开始，混色从小字开始**。
@@ -139,7 +144,7 @@ export function CoverCard({
     const measure = (): void => {
       const width = frame.clientWidth
       if (width > 0) {
-        const nextScale = Math.min(TEXT_SCALE_MAX, Math.max(1, width / TEXT_SCALE_START))
+        const nextScale = inCoverFlow ? Math.min(TEXT_SCALE_MAX, Math.max(1, width / TEXT_SCALE_START)) : 1
         setTextScale((prev) => (Math.abs(prev - nextScale) < 0.01 ? prev : nextScale))
       }
       const rect = frame.getBoundingClientRect()
@@ -162,7 +167,7 @@ export function CoverCard({
     const observer = new ResizeObserver(measure)
     observer.observe(frame)
     return () => observer.disconnect()
-  }, [title, meta, intro, tuning, aspect, textScale])
+  }, [title, meta, intro, tuning, aspect, textScale, inCoverFlow])
 
   return (
     <div
@@ -175,7 +180,11 @@ export function CoverCard({
     >
       {sortable ? (
         <div className={DRAG_SLOT_CARD}>
-          <DragHandle tone="overlay" handleProps={{ attributes, listeners }} />
+          <DragHandle
+            tone="overlay"
+            handleProps={{ attributes, listeners }}
+            hint={mergeEnabled ? '拖动排序 · 压住另一张卡可新建文件夹（按住 Alt 立即）' : undefined}
+          />
         </div>
       ) : null}
 
@@ -255,6 +264,27 @@ export function CoverCard({
               </p>
             ) : null}
           </div>
+
+          {/*
+            拖拽成夹的投放态：
+            - `mergeHover`：刚压上来，先给一个文件夹小标 —— 一压上就有反应，不用猜要等多久
+            - `mergeTarget`：停够了（或按着 Alt），整块变成「文件夹槽位」，松手即成夹
+            盖住封面而不是只描一圈，是为了让「松手就不再是这张卡、而是一个夹」一眼可见。
+          */}
+          {mergeHover ? (
+            <div className="pointer-events-none absolute left-2 top-2 z-20 flex items-center gap-1 rounded-item bg-paper-card/92 px-1.5 py-0.5 text-[11px] text-ink">
+              <Folder size={12} strokeWidth={2} />
+              停住新建文件夹
+            </div>
+          ) : null}
+          {mergeTarget ? (
+            <div className="pointer-events-none absolute inset-0 z-20 grid place-items-center border border-dashed border-ink bg-paper-card/92">
+              <span className="flex items-center gap-1.5 text-[12px] text-ink">
+                <Folder size={14} strokeWidth={2} />
+                松手新建文件夹
+              </span>
+            </div>
+          ) : null}
         </div>
       </button>
 

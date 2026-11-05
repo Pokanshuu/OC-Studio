@@ -36,15 +36,15 @@ export const FIELD_LABEL = 'w-16 shrink-0 text-sm text-ink-muted'
 /** 竖排表单里的标签（弹窗/设置） */
 export const FIELD_LABEL_BLOCK = 'mb-1.5 block text-[13px] text-ink-muted'
 
-/* ── 设置弹窗的行网格 ───────────────────────────────────
-   设置里的每一行都是**同一个两列网格**：左边标签一列（固定 108px，所有行对齐成
-   一条竖线），右边控件一列。不做「标签在上、控件在下」的竖排 —— 那会让每组的
-   控件起点都不一致，眼睛要重新找位置。
-   - 单行控件（开关 / 单选 / 输入）用 `SETTINGS_ROW`
-   - 高的控件（色板网格 / 图片）用 `SETTINGS_ROW_TOP`（标签跟第一行基线对齐）
+/* ── 设置弹窗的行 ───────────────────────────────────────
+   只有两种，按控件的形状取，绝不混用：
+   - **开关 / 单行输入** → `SETTINGS_TOGGLE_ROW`：标签靠左、控件靠右，一行放下。
+   - **单选组 / 色板 / 图片** → `SETTINGS_FIELD`：**标签在上、控件在下**。这些控件
+     要的是横向宽度：挤进「108px 标签 + 其余」那一列，三个选项会被压成两行
+     （「白天 / 模式」），等分网格也排不开。
    分组之间靠 `SETTINGS_GROUP` 的 1px 线 + 20px 间距，而不是只靠空隙。 */
-export const SETTINGS_ROW = 'grid grid-cols-[108px_minmax(0,1fr)] items-center gap-x-4'
-export const SETTINGS_ROW_TOP = 'grid grid-cols-[108px_minmax(0,1fr)] items-start gap-x-4'
+export const SETTINGS_TOGGLE_ROW = 'flex items-center justify-between gap-4'
+export const SETTINGS_FIELD = 'flex min-w-0 flex-col gap-2'
 export const SETTINGS_LABEL = 'text-[13px] leading-5 text-ink'
 /** 分组：除第一组外都带上边线（第一组用 `SETTINGS_GROUP_FIRST`）—— 一行一个类，别就地写 */
 export const SETTINGS_GROUP = 'mt-5 flex flex-col gap-3 border-t border-line pt-5'
@@ -209,6 +209,14 @@ export const MENU_GROUP_LABEL = 'px-3 py-1 text-[11px] tracking-[0.08em] text-in
 export const CHIP = `inline-flex items-center gap-1 bg-paper-alt px-2 py-[3px] text-[12px] text-ink-muted ${ROUND_ITEM}`
 /** chip 选中态：反相为实心墨色（只用于「选中」语义，不当按钮强调色用） */
 export const CHIP_ON = `inline-flex items-center gap-1 bg-ink px-2 py-[3px] text-[12px] text-paper ${ROUND_ITEM}`
+/**
+ * chip 的**编辑态**（行内改名）：退回纸面。
+ *
+ * 「选中 chip + 行内输入框」是个会吃掉字的组合：`CHIP_ON` 是反相（`bg-ink` 浅底 +
+ * `text-paper` 深字），而 `INLINE_INPUT` 写的是 `text-ink`（暗色下是浅字）——
+ * 浅字压浅底，暗色主题里就成了「看不见字」。改名时不要再反相。
+ */
+export const CHIP_EDIT = `inline-flex items-center gap-1 bg-paper-alt px-2 py-[3px] text-[12px] text-ink ${ROUND_ITEM}`
 
 /* ── 空态 / 加载 ───────────────────────────────────────
    空态 = **一个图标 + 一句话 + 一个主按钮**（`BTN_PRIMARY`），整块在内容区里**横向 + 纵向居中**。

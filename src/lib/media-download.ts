@@ -17,7 +17,7 @@
  * 只有「用户在保存对话框里按了取消」才返回 null —— 那不是失败，调用方不该提示。
  */
 import { invoke } from '@tauri-apps/api/core'
-import { isCapacitor, isTauri } from '@/lib/env'
+import { isNativePlatform, isTauri } from '@/lib/env'
 import { getVaultImageContext } from '@/lib/image-service'
 import { vaultFs, isVaultSupported } from '@/lib/vault/vault-fs'
 import { getVaultSession } from '@/lib/vault/vault-session'
@@ -90,7 +90,7 @@ async function readBytes(path: string): Promise<Uint8Array> {
   }
 
   // Capacitor：上传落的是 `file://` 绝对路径，走 WebView 的本地文件代理才读得到
-  if (isCapacitor() && path.startsWith('file://')) {
+  if (isNativePlatform() && path.startsWith('file://')) {
     const { Capacitor } = await import('@capacitor/core')
     return fetchBytes(Capacitor.convertFileSrc(path))
   }
@@ -187,7 +187,7 @@ function saveInBrowser(bytes: Uint8Array, name: string): string {
 export async function saveBytesFile(bytes: Uint8Array, name: string): Promise<string | null> {
   if (bytes.length === 0) throw new Error('没有可保存的内容')
   if (isTauri()) return saveWithDialog(bytes, name)
-  if (isCapacitor()) return saveToDocuments(bytes, name)
+  if (isNativePlatform()) return saveToDocuments(bytes, name)
   return saveInBrowser(bytes, name)
 }
 

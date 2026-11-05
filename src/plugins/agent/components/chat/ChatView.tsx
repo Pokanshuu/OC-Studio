@@ -85,11 +85,15 @@ export function ChatView({
   return (
     <>
       <header className="page-head">
-        <IconButton
-          icon="sidebar"
-          label={collapsed ? t('nav.expand') : t('nav.collapse')}
-          onClick={onToggleSidebar}
-        />
+        {/* 收起时这里才出现「展开」；展开着的时候开关在会话列表的页头里，
+            和宿主列表页（EntityEditorShell / 世界观树）同一个手势。 */}
+        {collapsed && (
+          <IconButton
+            icon="menu"
+            label={t('nav.expand')}
+            onClick={onToggleSidebar}
+          />
+        )}
         <button
           type="button"
           className="page-title"
@@ -153,6 +157,11 @@ export function ChatView({
        * 回到底部按钮钉在「输入区栈」的顶边，而不是面板底部一个写死的 px：
        * 任务清单出现/消失、附件变多时都不用改数字，也不会压住正文中间。
        */}
+      {/*
+       * 输入区是浮在消息上的：消息可以滚到它背后，被浮层模糊、再被底部渐变吃掉。
+       * 之前 composer 是普通流里的兄弟节点，正文永远到不了它下面，模糊等于白做。
+       */}
+      <div className="chat-fade" aria-hidden="true" />
       <div className="composer-stack">
         {!stick && path.length > 0 && (
           <button

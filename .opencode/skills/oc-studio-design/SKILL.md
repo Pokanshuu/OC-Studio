@@ -107,6 +107,7 @@ description: >
   | 字段标签（世界名称 / 版本 / 服务端地址） | `text-sm text-ink` |
   | 说明 / 状态（JSON 不含图片、开发中） | `text-xs text-ink-faint` |
 - **动作按钮文字居中**（导入 / 导出 / 发布 / 检查更新 / 访问 GitHub）：`justify-center`。**二级页面入口不是动作按钮，是列表行**：文字靠左、`›` 靠右，两端对齐（`justify-between`）
+- **行只有两种，按控件形状取**：开关 / 单行输入 = `SETTINGS_TOGGLE_ROW`（标签靠左、控件靠右）；**单选组 / 色板 / 图片 = `SETTINGS_FIELD`（标签在上、控件在下）**。挤进「108px 标签 + 其余」那一列，三个选项会把「白天模式」折成两行，色板也排不开
 - 分组之间用 `border-t border-line` 分隔，不写副标题、不加小标题说明（见 §9 文案预算）
 
 ### 输入
@@ -152,7 +153,7 @@ description: >
 - 复选框 `rounded-item`（3px）；单选框、开关滑块保持**圆形/方块**语义（勾选与开关滑块不使用 `rounded-*` 之外的造型）
 - **复选框只有一种视觉**，实现在 `components/ui/checkbox.tsx` 的 `CheckboxBox`：`h-4 w-4` 方块，未选 `border-line bg-paper-card`，选中 `border-ink-muted bg-ink-muted` 实心 + 纸色勾（lucide `Check size={11} strokeWidth={2.5}`）。行内（图层行 / 文件夹成员行）直接用 `CheckboxBox`，独立的一枚用 `Checkbox`（内部就是 `CheckboxBox`）—— **不要再用「空框 + 浅色勾」那种半亮不亮的画法**
 - **正文任务列表的复选框**（编辑器内）同一口径：16px 方块 `rounded-item`，未选 `border-line bg-paper-card`，选中 `bg-ink-muted` 实心 + 纸色勾。原生 `<input type="checkbox">` 必须 `appearance:none; opacity:0` 铺满命中区 —— 否则会露出 WebView 的蓝色默认样式，那是界面上唯一一处不在令牌里的颜色
-- 单选框 / 主题选择：`h-4 w-4 rounded-full border`，选中为内部 8px **圆点**（`bg-ink-muted rounded-full`）
+- 单选框 / 主题选择：14px 圆环（`h-3.5 w-3.5 rounded-full border`，选中描边 `line-hover`）+ 内部 6px **墨点**（`bg-ink-muted`，与复选框、开关同一枚选中色）；选项组一律等分（三项窄屏退两列），文字**不换行**
 - 开关：**胶囊**轨道 `h-5 w-9 rounded-full border`（on: `border-line-hover bg-ink-muted`）+ **圆形**滑块 `h-3.5 w-3.5 rounded-full`（`SWITCH_CLASSES` / `SWITCH_DOT`）
 - 滑杆（时间线缩放、裁剪缩放）：轨道与拇指都用 `rounded-full`
 - 禁用：`opacity-50`；包裹文字 `text-sm text-ink gap-2`
@@ -170,6 +171,7 @@ description: >
 - **无 `ring` 光晕**；菜单项 hover 统一 `bg-[var(--oc-hover)]`（亮暗自适应的一档极低透明度墨色）
 - 危险操作：`text-error`
 - 遮罩：`bg-[var(--oc-scrim)]`（值见 `globals.css`）
+- **`FLOAT_SKIN` 就是纸面本身**（85% 纸 + 1px 线 + 唯一阴影）：**不要**再给它叠 `hover:bg-[var(--oc-hover)]` —— `hover:` 变体会把 `background-color` 整个顶掉，卡片只剩 6% 墨，底下的地图 / 图片直接从字底下透上来（地图左上那张名片曾经如此，看着像一块半透明绿）。浮层本体的鼠标反馈只改纸：`hover:bg-paper`（纸变实）
 
 ### 浮层内的按钮（历史方案已废弃）
 早期版本为「毛玻璃上按钮用 `bg-white/60` 隆起、`bg-black/5` 凹陷」的分层体系，**现已全部废弃**。

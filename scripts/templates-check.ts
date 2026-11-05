@@ -7,15 +7,24 @@
 import { BUILTIN_TEMPLATES } from '../src/lib/templates/defaults'
 import { COMPONENT_BY_ID, COMPONENT_IDS } from '../src/lib/templates/registry'
 import { parseTemplate, serializeTemplate, unknownComponentIds } from '../src/lib/templates/serialize'
-import { WIRED_BY_TEMPLATE, isComponentWired } from '../src/lib/templates/support'
+import { WIRED_BY_TEMPLATE, availableComponents, isComponentAvailable, isComponentWired } from '../src/lib/templates/support'
 import {
   TEMPLATE_PARAM_SCHEMA,
   TEMPLATE_PARAM_SUPPORT,
+  TEMPLATE_PARAM_ANY_NOTE,
   validateTemplateParams,
 } from '../src/lib/templates/params'
+import { COUNTRY_KEYS, EVENT_KEYS, WORLD_KEYS, CHARACTER_KEYS } from '../src/lib/vault/fields'
 import { isNoteTemplate, NOTE_COMPONENT_IDS } from '../src/lib/templates/note'
-import { templateFieldKeys } from '../src/lib/templates/fields'
-import { BUILTIN_INFO_GROUPS, isBuiltinInfoGroup, normalizeInfoGroups, selectableInfoGroups } from '../src/lib/templates/info-groups'
+import { templateFieldKeys, templateFieldLabels, templateFieldTypes } from '../src/lib/templates/fields'
+import {
+  BUILTIN_INFO_GROUPS,
+  infoFieldLabelOf,
+  infoFieldTypeOf,
+  isBuiltinInfoGroup,
+  normalizeInfoGroups,
+  selectableInfoGroups,
+} from '../src/lib/templates/info-groups'
 import { BUILTIN_FIELDS } from '../src/lib/fields/defaults'
 import { BUILTIN_CATEGORIES } from '../src/lib/categories/builtins'
 import type { TemplateDoc } from '../src/lib/templates/types'
@@ -115,33 +124,55 @@ for (const [templateId, ids] of Object.entries(WIRED_BY_TEMPLATE)) {
   }
 }
 
-// 9. 笔记类模板：分类条目只该看到能真渲染的模板
-for (const id of ['entry', 'pet', 'weapon']) {
-  const doc = BUILTIN_TEMPLATES.find((item) => item.id === id)
-  check(doc !== undefined && isNoteTemplate(doc), `内置笔记模板 ${id} 不是可渲染的笔记模板`)
+// 9. 笔记渲染路径：十一个组件都实装后，**任何含正文的模板**都能绑到分类
+for (const doc of BUILTIN_TEMPLATES) {
+  check(isNoteTemplate(doc), `内置模板 ${doc.id} 不是可渲染的笔记模板`)
 }
-for (const id of ['character', 'event', 'country']) {
-  const doc = BUILTIN_TEMPLATES.find((item) => item.id === id)
-  check(doc !== undefined && !isNoteTemplate(doc), `实体模板 ${id} 不应出现在分类模板选择里`)
+for (const id of NOTE_COMPONENT_IDS) {
+  check(COMPONENT_IDS.includes(id), `笔记组件登记里有未登记组件：${id}`)
 }
+// 笔记组件闭集必须与组件登记表一致：少一个，那个组件在自建模板上就会显示「开发中」
+check(
+  NOTE_COMPONENT_IDS.length === COMPONENT_IDS.length,
+  `笔记组件闭集少登记了组件：${COMPONENT_IDS.filter((id) => !NOTE_COMPONENT_IDS.includes(id)).join(', ')}`,
+)
 
 // 9b. 自建模板走笔记渲染路径：笔记组件必须算「已接线」，否则新建的模板
 //     每个组件都显示「开发中」，连「基本信息」都选不了（用户实测踩到过）
 for (const id of NOTE_COMPONENT_IDS) {
-  check(COMPONENT_IDS.includes(id), `笔记组件登记里有未登记组件：${id}`)
   check(isComponentWired('custom-demo', id), `自建模板的 ${id} 不算已接线`)
 }
-for (const id of COMPONENT_IDS) {
-  if (NOTE_COMPONENT_IDS.includes(id)) continue
-  check(!isComponentWired('custom-demo', id), `自建模板的 ${id} 不该算已接线`)
-}
-for (const id of ['pet', 'weapon']) {
-  const wired = WIRED_BY_TEMPLATE[id] ?? []
+for (const id of ['entry', 'pet', 'weapon']) {
   check(
-    NOTE_COMPONENT_IDS.every((component) => wired.includes(component)),
+    NOTE_COMPONENT_IDS.every((component) => isComponentWired(id, component)),
     `内置笔记模板 ${id} 的接线表与笔记组件不一致`,
   )
 }
+
+// 9c. 「添加组件」只列宿主真存得住的组件：实体模板不能出现它没有的列
+for (const [templateId, ids] of Object.entries(WIRED_BY_TEMPLATE)) {
+  const template = BUILTIN_TEMPLATES.find((doc) => doc.id === templateId)
+  for (const id of ids) {
+    check(COMPONENT_IDS.includes(id), `宿主表 ${templateId} 引用了未登记组件：${id}`)
+    check(
+      Boolean(template?.components.some((component) => component.id === id)),
+      `宿主表 ${templateId} 的 ${id} 不在默认模板里（默认模板不该带宿主存不住的组件）`,
+    )
+  }
+}
+for (const doc of BUILTIN_TEMPLATES) {
+  if (WIRED_BY_TEMPLATE[doc.id] !== undefined) continue
+  for (const component of doc.components) {
+    check(
+      isComponentAvailable(doc.id, component.id),
+      `笔记模板 ${doc.id} 的默认组件 ${component.id} 不在可用列表里`,
+    )
+  }
+}
+check(
+  availableComponents('custom-demo').length === COMPONENT_IDS.length,
+  '自建模板的可用组件必须是全部组件',
+)
 
 // 10. 模板字段（宠物 / 武器）必须能往返：YAML 数组 ⇄ string[]
 for (const id of ['pet', 'weapon']) {
@@ -198,7 +229,7 @@ for (const [componentId, templates] of Object.entries(TEMPLATE_PARAM_SUPPORT)) {
       `参数消费登记 ${templateId} 没有组件 ${componentId}`,
     )
     check(
-      WIRED_BY_TEMPLATE[templateId]?.includes(componentId as (typeof COMPONENT_IDS)[number]) ?? false,
+      isComponentWired(templateId, componentId as (typeof COMPONENT_IDS)[number]),
       `参数消费登记 ${templateId}.${componentId} 没有出现在接线表里`,
     )
   }
@@ -280,6 +311,110 @@ check(
     reordered.fields.join(',') === characterDefaults.fields.join(','),
   '列型宿主的字段没有按 FieldConfig 投影（盘上的值越权了）',
 )
+/* ── 字段类型：只有笔记型组件有，且必须是五种之一 ───────────────────── */
+
+const petBuiltin = BUILTIN_INFO_GROUPS.find((group) => group.id === 'group-pet')
+check(petBuiltin?.types?.['出生日期'] === 'date', '内置宠物组件的出生日期不是日期类型')
+check(petBuiltin?.types?.['外观特征'] === 'longtext', '内置宠物组件的外观特征不是多行类型')
+check(infoFieldTypeOf(petBuiltin, '品种') === 'text', '没设类型的字段没有回落到单行')
+check(infoFieldTypeOf(undefined, 'x') === 'text', '组件不存在时类型访问炸了')
+
+const typedSaved = normalizeInfoGroups([
+  {
+    id: 'group-pet',
+    name: '宠物',
+    fields: ['年龄', '性格'],
+    types: { 年龄: 'number', 性格: 'longtext', 不存在的键: 'date', 性格2: '看不懂' },
+  },
+]).find((group) => group.id === 'group-pet')
+check(typedSaved?.types?.['年龄'] === 'number', '笔记型组件的字段类型没存住')
+check(typedSaved?.types?.['性格'] === 'longtext', '笔记型组件的第二个字段类型丢了')
+check(typedSaved !== undefined && !('不存在的键' in (typedSaved.types ?? {})), '已删除字段的类型仍留在盘上')
+check(typedSaved !== undefined && !('性格2' in (typedSaved.types ?? {})), '不认识的类型被读回来了')
+
+// 列型宿主：控件归字段表，组件里写的类型不作数
+const columnTyped = normalizeInfoGroups([
+  { id: 'group-character', name: '角色', fields: ['race'], types: { race: 'number' } },
+]).find((group) => group.id === 'group-character')
+check(columnTyped?.types === undefined, '列型宿主从盘上读到了字段类型（控件会有两个源）')
+
+// 模板侧：读得到笔记型组件的类型，列型宿主一律 undefined
+const petDoc: TemplateDoc = {
+  id: 'pet',
+  name: '宠物',
+  aliases: [],
+  components: [{ id: 'info', enabled: true, params: { group: 'group-pet' } }],
+}
+check(templateFieldTypes(petDoc, BUILTIN_INFO_GROUPS)?.['出生日期'] === 'date', '模板读不到选中组件的字段类型')
+const characterDoc: TemplateDoc = {
+  id: 'character',
+  name: '角色',
+  aliases: [],
+  components: [{ id: 'info', enabled: true, params: { group: 'group-character' } }],
+}
+check(templateFieldTypes(characterDoc, BUILTIN_INFO_GROUPS) === undefined, '列型模板读到了组件里的字段类型')
+check(templateFieldTypes({ ...petDoc, components: [{ id: 'info', enabled: true }] }, BUILTIN_INFO_GROUPS) === undefined, '没选组件的模板读到了类型')
+
+/* ── 显示名：键是落盘用的，名字是给人看的 ─────────────────────────── */
+
+const labeledSaved = normalizeInfoGroups([
+  {
+    id: 'group-pet',
+    name: '宠物',
+    fields: ['物种', '年龄'],
+    labels: { 物种: '生物类别', 年龄: '   ', 不存在的键: '幽灵' },
+  },
+]).find((group) => group.id === 'group-pet')
+check(labeledSaved?.labels?.['物种'] === '生物类别', '字段显示名没存住')
+check(labeledSaved !== undefined && !('年龄' in (labeledSaved.labels ?? {})), '空白显示名被当成有效值')
+check(labeledSaved !== undefined && !('不存在的键' in (labeledSaved.labels ?? {})), '已删除字段的显示名仍留在盘上')
+check(infoFieldLabelOf(labeledSaved, '物种') === '生物类别', '读取显示名时没用盘上的值')
+check(infoFieldLabelOf(labeledSaved, '年龄') === '年龄', '没设显示名的字段没有回落到键名')
+
+const sameName = normalizeInfoGroups([
+  { id: 'group-pet', name: '宠物', fields: ['物种'], labels: { 物种: '物种' } },
+]).find((group) => group.id === 'group-pet')
+check(sameName?.labels === undefined, '显示名与键名相同时也被存下来了')
+
+const columnLabeled = normalizeInfoGroups([
+  { id: 'group-character', name: '角色', fields: ['race'], labels: { race: '种族' } },
+]).find((group) => group.id === 'group-character')
+check(columnLabeled?.labels === undefined, '列型宿主从盘上读到了显示名（显示名有两个源）')
+
+const labeledDoc: TemplateDoc = {
+  id: 'pet',
+  name: '宠物',
+  aliases: [],
+  components: [{ id: 'info', enabled: true, params: { group: 'group-pet' } }],
+}
+check(
+  templateFieldLabels(labeledDoc, normalizeInfoGroups([
+    { id: 'group-pet', name: '宠物', fields: ['物种'], labels: { 物种: '生物类别' } },
+  ]))?.['物种'] === '生物类别',
+  '模板读不到选中组件的字段显示名',
+)
+check(templateFieldLabels(characterDoc, BUILTIN_INFO_GROUPS) === undefined, '列型模板读到了组件里的显示名')
+
+/* ── 组件的落盘槽位必须都在 frontmatter 词汇表里 ─────────────────────── */
+
+const WORLD_SLOT_KEYS = ['avatar', 'image', 'gallery', 'time', 'endTime', 'location'] as const
+for (const key of WORLD_SLOT_KEYS) {
+  check(
+    key in WORLD_KEYS,
+    `笔记宿主的组件槽位 ${key} 不在 WORLD_KEYS 里（写不回去 / 读不回来）`,
+  )
+}
+check('gallery' in COUNTRY_KEYS, '国家的画廊槽位不在 COUNTRY_KEYS 里')
+check('images' in EVENT_KEYS, '事件的画廊槽位不在 EVENT_KEYS 里')
+for (const key of ['avatar', 'gallery', 'bio'] as const) {
+  check(key in CHARACTER_KEYS, `角色的组件槽位 ${key} 不在 CHARACTER_KEYS 里`)
+}
+// 单图 / 画廊 / 时间 / 地点 / 简介 / 关系的呈现参数都必须登记，否则模板里配了没人读
+for (const id of ['image', 'gallery', 'time', 'place', 'summary', 'relations'] as const) {
+  check((TEMPLATE_PARAM_SCHEMA[id]?.length ?? 0) > 0, `组件 ${id} 没有登记参数契约`)
+  check(TEMPLATE_PARAM_ANY_NOTE[id] === true, `组件 ${id} 没有对笔记模板开放参数`)
+}
+
 if (failures === 0) {
   console.log(`  ✓ 通过（${COMPONENT_IDS.length} 个组件 / ${BUILTIN_TEMPLATES.length} 个内置模板）`)
   process.exit(0)

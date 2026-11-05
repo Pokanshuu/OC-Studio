@@ -6,10 +6,8 @@ import { tauriReadClipboard } from '@/lib/tauri-clipboard'
 import { useSettingsTrigger } from '@/components/layout/SettingsTriggerContext'
 import { useSettings } from '@/lib/settings'
 import { useImportExport } from '@/components/shared/ImportExportUI'
-import { downloadMarkdown, downloadTxt, downloadFullBackup } from '@/lib/export'
-import { SiteExportDialog } from '@/components/shared/SiteExportDialog'
+import { ExportCenter } from '@/components/shared/export/ExportCenter'
 import { JournalTimelineDialog } from '@/features/vault/components/JournalTimelineDialog'
-import { toast } from 'sonner'
 import { useActiveEditor } from '@/lib/editor-context'
 import { toggleCoverTuningPanel } from '@/lib/cover'
 import { VaultMenuSection } from '@/features/vault'
@@ -35,7 +33,7 @@ export function MenuBarMenus() {
   const { openSettings } = useSettingsTrigger()
   const { handleImportClick, dialog: importExportDialog } = useImportExport()
   const { activeEditor } = useActiveEditor()
-  const [siteExportOpen, setSiteExportOpen] = useState(false)
+  const [exportCenterOpen, setExportCenterOpen] = useState(false)
   const [journalOpen, setJournalOpen] = useState(false)
 
   const handleUndo = useCallback(() => {
@@ -125,53 +123,9 @@ export function MenuBarMenus() {
                 导入...
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>导出为</DropdownMenuSubTrigger>
-                <DropdownMenuSubContent>
-                  <DropdownMenuItem onClick={async () => {
-                    try {
-                      const name = await downloadFullBackup()
-                      toast.success(`完整备份导出成功：${name}`)
-                    } catch {
-                      toast.error('完整备份导出失败')
-                    }
-                  }}>
-                    完整备份（.ocbak）
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={async () => {
-                    try {
-                      await downloadMarkdown()
-                      toast.success('Markdown 导出成功')
-                    } catch {
-                      toast.error('导出失败')
-                    }
-                  }}>
-                    Markdown
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={async () => {
-                    try {
-                      await downloadTxt()
-                      toast.success('TXT 导出成功')
-                    } catch {
-                      toast.error('导出失败')
-                    }
-                  }}>
-                    TXT
-                  </DropdownMenuItem>
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-              <DropdownMenuSeparator />
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>发布为</DropdownMenuSubTrigger>
-                <DropdownMenuSubContent>
-                  <DropdownMenuItem disabled onClick={() => {}}>
-                    图片
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSiteExportOpen(true)}>
-                    静态网站...
-                  </DropdownMenuItem>
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
+              <DropdownMenuItem onClick={() => setExportCenterOpen(true)}>
+                导出中心...
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -281,7 +235,7 @@ export function MenuBarMenus() {
           </DropdownMenu>
         </div>
       {importExportDialog}
-      {siteExportOpen ? <SiteExportDialog onClose={() => setSiteExportOpen(false)} /> : null}
+      {exportCenterOpen ? <ExportCenter onClose={() => setExportCenterOpen(false)} /> : null}
       <JournalTimelineDialog open={journalOpen} onOpenChange={setJournalOpen} />
     </>
   )

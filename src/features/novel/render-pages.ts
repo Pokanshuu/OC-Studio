@@ -18,6 +18,8 @@ import {
   paginateNovel,
 } from './pagination'
 import {
+  NOVEL_PAGE_INK,
+  NOVEL_PAGE_NUMBER_INK,
   NOVEL_READING_PANEL,
   resolveNovelBackground,
   type NovelBackgroundKind,
@@ -40,8 +42,8 @@ export interface NovelRenderOptions {
 }
 
 const FONT_FAMILY = "'Noto Serif SC', 'Songti SC', 'SimSun', serif"
-const INK = 'rgb(58, 48, 36)'
-const PAGE_NUMBER_INK = 'rgba(80, 64, 45, 0.68)'
+const INK = NOVEL_PAGE_INK
+const PAGE_NUMBER_INK = NOVEL_PAGE_NUMBER_INK
 
 /** 分页结果（不画），给脚本与「大概几页」这类只读场景用 */
 export function planNovelPages(

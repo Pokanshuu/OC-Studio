@@ -13,8 +13,8 @@
  * 完整的全宽编排层（左列表 / 中编排 / 右实时预览 + 参数抽屉）见 `docs/模板.md §8`，
  * 等参数真正被消费后再做；现在这个列表是「先把契约跑通」的最小界面。
  */
-import { useMemo, useState } from 'react'
-import { ArrowLeft, Copy, Plus, RotateCcw, Trash2, X } from 'lucide-react'
+import { useMemo, useState, type ReactNode } from 'react'
+import { ArrowLeft, Copy, Plus, RotateCcw, SlidersHorizontal, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   AlertDialog,
@@ -28,14 +28,17 @@ import {
 } from '@/components/ui/alert-dialog'
 import { MediaContextMenu } from '@/components/shared/MediaContextMenu'
 import { TemplateComposer } from '@/components/shared/TemplateComposer'
+import { TemplateComponentParams } from '@/components/shared/TemplateParams'
 import { DragHandle, SortableList, moveId, useSortableItem } from '@/components/shared/list-dnd'
 import { COMPONENT_BY_ID, COMPONENT_IDS } from '@/lib/templates/registry'
 import { BUILTIN_TEMPLATES } from '@/lib/templates/defaults'
-import { isComponentWired } from '@/lib/templates/support'
+import { isComponentAvailable, isComponentWired } from '@/lib/templates/support'
+import { templateParamsFor, type TemplateParamValue } from '@/lib/templates/params'
+import { useInfoGroups } from '@/lib/templates/info-groups'
 import { resetTemplateToBuiltin, saveTemplate, saveTemplates, useTemplates } from '@/lib/templates/store'
 import type { TemplateComponent, TemplateComponentId, TemplateDoc } from '@/lib/templates/types'
-import { BTN_DANGER, BTN_QUIET, ICON_BTN, INPUT_LINE, ROUND_ITEM } from '@/lib/ui-tokens'
-
+import { BTN_DANGER, BTN_QUIET, ICON_BTN, INPUT_LINE, ROUND_ITEM, SETTINGS_EMPTY } from '@/lib/ui-tokens'
+import { SettingsEntryRow } from './EntryRow'
 function isBuiltin(id: string): boolean {
   return BUILTIN_TEMPLATES.some((doc) => doc.id === id)
 }
@@ -50,50 +53,75 @@ function blankTemplate(): TemplateDoc {
   return { id: customId(), name: '新模板', aliases: [], components }
 }
 
-/** 一行组件：手柄 + 名称 +（开发中）+ 移除 */
+/** 一行组件：手柄 + 名称 +（开发中）+ 已选组件名 + 设置 + 移除 */
 function ComponentRow({
   component,
   wired,
+  detail,
+  hasParams,
+  expanded,
+  onToggleSettings,
   onRemove,
+  children,
 }: {
   component: TemplateComponent
   wired: boolean
+  /** 基本信息行显示选中的基本信息组件名（与模板名无关） */
+  detail?: string
+  hasParams: boolean
+  expanded: boolean
+  onToggleSettings: () => void
   onRemove: () => void
+  children?: ReactNode
 }) {
   const { setNodeRef, style, attributes, listeners } = useSortableItem(component.id, false)
   const meta = COMPONENT_BY_ID[component.id]
 
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className="flex items-center gap-1 border-b border-line py-1 last:border-b-0"
-    >
-      <DragHandle handleProps={{ attributes, listeners }} />
-      <span className={`min-w-0 flex-1 truncate text-[13px] ${wired ? 'text-ink' : 'text-ink-faint'}`}>
-        {meta?.label ?? component.id}
-      </span>
-      {!wired ? <span className="shrink-0 text-[11px] text-ink-faint">开发中</span> : null}
-      <button
-        type="button"
-        onClick={onRemove}
-        aria-label={`从模板里移除「${meta?.label ?? component.id}」`}
-        className={`${ICON_BTN} hover:text-error disabled:opacity-30`}
-      >
-        <X size={14} strokeWidth={2} />
-      </button>
+    <div ref={setNodeRef} style={style} className="border-b border-line last:border-b-0">
+      <div className="flex items-center gap-1 py-1">
+        <DragHandle handleProps={{ attributes, listeners }} />
+        <span className={`min-w-0 flex-1 truncate text-[13px] ${wired ? 'text-ink' : 'text-ink-faint'}`}>
+          {meta?.label ?? component.id}
+        </span>
+        {!wired ? <span className="shrink-0 text-[11px] text-ink-faint">开发中</span> : null}
+        {detail ? <span className="shrink-0 text-[11px] text-ink-faint">{detail}</span> : null}
+        {hasParams ? (
+          <button
+            type="button"
+            onClick={onToggleSettings}
+            title="组件设置"
+            aria-label={`${meta?.label ?? component.id}设置`}
+            aria-expanded={expanded}
+            className={`${ICON_BTN} ${expanded ? 'bg-[var(--oc-hover)] text-ink' : ''}`}
+          >
+            <SlidersHorizontal size={13} strokeWidth={2} />
+          </button>
+        ) : null}
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-label={`从模板里移除「${meta?.label ?? component.id}」`}
+          className={`${ICON_BTN} hover:text-error disabled:opacity-30`}
+        >
+          <X size={14} strokeWidth={2} />
+        </button>
+      </div>
+      {children}
     </div>
   )
 }
 
-export function TemplatesPanel() {
+export function TemplatesPanel({ initialId }: { initialId?: string }) {
   const { templates, loading } = useTemplates()
-  const [activeId, setActiveId] = useState<string | null>(null)
+  const infoGroups = useInfoGroups()
+  const [activeId, setActiveId] = useState<string | null>(initialId ?? null)
   const [renaming, setRenaming] = useState<string | null>(null)
   const [nameDraft, setNameDraft] = useState('')
   const [deleting, setDeleting] = useState<TemplateDoc | null>(null)
   const [addMenu, setAddMenu] = useState<{ x: number; y: number } | null>(null)
   const [composerOpen, setComposerOpen] = useState(false)
+  const [paramsFor, setParamsFor] = useState<TemplateComponentId | null>(null)
   const active = useMemo(() => templates.find((doc) => doc.id === activeId) ?? null, [templates, activeId])
 
   const persist = async (next: TemplateDoc): Promise<void> => {
@@ -111,22 +139,19 @@ export function TemplatesPanel() {
   if (!active) {
     return (
       <div className="flex flex-col">
-        {templates.map((doc) => (
-          <button
-            key={doc.id}
-            type="button"
-            onClick={() => setActiveId(doc.id)}
-            className="flex items-center justify-between border-b border-line py-2.5 text-left text-sm text-ink transition-colors hover:bg-[var(--oc-hover)]"
-          >
-            <span className="flex items-center gap-2">
-              {doc.name}
-              {isBuiltin(doc.id) ? null : <span className="text-[11px] text-ink-faint">自建</span>}
-            </span>
-            <span className="text-[11px] text-ink-faint">
-              {doc.components.filter((component) => component.enabled).length} 个组件
-            </span>
-          </button>
-        ))}
+        <div className="flex flex-col">
+          {templates.map((doc) => (
+            <SettingsEntryRow
+              key={doc.id}
+              label={doc.name}
+              meta={`${doc.components.filter((component) => component.enabled).length} 个组件`}
+              onClick={() => {
+                setActiveId(doc.id)
+                setParamsFor(null)
+              }}
+            />
+          ))}
+        </div>
 
         <button
           type="button"
@@ -146,8 +171,11 @@ export function TemplatesPanel() {
   }
 
   const enabled: TemplateComponent[] = active.components.filter((component) => component.enabled)
+  /** 添加列表只给这个宿主真存得住的组件；已存在的历史组件仍按行显示，可手动移除 */
   const disabled = COMPONENT_IDS.filter(
-    (id) => !active.components.some((component) => component.id === id && component.enabled),
+    (id) =>
+      isComponentAvailable(active.id, id) &&
+      !active.components.some((component) => component.id === id && component.enabled),
   )
 
   /** 拖拽排序：只换位置，其余字段不动 */
@@ -176,6 +204,19 @@ export function TemplatesPanel() {
     void persist({ ...active, components: next })
   }
 
+  const setParam = (componentId: TemplateComponentId, key: string, value: TemplateParamValue): void => {
+    void persist({
+      ...active,
+      components: active.components.map((component) => {
+        if (component.id !== componentId) return component
+        const params = { ...component.params, [key]: value }
+        // 选了基本信息组件就清掉旧的内联字段：关系只由「选择」决定
+        if (key === 'group') delete params.fields
+        return { ...component, params }
+      }),
+    })
+  }
+
   const commitRename = (): void => {
     const next = nameDraft.trim()
     const from = active.name
@@ -189,7 +230,7 @@ export function TemplatesPanel() {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2">
-        <button type="button" onClick={() => setActiveId(null)} aria-label="返回" className={ICON_BTN}>
+        <button type="button" onClick={() => { setActiveId(null); setParamsFor(null) }} aria-label="返回" className={ICON_BTN}>
           <ArrowLeft size={16} strokeWidth={2} />
         </button>
         {renaming === active.id ? (
@@ -221,18 +262,45 @@ export function TemplatesPanel() {
 
       <SortableList ids={enabled.map((component) => component.id)} onReorder={reorder} layout="list">
         <div className="flex flex-col">
-          {enabled.map((component) => (
-            <ComponentRow
-              key={component.id}
-              component={component}
-              wired={isComponentWired(active.id, component.id)}
-              onRemove={() => remove(component)}
-            />
-          ))}
+          {enabled.map((component) => {
+            const wired = isComponentWired(active.id, component.id)
+            const hasParams = wired && templateParamsFor(active.id, component.id, active).length > 0
+            const expanded = paramsFor === component.id
+            const groupId = typeof component.params?.group === 'string' ? component.params.group : ''
+            const detail =
+              component.id === 'info' && hasParams
+                ? infoGroups.find((group) => group.id === groupId)?.name ??
+                  (Array.isArray(component.params?.fields) ? '内联字段' : '未选择')
+                : undefined
+            return (
+              <ComponentRow
+                key={component.id}
+                component={component}
+                wired={wired}
+                detail={detail}
+                hasParams={hasParams}
+                expanded={expanded}
+                onToggleSettings={() =>
+                  setParamsFor((prev) => (prev === component.id ? null : component.id))
+                }
+                onRemove={() => remove(component)}
+              >
+                {expanded ? (
+                  <div className="border-t border-line [&>*:last-child]:border-b-0">
+                    <TemplateComponentParams
+                      doc={active}
+                      component={component}
+                      onChange={(key, value) => setParam(component.id, key, value)}
+                    />
+                  </div>
+                ) : null}
+              </ComponentRow>
+            )
+          })}
         </div>
       </SortableList>
 
-      {enabled.length === 0 ? <p className="py-2 text-[12px] text-ink-faint">还没有组件</p> : null}
+      {enabled.length === 0 ? <p className={SETTINGS_EMPTY}>还没有组件</p> : null}
 
       <button
         type="button"

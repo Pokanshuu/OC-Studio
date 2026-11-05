@@ -8,7 +8,7 @@
  * 但已经各自演化出不同的细节（一个传 label、一个传 key）。同一件事写两遍，
  * 迟早一边改了另一边没改，所以收成一个组件，标记用 `badge` 传入。
  */
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { X } from 'lucide-react'
 import { DragHandle, useSortableItem } from '@/components/shared/list-dnd'
 import { ICON_BTN } from '@/lib/ui-tokens'
@@ -17,6 +17,9 @@ export function SettingsFieldRow({
   id,
   value,
   badge,
+  keyValue,
+  onKeyChange,
+  typeSlot,
   onRename,
   onRemove,
 }: {
@@ -25,10 +28,18 @@ export function SettingsFieldRow({
   value: string
   /** 右侧那个小字标记（「自建」），没有就不传 */
   badge?: string
+  /** 落盘用的键（给了才显示第二个输入框；显示名可以跟它不同） */
+  keyValue?: string
+  onKeyChange?: (next: string) => void
+  /** 名称右边的控件（基本信息组件的「单行 / 多行 / 数字…」选择） */
+  typeSlot?: ReactNode
   onRename: (next: string) => void
   onRemove: () => void
 }) {
   const [draft, setDraft] = useState(value)
+  const [keyDraft, setKeyDraft] = useState(keyValue ?? value)
+  /** 落盘键默认折叠：显示名与键名相同时不摆第二个输入框（两列同样的字只是噪声） */
+  const [editingKey, setEditingKey] = useState(false)
   const { setNodeRef, style, attributes, listeners } = useSortableItem(id, false)
 
   const commit = (): void => {
@@ -38,6 +49,16 @@ export function SettingsFieldRow({
       return
     }
     onRename(next)
+  }
+
+  const commitKey = (): void => {
+    if (onKeyChange === undefined) return
+    const next = keyDraft.trim()
+    if (next === '' || next === keyValue) {
+      setKeyDraft(keyValue ?? value)
+      return
+    }
+    onKeyChange(next)
   }
 
   return (
@@ -53,7 +74,43 @@ export function SettingsFieldRow({
         }}
         className="min-w-0 flex-1 bg-transparent text-[13px] text-ink focus:outline-none"
       />
+      {onKeyChange !== undefined ? (
+        editingKey ? (
+          <input
+            autoFocus
+            value={keyDraft}
+            onChange={(event) => setKeyDraft(event.target.value)}
+            onBlur={() => {
+              commitKey()
+              setEditingKey(false)
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') event.currentTarget.blur()
+              if (event.key === 'Escape') {
+                setKeyDraft(keyValue ?? value)
+                setEditingKey(false)
+              }
+            }}
+            title="落盘键（frontmatter 里的键名）"
+            aria-label="落盘键"
+            className="w-20 shrink-0 bg-transparent text-[11px] text-ink-faint placeholder:text-ink-faint focus:text-ink focus:outline-none"
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              setKeyDraft(keyValue ?? value)
+              setEditingKey(true)
+            }}
+            title="落盘键"
+            className="shrink-0 px-1 text-[11px] text-ink-faint transition-colors hover:text-ink"
+          >
+            {keyValue !== undefined && keyValue !== value ? keyValue : '#'}
+          </button>
+        )
+      ) : null}
       {badge !== undefined ? <span className="shrink-0 text-[11px] text-ink-faint">{badge}</span> : null}
+      {typeSlot}
       <button
         type="button"
         onClick={onRemove}

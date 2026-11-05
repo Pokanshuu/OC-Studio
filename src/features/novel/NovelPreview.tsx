@@ -15,6 +15,8 @@ import type { NovelExportChapter } from './export'
 import { PAGE_MARGIN, PAGE_SIZES, paginateNovel, type NovelPageFormat } from './pagination'
 import {
   NOVEL_BACKGROUND_PRESETS,
+  NOVEL_PAGE_INK,
+  NOVEL_PAGE_NUMBER_INK,
   NOVEL_READING_PANEL,
   resolveNovelBackground,
   type NovelBackgroundKind,
@@ -172,8 +174,9 @@ export function NovelPreview({
                       fontSize: 16,
                       lineHeight: 1.9,
                       fontFamily: "'Noto Serif SC', serif",
+                      // 纸张永远是浅色 → 正文固定深墨，不跟界面主题反转（否则暗色主题下白字白纸）
+                      color: NOVEL_PAGE_INK,
                     }}
-                    className="text-ink"
                   >
                     {/* 自定义背景图可能很花：正文垫一层纸色底板，与 PNG 导出同一份色值 */}
                     <div
@@ -195,7 +198,10 @@ export function NovelPreview({
                     </div>
                   </div>
                   {/* 页码放在缩放层外：跟着纸张一起缩会小到看不见 */}
-                  <div className="absolute bottom-2 right-3 text-[11px] tabular-nums text-ink-faint">
+                  <div
+                    className="absolute bottom-2 right-3 text-[11px] tabular-nums"
+                    style={{ color: NOVEL_PAGE_NUMBER_INK }}
+                  >
                     {page.index}
                   </div>
                 </div>

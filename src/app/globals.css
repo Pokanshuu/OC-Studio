@@ -48,6 +48,12 @@
   /* 危险操作的浅底（hover / 选中）：亮色是极淡的粉，暗色是极淡的同一枚红 */
   --oc-error-light: #FBF2EF;
 
+  /* 语义色：错误 / 警告 / 成功。**同一枚在亮暗两套里都成立**，
+     插件（助手）也直接取这三个名字，不再自带一份调色板。 */
+  --oc-error: #B36651;
+  --oc-warning: #C68D44;
+  --oc-success: #A5A098;
+
   /* 危险按钮的实心底色 —— **灰调红**（比 --color-error 低饱和一档，压在纸上不刺眼、
      压在暗底上也不糊）。只给「点下去数据就没了」的确认键：删除 / 永久删除 / 放弃未保存改动。
      底色在亮暗两套里都用这一枚（同 --color-error），所以上面的字用固定纸白，不随主题翻转。 */
@@ -89,6 +95,9 @@
   --oc-hover: rgba(227, 223, 216, 0.06);
   --oc-scrim: rgba(0, 0, 0, 0.40);
   --oc-error-light: rgba(179, 102, 81, 0.18);
+  --oc-error: #B36651;
+  --oc-warning: #C68D44;
+  --oc-success: #A5A098;
   /* 强调色板在暗色下整体提亮，保证同样的 4.5:1（色相不变） */
   --oc-accent-1: #B8715D; /* 赤陶 */
   --oc-accent-2: #C68D44; /* 琥珀 */
@@ -925,6 +934,99 @@ body[data-map-immersive='true'] [data-dev-mock] {
 
 
 /* css-rebuild-probe */
+
+
+/* ── 文档预览正文 ─────────────────────────────────────────────
+   只作用于 `PagePreview` 里那段 `entry.html`（导出中心「文档」页签 + 小说导出共用）。
+   注意：这段和 `.export-panel / .export-preview / .export-config` 都是导出器的样式，
+   重写 globals.css 时别一起丢了（滑杆曾经就因为同类重写退回原生控件）。 */
+.oc-doc-prose {
+  font-size: 12.5px;
+  line-height: 1.85;
+  color: var(--oc-ink);
+}
+.oc-doc-prose > * + * {
+  margin-top: 0.85em;
+}
+.oc-doc-prose p:empty {
+  display: none;
+}
+.oc-doc-prose h1,
+.oc-doc-prose h2,
+.oc-doc-prose h3,
+.oc-doc-prose h4 {
+  margin-top: 1.1em;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.oc-doc-prose strong {
+  font-weight: 600;
+}
+.oc-doc-prose em {
+  font-style: italic;
+}
+.oc-doc-prose ul,
+.oc-doc-prose ol {
+  padding-left: 1.4em;
+}
+.oc-doc-prose ul {
+  list-style: disc;
+}
+.oc-doc-prose ol {
+  list-style: decimal;
+}
+.oc-doc-prose li + li {
+  margin-top: 0.25em;
+}
+.oc-doc-prose blockquote {
+  padding-left: 0.85em;
+  border-left: 2px solid var(--oc-line);
+  color: var(--oc-ink-muted);
+}
+.oc-doc-prose hr {
+  border: 0;
+  border-top: 1px solid var(--oc-line);
+}
+.oc-doc-prose a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.oc-doc-prose code {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.95em;
+}
+.oc-doc-prose pre {
+  overflow-x: auto;
+  padding: 0.7em 0.85em;
+  border: 1px solid var(--oc-line);
+  border-radius: var(--radius-item);
+  background: var(--oc-paper-alt);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.oc-doc-prose pre code {
+  font-size: inherit;
+}
+.oc-doc-prose img {
+  max-width: 100%;
+  border-radius: var(--radius-item);
+}
+.oc-doc-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.oc-doc-prose th,
+.oc-doc-prose td {
+  padding: 0.35em 0.5em;
+  border: 1px solid var(--oc-line);
+  text-align: left;
+  vertical-align: top;
+}
+.oc-doc-prose th {
+  font-weight: 600;
+}
 
 /* ── 关系图：节点名 ─────────────────────────────────────────────
    名字要压在别人的卡片和线上也能读：给两层纸色光晕（与地图标注层的「纸色外壳」同一手法）。

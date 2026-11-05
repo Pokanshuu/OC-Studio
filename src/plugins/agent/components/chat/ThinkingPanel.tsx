@@ -24,27 +24,33 @@ export function ThinkingPanel({
   text,
   reasoningStreaming,
   thinkingMs,
+  defaultOpen = false,
 }: {
   text: string
   /** The chain of thought is still being written (the answer has not started). */
   reasoningStreaming: boolean
   thinkingMs: number | null
+  /** 没有正文时默认摊开：否则整条消息只剩一个标题，看着像空的 */
+  defaultOpen?: boolean
 }) {
   const t = useT()
   const autoCollapse = useSettingsStore((s) => s.settings.ui.autoCollapseThinking)
   // 思考时展开；思考结束（正文开始）按设置收起。中途点击以用户为准，
   // 直到下一次「开始思考 / 思考结束」状态切换。
-  const [expanded, setExpanded] = useState(reasoningStreaming || !autoCollapse)
+  const [expanded, setExpanded] = useState(reasoningStreaming || !autoCollapse || defaultOpen)
   useEffect(() => {
-    setExpanded(reasoningStreaming || !autoCollapse)
-  }, [reasoningStreaming, autoCollapse])
+    setExpanded(reasoningStreaming || !autoCollapse || defaultOpen)
+  }, [reasoningStreaming, autoCollapse, defaultOpen])
   const seconds = thinkingMs ? Math.max(1, Math.round(thinkingMs / 1000)) : null
 
+  // 标题跟着**当前状态**走：收起来的时候写「展开思考」，别一直写「收起」
   const label = reasoningStreaming
     ? t('thinking.now')
-    : seconds
-      ? t('thinking.done', { s: seconds })
-      : t('thinking.collapse')
+    : expanded
+      ? t('thinking.collapse')
+      : seconds
+        ? t('thinking.done', { s: seconds })
+        : t('thinking.expand')
 
   const body = reasoningStreaming
     ? text.length > TAIL_CHARS
@@ -72,11 +78,9 @@ export function ThinkingPanel({
         <span>{label}</span>
         <Icon name={expanded ? 'chevron-up' : 'chevron-down'} size={12} />
       </div>
-      <div className={`collapse${expanded ? ' open' : ''}`}>
-        <div>
-          <div className={`thinking-body${reasoningStreaming ? ' tail' : ''}`}>{body}</div>
-        </div>
-      </div>
+      {expanded && (
+        <div className={`thinking-body${reasoningStreaming ? ' tail' : ''}`}>{body}</div>
+      )}
     </div>
   )
 }

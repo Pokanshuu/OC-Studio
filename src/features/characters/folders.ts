@@ -147,6 +147,39 @@ export async function createFolder(name: string): Promise<void> {
 
 /* ── 文件夹与角色 ─────────────────────────────────────────── */
 
+/**
+ * 「新建文件夹」的自动命名：优先用这个名字本身，被占了就往后加序号。
+ * 给**拖拽成夹**用 —— 那个手势不该再弹出输入框问名字。
+ */
+export function nextFolderName(taken: Iterable<string>): string {
+  const used = new Set<string>()
+  for (const name of taken) {
+    const trimmed = name.trim()
+    if (trimmed !== '') used.add(trimmed)
+  }
+  const base = '新建文件夹'
+  if (!used.has(base)) return base
+  for (let index = 2; index < 1000; index += 1) {
+    const candidate = `${base} ${index}`
+    if (!used.has(candidate)) return candidate
+  }
+  return `${base} ${used.size + 1}`
+}
+
+/**
+ * 拖拽成夹：把几个角色收进一只**新的**文件夹，返回文件夹名。
+ * 走的是和「移到文件夹」完全相同的一条路（改 `folder` 键 + 登记清单），
+ * 只是名字自动取 —— 手势结束时不该再打断一次输入。
+ */
+export async function mergeIntoNewFolder(ids: number[], taken: Iterable<string> = []): Promise<string> {
+  // 清单可能还在读盘：先等它读完，免得挑了一个盘上已有的名字
+  await loadFolderRegistry()
+  const name = nextFolderName([...taken, ...registry])
+  await createFolder(name)
+  for (const id of ids) await moveCharacterToFolder(id, name)
+  return name
+}
+
 /** 现有文件夹（清单 + 角色上的名字合并，按名字排序）+ 未分组计数 */
 export function listFolders(
   characters: Character[],

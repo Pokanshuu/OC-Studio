@@ -14,17 +14,17 @@ import { renameEntry, reorderEntries, updateEntry } from '../services'
 import { useFields } from '@/lib/fields'
 import type { WorldFormData } from '../types'
 import { useWorldEntryDraft } from '../hooks/useWorldEntryDraft'
-import { WorldTitleField, WorldMetaFields } from './WorldFrontmatter'
-import { WorldCustomFields } from './WorldCustomFields'
-import { WorldCoverField } from './WorldCoverField'
-import { TemplateRenderer } from '@/components/shared/TemplateRenderer'
+import { useNoteLinks } from '../hooks/useNoteLinks'
+import { NoteTemplateContent } from './note/NoteTemplateContent'
 import { MediaContextMenu } from '@/components/shared/MediaContextMenu'
 import { BTN_QUIET } from '@/lib/ui-tokens'
 import { useTemplates } from '@/lib/templates/store'
+import { templateFieldKeys, templateFieldLabels, templateFieldTypes } from '@/lib/templates/fields'
+import { useInfoGroups } from '@/lib/templates/info-groups'
 import { useCategories } from '@/lib/categories/store'
 import { WorldTreePanel } from './WorldTreePanel'
 import { WorldEntryBody } from './WorldEntryBody'
-import { docHasRef, filterEntriesWithAncestors } from './world-content-utils'
+import { filterEntriesWithAncestors } from './world-content-utils'
 import { useMobilePageHeader } from '@/components/layout/MobilePageHeaderContext'
 import { useMobileNavigation } from '@/components/layout/MobileNavigationContext'
 
@@ -92,22 +92,22 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
     selectedIdRef,
   } = useWorldEntryDraft({ selectedId, currentEntry, refresh, title, setTitle })
 
-  // 被引用：哪些词条在正文里 [[链接]] 或 @ 引用了当前词条
-  const backlinks = useMemo(() => {
-    if (selectedId == null) return [] as { id: number; title: string }[]
-    const idStr = String(selectedId)
-    const found: { id: number; title: string }[] = []
-    for (const e of entries) {
-      if (e.id == null || e.id === selectedId) continue
-      if (typeof e.content !== 'string' || !e.content.includes(idStr)) continue
-      try {
-        if (docHasRef(JSON.parse(e.content), idStr)) found.push({ id: e.id, title: e.title })
-      } catch {
-        // 旧数据可能不是 JSON，忽略
-      }
-    }
-    return found
-  }, [entries, selectedId])
+  // 被引用：哪些词条在正文里 [[链接]] 或 @ 引用了当前词条（与分类条目共用同一份查询）
+  const { backlinks } = useNoteLinks(selectedId)
+
+  const infoGroups = useInfoGroups()
+  const fieldKeys = useMemo(
+    () => (entryTemplate ? templateFieldKeys(entryTemplate, infoGroups) : undefined),
+    [entryTemplate, infoGroups],
+  )
+  const fieldTypes = useMemo(
+    () => (entryTemplate ? templateFieldTypes(entryTemplate, infoGroups) : undefined),
+    [entryTemplate, infoGroups],
+  )
+  const fieldLabels = useMemo(
+    () => (entryTemplate ? templateFieldLabels(entryTemplate, infoGroups) : undefined),
+    [entryTemplate, infoGroups],
+  )
 
   const visibleEntries = useMemo(
     () => filterEntriesWithAncestors(entries, treeQuery),
@@ -263,49 +263,35 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
             <div className="h-12 shrink-0" aria-hidden />
             <div className="mx-auto w-full max-w-3xl px-4 py-3 md:px-8 md:py-6">
               {entryTemplate ? (
-                <TemplateRenderer
+                <NoteTemplateContent
+                  entry={currentEntry}
                   template={entryTemplate}
-                  render={(component) => {
-                    switch (component.id) {
-                      case 'cover':
-                        return <WorldCoverField entry={currentEntry} />
-                      case 'info':
-                        return (
-                          <div className="flex min-w-0 flex-col gap-8">
-                            <WorldTitleField title={title} onTitleChange={handleTitleChange} />
-                            <WorldCustomFields key={currentEntry.id} entry={currentEntry} />
-                          </div>
-                        )
-                      case 'tags':
-                        if (!showTags && backlinks.length === 0) return null
-                        return (
-                          <WorldMetaFields
-                            tags={tags}
-                            onTagsChange={handleTagsChange}
-                            showTags={showTags}
-                            backlinks={backlinks}
-                            onSelectBacklink={(id) => {
-                              const target = entries.find((e) => e.id === id)
-                              if (target) void handleSelect(id, target)
-                            }}
-                          />
-                        )
-                      case 'body':
-                        return (
-                          <WorldEntryBody
-                            selectedId={selectedId}
-                            pane={false}
-                            onReady={handleBodyReady}
-                            onContentChange={handleContentChange}
-                            onMentionClick={onMentionClick}
-                            onCharacterCount={onCharacterCount}
-                            onWikiLinkClick={onWikiLinkClick}
-                          />
-                        )
-                      default:
-                        return null
-                    }
+                  title={title}
+                  onTitleChange={handleTitleChange}
+                  titlePlaceholder="词条标题"
+                  tags={tags}
+                  onTagsChange={handleTagsChange}
+                  showTags={showTags}
+                  backlinks={backlinks}
+                  onNavigateNote={(id) => {
+                    const target = entries.find((e) => e.id === id)
+                    if (target) void handleSelect(id, target)
                   }}
+                  body={
+                    <WorldEntryBody
+                      selectedId={selectedId}
+                      pane={false}
+                      onReady={handleBodyReady}
+                      onContentChange={handleContentChange}
+                      onMentionClick={onMentionClick}
+                      onCharacterCount={onCharacterCount}
+                      onWikiLinkClick={onWikiLinkClick}
+                    />
+                  }
+                  linkRows={entries}
+                  fieldKeys={fieldKeys}
+                  fieldTypes={fieldTypes}
+                  fieldLabels={fieldLabels}
                 />
               ) : (
                 <div className="h-24" aria-hidden />

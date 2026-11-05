@@ -3,6 +3,12 @@ import { resetSearchIndex } from '@/lib/search'
 import { loadFieldConfig, readFieldConfigFromRoot, syncCustomFieldKeys } from '@/lib/fields/store'
 import { BUILTIN_TEMPLATES } from '@/lib/templates/defaults'
 import { collectTemplateFieldKeys } from '@/lib/templates/fields'
+import {
+  INFO_GROUPS_REL_PATH,
+  loadInfoGroups,
+  normalizeInfoGroups,
+  type InfoGroup,
+} from '@/lib/templates/info-groups'
 import { parseTemplate } from '@/lib/templates/serialize'
 import { TEMPLATE_DIR, type TemplateDoc } from '@/lib/templates/types'
 import { setTemplateCustomFieldKeys } from './vault-field-keys'
@@ -264,8 +270,8 @@ export async function loadVault(root: string): Promise<VaultLoadResult> {
   const result = await readVault(root)
   await applyDataset(result.scan)
   setVaultSession(result.session)
-  // 字段表跟文件夹走：会话建立后再正式装载一次（同一份文件）
-  await loadFieldConfig()
+  // 字段表跟文件夹走：会话建立后再正式装载一次（同一份文件）；基本信息组件同理
+  await Promise.all([loadFieldConfig(), loadInfoGroups(true)])
   return result
 }
 
@@ -284,7 +290,20 @@ async function readTemplateFieldKeys(root: string): Promise<string[]> {
   } catch {
     // 没有模板目录 / 单个文件坏了：字段以内置模板为准，不影响开库
   }
-  return collectTemplateFieldKeys(docs)
+  const groups = await readInfoGroups(root)
+  return collectTemplateFieldKeys(docs, groups)
+}
+
+/** 扫描前读盘上的基本信息组件（模板的 info 只存 group id，字段在组件里） */
+async function readInfoGroups(root: string): Promise<InfoGroup[]> {
+  try {
+    if (!(await vaultFs.exists(root, INFO_GROUPS_REL_PATH))) return []
+    const bytes = await vaultFs.readBytes(root, INFO_GROUPS_REL_PATH)
+    const payload = JSON.parse(new TextDecoder().decode(new Uint8Array(bytes))) as { groups?: unknown }
+    return normalizeInfoGroups(payload?.groups)
+  } catch {
+    return []
+  }
 }
 
 /** 关闭当前 vault（数据留在 Dexie，只是不再往磁盘写） */

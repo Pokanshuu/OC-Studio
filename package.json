@@ -22,6 +22,7 @@
     "audit:mapkernel": "tsx scripts/map-parity-check.ts",
     "audit:world": "tsx scripts/world-body-check.ts",
     "audit:search": "tsx scripts/search-check.ts",
+    "audit:tree": "tsx scripts/tree-table-check.ts",
     "audit:inspirations": "tsx scripts/inspirations-check.ts",
     "audit:actor": "tsx scripts/journal-actor-check.ts",
     "audit:paths": "tsx scripts/vault-paths-check.ts",

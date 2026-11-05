@@ -11,9 +11,10 @@ import { ICON_BTN_MD } from '@/lib/ui-tokens'
 interface EntityEditorShellProps {
   title: string
   onBack?: () => void
-  listOpen: boolean
-  onToggleList: () => void
-  list: ReactNode
+  /** 没有列表的编辑器（分类条目）不传 `list`，也就不会出现「展开列表」按钮 */
+  list?: ReactNode
+  listOpen?: boolean
+  onToggleList?: () => void
   editor: Editor | null
   headerRight: ReactNode
   children: ReactNode
@@ -24,39 +25,45 @@ interface EntityEditorShellProps {
  *
  * 编辑器顶栏一条横跨中栏/正文：左 = 返回/标题（列表收起时最左是展开按钮），
  * 中 = 格式工具条（水平居中），右 = 历史/保存。列表在「全屏」下同样可保留或收起。
+ *
+ * `list` 可选：分类条目这类「没有同级列表」的编辑器也走这套壳，
+ * 为的是页头高度 / 工具条位置 / 与实体编辑器一字不差。
  */
 export function EntityEditorShell({
   title,
   onBack,
-  listOpen,
-  onToggleList,
   list,
+  listOpen = false,
+  onToggleList,
   editor,
   headerRight,
   children,
 }: EntityEditorShellProps) {
+  const hasList = list !== undefined
   const { width: listWidth, startDrag: startListDrag, reset: resetListWidth } = useListWidth()
 
   return (
     <div className="flex h-full min-h-0 overflow-hidden">
-      {/* 列表收起/展开用宽度过渡（与相册一致），不是直接卸载 */}
-      <aside
-        className={`relative flex h-full shrink-0 flex-col overflow-hidden transition-[width] duration-200 ease-in-out ${
-          listOpen ? 'border-r border-line' : 'border-r-0'
-        }`}
-        style={{ width: listOpen ? listWidth : 0 }}
-        aria-hidden={!listOpen}
-        inert={!listOpen}
-      >
-        {list}
-        {listOpen ? <ListWidthResizer onDragStart={startListDrag} onReset={resetListWidth} /> : null}
-      </aside>
+      {/* 列表收起/展开用宽度过渡（与相册一致），不是直接卸载；无列表的编辑器整块不渲染 */}
+      {hasList ? (
+        <aside
+          className={`relative flex h-full shrink-0 flex-col overflow-hidden transition-[width] duration-200 ease-in-out ${
+            listOpen ? 'border-r border-line' : 'border-r-0'
+          }`}
+          style={{ width: listOpen ? listWidth : 0 }}
+          aria-hidden={!listOpen}
+          inert={!listOpen}
+        >
+          {list}
+          {listOpen ? <ListWidthResizer onDragStart={startListDrag} onReset={resetListWidth} /> : null}
+        </aside>
+      ) : null}
 
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
         {/* 顶栏覆盖在滚动内容上（z-30），backdrop-blur 才有内容可模糊；内容在滚动容器内用 h-12 spacer 让出位置 */}
         <div className="absolute inset-x-0 top-0 z-30 flex h-12 shrink-0 items-center border-b border-line bg-paper/85 px-3 backdrop-blur-lg">
           <div className="flex min-w-0 flex-1 items-center gap-2">
-            {!listOpen ? (
+            {hasList && !listOpen && onToggleList ? (
               <button
                 type="button"
                 onClick={onToggleList}

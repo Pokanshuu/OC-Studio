@@ -366,6 +366,7 @@ function applyImageMap(rows: LegacyRows, map: Map<string, string>): void {
       characters: rows.characters,
       countries: rows.countries,
       events: rows.events,
+      worldEntries: rows.worldEntries,
       meta: rows.meta === null ? [] : [rows.meta],
     },
     map,
@@ -374,6 +375,7 @@ function applyImageMap(rows: LegacyRows, map: Map<string, string>): void {
     ...rows.characters.map((row) => [`characters:${row.id}`, row] as const),
     ...rows.countries.map((row) => [`countries:${row.id}`, row] as const),
     ...rows.events.map((row) => [`events:${row.id}`, row] as const),
+    ...rows.worldEntries.map((row) => [`worldEntries:${row.id}`, row] as const),
     ...(rows.meta === null ? [] : [[`meta:${rows.meta.id}`, rows.meta] as const]),
   ])
   for (const patch of patches) {

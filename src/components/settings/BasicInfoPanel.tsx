@@ -14,7 +14,7 @@
  * 模板侧的选择器在 `TemplateParams`，两边共用同一份 `useInfoGroups()`。
  */
 import { useState } from 'react'
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, ChevronDown, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { FieldKindSettings } from '@/components/settings/FieldSettings'
 import {
@@ -28,16 +28,22 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { SortableList, moveId } from '@/components/shared/list-dnd'
+import { MediaContextMenu } from '@/components/shared/MediaContextMenu'
 import type { FieldKind } from '@/lib/fields'
 import type { InfoGroupHost } from '@/lib/templates/info-groups'
 import { SettingsFieldRow } from './FieldRow'
 import { SettingsEntryRow } from './EntryRow'
 import {
+  BUILTIN_INFO_GROUPS,
+  INFO_FIELD_TYPE_LABELS,
   createInfoGroup,
   deleteInfoGroup,
+  infoFieldLabelOf,
+  infoFieldTypeOf,
   isBuiltinInfoGroup,
   updateInfoGroup,
   useInfoGroups,
+  type InfoFieldType,
   type InfoGroup,
 } from '@/lib/templates/info-groups'
 import { useTemplates } from '@/lib/templates/store'
@@ -47,10 +53,10 @@ import { BTN_DANGER, BTN_QUIET, ICON_BTN, INPUT_LINE, ROUND_ITEM, SETTINGS_EMPTY
  * 实体字段表（`ready: false` = 那张表还没接到渲染器上，见 `lib/fields/types.ts`）。
  * 这些不是「基本信息组件」，不能被模板选择；它们是实体模板的固定字段表。
  */
-const FIELD_ROWS: { key: string; label: string; fieldKind: FieldKind; ready: boolean }[] = [
-  { key: 'character', label: '角色', fieldKind: 'character', ready: true },
-  { key: 'event', label: '事件', fieldKind: 'event', ready: false },
-  { key: 'worldEntry', label: '词条', fieldKind: 'worldEntry', ready: true },
+const FIELD_ROWS: { key: string; label: string; fieldKind: FieldKind }[] = [
+  { key: 'character', label: '角色', fieldKind: 'character' },
+  { key: 'event', label: '事件', fieldKind: 'event' },
+  { key: 'worldEntry', label: '词条', fieldKind: 'worldEntry' },
 ]
 
 /** 宿主 → 字段表种类。列型宿主（角色 / 事件 / 词条）共用同一套字段表编辑器 */
@@ -75,6 +81,9 @@ function nextGroupName(groups: readonly InfoGroup[]): string {
 function GroupFieldsSettings({ group }: { group: InfoGroup }) {
   const keys = group.fields
   const [draftName, setDraftName] = useState('')
+  const [typeMenu, setTypeMenu] = useState<{ key: string; at: { x: number; y: number } } | null>(null)
+  /** 列型宿主的控件归字段表（`lib/fields`），这里只给笔记型组件选类型 */
+  const typed = group.for === 'note' || group.for === undefined
 
   const commit = (next: string[]): void => {
     void updateInfoGroup(group.id, { fields: next }).catch((err: unknown) => {
@@ -82,17 +91,62 @@ function GroupFieldsSettings({ group }: { group: InfoGroup }) {
     })
   }
 
+  const setType = (key: string, type: InfoFieldType): void => {
+    const next = { ...(group.types ?? {}) }
+    if (type === 'text') delete next[key]
+    else next[key] = type
+    void updateInfoGroup(group.id, { types: next }).catch((err: unknown) => {
+      toast.error('类型保存失败', { description: err instanceof Error ? err.message : String(err) })
+    })
+  }
+
+  /** 内置组件的出厂定义：字段表或类型被改过才给「恢复出厂字段」 */
+  const builtin = group.builtin ? BUILTIN_INFO_GROUPS.find((item) => item.id === group.id) : undefined
+  const builtinDirty =
+    builtin !== undefined &&
+    (JSON.stringify(group.fields) !== JSON.stringify(builtin.fields) ||
+      JSON.stringify(group.types ?? {}) !== JSON.stringify(builtin.types ?? {}))
+
   const reorder = (activeKey: number | string, overKey: number | string): void => {
     commit(moveId(keys, String(activeKey), String(overKey)))
   }
 
-  const rename = (index: number, next: string): void => {
-    // 键就是 frontmatter 的键：改名只影响之后的写入，已存的旧键值不搬（不猜用户意图）
+  /** 只改显示名：键不动，已存的值一行都不用搬 */
+  const renameLabel = (key: string, next: string): void => {
+    const labels = { ...(group.labels ?? {}) }
+    if (next === key) delete labels[key]
+    else labels[key] = next
+    void updateInfoGroup(group.id, { labels }).catch((err: unknown) => {
+      toast.error('显示名保存失败', { description: err instanceof Error ? err.message : String(err) })
+    })
+  }
+
+  /**
+   * 改落盘键：键是 frontmatter 的键名，改完只影响之后的写入，已存的旧键值不搬
+   * （不猜用户意图）。类型与显示名跟着搬到新键上，不然改个键名就把设置丢了。
+   */
+  const renameKey = (from: string, next: string): void => {
     if (keys.includes(next)) {
       toast.error(`已经有「${next}」了`)
       return
     }
-    commit(keys.map((key, i) => (i === index ? next : key)))
+    const types = { ...(group.types ?? {}) }
+    const labels = { ...(group.labels ?? {}) }
+    if (types[from] !== undefined) {
+      types[next] = types[from]
+      delete types[from]
+    }
+    if (labels[from] !== undefined) {
+      labels[next] = labels[from]
+      delete labels[from]
+    }
+    void updateInfoGroup(group.id, {
+      fields: keys.map((key) => (key === from ? next : key)),
+      types,
+      labels,
+    }).catch((err: unknown) => {
+      toast.error('键名保存失败', { description: err instanceof Error ? err.message : String(err) })
+    })
   }
 
   const add = (): void => {
@@ -114,8 +168,27 @@ function GroupFieldsSettings({ group }: { group: InfoGroup }) {
             <SettingsFieldRow
               key={key}
               id={key}
-              value={key}
-              onRename={(next) => rename(index, next)}
+              value={infoFieldLabelOf(group, key)}
+              // 列型宿主的显示名在字段表里维护，这里只给笔记型组件第二列（落盘键）
+              keyValue={typed ? key : undefined}
+              onKeyChange={typed ? (next) => renameKey(key, next) : undefined}
+              typeSlot={
+                typed ? (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      const rect = event.currentTarget.getBoundingClientRect()
+                      setTypeMenu({ key, at: { x: rect.left, y: rect.bottom + 4 } })
+                    }}
+                    title="字段类型"
+                    className="flex shrink-0 items-center gap-0.5 px-1 text-[11px] text-ink-faint transition-colors hover:text-ink"
+                  >
+                    {INFO_FIELD_TYPE_LABELS[infoFieldTypeOf(group, key)]}
+                    <ChevronDown size={10} strokeWidth={2} />
+                  </button>
+                ) : undefined
+              }
+              onRename={(next) => renameLabel(key, next)}
               onRemove={() => commit(keys.filter((_, i) => i !== index))}
             />
           ))}
@@ -144,6 +217,36 @@ function GroupFieldsSettings({ group }: { group: InfoGroup }) {
           <span>添加</span>
         </button>
       </div>
+
+      {builtinDirty ? (
+        <button
+          type="button"
+          onClick={() => {
+            if (builtin === undefined) return
+            void updateInfoGroup(group.id, {
+              fields: [...builtin.fields],
+              types: builtin.types ? { ...builtin.types } : undefined,
+            }).catch((err: unknown) => {
+              toast.error('恢复失败', { description: err instanceof Error ? err.message : String(err) })
+            })
+          }}
+          className="flex items-center gap-1 self-start text-[11px] text-ink-faint transition-colors hover:text-ink"
+        >
+          <RotateCcw size={11} strokeWidth={2} />
+          恢复出厂字段
+        </button>
+      ) : null}
+
+      {typeMenu !== null ? (
+        <MediaContextMenu
+          at={typeMenu.at}
+          onClose={() => setTypeMenu(null)}
+          items={(Object.keys(INFO_FIELD_TYPE_LABELS) as InfoFieldType[]).map((type) => ({
+            label: INFO_FIELD_TYPE_LABELS[type],
+            onSelect: () => setType(typeMenu.key, type),
+          }))}
+        />
+      ) : null}
     </section>
   )
 }
@@ -302,18 +405,17 @@ export function BasicInfoPanel({ onBack, initialId }: { onBack: () => void; init
         {groups.map((group) => {
           const count = usageOf(group.id).length
           const columnKind = columnKindOf(group.for)
-          const ready = columnKind !== 'event'
-          const meta = ready
-            ? columnKind === undefined
-              ? `${group.fields.length} 字段 · ${count} 模板`
-              : `${group.fields.length} 字段`
-            : '开发中'
+          // 列型宿主（角色 / 事件 / 词条）的字段表都已接到渲染器：
+          // 事件的时间 / 地点 / 重大 / 自定义字段由 `EventInfoSection` 消费
+          const meta =
+            columnKind === undefined
+              ? `${group.fields.length} 个字段 · ${count} 个模板`
+              : `${group.fields.length} 个字段`
           return (
             <SettingsEntryRow
               key={group.id}
               label={group.name}
               meta={meta}
-              disabled={!ready}
               onClick={() => {
                 if (columnKind !== undefined) setActiveFieldKind(columnKind)
                 else setActiveGroupId(group.id)

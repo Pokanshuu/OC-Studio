@@ -22,6 +22,28 @@ const VERSION = 1
 
 export type InfoGroupHost = 'character' | 'event' | 'world' | 'note'
 
+/**
+ * 笔记型字段的控件类型（列型宿主不用它 —— 那边的控件由 `lib/fields` 的 `FieldDef.type` 决定）。
+ *
+ * 只有五种：写作面上真正需要区分的就这几类，再往上加就变成表单设计器了（`docs/模板.md §12`）。
+ * 存成字符串，读回来认不出来的一律回 `text`，不因为一个坏值把整份组件读废。
+ */
+export type InfoFieldType = 'text' | 'longtext' | 'number' | 'date' | 'boolean'
+
+export const INFO_FIELD_TYPE_LABELS: Record<InfoFieldType, string> = {
+  text: '单行',
+  longtext: '多行',
+  number: '数字',
+  date: '日期',
+  boolean: '开关',
+}
+
+const INFO_FIELD_TYPES: InfoFieldType[] = ['text', 'longtext', 'number', 'date', 'boolean']
+
+export function isInfoFieldType(value: unknown): value is InfoFieldType {
+  return typeof value === 'string' && (INFO_FIELD_TYPES as string[]).includes(value)
+}
+
 export interface InfoGroup {
   /** 稳定 id；模板只存它 */
   id: string
@@ -29,15 +51,19 @@ export interface InfoGroup {
   name: string
   /** 有序字段键（键 = frontmatter 同名键，值落 WorldEntry.custom） */
   fields: string[]
+  /** 字段键 → 控件类型；缺省 / 未知一律 `text`。只对笔记型宿主生效（列型的控件归 `lib/fields`） */
+  types?: Record<string, InfoFieldType>
+  /** 字段键 → **显示名**（缺省 = 键名）。键是落盘 / frontmatter 用的，显示名是给人看的 */
+  labels?: Record<string, string>
   /** 内置组件：可改、不可删（删了下次读盘会回来） */
   builtin?: boolean
   /**
    * 宿主：这份字段属于哪类实体。
    *
-   * - character / vent / world：字段是**实体列 id**（ace / irthday），
-   *   值读列、控件由 lib/fields/defaults.ts 的 	ype 决定
-   * - 
-ote：字段是**自建键**（物种 / 材质），值落 WorldEntry.custom`n   *
+   * - `character` / `event` / `world`：字段是**实体列 id**（`race` / `birthday`），
+   *   值读列、控件由 `lib/fields/defaults.ts` 的 `type` 决定
+   * - `note`：字段是**自建键**（物种 / 材质），值落 `WorldEntry.custom`
+   *
    * 它只决定「哪些模板能选到这份组件」，不改变字段的读写方式。
    */
   for?: InfoGroupHost
@@ -88,6 +114,17 @@ export const BUILTIN_INFO_GROUPS: InfoGroup[] = [
       '栖息地',
       '当前状态',
     ],
+    // 出厂就给几项非单行：这几列天生是多行 / 数字 / 日期，别让用户一个个点
+    types: {
+      年龄: 'number',
+      体重: 'number',
+      外观特征: 'longtext',
+      性格: 'longtext',
+      习性: 'longtext',
+      能力技能: 'longtext',
+      出生日期: 'date',
+      收养日期: 'date',
+    },
   },
   {
     id: 'group-weapon',
@@ -108,6 +145,12 @@ export const BUILTIN_INFO_GROUPS: InfoGroup[] = [
       '属性元素',
       '当前状态',
     ],
+    types: {
+      重量: 'number',
+      铸造时间: 'date',
+      使用条件: 'longtext',
+      能力效果: 'longtext',
+    },
   },
 ]
 
@@ -146,7 +189,50 @@ function projectColumnFields(id: string, fallback: string[]): string[] {
   return [...builtin.fields]
 }
 function clone(group: InfoGroup): InfoGroup {
-  return { ...group, fields: [...group.fields] }
+  return {
+    ...group,
+    fields: [...group.fields],
+    ...(group.types ? { types: { ...group.types } } : {}),
+    ...(group.labels ? { labels: { ...group.labels } } : {}),
+  }
+}
+
+/** 只留字段表里真实存在的键，且类型必须是认识的五种之一 */
+function normalizeTypes(raw: unknown, fields: readonly string[]): Record<string, InfoFieldType> | undefined {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return undefined
+  const known = new Set(fields)
+  const out: Record<string, InfoFieldType> = {}
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!known.has(key) || !isInfoFieldType(value) || value === 'text') continue
+    out[key] = value
+  }
+  return Object.keys(out).length > 0 ? out : undefined
+}
+
+/** 显示名：只留存在的键、非空、且不等于键名（等于键名的没必要存） */
+function normalizeLabels(raw: unknown, fields: readonly string[]): Record<string, string> | undefined {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return undefined
+  const known = new Set(fields)
+  const out: Record<string, string> = {}
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!known.has(key) || typeof value !== 'string') continue
+    const label = value.trim()
+    if (label === '' || label === key) continue
+    out[key] = label
+  }
+  return Object.keys(out).length > 0 ? out : undefined
+}
+
+/** 某个字段的控件类型：没设 / 设坏 = 单行 */
+export function infoFieldTypeOf(group: InfoGroup | undefined, key: string): InfoFieldType {
+  const type = group?.types?.[key]
+  return isInfoFieldType(type) ? type : 'text'
+}
+
+/** 某个字段的显示名：没设 = 键名（键从来没有显示名这个概念，别在渲染处各猜一遍） */
+export function infoFieldLabelOf(group: InfoGroup | undefined, key: string): string {
+  const label = group?.labels?.[key]
+  return typeof label === 'string' && label.trim() !== '' ? label : key
 }
 
 /** 内置 + 盘上：同 id 以盘上为准（改名 / 改字段都能持久化），自定义追加在后 */
@@ -172,10 +258,17 @@ function normalize(raw: unknown): InfoGroup[] {
       ? [...new Set(record.fields.filter((field): field is string => typeof field === 'string').map((field) => field.trim()).filter((field) => field !== ''))]
       : []
     const host = hostOf(id, record.for)
+    const projected = projectColumnFields(id, knownColumnKeys(host, fields))
+    // 列型宿主的控件归字段表，组件里存的类型 / 显示名不作数（那边的 label 在 FieldConfig 里）
+    const noteHost = host === 'note' || host === undefined
+    const types = noteHost ? normalizeTypes(record.types, projected) : undefined
+    const labels = noteHost ? normalizeLabels(record.labels, projected) : undefined
     out.push({
       id,
       name,
-      fields: projectColumnFields(id, knownColumnKeys(host, fields)),
+      fields: projected,
+      ...(types ? { types } : {}),
+      ...(labels ? { labels } : {}),
       builtin: record.builtin === true || isBuiltinInfoGroup(id),
       ...(host !== undefined ? { for: host } : {}),
     })

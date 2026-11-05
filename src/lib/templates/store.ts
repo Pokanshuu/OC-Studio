@@ -16,8 +16,9 @@ import { isVaultSupported, vaultFs } from '@/lib/vault/vault-fs'
 import { setTemplateCustomFieldKeys } from '@/lib/vault/vault-field-keys'
 import { BUILTIN_TEMPLATES } from './defaults'
 import { collectTemplateFieldKeys } from './fields'
+import type { TemplateParamValue } from './params'
 import { parseTemplate, serializeTemplate } from './serialize'
-import { TEMPLATE_DIR, templatePath, type TemplateDoc } from './types'
+import { TEMPLATE_DIR, templatePath, type TemplateComponentId, type TemplateDoc } from './types'
 
 const LS_KEY = 'oc-templates-v1'
 
@@ -144,6 +145,28 @@ export async function saveTemplate(next: TemplateDoc): Promise<void> {
   const exists = cache.some((doc) => doc.id === next.id)
   const docs = exists ? cache.map((doc) => (doc.id === next.id ? next : doc)) : [...cache, next]
   await saveTemplates(docs)
+}
+
+/**
+ * 改某模板某个组件的一个参数（如 `relations.presentation`）。
+ *
+ * 参数是**模板级**的：在编辑器的关系区块上切换呈现，写回的是模板，
+ * 不是这一篇笔记（`docs/模板.md §6.3`）。
+ */
+export async function setTemplateComponentParam(
+  templateId: string,
+  componentId: TemplateComponentId,
+  key: string,
+  value: TemplateParamValue,
+): Promise<void> {
+  const current = cache.find((doc) => doc.id === templateId)
+  if (!current) return
+  const components = current.components.map((component) =>
+    component.id === componentId
+      ? { ...component, params: { ...component.params, [key]: value } }
+      : component,
+  )
+  await saveTemplate({ ...current, components })
 }
 
 export function resetTemplateToBuiltin(id: string): TemplateDoc | null {

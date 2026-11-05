@@ -12,6 +12,9 @@ import { open } from '@tauri-apps/plugin-dialog'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { Icon } from '@/plugins/agent/components/ui/Icon'
 import { Menu, MenuItem, useToast, type MenuAnchor } from '@/plugins/agent/components/ui/primitives'
+import { ContextDialog } from './ContextDialog'
+import { ContextStrip } from './ContextStrip'
+import { getAgentSessionContext, setAgentSessionContext } from '@/lib/plugins/agent-session'
 import { useChatStore } from '@/plugins/agent/state/chat'
 import { useSettingsStore } from '@/plugins/agent/state/settings'
 import { useT } from '@/plugins/agent/i18n'
@@ -34,10 +37,6 @@ const TEXT_EXTENSIONS = [
 function extensionOf(path: string): string {
   const index = path.lastIndexOf('.')
   return index < 0 ? '' : path.slice(index + 1).toLowerCase()
-}
-
-function baseName(path: string): string {
-  return path.split(/[\\/]/).pop() ?? path
 }
 
 async function attachmentFromPath(path: string): Promise<Attachment | null> {
@@ -83,7 +82,6 @@ export function Composer() {
   const setMode = useChatStore((s) => s.setMode)
   const currentId = useChatStore((s) => s.currentId)
   const conversations = useChatStore((s) => s.conversations)
-  const setWorkspace = useChatStore((s) => s.setWorkspace)
   const banner = useChatStore((s) => s.banner)
   const setBanner = useChatStore((s) => s.setBanner)
 
@@ -91,6 +89,8 @@ export function Composer() {
   const patch = useSettingsStore((s) => s.patch)
 
   const [attachments, setAttachments] = useState<Attachment[]>([])
+  const [contextOpen, setContextOpen] = useState(false)
+  const [contextVersion, setContextVersion] = useState(0)
   const [menu, setMenu] = useState<{
     kind: 'model' | 'mode' | 'attach'
     anchor: MenuAnchor
@@ -100,9 +100,11 @@ export function Composer() {
   const conversation = conversations.find((c) => c.id === currentId) ?? null
   const effectiveMode: ConversationMode = conversation?.mode ?? mode
   const isAgent = effectiveMode === 'AGENT'
-  const workspace = conversation?.workspace ?? settings.agent.workspace
-  // 有消息就算「已开始」，工作区随之锁定
-  const started = messageCount > 0
+  // contextVersion 只用来在保存资料后强制重算（localStorage 不是响应式的）
+  const sessionContext = useMemo(
+    () => getAgentSessionContext(currentId),
+    [currentId, contextVersion],
+  )
   // Agent 会话的模式不可改：切出去会丢掉工具语义，也切不回来
   const modeLocked = conversation?.mode === 'AGENT'
   const modeOptions: ConversationMode[] = conversation
@@ -222,16 +224,6 @@ export function Composer() {
     await addPaths(Array.isArray(picked) ? picked : [picked])
   }
 
-  async function pickWorkspace() {
-    const picked = await open({ directory: true, multiple: false })
-    if (!picked || Array.isArray(picked)) return
-    if (conversation) {
-      await setWorkspace(conversation.id, picked)
-    } else {
-      patch((current) => ({ ...current, agent: { ...current.agent, workspace: picked } }))
-    }
-  }
-
   const canSend = (draft.trim().length > 0 || attachments.length > 0) && !streaming
 
   const submit = () => {
@@ -303,6 +295,12 @@ export function Composer() {
           </div>
         )}
 
+        <ContextStrip
+          mode={effectiveMode}
+          conversationId={currentId}
+          onEdit={() => setContextOpen(true)}
+        />
+
         <textarea
           ref={textarea}
           className="composer-input"
@@ -335,29 +333,6 @@ export function Composer() {
               <span className="label">{t(`mode.${effectiveMode}`)}</span>
             </button>
           )}
-
-          {/* 会话一旦开始就锁定工作区：本轮的工具调用都落在它下面 */}
-          {isAgent &&
-            (started ? (
-              <span className="pill locked" title={workspace ?? t('composer.noWorkspace')}>
-                <Icon name="folder" size={13} />
-                <span className="label">
-                  {workspace ? baseName(workspace) : t('composer.noWorkspace')}
-                </span>
-              </span>
-            ) : (
-              <button
-                type="button"
-                className="pill"
-                onClick={() => void pickWorkspace()}
-                title={workspace ?? t('composer.noWorkspace')}
-              >
-                <Icon name="folder" size={13} />
-                <span className="label">
-                  {workspace ? baseName(workspace) : t('composer.pickWorkspace')}
-                </span>
-              </button>
-            ))}
 
           <button
             type="button"
@@ -490,6 +465,10 @@ export function Composer() {
                   } else {
                     setMode(value)
                   }
+                  // 切到扮演 / 创作且还没选资料：直接把选择器打开
+                  if (value !== 'AGENT' && (getAgentSessionContext(currentId)?.characterIds.length ?? 0) === 0) {
+                    setContextOpen(true)
+                  }
                 }}
               >
                 {t(`mode.${value}`)}
@@ -524,7 +503,7 @@ export function Composer() {
 
         {menu?.kind === 'model' && (
           <>
-            {models.length === 0 && <div className="menu-item faint">{t('settings.modelHint')}</div>}
+            {models.length === 0 && <div className="px-3 py-1 text-[12px] text-ink-faint">{t('settings.modelHint')}</div>}
             {models.map((model) => (
               <MenuItem
                 key={model.id}
@@ -540,6 +519,18 @@ export function Composer() {
           </>
         )}
       </Menu>
+
+      <ContextDialog
+        open={contextOpen}
+        mode={effectiveMode}
+        value={sessionContext}
+        onClose={() => setContextOpen(false)}
+        onSave={(next) => {
+          setAgentSessionContext(currentId, next)
+          setContextVersion((value) => value + 1)
+          setContextOpen(false)
+        }}
+      />
     </div>
   )
 }

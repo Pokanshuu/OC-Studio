@@ -138,6 +138,14 @@ export async function deleteInspiration(id: string): Promise<void> {
   await persist(snapshot.filter((item) => item.id !== id))
 }
 
+/** 记下「这条已经变成哪一篇词条了」。升级是单向的：灵感留着，词条才是结果。 */
+export async function markPromoted(id: string, entryId: number): Promise<void> {
+  await loadInspirations()
+  const current = snapshot.find((item) => item.id === id)
+  if (current === undefined) return
+  await persist(snapshot.map((item) => (item.id === id ? { ...item, promotedId: entryId } : item)))
+}
+
 /** 测试与「切库」时清掉内存快照 */
 export function resetInspirations(): void {
   snapshot = []

@@ -1,7 +1,7 @@
 'use client'
 
 import { TagPicker } from '@/features/tags'
-import { FIELD_LABEL, FIELD_ROW_TOP, LIST_END } from '@/lib/ui-tokens'
+import { FIELD_LABEL, FIELD_ROW_TOP, LIST_END, TITLE_INPUT } from '@/lib/ui-tokens'
 
 interface WorldTitleFieldProps {
   title: string
@@ -18,7 +18,7 @@ export function WorldTitleField({ title, onTitleChange, placeholder = '词条标
       value={title}
       onChange={onTitleChange}
       placeholder={placeholder}
-      className="h-8 min-w-0 w-full bg-transparent font-serif text-lg font-semibold text-ink placeholder:text-ink-faint focus:outline-none"
+      className={`h-8 ${TITLE_INPUT}`}
     />
   )
 }

@@ -17,6 +17,12 @@ function buildDefaultEntry(data: WorldFormData, overrides: Partial<WorldEntry> =
     content: data.content ?? '',
     summary: data.summary ?? '',
     cover: data.cover,
+    avatar: data.avatar,
+    image: data.image,
+    gallery: data.gallery,
+    time: data.time,
+    endTime: data.endTime,
+    location: data.location,
     // `category` 现在是「自定义分类」的归属键（空 = 普通词条，进世界观目录树）。
     // 历史上它还兼过层级用途，那部分早已由 `parentId` 取代。
     category: data.category ?? '',
@@ -66,7 +72,11 @@ export async function updateEntry(id: number, data: Partial<WorldFormData>): Pro
   const now = Date.now()
   const updates: Partial<WorldEntry> = { updatedAt: now, ...pendingStamp(now) }
   type FieldKey = keyof WorldFormData
-  const fields: FieldKey[] = ['title', 'content', 'summary', 'cover', 'parentId', 'order', 'isConcept', 'category', 'template']
+  const fields: FieldKey[] = [
+    'title', 'content', 'summary', 'cover', 'avatar', 'image',
+    'time', 'endTime', 'location',
+    'parentId', 'order', 'isConcept', 'category', 'template',
+  ]
   for (const field of fields) {
     const newValue = data[field]
     if (newValue !== undefined) {
@@ -84,6 +94,18 @@ export async function updateEntry(id: number, data: Partial<WorldFormData>): Pro
       'tags',
       JSON.stringify(existing.tags ?? []),
       JSON.stringify(data.tags),
+    )
+  }
+
+  // 图集是对象数组：日志按 JSON 记，`String()` 会变成一串 [object Object]
+  if (data.gallery !== undefined) {
+    ;(updates as Record<string, unknown>).gallery = data.gallery
+    await logOperation(
+      TABLE,
+      id,
+      'gallery',
+      JSON.stringify(existing.gallery ?? []),
+      JSON.stringify(data.gallery),
     )
   }
 

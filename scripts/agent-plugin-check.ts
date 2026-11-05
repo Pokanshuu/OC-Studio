@@ -12,7 +12,12 @@
 import { createCapabilities } from '../src/lib/capabilities'
 import { AGENT_CALLER, LIBRARY_TOOL_NAMES, createLibraryToolExecutor } from '../src/lib/capabilities/agent-tools'
 import { READ_PERMISSION, type Caller, type CapabilityStore, type EntityKind } from '../src/lib/capabilities/types'
+import { AGENT_PLUGIN } from '../src/lib/plugins/official'
+import { hasPermission, isPluginActive } from '../src/lib/plugins/store'
+import { agentContextPrompt } from '../src/lib/plugins/agent-bridge'
+import { emptyAgentSessionContext, hasAgentSessionContext } from '../src/lib/plugins/agent-session'
 import { ALL_TOOLS, toOpenAiTools, toolByName, toolSummary } from '../src/plugins/agent/core/agent/tools'
+import { parseSseLine } from '../src/plugins/agent/core/sseParser'
 import { bodyDocFromMarkdown } from '../src/lib/vault/write-body'
 import { createVaultSession, setVaultSession } from '../src/lib/vault/vault-session'
 import type { Character, Country, Event, Tag, WorldEntry } from '../src/types'
@@ -387,6 +392,45 @@ async function main(): Promise<void> {
     refused = true
   }
   check('不合法 actor 被能力层拒绝', refused)
+
+  // ── 宿主侧：授权与入口 ────────────────────────────────────────────────
+  check('助手出厂启用', isPluginActive(AGENT_PLUGIN))
+  check('读实体默认关（逐项授权）', hasPermission(AGENT_PLUGIN, 'read-entities') === false)
+
+  const contextPrompt = agentContextPrompt({ kind: 'character', id: 7, title: '林知遥' })
+  check('入口提示带 kind / id', contextPrompt.includes('kind=character') && contextPrompt.includes('id=7'))
+  check('入口提示让它自己读（library_read）', contextPrompt.includes('library_read'))
+
+  // ── 会话资料（扮演 / 创作） ───────────────────────────────────────────
+  const emptyContext = emptyAgentSessionContext()
+  check('资料默认是空的', hasAgentSessionContext(emptyContext) === false)
+  check('选角色后算有资料', hasAgentSessionContext({ ...emptyContext, characterIds: [7] }) === true)
+  check('只选小说也算有资料', hasAgentSessionContext({ ...emptyContext, novelRootId: 3 }) === true)
+  const novelTool = toolByName('novel_write_chapter')
+  check('创作写回工具存在且要审批', novelTool?.category === 'write' && novelTool?.requiresApproval === true)
+  check(
+    'toolSummary 认 novel_write_chapter',
+    toolSummary({ id: 'n1', name: 'novel_write_chapter', args: '{"title":"第一章"}' } as never) === '第一章',
+  )
+
+  // ── SSE：正文的几种线格式都要收到（收不到就会只剩思考） ───────────────
+  const textEvents = (line: string) =>
+    parseSseLine(line)
+      .filter((event) => event.type === 'content')
+      .map((event) => (event.type === 'content' ? event.text : ''))
+      .join('')
+  check(
+    'delta.content 字符串',
+    textEvents('data: {"choices":[{"delta":{"content":"你好"}}]}') === '你好',
+  )
+  check(
+    'delta.content 数组（兼容网关）',
+    textEvents('data: {"choices":[{"delta":{"content":[{"type":"text","text":"你好"}]}}]}') === '你好',
+  )
+  check(
+    'delta.text（另一类网关）',
+    textEvents('data: {"choices":[{"delta":{"text":"你好"}}]}') === '你好',
+  )
 
   console.log(`助手插件自检：${passed} 项断言通过`)
 }

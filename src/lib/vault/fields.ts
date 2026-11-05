@@ -67,6 +67,8 @@ export const COUNTRY_KEYS = {
   culture: chain('culture', '文化'),
   flag: chain('flag', 'flagUrl', '旗帜'),
   header: chain('header', 'headerUrl'),
+  /** 图集（模板「画廊」组件的槽位） */
+  gallery: chain('gallery'),
   // `characters` / `events` 两格**已退役**（阶段二·一）：成员关系只有实体侧一份
   // （`Character.countryId` / `Event.countries`），国家页的名单是查询结果。
   // 从词汇表里摘掉 = 既不读也不写；盘上遗留的键原样留着，一个字节都不动。
@@ -112,6 +114,19 @@ export const WORLD_KEYS = {
   category: chain('category', '分类'),
   /** 分类条目封面（3:2）；`封面图` 是手写常见写法，`封面` 留给小说根节点 */
   cover: chain('cover', '封面图'),
+  /**
+   * 模板组件的图片 / 时间 / 地点槽位（2026-11-06 新增）。
+   *
+   * **不给中文别名**：中文键是用户自定义字段最常用的写法（「时间」「地点」「图片」），
+   * 认作同义词会让同一份 frontmatter 键有两个主人 —— 自定义字段那边一写就把组件值盖掉。
+   * 自定义字段与词汇表撞名时以第一类列为准（scan / serialize 的 readCustomFields 会跳过）。
+   */
+  avatar: chain('avatar'),
+  image: chain('image'),
+  gallery: chain('gallery'),
+  time: chain('time'),
+  endTime: chain('endTime'),
+  location: chain('location'),
   /** 一行简介：分类条目的副标题，也给列表摘要用 */
   summary: chain('summary', '简介'),
   /** 单篇笔记覆盖用的模板名（空 = 跟随所在分类 / 内置词条模板） */

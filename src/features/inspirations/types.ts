@@ -15,6 +15,13 @@ export interface Inspiration {
   content: string
   createdAt: number
   updatedAt: number
+  /**
+   * 已经升级成的词条 id。
+   *
+   * 升级是**单向**的：灵感留着（草稿是过程），词条才是结果。记下 id 是为了
+   * 界面上能说清「这条已经变成哪一篇了」，而不是让人猜自己按过没有。
+   */
+  promotedId?: number
 }
 
 export const INSPIRATIONS_REL_PATH = '.ocstudio/inspirations.json'
@@ -101,6 +108,9 @@ export function normalizeInspirations(raw: unknown): Inspiration[] {
       content: typeof record.content === 'string' ? record.content : EMPTY_INSPIRATION_CONTENT,
       createdAt,
       updatedAt,
+      ...(typeof record.promotedId === 'number' && Number.isFinite(record.promotedId)
+        ? { promotedId: record.promotedId }
+        : {}),
     })
   }
   return out.sort((a, b) => b.updatedAt - a.updatedAt)

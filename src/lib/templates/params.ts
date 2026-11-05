@@ -19,8 +19,12 @@ export type TemplateParamValue = string | number | boolean | string[]
 export interface TemplateParamDef {
   key: string
   label: string
-  /** `choice` = 行内分段按钮；`fields` = 字符串数组（基本信息字段表，不进轻量参数行） */
-  kind: 'choice' | 'fields'
+  /**
+   * `choice` = 行内分段按钮；
+   * `group` = 选中的基本信息组件 id（值域是用户数据，不在这里枚举）；
+   * `fields` = 字符串数组（旧的内联字段表，只读兼容）
+   */
+  kind: 'choice' | 'group' | 'fields'
   /** 没写 / 写坏时的默认值（渲染器必须按同一个默认值走） */
   fallback: TemplateParamValue
   /** `choice` 的可选值；`fields` 为空 */
@@ -30,6 +34,13 @@ export interface TemplateParamDef {
 /** 每个组件允许的参数。没登记的组件不给参数入口。 */
 export const TEMPLATE_PARAM_SCHEMA: Partial<Record<TemplateComponentId, TemplateParamDef[]>> = {
   info: [
+    {
+      key: 'group',
+      label: '基本信息组件',
+      kind: 'group',
+      fallback: '',
+      options: [],
+    },
     {
       key: 'fields',
       label: '字段',
@@ -47,6 +58,7 @@ export const TEMPLATE_PARAM_SCHEMA: Partial<Record<TemplateComponentId, Template
       options: [
         { value: 'table', label: '表格' },
         { value: 'compact', label: '紧凑' },
+        { value: 'graph', label: '图' },
       ],
     },
     {
@@ -89,29 +101,107 @@ export const TEMPLATE_PARAM_SCHEMA: Partial<Record<TemplateComponentId, Template
       ],
     },
   ],
+  image: [
+    {
+      key: 'width',
+      label: '宽度',
+      kind: 'choice',
+      fallback: 'full',
+      options: [
+        { value: 'full', label: '全宽' },
+        { value: 'half', label: '半宽' },
+      ],
+    },
+    {
+      key: 'title',
+      label: '标题',
+      kind: 'choice',
+      fallback: true,
+      options: [
+        { value: true, label: '显示' },
+        { value: false, label: '隐藏' },
+      ],
+    },
+  ],
+  time: [
+    {
+      key: 'interval',
+      label: '区间',
+      kind: 'choice',
+      fallback: true,
+      options: [
+        { value: true, label: '开始—结束' },
+        { value: false, label: '只开始' },
+      ],
+    },
+    {
+      key: 'title',
+      label: '标题',
+      kind: 'choice',
+      fallback: true,
+      options: [
+        { value: true, label: '显示' },
+        { value: false, label: '隐藏' },
+      ],
+    },
+  ],
+  place: [
+    {
+      key: 'title',
+      label: '标题',
+      kind: 'choice',
+      fallback: true,
+      options: [
+        { value: true, label: '显示' },
+        { value: false, label: '隐藏' },
+      ],
+    },
+  ],
+  summary: [
+    {
+      key: 'title',
+      label: '标题',
+      kind: 'choice',
+      fallback: true,
+      options: [
+        { value: true, label: '显示' },
+        { value: false, label: '隐藏' },
+      ],
+    },
+  ],
 }
 
 /**
  * 参数只对**真正消费它的模板**开放。
- * 关系呈现目前只有角色编辑器接了；事件 / 国家的关联本来就是 chips。
- * `info.fields` 由「基本信息」字段表消费（`lib/templates/fields.ts`）——
+ * 关系区块在角色 / 事件 / 国家三个编辑器里是同一套实现，所以三处都能改呈现。
+ * `info.group` 由「基本信息组件」选择器写、`lib/templates/fields.ts` 消费 ——
  * 它现在对**任何笔记类模板**开放（见 `TEMPLATE_PARAM_ANY_NOTE`），
  * 这里登记的是内置的那几个，脚本与不带 doc 的调用按它兜底。
  */
 export const TEMPLATE_PARAM_SUPPORT: Partial<Record<TemplateComponentId, string[]>> = {
   info: ['pet', 'weapon', 'entry'],
-  relations: ['character'],
-  gallery: ['character'],
+  relations: ['character', 'event', 'country'],
+  gallery: ['character', 'event', 'country'],
+  time: ['event'],
+  place: ['event'],
+  summary: ['event', 'character', 'country'],
 }
 
 /**
  * 「这个组件对任何笔记类模板都开放」—— 判断要带 doc（`isNoteTemplate`）。
  *
- * 为什么需要它：基本信息字段表已经不是宠物 / 武器的专利，用户在设置里新建的
- * 任何笔记类模板都该能声明自己的字段。硬编码一份 id 名单会漏掉自建模板。
+ * 为什么需要它：基本信息字段表、画廊 / 图片 / 时间 / 地点的呈现参数已经不是
+ * 实体模板的专利，用户在设置里新建的任何笔记类模板都该能声明。
+ * 硬编码一份 id 名单会漏掉自建模板，而且每接一个宿主就要改两处。
  */
 export const TEMPLATE_PARAM_ANY_NOTE: Partial<Record<TemplateComponentId, boolean>> = {
   info: true,
+  relations: true,
+  gallery: true,
+  image: true,
+  time: true,
+  place: true,
+  summary: true,
 }
 
 export function templateAcceptsParam(
@@ -181,6 +271,13 @@ export function validateTemplateParams(doc: TemplateDoc): string[] {
             : typeof value === 'string'
         if (!valid) {
           errors.push(`「${doc.name}」的「${component.id}.${key}」必须是字段名数组`)
+        }
+        continue
+      }
+      if (def.kind === 'group') {
+        // 值域是用户数据（组件 id），只校验形状；指向不存在的组件由读取侧回退
+        if (typeof value !== 'string' || value.trim() === '') {
+          errors.push(`「${doc.name}」的「${component.id}.${key}」必须是基本信息组件 id`)
         }
         continue
       }

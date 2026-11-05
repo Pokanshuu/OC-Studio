@@ -10,7 +10,6 @@
  */
 import { useState } from 'react'
 import { Plus } from 'lucide-react'
-import { toast } from 'sonner'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   PLUGIN_KIND_LABELS,
@@ -21,7 +20,7 @@ import {
   usePlugins,
   type PluginManifest,
 } from '@/lib/plugins'
-import { BTN_QUIET, ICON_BTN, ROUND_ITEM, SECTION_TITLE } from '@/lib/ui-tokens'
+import { ROUND_ITEM } from '@/lib/ui-tokens'
 
 function PermissionRow({ plugin, permission }: { plugin: PluginManifest; permission: PluginManifest['permissions'][number] }) {
   const granted = grantedPermissions(plugin).includes(permission)
@@ -53,8 +52,17 @@ export function PluginsTab() {
           const on = enabled(plugin)
           const open = expanded === plugin.id
           return (
-            <div key={plugin.id} className="flex flex-col border-b border-line py-2 last:border-b-0">
-              <div className="flex items-center gap-2">
+            <div key={plugin.id} className="flex flex-col border-b border-line last:border-b-0">
+              {/* 悬停单位是**整行**（复选框 / 名字 / 版本号一起亮），不是中间那截按钮：
+                  否则全局 `button:hover` 只给 flex-1 的那块铺底色，行看着被切成两半。 */}
+              <div
+                onClick={(event) => {
+                  // 复选框与名字按钮自己处理点击；只有点空白和版本号才落到行上
+                  if ((event.target as HTMLElement).closest('button')) return
+                  setExpanded(open ? null : plugin.id)
+                }}
+                className={`${ROUND_ITEM} flex items-center gap-2 py-2 transition-colors hover:bg-[var(--oc-hover)]`}
+              >
                 <Checkbox
                   checked={on}
                   onCheckedChange={(checked) => {
@@ -62,11 +70,12 @@ export function PluginsTab() {
                     setPluginEnabled(plugin, checked === true)
                   }}
                   aria-label={`启用 ${plugin.name}`}
+                  className={ROUND_ITEM}
                 />
                 <button
                   type="button"
                   onClick={() => setExpanded(open ? null : plugin.id)}
-                  className="min-w-0 flex-1 text-left"
+                  className="min-w-0 flex-1 text-left hover:bg-transparent"
                 >
                   <span className="flex items-center gap-2">
                     <span className={`truncate text-sm ${plugin.available ? 'text-ink' : 'text-ink-faint'}`}>
@@ -101,30 +110,12 @@ export function PluginsTab() {
         })}
       </div>
 
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => toast('从文件安装插件还在做')}
-          className={BTN_QUIET}
-        >
-          <Plus size={13} strokeWidth={2} />
-          添加插件
-        </button>
-        <button
-          type="button"
-          onClick={() => toast('插件市场还没开')}
-          className={`${ICON_BTN} w-auto px-2 text-[12px]`}
-        >
-          市场
-        </button>
+      {/* 插件还没开放安装入口：这里只占位说明，不做成按钮（点了也只会弹提示） */}
+      <div className="flex items-center gap-1.5 text-[13px] text-ink-faint">
+        <Plus size={13} strokeWidth={2} />
+        <span>添加插件</span>
+        <span className="text-[11px]">开发中</span>
       </div>
-
-      <section className="flex flex-col gap-1">
-        <h3 className={SECTION_TITLE}>说明</h3>
-        <p className="text-[11px] leading-relaxed text-ink-faint">
-          功能插件给界面，主题插件只给颜色与背景，技能插件只给提示词。
-        </p>
-      </section>
     </div>
   )
 }
