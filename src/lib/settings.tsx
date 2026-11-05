@@ -52,6 +52,8 @@ export interface Settings {
   defaultImagePresetId: string
   /** 默认网站预设 id（`.ocstudio/exports.json` 的 site 段） */
   defaultSitePresetId: string
+  /** 默认导出中心海报预设 id（`.ocstudio/exports.json` 的 poster 段） */
+  defaultPosterPresetId: string
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -73,6 +75,7 @@ const DEFAULT_SETTINGS: Settings = {
   coverTintMode: "auto",
   defaultImagePresetId: "",
   defaultSitePresetId: "",
+  defaultPosterPresetId: "",
 }
 
 function loadSettings(): Settings {
@@ -99,6 +102,8 @@ function loadSettings(): Settings {
         backgroundScrim: normalizeBackgroundScrim(merged.backgroundScrim),
         defaultImagePresetId: typeof merged.defaultImagePresetId === 'string' ? merged.defaultImagePresetId : '',
         defaultSitePresetId: typeof merged.defaultSitePresetId === 'string' ? merged.defaultSitePresetId : '',
+        defaultPosterPresetId:
+          typeof merged.defaultPosterPresetId === 'string' ? merged.defaultPosterPresetId : '',
       }
     }
   } catch {

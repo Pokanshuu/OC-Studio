@@ -89,10 +89,14 @@ export function applyAppBackground(
   root.style.setProperty('--oc-bg-repeat', mode === 'tile' ? 'repeat' : 'no-repeat')
   root.style.setProperty('--oc-bg-attachment', mode === 'fixed' ? 'fixed' : 'scroll')
   root.style.setProperty('--oc-bg-wash', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`)
-  // 外壳盖一层 35% 的纸色 + 模糊：图还看得见，菜单 / 侧栏的字不会压在照片上读不清
-  root.style.setProperty('--oc-bg-shell', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.35)`)
+  // 外壳（菜单栏 / 侧栏 / 状态栏）比整页 wash **更不透明**，而且跟着遮罩一起加深：
+  // 原先固定 35%，遮罩调低时侧栏的字就压在照片上读不清；现在最淡也有 44%，
+  // 遮罩拉满时到 71% —— 照片仍透得出来，字始终读得清。
+  const shellAlpha = Math.min(0.85, 0.35 + 0.45 * alpha)
+  root.style.setProperty('--oc-bg-shell', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${shellAlpha.toFixed(3)})`)
 
-  // 背景图与 Mica 互斥：先让位给图，BlurEffect 在初始化时也会跳过
+  // 背景图与 Mica 互斥：先让位给图，BlurEffect 在初始化时也会跳过。
+  // 只撤运行时的材质，**不动用户的开关偏好** —— 去掉背景后应能自动恢复。
   root.classList.remove('tauri-mica')
 }
 

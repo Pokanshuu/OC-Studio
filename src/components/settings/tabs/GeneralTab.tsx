@@ -54,16 +54,39 @@ export function GeneralTab() {
     } catch {}
   }
 
-  /** 背景图与 Mica 互斥：设图时把窗口模糊关掉，并把 localStorage 一起改，重开也不会再启用 */
-  const disableBlur = () => {
+  /**
+   * 背景图期间把窗口材质**暂时**撤掉。
+   *
+   * 关键：只撤运行时，**不改 `blur-effect-enabled`**。原来的实现顺手把偏好写成
+   * `false`，于是「设一次背景图 = 永久关掉窗口模糊」，用户找不到原因。现在去掉
+   * 背景后会按偏好自动恢复（`restoreBlur`）。
+   */
+  const suspendBlur = () => {
     setBlurEnabled(false)
-    try { localStorage.setItem("blur-effect-enabled", "false") } catch {}
     document.documentElement.classList.remove("tauri-mica")
     if (!isTauri) return
     try {
       invoke<boolean>("update_blur_effect", {
         enabled: false,
         isDark: document.documentElement.classList.contains("dark"),
+      }).catch(() => {})
+    } catch {}
+  }
+
+  /** 背景移除后按用户偏好恢复窗口材质 */
+  const restoreBlur = () => {
+    const wanted = typeof window !== 'undefined' && localStorage.getItem("blur-effect-enabled") === "true"
+    setBlurEnabled(wanted)
+    if (!wanted || !isTauri) {
+      document.documentElement.classList.remove("tauri-mica")
+      return
+    }
+    try {
+      invoke<boolean>("update_blur_effect", {
+        enabled: true,
+        isDark: document.documentElement.classList.contains("dark"),
+      }).then((applied) => {
+        document.documentElement.classList.toggle("tauri-mica", applied)
       }).catch(() => {})
     } catch {}
   }
@@ -76,23 +99,27 @@ export function GeneralTab() {
     try {
       const compressed = await compressBackgroundImage(file)
       const session = getVaultSession()
-      const previous = settings.backgroundImage
       let next = compressed.dataUrl
       if (session !== null && isVaultSupported()) {
         const relPath = `.ocstudio/backgrounds/background-${Date.now()}.webp`
         await vaultFs.writeBytes(session.root, relPath, Array.from(compressed.bytes))
         next = relPath
-      }
-      updateSetting("backgroundImage", next)
-      disableBlur()
-      // 旧背景是我们自己写的文件才删；换库 / 旧 data URL 一律不碰
-      if (session !== null && previous.startsWith('.ocstudio/backgrounds/') && previous !== next) {
+        // 扫一遍 `backgrounds/`，把不是当前这张的都删掉。
+        // 只删「记得的上一张」会留孤儿：删失败、换库、异常退出都会攒下没人认领的文件。
         try {
-          await vaultFs.remove(session.root, previous)
+          const assets = await vaultFs.listAssets(session.root, 'backgrounds')
+          const keep = relPath.split('/').pop()
+          await Promise.all(
+            assets
+              .filter((asset) => asset.name !== keep && /^background-.*\.(webp|png|jpg|jpeg)$/i.test(asset.name))
+              .map((asset) => vaultFs.remove(session.root, asset.relPath).catch(() => undefined)),
+          )
         } catch {
-          // 删不掉最多留一个孤儿文件，不影响新背景
+          // 扫不动目录不影响换图本身，下次换图再扫
         }
       }
+      updateSetting("backgroundImage", next)
+      suspendBlur()
     } catch (error) {
       toast.error('背景图读取失败', { description: error instanceof Error ? error.message : String(error) })
     } finally {
@@ -111,6 +138,7 @@ export function GeneralTab() {
         // 文件可能已被外部删掉；界面已经清空，不阻塞
       }
     }
+    restoreBlur()
   }
 
   const backgroundModes: Array<{ value: BackgroundMode; label: string }> = [
@@ -304,7 +332,7 @@ export function GeneralTab() {
                     </button>
                   </label>
                   {settings.backgroundImage !== '' ? (
-                    <span className="text-[11px] text-ink-faint">有背景图时不可用</span>
+                    <span className="text-[11px] text-ink-faint">与背景图互斥</span>
                   ) : null}
                 </div>
               </div>
