@@ -372,7 +372,8 @@ export const ALL_TOOLS: ToolSpec[] = [
     description:
       'Create a new library entry of the given kind and return it. Only the title and the whitelisted ' +
       'scalar fields can be set here; add the body afterwards with library_set_body and connections ' +
-      'with library_link.',
+      'with library_link. For world entries (lore notes) you may also pass category / template / ' +
+      'parentId to place it in a custom category, a novel (category=小说) or under a parent note.',
     parameters: {
       type: 'object',
       properties: {
@@ -387,8 +388,282 @@ export const ALL_TOOLS: ToolSpec[] = [
           description: 'Optional scalar fields, same whitelist as library_set_fields.',
           additionalProperties: { type: 'string' },
         },
+        category: {
+          type: 'string',
+          description:
+            'world only: category name from the library catalog (e.g. 宠物, or 小说 for a novel root). ' +
+            'Omit for a plain lore entry.',
+        },
+        template: {
+          type: 'string',
+          description: 'world only: template name; normally follows the category.',
+        },
+        parentId: {
+          type: 'integer',
+          description: 'world only: parent entry id (e.g. a novel chapter points at its novel root).',
+        },
       },
       required: ['kind', 'title'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'library_delete',
+    category: 'write',
+    requiresApproval: true,
+    description:
+      'Move one library entry to the trash (soft delete, recoverable). Use this instead of deleting ' +
+      'files or running rm / del / Remove-Item. Only remove entries the user asked to remove, or an ' +
+      'entry you just created by mistake.',
+    parameters: {
+      type: 'object',
+      properties: {
+        kind: {
+          type: 'string',
+          enum: ['character', 'event', 'country', 'world'],
+          description: 'Entity kind.',
+        },
+        id: { type: 'integer', description: 'Entity id.' },
+      },
+      required: ['kind', 'id'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'library_set_tags',
+    category: 'write',
+    requiresApproval: true,
+    description:
+      'Replace the tags of one library entry with the given names. Names are matched exactly; names ' +
+      'that do not exist yet are created. Pass an empty array to clear every tag.',
+    parameters: {
+      type: 'object',
+      properties: {
+        kind: {
+          type: 'string',
+          enum: ['character', 'event', 'country', 'world'],
+          description: 'Entity kind.',
+        },
+        id: { type: 'integer', description: 'Entity id.' },
+        tags: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Tag names (max 20). Empty array clears the tags.',
+        },
+      },
+      required: ['kind', 'id', 'tags'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'library_set_custom',
+    category: 'write',
+    requiresApproval: true,
+    description:
+      'Merge custom fields into one entry (template / info-group fields such as 物种 or 材质, stored ' +
+      'in `custom`). Keys come from the library catalog; an empty string removes the key. Built-in ' +
+      'fields use library_set_fields instead.',
+    parameters: {
+      type: 'object',
+      properties: {
+        kind: {
+          type: 'string',
+          enum: ['character', 'event', 'country', 'world'],
+          description: 'Entity kind.',
+        },
+        id: { type: 'integer', description: 'Entity id.' },
+        fields: {
+          type: 'object',
+          description: 'Field key → text. Empty string removes that key.',
+          additionalProperties: { type: 'string' },
+        },
+      },
+      required: ['kind', 'id', 'fields'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'library_set_media',
+    category: 'write',
+    requiresApproval: true,
+    description:
+      'Point an image slot of one entry at a file that ALREADY exists inside the library folder. ' +
+      'Download the image first (shell) and pass the vault-relative path, e.g. 附件/forest.png. ' +
+      'Slots: character avatar/header, event header, country flag/header, world cover/avatar/image. ' +
+      'This does not upload, crop or deduplicate files.',
+    parameters: {
+      type: 'object',
+      properties: {
+        kind: {
+          type: 'string',
+          enum: ['character', 'event', 'country', 'world'],
+          description: 'Entity kind.',
+        },
+        id: { type: 'integer', description: 'Entity id.' },
+        slot: {
+          type: 'string',
+          enum: ['avatar', 'header', 'flag', 'cover', 'image', 'novelCover'],
+          description: 'Image slot. Not every slot exists on every kind; see the description.',
+        },
+        path: {
+          type: 'string',
+          description: 'Path relative to the library root, e.g. 附件/forest.png.',
+        },
+      },
+      required: ['kind', 'id', 'slot', 'path'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'library_import_image',
+    category: 'write',
+    requiresApproval: true,
+    description:
+      'Download an http(s) image into the library folder (附件/) and set it as the image slot of one ' +
+      'entry. Downloads happen in Rust (no CORS), max 20 MB, png/jpg/jpeg/webp/gif/avif only. ' +
+      'Existing files are never overwritten — a numeric suffix is added. Use library_set_media only ' +
+      'when the file is already inside the library.',
+    parameters: {
+      type: 'object',
+      properties: {
+        kind: {
+          type: 'string',
+          enum: ['character', 'event', 'country', 'world'],
+          description: 'Entity kind.',
+        },
+        id: { type: 'integer', description: 'Entity id.' },
+        slot: {
+          type: 'string',
+          enum: ['avatar', 'header', 'flag', 'cover', 'image', 'novelCover'],
+          description: 'Image slot. Not every slot exists on every kind.',
+        },
+        url: { type: 'string', description: 'Absolute http(s) image URL.' },
+        filename: {
+          type: 'string',
+          description: 'Optional target file name (extension must be an allowed image type).',
+        },
+      },
+      required: ['kind', 'id', 'slot', 'url'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'library_rename',
+    category: 'write',
+    requiresApproval: true,
+    description:
+      'Rename one entry. The title change goes through the normal rename path, so wiki-link labels ' +
+      'pointing at it are updated. Optionally replace its aliases in the same call (pass [] to clear).',
+    parameters: {
+      type: 'object',
+      properties: {
+        kind: {
+          type: 'string',
+          enum: ['character', 'event', 'country', 'world'],
+          description: 'Entity kind.',
+        },
+        id: { type: 'integer', description: 'Entity id.' },
+        title: { type: 'string', description: 'New title (or name, for characters and countries).' },
+        aliases: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Optional full alias list (max 20). Empty array clears aliases.',
+        },
+      },
+      required: ['kind', 'id', 'title'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'library_set_placement',
+    category: 'write',
+    requiresApproval: true,
+    description:
+      'world only: move a note into a category, switch its template, or change its parent. Use names ' +
+      'from the library catalog (小说 for a novel, 地图 for a map). Empty string clears category / ' +
+      'template; parentId: null makes it a root. Does not create categories/templates — those are ' +
+      'defined by the author in the UI.',
+    parameters: {
+      type: 'object',
+      properties: {
+        kind: {
+          type: 'string',
+          enum: ['character', 'event', 'country', 'world'],
+          description: 'Must be world.',
+        },
+        id: { type: 'integer', description: 'Entity id.' },
+        category: {
+          type: 'string',
+          description: 'Category name, or "" to clear (plain lore entry).',
+        },
+        template: {
+          type: 'string',
+          description: 'Template name, or "" to follow the category.',
+        },
+        parentId: {
+          type: ['integer', 'null'],
+          description: 'Parent note id, or null for a root entry.',
+        },
+      },
+      required: ['kind', 'id'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'library_create_category',
+    category: 'write',
+    requiresApproval: true,
+    description:
+      'Create a custom category (a sidebar section backed by a note template). Pass `fields` to also ' +
+      'create an info group and a note template in one call (recommended for a brand-new category). ' +
+      'Without `fields`, bind an existing template (default: 词条). Deleting/editing categories is ' +
+      'still done by the author in the UI.',
+    parameters: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Category name (also the note `category` value).' },
+        template: {
+          type: 'string',
+          description: 'Existing template name to bind (e.g. 词条). Omit when passing fields.',
+        },
+        icon: {
+          type: 'string',
+          description: 'Icon name from the category icon set (e.g. sparkles, leaf, flaskConical).',
+        },
+        fields: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Optional field keys (max 30). Creates an info group + note template for this category.',
+        },
+        labels: {
+          type: 'object',
+          description: 'Optional field key → display name.',
+          additionalProperties: { type: 'string' },
+        },
+      },
+      required: ['name'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'library_set_novel',
+    category: 'write',
+    requiresApproval: true,
+    description:
+      'Set the work info of a novel root note (category 小说): author, synopsis, target word count, ' +
+      'notes and cover path. Create the novel root first with library_create (world, category=小说). ' +
+      'Chapters are notes with parentId set to the root.',
+    parameters: {
+      type: 'object',
+      properties: {
+        id: { type: 'integer', description: 'Novel root entry id.' },
+        author: { type: 'string', description: 'Author.' },
+        synopsis: { type: 'string', description: 'Work synopsis.' },
+        targetWords: { type: 'integer', description: 'Target word count.' },
+        notes: { type: 'string', description: 'Work notes.' },
+        cover: { type: 'string', description: 'Cover image path inside the library.' },
+      },
+      required: ['id'],
       additionalProperties: false,
     },
   },
@@ -495,6 +770,32 @@ export function toolSummary(call: ToolCall): string {
         : ''
     case 'library_create':
       return typeof args.title === 'string' ? `新${typeof args.kind === 'string' ? args.kind : '条目'} · ${args.title}` : ''
+    case 'library_delete':
+      return typeof args.kind === 'string' && typeof args.id === 'number' ? `${args.kind} #${args.id}` : ''
+    case 'library_set_tags':
+      return Array.isArray(args.tags) ? `${args.tags.length} 个标签` : ''
+    case 'library_set_custom': {
+      const fields = args.fields
+      if (fields === null || typeof fields !== 'object') return ''
+      return Object.keys(fields as Record<string, unknown>).join(' · ')
+    }
+    case 'library_set_media':
+      return typeof args.slot === 'string' ? args.slot : ''
+    case 'library_import_image':
+      return typeof args.slot === 'string' ? args.slot : ''
+    case 'library_rename':
+      return pick('title') ?? ''
+    case 'library_create_category':
+      return pick('name') ?? ''
+    case 'library_set_novel':
+      return typeof args.id === 'number' ? `#${args.id}` : ''
+    case 'library_set_placement': {
+      const parts: string[] = []
+      if (typeof args.category === 'string' && args.category !== '') parts.push(args.category)
+      if (typeof args.template === 'string' && args.template !== '') parts.push(args.template)
+      if (typeof args.parentId === 'number') parts.push(`#${args.parentId}`)
+      return parts.join(' · ')
+    }
     case 'novel_write_chapter':
       return typeof args.title === 'string' ? args.title : ''
     case 'library_search':

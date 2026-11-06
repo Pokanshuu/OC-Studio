@@ -10,18 +10,22 @@
 
 import { progressiveBlur } from '../src/lib/cover/blur'
 import {
+  contrastRatio,
   darken,
+  hexToRgb,
   hslToHex,
   lighten,
   luminance,
   mixColor,
+  mixRgb,
   normalizeTint,
+  relativeLuminance,
   rgbToHex,
   rgbToHsl,
   rgba,
   tintFromPixels,
 } from '../src/lib/cover/color'
-import { photoDissolveStart, photoPlateHeight } from '../src/lib/cover/scene'
+import { photoDissolveStart, photoPlateHeight, scrimAlphaFor } from '../src/lib/cover/scene'
 import { normalizeTintMode } from '../src/lib/cover/tuning'
 
 const failures: string[] = []
@@ -387,6 +391,47 @@ function maxGradient(data: Uint8ClampedArray, row: number, offsetRow: number, wi
   const minPlate = photoPlateHeight(CARD_H, 0.2)
   check('极端矮的照片最多淡掉下半部分', photoDissolveStart(CARD_H, minPlate) >= 0.5 - 1e-9)
   check('没有照片高度时不淡出', photoDissolveStart(CARD_H, 0) === 1)
+}
+
+// ── 13. 文字衬底：亮底才补，补到够读为止 ────────────────────────────────
+//
+// 标题压在照片上，而混色从标题底边才开始 —— 那一带没有任何块色，只靠照片自己够暗。
+// 线稿 / 白底照上米白标题直接消失（2026-11-06 的真实截图）。衬底按实际背景亮度算：
+// 暗图 0（原样保留标题浮在照片上的观感），亮图补到 4.5:1 就停。
+
+{
+  const TINT = '#443F3A' // 线稿（近白）取出来的中性炭黑
+  const LIGHT_TEXT = hexToRgb('#E3DFD8')
+  const DARK_TEXT = hexToRgb('#2B2B2B')
+  const WHITE = hexToRgb('#FFFFFF')
+  const BLACK = hexToRgb('#111111')
+  const PAPER = '#F3EFE9'
+  const MID = hexToRgb('#9A9A9A')
+
+  check('WCAG 白 / 黑相对亮度', Math.abs(relativeLuminance(WHITE) - 1) < 1e-6 && relativeLuminance(BLACK) < 0.01)
+  check('白底上的米白字本来就不到 2:1（这就是要修的）', contrastRatio(WHITE, LIGHT_TEXT) < 2)
+
+  const bright = scrimAlphaFor(WHITE, TINT, true)
+  check('亮底会补衬底', bright > 0.4, bright.toFixed(3))
+  check('衬底不超过上限', bright <= 0.92, bright.toFixed(3))
+  const brightAfter = mixRgb(WHITE, hexToRgb(TINT), bright)
+  check('补完之后达到 4.5:1', contrastRatio(brightAfter, LIGHT_TEXT) >= 4.5, contrastRatio(brightAfter, LIGHT_TEXT).toFixed(2))
+
+  const mid = scrimAlphaFor(MID, TINT, true)
+  check('背景越亮补得越多', mid > 0 && bright >= mid, `${mid.toFixed(3)} / ${bright.toFixed(3)}`)
+  const midAfter = mixRgb(MID, hexToRgb(TINT), mid)
+  check('中等亮度也补到 4.5:1', contrastRatio(midAfter, LIGHT_TEXT) >= 4.5)
+
+  check('暗底完全不补（暗图观感不变）', scrimAlphaFor(BLACK, TINT, true) === 0)
+  check('衬底色帮不上忙时不动（浅字配浅底）', scrimAlphaFor(WHITE, PAPER, true) === 0)
+
+  // 黑白模式 + 亮色主题：块色是纸色、字是深色 —— 暗照片上要把背景提亮，方向相反
+  const darkPhoto = hexToRgb('#141414')
+  const lift = scrimAlphaFor(darkPhoto, PAPER, false)
+  check('纸色底 + 深色字：暗照片上补纸色衬底', lift > 0.4, lift.toFixed(3))
+  const liftAfter = mixRgb(darkPhoto, hexToRgb(PAPER), lift)
+  check('纸色衬底后深色字够读', contrastRatio(liftAfter, DARK_TEXT) >= 4.5)
+  check('深色字配暗块（本来就是纸色块）不重复铺', scrimAlphaFor(hexToRgb('#E8E4DE'), PAPER, false) === 0)
 }
 
 // ── 汇总 ────────────────────────────────────────────────────────────────

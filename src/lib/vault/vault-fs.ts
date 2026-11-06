@@ -99,6 +99,20 @@ export const vaultFs = {
     return invoke<number>('vault_write_bytes', { path, relPath, bytes })
   },
 
+  /** 从 http(s) 下载图片并原子写进库内（Rust 侧下载，不受 CORS 限制） */
+  async downloadImage(
+    path: string,
+    relPath: string,
+    url: string,
+  ): Promise<{ relPath: string; bytes: number; contentType: string }> {
+    requireSupport()
+    return invoke<{ relPath: string; bytes: number; contentType: string }>('vault_download_image', {
+      path,
+      relPath,
+      url,
+    })
+  },
+
   /** 把外部文件复制进 vault（素材上传） */
   async importFile(path: string, source: string, relPath: string): Promise<number> {
     requireSupport()

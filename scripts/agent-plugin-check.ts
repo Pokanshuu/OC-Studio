@@ -2,7 +2,7 @@
  * 助手插件自检：`npx tsx scripts/agent-plugin-check.ts`（`npm run audit:agent`）
  *
  * 验的是**接缝**，不是插件本身（插件原样搬自 Simple-Agent，它有自己的测试）：
- * - 四个设定库工具的 schema 真的进了 `ALL_TOOLS`（提示词靠它，漏了就白搭）
+ * - 全部设定库工具的 schema 真的进了 `ALL_TOOLS`（提示词靠它，漏了就白搭）
  * - 执行器把名字翻成能力层的调用，参数按不可信输入校验
  * - 不归宿主管的名字必须回 `null`，让插件继续走自己的文件工具
  * - 调用方身份是 `agent:assistant` + 只读权限（写入一律不放）
@@ -56,6 +56,17 @@ const characters: Character[] = [
   character({ id: 8, name: '沈砚', bio: '话少。', updatedAt: 100 }),
 ]
 
+function worldEntry(input: Partial<WorldEntry> & Pick<WorldEntry, 'id' | 'title'>): WorldEntry {
+  return {
+    content: '', category: '', parentId: null, order: 0, isConcept: false,
+    relations: [], references: [], tags: [], createdAt: 0, updatedAt: 0,
+    deleted: false, _syncStatus: 'synced', _lastModified: 0, ...input,
+  }
+}
+
+/** 一条词条，给 parentId / 关系图用例当目标 */
+const worldEntries: WorldEntry[] = [worldEntry({ id: 3, title: '元素与生命树' })]
+
 const tags: Tag[] = [{ id: 1, name: '主角', category: '', color: 'stone' }]
 
 /**
@@ -65,11 +76,13 @@ const tags: Tag[] = [{ id: 1, name: '主角', category: '', color: 'stone' }]
 const store = {
   async list(kind: EntityKind): Promise<Array<Character | Event | Country | WorldEntry>> {
     if (kind === 'character') return characters
+    if (kind === 'world') return worldEntries
     return []
   },
   async get(kind: EntityKind, id: number): Promise<Character | Event | Country | WorldEntry | null> {
-    if (kind !== 'character') return null
-    return characters.find((item) => item.id === id) ?? null
+    if (kind === 'character') return characters.find((item) => item.id === id) ?? null
+    if (kind === 'world') return worldEntries.find((item) => item.id === id) ?? null
+    return null
   },
   async tags(): Promise<Tag[]> {
     return tags
@@ -94,7 +107,7 @@ async function main(): Promise<void> {
     const fn = (tool as { function?: { name?: string } }).function
     return fn?.name ?? ''
   })
-  check('OpenAI tools 里带着这四个', LIBRARY_TOOL_NAMES.every((name) => openAi.includes(name)))
+  check('OpenAI tools 里带着这些库工具', LIBRARY_TOOL_NAMES.every((name) => openAi.includes(name)))
   check('原有文件工具没被挤掉', openAi.includes('read_file') && openAi.includes('todo_write'))
 
   // 摘要按 kind / id 显示，工具卡上才不是空白
@@ -157,7 +170,48 @@ async function main(): Promise<void> {
   const writes: Array<{ kind: string; id: number; patch: Record<string, string> }> = []
   const bodies: Array<{ kind: string; id: number; markdown: string }> = []
   const links: Array<{ from: string; fromId: number; to: string; toId: number; relation: string }> = []
-  const creates: Array<{ kind: string; id: number; title: string; fields: Record<string, string> }> = []
+  const creates: Array<{
+    kind: string
+    id: number
+    title: string
+    fields: Record<string, string>
+    category?: string
+    template?: string
+    parentId?: number | null
+  }> = []
+  const deletes: Array<{ kind: string; id: number }> = []
+  const tagWrites: Array<{ kind: string; id: number; names: string[] }> = []
+  const customWrites: Array<{ kind: string; id: number; fields: Record<string, string> }> = []
+  const mediaWrites: Array<{ kind: string; id: number; slot: string; path: string }> = []
+  const renames: Array<{ kind: string; id: number; title: string; aliases?: string[] }> = []
+  const placements: Array<{
+    id: number
+    category?: string
+    template?: string
+    parentId?: number | null
+  }> = []
+  const categoryCreates: Array<{
+    name: string
+    template?: string
+    icon?: string
+    fields?: string[]
+    labels?: Record<string, string>
+  }> = []
+  const novelWrites: Array<{
+    id: number
+    author?: string
+    synopsis?: string
+    targetWords?: number
+    notes?: string
+    cover?: string
+  }> = []
+  const imageImports: Array<{
+    kind: string
+    id: number
+    slot: string
+    url: string
+    filename?: string
+  }> = []
   const writer = {
     async setFields(kind: EntityKind, id: number, patch: Record<string, string>) {
       writes.push({ kind, id, patch })
@@ -190,13 +244,80 @@ async function main(): Promise<void> {
       }
       return { changed: true }
     },
-    async create(kind: EntityKind, input: { title: string; fields: Record<string, string> }) {
+    async create(
+      kind: EntityKind,
+      input: {
+        title: string
+        fields: Record<string, string>
+        category?: string
+        template?: string
+        parentId?: number | null
+      },
+    ) {
       const id = 100 + creates.length
-      creates.push({ kind, id, title: input.title, fields: input.fields })
+      creates.push({
+        kind,
+        id,
+        title: input.title,
+        fields: input.fields,
+        category: input.category,
+        template: input.template,
+        parentId: input.parentId,
+      })
       if (kind === 'character') {
         characters.push(character({ id, name: input.title, ...input.fields }))
       }
       return id
+    },
+    async delete(kind: EntityKind, id: number) {
+      deletes.push({ kind, id })
+      const index = characters.findIndex((item) => item.id === id)
+      if (index >= 0) characters.splice(index, 1)
+    },
+    async setTags(kind: EntityKind, id: number, names: string[]) {
+      tagWrites.push({ kind, id, names })
+      return names.map((name, index) => ({ id: 200 + index, name }))
+    },
+    async setCustom(kind: EntityKind, id: number, fields: Record<string, string>) {
+      customWrites.push({ kind, id, fields })
+    },
+    async setMedia(kind: EntityKind, id: number, slot: string, path: string) {
+      mediaWrites.push({ kind, id, slot, path })
+    },
+    async rename(kind: EntityKind, id: number, title: string, aliases?: string[]) {
+      renames.push({ kind, id, title, aliases })
+    },
+    async setPlacement(
+      id: number,
+      input: { category?: string; template?: string; parentId?: number | null },
+    ) {
+      placements.push({ id, ...input })
+    },
+    async createCategory(input: {
+      name: string
+      template?: string
+      icon?: string
+      fields?: string[]
+      labels?: Record<string, string>
+    }) {
+      categoryCreates.push(input)
+      return {
+        id: 'cat-test',
+        name: input.name,
+        template: input.template ?? 'entry',
+        group: input.fields ? 'group-test' : undefined,
+        fields: input.fields,
+      }
+    },
+    async setNovel(
+      id: number,
+      input: { author?: string; synopsis?: string; targetWords?: number; notes?: string; cover?: string },
+    ) {
+      novelWrites.push({ id, ...input })
+    },
+    async importImage(kind: EntityKind, id: number, slot: string, url: string, filename?: string) {
+      imageImports.push({ kind, id, slot, url, filename })
+      return { path: `附件/${filename ?? 'image.png'}`, bytes: 8 }
     },
   }
   const resolveW = createLibraryToolExecutor(createCapabilities(store), writer)
@@ -227,8 +348,18 @@ async function main(): Promise<void> {
   check('全是非法键时明确报错', onlyRejected?.isError === true && onlyRejected?.content.includes('不能写') === true)
   check('全非法时不会真去写', writes.length === 2)
 
-  const worldWrite = await resolveW('library_set_fields', { kind: 'world', id: 1, fields: { title: 'x' } })
-  check('词条没有可写标量', worldWrite?.isError === true && worldWrite?.content.includes('没有可写') === true)
+  const worldWrite = await resolveW('library_set_fields', {
+    kind: 'world',
+    id: 3,
+    fields: { summary: '一句话', chapterOutline: '第一章：开端' },
+  })
+  check(
+    '词条可写 summary / chapterOutline',
+    worldWrite?.isError === false && worldWrite?.content.includes('已写入 summary') === true,
+    worldWrite?.content.slice(0, 60),
+  )
+  const worldTitle = await resolveW('library_set_fields', { kind: 'world', id: 3, fields: { title: 'x' } })
+  check('词条标题不能当标量写', worldTitle?.isError === true)
 
   const emptyFields = await resolveW('library_set_fields', { kind: 'character', id: 7, fields: {} })
   check('空 fields 报错', emptyFields?.isError === true)
@@ -373,6 +504,217 @@ async function main(): Promise<void> {
       '新character · 新人',
   )
 
+  // ── library_delete（软删除，唯一允许的删除路径）────────────────────────
+  const deleteNoWriter = await resolve('library_delete', { kind: 'character', id: 7 })
+  check('没注入 writer 时删不了', deleteNoWriter?.isError === true)
+
+  const deleted = await resolveW('library_delete', { kind: 'character', id: 8 })
+  check('删除成功', deleted?.isError === false, deleted?.content.slice(0, 60))
+  check('删除落到 writer 上', deletes.length === 1 && deletes[0]?.kind === 'character' && deletes[0]?.id === 8)
+  check('回执说进回收站', deleted?.content.includes('回收站') === true)
+
+  const deleteMissing = await resolveW('library_delete', { kind: 'character', id: 999 })
+  check('删不存在的条目报错', deleteMissing?.isError === true && deletes.length === 1)
+
+  check(
+    'toolSummary 认 library_delete',
+    toolSummary({ id: 'c7', name: 'library_delete', args: '{"kind":"character","id":8}' } as never) ===
+      'character #8',
+  )
+
+  // ── library_set_tags / set_custom / set_media ──────────────────────────
+  const tagsNoWriter = await resolve('library_set_tags', { kind: 'character', id: 7, tags: ['主角'] })
+  check('没注入 writer 时打不了标签', tagsNoWriter?.isError === true)
+
+  const tagged = await resolveW('library_set_tags', {
+    kind: 'character',
+    id: 7,
+    tags: ['主角', '  ', '观星人', '主角'],
+  })
+  check('打标签成功', tagged?.isError === false, tagged?.content.slice(0, 50))
+  check(
+    '标签去空去重后落到 writer',
+    tagWrites.length === 1 && tagWrites[0]?.names.join('、') === '主角、观星人',
+  )
+  check('回执列出标签', tagged?.content.includes('主角') === true && tagged?.content.includes('观星人') === true)
+
+  const badTags = await resolveW('library_set_tags', { kind: 'character', id: 7, tags: '主角' })
+  check('tags 不是数组时报错', badTags?.isError === true)
+
+  const custom = await resolveW('library_set_custom', {
+    kind: 'world',
+    id: 1,
+    fields: { 学名: 'Elementum', 英文名: 'Element' },
+  })
+  check('写自建字段成功', custom?.isError === false, custom?.content.slice(0, 50))
+  check(
+    '自建字段落到 writer',
+    customWrites.length === 1 && Object.keys(customWrites[0]?.fields ?? {}).join('、') === '学名、英文名',
+  )
+  const emptyCustom = await resolveW('library_set_custom', { kind: 'world', id: 1, fields: {} })
+  check('空自建字段报错', emptyCustom?.isError === true)
+
+  const media = await resolveW('library_set_media', {
+    kind: 'character',
+    id: 7,
+    slot: 'avatar',
+    path: '附件/avatar.png',
+  })
+  check('写图片槽位成功', media?.isError === false, media?.content.slice(0, 60))
+  check(
+    '图片槽位落到 writer',
+    mediaWrites.length === 1 &&
+      mediaWrites[0]?.slot === 'avatar' &&
+      mediaWrites[0]?.path === '附件/avatar.png',
+  )
+  const badSlot = await resolveW('library_set_media', {
+    kind: 'event',
+    id: 1,
+    slot: 'cover',
+    path: '附件/a.png',
+  })
+  check('类型不支持这个槽位时报错', badSlot?.isError === true && String(badSlot?.content).includes('槽位'))
+  const absolute = await resolveW('library_set_media', {
+    kind: 'character',
+    id: 7,
+    slot: 'avatar',
+    path: 'C:/x.png',
+  })
+  check('绝对路径被拒', absolute?.isError === true)
+
+  const renamed = await resolveW('library_rename', {
+    kind: 'character',
+    id: 7,
+    title: '林知遥·改',
+    aliases: ['遥', '  '],
+  })
+  check('改名成功', renamed?.isError === false, renamed?.content.slice(0, 50))
+  check(
+    '改名与别名落到 writer',
+    renames.length === 1 &&
+      renames[0]?.title === '林知遥·改' &&
+      renames[0]?.aliases?.join('、') === '遥',
+  )
+  const emptyRename = await resolveW('library_rename', { kind: 'character', id: 7, title: '   ' })
+  check('空标题改名被拒', emptyRename?.isError === true)
+  const badAliases = await resolveW('library_rename', {
+    kind: 'character',
+    id: 7,
+    title: 'x',
+    aliases: '遥',
+  })
+  check('aliases 不是数组时报错', badAliases?.isError === true)
+
+  const placed = await resolveW('library_set_placement', {
+    kind: 'world',
+    id: 1,
+    category: '宠物',
+    template: 'pet',
+    parentId: 3,
+  })
+  check('归类成功', placed?.isError === false, placed?.content.slice(0, 50))
+  check(
+    '归类参数落到 writer',
+    placements.length === 1 &&
+      placements[0]?.category === '宠物' &&
+      placements[0]?.template === 'pet' &&
+      placements[0]?.parentId === 3,
+  )
+  const placedRoot = await resolveW('library_set_placement', { kind: 'world', id: 1, parentId: null })
+  check('parentId=null 变根', placedRoot?.isError === false && placements[1]?.parentId === null)
+  const wrongPlacementKind = await resolveW('library_set_placement', { kind: 'character', id: 7, category: 'x' })
+  check('非词条不能归类', wrongPlacementKind?.isError === true)
+  const emptyPlacement = await resolveW('library_set_placement', { kind: 'world', id: 1 })
+  check('什么都不给时报错', emptyPlacement?.isError === true)
+  const selfParent = await resolveW('library_set_placement', { kind: 'world', id: 1, parentId: 1 })
+  check('不能挂到自己下面', selfParent?.isError === true)
+
+  const categoryNoWriter = await resolve('library_create_category', { name: '元素' })
+  check('没注入 writer 时建不了分类', categoryNoWriter?.isError === true)
+  const category = await resolveW('library_create_category', {
+    name: '元素',
+    icon: 'sparkles',
+    fields: ['原子序数', '符号'],
+  })
+  check('建分类成功', category?.isError === false, category?.content.slice(0, 50))
+  check(
+    '分类参数落到 writer',
+    categoryCreates.length === 1 &&
+      categoryCreates[0]?.name === '元素' &&
+      categoryCreates[0]?.fields?.join('、') === '原子序数、符号',
+  )
+  const emptyCategory = await resolveW('library_create_category', { name: '   ' })
+  check('空分类名被拒', emptyCategory?.isError === true)
+
+  const novel = await resolveW('library_set_novel', {
+    id: 3,
+    author: '某人',
+    synopsis: '一个故事。',
+    targetWords: 12000,
+  })
+  check('作品信息写入成功', novel?.isError === false, novel?.content.slice(0, 50))
+  check(
+    '作品信息落到 writer',
+    novelWrites.length === 1 &&
+      novelWrites[0]?.author === '某人' &&
+      novelWrites[0]?.targetWords === 12000,
+  )
+  const emptyNovel = await resolveW('library_set_novel', { id: 3 })
+  check('什么都不给时作品信息报错', emptyNovel?.isError === true)
+
+  const imported = await resolveW('library_import_image', {
+    kind: 'character',
+    id: 7,
+    slot: 'avatar',
+    url: 'https://example.com/avatar.png',
+  })
+  check('图片导入成功', imported?.isError === false, imported?.content.slice(0, 60))
+  check(
+    '图片导入参数落到 writer',
+    imageImports.length === 1 &&
+      imageImports[0]?.slot === 'avatar' &&
+      imageImports[0]?.url === 'https://example.com/avatar.png',
+  )
+  const badImageUrl = await resolveW('library_import_image', {
+    kind: 'character',
+    id: 7,
+    slot: 'avatar',
+    url: 'ftp://example.com/a.png',
+  })
+  check('非 http(s) 图片地址被拒', badImageUrl?.isError === true)
+  const badImageSlot = await resolveW('library_import_image', {
+    kind: 'character',
+    id: 7,
+    slot: 'cover',
+    url: 'https://example.com/a.png',
+  })
+  check('角色没有 cover 槽位', badImageSlot?.isError === true)
+
+  check(
+    'toolSummary 认 library_set_tags',
+    toolSummary({ id: 'c8', name: 'library_set_tags', args: '{"tags":["主角","观星人"]}' } as never) ===
+      '2 个标签',
+  )
+  check(
+    'toolSummary 认 library_set_media',
+    toolSummary({ id: 'c9', name: 'library_set_media', args: '{"slot":"avatar"}' } as never) === 'avatar',
+  )
+  check(
+    'toolSummary 认 library_import_image',
+    toolSummary({ id: 'c12', name: 'library_import_image', args: '{"slot":"avatar"}' } as never) === 'avatar',
+  )
+  check(
+    'toolSummary 认 library_rename',
+    toolSummary({ id: 'c10', name: 'library_rename', args: '{"title":"林知遥·改"}' } as never) === '林知遥·改',
+  )
+  check(
+    'toolSummary 认 library_set_placement',
+    toolSummary({
+      id: 'c11',
+      name: 'library_set_placement',
+      args: '{"category":"宠物","parentId":3}',
+    } as never) === '宠物 · #3',
+  )
 
   // ── 调用方身份 ────────────────────────────────────────────────────────
   check('调用方是助手本人', AGENT_CALLER.actor === 'agent:assistant')

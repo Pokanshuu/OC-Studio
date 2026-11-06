@@ -167,6 +167,7 @@ pub fn run() {
       vault::vault_scan,
       vault::vault_write_texts,
       vault::vault_write_bytes,
+      vault::vault_download_image,
       vault::vault_import_file,
       vault::vault_read_bytes,
       vault::vault_move,

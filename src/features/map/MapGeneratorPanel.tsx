@@ -41,7 +41,10 @@ import {
   ROUND_ITEM,
 } from '@/lib/ui-tokens'
 import { MapLegend } from './components/MapLegend'
+import { useMapViewport } from './hooks/useMapViewport'
 import { saveBlobAs } from './export'
+import { pixelsToPng } from './render-view'
+import type { MapViewRenderer } from './save-generated'
 
 const VIEWS: MapView[] = ['terrain', 'contour', 'temperature', 'moisture', 'biome', 'political']
 
@@ -284,6 +287,8 @@ export function MapGeneratorPanel({
     view: MapView,
     /** 顺带把六档底图的渲染进度报上来（阶段 + 0–1） */
     onProgress?: (stage: string, value: number) => void,
+    /** 用它画其余五档：生成器 Worker 里世界还在，只光栅化，不重新生成 */
+    renderView?: MapViewRenderer,
   ) => Promise<void>
   /** 「在这张图上重新生成」：把原来的种子带进来，调参后仍是同一片大陆 */
   initialSeed?: number
@@ -319,59 +324,6 @@ export function MapGeneratorPanel({
   const [meta, setMeta] = useState<GeneratedMeta | null>(null)
   const [ready, setReady] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  /** 预览缩放：1 = 适应面板宽度。大图（3072×1536）不放大看不清海岸线 */
-  const [zoom, setZoom] = useState(1)
-  const previewRef = useRef<HTMLDivElement | null>(null)
-  /** 拖动画面时的起点与当时的滚动量（放大到超过面板才有得拖） */
-  const panRef = useRef<{ id: number; x: number; y: number; left: number; top: number } | null>(null)
-  /** 画面是否真的超出面板：只有超了才接管拖拽，否则鼠标手势会吃掉双击等原生行为 */
-  const [pannable, setPannable] = useState(false)
-
-  useEffect(() => {
-    const node = previewRef.current
-    if (!node) return
-    const measure = (): void => {
-      setPannable(node.scrollWidth > node.clientWidth + 1 || node.scrollHeight > node.clientHeight + 1)
-    }
-    measure()
-    const observer = new ResizeObserver(measure)
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [zoom, ready, meta])
-
-  /**
-   * 按住画面拖动 = 平移。
-   *
-   * 放大到 200% 以后只看得到地图的一角，靠滚动条挪太细了；触屏不接管
-   * （原生滚动更跟手），鼠标 / 笔才走拖拽。
-   */
-  const startPan = (event: React.PointerEvent<HTMLDivElement>): void => {
-    const node = previewRef.current
-    if (!node || !pannable || event.pointerType === 'touch' || event.button !== 0) return
-    panRef.current = {
-      id: event.pointerId,
-      x: event.clientX,
-      y: event.clientY,
-      left: node.scrollLeft,
-      top: node.scrollTop,
-    }
-    node.setPointerCapture(event.pointerId)
-  }
-
-  const movePan = (event: React.PointerEvent<HTMLDivElement>): void => {
-    const node = previewRef.current
-    const pan = panRef.current
-    if (!node || !pan || pan.id !== event.pointerId) return
-    node.scrollLeft = pan.left - (event.clientX - pan.x)
-    node.scrollTop = pan.top - (event.clientY - pan.y)
-  }
-
-  const endPan = (event: React.PointerEvent<HTMLDivElement>): void => {
-    const node = previewRef.current
-    if (panRef.current?.id === event.pointerId) panRef.current = null
-    if (node?.hasPointerCapture(event.pointerId)) node.releasePointerCapture(event.pointerId)
-  }
-
   const busy = progress !== null
 
   const send = useCallback((build: (requestId: number) => WorkerRequest) => {
@@ -402,7 +354,44 @@ export function MapGeneratorPanel({
     return true
   }, [])
 
+  /**
+   * 保存流程借用同一只 Worker 再画几档（静默请求）。
+   *
+   * 请求号从 1,000,000 起，和界面的 `requestIdRef` 岔开；响应在 `handleResponse`
+   * 最前面就分走 —— **不碰预览画布**，也不改 `ready` / `view`。
+   * 这是保存时不再重新生成世界的关键：Worker 内存里那块大陆还在，只做光栅化。
+   */
+  const silentRenderRef = useRef(
+    new Map<
+      number,
+      {
+        resolve: (blob: Blob) => void
+        reject: (error: Error) => void
+        width: number
+        height: number
+        timer: number
+      }
+    >(),
+  )
+  const silentRequestIdRef = useRef(1_000_000)
+
   const handleResponse = (message: WorkerResponse) => {
+    const silent = silentRenderRef.current.get(message.requestId)
+    if (silent) {
+      if (message.type === 'rendered') {
+        silentRenderRef.current.delete(message.requestId)
+        window.clearTimeout(silent.timer)
+        void pixelsToPng(message.buffer, silent.width, silent.height)
+          .then(silent.resolve)
+          .catch(silent.reject)
+      } else if (message.type === 'error') {
+        silentRenderRef.current.delete(message.requestId)
+        window.clearTimeout(silent.timer)
+        silent.reject(new Error(message.message.length > 0 ? message.message : '图层渲染失败'))
+      }
+      return
+    }
+
     // 重新生成 / 切换视图之后，旧请求的进度、像素、错误都不该再影响界面
     if (message.requestId !== requestIdRef.current) return
 
@@ -459,10 +448,19 @@ export function MapGeneratorPanel({
     const onMessage = (event: MessageEvent<WorkerResponse>) => {
       handleResponseRef.current(event.data)
     }
+    const failSilentRenders = (message: string): void => {
+      for (const pending of silentRenderRef.current.values()) {
+        window.clearTimeout(pending.timer)
+        pending.reject(new Error(message))
+      }
+      silentRenderRef.current.clear()
+    }
+
     const onError = (event: ErrorEvent) => {
       event.preventDefault()
       // Worker 已经不可信：作废在途请求，别让迟到的消息再改界面
       requestIdRef.current += 1
+      failSilentRenders('地图生成器出错')
       setProgress(null)
       setReady(false)
       setError('地图生成器出错，请重新生成')
@@ -474,6 +472,8 @@ export function MapGeneratorPanel({
     return () => {
       worker.removeEventListener('message', onMessage)
       worker.removeEventListener('error', onError)
+      // 面板被关掉时别把等待保存的 Promise 永远挂着
+      failSilentRenders('地图生成器已关闭')
       worker.terminate()
       workerRef.current = null
     }
@@ -504,6 +504,32 @@ export function MapGeneratorPanel({
       canvas.toBlob((blob) => resolve(blob), 'image/png')
     })
 
+  /** 交给宿主：保存其余五档时用它，Worker 里那块大陆不用重新生成 */
+  const renderViewBlob = useCallback(
+    (next: MapView): Promise<Blob> => {
+      const worker = workerRef.current
+      const current = metaRef.current
+      if (!worker || !current) return Promise.reject(new Error('地图尚未生成'))
+      const requestId = (silentRequestIdRef.current += 1)
+      return new Promise<Blob>((resolve, reject) => {
+        // 30s 兜底：Worker 万一丢了响应，保存流程要能往下走（这一档失败不连坐）
+        const timer = window.setTimeout(() => {
+          silentRenderRef.current.delete(requestId)
+          reject(new Error('渲染超时'))
+        }, 30_000)
+        silentRenderRef.current.set(requestId, {
+          resolve,
+          reject,
+          width: current.width,
+          height: current.height,
+          timer,
+        })
+        worker.postMessage({ type: 'render', requestId, view: next, contourInterval } satisfies WorkerRequest)
+      })
+    },
+    [contourInterval],
+  )
+
   const handleUse = async () => {
     const current = metaRef.current
     if (!current) return
@@ -521,6 +547,8 @@ export function MapGeneratorPanel({
         view,
         // 六档底图一次性画完存盘：进度接着用生成器那条胶囊
         (stage, value) => setProgress({ stage, value }),
+        // 其余五档在**这只** Worker 里画（世界已在内存里，不再 generate 一遍）
+        renderViewBlob,
       )
       setProgress(null)
       setError(null)
@@ -547,6 +575,26 @@ export function MapGeneratorPanel({
 
   const canvasWidth = meta?.width ?? params.width
   const canvasHeight = meta?.height ?? params.height
+  /**
+   * 预览用**和地图视图同一套**缩放 / 平移（滚轮以光标为中心、拖动平移、双指捏合）。
+   * 100% = 整张图 fit 进预览（水平垂直都居中）；50–400% 是生成器自己的范围。
+   */
+  const {
+    viewportRef,
+    stageWidth,
+    stageHeight,
+    scale,
+    minScale,
+    maxScale,
+    transform: stageTransform,
+    panning,
+    reset: resetView,
+    zoomBy,
+    viewportProps,
+  } = useMapViewport(canvasWidth / Math.max(1, canvasHeight), undefined, {
+    minScale: 0.5,
+    maxScale: 4,
+  })
   // 工具页（直接进入）每次提交都是新建一张；地图里打开的才是替换当前底图
   const createsMap = target?.kind === 'new'
   const CommitIcon = createsMap ? Plus : Save
@@ -758,20 +806,30 @@ export function MapGeneratorPanel({
         <div className="relative mt-3 flex min-h-[240px] flex-1 flex-col overflow-hidden">
           {/* canvas **必须一直在 DOM 里**：Worker 回传像素时是往这个元素上画的，
               以前生成前不渲染它，drawBuffer 拿到 null 就报「像素与宽高不一致」。
-              没生成前用 visibility 藏起来，占位与比例照旧。 */}
+              没生成前用 visibility 藏起来，占位与比例照旧。
+
+              预览走 `useMapViewport`：fit 后居中（不再贴在预览区顶端），
+              滚轮以光标为中心缩放、空白拖动平移、双指捏合 —— 和地图视图同一套手势。 */}
           <div
-            ref={previewRef}
-            className={`min-h-0 flex-1 select-none overflow-auto ${pannable ? 'cursor-grab active:cursor-grabbing' : ''}`}
-            onPointerDown={startPan}
-            onPointerMove={movePan}
-            onPointerUp={endPan}
-            onPointerCancel={endPan}
+            ref={viewportRef}
+            {...viewportProps}
+            className={`relative min-h-0 flex-1 touch-none select-none overflow-hidden ${
+              panning ? 'cursor-grabbing' : ready ? 'cursor-grab' : ''
+            }`}
           >
-            <canvas
-              ref={canvasRef}
-              className={`w-full bg-paper-card ${ROUND_ITEM} ${ready ? '' : 'invisible'}`}
-              style={{ aspectRatio: `${canvasWidth} / ${canvasHeight}`, width: `${zoom * 100}%` }}
-            />
+            <div
+              className="absolute left-0 top-0 origin-top-left"
+              style={{
+                width: stageWidth,
+                height: stageHeight,
+                transform: stageTransform,
+              }}
+            >
+              <canvas
+                ref={canvasRef}
+                className={`block h-full w-full bg-paper-card ${ROUND_ITEM} ${ready ? '' : 'invisible'}`}
+              />
+            </div>
           </div>
 
           {ready ? null : (
@@ -804,8 +862,8 @@ export function MapGeneratorPanel({
               <button
                 type="button"
                 className={FLOAT_BAR_ICON}
-                onClick={() => setZoom((value) => Math.max(0.5, Math.round((value - 0.25) * 4) / 4))}
-                disabled={zoom <= 0.5}
+                onClick={() => zoomBy(1 / 1.25)}
+                disabled={scale <= minScale + 0.001}
                 title="缩小"
                 aria-label="缩小"
               >
@@ -813,17 +871,17 @@ export function MapGeneratorPanel({
               </button>
               <button
                 type="button"
-                onClick={() => setZoom(1)}
+                onClick={resetView}
                 className="min-w-[46px] px-1 text-[11px] tabular-nums text-ink-muted transition-colors hover:text-ink"
-                title="适应宽度"
+                title="适应画面"
               >
-                {Math.round(zoom * 100)}%
+                {Math.round(scale * 100)}%
               </button>
               <button
                 type="button"
                 className={FLOAT_BAR_ICON}
-                onClick={() => setZoom((value) => Math.min(4, Math.round((value + 0.25) * 4) / 4))}
-                disabled={zoom >= 4}
+                onClick={() => zoomBy(1.25)}
+                disabled={scale >= maxScale - 0.001}
                 title="放大"
                 aria-label="放大"
               >

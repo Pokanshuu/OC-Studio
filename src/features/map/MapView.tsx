@@ -107,7 +107,7 @@ import {
 } from './services'
 import { DEFAULT_MAP_LAYERS, type MapAnchor, type MapLayerKind, type MapLayerState } from './types'
 // 六档档位与「生成结果落成底图」这一步由生成器与工具页共用，见 save-generated.ts
-import { MAP_VIEWS as VIEWS, saveGeneratedMap } from './save-generated'
+import { MAP_VIEWS as VIEWS, saveGeneratedMap, type MapViewRenderer } from './save-generated'
 import { consumeOpenMapRequest } from './open-request'
 
 const NAV_TYPE: Record<AnchorKind, string> = {
@@ -432,6 +432,7 @@ export function MapView() {
     params: WorldMapParams,
     view: MapViewKind,
     onProgress?: (stage: string, value: number) => void,
+    renderView?: MapViewRenderer,
   ) => {
     if (!active) return
     // 落盘 + 其余五档的预渲染在 save-generated.ts（工具页那边走的是同一份）
@@ -443,6 +444,7 @@ export function MapView() {
       seed,
       params,
       view,
+      renderView,
       onProgress,
     })
     await reload(active.id)

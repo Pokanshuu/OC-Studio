@@ -25,6 +25,7 @@ import { flushSettings, useSettingsStore } from '@/plugins/agent/state/settings'
 import { useChatStore } from '@/plugins/agent/state/chat'
 import { agentContextPrompt, takeAgentContext } from '@/lib/plugins/agent-bridge'
 import { clearPendingAgentSessionContext } from '@/lib/plugins/agent-session'
+import { addNewLibraryTools } from '@/plugins/agent/host/library-tools'
 import { isTauri } from '@/lib/env'
 import { useVault } from '@/lib/vault/vault-provider'
 import { CENTER_STATE } from '@/lib/ui-tokens'
@@ -116,6 +117,18 @@ export function AgentPlugin() {
       agent: { ...current.agent, workspace: vaultRoot },
     }))
   }, [loaded, vaultRoot, workspace])
+
+  useEffect(() => {
+    // 新版补进来的库工具（如 library_delete）对旧安装默认不可见：只在默认全开时补
+    if (!loaded) return
+    const enabled = useSettingsStore.getState().settings.agent.enabledTools
+    const next = addNewLibraryTools(enabled)
+    if (next === enabled) return
+    useSettingsStore.getState().patch((current) => ({
+      ...current,
+      agent: { ...current.agent, enabledTools: next },
+    }))
+  }, [loaded])
 
   useEffect(() => {
     // 切换笔记库：会话是**按库绑定**的（conversation.workspace 就是建会话时的库根）。

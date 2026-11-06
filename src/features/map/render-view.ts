@@ -40,8 +40,8 @@ function messageOf(err: unknown): string {
   return typeof err === 'string' ? err : String(err)
 }
 
-/** 把一帧 RGBA 画进离屏画布并编成 PNG */
-async function bufferToPng(buffer: ArrayBuffer, width: number, height: number): Promise<Blob> {
+/** 把一帧 RGBA 画进离屏画布并编成 PNG（生成器保存时也用它转 Worker 回的像素） */
+export async function pixelsToPng(buffer: ArrayBuffer, width: number, height: number): Promise<Blob> {
   const expected = width * height * 4
   if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0) {
     throw new Error('地图尺寸不合法')
@@ -107,7 +107,7 @@ export async function renderMapView(options: RenderMapViewOptions): Promise<Blob
           return
         }
         // rendered
-        void bufferToPng(message.buffer, width, height)
+        void pixelsToPng(message.buffer, width, height)
           .then((blob) => finish(null, blob))
           .catch((err: unknown) => finish(new Error(messageOf(err))))
       })

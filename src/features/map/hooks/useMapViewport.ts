@@ -10,7 +10,8 @@
  * 结构：
  * - `viewportRef`：裁剪容器（`overflow-hidden` + `touch-none`），负责量尺寸与接手势
  * - stage：按底图比例 fit 进容器的矩形，`transform: translate(x,y) scale(scale)`
- * - `scale` 是相对 fit 尺寸的倍率（0.5–3）；复位 = 1 + 居中
+ * - `scale` 是相对 fit 尺寸的倍率（地图视图 0.5–3；调用方可用 `options` 放宽，
+ *   生成器预览就是 0.5–4）；复位 = 1 + 居中
  *
  * 平移会被夹在容器内：放大时不留空白，缩小时整张图不跑出视野。
  */
@@ -49,17 +50,27 @@ interface PinchState {
   stageY: number
 }
 
+export interface MapViewportOptions {
+  /** 最小倍率（默认 `MIN_MAP_SCALE`）—— 生成器预览允许比地图视图放得更大 */
+  minScale?: number
+  maxScale?: number
+}
+
 export interface MapViewport {
   viewportRef: RefObject<HTMLDivElement | null>
   /** fit 后的 stage 尺寸（未乘 scale） */
   stageWidth: number
   stageHeight: number
   scale: number
+  minScale: number
+  maxScale: number
   transform: string
   panning: boolean
   reset: () => void
   zoomIn: () => void
   zoomOut: () => void
+  /** 按固定倍率缩放（以视口中心为准）；生成器的 25% 档位用它 */
+  zoomBy: (factor: number) => void
   viewportProps: {
     onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void
     onPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void
@@ -119,11 +130,17 @@ function pointerPair(points: Map<number, Point>): [Point, Point] | null {
   return [values[0], values[1]]
 }
 
-export function useMapViewport(aspectRatio: number, resetKey?: string | number): MapViewport {
+export function useMapViewport(
+  aspectRatio: number,
+  resetKey?: string | number,
+  options: MapViewportOptions = {},
+): MapViewport {
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const [size, setSize] = useState<Size>({ width: 0, height: 0 })
   const [view, setView] = useState<ViewState>({ scale: 1, x: 0, y: 0 })
   const [panning, setPanning] = useState(false)
+  const minScale = options.minScale ?? MIN_MAP_SCALE
+  const maxScale = options.maxScale ?? MAX_MAP_SCALE
 
   const stage = fitStage(size, aspectRatio)
   const stageRef = useRef(stage)
@@ -201,7 +218,7 @@ export function useMapViewport(aspectRatio: number, resetKey?: string | number):
   const zoomAt = useCallback(
     (px: number, py: number, factor: number) => {
       const current = viewRef.current
-      const nextScale = clamp(current.scale * factor, MIN_MAP_SCALE, MAX_MAP_SCALE)
+      const nextScale = clamp(current.scale * factor, minScale, maxScale)
       if (nextScale === current.scale) return
       const ratio = nextScale / current.scale
       applyView({
@@ -210,7 +227,7 @@ export function useMapViewport(aspectRatio: number, resetKey?: string | number):
         y: py - (py - current.y) * ratio,
       })
     },
-    [applyView],
+    [applyView, minScale, maxScale],
   )
 
   // 原生 wheel 监听：React 的 wheel 在部分 WebView 上是 passive，preventDefault 会失效。
@@ -285,7 +302,7 @@ export function useMapViewport(aspectRatio: number, resetKey?: string | number):
           y: (a.y + b.y) / 2 - rect.top,
         }
         const distance = Math.max(1, Math.hypot(a.x - b.x, a.y - b.y))
-        const nextScale = clamp(pinch.scale * (distance / pinch.distance), MIN_MAP_SCALE, MAX_MAP_SCALE)
+        const nextScale = clamp(pinch.scale * (distance / pinch.distance), minScale, maxScale)
         applyView({
           scale: nextScale,
           x: midpoint.x - pinch.stageX * nextScale,
@@ -301,7 +318,7 @@ export function useMapViewport(aspectRatio: number, resetKey?: string | number):
       panRef.current = { x: event.clientX, y: event.clientY }
       applyView({ ...viewRef.current, x: viewRef.current.x + dx, y: viewRef.current.y + dy })
     },
-    [applyView],
+    [applyView, minScale, maxScale],
   )
 
   const releasePointer = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
@@ -324,11 +341,14 @@ export function useMapViewport(aspectRatio: number, resetKey?: string | number):
     stageWidth: stage.width,
     stageHeight: stage.height,
     scale: view.scale,
+    minScale,
+    maxScale,
     transform: `translate3d(${view.x}px, ${view.y}px, 0) scale(${view.scale})`,
     panning,
     reset,
     zoomIn: () => zoomBy(1.2),
     zoomOut: () => zoomBy(1 / 1.2),
+    zoomBy,
     viewportProps: {
       onPointerDown,
       onPointerMove,

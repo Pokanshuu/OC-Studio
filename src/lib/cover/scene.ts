@@ -14,7 +14,18 @@
  * 左、右、下边界，文字才能落在实色区里，标题也才能压在模糊区上。
  */
 
-import { INK_TINT, darken, lighten, luminance, rgba, tintFromPixels } from './color'
+import {
+  INK_TINT,
+  darken,
+  hexToRgb,
+  lighten,
+  luminance,
+  mixRgb,
+  relativeLuminance,
+  rgba,
+  tintFromPixels,
+  type Rgb,
+} from './color'
 import { progressiveBlur } from './blur'
 
 /** 画布比例：参考实现的 4:5 */
@@ -71,6 +82,8 @@ export interface CoverSceneOptions {
   focusY: number
   /** 没有照片时压在色块上的衬线首字 */
   watermark?: string
+  /** 铺不铺标题衬底（只有量到真实文字位置时才铺，见 `paintTextScrim`） */
+  textScrim?: boolean
 }
 
 export interface CoverRenderOptions {
@@ -83,6 +96,8 @@ export interface CoverRenderOptions {
   /** 黑白模式的块色：亮色主题给纸色、暗色主题给墨色（`readTokenColor('--oc-paper-card', …)`） */
   monoColor?: string
   watermark?: string
+  /** 铺不铺标题衬底；不给时看有没有量到 `blurStart` / `mixStart` */
+  textScrim?: boolean
   /** 以下都是 `CoverTuning` 的同名字段（比例已换成 0–1） */
   aspect?: number
   inset?: number
@@ -107,6 +122,24 @@ const DEFAULT_MIX_POINT = 1
 const DEFAULT_GRAIN = 0.28
 const DEFAULT_PHOTO_HEIGHT = 0.78
 const DEFAULT_MAX_PIXEL_WIDTH = 760
+
+/**
+ * 文字衬底（标题带的可读性保险）。
+ *
+ * 标题压在照片上，而「混色」是从标题底边（没有小字时）才开始的 —— 那一带完全没有
+ * 块色，只能靠照片自己够暗。线稿 / 白底照 / 亮部照片上，米白标题直接消失。
+ *
+ * 所以量一次标题带的**实际颜色**，按 WCAG 对比度补一层块色衬底：
+ * 暗图 alpha = 0（原样保留「标题浮在照片上」的观感），亮图才铺到刚好够读。
+ * 衬底颜色就是块色本身，所以浓的时候看起来只是「色块开始得早一点」，不是一块黑纱。
+ */
+const TEXT_SCRIM_LEAD = 0.06
+const TEXT_SCRIM_MAX = 0.92
+const TEXT_CONTRAST_TARGET = 4.5
+/** 浅色字取暗色主题的墨色（比 `--oc-paper-fixed` 更暗，按更保守的那个算） */
+const TEXT_LIGHT = '#E3DFD8'
+const TEXT_DARK = '#2B2B2B'
+
 let noiseTile: HTMLCanvasElement | null = null
 let plateCanvas: HTMLCanvasElement | null = null
 
@@ -192,6 +225,103 @@ export function sampleTint(image: CoverImage, focusX: number, focusY: number): s
   } catch {
     return null
   }
+}
+
+/**
+ * 文字衬底的浓度：把背景色压到（或提到）刚好能让文字达到 `target` 对比度为止。
+ *
+ * - 背景已经够读 → 0（**暗图原样不动**，这是这条规则的全部意义）；
+ * - 块色帮不上忙（衬上去反而离目标更远）→ 0，宁可不动也不要越铺越糟；
+ * - 否则二分出最小 alpha，上限 `TEXT_SCRIM_MAX`。
+ *
+ * 纯函数：`scripts/cover-check.ts` 直接拿它锁行为。
+ */
+export function scrimAlphaFor(
+  background: Rgb,
+  tint: string,
+  lightText: boolean,
+  target = TEXT_CONTRAST_TARGET,
+): number {
+  const tintRgb = hexToRgb(tint)
+  const textL = relativeLuminance(hexToRgb(lightText ? TEXT_LIGHT : TEXT_DARK))
+  // 浅色字要背景更暗、深色字要背景更亮；先算出背景亮度必须落进哪一侧
+  const required = lightText ? (textL + 0.05) / target - 0.05 : target * (textL + 0.05) - 0.05
+  const enough = (color: Rgb): boolean => {
+    const value = relativeLuminance(color)
+    return lightText ? value <= required : value >= required
+  }
+  if (enough(background)) return 0
+  // 衬到底（alpha = 1 就是块色本身）都不够，说明这个块色帮不上忙 —— 干脆不铺
+  if (!enough(tintRgb)) return 0
+
+  const composite = (alpha: number): Rgb => mixRgb(background, tintRgb, alpha)
+  let lo = 0
+  let hi = 1
+  for (let i = 0; i < 14; i += 1) {
+    const mid = (lo + hi) / 2
+    if (enough(composite(mid))) hi = mid
+    else lo = mid
+  }
+  return Math.min(TEXT_SCRIM_MAX, hi)
+}
+
+/** 一段像素的平均色（每隔 `stride` 个像素取一个；只用来估这一带的亮度） */
+function averageColor(data: Uint8ClampedArray, stride = 3): Rgb {
+  let r = 0
+  let g = 0
+  let b = 0
+  let count = 0
+  const step = 4 * Math.max(1, Math.floor(stride))
+  for (let i = 0; i + 2 < data.length; i += step) {
+    r += data[i]
+    g += data[i + 1]
+    b += data[i + 2]
+    count += 1
+  }
+  return count === 0 ? { r: 0, g: 0, b: 0 } : { r: r / count, g: g / count, b: b / count }
+}
+
+/**
+ * 在标题带（标题顶边 → 标题底边 / 小字顶边）补一层块色衬底。
+ *
+ * 衬底从标题上方 `TEXT_SCRIM_LEAD` 处渐入，往下保持同一浓度直到卡片底部 ——
+ * 小字、简介都在同一块底色里，只保护标题就等于没修。
+ */
+function paintTextScrim(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  options: CoverSceneOptions,
+  tint: string,
+  lightText: boolean,
+): void {
+  const top = Math.min(1, Math.max(0, options.blurStart))
+  const bottom = Math.min(1, Math.max(0, options.mixStart))
+  if (bottom - top < 0.004) return
+
+  const y0 = Math.max(0, Math.floor(top * height))
+  const y1 = Math.min(height, Math.ceil(bottom * height))
+  if (y1 - y0 < 2) return
+
+  let background: Rgb
+  try {
+    background = averageColor(ctx.getImageData(0, y0, width, y1 - y0).data)
+  } catch {
+    // 画布被跨域图污染：读不到像素就退回「不铺」，别让一张图把整张卡画崩
+    return
+  }
+
+  const alpha = scrimAlphaFor(background, tint, lightText)
+  if (alpha < 0.02) return
+
+  const fadeTop = Math.max(0, top - TEXT_SCRIM_LEAD)
+  const gradient = ctx.createLinearGradient(0, fadeTop * height, 0, top * height)
+  gradient.addColorStop(0, rgba(tint, 0))
+  gradient.addColorStop(1, rgba(tint, alpha))
+  ctx.save()
+  ctx.fillStyle = gradient
+  ctx.fillRect(0, fadeTop * height, width, height - fadeTop * height)
+  ctx.restore()
 }
 
 /**
@@ -362,7 +492,8 @@ export function paintScene(
   }
 
   // 混色：照片下缘被这层实色吃掉，色块从 mixEnd 起完全不透明。
-  // 起点以上的照片只是被压了一层很薄的色，所以标题落在模糊区里也读得清。
+  // 标题带另有一层按**实际亮度**算的衬底（见 `paintTextScrim`）——
+  // 这一层从标题底边才开始，标题本身不靠它，别再假设「标题落在模糊区里也读得清」。
   const mixStart = height * Math.min(options.mixStart, options.mixPoint - 0.04)
   const mixEnd = height * Math.min(0.98, Math.max(0.4, options.mixPoint))
   const mix = ctx.createLinearGradient(0, mixStart, 0, mixEnd)
@@ -372,6 +503,12 @@ export function paintScene(
   mix.addColorStop(1, rgba(tint, 1))
   ctx.fillStyle = mix
   ctx.fillRect(0, mixStart, width, height - mixStart)
+
+  // 文字衬底：照片亮、标题压在照片上时，米白字会整行消失（线稿最常见）。
+  // 暗图算出来的 alpha 是 0，观感一动不动。
+  if (image && options.textScrim) {
+    paintTextScrim(ctx, width, height, options, tint, !lightBlock)
+  }
 
   // 色块底部一点点厚度，免得看起来像一块纯 UI 填色。
   // 纸色底不加：那层暗在平铺的纸上就是一条脏边。
@@ -447,6 +584,7 @@ export function renderCover(
 
   paintScene(ctx, pixelWidth, pixelHeight, image, {
     tint,
+    textScrim: options.textScrim ?? (options.blurStart !== undefined && options.mixStart !== undefined),
     aspect,
     inset: options.inset ?? 0,
     photoHeight: options.photoHeight ?? DEFAULT_PHOTO_HEIGHT,

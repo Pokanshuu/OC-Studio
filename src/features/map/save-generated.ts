@@ -9,6 +9,11 @@
  * 2. 其余五档**现在就画完存盘** —— 切档只是换个路径，不用再等 Worker 重画几秒
  * 3. 单档失败不连坐：存下来的那几档照样能切，缺的那档切过去时再补（见 MapView 的切档）
  *
+ * 第 2 步**优先用生成器交来的 `renderView`**：生成器那只 Worker 里世界还活着，
+ * 画一档 ≈ 一次光栅化，不再把整片大陆重新生成五遍（那是原来 save 慢的真正原因）。
+ * 只有没交渲染器的调用方（脚本 / 老入口）才退回 `renderMapView()` —— 它会重跑一次
+ * `generate`，慢但自洽。
+ *
  * 谁新建地图、谁负责 reload / 导航，都留给调用方 —— 这里只碰文件与地图笔记本身。
  */
 import { MAP_VIEW_LABELS, type MapView, type WorldMapParams } from '@/plugins/map-generator'
@@ -31,6 +36,9 @@ export const MAP_VIEWS: readonly MapView[] = [
   'political',
 ]
 
+/** 用**已经生成好的世界**画一档（生成器的 Worker 提供；不重新 generate） */
+export type MapViewRenderer = (view: MapView) => Promise<Blob>
+
 export interface SaveGeneratedMapOptions {
   /** 写到哪张地图 */
   mapId: number
@@ -43,6 +51,8 @@ export interface SaveGeneratedMapOptions {
   params: WorldMapParams
   /** 当前档 */
   view: MapView
+  /** 其余五档的渲染器：优先复用生成器那只 Worker（见文件头） */
+  renderView?: MapViewRenderer
   /** 其余五档的渲染进度（阶段 + 0–1） */
   onProgress?: (stage: string, value: number) => void
 }
@@ -56,6 +66,7 @@ export async function saveGeneratedMap({
   seed,
   params,
   view,
+  renderView,
   onProgress,
 }: SaveGeneratedMapOptions): Promise<void> {
   const saved = await saveMapImage(blob, {
@@ -79,7 +90,9 @@ export async function saveGeneratedMap({
     const next = others[index]
     onProgress?.(`渲染 ${MAP_VIEW_LABELS[next]}`, index / others.length)
     try {
-      const png = await renderMapView({ seed, params, view: next })
+      const png = renderView
+        ? await renderView(next)
+        : await renderMapView({ seed, params, view: next })
       await saveMapImage(png, {
         name: mapName,
         fileName: mapViewFileName(mapName, next),

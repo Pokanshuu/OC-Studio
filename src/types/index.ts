@@ -146,14 +146,8 @@ export interface Country {
   headerUrl?: string
   /** 图集（模板「画廊」组件；落盘键 gallery） */
   gallery?: GalleryImage[]
-  /**
-   * 阶段二·一收尾：国家侧的成员名单 `characters` / `events` **已从类型里摘掉**。
-   *
-   * 以前成员关系存两份，国家侧这份是镜像；现在唯一真源是 `Character.countryId` /
-   * `Event.countries`，国家页的名单是查询结果（`features/countries/services.ts#listCountryCharacters`
-   * / `listCountryEvents`）。盘上遗留的 `国家成员:` / `相关角色:` 键**不读、不写、不删**，
-   * 只是不再有字段接住它们 —— 留着字段就会有人再去读它。
-   */
+  // 阶段二·一收尾：国家侧的成员名单 `characters` / `events` 已从类型里摘掉 ——
+  // 成员关系只有实体侧一份（`Character.countryId` / `Event.countries`），国家页的名单是查询结果。
   tags: number[]
   /** 手动排序位置（升序；缺省 = 排在已有项之后） */
   order?: number
@@ -213,8 +207,9 @@ export interface WorldEntry {
   /** 一行简介（分类条目的副标题 / 列表摘要；落盘键 简介） */
   summary?: string
   /**
-   * 历史字段（已废弃）：层级只由 `parentId` 表达，界面不再编辑、新条目一律空。
-   * 保留是为了读得懂老数据和已有 vault 文件里的 `分类:` 键 —— 写回时也不再动它。
+   * 自定义分类归属（空 = 普通词条，进世界观目录树；小说根是 `小说`、地图笔记是 `地图`）。
+   *
+   * 历史上它兼过层级用途，那部分早已由 `parentId` 取代；盘上仍有老文件的 `分类:` 键。
    */
   category: string
   /** 单篇覆盖的模板名（空 = 跟随分类 / 内置词条模板；落盘键 模板） */

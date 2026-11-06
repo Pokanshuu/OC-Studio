@@ -71,6 +71,15 @@ Agent 和插件**都不许直接写文件**，必须经过 Dexie 中间件 → �
 
 > **2026-11-05 实装（助手侧）**：读库由插件权限 `read-entities` 控制，默认关。没开时 `library_*` **不进本轮请求**（模型看不到就不会去调），执行器再加一道兜底（`host/library-tools.ts#libraryAccessGranted`）；条目页的「和助手聊聊」也只在授权后出现。写入仍是 `requiresApproval: true`（每次点同意），且都包在 `runAsActorAsync('agent:assistant')` 里。
 
+### 2.4 内置助手的「库手册」（2026-11-06）
+
+AGENT 模式此前拿到的是通用代码 Agent 提示词 + 工具名，`buildAgentSessionContextBlock` 对它直接返回空串 —— 模型只能翻源码、建探测条目反推数据模型（实际跑了 20 步 / 54 次调用）。现在：
+
+- **字段表由脚本生成**：`scripts/gen-library-guide.ts` 读 `src/types/index.ts` 的四个接口（含 JSDoc 描述）+ `agent-tools.ts` 的字段白名单，写 `src/plugins/agent/host/library-model.generated.ts`。类型改名后跑 `npm run gen:library-guide`；`npm run audit:library-guide` 在提交前拦漂移。白名单里出现类型中不存在的字段会直接报错。
+- **AGENT 模式注入**：`host/session-context.ts#buildAgentLibraryGuide` 拼「身份边界 + 字段表 + 动作顺序 + 当前库目录」；目录（数量 / 分类 / 模板 / 字段组 / 标签）实时读现有 stores，模型拿到任务时就知道这个库有什么，不用先 `library_list`。
+- **行为约束**：不要为了了解模型去读 OC Studio 源码 / docs；标题 / 别名 / 标签 / 封面 / 分类绑定 / 模板没有写工具时，让作者去界面改，不要手改 `.md` 或 `.ocstudio/*.json`。
+- **写入补齐**：`library_create` 对 `world` 支持 `category` / `template` / `parentId`（小说根、章节、自定义分类条目）；`library_delete` 走各 feature 的 `delete*`（软删除 + 回收站），替代 shell 删除；`library_set_tags` 按名字打标签（没有就建）、`library_set_custom` 合并写自建字段、`library_set_media` 写图片槽位（路径必须已在库内，先把图下载下来）；`library_rename` 改名 + 整组别名，走 `update*` 同步 `[[链接]]` 文字；`library_set_placement` 只对 `world`（归类 / 换模板 / 换父级，只认目录里已有的名字，父级会做环检测）；`library_create_category` 新建自定义分类（给 `fields` 会一并建基本信息组件 + 笔记模板）；`library_set_novel` 写小说根的作品信息（作者 / 简介 / 目标字数 / 笔记 / 封面）；`library_import_image` 给 http(s) URL，Rust 下载到 `附件/` 再写槽位（≤20 MB，只收 png/jpg/jpeg/webp/gif/avif，不覆盖同名文件）。旧安装的 `enabledTools` 由 `AgentPlugin` 在设置装载后补一次（只在「默认全开」时补，手动关过的不动）。
+
 ---
 
 ## 3. 图鉴切片（agent 最需要的东西）

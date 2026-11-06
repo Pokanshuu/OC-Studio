@@ -1,7 +1,9 @@
 use std::fs;
 use std::path::{Component, Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use futures_util::StreamExt;
+use reqwest::header::CONTENT_TYPE;
 use serde::{Deserialize, Serialize};
 
 // ── Vault 文件 IO ───────────────────────────────────────────────────────
@@ -635,6 +637,111 @@ pub async fn vault_write_bytes(path: String, rel_path: String, bytes: Vec<u8>) -
     .await
 }
 
+// ── 图片下载（agent 的「给 URL → 落库」）────────────────────────────────
+// 只做三件事：校验、限流下载、原子写。裁剪 / 转码 / 去重是图片流水线的事。
+// 放在 Rust 侧而不是 JS 的 fetch：不受 CORS 限制，也不会把几百 MB 塞进 WebView 内存。
+
+/// 单张图片上限 20 MB；超过直接拒绝，一个字节都不落盘
+const MAX_IMAGE_BYTES: usize = 20 * 1024 * 1024;
+
+/// 图片扩展名白名单（SVG 不收：它能带脚本，不是「图片素材」）
+fn image_extension_ok(rel_path: &str) -> bool {
+    let ext = Path::new(rel_path)
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    matches!(ext.as_str(), "png" | "jpg" | "jpeg" | "webp" | "gif" | "avif")
+}
+
+fn parse_image_url(raw: &str) -> Result<reqwest::Url, String> {
+    let url = reqwest::Url::parse(raw).map_err(|_| "图片地址不是合法 URL".to_string())?;
+    if !matches!(url.scheme(), "http" | "https") {
+        return Err("只允许 http(s) 图片地址".into());
+    }
+    Ok(url)
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DownloadedImage {
+    pub rel_path: String,
+    pub bytes: usize,
+    pub content_type: String,
+}
+
+#[tauri::command]
+pub async fn vault_download_image(
+    path: String,
+    rel_path: String,
+    url: String,
+) -> Result<DownloadedImage, String> {
+    let parsed = parse_image_url(&url)?;
+    if !image_extension_ok(&rel_path) {
+        return Err("图片扩展名只支持 png / jpg / jpeg / webp / gif / avif".into());
+    }
+    let root = PathBuf::from(&path);
+    let target = safe_join(&root, &rel_path)?;
+
+    let client = reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(15))
+        .timeout(Duration::from_secs(60))
+        .user_agent("OC-Studio/0.20 (+image-import)")
+        .build()
+        .map_err(|err| format!("HTTP 客户端创建失败：{err}"))?;
+    let response = client
+        .get(parsed)
+        .send()
+        .await
+        .map_err(|err| format!("下载失败：{err}"))?;
+    if !response.status().is_success() {
+        return Err(format!("下载失败：HTTP {}", response.status()));
+    }
+    let content_type = response
+        .headers()
+        .get(CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+    if !content_type.is_empty() && !content_type.to_ascii_lowercase().starts_with("image/") {
+        return Err(format!("返回的不是图片：{content_type}"));
+    }
+    if let Some(len) = response.content_length() {
+        if len > MAX_IMAGE_BYTES as u64 {
+            return Err(format!("图片超过 {} MB", MAX_IMAGE_BYTES / 1024 / 1024));
+        }
+    }
+
+    let mut stream = response.bytes_stream();
+    let mut bytes = Vec::new();
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(|err| format!("下载中断：{err}"))?;
+        if bytes.len() + chunk.len() > MAX_IMAGE_BYTES {
+            return Err(format!("图片超过 {} MB", MAX_IMAGE_BYTES / 1024 / 1024));
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    if bytes.is_empty() {
+        return Err("下载到的文件是空的".into());
+    }
+    let size = bytes.len();
+    blocking(move || {
+        let result = write_atomic(&target, &bytes, None);
+        if result.ok {
+            Ok(())
+        } else {
+            Err(result.error.unwrap_or_else(|| "图片写入失败".into()))
+        }
+    })
+    .await?;
+
+    Ok(DownloadedImage {
+        rel_path: rel_path.replace('\\', "/"),
+        bytes: size,
+        content_type,
+    })
+}
+
 #[tauri::command]
 pub async fn vault_read_bytes(path: String, rel_path: String) -> Result<Vec<u8>, String> {
     blocking(move || {
@@ -886,6 +993,22 @@ mod tests {
         fs::remove_file(&target).unwrap();
         let missing = write_atomic(&target, "第三版".as_bytes(), Some(actual));
         assert!(missing.conflict, "文件消失应判定冲突");
+    }
+
+    #[test]
+    fn image_import_validates_url_and_extension() {
+        assert!(parse_image_url("https://example.com/a.png").is_ok());
+        assert!(parse_image_url("http://example.com/a.jpg").is_ok());
+        assert!(parse_image_url("file:///etc/passwd").is_err());
+        assert!(parse_image_url("javascript:alert(1)").is_err());
+        assert!(parse_image_url("not a url").is_err());
+
+        assert!(image_extension_ok("附件/a.PNG"));
+        assert!(image_extension_ok("a.webp"));
+        assert!(image_extension_ok("a.jpeg"));
+        assert!(!image_extension_ok("a.svg"));
+        assert!(!image_extension_ok("a"));
+        assert!(!image_extension_ok("a.png.exe"));
     }
 
     #[test]

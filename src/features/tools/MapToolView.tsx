@@ -15,7 +15,7 @@ import { Check } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { MapGeneratorPanel } from '@/features/map/MapGeneratorPanel'
 import { createNamedMap, deleteMap, suggestMapName } from '@/features/map/services'
-import { saveGeneratedMap } from '@/features/map/save-generated'
+import { saveGeneratedMap, type MapViewRenderer } from '@/features/map/save-generated'
 import { requestOpenMap } from '@/features/map/open-request'
 import { notifyDataUpdated } from '@/lib/data-events'
 import { useNavigation } from '@/components/layout/NavigationContext'
@@ -37,6 +37,8 @@ interface PendingGeneration {
   seed: number
   params: WorldMapParams
   view: MapView
+  /** 生成器那只 Worker 的渲染器：其余五档不再重新生成世界 */
+  renderView?: MapViewRenderer
 }
 
 export function MapToolView() {
@@ -54,9 +56,12 @@ export function MapToolView() {
       seed: number,
       params: WorldMapParams,
       view: MapView,
+      _onProgress?: (stage: string, value: number) => void,
+      renderView?: MapViewRenderer,
     ): Promise<void> => {
       const base = params.kind === 'region' ? '区域地图' : '世界地图'
-      setPending({ blob, size, seed, params, view })
+      // 进度条由这个对话框自己画（`commit` 的 onProgress），面板那条胶囊留在背后
+      setPending({ blob, size, seed, params, view, renderView })
       setName(base)
       setProgress(null)
       // 默认名被占用时换成一个没占的；用户已经开始改了就不覆盖他的输入
@@ -84,6 +89,7 @@ export function MapToolView() {
           seed: pending.seed,
           params: pending.params,
           view: pending.view,
+          renderView: pending.renderView,
           onProgress: (stage, value) => setProgress({ stage, value }),
         })
         lastGeneration = { seed: pending.seed, params: pending.params }
@@ -145,9 +151,23 @@ export function MapToolView() {
           />
 
           {progress ? (
-            <div className="flex items-center justify-between gap-3 text-[12px] text-ink-faint">
-              <span className="min-w-0 truncate">{progress.stage || '写入底图'}</span>
-              <span className="shrink-0 tabular-nums">{Math.round(progress.value * 100)}%</span>
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between gap-3 text-[12px] text-ink-faint">
+                <span className="min-w-0 truncate">{progress.stage || '写入底图'}</span>
+                <span className="shrink-0 tabular-nums">{Math.round(progress.value * 100)}%</span>
+              </div>
+              <div
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(progress.value * 100)}
+                className="h-1 w-full overflow-hidden rounded-full bg-line"
+              >
+                <div
+                  className="h-full rounded-full bg-ink-muted transition-[width] duration-150"
+                  style={{ width: `${Math.round(progress.value * 100)}%` }}
+                />
+              </div>
             </div>
           ) : null}
 

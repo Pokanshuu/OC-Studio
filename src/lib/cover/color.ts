@@ -116,10 +116,47 @@ export function darken(hex: string, amount: number): string {
 /**
  * 相对亮度 0–1。画布上「这块底色是亮的还是暗的」全靠它决定：
  * 水印、暗角、底部厚度在深底色上是「提亮」，在纸色底色上必须反过来。
+ *
+ * 注意：这是**未做 sRGB 线性化**的加权平均，只用来判亮暗（阈值 0.5），
+ * 不要拿它算对比度 —— 对比度用下面的 `relativeLuminance`。
  */
 export function luminance(hex: string): number {
   const { r, g, b } = hexToRgb(hex)
   return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
+}
+
+/** sRGB 通道 → 线性光（WCAG 2.x 的定义） */
+function linearChannel(value: number): number {
+  const c = clamp01(value / 255)
+  return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+}
+
+/**
+ * WCAG 相对亮度（线性化后的 0–1）。
+ * 文字压在图上能不能读，只认这个数：同一块深色底，未线性化的亮度看着「中等」，
+ * 线性化后其实很低 —— 直接拿 `luminance()` 判对比度会把可读的卡判成不可读。
+ */
+export function relativeLuminance({ r, g, b }: Rgb): number {
+  return 0.2126 * linearChannel(r) + 0.7152 * linearChannel(g) + 0.0722 * linearChannel(b)
+}
+
+/** 两色的对比度（1–21），用于衬底强度自检 */
+export function contrastRatio(a: Rgb, b: Rgb): number {
+  const la = relativeLuminance(a)
+  const lb = relativeLuminance(b)
+  const light = Math.max(la, lb)
+  const dark = Math.min(la, lb)
+  return (light + 0.05) / (dark + 0.05)
+}
+
+/** 按 alpha 把 `top` 叠到 `base` 上（画布的 source-over 同名运算，不夹 gamma） */
+export function mixRgb(base: Rgb, top: Rgb, alpha: number): Rgb {
+  const t = clamp01(alpha)
+  return {
+    r: base.r + (top.r - base.r) * t,
+    g: base.g + (top.g - base.g) * t,
+    b: base.b + (top.b - base.b) * t,
+  }
 }
 
 export function rgbToHsl({ r, g, b }: Rgb): Hsl {
