@@ -33,6 +33,7 @@ import {
   type GraphStylePresetId,
 } from '@/features/relations/export-options'
 import type { GraphEdge, GraphNode, RelationNodeType } from '@/features/relations/types'
+import { NODE_TYPE_LABELS, NODE_TYPE_ORDER } from '@/features/relations/components/node-type-icon'
 import { EDGE_STYLE_OPTIONS, normalizeEdgeStyle, type EdgeStyle } from '@/lib/edge-style'
 import { db } from '@/lib/db'
 import { downloadMediaFile } from '@/lib/media-download'
@@ -49,31 +50,15 @@ interface Figure {
   edges: number
 }
 
-const TYPE_LABELS: Record<RelationNodeType, string> = {
-  character: '角色',
-  event: '事件',
-  country: '国家',
-  world: '词条',
-}
-
-const TYPE_ORDER: Record<RelationNodeType, number> = {
-  character: 0,
-  event: 1,
-  country: 2,
-  world: 3,
-}
+const TEXT_BTN = `h-6 shrink-0 px-1.5 text-[11px] text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink ${ROUND_ITEM}`
 
 type TypeFilter = 'all' | RelationNodeType
 
+/** 类型筛选与行内小标签都取关系图那张表（`node-type-icon`），导出面板里不另抄一份 */
 const TYPE_FILTERS: ReadonlyArray<{ value: TypeFilter; label: string }> = [
   { value: 'all', label: '全部' },
-  { value: 'character', label: '角色' },
-  { value: 'event', label: '事件' },
-  { value: 'country', label: '国家' },
-  { value: 'world', label: '词条' },
+  ...NODE_TYPE_ORDER.map((type) => ({ value: type, label: NODE_TYPE_LABELS[type] })),
 ]
-
-const TEXT_BTN = `h-6 shrink-0 px-1.5 text-[11px] text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink ${ROUND_ITEM}`
 
 function stamp(): string {
   const date = new Date()
@@ -234,7 +219,7 @@ export function GraphPanel() {
       ? rows
       : rows.filter((node) => String(node.data?.label ?? '').toLowerCase().includes(keyword))
     return [...matched].sort((a, b) => {
-      const order = TYPE_ORDER[nodeTypeOf(a)] - TYPE_ORDER[nodeTypeOf(b)]
+      const order = NODE_TYPE_ORDER.indexOf(nodeTypeOf(a)) - NODE_TYPE_ORDER.indexOf(nodeTypeOf(b))
       if (order !== 0) return order
       return String(a.data?.label ?? '').localeCompare(String(b.data?.label ?? ''), 'zh-Hans-CN')
     })
@@ -468,7 +453,7 @@ export function GraphPanel() {
                         <Check size={10} strokeWidth={2} />
                       </span>
                       <span className="min-w-0 flex-1 truncate text-[12px]">{String(node.data?.label ?? '')}</span>
-                      <span className="shrink-0 text-[10px] text-ink-faint">{TYPE_LABELS[nodeTypeOf(node)]}</span>
+                      <span className="shrink-0 text-[10px] text-ink-faint">{NODE_TYPE_LABELS[nodeTypeOf(node)]}</span>
                     </button>
                   )
                 })

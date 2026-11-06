@@ -12,7 +12,8 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, Search, X } from 'lucide-react'
-import { FLOAT_BAR, FLOAT_BAR_ICON, FLOAT_BAR_TEXT, MENU_ITEM_BASE, PANEL } from '@/lib/ui-tokens'
+import { getImageUrl } from '@/lib/image-service'
+import { FLOAT_BAR, FLOAT_BAR_ICON, FLOAT_BAR_TEXT, MENU_ITEM_BASE, PANEL, ROUND_ITEM } from '@/lib/ui-tokens'
 import { useDismissableLayer } from '@/lib/use-dismissable-layer'
 import type { GraphNode, RelationNodeType } from '../types'
 import { NodeTypeIcon, NODE_TYPE_LABELS } from './node-type-icon'
@@ -28,6 +29,36 @@ interface RelationTopBarProps {
 }
 
 const MAX_RESULTS = 6
+
+/** 缩略图取哪个槽位的图（与节点、导出的口径一致：角色头像 / 事件封面 / 国家旗帜 / 分类封面） */
+const THUMB_KIND: Record<RelationNodeType, string> = {
+  character: 'avatar',
+  event: 'header',
+  country: 'flag',
+  world: 'flag',
+}
+
+/** 结果行左边那一格：有图就给图，没图退回类型图标（拿默认占位图会把人看糊） */
+function NodeThumb({ type, src }: { type: RelationNodeType; src: string }) {
+  const [failed, setFailed] = useState(false)
+  const url = src.trim() !== '' && !failed ? getImageUrl(src, THUMB_KIND[type]) : ''
+
+  return (
+    <span
+      aria-hidden
+      className={`grid h-[18px] w-[18px] shrink-0 place-items-center overflow-hidden border border-line bg-paper-card text-ink-faint ${
+        type === 'character' ? 'rounded-full' : ROUND_ITEM
+      }`}
+    >
+      {url !== '' ? (
+        // eslint-disable-next-line @next/next/no-img-element -- 库内素材走 asset 协议，不走 next/image
+        <img src={url} alt="" onError={() => setFailed(true)} className="h-full w-full object-cover" />
+      ) : (
+        <NodeTypeIcon type={type} size={11} />
+      )}
+    </span>
+  )
+}
 
 export function RelationTopBar({ nodes, edgeCount, focusLabel, onExitFocus, onLocate }: RelationTopBarProps) {
   const [open, setOpen] = useState(false)
@@ -57,12 +88,22 @@ export function RelationTopBar({ nodes, edgeCount, focusLabel, onExitFocus, onLo
 
   const results = useMemo(() => {
     const keyword = query.trim().toLowerCase()
-    const pool = nodes.map((node) => ({
-      id: node.id,
-      label: node.data.label,
-      type: node.data.entityType as RelationNodeType,
-      subtitle: node.data.subtitle,
-    }))
+    const pool = nodes.map((node) => {
+      const type = node.data.entityType as RelationNodeType
+      return {
+        id: node.id,
+        label: node.data.label,
+        type,
+        subtitle: node.data.subtitle,
+        // 分类条目的封面也挂在 `flagUrl` 上（见 services.buildGraphData）
+        image:
+          type === 'character'
+            ? String(node.data.avatarUrl ?? '')
+            : type === 'event'
+              ? String(node.data.imageUrl ?? '')
+              : String(node.data.flagUrl ?? ''),
+      }
+    })
     if (!keyword) return pool.slice(0, MAX_RESULTS)
     return pool
       .filter(
@@ -174,9 +215,7 @@ export function RelationTopBar({ nodes, edgeCount, focusLabel, onExitFocus, onLo
                       : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
                   }`}
                 >
-                  <span className="shrink-0 text-ink-faint" aria-hidden>
-                    <NodeTypeIcon type={item.type} size={12} />
-                  </span>
+                  <NodeThumb type={item.type} src={item.image} />
                   <span className="min-w-0 flex-1 truncate text-[12px]">{item.label}</span>
                   {item.subtitle ? (
                     <span className="shrink-0 text-[11px] text-ink-faint">{item.subtitle}</span>
