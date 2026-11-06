@@ -607,7 +607,10 @@ a:hover {
   height: 28px;
   font-size: calc(12px * var(--font-scale));
   border-bottom-color: transparent;
-  border-radius: var(--r-item);
+  /* 底线输入**不给圆角**：`border-radius` 会把这条 1px 底线一起折弯，
+     两端翘成半个括号。圆角只属于有完整边框的块（按钮 / 卡片 / 浮层），
+     输入只有一条直线。 */
+  border-radius: 0;
 }
 
 .search-input-wrap .input:focus {

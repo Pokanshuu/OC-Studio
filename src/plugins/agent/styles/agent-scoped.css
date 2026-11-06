@@ -467,7 +467,7 @@ padding-left: 22px;
   height: 28px;
   font-size: calc(12px * var(--font-scale));
   border-bottom-color: transparent;
-  border-radius: var(--r-item);
+  border-radius: 0;
 }
 .oc-agent-root .search-input-wrap .input:focus{
 border-bottom-color: var(--oc-line-hover);
