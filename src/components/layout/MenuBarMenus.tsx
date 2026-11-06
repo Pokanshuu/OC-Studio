@@ -119,6 +119,9 @@ export function MenuBarMenus() {
             <DropdownMenuContent>
               <VaultMenuSection
                 extra={
+                  <DropdownMenuItem onClick={() => setJournalOpen(true)}>
+                    创作时间线...
+                  </DropdownMenuItem>
                 }
               />
               <DropdownMenuItem onClick={handleImportClick}>
