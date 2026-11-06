@@ -18,6 +18,17 @@ export const SAMPLE_TEXT_P3 = '路在脚下,更在心中;心随路转,心路常�
 
 export const SAMPLE_HTML = `<blockquote><p><em>${SAMPLE_TEXT_INTRO}</em></p></blockquote><p>${SAMPLE_TEXT_P1}</p><p>${SAMPLE_TEXT_P2}</p><p>${SAMPLE_TEXT_P3}</p>`
 
+/**
+ * 「简介」（角色 `bio` / 国家 `description`）是**纯文本列**（模板 `§6.9`）。
+ * 示例数据只放一句 —— 这里塞整段 HTML 的话，编辑器里就会把 `<blockquote>` 当字画出来。
+ */
+export const SAMPLE_SUMMARY = '一句用来演示「简介」的示例文案。'
+
+/** 国家的三段正文（制度 / 地理 / 文化）各用一段，别三段都复制同一份 HTML */
+export const SAMPLE_SYSTEM_HTML = `<p>${SAMPLE_TEXT_P1}</p>`
+export const SAMPLE_GEOGRAPHY_HTML = `<p>${SAMPLE_TEXT_P2}</p>`
+export const SAMPLE_CULTURE_HTML = `<p>${SAMPLE_TEXT_P3}</p>`
+
 // ============================================================
 // SVG 生成辅助函数
 // ============================================================
