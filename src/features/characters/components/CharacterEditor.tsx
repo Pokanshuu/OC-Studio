@@ -10,6 +10,7 @@ import { EntityEditorShell } from '@/components/shared/EntityEditorShell'
 import { TalkToAgentButton } from '@/components/shared/TalkToAgentButton'
 import type { Character } from '@/types'
 import { EntityHistoryButton } from '@/features/vault'
+import { EntityExportButton } from '@/components/shared/EntityExportButton'
 import { useEditorLayout } from '@/lib/use-editor-layout'
 import { useDevice } from '@/lib/use-device'
 import type { CharacterFormData } from '../types'
@@ -149,6 +150,8 @@ function CharacterEditorInner({
         onBeforeOpen={form.handleSave}
       />
       <EntityHistoryButton table="characters" id={character.id} name={form.name} />
+      {/* 导出走**全局导出中心**（海报页签落在这一条上），这里只传身份 */}
+      <EntityExportButton kind="character" id={character.id} onBeforeOpen={form.handleSave} />
       <button
         onClick={form.handleSave}
         disabled={form.saving || !form.name.trim()}

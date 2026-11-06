@@ -10,6 +10,7 @@ import { EntityEditorShell } from '@/components/shared/EntityEditorShell'
 import { TalkToAgentButton } from '@/components/shared/TalkToAgentButton'
 import type { Event } from '@/types'
 import { EntityHistoryButton } from '@/features/vault'
+import { EntityExportButton } from '@/components/shared/EntityExportButton'
 import { useEditorLayout } from '@/lib/use-editor-layout'
 import { useDevice } from '@/lib/use-device'
 import type { EventFormData } from '../types'
@@ -69,6 +70,8 @@ export function EventEditor({ event, onBack, onCreate, onSave, onNavigateToEvent
         onBeforeOpen={form.handleSave}
       />
       <EntityHistoryButton table="events" id={event.id} name={form.title} />
+      {/* 导出走**全局导出中心**（海报页签落在这一条上），这里只传身份 */}
+      <EntityExportButton kind="event" id={event.id} onBeforeOpen={form.handleSave} />
       <button
         onClick={form.handleSave}
         disabled={form.saving || !form.title.trim()}
