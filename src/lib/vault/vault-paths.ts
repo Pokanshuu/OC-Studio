@@ -127,9 +127,24 @@ export function novelChapterFileTitle(title: string, chapterNumber: number): str
   return `第${String(Math.max(1, chapterNumber)).padStart(2, '0')}章-${title}`
 }
 
-/** 回收站里的相对路径：`.ocstudio/trash/<原路径>` */
-export function trashRelPath(relPath: string): string {
-  return `.ocstudio/trash/${normalizeRelPath(relPath)}`
+/**
+ * 回收站的批次目录名：`YYYYMMDD-HHmmss`。
+ *
+ * 一次删除 = 一个批次目录。**没有它就会撞车**：`新地图 3.md` 删过一次之后
+ * `trash/世界观/新地图 3.md` 就在那儿了，同名文件再删一次 `move` 会直接失败
+ * （界面上就是一条「目标已存在: .ocstudio/trash/…」的报错，而且那张图明明已经删了）。
+ */
+export function trashBatchId(now = new Date()): string {
+  const pad = (value: number): string => String(value).padStart(2, '0')
+  return (
+    `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}` +
+    `-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
+  )
+}
+
+/** 回收站里的相对路径：`.ocstudio/trash/<批次>/<原路径>` */
+export function trashRelPath(relPath: string, batch = trashBatchId()): string {
+  return `.ocstudio/trash/${batch}/${normalizeRelPath(relPath)}`
 }
 
 /** 素材目录的识别关键词（中英兼顾） */
@@ -154,11 +169,20 @@ export function pickAssetsDir(dirs: string[]): string {
 
 export const DEFAULT_ASSETS_DIR = '附件'
 
-/** 从回收站路径还原回原路径；不是回收站路径时返回 null */
+/**
+ * 从回收站路径还原回原路径；不是回收站路径时返回 null。
+ *
+ * 兼容两种形状：新的是 `.ocstudio/trash/<批次>/<原路径>`（批次段要剥掉），
+ * 老的是 `.ocstudio/trash/<原路径>`。判据是「第一段长得像不像批次号」——
+ * 不像就整段当原路径，老回收站里的东西照样还原得回去。
+ */
 export function originalRelPathFromTrash(relPath: string): string | null {
   const normalized = normalizeRelPath(relPath)
   const prefix = '.ocstudio/trash/'
   if (!normalized.startsWith(prefix)) return null
-  const rest = normalized.slice(prefix.length)
+
+  let rest = normalized.slice(prefix.length)
+  const slash = rest.indexOf('/')
+  if (slash > 0 && /^\d{8}-\d{6}$/.test(rest.slice(0, slash))) rest = rest.slice(slash + 1)
   return rest === '' ? null : rest
 }

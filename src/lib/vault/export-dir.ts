@@ -9,7 +9,7 @@ import { setBody, setFrontmatterKeys, parseFrontmatter } from './frontmatter'
 import { createLinkSerializer, documentOfEntity, serializeBody } from './markdown-bridge'
 import { serializeEntity, type SerializeContext } from './serialize'
 import { TAG_META_REL_PATH } from './vault-session'
-import { DEFAULT_ASSETS_DIR, allocateRelPath, normalizeRelPath, pickPreferredFolder, sanitizeFileName, trashRelPath } from './vault-paths'
+import { DEFAULT_ASSETS_DIR, allocateRelPath, normalizeRelPath, pickPreferredFolder, sanitizeFileName, trashBatchId, trashRelPath } from './vault-paths'
 import { allocateAssetPath, planImageRewrites } from './vault-assets'
 import { serializeTagMeta, tagMetaFromTags } from './vault-tags'
 import { MARKER_REL_PATH, buildMarkerContent } from './vault-marker'
@@ -549,11 +549,12 @@ export async function exportLegacyToFolder(
   }
   for (const path of existing.otherFiles) occupied.add(normalizeRelPath(path))
 
-  // replace：先把已有笔记整批挪进回收站（移动，不是删除）
+  // replace：先把已有笔记整批挪进回收站（移动，不是删除）。整批共用一个批次目录
+  const trashBatch = trashBatchId()
   if (strategy === 'replace' && contentByPath.size > 0) {
     for (const relPath of contentByPath.keys()) {
       try {
-        await vaultFs.move(root, relPath, trashRelPath(relPath))
+        await vaultFs.move(root, relPath, trashRelPath(relPath, trashBatch))
         occupied.delete(relPath)
         report.movedToTrash += 1
       } catch (err) {
@@ -615,9 +616,9 @@ export async function exportLegacyToFolder(
     }
   }
 
-  // 3. 回收站：同样的内容，路径塞进 .ocstudio/trash/ 下
+  // 3. 回收站：同样的内容，路径塞进本次的批次目录
   for (const item of trashedRows) {
-    const folder = `.ocstudio/trash/${pickPreferredFolder(item.kind, [])}`
+    const folder = trashRelPath(pickPreferredFolder(item.kind, []), trashBatch)
     const relPath = allocateRelPath(item.kind, item.title, occupied, folder)
     occupied.add(relPath)
     texts.push({ relPath, content: composeNote(item.kind, item.row, ctx) })

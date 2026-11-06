@@ -643,7 +643,17 @@ export async function flushVaultWrites(): Promise<VaultFlushReport> {
 
     const texts: VaultWriteEntry[] = []
     const planned: PlannedWrite[] = []
-    const moves: { from: string; to: string; kind: 'trash' | 'restore'; title: string; actor: JournalActor }[] = []
+    const moves: {
+      from: string
+      to: string
+      kind: 'trash' | 'restore'
+      title: string
+      actor: JournalActor
+      /** 移动失败时把内存基准退回去（否则状态指向一个不存在的文件，下一次 flush 不会再试） */
+      revert?: () => void
+      /** 移动失败时把这一条重新排进队列，让「重试保存」真的会重跑这次移动 */
+      requeue?: () => void
+    }[] = []
     const removals: { relPath: string; title: string; actor: JournalActor }[] = []
     /** 时间线：本轮真正写成功的改动 */
     const journalDrafts: JournalDraft[] = []
@@ -713,13 +723,32 @@ export async function flushVaultWrites(): Promise<VaultFlushReport> {
       const wasTrashed = state?.trashed === true
 
       if (nowTrashed && !wasTrashed && state !== undefined && state.relPath !== '') {
-        const target = trashRelPath(state.relPath)
-        moves.push({ from: state.relPath, to: target, kind: 'trash', title: titleOfRow(state.table, row), actor: item.actor })
+        const from = state.relPath
+        const target = trashRelPath(from)
+        moves.push({
+          from,
+          to: target,
+          kind: 'trash',
+          title: titleOfRow(state.table, row),
+          actor: item.actor,
+          // 挪失败（最常见：回收站里已有同名文件）就把基准退回原处，
+          // 让「重试保存」真的能重来 —— 否则状态指向一个不存在的路径，永远不再尝试，
+          // 而文件还留在原地：下次整库重读，这张刚删的图就又回来了。
+          revert: () => {
+            state.trashed = false
+            state.relPath = from
+            session.byPath.delete(target)
+            session.byPath.set(from, key)
+            session.occupied.delete(target)
+            session.occupied.add(from)
+          },
+          requeue: () => pending.set(key, item),
+        })
         state.trashed = true
         state.entity = row
-        session.byPath.delete(state.relPath)
+        session.byPath.delete(from)
         session.byPath.set(target, key)
-        session.occupied.delete(state.relPath)
+        session.occupied.delete(from)
         session.occupied.add(target)
         state.relPath = target
         continue
@@ -728,10 +757,26 @@ export async function flushVaultWrites(): Promise<VaultFlushReport> {
       if (!nowTrashed && wasTrashed && state !== undefined) {
         const restored = originalRelPathFromTrash(state.relPath)
         if (restored !== null) {
-          moves.push({ from: state.relPath, to: restored, kind: 'restore', title: titleOfRow(state.table, row), actor: item.actor })
-          session.byPath.delete(state.relPath)
+          const from = state.relPath
+          moves.push({
+            from,
+            to: restored,
+            kind: 'restore',
+            title: titleOfRow(state.table, row),
+            actor: item.actor,
+            revert: () => {
+              state.trashed = true
+              state.relPath = from
+              session.byPath.delete(restored)
+              session.byPath.set(from, key)
+              session.occupied.delete(restored)
+              session.occupied.add(from)
+            },
+            requeue: () => pending.set(key, item),
+          })
+          session.byPath.delete(from)
           session.byPath.set(restored, key)
-          session.occupied.delete(state.relPath)
+          session.occupied.delete(from)
           session.occupied.add(restored)
           state.relPath = restored
           state.trashed = false
@@ -783,6 +828,8 @@ export async function flushVaultWrites(): Promise<VaultFlushReport> {
           prevContent: '',
         })
       } catch (err) {
+        move.revert?.()
+        move.requeue?.()
         report.errors.push({ relPath: move.from, message: err instanceof Error ? err.message : String(err) })
       }
     }
