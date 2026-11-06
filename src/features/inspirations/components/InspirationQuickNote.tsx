@@ -9,7 +9,7 @@
  * 它就是灵感的**唯一入口**（侧栏那一项已移除）：小窗里列表 ⇄ 单条，
  * 打开时落在最近记的那条，随后可以返回列表翻旧的；定下来的东西用「变成笔记」升级。
  */
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import dynamic from 'next/dynamic'
 import type { Editor } from '@tiptap/core'
@@ -47,6 +47,25 @@ function defaultPosition(): { left: number; top: number } {
   return {
     left: Math.max(VIEWPORT_MARGIN, window.innerWidth - NOTE_WIDTH - 16),
     top: 44,
+  }
+}
+
+/**
+ * 把坐标夹回当前视口。
+ *
+ * 便签的坐标是**打开时**算的、之后只由拖动改写；窗口从全屏缩回普通尺寸时
+ * 坐标还停在屏幕右边，面板就只露出一半（缩得更小就完全看不见）——
+ * 看起来像「只有全屏才打得开」。打开时和 resize 时都要过一遍这里。
+ * 宽高按面板实际的 `max-width` / `max-height` 收窄，小窗口下也不会算出窗外。
+ */
+function clampToViewport(position: { left: number; top: number }): { left: number; top: number } {
+  const width = Math.min(NOTE_WIDTH, window.innerWidth - VIEWPORT_MARGIN * 2)
+  const height = Math.min(NOTE_HEIGHT, window.innerHeight - 72)
+  const maxLeft = Math.max(VIEWPORT_MARGIN, window.innerWidth - width - VIEWPORT_MARGIN)
+  const maxTop = Math.max(VIEWPORT_MARGIN, window.innerHeight - height - VIEWPORT_MARGIN)
+  return {
+    left: Math.min(Math.max(VIEWPORT_MARGIN, position.left), maxLeft),
+    top: Math.min(Math.max(VIEWPORT_MARGIN, position.top), maxTop),
   }
 }
 
@@ -159,7 +178,8 @@ export function InspirationQuickNote() {
   }, [closeWindow, navigateToEntity, selected])
 
   const openWindow = useCallback(() => {
-    setPosition((current) => current ?? defaultPosition())
+    // 上次的坐标可能是在全屏 / 更大的窗口里留下的，打开前先夹回当前视口
+    setPosition((current) => clampToViewport(current ?? defaultPosition()))
     // 点灯泡就是为了写字：即便上次停在列表，也从最近那条接着记
     setListOpen(false)
     const stillThere = selectedId !== null && items.some((item) => item.id === selectedId)
@@ -167,6 +187,16 @@ export function InspirationQuickNote() {
     focusOnReady.current = true
     setOpen(true)
   }, [items, selectedId])
+
+  // 窗口缩小 / 退出全屏时，把已经打开的面板一起收进视口
+  useEffect(() => {
+    if (!open) return
+    const handleResize = () => {
+      setPosition((current) => (current === null ? null : clampToViewport(current)))
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [open])
 
   const toggle = useCallback(() => {
     if (open) closeWindow()
