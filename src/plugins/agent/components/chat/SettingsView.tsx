@@ -70,7 +70,7 @@ export function SettingsView({
     >
       <DialogContent
         showCloseButton={false}
-        className="flex h-[min(80vh,820px)] w-[min(880px,calc(100vw-2rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-none"
+        className="flex h-[min(80vh,820px)] w-[min(680px,calc(100vw-2rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-none"
       >
         <AgentLayer className="flex min-h-0 flex-1 flex-col">
           <div className="settings-dialog flex min-h-0 flex-1 flex-col">
