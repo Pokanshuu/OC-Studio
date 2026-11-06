@@ -30,45 +30,14 @@ export async function buildGraphData(): Promise<{ nodes: GraphNode[]; edges: Gra
   const characters = charactersRaw.filter((c) => !c.deleted)
   const events = eventsRaw.filter((e) => !e.deleted)
   const countries = countriesRaw.filter((c) => !c.deleted)
-  // 只把「有关系的分类条目」放进图里：没有边 / 引用的笔记放进来只会变孤岛；
-  // 小说 / 地图笔记不算分类条目。目标端也要进来，否则 A→B 只有 A 有边时 B 不在图上。
-  const worldById = new Map(worldsRaw.map((entry) => [entry.id, entry]))
-  const graphWorldIds = new Set<number>()
-  for (const entry of worldsRaw) {
-    if (
-      entry.deleted ||
-      !entry.category ||
-      !isCodexEntry(entry) ||
-      ((entry.references?.length ?? 0) === 0 && (entry.relations?.length ?? 0) === 0)
-    ) {
-      continue
-    }
-    graphWorldIds.add(entry.id)
-    for (const relation of entry.relations ?? []) {
-      const target = relation.targetId !== undefined ? worldById.get(relation.targetId) : undefined
-      if (target && !target.deleted && target.category && isCodexEntry(target)) {
-        graphWorldIds.add(target.id)
-      }
-    }
-    for (const reference of entry.references ?? []) {
-      if (reference.targetType !== 'world') continue
-      const target = worldById.get(reference.targetId)
-      if (target && !target.deleted && target.category && isCodexEntry(target)) {
-        graphWorldIds.add(target.id)
-      }
-    }
-  }
-  // 角色 → 笔记：角色侧也能发起命名边，目标笔记同样要进图
-  for (const character of characters) {
-    for (const relation of character.relatedNotes ?? []) {
-      const target =
-        relation.targetId !== undefined ? worldById.get(relation.targetId) : undefined
-      if (target && !target.deleted && target.category && isCodexEntry(target)) {
-        graphWorldIds.add(target.id)
-      }
-    }
-  }
-  const categoryEntries = worldsRaw.filter((entry) => !entry.deleted && graphWorldIds.has(entry.id))
+  // 分类条目（宠物 / 武器 / 自定义分类）**全部进图**，不管有没有连线：
+  // 「图里看得见分类」是这里的唯一口径 —— 以前只收「有边 / 有引用」的，新建的条目
+  // 一个都进不来，用户看到的就是「关系图里没有自定义分类」。
+  // 没有连线的那些是孤岛，由画布的「孤立节点」开关（默认开）决定显不显示，
+  // 那本来就是那个开关的活。小说 / 地图笔记不算分类条目（`isCodexEntry`）。
+  const categoryEntries = worldsRaw.filter(
+    (entry) => !entry.deleted && (entry.category ?? '').trim() !== '' && isCodexEntry(entry),
+  )
 
   const nodes: GraphNode[] = []
   const edges: GraphEdge[] = []

@@ -303,6 +303,13 @@ export const DRAG_SLOT_ROW = 'absolute left-2 top-1/2 -translate-y-1/2'
 /* ── 关系图节点 ──────────────────────────────────────── */
 /** 节点外壳：图标在上、名字在下的竖排 */
 export const NODE_WRAPPER = 'flex flex-col items-center gap-1 group cursor-pointer'
-/** 节点的连线手柄：四向小圆点（Loose 模式，任一端都能起手）。桌面悬停节点才显形，移动端常显 */
+/**
+ * 节点的连线手柄：四向小圆点（Loose 模式，任一端都能起手）。桌面悬停节点才显形，移动端常显。
+ *
+ * ⚠️ `z-10` 不能删：手柄的圆心正好落在节点边界上，**里侧半个圆和节点内容（头像 / 卡片 / 名字）
+ * 重叠**。两者都是定位元素、z-index 都是 auto，按 DOM 顺序内容在后 → 盖住手柄里侧那一半，
+ * 按在圆点中间就变成拖节点而不是拉线（「从圆点连不了线，只能移动节点」）。
+ * 抬到手柄这一层以后：按圆点 = 拉线，按内容 = 选 / 拖节点，互不抢。
+ */
 export const NODE_HANDLE =
-  '!h-3 !w-3 max-md:!h-4 max-md:!w-4 !rounded-full !border !border-line !bg-paper opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 hover:!bg-paper-card [&.valid]:!bg-ink-muted [&.valid]:opacity-100'
+  'z-10 !h-3 !w-3 max-md:!h-4 max-md:!w-4 !rounded-full !border !border-line !bg-paper opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 hover:!bg-paper-card [&.valid]:!bg-ink-muted [&.valid]:opacity-100'

@@ -111,11 +111,16 @@ export function RelationEdge({
 
   return (
     <>
+      {/* 起点 / 终点的三角是**镜像**的，所以两个 marker 都用 `orient="auto"`（顺着线方向）：
+          终点的尖在右（x=10），起点的尖在左（x=0）。
+          ⚠️ 起点**别写 `auto-start-reverse`** —— 那个属性会在起点再翻 180°，把「尖在左」
+          翻成「尖在右」，箭头于是从起点往回扎进节点里、被节点整块盖住：双向边看着像单向
+          （2026-11-06 修的就是这个）。 */}
       <defs>
-        <marker id={startId} viewBox="0 0 10 10" refX="1" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <marker id={startId} viewBox="0 0 10 10" refX="1" refY="5" markerWidth="6" markerHeight="6" orient="auto">
           <path d="M 10 0 L 0 5 L 10 10 z" fill={color} />
         </marker>
-        <marker id={endId} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <marker id={endId} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
           <path d="M 0 0 L 10 5 L 0 10 z" fill={color} />
         </marker>
       </defs>
