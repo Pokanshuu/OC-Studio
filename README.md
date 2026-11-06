@@ -109,7 +109,7 @@ Next.js 16 · TypeScript · Tailwind CSS v4 · Tiptap · Dexie.js (IndexedDB) ·
 
 **提 PR**
 
-1. Fork 后克隆，装依赖（Node.js 20.9+）：
+1. Fork **最新仓库**后克隆，装依赖（Node.js 20.9+）：
 
    ```bash
    git clone git@github.com:<你的用户名>/OC-Studio.git
