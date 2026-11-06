@@ -403,6 +403,9 @@ export function CharacterList({
           <ListEmptyState
             icon={search.trim() || countryFilter !== 'all' ? SearchX : FolderOpen}
             message={search.trim() || countryFilter !== 'all' ? '没有匹配的角色' : folderEmptyHint(folderFilter)}
+            /*
+             * 空夹里不给「创建第一个」：建出来的角色落在未分组，回来还是空夹 —— 这里只留出口。
+             */
             action={
               search.trim() || countryFilter !== 'all'
                 ? {
@@ -413,7 +416,9 @@ export function CharacterList({
                       swapFolder('all')
                     },
                   }
-                : { label: '创建第一个', onClick: onCreateCharacter }
+                : inFolder
+                  ? { label: '回到全部', onClick: (event) => swapFolder('all', event) }
+                  : { label: '创建第一个', onClick: onCreateCharacter }
             }
           />
         ) : (

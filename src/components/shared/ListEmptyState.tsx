@@ -19,8 +19,8 @@ interface ListEmptyStateProps {
   icon: LucideIcon
   /** 一句事实（「还没有角色」「没有匹配的事件」） */
   message: string
-  /** 可选动作（创建 / 清除筛选） */
-  action?: { label: string; onClick: () => void }
+  /** 可选动作（创建 / 清除筛选 / 回到上一级）；带点击事件，调用方可以借此算转场动画的原点 */
+  action?: { label: string; onClick: (event: React.MouseEvent<HTMLButtonElement>) => void }
   className?: string
 }
 
