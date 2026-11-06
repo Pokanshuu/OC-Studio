@@ -27,7 +27,7 @@ import { blobFromLocalPath, isTauriRuntime, mimeFromPath } from '@/lib/local-med
 import { arrowEnds, relationColorValue, type RelationArrow } from '@/lib/relation-colors'
 import { isVaultSupported, vaultFs } from '@/lib/vault/vault-fs'
 import { getVaultSession } from '@/lib/vault/vault-session'
-import { NODE_AVATAR_SIZE, NODE_CARD_SIZE } from './layout'
+import { NODE_AVATAR_SIZE, NODE_CARD_SIZE, resolveGraphPositions } from './layout'
 import { normalizeGraphStyle, type GraphExportStyle } from './export-options'
 import {
   nodeAnchor,
@@ -36,7 +36,7 @@ import {
   sideVector,
   type GraphNodeRect,
 } from './components/floating-edge'
-import type { RelationNodeType } from './types'
+import type { GraphEdge, GraphNode, RelationNodeType } from './types'
 
 /** 点阵间距：与画布 Background 的 gap=24 一致 */
 const DOT_GAP = 24
@@ -387,8 +387,8 @@ function drawCardNode(
 }
 
 interface RenderGraphOptions {
-  nodes: Node[]
-  edges: Edge[]
+  nodes: GraphNode[]
+  edges: GraphEdge[]
   edgeStyle: EdgeStyle
   title: string
   /** 版式：纸 / 节点样子 / 线宽 / 配色 / 标题日期 / 留白 / 倍率（`export-options.ts`） */
@@ -498,16 +498,20 @@ function paintPaper(
 
 /** 按当前坐标把整张图重绘到离屏画布（不做任何视口变换：导出的是收敛态，不是屏幕截图） */
 export async function renderRelationGraphCanvas({
-  nodes,
+  nodes: rawNodes,
   edges,
   edgeStyle,
   title,
   style: styleInput,
 }: RenderGraphOptions): Promise<HTMLCanvasElement> {
-  if (nodes.length === 0) throw new Error('当前关系图为空，无法导出')
+  if (rawNodes.length === 0) throw new Error('当前关系图为空，无法导出')
 
   const tokens = readTokens()
   const style = normalizeGraphStyle(styleInput)
+  // 没存过坐标的节点（`buildGraphData` 给的是 0,0）先补一份力导向 —— 与画布**同一个函数**。
+  // 少了这一步，导出的就是「所有没摆过的节点叠在原点」：卡片压在一起、名字连成一串
+  // （2026-11-06 导出中心预览就是这么坏的）。摆过的节点被钉住，构图与屏幕上一致。
+  const nodes = resolveGraphPositions(rawNodes, edges)
   const rects = buildRects(nodes, style, tokens)
   const padding = style.padding
 
@@ -655,8 +659,8 @@ async function savePng(blob: Blob, filename: string): Promise<string | null> {
 }
 
 export interface ExportRelationGraphOptions {
-  nodes: Node[]
-  edges: Edge[]
+  nodes: GraphNode[]
+  edges: GraphEdge[]
   edgeStyle: EdgeStyle
   title?: string
   filename?: string

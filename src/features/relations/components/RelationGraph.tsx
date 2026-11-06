@@ -53,7 +53,7 @@ import {
 } from '../services'
 import { EdgeStylePanel, type EdgeStylePatchInput, type EdgeStyleSelection } from './EdgeStylePanel'
 import { useExportCenter } from '@/components/shared/export/ExportCenterHost'
-import { computeForceLayout, NODE_SIZE } from '../layout'
+import { computeForceLayout, NODE_SIZE, resolveGraphPositions } from '../layout'
 import { nodeRect } from './floating-edge'
 import { FitViewOnLoad, ZoomReader } from './RelationGraphHelpers'
 import { RelationCreateDialog } from './RelationCreateDialog'
@@ -245,17 +245,9 @@ export function RelationGraph({
   )
 
   const layoutedNodes = useMemo(() => {
-    // 只有**实体里存过坐标**的节点才钉住（用户拖过才有）。缓存不作数 ——
-    // 旧版把径向布局的坐标写进 localStorage，结果整张图被钉死、力导向永远不跑。
-    const pinned = new Map<string, { x: number; y: number }>()
-    for (const node of filteredNodes) {
-      if (node.position.x !== 0 || node.position.y !== 0) pinned.set(node.id, node.position)
-    }
-    if (pinned.size === filteredNodes.length) {
-      return filteredNodes.map((node) => ({ ...node, position: pinned.get(node.id) ?? node.position }))
-    }
-    const layout = computeForceLayout(filteredNodes, rawEdges, { pinned })
-    return filteredNodes.map((node) => ({ ...node, position: layout.get(node.id) ?? node.position }))
+    // 只有**实体里存过坐标**的节点才钉住（用户拖过才有），其余交给力导向布局。
+    // 「哪些算有坐标」与导出重绘共用一份（`layout.ts#resolveGraphPositions`）。
+    return resolveGraphPositions(filteredNodes, rawEdges)
   }, [filteredNodes, rawEdges])
 
   const [nodes, setNodes, onNodesChange] = useNodesState<GraphNode>([])

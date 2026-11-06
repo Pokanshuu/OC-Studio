@@ -16,6 +16,7 @@ import { Download, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { buildGraphData } from '@/features/relations/services'
 import { renderRelationGraphCanvas } from '@/features/relations/export-graph'
+import { resolveGraphPositions } from '@/features/relations/layout'
 import {
   DEFAULT_GRAPH_STYLE,
   GRAPH_NODE_OPTIONS,
@@ -151,17 +152,28 @@ export function GraphPanel() {
     return { nodes: data.nodes.filter((node) => keepNodes.has(node.id)), edges }
   }, [data, liveSelected, chosenIds, expand])
 
+  /**
+   * 没摆过的节点先补一份力导向 —— 与画布**同一个函数**（`layout.ts#resolveGraphPositions`）。
+   * `buildGraphData()` 给没存过坐标的节点一律 `(0, 0)`，不补的话导出的就是「卡片全叠在
+   * 原点、名字连成一串」。放在这里（而不是渲染器里）算，是为了让版式微调（纸面 / 线宽）
+   * 不用把布局再跑一遍 —— 布局只跟 `subset` 有关。
+   */
+  const placed = useMemo(() => {
+    if (subset === null) return null
+    return { nodes: resolveGraphPositions(subset.nodes, subset.edges), edges: subset.edges }
+  }, [subset])
+
   // 重画：参数每敲一个字都重画会卡（还要等图片解码），停 200ms 再画
   useEffect(() => {
-    if (subset === null) return
+    if (placed === null) return
     let alive = true
     const timer = window.setTimeout(() => {
       void (async () => {
         setStatus('busy')
         try {
           const canvas = await renderRelationGraphCanvas({
-            nodes: subset.nodes,
-            edges: subset.edges,
+            nodes: placed.nodes,
+            edges: placed.edges,
             edgeStyle,
             title: title.trim(),
             style,
@@ -172,8 +184,8 @@ export function GraphPanel() {
             url: canvas.toDataURL('image/png'),
             width: canvas.width,
             height: canvas.height,
-            nodes: subset.nodes.length,
-            edges: subset.edges.length,
+            nodes: placed.nodes.length,
+            edges: placed.edges.length,
           })
           setError('')
           setStatus('ready')
@@ -190,7 +202,7 @@ export function GraphPanel() {
       alive = false
       window.clearTimeout(timer)
     }
-  }, [subset, edgeStyle, title, style])
+  }, [placed, edgeStyle, title, style])
 
   const patchStyle = (patch: Partial<GraphExportStyle>): void => {
     setStyle((current) => normalizeGraphStyle({ ...current, ...patch }))

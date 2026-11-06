@@ -8,7 +8,8 @@ import {
   type SimulationLinkDatum,
   type SimulationNodeDatum,
 } from 'd3-force'
-import type { GraphEdge, GraphNode, RelationNodeType } from './types'
+import type { Edge, Node } from '@xyflow/react'
+import type { RelationNodeType } from './types'
 
 /**
  * 关系图的力导向布局（纯函数，无 DOM）。
@@ -107,12 +108,33 @@ export interface ForceLayoutOptions {
 }
 
 /**
+ * 把「实体里没存过坐标」的节点补上力导向结果，返回**可以直接画**的节点数组。
+ *
+ * `buildGraphData()` 给没摆过的节点一律 `{ x: 0, y: 0 }`（坐标真源只在实体上，
+ * 不缓存到 localStorage）—— 所以**每一个消费方都得先过这一层**：画布（`RelationGraph`）
+ * 与导出重绘（`export-graph.ts`）共用同一份。漏掉这一步就是「没摆过的节点全叠在原点」：
+ * 2026-11-06 导出预览里那坨挤在左上角、名字互相压住的卡片就是这么来的。
+ *
+ * `(0, 0)` 是「没坐标」的哨兵，不是用户摆出来的位置（画布也这么判）。
+ */
+export function resolveGraphPositions<T extends Node>(nodes: T[], edges: Edge[]): T[] {
+  const pinned = new Map<string, { x: number; y: number }>()
+  for (const node of nodes) {
+    if (node.position.x !== 0 || node.position.y !== 0) pinned.set(node.id, node.position)
+  }
+  // 全都有坐标（用户摆过 / 整理过）：原样返回，不要再跑一遍布局把构图挪走
+  if (pinned.size === nodes.length) return nodes
+  const layout = computeForceLayout(nodes, edges, { pinned })
+  return nodes.map((node) => ({ ...node, position: layout.get(node.id) ?? node.position }))
+}
+
+/**
  * 算出每个节点的左上角坐标。返回 Map 包含**全部**传入节点：
  * 钉住的返回原坐标，其余是模拟结果（并平移到正区间，留 80px 边距）。
  */
 export function computeForceLayout(
-  nodes: GraphNode[],
-  edges: GraphEdge[],
+  nodes: Node[],
+  edges: Edge[],
   options: ForceLayoutOptions = {},
 ): Map<string, { x: number; y: number }> {
   const result = new Map<string, { x: number; y: number }>()
@@ -201,8 +223,11 @@ export function computeForceLayout(
   }
 
   const box = bounds(layoutNodes)
-  const offsetX = Number.isFinite(box.minX) ? 80 - box.minX : 0
-  const offsetY = Number.isFinite(box.minY) ? 80 - box.minY : 0
+  // 平移只在「全是自由节点」时做：锚点最后要恢复原坐标，只搬自由节点会把它们从用户
+  // 摆好的那一坨旁边甩出去（甩多远取决于锚点坐标，能差几百像素）—— 那正是「新节点
+  // 一进来就跑到图外面」的另一个来源。有锚点时自由节点本来就该落在锚点附近。
+  const offsetX = pinned.size === 0 && Number.isFinite(box.minX) ? 80 - box.minX : 0
+  const offsetY = pinned.size === 0 && Number.isFinite(box.minY) ? 80 - box.minY : 0
 
   for (const node of layoutNodes) {
     result.set(node.id, {
