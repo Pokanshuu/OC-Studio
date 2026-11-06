@@ -72,6 +72,16 @@ export function ContextStrip({
     setContext(next)
   }
 
+  const removeNovel = () => {
+    if (!context) return
+    const next: AgentSessionContext = { ...context, novelRootId: null, novelWritable: false }
+    setAgentSessionContext(conversationId, next)
+    setContext(next)
+    setNames((current) => current.slice(0, context.characterIds.length))
+  }
+
+  const empty = characterCount === 0 && !hasNovel
+
   return (
     <div className="composer-context">
       <span className="composer-context-label">{t(`mode.${mode}`)}</span>
@@ -92,43 +102,45 @@ export function ContextStrip({
         </span>
       ))}
 
-      {characterCount === 0 ? (
-        <button type="button" className="context-tag add" onClick={onEdit}>
-          <Icon name="plus" size={11} />
-          {t('context.pickCharacter')}
-        </button>
-      ) : (
-        <button type="button" className="context-tag add" onClick={onEdit} aria-label={t('context.pickCharacter')}>
-          <Icon name="plus" size={11} />
-        </button>
-      )}
-
-      {creative && (
-        <>
+      {creative && hasNovel ? (
+        <span className="context-tag primary">
+          <button type="button" className="context-tag-main" title={t('context.novel')} onClick={onEdit}>
+            <Icon name="book" size={11} />
+            <span className="truncate">{names[characterCount] ?? t('context.pickNovel')}</span>
+          </button>
           <button
             type="button"
-            className={`context-tag${hasNovel ? ' primary' : ''}`}
-            title={t('context.novel')}
-            onClick={onEdit}
+            className="context-tag-x"
+            aria-label={t('common.delete')}
+            onClick={removeNovel}
           >
-            <Icon name="book" size={11} />
-            <span className="truncate">
-              {hasNovel ? names[characterCount] ?? t('context.pickNovel') : t('context.pickNovel')}
-            </span>
+            <Icon name="close" size={11} />
           </button>
-          {hasNovel ? (
-            <button
-              type="button"
-              className={`context-tag${context?.novelWritable ? ' on' : ''}`}
-              title={t('context.writableHint')}
-              onClick={toggleWritable}
-            >
-              <Icon name="edit" size={11} />
-              {t('context.writable')}
-            </button>
-          ) : null}
-        </>
-      )}
+        </span>
+      ) : null}
+
+      {/* 角色和作品是同一个选择器：空的时候只留一个入口，别并排两个「选择…」 */}
+      <button
+        type="button"
+        className="context-tag add"
+        onClick={onEdit}
+        aria-label={creative ? t('context.pick') : t('context.pickCharacter')}
+      >
+        <Icon name="plus" size={11} />
+        {empty ? (creative ? t('context.pick') : t('context.pickCharacter')) : null}
+      </button>
+
+      {creative && hasNovel ? (
+        <button
+          type="button"
+          className={`context-tag${context?.novelWritable ? ' on' : ''}`}
+          title={t('context.writableHint')}
+          onClick={toggleWritable}
+        >
+          <Icon name="edit" size={11} />
+          {t('context.writable')}
+        </button>
+      ) : null}
     </div>
   )
 }

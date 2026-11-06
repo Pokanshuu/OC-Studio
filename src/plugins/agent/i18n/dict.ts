@@ -57,6 +57,7 @@ export const zh = {
   'context.character': '角色',
   'context.novel': '小说',
   'context.pickCharacter': '选择角色',
+  'context.pick': '选择资料',
   'context.pickNovel': '选择作品',
   'context.noNovel': '不读取小说',
   'context.roleplayHint': '扮演时读取角色、相关事件与国家',
@@ -86,6 +87,8 @@ export const zh = {
 
   'msg.copy': '复制',
   'msg.copied': '已复制',
+  'msg.selectAll': '全选',
+  'msg.copyMessage': '复制整条',
   'msg.noAnswer': '这次没有输出正文；展开上面的执行过程看工具结果。',
   'msg.regenerate': '重新生成',
   'msg.edit': '编辑并重发',
@@ -314,6 +317,7 @@ export const en: Record<TextKey, string> = {
   'context.character': 'Character',
   'context.novel': 'Novel',
   'context.pickCharacter': 'Choose character',
+  'context.pick': 'Choose context',
   'context.pickNovel': 'Choose novel',
   'context.noNovel': 'No novel',
   'context.roleplayHint': 'Reads the character, related events and country',
@@ -343,6 +347,8 @@ export const en: Record<TextKey, string> = {
 
   'msg.copy': 'Copy',
   'msg.copied': 'Copied',
+  'msg.selectAll': 'Select all',
+  'msg.copyMessage': 'Copy message',
   'msg.noAnswer': 'No answer text this time — expand the execution trace above to see the tool results.',
   'msg.regenerate': 'Regenerate',
   'msg.edit': 'Edit & resend',

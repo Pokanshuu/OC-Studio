@@ -18,6 +18,14 @@
 
   --float-shadow: var(--oc-shadow-float);
 }
+.oc-agent-root[data-theme]{
+-webkit-user-select: text;
+  user-select: text;
+}
+.oc-agent-root[data-theme] button, .oc-agent-root[data-theme] .disclosure, .oc-agent-root[data-theme] .conv-item, .oc-agent-root[data-theme] .settings-tab, .oc-agent-root[data-theme] .tool-head, .oc-agent-root[data-theme] .context-tag, .oc-agent-root[data-theme] .pill{
+-webkit-user-select: none;
+  user-select: none;
+}
 .oc-agent-root *, .oc-agent-root *::before, .oc-agent-root *::after{
 box-sizing: border-box;
 }

@@ -33,6 +33,26 @@
 
 /* ── reset ─────────────────────────────────────────────────────────────── */
 
+/* 宿主在 body 上全局关了划词（`user-select: none`），只在编辑器 / 输入框里放开。
+   聊天正文不是编辑器，必须自己把这扇门打开，否则消息一个字都选不中。
+   用 `[data-theme]` 写：作用域脚本会把它贴成 `.oc-agent-root[data-theme]`。 */
+[data-theme] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* 控件仍然不可选：拖拽按钮 / 点开折叠时不该带出文字选区 */
+[data-theme] button,
+[data-theme] .disclosure,
+[data-theme] .conv-item,
+[data-theme] .settings-tab,
+[data-theme] .tool-head,
+[data-theme] .context-tag,
+[data-theme] .pill {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 /* 盒模型只收回自己的作用域；尺寸交给宿主容器 / 各个挂载点自己给。
    这一条原本是给插件独立窗口用的（`html, body, #root` 全屏），移植后
    `.oc-agent-root` 也挂在弹层里 —— 再强制 100% 会让浮层包一层全屏 div。 */

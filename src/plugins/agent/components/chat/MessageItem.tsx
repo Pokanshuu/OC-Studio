@@ -8,7 +8,7 @@
 
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '@/plugins/agent/components/ui/Icon'
-import { Dialog, IconButton, copyText, useToast } from '@/plugins/agent/components/ui/primitives'
+import { Dialog, IconButton, copyText, useToast, Menu, MenuItem, MenuSeparator, type MenuAnchor } from '@/plugins/agent/components/ui/primitives'
 import { MarkdownText } from '@/plugins/agent/components/markdown/MarkdownText'
 import { ThinkingPanel } from './ThinkingPanel'
 import { StepTimeline } from './StepTimeline'
@@ -143,6 +143,34 @@ function MessageItemImpl({
 
   const answer = useExitFade(message.content)
 
+  // 右键菜单：宿主把系统菜单全局吃掉了，正文可选中后必须自己给一个「复制 / 全选」。
+  const [textMenu, setTextMenu] = useState<{ anchor: MenuAnchor; node: HTMLElement } | null>(null)
+
+  const openTextMenu = (event: React.MouseEvent<HTMLElement>) => {
+    const target = event.target as HTMLElement
+    // 控件与工具卡自己处理交互，不抢它们的右键
+    if (target.closest('button, a, input, textarea, .tool-card')) return
+    event.preventDefault()
+    event.stopPropagation()
+    setTextMenu({ anchor: { x: event.clientX, y: event.clientY }, node: event.currentTarget })
+  }
+
+  const copySelectionOrMessage = () => {
+    const selected = window.getSelection()?.toString() ?? ''
+    void copyText(selected.trim() || message.content)
+    toast.show(t('msg.copied'))
+  }
+
+  const selectMessage = () => {
+    const node = textMenu?.node
+    if (!node) return
+    const range = document.createRange()
+    range.selectNodeContents(node)
+    const selection = window.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+  }
+
   /*
    * Two turns stay out of the trace:
    * - the one holding the visible answer (its text is the message body),
@@ -173,12 +201,14 @@ function MessageItemImpl({
         {isUser ? (
           <>
             {message.content.trim().length > 0 && (
-              <div className="bubble-user">{message.content}</div>
+              <div className="bubble-user" onContextMenu={openTextMenu}>
+                {message.content}
+              </div>
             )}
             <AttachmentList attachments={message.attachments} />
           </>
         ) : (
-          <div className="assistant-body">
+          <div className="assistant-body" onContextMenu={openTextMenu}>
             {(hasToolCalls || message.steps.length > 1) && (
               <StepTimeline
                 steps={timelineSteps}
@@ -361,6 +391,38 @@ function MessageItemImpl({
       >
         <div className="muted">{t('msg.deleteConfirm')}</div>
       </Dialog>
+
+      <Menu anchor={textMenu?.anchor ?? null} onClose={() => setTextMenu(null)}>
+        <MenuItem
+          icon="copy"
+          onClick={() => {
+            copySelectionOrMessage()
+            setTextMenu(null)
+          }}
+        >
+          {t('msg.copy')}
+        </MenuItem>
+        <MenuItem
+          icon="check"
+          onClick={() => {
+            selectMessage()
+            setTextMenu(null)
+          }}
+        >
+          {t('msg.selectAll')}
+        </MenuItem>
+        <MenuSeparator />
+        <MenuItem
+          icon="copy"
+          onClick={() => {
+            void copyText(message.content)
+            toast.show(t('msg.copied'))
+            setTextMenu(null)
+          }}
+        >
+          {t('msg.copyMessage')}
+        </MenuItem>
+      </Menu>
     </div>
   )
 }
