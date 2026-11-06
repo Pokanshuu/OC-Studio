@@ -97,4 +97,10 @@ export const LIBRARY_MODEL_MARKDOWN = `## 数据模型（由 \`npm run gen:libra
 - character→country（\`countryId\`，即国籍）
 - event→character（\`characters\`）
 - event→country（\`countries\`）
+
+写字段（\`library_set_fields\` —— 内置列和自建字段**同一个工具**，不用先判断）：
+- 键命中上面各节的「可写标量」→ 写实体列；同名的自建字段以列为准（不会分叉）
+- 其余键必须是这条条目**已有的**自建字段（\`library_read\` 的「自建字段」一段就是键名 → 值）
+- 确实要新建一个自建字段，才传 \`create_new: true\`；否则打错一个字就会多出一个看不见的脏字段
+- 显示名不是键名：键以 \`library_templates\`（模板字段）和 \`library_read\` 为准
 `

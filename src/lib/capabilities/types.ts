@@ -26,6 +26,23 @@ export interface EntitySummary {
   aliases: string[]
   tags: string[]
   updatedAt: number
+  /** 搜索时命中在哪 —— 让模型知道「正文里有这个名字」，不是标题 */
+  matchedIn?: 'title' | 'alias' | 'tag' | 'body'
+}
+
+/** `listEntities` 的筛选条件（都是可选的，给的是「与」关系） */
+export interface EntityFilter {
+  /** 仅 `world`：分类名（含「小说」「地图」） */
+  category?: string
+  /** 标签名（精确） */
+  tag?: string
+  /** 仅 `character`：只要主要角色 */
+  isMajor?: boolean
+}
+
+export interface SearchOptions {
+  /** 是否扫正文（默认扫）。关掉就只匹配标题 / 别名 / 标签 */
+  body?: boolean
 }
 
 export interface CodexField {
@@ -53,6 +70,8 @@ export interface CodexEntry {
   title: string
   aliases: string[]
   fields: CodexField[]
+  /** 自建字段的**原始键名** → 值（写回用键名，不给键名模型只能猜） */
+  custom: Record<string, string>
   relations: CodexRelation[]
   events: CodexEvent[]
   tags: string[]

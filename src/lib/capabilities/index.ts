@@ -10,8 +10,10 @@ import {
   type CodexField,
   type CodexRelation,
   type EntityKind,
+  type EntityFilter,
   type EntityRecordMap,
   type EntitySummary,
+  type SearchOptions,
 } from './types'
 
 const KIND_LABEL: Record<EntityKind, string> = {
@@ -209,6 +211,7 @@ function entryOf(
     title: titleOf(kind, entity) || '未命名',
     aliases: aliasesOf(kind, entity),
     fields: fieldsOf(kind, entity, context),
+    custom: { ...((entity as { custom?: Record<string, string> }).custom ?? {}) },
     relations: relationsOf(kind, entity, context),
     events: eventsOf(kind, entity, context),
     tags: tagNamesOf(entity.tags, context),
@@ -230,8 +233,18 @@ export function createCapabilities(store: CapabilityStore) {
   }
 
   return {
-    /** 工具 `list_entities`：按类型列实体（标题 / 别名 / 标签 / 更新时间） */
-    async listEntities(caller: Caller, kind: EntityKind, limit = 50): Promise<EntitySummary[]> {
+    /**
+     * 工具 `list_entities`：按类型列实体（标题 / 别名 / 标签 / 更新时间）。
+     *
+     * 带筛选时**先筛再截断** —— 否则「列 20 个宠物」会先按更新时间取 20 条再筛，
+     * 结果条数莫名其妙地少。
+     */
+    async listEntities(
+      caller: Caller,
+      kind: EntityKind,
+      limit = 50,
+      filter?: EntityFilter,
+    ): Promise<EntitySummary[]> {
       requireRead(caller)
       const context = await loadContext()
       const rows =
@@ -242,7 +255,24 @@ export function createCapabilities(store: CapabilityStore) {
             : kind === 'country'
               ? context.countries
               : context.worldEntries
+      const wantedCategory = (filter?.category ?? '').trim()
+      const wantedTag = (filter?.tag ?? '').trim()
+      const onlyMajor = filter?.isMajor === true
       return rows
+        .filter((entity) => {
+          if (onlyMajor) {
+            if (kind !== 'character') return false
+            if (!(entity as Character).isMajor) return false
+          }
+          if (wantedCategory !== '') {
+            if (kind !== 'world') return false
+            if (((entity as WorldEntry).category ?? '').trim() !== wantedCategory) return false
+          }
+          if (wantedTag !== '') {
+            if (!tagNamesOf(entity.tags, context).includes(wantedTag)) return false
+          }
+          return true
+        })
         .slice()
         .sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))
         .slice(0, Math.max(1, Math.min(200, limit)))
@@ -265,11 +295,23 @@ export function createCapabilities(store: CapabilityStore) {
       return entryOf(kind, entity, context)
     },
 
-    /** 工具 `search`：v1 只搜标题 / 别名 / 标签名，不扫正文（避免每次全库读正文） */
-    async search(caller: Caller, query: string, limit = 20): Promise<EntitySummary[]> {
+    /**
+     * 工具 `search`：标题 / 别名 / 标签 / 正文 四路匹配。
+     *
+     * 正文默认也扫 —— 「这个设定是不是早写过」是查重时最实际的问题，只搜标题答不了。
+     * 数据本来就整库在 `loadContext` 里了，多在内存里比一遍字符串，比让模型
+     * 用 `library_list` 把全库拉回来自查便宜得多。
+     */
+    async search(
+      caller: Caller,
+      query: string,
+      limit = 20,
+      options?: SearchOptions,
+    ): Promise<EntitySummary[]> {
       requireRead(caller)
       const needle = query.trim().toLocaleLowerCase('zh-Hans')
       if (needle === '') return []
+      const scanBody = options?.body !== false
       const context = await loadContext()
       const out: EntitySummary[] = []
       for (const kind of ALL_KINDS) {
@@ -285,8 +327,19 @@ export function createCapabilities(store: CapabilityStore) {
           const title = titleOf(kind, entity)
           const aliases = aliasesOf(kind, entity)
           const tags = tagNamesOf(entity.tags, context)
-          const haystack = [title, ...aliases, ...tags].join('\n').toLocaleLowerCase('zh-Hans')
-          if (!haystack.includes(needle)) continue
+          const head = [title, ...aliases, ...tags].join('\n').toLocaleLowerCase('zh-Hans')
+          let matchedIn: EntitySummary['matchedIn'] | undefined
+          if (head.includes(needle)) {
+            matchedIn = title.toLocaleLowerCase('zh-Hans').includes(needle)
+              ? 'title'
+              : aliases.some((alias) => alias.toLocaleLowerCase('zh-Hans').includes(needle))
+                ? 'alias'
+                : 'tag'
+          } else if (scanBody) {
+            const body = bodyOf(kind, entity).toLocaleLowerCase('zh-Hans')
+            if (body.includes(needle)) matchedIn = 'body'
+          }
+          if (!matchedIn) continue
           out.push({
             kind,
             id: entity.id,
@@ -294,6 +347,7 @@ export function createCapabilities(store: CapabilityStore) {
             aliases,
             tags,
             updatedAt: entity.updatedAt ?? 0,
+            matchedIn,
           })
         }
       }
@@ -357,6 +411,11 @@ export function buildCodexSlice(entry: CodexEntry): string {
   const lines: string[] = [`# ${entry.title}（${KIND_LABEL[entry.kind]}）`]
   if (entry.aliases.length > 0) lines.push(`别名：${entry.aliases.join('、')}`)
   if (entry.fields.length > 0) lines.push(`字段：${entry.fields.map((field) => `${field.key} ${field.value}`).join(' · ')}`)
+  // 自建字段带**原始键名**：写回用的就是它，只给显示名会让模型去猜键
+  const customKeys = Object.entries(entry.custom ?? {}).filter(([, value]) => value.trim() !== '')
+  if (customKeys.length > 0) {
+    lines.push(`自建字段：${customKeys.map(([key, value]) => `${key}=${value}`).join(' · ')}`)
+  }
   if (entry.relations.length > 0) {
     lines.push(`关系：${entry.relations.map((relation) => `${relation.name}（${relation.relation}）`).join('、')}`)
   }

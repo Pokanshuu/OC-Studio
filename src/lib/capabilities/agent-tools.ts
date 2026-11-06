@@ -25,22 +25,44 @@ export const LIBRARY_TOOL_NAMES = [
   'library_read',
   'library_search',
   'library_graph',
+  'library_templates',
   'library_set_fields',
   'library_set_body',
   'library_link',
   'library_create',
   'library_delete',
   'library_set_tags',
-  'library_set_custom',
   'library_set_media',
   'library_rename',
   'library_set_placement',
   'library_create_category',
   'library_set_novel',
+  // ── 兼容别名：已并入上面的工具，模型看不到（不在 TOOL_SPECS 里），
+  //    留着是为了旧版设置里存着的工具名还能被认出来、不至于变成「未知工具」。
+  'library_set_custom',
   'library_import_image',
 ] as const
 
+/**
+ * 已经合并掉、**不再出现在提示词里**的旧工具名。
+ *
+ * - `library_set_custom` → 并入 `library_set_fields`（内置列传列、其余进 `custom`）
+ * - `library_import_image` → 并入 `library_set_media`（给 `url` 就下载，给 `path` 就引用）
+ *
+ * 合并的原因很实际：两个工具职责重叠时，模型必须自己判断该用哪个，
+ * 而它没有足够信息去判断（比如「附件/x.png 到底在不在库里」）。
+ */
+export const MERGED_LIBRARY_TOOLS: Record<string, LibraryToolName> = {
+  library_set_custom: 'library_set_fields',
+  library_import_image: 'library_set_media',
+}
+
 export type LibraryToolName = (typeof LIBRARY_TOOL_NAMES)[number]
+
+/** 提示词里真正出现的库工具（兼容别名不在其中） */
+export const ADVERTISED_LIBRARY_TOOLS: readonly string[] = LIBRARY_TOOL_NAMES.filter(
+  (name) => !(name in MERGED_LIBRARY_TOOLS),
+)
 
 /**
  * 可写字段白名单。
@@ -104,6 +126,7 @@ function linkKeyOf(from: { kind: EntityKind; id: number }, to: { kind: EntityKin
 
 /** 写库动作：注入进来，执行器本身不碰 Dexie（脚本里也能跑） */
 export interface LibraryWriter {
+  /** 写实体自带的标量列（`race` / `location` …），只收白名单里的键 */
   setFields(kind: EntityKind, id: number, patch: Record<string, string>): Promise<void>
   /** 整篇正文替换。`markdown` 会过 vault 的 Markdown → Tiptap 桥 */
   setBody(kind: EntityKind, id: number, markdown: string): Promise<void>
@@ -178,6 +201,30 @@ export interface LibraryWriter {
   ): Promise<void>
 }
 
+/**
+ * 库的「目录」：模板长什么样、分类挂了哪个模板、每个模板有哪些组件与字段。
+ *
+ * 模型经常需要它 —— 「地点模板有哪些槽位」「宠物分类用哪套字段」光看字段组名
+ * 是推不出来的，猜错就会往一个不存在的字段里写值。这是一次只读快照。
+ */
+export interface LibraryCatalogEntry {
+  id: string
+  name: string
+  /** 组件 id 与是否启用；`params` 里有 `group` 的说明它引用了哪个字段组 */
+  components: { id: string; enabled: boolean }[]
+  /** 这个模板绑定的基本信息字段组（键 + 显示名） */
+  fields: { key: string; label: string }[]
+}
+
+export interface LibraryCatalogView {
+  templates: LibraryCatalogEntry[]
+  categories: { name: string; template: string; enabled: boolean }[]
+}
+
+export interface LibraryCatalog {
+  describe(): Promise<LibraryCatalogView>
+}
+
 export const KINDS: readonly EntityKind[] = ['character', 'event', 'country', 'world']
 
 export const KIND_LABEL: Record<EntityKind, string> = {
@@ -218,11 +265,20 @@ function fail(content: string): ToolResult {
   return { content, isError: true, durationMs: 0 }
 }
 
-function summaryLine(row: { kind: EntityKind; id: number; title: string; aliases: string[]; tags: string[] }): string {
+function summaryLine(row: {
+  kind: EntityKind
+  id: number
+  title: string
+  aliases: string[]
+  tags: string[]
+  matchedIn?: 'title' | 'alias' | 'tag' | 'body'
+}): string {
   const extras = [row.aliases.length > 0 ? `别名 ${row.aliases.join('、')}` : '', row.tags.length > 0 ? `标签 ${row.tags.join('、')}` : '']
     .filter(Boolean)
     .join(' · ')
-  return `- [${KIND_LABEL[row.kind]} #${row.id}] ${row.title}${extras ? `（${extras}）` : ''}`
+  const hit = row.matchedIn === 'body' ? '正文命中' : ''
+  const tail = [extras, hit].filter(Boolean).join(' · ')
+  return `- [${KIND_LABEL[row.kind]} #${row.id}] ${row.title}${tail ? `（${tail}）` : ''}`
 }
 
 /**
@@ -231,12 +287,19 @@ function summaryLine(row: { kind: EntityKind; id: number; title: string; aliases
  * 返回 `null` 表示这个名字不归宿主管，调用方继续走原来的路径（插件的 Rust
  * 文件工具）；返回结果就表示已经处理完。
  */
-export function createLibraryToolExecutor(capabilities: Capabilities, writer?: LibraryWriter) {
+export function createLibraryToolExecutor(
+  capabilities: Capabilities,
+  writer?: LibraryWriter,
+  catalog?: LibraryCatalog,
+) {
   return async function resolveLibraryTool(
     name: string,
     args: Record<string, unknown>,
   ): Promise<ToolResult | null> {
     if (!(LIBRARY_TOOL_NAMES as readonly string[]).includes(name)) return null
+    // 合并掉的旧工具名继续认：转给接手的那个，行为完全一致
+    const merged = MERGED_LIBRARY_TOOLS[name]
+    if (merged) name = merged
 
     const started = Date.now()
     const finish = (result: ToolResult): ToolResult => ({ ...result, durationMs: Date.now() - started })
@@ -245,12 +308,40 @@ export function createLibraryToolExecutor(capabilities: Capabilities, writer?: L
       if (name === 'library_list') {
         const asked = kindOf(args.kind)
         const limit = numberOf(args.limit, 40, 1, 200)
+        const category = textOf(args.category).slice(0, 60)
+        const tag = textOf(args.tag).slice(0, 40)
+        const isMajor = args.isMajor === true
+        if (!asked && (category !== '' || tag !== '' || isMajor)) {
+          return finish(fail('category / tag / isMajor 要配合 kind 用：先说要列哪一类。'))
+        }
+        const filter = {
+          ...(category !== '' ? { category } : {}),
+          ...(tag !== '' ? { tag } : {}),
+          ...(isMajor ? { isMajor } : {}),
+        }
+        const filterNote = [
+          category !== '' ? `分类「${category}」` : '',
+          tag !== '' ? `标签「${tag}」` : '',
+          isMajor ? '仅主要角色' : '',
+        ]
+          .filter(Boolean)
+          .join(' · ')
         if (asked) {
-          const rows = await capabilities.listEntities(AGENT_CALLER, asked, limit)
-          if (rows.length === 0) return finish(ok(`库里还没有${KIND_LABEL[asked]}。`))
+          const rows = await capabilities.listEntities(AGENT_CALLER, asked, limit, filter)
+          if (rows.length === 0) {
+            return finish(
+              ok(
+                filterNote === ''
+                  ? `库里还没有${KIND_LABEL[asked]}。`
+                  : `没有符合「${filterNote}」的${KIND_LABEL[asked]}。`,
+              ),
+            )
+          }
           return finish(
             ok(
-              `${KIND_LABEL[asked]}共列出 ${rows.length} 条（最近改动在前）：\n${rows.map(summaryLine).join('\n')}`,
+              `${KIND_LABEL[asked]}共列出 ${rows.length} 条（最近改动在前）${
+                filterNote === '' ? '' : `，筛选：${filterNote}`
+              }：\n${rows.map(summaryLine).join('\n')}`,
               rows,
             ),
           )
@@ -263,6 +354,35 @@ export function createLibraryToolExecutor(capabilities: Capabilities, writer?: L
           }),
         )
         return finish(ok(groups.join('\n\n')))
+      }
+
+      // library_templates：库目录（模板组件 / 字段组 / 分类）
+      if (name === 'library_templates') {
+        if (!catalog) return finish(fail('这个环境读不到模板目录。'))
+        const view = await catalog.describe()
+        const lines: string[] = ['# 模板与分类']
+        if (view.templates.length === 0) {
+          lines.push('（还没有模板）')
+        } else {
+          for (const template of view.templates) {
+            const components = template.components
+              .filter((component) => component.enabled)
+              .map((component) => component.id)
+              .join(' / ')
+            const fields =
+              template.fields.length > 0
+                ? `\n  字段：${template.fields.map((field) => `${field.key}（${field.label}）`).join('、')}`
+                : ''
+            lines.push(`- ${template.name}（${template.id}）：${components || '无组件'}${fields}`)
+          }
+        }
+        if (view.categories.length > 0) {
+          lines.push('', '分类：')
+          for (const category of view.categories) {
+            lines.push(`- ${category.name} → 模板 ${category.template}${category.enabled ? '' : '（未启用）'}`)
+          }
+        }
+        return finish(ok(lines.join('\n'), view))
       }
 
       if (name === 'library_read') {
@@ -278,9 +398,22 @@ export function createLibraryToolExecutor(capabilities: Capabilities, writer?: L
         const query = textOf(args.query)
         if (query === '') return finish(fail('query 不能为空。'))
         const limit = numberOf(args.limit, 20, 1, 50)
-        const rows = await capabilities.search(AGENT_CALLER, query, limit)
-        if (rows.length === 0) return finish(ok(`没有匹配「${query}」的条目。`))
-        return finish(ok(`匹配「${query}」${rows.length} 条：\n${rows.map(summaryLine).join('\n')}`, rows))
+        const scanBody = args.include_body !== false
+        const rows = await capabilities.search(AGENT_CALLER, query, limit, { body: scanBody })
+        if (rows.length === 0) {
+          return finish(
+            ok(
+              scanBody
+                ? `没有匹配「${query}」的条目（标题、别名、标签、正文都看过了）。`
+                : `没有匹配「${query}」的条目（这次没搜正文）。`,
+            ),
+          )
+        }
+        const bodyHits = rows.filter((row) => row.matchedIn === 'body').length
+        const tail = bodyHits > 0 ? `\n（其中 ${bodyHits} 条只在正文里出现）` : ''
+        return finish(
+          ok(`匹配「${query}」${rows.length} 条：${tail}\n${rows.map(summaryLine).join('\n')}`, rows),
+        )
       }
 
       // library_create：新建条目（走各 feature 的 create*，不手拼行）
@@ -345,13 +478,23 @@ export function createLibraryToolExecutor(capabilities: Capabilities, writer?: L
         )
       }
 
-      // library_set_tags：按名字打标签（没有就建）
+      // library_set_tags：按名字打标签（没有就建）。支持批量：ids 数组
       if (name === 'library_set_tags') {
         if (!writer) return finish(fail('这个环境不能写库。'))
         const tagKind = kindOf(args.kind)
         if (!tagKind) return finish(fail('kind 必须是 character / event / country / world 之一。'))
-        const tagId = numberOf(args.id, -1, 0, Number.MAX_SAFE_INTEGER)
-        if (tagId < 0) return finish(fail('需要实体 id。'))
+        const targets: number[] = []
+        if (Array.isArray(args.ids)) {
+          for (const item of args.ids) {
+            const parsed = numberOf(item, -1, 0, Number.MAX_SAFE_INTEGER)
+            if (parsed >= 0 && !targets.includes(parsed)) targets.push(parsed)
+            if (targets.length >= 50) break
+          }
+        } else {
+          const single = numberOf(args.id, -1, 0, Number.MAX_SAFE_INTEGER)
+          if (single >= 0) targets.push(single)
+        }
+        if (targets.length === 0) return finish(fail('需要 id 或 ids（批量最多 50 条）。'))
         if (!Array.isArray(args.tags)) return finish(fail('tags 必须是字符串数组。'))
         const names: string[] = []
         for (const item of args.tags) {
@@ -360,36 +503,29 @@ export function createLibraryToolExecutor(capabilities: Capabilities, writer?: L
           if (name !== '' && !names.includes(name)) names.push(name)
           if (names.length >= 20) break
         }
-        const tags = await writer.setTags(tagKind, tagId, names)
-        const now = tags.length > 0 ? tags.map((tag) => tag.name).join('、') : '（已清空）'
-        return finish(ok(`已给${KIND_LABEL[tagKind]} #${tagId} 打上：${now}`, { tags }))
+        // 批量前先确认这些 id 真的存在（一次列全，不要每条各读一次库）
+        const known = new Set(
+          (await capabilities.listEntities(AGENT_CALLER, tagKind, 200)).map((row) => row.id),
+        )
+        const missing = targets.filter((id) => !known.has(id))
+        const live = targets.filter((id) => known.has(id))
+        if (live.length === 0) {
+          return finish(fail(`这些 id 都不存在：${targets.join('、')}。先用 library_list 看一遍。`))
+        }
+        let last: { id: number; name: string }[] = []
+        for (const id of live) last = await writer.setTags(tagKind, id, names)
+        const now = last.length > 0 ? last.map((tag) => tag.name).join('、') : '（已清空）'
+        const scope =
+          live.length === 1
+            ? `${KIND_LABEL[tagKind]} #${live[0]}`
+            : `${KIND_LABEL[tagKind]} ${live.length} 条（#${live.join('、#')}）`
+        const missingNote = missing.length > 0 ? `\n没找到：${missing.join('、')}` : ''
+        return finish(ok(`已给${scope}打上：${now}${missingNote}`, { tags: last, updated: live, missing }))
       }
 
-      // library_set_custom：合并写自建字段（模板 / 字段组用）
-      if (name === 'library_set_custom') {
-        if (!writer) return finish(fail('这个环境不能写库。'))
-        const customKind = kindOf(args.kind)
-        if (!customKind) return finish(fail('kind 必须是 character / event / country / world 之一。'))
-        const customId = numberOf(args.id, -1, 0, Number.MAX_SAFE_INTEGER)
-        if (customId < 0) return finish(fail('需要实体 id。'))
-        const raw = args.fields
-        if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
-          return finish(fail('fields 必须是一个对象（键 = 字段键，值 = 文本）。'))
-        }
-        const patch: Record<string, string> = {}
-        for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
-          const name = key.trim().slice(0, 60)
-          if (name === '') continue
-          patch[name] = textOf(value).slice(0, FIELD_MAX_LENGTH)
-          if (Object.keys(patch).length >= 40) break
-        }
-        const keys = Object.keys(patch)
-        if (keys.length === 0) return finish(fail('fields 是空的。'))
-        await writer.setCustom(customKind, customId, patch)
-        return finish(ok(`已写入自建字段：${keys.join('、')}`, { written: keys }))
-      }
+      // library_set_custom 已在入口映射到 library_set_fields（见 MERGED_LIBRARY_TOOLS）
 
-      // library_set_media：写图片槽位（文件必须先在库里）
+      // library_set_media：写图片槽位 —— 给 url 就下载进 附件/，给 path 就引用库内已有文件
       if (name === 'library_set_media') {
         if (!writer) return finish(fail('这个环境不能写库。'))
         const mediaKind = kindOf(args.kind)
@@ -400,39 +536,42 @@ export function createLibraryToolExecutor(capabilities: Capabilities, writer?: L
         if (!MEDIA_SLOTS[mediaKind].includes(slot)) {
           return finish(fail(`${KIND_LABEL[mediaKind]}的图片槽位只有：${MEDIA_SLOTS[mediaKind].join(' / ')}。`))
         }
+        const url = textOf(args.url).slice(0, 2000)
         const path = textOf(args.path).replace(/\\/g, '/').slice(0, 500)
-        if (path === '') return finish(fail('path 不能为空。'))
+        if (url !== '' && path !== '') return finish(fail('url 与 path 只能给一个。'))
+        if (url === '' && path === '') {
+          return finish(
+            fail('给 url（从网上抓一张存进库）或 path（引用库里已有的图）。'),
+          )
+        }
+        if (url !== '') {
+          if (!/^https?:\/\//i.test(url)) return finish(fail('url 必须是 http(s) 地址。'))
+          const filename = textOf(args.filename).slice(0, 80)
+          const saved = await writer.importImage(
+            mediaKind,
+            mediaId,
+            slot,
+            url,
+            filename === '' ? undefined : filename,
+          )
+          return finish(
+            ok(`已把图片下载到「${saved.path}」并设为${KIND_LABEL[mediaKind]} #${mediaId} 的 ${slot}。`, saved),
+          )
+        }
         if (/^[a-zA-Z]:|^\//.test(path) || path.split('/').includes('..')) {
           return finish(fail('path 必须是库内相对路径，不能是绝对路径或带 ..。'))
         }
-        await writer.setMedia(mediaKind, mediaId, slot, path)
-        return finish(ok(`已设置${KIND_LABEL[mediaKind]} #${mediaId} 的 ${slot}：${path}`, { slot, path }))
-      }
-
-      // library_import_image：下载 URL 到附件/，再写槽位
-      if (name === 'library_import_image') {
-        if (!writer) return finish(fail('这个环境不能写库。'))
-        const imageKind = kindOf(args.kind)
-        if (!imageKind) return finish(fail('kind 必须是 character / event / country / world 之一。'))
-        const imageId = numberOf(args.id, -1, 0, Number.MAX_SAFE_INTEGER)
-        if (imageId < 0) return finish(fail('需要实体 id。'))
-        const slot = textOf(args.slot) as MediaSlot
-        if (!MEDIA_SLOTS[imageKind].includes(slot)) {
-          return finish(fail(`${KIND_LABEL[imageKind]}的图片槽位只有：${MEDIA_SLOTS[imageKind].join(' / ')}。`))
+        try {
+          await writer.setMedia(mediaKind, mediaId, slot, path)
+        } catch (error) {
+          // 文件不在库里时给出下一步 —— 模型拿不到「库里有什么」的信息，
+          // 光报「找不到文件」它只会换个路径再试一次
+          const message = error instanceof Error ? error.message : String(error)
+          return finish(
+            fail(`${message}。要是这张图还在网上，改给 url 让宿主下载；否则先用 glob / list_dir 确认路径。`),
+          )
         }
-        const url = textOf(args.url).slice(0, 2000)
-        if (!/^https?:\/\//i.test(url)) return finish(fail('url 必须是 http(s) 地址。'))
-        const filename = textOf(args.filename).slice(0, 80)
-        const saved = await writer.importImage(
-          imageKind,
-          imageId,
-          slot,
-          url,
-          filename === '' ? undefined : filename,
-        )
-        return finish(
-          ok(`已把图片下载到「${saved.path}」并设为${KIND_LABEL[imageKind]} #${imageId} 的 ${slot}。`, saved),
-        )
+        return finish(ok(`已设置${KIND_LABEL[mediaKind]} #${mediaId} 的 ${slot}：${path}`, { slot, path }))
       }
 
       // library_rename：改名（feature 的 update* 会同步 [[链接]] 文字）
@@ -611,38 +750,63 @@ export function createLibraryToolExecutor(capabilities: Capabilities, writer?: L
       if (id < 0) return finish(fail('需要实体 id。'))
       if (name === 'library_set_fields') {
         if (!writer) return finish(fail('这个环境不能写库。'))
-        const writable: readonly string[] = WRITABLE_FIELDS[kind]
-        if (writable.length === 0) return finish(fail(`${KIND_LABEL[kind]}没有可写的标量字段。`))
         const raw = args.fields
         if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
           return finish(fail('fields 必须是一个对象，键是要改的字段名。'))
         }
-        const patch: Record<string, string> = {}
+        const writable: readonly string[] = WRITABLE_FIELDS[kind]
+        // 自建字段只能改「这条本来就有的键」——否则打错一个字就多出一个脏字段，
+        // 而且界面上还看不见（字段表里没有这个键）。要新建得显式说明。
+        const before = await capabilities.getEntity(AGENT_CALLER, kind, id)
+        const knownCustom = new Set(Object.keys(before.custom ?? {}))
+        const allowNew = args.create_new === true
+        const columns: Record<string, string> = {}
+        const customPatch: Record<string, string> = {}
         const rejected: string[] = []
-        for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
-          if (!writable.includes(key)) {
-            rejected.push(key)
-            continue
-          }
+        for (const [rawKey, value] of Object.entries(raw as Record<string, unknown>)) {
+          const key = rawKey.trim().slice(0, 60)
+          if (key === '') continue
           const text = textOf(value).slice(0, FIELD_MAX_LENGTH)
-          patch[key] = text
+          if (writable.includes(key)) {
+            columns[key] = text
+          } else if (knownCustom.has(key) || allowNew) {
+            customPatch[key] = text
+          } else {
+            rejected.push(key)
+          }
+          if (Object.keys(columns).length + Object.keys(customPatch).length >= 60) break
         }
-        const keys = Object.keys(patch)
-        if (keys.length === 0) {
+        const columnKeys = Object.keys(columns)
+        const customKeys = Object.keys(customPatch)
+        if (columnKeys.length === 0 && customKeys.length === 0) {
+          const existing = knownCustom.size > 0 ? `这条现有的自建字段：${[...knownCustom].join('、')}。` : ''
           return finish(
             fail(
               rejected.length > 0
-                ? `这些字段不能写：${rejected.join('、')}。可写的是 ${writable.join(' / ')}。`
+                ? `这些键既不是${KIND_LABEL[kind]}内置字段，也不在这条的自建字段里：${rejected.join('、')}。` +
+                    `内置可写：${writable.join(' / ') || '无'}。${existing}` +
+                    `确实要新建自建字段，再加 create_new: true。`
                 : 'fields 是空的。',
             ),
           )
         }
-        await writer.setFields(kind, id, patch)
+        if (columnKeys.length > 0) await writer.setFields(kind, id, columns)
+        if (customKeys.length > 0) {
+          // 空串 = 删掉这个自建字段键（与 setFields 的语义一致）
+          await writer.setCustom(kind, id, customPatch)
+        }
         // 写完读回来给模型看：它得知道盘上现在是什么，而不是自己以为写了什么
         const after = await capabilities.getEntity(AGENT_CALLER, kind, id)
+        const parts = [
+          columnKeys.length > 0 ? `内置字段 ${columnKeys.join('、')}` : '',
+          customKeys.length > 0 ? `自建字段 ${customKeys.join('、')}` : '',
+        ].filter(Boolean)
+        const rejectedNote = rejected.length > 0 ? `\n没写（不认识的键）：${rejected.join('、')}` : ''
         return finish(
-          ok(`已写入 ${keys.join('、')}。现在这条是：\n\n${capabilities.buildCodexSlice(after)}`, {
-            written: keys,
+          ok(`已写入 ${parts.join(' / ')}。现在这条是：\n\n${capabilities.buildCodexSlice(after)}${rejectedNote}`, {
+            written: [...columnKeys, ...customKeys],
+            columns: columnKeys,
+            custom: customKeys,
             rejected,
           }),
         )

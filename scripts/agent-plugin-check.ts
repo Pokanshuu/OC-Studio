@@ -10,7 +10,14 @@
  * 用内存 store，不碰 Dexie / 文件系统。
  */
 import { createCapabilities } from '../src/lib/capabilities'
-import { AGENT_CALLER, LIBRARY_TOOL_NAMES, createLibraryToolExecutor } from '../src/lib/capabilities/agent-tools'
+import {
+  ADVERTISED_LIBRARY_TOOLS,
+  AGENT_CALLER,
+  LIBRARY_TOOL_NAMES,
+  MERGED_LIBRARY_TOOLS,
+  createLibraryToolExecutor,
+  type LibraryCatalog,
+} from '../src/lib/capabilities/agent-tools'
 import { READ_PERMISSION, type Caller, type CapabilityStore, type EntityKind } from '../src/lib/capabilities/types'
 import { AGENT_PLUGIN, OFFICIAL_PLUGINS } from '../src/lib/plugins/official'
 import { hasPermission, isPluginActive } from '../src/lib/plugins/store'
@@ -53,7 +60,7 @@ const characters: Character[] = [
     updatedAt: 200,
     relatedCharacters: [{ characterId: 8, name: '沈砚', relation: '同门' }],
   }),
-  character({ id: 8, name: '沈砚', bio: '话少。', updatedAt: 100 }),
+  character({ id: 8, name: '沈砚', bio: '话少。', updatedAt: 100, isMajor: true }),
 ]
 
 function worldEntry(input: Partial<WorldEntry> & Pick<WorldEntry, 'id' | 'title'>): WorldEntry {
@@ -93,7 +100,7 @@ const resolve = createLibraryToolExecutor(createCapabilities(store))
 
 async function main(): Promise<void> {
   // ── schema 进了提示词面 ────────────────────────────────────────────────
-  for (const name of LIBRARY_TOOL_NAMES) {
+  for (const name of ADVERTISED_LIBRARY_TOOLS) {
     const spec = toolByName(name)
     check(`schema 存在：${name}`, Boolean(spec))
     const readOnly = spec?.category === 'read'
@@ -103,11 +110,19 @@ async function main(): Promise<void> {
     )
   }
 
+  // 合并掉的旧工具：还在执行器里认（旧设置存着的名字不会变成「未知工具」），
+  // 但**不该再出现在提示词里** —— 模型看不见，就不会在两个重叠工具之间选错
+  for (const [legacy, target] of Object.entries(MERGED_LIBRARY_TOOLS)) {
+    check(`合并别名 ${legacy} 不在提示词里`, toolByName(legacy) === undefined)
+    check(`合并别名 ${legacy} 仍归宿主执行`, (LIBRARY_TOOL_NAMES as readonly string[]).includes(legacy))
+    check(`合并别名 ${legacy} 指向 ${target}`, (LIBRARY_TOOL_NAMES as readonly string[]).includes(target))
+  }
+
   const openAi = toOpenAiTools(ALL_TOOLS).map((tool) => {
     const fn = (tool as { function?: { name?: string } }).function
     return fn?.name ?? ''
   })
-  check('OpenAI tools 里带着这些库工具', LIBRARY_TOOL_NAMES.every((name) => openAi.includes(name)))
+  check('OpenAI tools 里带着这些库工具', ADVERTISED_LIBRARY_TOOLS.every((name) => openAi.includes(name)))
   check('原有文件工具没被挤掉', openAi.includes('read_file') && openAi.includes('todo_write'))
 
   // 摘要按 kind / id 显示，工具卡上才不是空白
@@ -136,6 +151,16 @@ async function main(): Promise<void> {
   const emptyKind = await resolve('library_list', { kind: 'event' })
   check('空类型给一句人话', emptyKind?.content === '库里还没有事件。')
 
+  // ── library_list 筛选（先筛再截断）─────────────────────────────────────
+  const onlyMajor = await resolve('library_list', { kind: 'character', isMajor: true })
+  check('isMajor 只留主要角色', onlyMajor?.content.includes('沈砚') === true && onlyMajor?.content.includes('林知遥') === false)
+  const byTagList = await resolve('library_list', { kind: 'character', tag: '主角' })
+  check('tag 筛选按标签名', byTagList?.content.includes('林知遥') === true && byTagList?.content.includes('沈砚') === false)
+  const noCategory = await resolve('library_list', { kind: 'world', category: '宠物' })
+  check('分类筛选没命中时说明原因', noCategory?.content.includes('没有符合') === true)
+  const filterNoKind = await resolve('library_list', { category: '宠物' })
+  check('筛选必须配合 kind', filterNoKind?.isError === true)
+
   // ── library_read ──────────────────────────────────────────────────────
   const read = await resolve('library_read', { kind: 'character', id: 7 })
   check('读到正文装配成 markdown', read?.content.startsWith('# 林知遥（角色）') === true, read?.content.slice(0, 40))
@@ -156,7 +181,18 @@ async function main(): Promise<void> {
   const noQuery = await resolve('library_search', { query: '   ' })
   check('空 query 报错', noQuery?.isError === true)
   const noHit = await resolve('library_search', { query: '不存在的名字' })
-  check('没命中也给一句话', noHit?.content === '没有匹配「不存在的名字」的条目。')
+  check(
+    '没命中也给一句话',
+    noHit?.content === '没有匹配「不存在的名字」的条目（标题、别名、标签、正文都看过了）。',
+    noHit?.content,
+  )
+
+  // 正文搜索：查重时最实际的一条（「这个设定是不是早写过」）
+  const byBody = await resolve('library_search', { query: '星图' })
+  check('正文命中能搜到', byBody?.content.includes('林知遥') === true, byBody?.content)
+  check('正文命中会标出来', byBody?.content.includes('正文命中') === true, byBody?.content)
+  const namesOnly = await resolve('library_search', { query: '星图', include_body: false })
+  check('include_body=false 只搜名字', namesOnly?.content.includes('没有匹配') === true, namesOnly?.content)
 
   // ── library_graph ─────────────────────────────────────────────────────
   const graph = await resolve('library_graph', { kind: 'character', id: 7, hops: 1 })
@@ -337,7 +373,7 @@ async function main(): Promise<void> {
     id: 8,
     fields: { bio: '剑客。', name: '改名' },
   })
-  check('白名单外的键被挡下但仍写其余', mixed?.isError === false && mixed?.content.includes('已写入 bio') === true, mixed?.content.slice(0, 50))
+  check('不认识的键被挡下但仍写其余', mixed?.isError === false && mixed?.content.includes('内置字段 bio') === true, mixed?.content.slice(0, 50))
   check('被挡的键要点出来', JSON.stringify(mixed?.data).includes('name') === true)
 
   const onlyRejected = await resolveW('library_set_fields', {
@@ -345,8 +381,26 @@ async function main(): Promise<void> {
     id: 8,
     fields: { name: '改名' },
   })
-  check('全是非法键时明确报错', onlyRejected?.isError === true && onlyRejected?.content.includes('不能写') === true)
+  check(
+    '全是非法键时明确报错',
+    onlyRejected?.isError === true && onlyRejected?.content.includes('create_new') === true,
+  )
   check('全非法时不会真去写', writes.length === 2)
+
+  // 自建字段与内置字段共用同一个工具：已有键直接写，新键要 create_new
+  const customWrite = await resolveW('library_set_fields', {
+    kind: 'character',
+    id: 7,
+    fields: { 出身: '北境' },
+    create_new: true,
+  })
+  check('create_new 才允许建新自建字段', customWrite?.isError === false && customWrites.length === 1, customWrite?.content.slice(0, 60))
+  const customRejected = await resolveW('library_set_fields', {
+    kind: 'character',
+    id: 7,
+    fields: { 不认识的键: 'x' },
+  })
+  check('不传 create_new 时新键被拒', customRejected?.isError === true)
 
   const worldWrite = await resolveW('library_set_fields', {
     kind: 'world',
@@ -355,7 +409,7 @@ async function main(): Promise<void> {
   })
   check(
     '词条可写 summary / chapterOutline',
-    worldWrite?.isError === false && worldWrite?.content.includes('已写入 summary') === true,
+    worldWrite?.isError === false && worldWrite?.content.includes('内置字段 summary') === true,
     worldWrite?.content.slice(0, 60),
   )
   const worldTitle = await resolveW('library_set_fields', { kind: 'world', id: 3, fields: { title: 'x' } })
@@ -541,18 +595,37 @@ async function main(): Promise<void> {
   const badTags = await resolveW('library_set_tags', { kind: 'character', id: 7, tags: '主角' })
   check('tags 不是数组时报错', badTags?.isError === true)
 
-  const custom = await resolveW('library_set_custom', {
+  // 批量打标签：一次调用改多条（整理库时最常见的动作）
+  const batchTags = await resolveW('library_set_tags', {
+    kind: 'character',
+    ids: [7, 100, 999],
+    tags: ['主要'],
+  })
+  check('批量打标签成功', batchTags?.isError === false, batchTags?.content.slice(0, 60))
+  check(
+    '批量逐条落到 writer，不存在的 id 不写',
+    tagWrites.length === 3 && tagWrites.slice(1).map((item) => item.id).join('、') === '7、100',
+    JSON.stringify(tagWrites.map((item) => item.id)),
+  )
+  check('批量回执点出没找到的 id', JSON.stringify(batchTags?.data).includes('999') === true)
+  const batchMissing = await resolveW('library_set_tags', { kind: 'character', ids: [999], tags: ['x'] })
+  check('批量全是无效 id 时报错', batchMissing?.isError === true)
+
+  const custom = await resolveW('library_set_fields', {
     kind: 'world',
-    id: 1,
+    id: 3,
     fields: { 学名: 'Elementum', 英文名: 'Element' },
+    create_new: true,
   })
   check('写自建字段成功', custom?.isError === false, custom?.content.slice(0, 50))
   check(
     '自建字段落到 writer',
-    customWrites.length === 1 && Object.keys(customWrites[0]?.fields ?? {}).join('、') === '学名、英文名',
+    customWrites.length === 2 &&
+      Object.keys(customWrites[1]?.fields ?? {}).join('、') === '学名、英文名',
+    JSON.stringify(customWrites.map((item) => item.fields)),
   )
-  const emptyCustom = await resolveW('library_set_custom', { kind: 'world', id: 1, fields: {} })
-  check('空自建字段报错', emptyCustom?.isError === true)
+  const emptyCustom = await resolveW('library_set_fields', { kind: 'world', id: 3, fields: {} })
+  check('空字段报错', emptyCustom?.isError === true)
 
   const media = await resolveW('library_set_media', {
     kind: 'character',
@@ -662,27 +735,45 @@ async function main(): Promise<void> {
   const emptyNovel = await resolveW('library_set_novel', { id: 3 })
   check('什么都不给时作品信息报错', emptyNovel?.isError === true)
 
+  // 合并后的 library_set_media：给 url 就下载，给 path 就引用；旧名字 import_image 仍然认
   const imported = await resolveW('library_import_image', {
     kind: 'character',
     id: 7,
     slot: 'avatar',
     url: 'https://example.com/avatar.png',
   })
-  check('图片导入成功', imported?.isError === false, imported?.content.slice(0, 60))
+  check('旧名字 import_image 仍然可用', imported?.isError === false, imported?.content.slice(0, 60))
   check(
     '图片导入参数落到 writer',
     imageImports.length === 1 &&
       imageImports[0]?.slot === 'avatar' &&
       imageImports[0]?.url === 'https://example.com/avatar.png',
   )
-  const badImageUrl = await resolveW('library_import_image', {
+  const urlMedia = await resolveW('library_set_media', {
+    kind: 'character',
+    id: 7,
+    slot: 'header',
+    url: 'https://example.com/header.png',
+  })
+  check('set_media 给 url 就下载', urlMedia?.isError === false && imageImports.length === 2)
+  const neitherMedia = await resolveW('library_set_media', { kind: 'character', id: 7, slot: 'avatar' })
+  check('url / path 都不给时报错', neitherMedia?.isError === true)
+  const bothMedia = await resolveW('library_set_media', {
+    kind: 'character',
+    id: 7,
+    slot: 'avatar',
+    url: 'https://example.com/a.png',
+    path: '附件/a.png',
+  })
+  check('url 与 path 同时给时报错', bothMedia?.isError === true)
+  const badImageUrl = await resolveW('library_set_media', {
     kind: 'character',
     id: 7,
     slot: 'avatar',
     url: 'ftp://example.com/a.png',
   })
   check('非 http(s) 图片地址被拒', badImageUrl?.isError === true)
-  const badImageSlot = await resolveW('library_import_image', {
+  const badImageSlot = await resolveW('library_set_media', {
     kind: 'character',
     id: 7,
     slot: 'cover',
@@ -690,18 +781,57 @@ async function main(): Promise<void> {
   })
   check('角色没有 cover 槽位', badImageSlot?.isError === true)
 
+  // ── library_templates（库目录：模板组件 / 字段组 / 分类）───────────────
+  const catalog: LibraryCatalog = {
+    async describe() {
+      return {
+        templates: [
+          {
+            id: 'entry',
+            name: '词条',
+            components: [
+              { id: 'cover', enabled: true },
+              { id: 'info', enabled: true },
+              { id: 'body', enabled: true },
+            ],
+            fields: [{ key: '学名', label: '学名' }],
+          },
+        ],
+        categories: [{ name: '宠物', template: 'pet', enabled: true }],
+      }
+    },
+  }
+  const resolveC = createLibraryToolExecutor(createCapabilities(store), writer, catalog)
+  const templates = await resolveC('library_templates', {})
+  check(
+    '目录列出模板与组件',
+    templates?.content.includes('词条') === true && templates?.content.includes('cover') === true,
+    templates?.content,
+  )
+  check('目录带字段键', templates?.content.includes('学名') === true)
+  check(
+    '目录列出分类绑定的模板',
+    templates?.content.includes('宠物') === true && templates?.content.includes('pet') === true,
+  )
+  check('没有注入目录时给可读错误', (await resolve('library_templates', {}))?.isError === true)
+
   check(
     'toolSummary 认 library_set_tags',
     toolSummary({ id: 'c8', name: 'library_set_tags', args: '{"tags":["主角","观星人"]}' } as never) ===
       '2 个标签',
   )
   check(
+    'toolSummary 批量打标签显示条数',
+    toolSummary({ id: 'c13', name: 'library_set_tags', args: '{"ids":[1,2,3],"tags":["主角"]}' } as never) ===
+      '3 条 · 1 个标签',
+  )
+  check(
     'toolSummary 认 library_set_media',
     toolSummary({ id: 'c9', name: 'library_set_media', args: '{"slot":"avatar"}' } as never) === 'avatar',
   )
   check(
-    'toolSummary 认 library_import_image',
-    toolSummary({ id: 'c12', name: 'library_import_image', args: '{"slot":"avatar"}' } as never) === 'avatar',
+    'toolSummary 认合并前的 import_image（保留旧记录的可读性）',
+    toolSummary({ id: 'c12', name: 'library_import_image', args: '{"slot":"avatar"}' } as never) === '',
   )
   check(
     'toolSummary 认 library_rename',

@@ -158,6 +158,13 @@ function buildMarkdown(): string {
   for (const rule of LINKABLE) sections.push(`- ${rule}`)
   sections.push('')
 
+  sections.push('写字段（`library_set_fields` —— 内置列和自建字段**同一个工具**，不用先判断）：')
+  sections.push('- 键命中上面各节的「可写标量」→ 写实体列；同名的自建字段以列为准（不会分叉）')
+  sections.push('- 其余键必须是这条条目**已有的**自建字段（`library_read` 的「自建字段」一段就是键名 → 值）')
+  sections.push('- 确实要新建一个自建字段，才传 `create_new: true`；否则打错一个字就会多出一个看不见的脏字段')
+  sections.push('- 显示名不是键名：键以 `library_templates`（模板字段）和 `library_read` 为准')
+  sections.push('')
+
   return sections.join('\n')
 }
 

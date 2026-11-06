@@ -384,8 +384,11 @@ export async function buildAgentSessionContextBlock(
 }
 
 /**
- * 创作模式写回：在选定小说下新建一章并写入正文。
+ * 创作模式写回：在选定小说下新建一章，**或者改写已有的一章**。
  * 走 `createNovelChapter`（写操作日志）→ `worldBodyPatch`（Tiptap 文档，唯一正文口径）。
+ *
+ * 给 `chapterId` 就走改写：模型刚写完一章、发现写错了，不该逼它新建一章再让作者删。
+ * 只允许改**这部小说底下**的章节 —— 拿到别处的 id 一律拒绝，免得把设定条目覆盖掉。
  */
 export async function writeNovelChapter(
   conversationId: string,
@@ -394,8 +397,12 @@ export async function writeNovelChapter(
   const started = Date.now()
   const title = typeof args.title === 'string' ? args.title.trim().slice(0, 80) : ''
   const markdown = typeof args.markdown === 'string' ? args.markdown.trim() : ''
-  if (!title || !markdown) {
-    return { content: '标题和正文都不能为空。', isError: true, durationMs: Date.now() - started }
+  const chapterId = typeof args.chapterId === 'number' ? Math.trunc(args.chapterId) : 0
+  if (!markdown) {
+    return { content: '正文不能为空。', isError: true, durationMs: Date.now() - started }
+  }
+  if (!title && chapterId <= 0) {
+    return { content: '新建章节需要标题。', isError: true, durationMs: Date.now() - started }
   }
   if (markdown.length > 30_000) {
     return { content: '一章正文超过 3 万字，请拆成两章。', isError: true, durationMs: Date.now() - started }
@@ -414,7 +421,44 @@ export async function writeNovelChapter(
       import('@/lib/world-body'),
     ])
 
-  const chapterId = await runAsActorAsync('agent:assistant', async () => {
+  if (chapterId > 0) {
+    const row = await db.worldEntries.get(chapterId)
+    if (!row) {
+      return { content: `找不到章节 #${chapterId}。`, isError: true, durationMs: Date.now() - started }
+    }
+    // 往上找到根，确认这一章属于当前这部小说
+    let cursor: number | null = row.parentId ?? null
+    let belongs = false
+    const seen = new Set<number>()
+    while (cursor !== null && !seen.has(cursor)) {
+      if (cursor === context.novelRootId) {
+        belongs = true
+        break
+      }
+      seen.add(cursor)
+      const parent = (await db.worldEntries.get(cursor)) as { parentId?: number | null } | undefined
+      cursor = parent?.parentId ?? null
+    }
+    if (!belongs) {
+      return {
+        content: `#${chapterId} 不是这部小说底下的章节，不能改写。`,
+        isError: true,
+        durationMs: Date.now() - started,
+      }
+    }
+    const patch = worldBodyPatch(bodyDocFromMarkdown(markdown))
+    await runAsActorAsync('agent:assistant', async () => {
+      await db.worldEntries.update(chapterId, { ...patch, updatedAt: Date.now() })
+    })
+    return {
+      content: `已改写《${row.title}》（章节 #${chapterId}）。`,
+      isError: false,
+      data: { chapterId, rewritten: true },
+      durationMs: Date.now() - started,
+    }
+  }
+
+  const createdId = await runAsActorAsync('agent:assistant', async () => {
     const id = await novelServices.createNovelChapter(context.novelRootId, title)
     const patch = worldBodyPatch(bodyDocFromMarkdown(markdown))
     await db.worldEntries.update(id, { ...patch, updatedAt: Date.now() })
@@ -422,8 +466,9 @@ export async function writeNovelChapter(
   })
 
   return {
-    content: `已写入《${title}》（章节 #${chapterId}），作者可以在小说里看到。`,
+    content: `已写入《${title}》（章节 #${createdId}），作者可以在小说里看到。`,
     isError: false,
+    data: { chapterId: createdId, rewritten: false },
     durationMs: Date.now() - started,
   }
 }

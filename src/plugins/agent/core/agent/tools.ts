@@ -206,7 +206,9 @@ export const ALL_TOOLS: ToolSpec[] = [
     requiresApproval: false,
     description:
       "List entries in the author's worldbuilding library (characters, events, countries, " +
-      "lore entries). Omit `kind` for an overview with counts. Newest edits first.",
+      'lore entries). Omit `kind` for an overview with counts. Newest edits first. ' +
+      'Filter with `category` (lore notes only, e.g. 宠物 / 小说), `tag` (exact tag name) or ' +
+      '`isMajor` (characters only) instead of listing everything and counting yourself.',
     parameters: {
       type: 'object',
       properties: {
@@ -216,6 +218,12 @@ export const ALL_TOOLS: ToolSpec[] = [
           description: 'Entity kind to list. Omit for an overview of all four.',
         },
         limit: { type: 'integer', description: 'Max rows per kind (default 40, max 200).' },
+        category: {
+          type: 'string',
+          description: 'world only: exact category name. Filters before the limit is applied.',
+        },
+        tag: { type: 'string', description: 'Exact tag name, e.g. 主角.' },
+        isMajor: { type: 'boolean', description: 'character only: only entries marked as major.' },
       },
       additionalProperties: false,
     },
@@ -246,13 +254,18 @@ export const ALL_TOOLS: ToolSpec[] = [
     category: 'read',
     requiresApproval: false,
     description:
-      'Search the library by title, alias or tag name. Does not scan body text, so prefer ' +
-      'library_list when you only want to browse.',
+      'Search the library by title, alias, tag name **and body text** — use this to check ' +
+      '"did I already write this setting somewhere". Hits found only in the body are marked. ' +
+      'Pass include_body: false to match titles / aliases / tags only.',
     parameters: {
       type: 'object',
       properties: {
-        query: { type: 'string', description: 'Title, alias or tag fragment.' },
+        query: { type: 'string', description: 'Title, alias, tag or body fragment.' },
         limit: { type: 'integer', description: 'Max hits (default 20, max 50).' },
+        include_body: {
+          type: 'boolean',
+          description: 'Scan body text too (default true). Set false for name-only search.',
+        },
       },
       required: ['query'],
       additionalProperties: false,
@@ -281,13 +294,26 @@ export const ALL_TOOLS: ToolSpec[] = [
     },
   },
   {
+    name: 'library_templates',
+    category: 'read',
+    requiresApproval: false,
+    description:
+      'Describe the library catalogue: every template with its enabled components and the info-group ' +
+      'fields it uses (key + display name), plus which template each category is bound to. Read this ' +
+      'before writing custom fields — the keys you need are listed here.',
+    parameters: { type: 'object', properties: {}, additionalProperties: false },
+  },
+  {
     name: 'library_set_fields',
     category: 'write',
     requiresApproval: true,
     description:
-      "Update scalar text fields of one library entry (a character's race / occupation / faction, " +
-      "an event's location, a country's geography, …). Read the entry first. Does not touch the " +
-      "body text and does not rename anything. An empty string clears the field.",
+      "Update text fields of one library entry. Built-in columns (a character's race / occupation / " +
+      'faction, an event\'s location, …) and the entry\'s own custom fields are both handled here — ' +
+      'you do not need a second tool and you do not need to know which is which: a key that matches a ' +
+      'built-in column is written there (that always wins), any other known custom key goes to the ' +
+      'custom field map. Read the entry first (library_read) to see its custom keys. Unknown keys are ' +
+      'rejected unless you pass create_new: true. Does not touch body text and does not rename.',
     parameters: {
       type: 'object',
       properties: {
@@ -300,10 +326,16 @@ export const ALL_TOOLS: ToolSpec[] = [
         fields: {
           type: 'object',
           description:
-            'Field name → new text. Characters accept race / element / occupation / faction / ' +
-            'height / birthday / bio; events accept time / endTime / location / summary; ' +
-            'countries accept description / system / geography / culture.',
+            'Key → new text. Built-in keys: characters race / element / occupation / faction / ' +
+            'height / birthday / bio; events time / endTime / location / summary; countries ' +
+            'description / system / geography / culture; lore summary / chapterOutline. ' +
+            'Any other key must already exist on the entry (see library_read), or pass create_new. ' +
+            'An empty string clears the field.',
           additionalProperties: { type: 'string' },
+        },
+        create_new: {
+          type: 'boolean',
+          description: 'Allow writing custom keys that do not exist yet (default false).',
         },
       },
       required: ['kind', 'id', 'fields'],
@@ -434,8 +466,9 @@ export const ALL_TOOLS: ToolSpec[] = [
     category: 'write',
     requiresApproval: true,
     description:
-      'Replace the tags of one library entry with the given names. Names are matched exactly; names ' +
-      'that do not exist yet are created. Pass an empty array to clear every tag.',
+      'Replace the tags of library entries with the given names. Pass `id` for one entry or `ids` ' +
+      'to tag many at once (max 50) — bulk tagging takes one call, not one call per entry. Names are ' +
+      'matched exactly; names that do not exist yet are created. An empty array clears every tag.',
     parameters: {
       type: 'object',
       properties: {
@@ -444,41 +477,19 @@ export const ALL_TOOLS: ToolSpec[] = [
           enum: ['character', 'event', 'country', 'world'],
           description: 'Entity kind.',
         },
-        id: { type: 'integer', description: 'Entity id.' },
+        id: { type: 'integer', description: 'Single entity id.' },
+        ids: {
+          type: 'array',
+          items: { type: 'integer' },
+          description: 'Batch: entity ids (max 50). Use instead of id.',
+        },
         tags: {
           type: 'array',
           items: { type: 'string' },
           description: 'Tag names (max 20). Empty array clears the tags.',
         },
       },
-      required: ['kind', 'id', 'tags'],
-      additionalProperties: false,
-    },
-  },
-  {
-    name: 'library_set_custom',
-    category: 'write',
-    requiresApproval: true,
-    description:
-      'Merge custom fields into one entry (template / info-group fields such as 物种 or 材质, stored ' +
-      'in `custom`). Keys come from the library catalog; an empty string removes the key. Built-in ' +
-      'fields use library_set_fields instead.',
-    parameters: {
-      type: 'object',
-      properties: {
-        kind: {
-          type: 'string',
-          enum: ['character', 'event', 'country', 'world'],
-          description: 'Entity kind.',
-        },
-        id: { type: 'integer', description: 'Entity id.' },
-        fields: {
-          type: 'object',
-          description: 'Field key → text. Empty string removes that key.',
-          additionalProperties: { type: 'string' },
-        },
-      },
-      required: ['kind', 'id', 'fields'],
+      required: ['kind', 'tags'],
       additionalProperties: false,
     },
   },
@@ -487,10 +498,10 @@ export const ALL_TOOLS: ToolSpec[] = [
     category: 'write',
     requiresApproval: true,
     description:
-      'Point an image slot of one entry at a file that ALREADY exists inside the library folder. ' +
-      'Download the image first (shell) and pass the vault-relative path, e.g. 附件/forest.png. ' +
-      'Slots: character avatar/header, event header, country flag/header, world cover/avatar/image. ' +
-      'This does not upload, crop or deduplicate files.',
+      'Set an image slot of one entry. Give `url` and the host downloads it into the library folder ' +
+      '(附件/, done in Rust, no CORS, max 20 MB, png/jpg/jpeg/webp/gif/avif, never overwrites). Give ' +
+      '`path` instead when the file is already inside the library (vault-relative, e.g. 附件/forest.png). ' +
+      'Slots: character avatar/header, event header, country flag/header, world cover/avatar/image/novelCover.',
     parameters: {
       type: 'object',
       properties: {
@@ -505,45 +516,17 @@ export const ALL_TOOLS: ToolSpec[] = [
           enum: ['avatar', 'header', 'flag', 'cover', 'image', 'novelCover'],
           description: 'Image slot. Not every slot exists on every kind; see the description.',
         },
+        url: { type: 'string', description: 'Absolute http(s) image URL to download.' },
         path: {
           type: 'string',
-          description: 'Path relative to the library root, e.g. 附件/forest.png.',
+          description: 'Vault-relative path of an existing file, e.g. 附件/forest.png.',
         },
-      },
-      required: ['kind', 'id', 'slot', 'path'],
-      additionalProperties: false,
-    },
-  },
-  {
-    name: 'library_import_image',
-    category: 'write',
-    requiresApproval: true,
-    description:
-      'Download an http(s) image into the library folder (附件/) and set it as the image slot of one ' +
-      'entry. Downloads happen in Rust (no CORS), max 20 MB, png/jpg/jpeg/webp/gif/avif only. ' +
-      'Existing files are never overwritten — a numeric suffix is added. Use library_set_media only ' +
-      'when the file is already inside the library.',
-    parameters: {
-      type: 'object',
-      properties: {
-        kind: {
-          type: 'string',
-          enum: ['character', 'event', 'country', 'world'],
-          description: 'Entity kind.',
-        },
-        id: { type: 'integer', description: 'Entity id.' },
-        slot: {
-          type: 'string',
-          enum: ['avatar', 'header', 'flag', 'cover', 'image', 'novelCover'],
-          description: 'Image slot. Not every slot exists on every kind.',
-        },
-        url: { type: 'string', description: 'Absolute http(s) image URL.' },
         filename: {
           type: 'string',
-          description: 'Optional target file name (extension must be an allowed image type).',
+          description: 'With url: optional target file name (allowed image extension).',
         },
       },
-      required: ['kind', 'id', 'slot', 'url'],
+      required: ['kind', 'id', 'slot'],
       additionalProperties: false,
     },
   },
@@ -672,16 +655,21 @@ export const ALL_TOOLS: ToolSpec[] = [
     category: 'write',
     requiresApproval: true,
     description:
-      'Create a NEW chapter under the novel selected for this creative-writing conversation and write ' +
-      'its body as Markdown. Never overwrites existing chapters. Only available when the author turned ' +
-      'on write-back for this conversation.',
+      'Write the body of a chapter in the novel selected for this creative-writing conversation. ' +
+      'Without `chapterId` it creates a NEW chapter (never overwrites an existing one); pass ' +
+      '`chapterId` to rewrite that chapter — use it to fix a chapter you just wrote. Only available ' +
+      'when the author turned on write-back for this conversation.',
     parameters: {
       type: 'object',
       properties: {
-        title: { type: 'string', description: 'Chapter title.' },
+        title: { type: 'string', description: 'Chapter title (ignored when rewriting).' },
         markdown: { type: 'string', description: 'Chapter body in Markdown.' },
+        chapterId: {
+          type: 'integer',
+          description: 'Existing chapter id to rewrite instead of creating a new chapter.',
+        },
       },
-      required: ['title', 'markdown'],
+      required: ['markdown'],
       additionalProperties: false,
     },
   },
@@ -772,17 +760,15 @@ export function toolSummary(call: ToolCall): string {
       return typeof args.title === 'string' ? `新${typeof args.kind === 'string' ? args.kind : '条目'} · ${args.title}` : ''
     case 'library_delete':
       return typeof args.kind === 'string' && typeof args.id === 'number' ? `${args.kind} #${args.id}` : ''
-    case 'library_set_tags':
-      return Array.isArray(args.tags) ? `${args.tags.length} 个标签` : ''
-    case 'library_set_custom': {
-      const fields = args.fields
-      if (fields === null || typeof fields !== 'object') return ''
-      return Object.keys(fields as Record<string, unknown>).join(' · ')
+    case 'library_set_tags': {
+      const count = Array.isArray(args.ids) ? args.ids.length : 1
+      const tags = Array.isArray(args.tags) ? `${args.tags.length} 个标签` : '标签'
+      return count > 1 ? `${count} 条 · ${tags}` : tags
     }
     case 'library_set_media':
       return typeof args.slot === 'string' ? args.slot : ''
-    case 'library_import_image':
-      return typeof args.slot === 'string' ? args.slot : ''
+    case 'library_templates':
+      return '模板目录'
     case 'library_rename':
       return pick('title') ?? ''
     case 'library_create_category':

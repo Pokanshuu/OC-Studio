@@ -11,6 +11,7 @@
 import {
   createLibraryToolExecutor,
   LIBRARY_TOOL_NAMES,
+  type LibraryCatalog,
   type LibraryWriter,
   type MediaSlot,
 } from '@/lib/capabilities/agent-tools'
@@ -44,13 +45,12 @@ export function isLibraryTool(name: string): boolean {
 const NEW_LIBRARY_TOOLS = [
   'library_delete',
   'library_set_tags',
-  'library_set_custom',
   'library_set_media',
   'library_rename',
   'library_set_placement',
   'library_create_category',
   'library_set_novel',
-  'library_import_image',
+  'library_templates',
 ] as const
 
 /**
@@ -501,6 +501,57 @@ const writer: LibraryWriter = {
   },
 }
 
+/**
+ * 库目录：模板（组件 + 字段组）与分类。
+ *
+ * 模型推不出这些 —— 只看到字段组名「宠物」时，它不知道该写 `物种` 还是 `species`；
+ * 只看到模板名「地点」时，它不知道那个模板有没有时间组件。猜错就是往不存在的键里写值。
+ */
+const catalog: LibraryCatalog = {
+  async describe() {
+    const [{ getTemplates, loadTemplates }, info, { getCategories, loadCategories }] = await Promise.all([
+      import('@/lib/templates/store'),
+      import('@/lib/templates/info-groups'),
+      import('@/lib/categories/store'),
+    ])
+    await Promise.all([loadTemplates(), loadCategories(), info.loadInfoGroups()])
+
+    const groupsById = new Map(info.getInfoGroups().map((group) => [group.id, group]))
+    const templates = getTemplates().map((template) => {
+      const infoComponent = template.components.find((component) => component.id === 'info')
+      const rawGroup = infoComponent?.params?.group
+      const groupId = typeof rawGroup === 'string' ? rawGroup : ''
+      const group = groupId !== '' ? groupsById.get(groupId) : undefined
+      // 老模板把字段内联在 `fields` 里，没有 group —— 两种都认
+      const inline = Array.isArray(infoComponent?.params?.fields)
+        ? (infoComponent.params.fields as unknown[]).filter((key): key is string => typeof key === 'string')
+        : []
+      const keys = group ? group.fields : inline
+      return {
+        id: template.id,
+        name: template.name,
+        components: template.components.map((component) => ({
+          id: component.id,
+          enabled: component.enabled,
+        })),
+        fields: keys.map((key) => ({
+          key,
+          label: group ? info.infoFieldLabelOf(group, key) : key,
+        })),
+      }
+    })
+
+    return {
+      templates,
+      categories: getCategories().map((category) => ({
+        name: category.name,
+        template: category.template,
+        enabled: category.enabled !== false,
+      })),
+    }
+  },
+}
+
 /** 写到一半才装载 Dexie，构建期与 SSR 都不会碰它 */
 async function loadWriteDeps(): Promise<{
   db: typeof import('@/lib/db').db
@@ -523,7 +574,11 @@ async function loadExecutor(): Promise<Executor> {
       import('@/lib/capabilities'),
       import('@/lib/capabilities/dexie-store'),
     ])
-    executor = createLibraryToolExecutor(createCapabilities(createDexieCapabilityStore()), writer)
+    executor = createLibraryToolExecutor(
+      createCapabilities(createDexieCapabilityStore()),
+      writer,
+      catalog,
+    )
     return executor
   })()
   return loading
