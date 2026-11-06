@@ -45,6 +45,7 @@ export function GalleryBlock({
 
   return (
     <ComponentSection
+      divider={false}
       title={showTitle ? title : undefined}
       action={
         <button

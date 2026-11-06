@@ -24,7 +24,7 @@ export function PlaceBlock({
   placeholder = '例：灰烬平原',
 }: PlaceBlockProps) {
   return (
-    <ComponentSection title={showTitle ? title : undefined}>
+    <ComponentSection divider={false} title={showTitle ? title : undefined}>
       <div className="flex max-w-md items-center gap-1 border-b border-line pb-1">
         <input
           type="text"

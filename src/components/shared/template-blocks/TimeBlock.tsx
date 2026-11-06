@@ -62,7 +62,7 @@ export function TimeBlock({
   onChange,
 }: TimeBlockProps) {
   return (
-    <ComponentSection title={showTitle ? title : undefined}>
+    <ComponentSection divider={false} title={showTitle ? title : undefined}>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <Trio values={start} onChange={(part, value) => onChange('start', part, value)} />
         {interval ? (

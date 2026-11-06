@@ -35,6 +35,7 @@ export function ImageBlock({
 
   return (
     <ComponentSection
+      divider={false}
       title={showTitle ? title : undefined}
       action={
         <button type="button" onClick={() => gallery.current?.add()} className={ADD_ACTION}>

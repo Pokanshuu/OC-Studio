@@ -26,7 +26,7 @@ export function SummaryBlock({
   placeholder = '一句话概括',
 }: SummaryBlockProps) {
   return (
-    <ComponentSection title={showTitle ? title : undefined}>
+    <ComponentSection divider={false} title={showTitle ? title : undefined}>
       <textarea
         value={value}
         onChange={(event) => onChange(event.target.value)}
