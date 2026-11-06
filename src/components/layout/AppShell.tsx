@@ -18,6 +18,7 @@ import { TrashOverlayProvider, useTrashOverlay } from "@/components/layout/Trash
 import { MobilePageHeaderProvider } from "@/components/layout/MobilePageHeaderContext"
 import { SaveStatusProvider, useSaveStatus } from "@/components/layout/SaveStatusContext"
 import { TrashView } from "@/features/trash/components/TrashView"
+import { loadInspirations, resetInspirations } from "@/features/inspirations/store"
 import { loadFieldConfig } from "@/lib/fields"
 import { loadCategories } from "@/lib/categories/store"
 import { VaultSurfaces, VaultWriteBanner } from "@/features/vault"
@@ -44,6 +45,19 @@ function VaultCategoriesSync() {
   return null
 }
 
+/**
+ * 灵感表随库走，理由同上。这里必须**开机就读**：顶栏便签挂在 MenuBar 上，
+ * 没人会先点开一个页面再去按灯泡 —— 等页面去加载的话，小窗永远是空的。
+ * `resetInspirations` 只在换库时用，否则切换文件夹后会留着上一个库的草稿。
+ */
+function VaultInspirationsSync() {
+  const { root } = useVault()
+  useEffect(() => {
+    resetInspirations()
+    void loadInspirations()
+  }, [root])
+  return null
+}
 
 function TrashOverlayRenderer() {
   const { trashOpen, closeTrash } = useTrashOverlay()
@@ -231,6 +245,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <TrashOverlayRenderer />
                   <VaultSurfaces />
                   <VaultCategoriesSync />
+                  <VaultInspirationsSync />
                   <DevMockBadge />
                 </MobilePageHeaderProvider>
               </MobileNavigationProvider>

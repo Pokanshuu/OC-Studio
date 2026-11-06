@@ -74,6 +74,23 @@ export function inspirationText(content: string): string {
     .trim()
 }
 
+/**
+ * 列表上那行小字：今天只显时间，更早显日期。
+ * 便签列表用 —— 只此一份，别在列表行里就地拼日期。
+ */
+export function inspirationTimeLabel(ts: number): string {
+  const date = new Date(ts)
+  const now = new Date()
+  const sameDay =
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate()
+  if (sameDay) {
+    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+  }
+  return `${date.getMonth() + 1}月${date.getDate()}日`
+}
+
 /** 列表上显示的名字：标题空就退回正文第一句 */
 export function inspirationLabel(item: Inspiration): string {
   const title = item.title.trim()

@@ -90,9 +90,14 @@ export function ContextMenu({ children, items }: ContextMenuProps) {
 
   const handleClickOutside = useCallback((e: PointerEvent) => {
     const target = e.target as Node
-    const overlay = document.getElementById('overlay-root')
     if (menuRef.current && !menuRef.current.contains(target)) {
-      if (overlay && overlay.contains(target)) return
+      /*
+       * 子菜单 Portal 到 `#overlay-root`：点它不能先把父菜单关掉 ——
+       * pointerdown 先于 click，父菜单一卸载，子菜单项的 click 就永远到不了。
+       * **只放过子菜单**：以前这里放宽成「overlay-root 里的点击都算里面」，
+       * 结果同样挂在 overlay-root 的浮层（灵感便签）里点空白处也收不掉菜单。
+       */
+      if (target instanceof Element && target.closest('[data-context-submenu]') !== null) return
       close()
     }
   }, [close])

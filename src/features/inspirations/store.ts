@@ -70,7 +70,7 @@ export function loadInspirations(): Promise<void> {
         const bytes = await vaultFs.readBytes(vaultRoot, INSPIRATIONS_REL_PATH)
         text = new TextDecoder('utf-8').decode(new Uint8Array(bytes))
       } catch {
-        // 文件还不存在：第一次进灵感页就是这种情况
+        // 文件还不存在：第一次记灵感就是这种情况
       }
     }
     if (text === null && typeof window !== 'undefined') {

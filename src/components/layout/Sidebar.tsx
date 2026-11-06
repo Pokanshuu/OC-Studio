@@ -24,7 +24,6 @@ import {
   Plus,
   Wrench,
   Wand2,
-  Lightbulb,
 } from 'lucide-react'
 import { useNavigation } from './NavigationContext'
 import { useSettingsTrigger } from './SettingsTriggerContext'
@@ -50,7 +49,6 @@ import {
 const CREATE_ITEMS = [
   { label: '世界观', icon: BookOpen },
   { label: '小说', icon: BookText },
-  { label: '灵感', icon: Lightbulb },
 ] as const
 
 const CODEX_ITEMS = [

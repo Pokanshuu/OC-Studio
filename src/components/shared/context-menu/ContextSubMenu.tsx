@@ -91,6 +91,9 @@ export function ContextSubMenu({ item, onCloseParent }: { item: ContextMenuItem;
         ? createPortal(
             <div
               ref={subRef}
+              // 父菜单的「点外面关闭」据此放行：子菜单是 Portal 到 #overlay-root 的，
+              // 没有这个标记，点菜单项会在 pointerdown 阶段先被父菜单收掉。
+              data-context-submenu=""
               onMouseEnter={handleMouseEnter}
               onMouseLeave={handleMouseLeave}
               className={`${MENU} fixed z-50 ml-1 flex min-w-[140px] flex-col pointer-events-auto`}
