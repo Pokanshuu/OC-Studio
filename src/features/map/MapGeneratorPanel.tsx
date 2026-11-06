@@ -879,9 +879,7 @@ export function MapGeneratorPanel({
                   平均降水 <span className="text-ink">{Math.round(meta.stats.meanPrecipitation)} mm</span>
                 </span>
               </>
-            ) : (
-              <span>全部计算在本机 Web Worker 内完成</span>
-            )}
+            ) : null}
           </div>
 
           <div className="flex shrink-0 items-center gap-1.5">
