@@ -372,6 +372,27 @@ export function CharacterList({
           ref={contentRef}
           className={viewMode === 'gallery' ? 'flex min-h-0 flex-1 flex-col' : 'flex flex-1 flex-col'}
         >
+        {/*
+          站在文件夹里就**一直**有返回键 —— 包括空文件夹。返回键原来写在「有内容」的分支里，
+          于是「新建文件夹」这种空夹一点进去就是一个没有出口的空态。
+        */}
+        {inFolder ? (
+          <div
+            className={`mb-3 flex shrink-0 items-center gap-2 ${
+              // 画廊是填充分栏（外层没有 p-4）：自己补上和卡片视图一致的留白，
+              // 否则返回键会紧贴着页头，三个视图看起来不是同一个东西
+              viewMode === 'gallery' ? 'px-4 pt-4' : ''
+            }`}
+          >
+            <button type="button" onClick={(event) => swapFolder('all', event)} className={CHIP}>
+              <ArrowLeft size={12} strokeWidth={2} />
+              全部
+            </button>
+            <span className="text-[13px] text-ink">
+              {folderFilter === 'ungrouped' ? '未分组' : folderFilter}
+            </span>
+          </div>
+        ) : null}
         {characters.length === 0 ? (
           <ListEmptyState
             icon={Users}
@@ -397,24 +418,6 @@ export function CharacterList({
           />
         ) : (
           <>
-            {inFolder ? (
-              <div
-                className={`mb-3 flex items-center gap-2 ${
-                  // 画廊是填充分栏（外层没有 p-4）：自己补上和卡片视图一致的留白，
-                  // 否则返回键会紧贴着页头，三个视图看起来不是同一个东西
-                  viewMode === 'gallery' ? 'px-4 pt-4' : ''
-                }`}
-              >
-                <button type="button" onClick={(event) => swapFolder('all', event)} className={CHIP}>
-                  <ArrowLeft size={12} strokeWidth={2} />
-                  全部
-                </button>
-                <span className="text-[13px] text-ink">
-                  {folderFilter === 'ungrouped' ? '未分组' : folderFilter}
-                </span>
-              </div>
-            ) : null}
-
             {viewMode === 'gallery' ? (
               <VerticalSplit
                 storageKey="oc-characters-gallery-split"
