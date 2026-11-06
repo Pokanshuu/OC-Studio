@@ -180,6 +180,7 @@ cargo test --manifest-path src-tauri/Cargo.toml --lib         # 含 IPC 线格�
 - `opencode.json` — OpenCode 核心配置
 - `.opencode/skills/` — 6 个技能文件（guide, coding, design, codebase, prd, sync）
 - `package.json` — 依赖和脚本
+- `src-tauri/tauri.conf.json` — 打包目标 `nsis` + `msi`；`bundle.windows.wix.version` 必须是纯数字（Windows Installer 不接受 `-beta` 后缀），发版改版本号时这里一起改（当前 `0.20.0`，应用内版本仍由 `package.json` 的 `0.20.0-beta` 决定）
 - `next.config.ts` — Next.js 配置
 - `tsconfig.json` — TypeScript 配置
 - `eslint.config.mjs` — ESLint 配置
