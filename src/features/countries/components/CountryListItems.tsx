@@ -96,7 +96,7 @@ export function CountryCard({
       intro={coverExcerpt(countryPreview(country), 84)}
       imageSrc={country.headerUrl ? resolveImageUrl(country.headerUrl, 'header') : undefined}
       tintSrc={country.flagUrl ? resolveImageUrl(country.flagUrl, 'flag') : undefined}
-      emblem={country.flagUrl ? <Avatar src={country.flagUrl} size="md" type="flag" /> : undefined}
+      emblem={country.flagUrl ? <Avatar src={country.flagUrl} fill type="flag" /> : undefined}
       onSelect={() => onSelect(country.id)}
       onLongPress={onLongPress}
       isMobile={isMobile}

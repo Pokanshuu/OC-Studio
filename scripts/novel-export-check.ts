@@ -4,8 +4,16 @@
  * 验的是「树 → 三种输出」这条链：顺序、层级、粗体/列表、字数、TXT/Markdown 差异。
  */
 import { flattenNovel, toMarkdown, toTxt, countNovelWords } from '../src/features/novel/export'
-import { paginateNovel, linesPerPage, charsPerLine, wrapText } from '../src/features/novel/pagination'
+import { paginateNovel, linesPerPage, charsPerLine, wrapText, type NovelRow } from '../src/features/novel/pagination'
 import { planNovelPages } from '../src/features/novel/render-pages'
+import {
+  DEFAULT_NOVEL_LAYOUT,
+  NOVEL_LAYOUT_PRESETS,
+  normalizeNovelLayout,
+  presetIdOf,
+  titleFontSize,
+  toPaginateOptions,
+} from '../src/features/novel/layout'
 import type { WorldEntry } from '../src/types'
 
 let passed = 0
@@ -34,6 +42,7 @@ function entry(id: number, title: string, parentId: number | null, order: number
     parentId,
     order,
     isConcept: false,
+    relations: [],
     references: [],
     tags: [],
     createdAt: 0,
@@ -111,5 +120,58 @@ check('PNG 页数 > 0', pngPages.length > 0)
 check('PNG 页数与分页一致', pngPages.length === paginateNovel(flat, '9:16').length)
 check('PNG 每一页都有页码', pngPages.every((page) => page.index >= 1))
 check('PNG 页数对空书为 0', planNovelPages([], '9:16').length === 0)
+
+// ── 版式（layout.ts）：四套预设 + 参数夹取 + 分页联动
+check('四套预设参数互不相同', new Set(NOVEL_LAYOUT_PRESETS.map((preset) => JSON.stringify(preset.params))).size === NOVEL_LAYOUT_PRESETS.length)
+check('默认参数对应「书页」', presetIdOf(DEFAULT_NOVEL_LAYOUT) === 'book')
+check('改一个参数就不再命中预设', presetIdOf({ ...DEFAULT_NOVEL_LAYOUT, fontSize: 19 }) === null)
+check('字号越界被夹到 22', normalizeNovelLayout({ fontSize: 999 }).fontSize === 22)
+check('字号过小被夹到 12', normalizeNovelLayout({ fontSize: 1 }).fontSize === 12)
+check('未知字体回落宋体', normalizeNovelLayout({ font: 'comic' as never }).font === 'song')
+check('小标题的字号更小', titleFontSize({ ...DEFAULT_NOVEL_LAYOUT, titleStyle: 'minimal' }) < titleFontSize(DEFAULT_NOVEL_LAYOUT))
+
+const bookPages = paginateNovel(flat, '9:16')
+const chapterPages = paginateNovel(flat, toPaginateOptions(NOVEL_LAYOUT_PRESETS[1].params, '9:16'))
+check('换成「章首」后页数变了（版式真的生效）', chapterPages.length !== bookPages.length)
+
+const withTitlePage = paginateNovel(flat, { format: '9:16', titlePage: true, meta: { title: '蜂群纪事' } })
+check('扉页是第一页', withTitlePage[0]?.titlePage === true)
+check('扉页不占正文页数', withTitlePage.length === bookPages.length + 1)
+check('扉页带作品名', withTitlePage[0]?.chapterTitle === '蜂群纪事')
+
+const flowed = paginateNovel(flat, { format: '9:16', chapterBreak: false })
+check('关掉「每章另起」后页数不增', flowed.length <= bookPages.length)
+const titleRows = (pages: typeof bookPages) =>
+  pages.reduce((sum, page) => sum + page.rows.filter((row: NovelRow) => row.kind === 'title').length, 0)
+check('标题行数 = 章节数（两种排法都成立）', titleRows(flowed) === flat.length && titleRows(bookPages) === flat.length)
+check('关掉另起后确实有页承载两章', flowed.some((page) => page.rows.filter((row) => row.kind === 'title').length > 1))
+
+const bigFont = paginateNovel(flat, { format: '9:16', fontSize: 22 })
+const smallFont = paginateNovel(flat, { format: '9:16', fontSize: 12 })
+check('字号越大页数越多', bigFont.length >= smallFont.length)
+check('页边距越大页数越多', paginateNovel(flat, { format: '9:16', margin: 96 }).length >= paginateNovel(flat, { format: '9:16', margin: 24 }).length)
+check('每页行数随字号变化', linesPerPage({ format: '9:16', fontSize: 20 }) < linesPerPage({ format: '9:16', fontSize: 12 }))
+check('页码连续（扉页也算一页）', withTitlePage.every((page, i) => page.index === i + 1))
+
+// ── 长书：页底不留孤零零的标题、不超容量
+const longChapters = Array.from({ length: 6 }, (_, chapterIndex) => ({
+  title: `第${chapterIndex + 1}章 长夜`,
+  depth: 2,
+  text: Array.from({ length: 12 + chapterIndex * 7 }, () => '正文一行，用来把这一页填满，看标题会不会落到底部。'.repeat(3)).join('\n\n'),
+}))
+const layouts = [
+  { format: '9:16' as const },
+  { format: '9:16' as const, chapterBreak: false },
+  { format: 'A4' as const, fontSize: 20, lineHeight: 2.2 },
+]
+for (const options of layouts) {
+  const built = paginateNovel(longChapters, options)
+  const bullet = JSON.stringify(options)
+  check(`页底不出现孤立标题 ${bullet}`, !built.some((page) => page.rows.length > 1 && page.rows[page.rows.length - 1]?.kind === 'title'))
+  check(
+    `每页行数不超过容量 ${bullet}`,
+    built.every((page) => page.rows.reduce((sum, row) => sum + (row.kind === 'title' ? 2 : 1), 0) <= linesPerPage(options)),
+  )
+}
 
 console.log(`\n共 ${passed} 项断言通过`)

@@ -12,7 +12,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/core'
-import { BookText, ChevronDown, ChevronLeft, Eye, FileDown, Info, Plus, Search } from 'lucide-react'
+import { BookText, ChevronDown, ChevronLeft, FileDown, Info, Plus, Search } from 'lucide-react'
 import {
   DndContext,
   KeyboardSensor,
@@ -46,9 +46,9 @@ import { EntityHistoryButton } from '@/features/vault'
 import { buildEntryTree, type WorldTreeNode } from '@/lib/world-tree'
 import {
   ADD_ACTION,
+  BTN_PRIMARY,
   BTN_QUIET,
   CENTER_STATE,
-  EMPTY_HINT,
   FIELD_INPUT,
   FIELD_LABEL,
   FIELD_ROW,
@@ -58,6 +58,7 @@ import {
   PAGE_TITLE,
   TITLE_INPUT,
 } from '@/lib/ui-tokens'
+import { ListEmptyState } from '@/components/shared/ListEmptyState'
 import { ImageUploader } from '@/components/shared/ImageUploader'
 import { DeleteButton } from '@/components/shared/DeleteButton'
 import {
@@ -84,8 +85,7 @@ import {
   updateNovelMeta,
 } from './services'
 import { computeReorder } from '@/lib/tree-order'
-import { NovelPreview } from './NovelPreview'
-import { NovelExportDialog } from './NovelExportDialog'
+import { useExportCenter } from '@/components/shared/export/ExportCenterHost'
 
 export function NovelTree({
   novelId,
@@ -109,8 +109,7 @@ export function NovelTree({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [bodyEditor, setBodyEditor] = useState<Editor | null>(null)
-  const [previewOpen, setPreviewOpen] = useState(false)
-  const [exportOpen, setExportOpen] = useState(false)
+  const openExportCenter = useExportCenter()
   const [treeQuery, setTreeQuery] = useState('')
   const [listOpen, setListOpen] = useState(true)
   const [showMobileTree, setShowMobileTree] = useState(false)
@@ -371,21 +370,13 @@ export function NovelTree({
         editor={bodyEditor}
         headerRight={
           <div className="flex items-center gap-1">
+            {/* 预览与导出合成一个入口：整本翻页预览在导出面板里 */}
             <button
               type="button"
-              onClick={() => setPreviewOpen(true)}
+              onClick={() => openExportCenter({ tab: 'novel', novelId })}
               className={ICON_BTN_MD}
-              aria-label="预览"
-              title="预览"
-            >
-              <Eye size={16} strokeWidth={2} />
-            </button>
-            <button
-              type="button"
-              onClick={() => setExportOpen(true)}
-              className={ICON_BTN_MD}
-              aria-label="导出"
-              title="导出"
+              aria-label="预览 / 导出"
+              title="预览 / 导出"
             >
               <FileDown size={16} strokeWidth={2} />
             </button>
@@ -439,34 +430,16 @@ export function NovelTree({
             </div>
           </div>
         ) : (
-          <div className="flex min-h-0 flex-1 items-center justify-center">
-            <button type="button" onClick={() => void handleCreateChapter()} className={EMPTY_HINT}>
-              新建第一章
-            </button>
+          <div className="flex min-h-0 flex-1 flex-col">
+            <ListEmptyState
+              icon={BookText}
+              message="还没有章节"
+              action={{ label: '新建第一章', onClick: () => void handleCreateChapter() }}
+            />
           </div>
         )}
         </EntityEditorShell>
       </div>
-
-      {previewOpen ? (
-        <NovelPreview
-          title={root?.title ?? title}
-          chapters={flattenNovel(chapters)}
-          onClose={() => setPreviewOpen(false)}
-        />
-      ) : null}
-
-      <NovelExportDialog
-        open={exportOpen}
-        book={{
-          title: bookTitle,
-          author: root?.novelAuthor,
-          synopsis: root?.novelSynopsis,
-          cover: root?.novelCover,
-        }}
-        entries={chapters}
-        onClose={() => setExportOpen(false)}
-      />
 
       <AlertDialog open={deleteTarget !== null} onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}>
         <AlertDialogContent>
@@ -603,8 +576,8 @@ function NovelTreePanel({
         {tree.length === 0 ? (
           <div className="flex flex-col items-center gap-2 px-3 py-8">
             <p className="text-xs text-ink-faint">还没有章节</p>
-            <button type="button" onClick={onCreate} className={`${EMPTY_HINT} flex items-center gap-1`}>
-              <Plus size={12} strokeWidth={2} />
+            <button type="button" onClick={onCreate} className={BTN_PRIMARY}>
+              <Plus size={13} strokeWidth={2} />
               新建第一章
             </button>
           </div>

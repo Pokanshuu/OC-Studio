@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import { withTouchFeedback } from '@/lib/animation'
-import { Pencil, Trash2 } from 'lucide-react'
+import { CalendarDays, Pencil, SearchX, Trash2 } from 'lucide-react'
 import type { Event } from '@/types'
 import { sortEvents } from '../utils'
 import { MobileActionSheet, type ActionItem } from '@/components/shared/MobileActionSheet'
@@ -20,6 +20,9 @@ import { useDevice } from '@/lib/use-device'
 import { MobileFab } from '@/components/layout/MobileFab'
 import { EventCard, EventRow } from './EventListItems'
 import { EventListToolbar } from './EventListToolbar'
+import { ListShell } from '@/components/shared/ListShell'
+import { CoverFlow } from '@/components/shared/CoverFlow'
+import { VerticalSplit } from '@/components/shared/VerticalSplit'
 import { readViewPreference, writeViewPreference, SORT_STORAGE_KEY } from './event-list-utils'
 import type { SortKey } from './event-list-utils'
 import { readSortKey, writeSortKey } from '@/lib/sort-manual'
@@ -125,29 +128,76 @@ export function EventList({
   }
 
   return (
-    <div className="flex flex-col min-h-full">
-      <EventListToolbar
-        search={search}
-        onSearchChange={setSearch}
-        sortKey={sortKey}
-        onSortKeyChange={handleSortChange}
-        viewMode={viewMode}
-        onViewModeChange={handleViewChange}
-        onCreateEvent={onCreateEvent}
-      />
-
-      <div className="max-md:h-10 flex-shrink-0" />
-
-      <div className="flex-1 p-4 flex flex-col">
+    <>
+      <ListShell
+        fill={viewMode === 'gallery'}
+        header={() => (
+          <EventListToolbar
+            search={search}
+            onSearchChange={setSearch}
+            sortKey={sortKey}
+            onSortKeyChange={handleSortChange}
+            viewMode={viewMode}
+            onViewModeChange={handleViewChange}
+            onCreateEvent={onCreateEvent}
+          />
+        )}
+      >
+        <div className="max-md:h-10" />
+        <div className={viewMode === 'gallery' ? 'flex min-h-0 flex-1 flex-col' : 'flex flex-1 flex-col p-4'}>
         {events.length === 0 ? (
           <ListEmptyState
+            icon={CalendarDays}
             message="还没有事件"
             action={{ label: '创建第一个', onClick: onCreateEvent }}
           />
         ) : filteredEvents.length === 0 ? (
           <ListEmptyState
+            icon={SearchX}
             message="没有匹配的事件"
             action={{ label: '清除筛选', onClick: () => setSearch('') }}
+          />
+        ) : viewMode === 'gallery' ? (
+          <VerticalSplit
+            storageKey="oc-events-gallery-split"
+            className="min-h-0 flex-1"
+            top={
+              <CoverFlow fill aspect={7 / 6} maxItemWidth={540} className="h-full">
+                {filteredEvents.map((event) => (
+                  <EventCard
+                    key={event.id}
+                    event={event}
+                    onSelect={handleSelect}
+                    onDelete={onDeleteEvent}
+                    onLongPress={() => openActionSheet(event)}
+                    isMobile={isMobile}
+                  />
+                ))}
+              </CoverFlow>
+            }
+            bottom={
+              <SortableList
+                activation="longPress"
+                ids={filteredEvents.map((e) => e.id)}
+                onReorder={handleReorder}
+                layout="list"
+                disabled={!manual}
+              >
+                <div className="flex flex-col rules-end px-1">
+                  {filteredEvents.map((event) => (
+                    <EventRow
+                      key={event.id}
+                      event={event}
+                      onSelect={handleSelect}
+                      onDelete={onDeleteEvent}
+                      onLongPress={() => openActionSheet(event)}
+                      isMobile={isMobile}
+                      sortable={manual}
+                    />
+                  ))}
+                </div>
+              </SortableList>
+            }
           />
         ) : viewMode === 'grid' ? (
           <SortableList
@@ -172,7 +222,7 @@ export function EventList({
               ))}
             </div>
           </SortableList>
-        ) : (
+        ) : viewMode === 'list' ? (
           <SortableList
               activation="longPress"
             ids={filteredEvents.map((e) => e.id)}
@@ -194,9 +244,10 @@ export function EventList({
               ))}
             </div>
           </SortableList>
-        )}
+        ) : null}
         <MobileFab viewMode={viewMode} onViewModeChange={handleViewChange} />
-      </div>
+        </div>
+      </ListShell>
 
       <MobileActionSheet
         open={actionSheet.open}
@@ -224,6 +275,6 @@ export function EventList({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </>
   )
 }

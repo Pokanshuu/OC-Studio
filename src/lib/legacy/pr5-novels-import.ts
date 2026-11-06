@@ -58,6 +58,7 @@ function buildRow(params: {
     parentId: params.parentId,
     order: params.order,
     isConcept: false,
+    relations: [],
     references: [],
     tags: [],
     createdAt: now,

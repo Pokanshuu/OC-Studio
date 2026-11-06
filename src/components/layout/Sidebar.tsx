@@ -21,11 +21,24 @@ import {
   Settings,
   Trash2,
   Images,
+  Plus,
+  Wrench,
+  Wand2,
 } from 'lucide-react'
 import { useNavigation } from './NavigationContext'
 import { useSettingsTrigger } from './SettingsTriggerContext'
 import { useTrashOverlay } from './TrashOverlayContext'
 import { useSettings } from '@/lib/settings'
+import { categoryIconOf } from '@/lib/categories/icons'
+import { updateCategory, useCategories } from '@/lib/categories/store'
+import { categoryItemName } from '@/lib/categories/types'
+import type { Category } from '@/lib/categories/types'
+import { toolItem } from '@/lib/entry-kinds'
+import { isPluginEnabled, isSidebarTool, isToolPlugin, usePlugins } from '@/lib/plugins'
+import { CategoryDialog } from '@/features/categories/CategoryDialog'
+import { MediaContextMenu } from '@/components/shared/MediaContextMenu'
+import { notifyDataUpdated } from '@/lib/data-events'
+import { toast } from 'sonner'
 import {
   DEFAULT_SIDEBAR_WIDTH,
   SIDEBAR_MAX_WIDTH,
@@ -44,12 +57,12 @@ const CODEX_ITEMS = [
   { label: '国家', icon: Flag },
 ] as const
 
+/** 视图 = 看世界的几个角度（相册与回收站固定在底部，不在这组） */
 const VIEW_ITEMS = [
-  { label: '时间线', icon: Clock },
+  { label: '表格', icon: Table2 },
   { label: '地图', icon: Map },
+  { label: '时间线', icon: Clock },
   { label: '关系图', icon: GitBranch },
-  { label: '相册', icon: Images },
-  { label: '树表', icon: Table2 },
 ] as const
 
 const ITEM_BASE =
@@ -58,6 +71,11 @@ const ITEM_OFF = 'text-ink-muted hover:text-ink hover:bg-[var(--oc-hover)]'
 const ITEM_ON =
   "text-ink before:absolute before:inset-y-1.5 before:left-0 before:w-[2px] before:bg-ink before:content-['']"
 const GROUP_LABEL = 'px-4 pb-1.5 pt-3 text-[11px] tracking-[0.14em] text-ink-faint'
+
+/** 工具插件在侧栏的图标（插件 id → lucide 图标）；没登记的一律扳手 */
+const TOOL_ICONS: Record<string, typeof Users> = {
+  'official.map-generator': Wand2,
+}
 
 const subscribeNoop = () => () => {}
 
@@ -75,6 +93,28 @@ export function Sidebar() {
   const { openSettings } = useSettingsTrigger()
   const { openTrash } = useTrashOverlay()
   const { settings, updateSetting } = useSettings()
+  const { plugins } = usePlugins()
+  const categories = useCategories()
+  /**
+   * 侧栏「工具」= 可用、已启用、**且占导航位**的功能插件。
+   *
+   * `nav: 'contextual'` 的**不**在这里：它没有「泛泛地打开」这回事，入口在某个
+   * 具体界面里（当初地图生成器就是这种，后来它变成「造一张新地图」的独立入口，
+   * 改成了 `sidebar`，见 `lib/plugins/official.ts`）。
+   *
+   * **开发构建例外**：上下文插件的独立页面仍然列出来，否则那个页面没有入口、
+   * 没法单独调试。生产构建里 `NODE_ENV === 'production'`，这里为 false。
+   */
+  const showContextual = process.env.NODE_ENV !== 'production'
+  const toolPlugins = plugins.filter(
+    (plugin) => (isSidebarTool(plugin) || (showContextual && isToolPlugin(plugin))) && isPluginEnabled(plugin),
+  )
+  const [categoryDialog, setCategoryDialog] = useState<
+    | { mode: 'create' }
+    | { mode: 'edit'; category: Category }
+    | null
+  >(null)
+  const [categoryMenu, setCategoryMenu] = useState<{ category: Category; at: { x: number; y: number } } | null>(null)
 
   const [dragWidth, setDragWidth] = useState<number | null>(null)
   // 宽度的真源在 localStorage（设置），服务端渲染读不到 —— 先按默认宽度出 HTML，
@@ -173,9 +213,93 @@ export function Sidebar() {
 
           <div className={GROUP_LABEL}>视图</div>
           {VIEW_ITEMS.map((item) => renderItem(item.label, item.icon))}
+
+          {/* 工具：插件给的能力面板。装 / 关都在 设置 › 插件，这里只列已启用的 */}
+          {toolPlugins.length > 0 ? (
+            <>
+              <div className={GROUP_LABEL}>工具</div>
+              {toolPlugins.map((plugin) => {
+                const Icon = TOOL_ICONS[plugin.id] ?? Wrench
+                const item = toolItem(plugin.id)
+                return (
+                  <button
+                    key={plugin.id}
+                    onClick={() => setActiveItem(item)}
+                    className={`${ITEM_BASE} ${activeItem === item ? ITEM_ON : ITEM_OFF}`}
+                  >
+                    <Icon size={16} strokeWidth={2} className="shrink-0" />
+                    <span className="transparent-text">{plugin.name}</span>
+                  </button>
+                )
+              })}
+            </>
+          ) : null}
+
+          {/* 自定义分类：分类 = 模板 + 一组笔记（宠物 / 武器 都住在这里，不塞进角色）。
+              排在工具之后 —— 它是自己长出来的那一层，位置贴着底部固定区。 */}
+          <div className={GROUP_LABEL}>自定义分类</div>
+          {categories.filter((category) => category.enabled).map((category) => {
+            const Icon = categoryIconOf(category.icon)
+            const item = categoryItemName(category.id)
+            return (
+              <button
+                key={category.id}
+                onClick={() => setActiveItem(item)}
+                onContextMenu={(event) => {
+                  event.preventDefault()
+                  setCategoryMenu({ category, at: { x: event.clientX, y: event.clientY } })
+                }}
+                className={`${ITEM_BASE} ${activeItem === item ? ITEM_ON : ITEM_OFF}`}
+              >
+                <Icon size={16} strokeWidth={2} className="shrink-0" />
+                <span className="transparent-text">{category.name}</span>
+              </button>
+            )
+          })}
+          <button onClick={() => setCategoryDialog({ mode: 'create' })} className={`${ITEM_BASE} ${ITEM_OFF}`}>
+            <Plus size={16} strokeWidth={2} className="shrink-0" />
+            <span className="transparent-text">新建分类</span>
+          </button>
         </nav>
 
+        <CategoryDialog
+          open={categoryDialog !== null}
+          category={categoryDialog?.mode === 'edit' ? categoryDialog.category : undefined}
+          onClose={() => setCategoryDialog(null)}
+          onCreated={(created) => setActiveItem(categoryItemName(created.id))}
+          onDeleted={(id) => {
+            if (activeItem === categoryItemName(id)) setActiveItem(null)
+          }}
+        />
+
+        {categoryMenu ? (
+          <MediaContextMenu
+            at={categoryMenu.at}
+            onClose={() => setCategoryMenu(null)}
+            items={[
+              categoryMenu.category.builtin
+                ? {
+                    label: '停用',
+                    onSelect: () => {
+                      if (activeItem === categoryItemName(categoryMenu.category.id)) setActiveItem(null)
+                      void updateCategory(categoryMenu.category.id, { enabled: false })
+                        .then(() => notifyDataUpdated())
+                        .catch((err: unknown) => {
+                          toast.error('停用失败', { description: String(err) })
+                        })
+                    },
+                  }
+                : {
+                    label: '编辑分类',
+                    onSelect: () => setCategoryDialog({ mode: 'edit', category: categoryMenu.category }),
+                  },
+            ]}
+          />
+        ) : null}
+
+        {/* 底部固定区：相册 / 回收站 / 设置 —— 不是「内容」，一直贴在最下面 */}
         <div className="flex flex-col border-t border-line py-2">
+          {renderItem('相册', Images)}
           <button onClick={openTrash} className={`${ITEM_BASE} ${ITEM_OFF}`}>
             <Trash2 size={16} strokeWidth={2} className="shrink-0" />
             <span className="transparent-text">回收站</span>

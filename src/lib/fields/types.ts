@@ -47,13 +47,13 @@ export const FIELD_KIND_LABELS: Record<FieldKind, string> = {
 
 /**
  * 能不能自建字段（往字段表里加一行没有对应列的新字段）。
- * 词条暂时不行：词条的编辑是「标题 + 正文 + 分类/标签」的内联形态，没有表单钩子可挂自定义值。
- * 内置字段的显示/改名/排序对三种实体都生效。
+ * 词条也开放：值存 `WorldEntry.custom`，落盘写 frontmatter 同名键；
+ * 分类条目（宠物 / 武器）就是靠它补「物种 / 材质」这类模板外的字段。
  */
 export const FIELD_KIND_SUPPORTS_CUSTOM: Record<FieldKind, boolean> = {
   character: true,
   event: true,
-  worldEntry: false,
+  worldEntry: true,
 }
 
 /** 自定义字段的 id 前缀 —— 用它区分「内置」与「自建」 */

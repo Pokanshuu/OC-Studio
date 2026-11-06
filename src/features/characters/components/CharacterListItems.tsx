@@ -51,7 +51,7 @@ export function CharacterCard({
       meta={meta || undefined}
       imageSrc={character.headerUrl ? resolveImageUrl(character.headerUrl, 'header') : undefined}
       tintSrc={avatar}
-      emblem={avatar ? <Avatar src={character.avatarUrl} size="md" /> : undefined}
+      emblem={avatar ? <Avatar src={character.avatarUrl} fill /> : undefined}
       marker={
         character.isMajor ? (
           <Circle size={7} strokeWidth={0} fill="currentColor" className="text-paper-fixed/70" />

@@ -8,17 +8,27 @@ import type { EventForm } from '../hooks/useEventForm'
 /**
  * 基本信息 —— 按字段表渲染（`设置 › 世界 › 事件信息`）。
  * 开始 / 结束各占一格（三个输入），地点 / 重大各占一格，自定义字段各占一格。
- * 标签那一行归「关联」区，这里跳过。
+ * 标签是独立区块（`TagsSection`），这里跳过。
  */
 export function EventInfoSection({
   form,
   compact = false,
+  skip,
 }: {
   form: EventForm
   /** 三栏中栏的窄容器：字段单列（不依赖 viewport 的 sm 断点） */
   compact?: boolean
+  /**
+   * 已经被独立组件接手的字段（时间 / 地点）。
+   *
+   * 模板里 `time` / `place` 开着的时候，这两组要**从基本信息里退出去** —— 否则
+   * 同一份数据在页面上出现两次，改一处另一处不动，看着像没保存。
+   */
+  skip?: readonly string[]
 }) {
   const fields = useFields('event')
+  const handled = skip ?? []
+  const visible = handled.length === 0 ? fields : fields.filter((field) => !handled.includes(field.id))
 
   const renderRow = (field: FieldDef) => {
     if (field.id === 'time' || field.id === 'endTime') {
@@ -68,7 +78,7 @@ export function EventInfoSection({
       )
     }
 
-    // 标签归「关联」区渲染
+    // 标签是独立区块（`TagsSection`）
     if (field.id === 'tags') return null
 
     const key = field.key ?? field.id
@@ -95,7 +105,7 @@ export function EventInfoSection({
             : `grid grid-cols-1 gap-x-10 sm:grid-cols-2 ${FIELD_GRID}`
         }
       >
-        {fields.map(renderRow)}
+        {visible.map(renderRow)}
       </div>
     </section>
   )

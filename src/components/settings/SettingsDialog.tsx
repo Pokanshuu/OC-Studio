@@ -1,6 +1,6 @@
 "use client"
 
-import { Database, Palette, Info, BookOpen } from "lucide-react"
+import { Database, Palette, Info, BookOpen, Blocks } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -8,9 +8,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import type { SettingsSection } from "@/components/layout/SettingsTriggerContext"
 import { WorldTab } from "./tabs/WorldTab"
 import { GeneralTab } from "./tabs/GeneralTab"
 import { DataTab } from "./tabs/DataTab"
+import { PluginsTab } from "./tabs/PluginsTab"
 import { AboutTab } from "./tabs/AboutTab"
 
 interface SettingsDialogProps {
@@ -18,11 +20,17 @@ interface SettingsDialogProps {
   onOpenChange: (open: boolean) => void
   tab: string
   onTabChange: (tab: string) => void
+  /** 从别处跳进来时直接落到「世界」的二级页面（模板 / 分类 / 组件 / 标签） */
+  section?: SettingsSection
+  /** 二级页里的具体对象：目前是模板 id，用来直接打开某套模板 */
+  target?: string
 }
 
 const TAB_ITEMS = [
   { value: "world", label: "世界", icon: BookOpen },
   { value: "general", label: "个性化", icon: Palette },
+  // 插件 = 功能 / 主题 / 技能三类扩展的统一管理面（开关 + 权限 + 安装）
+  { value: "plugins", label: "插件", icon: Blocks },
   // 「数据」= 原来的「数据」+「云」两个页签合并（本地数据 / 同步 按类别分区）
   { value: "data", label: "数据", icon: Database },
   { value: "about", label: "关于", icon: Info },
@@ -33,6 +41,8 @@ export function SettingsDialog({
   onOpenChange,
   tab,
   onTabChange,
+  section,
+  target,
 }: SettingsDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -43,7 +53,7 @@ export function SettingsDialog({
 
         <Tabs value={tab} onValueChange={onTabChange} className="flex min-h-0 flex-1 flex-col">
           <div className="shrink-0 px-6">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               {TAB_ITEMS.map((item) => (
                 <TabsTrigger
                   key={item.value}
@@ -61,11 +71,21 @@ export function SettingsDialog({
           <div className="main-scroll min-h-0 flex-1 overflow-y-auto px-6 pb-6">
             {/* ---- world ---- */}
             <TabsContent value="world">
-              <WorldTab open={open} />
+              {/* key 让「从别处跳到某个二级页 / 某套模板」时重新挂载，panel 与 activeId 直接初始化 */}
+              <WorldTab
+                key={`${open ? 'open' : 'closed'}:${section ?? 'root'}:${target ?? ''}`}
+                open={open}
+                section={section}
+                target={target}
+              />
             </TabsContent>
 
             <TabsContent value="general">
               <GeneralTab />
+            </TabsContent>
+
+            <TabsContent value="plugins">
+              <PluginsTab />
             </TabsContent>
 
             <TabsContent value="data">

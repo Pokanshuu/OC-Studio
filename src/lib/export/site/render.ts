@@ -221,14 +221,33 @@ function isDoc(value: unknown): value is DocNode {
 }
 
 /** 纯文本 → HTML：空行分段，单换行视为段内换行。 */
-export function plainTextToHtml(text: string): string {
-  return text
+export function plainTextToHtml(text: string): string {  return text
     .split(/\n{2,}/)
     .map((chunk) => {
       const inner = chunk.split('\n').map((line) => escapeHtml(line)).join('<br>')
       return `<p>${inner}</p>`
     })
     .join('')
+}
+
+/** 早期数据可能把正文存成 HTML 片段（contenteditable 直出），导出时不能把标签当字面量画出来 */
+function looksLikeHtml(value: string): boolean {
+  return /^\s*<(p|div|blockquote|h[1-6]|ul|ol|li|br|em|strong|span)\b/i.test(value)
+}
+
+function htmlToPlainText(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|blockquote|h[1-6]|li|ul|ol|tr|table)>/gi, '\n\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
 }
 
 /**
@@ -246,7 +265,7 @@ export function renderRichText(value: unknown, options: RenderOptions = {}): str
         // 不是 JSON，就是普通文本
       }
     }
-    return plainTextToHtml(value)
+    return plainTextToHtml(looksLikeHtml(value) ? htmlToPlainText(value) : value)
   }
   if (typeof value !== 'object') return ''
   const doc = value as DocNode
@@ -301,7 +320,7 @@ export function plainTextOf(value: unknown): string {
         // 不是 JSON，就是普通文本
       }
     }
-    return value
+    return looksLikeHtml(value) ? htmlToPlainText(value) : value
   }
   if (typeof value !== 'object') return ''
   const walk = (node: DocNode): string => {

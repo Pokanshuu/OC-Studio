@@ -246,6 +246,9 @@ export function emitScalar(value: unknown): string {
   if (value === null || value === undefined) return 'null'
   if (typeof value === 'boolean') return value ? 'true' : 'false'
   if (typeof value === 'number') return Number.isFinite(value) ? String(value) : 'null'
+  // 关系图 / 地图坐标是 `{ x, y }`：必须写成 YAML flow mapping，
+  // 直接 String(value) 会得到 `[object Object]`（读回来永远 undefined）
+  if (typeof value === 'object') return JSON.stringify(value)
   const text = String(value)
   return needsQuote(text) ? JSON.stringify(text) : text
 }

@@ -7,23 +7,57 @@ import { StatusBar } from "@/components/layout/StatusBar"
 import { MobileTopBar } from "@/components/layout/MobileTopBar"
 import { MobileTabBar } from "@/components/layout/MobileTabBar"
 import { GlobalContextMenu } from "@/components/shared/GlobalContextMenu"
+import { ExportCenterProvider } from "@/components/shared/export/ExportCenterHost"
 import { MobileTextSelectionBar } from "@/components/shared/mobile-text-selection/MobileTextSelectionBar"
 import { SettingsDialog } from "@/components/settings/SettingsDialog"
 import { CoverTuningPanel } from "@/components/shared/cover/CoverTuningPanel"
-import { SettingsTriggerContext } from "@/components/layout/SettingsTriggerContext"
+import { SettingsTriggerContext, type SettingsSection } from "@/components/layout/SettingsTriggerContext"
 import { EditorProvider, useEditor } from "@/components/layout/EditorContext"
 import { MobileNavigationProvider } from "@/components/layout/MobileNavigationContext"
 import { TrashOverlayProvider, useTrashOverlay } from "@/components/layout/TrashOverlayContext"
 import { MobilePageHeaderProvider } from "@/components/layout/MobilePageHeaderContext"
 import { SaveStatusProvider, useSaveStatus } from "@/components/layout/SaveStatusContext"
 import { TrashView } from "@/features/trash/components/TrashView"
+import { loadInspirations, resetInspirations } from "@/features/inspirations/store"
 import { loadFieldConfig } from "@/lib/fields"
+import { loadCategories } from "@/lib/categories/store"
 import { VaultSurfaces, VaultWriteBanner } from "@/features/vault"
 import { useVault } from "@/lib/vault/vault-provider"
 import { useSettings } from "@/lib/settings"
 import { useKeyboard } from "@/lib/KeyboardContext"
 import { useBackButton } from "@/lib/useBackButton"
 import { getChromiumVersion, isBelowTargetVersion, isHarmonyOS, getHarmonyOSVersion, isSafeAreaEnvAvailable, estimateSafeAreaInsets, getSafeAreaBottomCorrection, isMobilePlatform } from "@/lib/browser-compat"
+
+/**
+ * 分类表随库走：**不能挂在 Sidebar 上**（关闭侧栏 / 手机上 Sidebar 不渲染时，
+ * 分类页、移动端「更多」和世界目录过滤都会拿到空表）。
+ *
+ * 为什么单独抽成一个组件：`useVault()` 的 value 里还有写盘状态，每次落盘都会变 ——
+ * 挂在 AppShell 本体上会让整个外壳跟着重渲染。这里只订阅库根，换了库才重读。
+ * 依赖 root 也是必需的：启动那一下可能早于会话就绪（root 还是 null），
+ * 少了这一条就会出现「刷新后侧栏的分类没了」。
+ */
+function VaultCategoriesSync() {
+  const { root } = useVault()
+  useEffect(() => {
+    void loadCategories()
+  }, [root])
+  return null
+}
+
+/**
+ * 灵感表随库走，理由同上。这里必须**开机就读**：顶栏便签挂在 MenuBar 上，
+ * 没人会先点开一个页面再去按灯泡 —— 等页面去加载的话，小窗永远是空的。
+ * `resetInspirations` 只在换库时用，否则切换文件夹后会留着上一个库的草稿。
+ */
+function VaultInspirationsSync() {
+  const { root } = useVault()
+  useEffect(() => {
+    resetInspirations()
+    void loadInspirations()
+  }, [root])
+  return null
+}
 
 function TrashOverlayRenderer() {
   const { trashOpen, closeTrash } = useTrashOverlay()
@@ -95,9 +129,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { settings } = useSettings()
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsTab, setSettingsTab] = useState("general")
+  const [settingsSection, setSettingsSection] = useState<SettingsSection | undefined>(undefined)
+  const [settingsTarget, setSettingsTarget] = useState<string | undefined>(undefined)
 
-  const openSettings = useCallback((tab?: string) => {
+  const openSettings = useCallback((tab?: string, section?: SettingsSection, target?: string) => {
     setSettingsTab(tab ?? "general")
+    setSettingsSection(section)
+    setSettingsTarget(target)
     setSettingsOpen(true)
   }, [])
 
@@ -194,6 +232,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <GlobalContextMenu>
+      <ExportCenterProvider>
       <SettingsTriggerContext.Provider value={{ openSettings, closeSettings }}>
         <TrashOverlayProvider>
           <EditorProvider>
@@ -205,6 +244,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </AppShellChrome>
                   <TrashOverlayRenderer />
                   <VaultSurfaces />
+                  <VaultCategoriesSync />
+                  <VaultInspirationsSync />
                   <DevMockBadge />
                 </MobilePageHeaderProvider>
               </MobileNavigationProvider>
@@ -216,11 +257,15 @@ export function AppShell({ children }: { children: ReactNode }) {
           onOpenChange={setSettingsOpen}
           tab={settingsTab}
           onTabChange={setSettingsTab}
+          section={settingsSection}
+          target={settingsTarget}
         />
       </SettingsTriggerContext.Provider>
+      </ExportCenterProvider>
     </GlobalContextMenu>
   )
 }
+
 /**
  * 浏览器预览标记。
  *
@@ -234,7 +279,7 @@ function DevMockBadge() {
   if (!mounted || supported) return null
 
   return (
-    <div className="pointer-events-none fixed right-2 bottom-8 z-50 rounded-item bg-paper-card/80 px-1.5 py-0.5 text-[10px] text-ink-faint backdrop-blur">
+    <div data-dev-mock className="pointer-events-none fixed right-2 bottom-8 z-50 rounded-item bg-paper-card/80 px-1.5 py-0.5 text-[10px] text-ink-faint backdrop-blur">
       DEV · Mock（数据只在浏览器里）
     </div>
   )

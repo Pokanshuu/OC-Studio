@@ -1,14 +1,17 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { ImageIcon, Camera, Trash2 } from 'lucide-react'
+import { ImageIcon } from 'lucide-react'
+import { toast } from 'sonner'
 import { resolveImageUrl, saveBlobToDisk } from '@/lib/image-service'
 import { convertHeifToJpeg } from '@/lib/image-heif'
+import { useMediaDownload } from '@/lib/use-media-download'
+import { useMediaMenu } from '@/lib/use-media-menu'
 import { Avatar } from './Avatar'
 import { ImageCropper } from './ImageCropper'
 import { StretchyHeader } from './StretchyHeader'
 import { FullscreenViewer } from './FullscreenViewer'
-import { MediaContextMenu } from './MediaContextMenu'
+import { MediaContextMenu, type MediaMenuItem } from './MediaContextMenu'
 import { MEDIA_IMG } from '@/lib/ui-tokens'
 
 interface ProfileBannerEditorProps {
@@ -19,8 +22,16 @@ interface ProfileBannerEditorProps {
   onHeaderRemove?: () => void
   onAvatarRemove?: () => void
   avatarType?: 'avatar' | 'flag'
+  /** 只画头像（模板里的「头像」组件用它；默认连头图一起画） */
+  showHeader?: boolean
 }
 
+/**
+ * 头图 + 头像 / 徽记。
+ *
+ * 交互口径与全站图片一致：**单击看大图（没有图时单击选图），右键 / 长按出菜单**。
+ * 菜单里做更换 / 编辑 / 保存到… / 删除；图上不再覆盖「更换封面」「更换头像」的遮罩。
+ */
 export function ProfileBannerEditor({
   headerUrl,
   avatarUrl,
@@ -29,6 +40,7 @@ export function ProfileBannerEditor({
   onHeaderRemove,
   onAvatarRemove,
   avatarType = 'avatar',
+  showHeader = true,
 }: ProfileBannerEditorProps) {
   const headerInputRef = useRef<HTMLInputElement>(null)
   const avatarInputRef = useRef<HTMLInputElement>(null)
@@ -41,16 +53,18 @@ export function ProfileBannerEditor({
   const [avatarConverting, setAvatarConverting] = useState(false)
   /** 单击看大图（与相册 / 画廊同一口径） */
   const [viewing, setViewing] = useState<{ images: string[]; index: number } | null>(null)
-  /** 右键菜单：头图与头像共用一套定位 */
+  /** 右键 / 长按菜单：头图与头像共用一套定位 */
   const [menu, setMenu] = useState<{ x: number; y: number; target: 'header' | 'avatar' } | null>(null)
+  const { save } = useMediaDownload()
 
-  const headerSrc = headerUrl ? resolveImageUrl(headerUrl) : undefined
+  const handlersFor = useMediaMenu<'header' | 'avatar'>((target, at) => {
+    if (target === 'header' && !headerUrl && !onHeaderChange) return
+    if (target === 'avatar' && !avatarUrl && !onAvatarChange) return
+    if (target) setMenu({ x: at.x, y: at.y, target })
+  })
 
-  function openMenu(event: React.MouseEvent, target: 'header' | 'avatar') {
-    event.preventDefault()
-    event.stopPropagation()
-    setMenu({ x: event.clientX, y: event.clientY, target })
-  }
+  const headerMenuHandlers = handlersFor('header')
+  const avatarMenuHandlers = handlersFor('avatar')
 
   function viewHeader() {
     if (headerUrl) setViewing({ images: [headerUrl], index: 0 })
@@ -59,10 +73,7 @@ export function ProfileBannerEditor({
 
   function viewAvatar() {
     if (avatarUrl) setViewing({ images: [avatarUrl], index: 0 })
-    else if (avatarInputRef.current) {
-      avatarInputRef.current.value = ''
-      avatarInputRef.current.click()
-    }
+    else pickAvatar()
   }
 
   function pickHeader() {
@@ -71,6 +82,42 @@ export function ProfileBannerEditor({
     // 清空 value：同一张图重选也要能触发 change
     input.value = ''
     input.click()
+  }
+
+  function pickAvatar() {
+    const input = avatarInputRef.current
+    if (!input) return
+    input.value = ''
+    input.click()
+  }
+
+  /** 右键菜单里的「编辑」：把已有图取回来重新裁剪（保存后仍走 on*Change 落一个新文件） */
+  async function editHeader() {
+    if (!headerUrl) return
+    try {
+      const response = await fetch(resolveImageUrl(headerUrl, 'header'))
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      const blob = await response.blob()
+      if (headerRawFileUrl) URL.revokeObjectURL(headerRawFileUrl)
+      setHeaderRawFileUrl(URL.createObjectURL(blob))
+      setHeaderCropperOpen(true)
+    } catch (err) {
+      toast.error('取不到原图', { description: err instanceof Error ? err.message : String(err) })
+    }
+  }
+
+  async function editAvatar() {
+    if (!avatarUrl) return
+    try {
+      const response = await fetch(resolveImageUrl(avatarUrl, avatarType))
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      const blob = await response.blob()
+      if (avatarRawFileUrl) URL.revokeObjectURL(avatarRawFileUrl)
+      setAvatarRawFileUrl(URL.createObjectURL(blob))
+      setAvatarCropperOpen(true)
+    } catch (err) {
+      toast.error('取不到原图', { description: err instanceof Error ? err.message : String(err) })
+    }
   }
 
   function handleHeaderFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -149,85 +196,72 @@ export function ProfileBannerEditor({
     }
   }
 
+  const headerSrc = headerUrl ? resolveImageUrl(headerUrl, 'header') : undefined
+  const avatarLabel = avatarType === 'flag' ? '旗帜' : '头像'
+
+  const headerItems: MediaMenuItem[] = [
+    ...(headerUrl ? [{ label: '查看大图', onSelect: viewHeader }] : []),
+    ...(onHeaderChange ? [{ label: '更换封面', onSelect: pickHeader }] : []),
+    ...(headerUrl && onHeaderChange ? [{ label: '编辑', onSelect: () => void editHeader() }] : []),
+    ...(headerUrl ? [{ label: '保存到…', onSelect: () => void save(headerUrl, '封面.png') }] : []),
+    ...(onHeaderRemove && headerUrl
+      ? [{ label: '删除封面', danger: true, onSelect: onHeaderRemove }]
+      : []),
+  ]
+
+  const avatarItems: MediaMenuItem[] = [
+    ...(avatarUrl ? [{ label: '查看大图', onSelect: viewAvatar }] : []),
+    ...(onAvatarChange ? [{ label: `更换${avatarLabel}`, onSelect: pickAvatar }] : []),
+    ...(avatarUrl && onAvatarChange ? [{ label: '编辑', onSelect: () => void editAvatar() }] : []),
+    ...(avatarUrl ? [{ label: '保存到…', onSelect: () => void save(avatarUrl, `${avatarLabel}.png`) }] : []),
+    ...(onAvatarRemove && avatarUrl
+      ? [{ label: `删除${avatarLabel}`, danger: true, onSelect: onAvatarRemove }]
+      : []),
+  ]
+
   return (
     <div className="relative w-full">
+      <input
+        ref={headerInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleHeaderFile}
+      />
+
       {/* Header — 弹性头图（下拉拉伸 / 滚动折叠 / 视差都在 StretchyHeader 里） */}
-      <StretchyHeader
-        className={`group/header rounded-item bg-paper-card ${onHeaderChange ? 'cursor-pointer' : ''}`}
-        onClick={headerUrl ? viewHeader : pickHeader}
-        overlay={
-          onHeaderChange ? (
-            <>
-              <input
-                ref={headerInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleHeaderFile}
-              />
-              <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/30 text-sm text-white opacity-0 transition-opacity group-hover/header:opacity-100">
-                <button
-                  onClick={(event) => { event.stopPropagation(); pickHeader() }}
-                  className="pointer-events-auto flex items-center gap-1.5 bg-transparent hover:bg-transparent"
-                >
-                  <Camera size={18} strokeWidth={2} />
-                  更换封面
-                </button>
+      {showHeader ? (
+        <div {...headerMenuHandlers}>
+          <StretchyHeader
+            className={`rounded-item bg-paper-card ${headerUrl || onHeaderChange ? 'cursor-pointer' : ''}`}
+            onClick={headerUrl ? viewHeader : onHeaderChange ? pickHeader : undefined}
+          >
+            {headerSrc ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={headerSrc} alt="" className={`${MEDIA_IMG} cursor-zoom-in`} />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center">
+                <ImageIcon size={32} strokeWidth={1.5} className="text-ink-faint opacity-40" />
               </div>
-              {onHeaderRemove && headerUrl ? (
-                <button
-                  onClick={(e) => { e.stopPropagation(); onHeaderRemove() }}
-                  className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/40 text-white/80 opacity-0 transition-opacity group-hover/header:opacity-100 hover:bg-black/60"
-                  title="删除封面"
-                >
-                  <Trash2 size={16} strokeWidth={2} />
-                </button>
-              ) : null}
-            </>
-          ) : null
-        }
-      >
-        {headerSrc ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={headerSrc}
-            alt=""
-            className={`${MEDIA_IMG} cursor-zoom-in`}
-            onContextMenu={(event) => openMenu(event, 'header')}
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center">
-            <ImageIcon size={32} strokeWidth={1.5} className="text-ink-faint opacity-40" />
-          </div>
-        )}
-      </StretchyHeader>
+            )}
+          </StretchyHeader>
+        </div>
+      ) : null}
 
       {/* Avatar */}
       {onAvatarChange ? (
-        <div className="absolute -bottom-6 left-4">
-          <div className="group/avatar relative inline-block">
+        <div className={showHeader ? 'absolute -bottom-6 left-4' : 'relative w-fit'}>
+          <div className="relative inline-block">
             <button
               type="button"
+              {...avatarMenuHandlers}
               onClick={viewAvatar}
-              onContextMenu={(event) => openMenu(event, 'avatar')}
-              className="relative block bg-transparent hover:bg-transparent"
+              className="relative block cursor-pointer bg-transparent hover:bg-transparent"
             >
               <div className="overflow-hidden rounded-full border-4 border-paper"> {/* design-audit-allow border-fat 头像外圈装饰描边 */}
                 <Avatar src={avatarUrl} size="lg" type={avatarType} />
               </div>
-              <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/0 opacity-0 transition-all group-hover/avatar:bg-black/30 group-hover/avatar:opacity-100 group-hover/avatar:text-xs group-hover/avatar:text-white">
-                <Camera size={14} strokeWidth={2} />
-              </div>
             </button>
-            {onAvatarRemove && avatarUrl ? (
-              <button
-                onClick={(e) => { e.stopPropagation(); onAvatarRemove() }}
-                className="absolute -right-1 -top-1 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-black/40 text-white/80 opacity-0 transition-opacity group-hover/avatar:opacity-100 hover:bg-black/60"
-                title="删除头像"
-              >
-                <Trash2 size={16} strokeWidth={2} />
-              </button>
-            ) : null}
           </div>
           <input
             ref={avatarInputRef}
@@ -268,33 +302,7 @@ export function ProfileBannerEditor({
         <MediaContextMenu
           at={{ x: menu.x, y: menu.y }}
           onClose={() => setMenu(null)}
-          items={
-            menu.target === 'header'
-              ? [
-                  ...(headerUrl ? [{ label: '查看大图', onSelect: viewHeader }] : []),
-                  ...(onHeaderChange ? [{ label: '更换封面', onSelect: pickHeader }] : []),
-                  ...(onHeaderRemove && headerUrl
-                    ? [{ label: '删除封面', danger: true, onSelect: onHeaderRemove }]
-                    : []),
-                ]
-              : [
-                  ...(avatarUrl ? [{ label: '查看大图', onSelect: viewAvatar }] : []),
-                  ...(onAvatarChange
-                    ? [{
-                        label: avatarType === 'flag' ? '更换旗帜' : '更换头像',
-                        onSelect: () => {
-                          if (avatarInputRef.current) {
-                            avatarInputRef.current.value = ''
-                            avatarInputRef.current.click()
-                          }
-                        },
-                      }]
-                    : []),
-                  ...(onAvatarRemove && avatarUrl
-                    ? [{ label: '删除', danger: true, onSelect: onAvatarRemove }]
-                    : []),
-                ]
-          }
+          items={menu.target === 'header' ? headerItems : avatarItems}
         />
       ) : null}
 

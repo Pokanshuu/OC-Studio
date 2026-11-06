@@ -4,13 +4,13 @@ import { useRef, useState } from 'react'
 import { ImageIcon, MoreHorizontal, Loader2 } from 'lucide-react'
 import { resolveImageUrl, saveBlobToDisk } from '@/lib/image-service'
 import { convertHeifToJpeg } from '@/lib/image-heif'
+import { useMediaDownload } from '@/lib/use-media-download'
+import { useMediaMenu } from '@/lib/use-media-menu'
 import { ImageCropper } from './ImageCropper'
 import { FullscreenViewer } from './FullscreenViewer'
-import { toast } from 'sonner'
-import { MENU_ITEM } from '@/lib/ui-tokens'
-import { MenuSurface } from './menu/MenuSurface'
+import { MediaContextMenu, type MediaMenuItem } from './MediaContextMenu'
 import { OverlayIconButton } from './OverlayIconButton'
-import { downloadMediaFile } from '@/lib/media-download'
+import { toast } from 'sonner'
 
 export interface ImageUploaderProps {
   value?: string
@@ -49,6 +49,10 @@ const SIZE_CLASS: Record<string, string> = {
   lg: 'w-48',
 }
 
+/**
+ * 单图槽位（封面 / 头像 / 世界封面 / 小说封面）。
+ * 交互与画廊 / 头图一致：**单击看大图，右键或长按出菜单**（更换 / 编辑 / 保存到… / 移除）。
+ */
 export function ImageUploader({
   value,
   onChange,
@@ -68,10 +72,13 @@ export function ImageUploader({
   const inputRef = useRef<HTMLInputElement>(null)
   const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null)
   const [viewing, setViewing] = useState(false)
+  const { save } = useMediaDownload()
 
   const currentSrc = value ? resolveImageUrl(value) : undefined
   const effectiveCropAspect = cropAspect ?? ASPECT_RATIO_MAP[aspectRatio] ?? 1
   const effectiveCropShape = cropShape ?? (effectiveCropAspect === 1 ? 'round' : 'rect')
+  const handlersFor = useMediaMenu<never>((_, at) => setMenuAt(at))
+  const imageMenuHandlers = handlersFor()
 
   async function handleClick() {
     if (inputRef.current) { inputRef.current.value = ''; inputRef.current.click() }
@@ -82,6 +89,7 @@ export function ImageUploader({
     if (!currentSrc) return
     try {
       const response = await fetch(currentSrc)
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
       const blob = await response.blob()
       if (rawFileUrl) URL.revokeObjectURL(rawFileUrl)
       setRawFileUrl(URL.createObjectURL(blob))
@@ -146,6 +154,19 @@ export function ImageUploader({
     }
   }
 
+  const menuItems: MediaMenuItem[] = [
+    { label: '查看大图', onSelect: () => setViewing(true) },
+    { label: '更换', onSelect: () => void handleClick() },
+    ...(enableCrop ? [{ label: '编辑', onSelect: () => void handleEditExisting() }] : []),
+    {
+      label: '保存到…',
+      onSelect: () => {
+        if (value) void save(value, '图片.png')
+      },
+    },
+    ...(onRemove ? [{ label: '移除', danger: true, onSelect: onRemove }] : []),
+  ]
+
   return (
     <>
       <div
@@ -165,15 +186,12 @@ export function ImageUploader({
           </div>
         ) : currentSrc ? (
           <div className={`group/image relative h-full w-full overflow-hidden ${shape === 'circle' ? 'rounded-full' : 'rounded-item'}`}>
-            {/* 统一交互：单击看大图；右键（或右上 ⋯）出菜单做替换 / 编辑 / 移除 / 保存 */}
+            {/* 单击看大图；右键 / 长按出菜单（更换 / 编辑 / 保存 / 移除） */}
             <button
               type="button"
+              {...imageMenuHandlers}
               onClick={() => setViewing(true)}
-              onContextMenu={(event) => {
-                event.preventDefault()
-                setMenuAt({ x: event.clientX, y: event.clientY })
-              }}
-              className="absolute inset-0 h-full w-full bg-transparent hover:bg-transparent"
+              className="absolute inset-0 h-full w-full cursor-zoom-in bg-transparent hover:bg-transparent"
               aria-label="查看图片"
             />
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -204,42 +222,7 @@ export function ImageUploader({
       </div>
 
       {menuAt ? (
-        <MenuSurface at={menuAt} onClose={() => setMenuAt(null)} className="min-w-32">
-          <button type="button" className={MENU_ITEM} onClick={() => { setMenuAt(null); void handleClick() }}>
-            替换
-          </button>
-          {enableCrop ? (
-            <button type="button" className={MENU_ITEM} onClick={() => { setMenuAt(null); void handleEditExisting() }}>
-              编辑
-            </button>
-          ) : null}
-          <button
-            type="button"
-            className={MENU_ITEM}
-            onClick={() => {
-              setMenuAt(null)
-              if (value) {
-                void downloadMediaFile(value).catch((err: unknown) => {
-                  toast.error('保存失败', { description: err instanceof Error ? err.message : String(err) })
-                })
-              }
-            }}
-          >
-            保存到…
-          </button>
-          {onRemove ? (
-            <button
-              type="button"
-              className={MENU_ITEM}
-              onClick={() => {
-                setMenuAt(null)
-                onRemove()
-              }}
-            >
-              移除
-            </button>
-          ) : null}
-        </MenuSurface>
+        <MediaContextMenu at={menuAt} onClose={() => setMenuAt(null)} items={menuItems} />
       ) : null}
 
       {viewing && value ? (

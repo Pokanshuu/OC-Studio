@@ -41,7 +41,7 @@ export function AlbumCard({
   const menuItems: MediaMenuItem[] = isMobile
     ? []
     : [
-        { label: '查看', onSelect: onViewImage },
+        { label: '查看大图', onSelect: onViewImage },
         {
           label: saving ? '保存中…' : '保存到…',
           onSelect: () => {

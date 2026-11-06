@@ -1,19 +1,36 @@
 'use client'
 
-import { useState, useEffect} from 'react'
+import { useState, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
+import { Palette, Waypoints } from 'lucide-react'
 import { useSettings } from '@/lib/settings'
 import { useDevice } from '@/lib/use-device'
 import { isTauri as isTauriEnv } from '@/lib/env'
-import { ThemeRadio, LayoutRadio, CoverTintRadio, MouseModeRadio, EdgeStyleRadio, SWITCH_CLASSES, SWITCH_DOT } from '../controls'
+import { SettingsEntryRow } from '../EntryRow'
+import { SettingsSubPage } from '../SubPage'
+import { ThemePanel } from '../ThemePanel'
+import { RelationsPanel } from '../RelationsPanel'
+import { ThemeRadio, LayoutRadio, SWITCH_CLASSES, SWITCH_DOT } from '../controls'
+import {
+  SETTINGS_FIELD,
+  SETTINGS_FIELD_GROUP_FIRST,
+  SETTINGS_GROUP,
+  SETTINGS_HINT,
+  SETTINGS_LABEL,
+  SETTINGS_TOGGLE_ROW,
+} from '@/lib/ui-tokens'
+
+/** 「个性化」的二级页：外观（纸色 / 背景 / 封面卡）与关系图操作 */
+type Panel = 'root' | 'theme' | 'relations'
+
 export function GeneralTab() {
   const { settings, updateSetting } = useSettings()
   const { isMobile } = useDevice()
+  const [panel, setPanel] = useState<Panel>('root')
   const [blurEnabled, setBlurEnabled] = useState(() => {
     if (typeof window === "undefined") return false
     return localStorage.getItem("blur-effect-enabled") === "true"
   })
-
   const [blurSupported, setBlurSupported] = useState(false)
 
   const isTauri = isTauriEnv()
@@ -31,7 +48,7 @@ export function GeneralTab() {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleBlurToggle = () => {
-    if (toggleDisabled) return
+    if (toggleDisabled || settings.backgroundImage !== '') return
     const next = !blurEnabled
     setBlurEnabled(next)
     try { localStorage.setItem("blur-effect-enabled", String(next)) } catch {}
@@ -44,103 +61,79 @@ export function GeneralTab() {
       }).catch(() => {})
     } catch {}
   }
+
+  /** 开关行：标签靠左、开关靠右（单行控件，用 `SETTINGS_TOGGLE_ROW`） */
+  const switchRow = (label: React.ReactNode, checked: boolean, disabled: boolean, onToggle: () => void, extra?: React.ReactNode) => (
+    <div className={SETTINGS_TOGGLE_ROW}>
+      <span className={SETTINGS_LABEL}>{label}</span>
+      <div className="flex flex-col items-end gap-1">
+        <button
+          role="switch"
+          aria-checked={checked}
+          disabled={disabled}
+          onClick={onToggle}
+          className={`${SWITCH_CLASSES.base} ${checked ? SWITCH_CLASSES.on : SWITCH_CLASSES.off} ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+        >
+          <span className={`${SWITCH_DOT} ${checked ? "translate-x-[18px] bg-paper" : "translate-x-[2px]"}`} />
+        </button>
+        {extra}
+      </div>
+    </div>
+  )
+
+  if (panel === 'theme') {
+    return (
+      <SettingsSubPage title="主题" onBack={() => setPanel('root')}>
+        <ThemePanel />
+      </SettingsSubPage>
+    )
+  }
+
+  if (panel === 'relations') {
+    return (
+      <SettingsSubPage title="关系图操作" onBack={() => setPanel('root')}>
+        <RelationsPanel />
+      </SettingsSubPage>
+    )
+  }
+
   return (
-    <>
-              <div className="flex flex-col gap-5">
-                <label className="flex items-center justify-between">
-                  {/* 禁用态由 opacity + 光标表达，不再补「桌面端支持」这类次级标签 */}
-                  <span className="text-sm text-ink">开机自启动</span>
-                  <button
-                    role="switch"
-                    aria-checked={settings.autoStart}
-                    disabled={isMobile}
-                    onClick={() =>
-                      updateSetting("autoStart", !settings.autoStart)
-                    }
-                    className={`${SWITCH_CLASSES.base} ${
-                      settings.autoStart ? SWITCH_CLASSES.on : SWITCH_CLASSES.off
-                    } ${isMobile ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  >
-                    <span
-                      className={`${SWITCH_DOT} ${
-                        settings.autoStart
-                          ? "translate-x-[18px] bg-paper"
-                          : "translate-x-[2px]"
-                      }`}
-                    />
-                  </button>
-                </label>
+    <div className="flex flex-col">
+      {/* 先给最常改的两个单选组（显示模式 / 编辑界面），二级页入口排在它们后面 */}
+      <div className={SETTINGS_FIELD_GROUP_FIRST}>
+        <div className={SETTINGS_FIELD}>
+          <span className={SETTINGS_LABEL}>显示模式</span>
+          <ThemeRadio
+            value={settings.theme}
+            onChange={(v) => updateSetting("theme", v as "light" | "dark" | "auto")}
+          />
+        </div>
+        <div className={SETTINGS_FIELD}>
+          <span className={SETTINGS_LABEL}>编辑界面</span>
+          <LayoutRadio
+            value={settings.editorLayout}
+            onChange={(v) => updateSetting("editorLayout", v)}
+          />
+        </div>
+      </div>
 
-                <div className="flex flex-col gap-2">
-                  <span className="text-sm text-ink">主题</span>
-                  <ThemeRadio
-                    value={settings.theme}
-                    onChange={(v) =>
-                      updateSetting("theme", v as "light" | "dark" | "auto")
-                    }
-                  />
-                </div>
+      <div className={SETTINGS_GROUP}>
+        <div className="flex flex-col">
+          <SettingsEntryRow icon={Palette} label="主题" onClick={() => setPanel('theme')} />
+          <SettingsEntryRow icon={Waypoints} label="关系图操作" onClick={() => setPanel('relations')} />
+        </div>
+      </div>
 
-                <div className="flex flex-col gap-2">
-                  <span className="text-sm text-ink">编辑界面样式</span>
-                  <LayoutRadio
-                    value={settings.editorLayout}
-                    onChange={(v) => updateSetting("editorLayout", v)}
-                  />
-                  <span className="text-[11px] text-ink-faint">切换时自动保存正文</span>
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <span className="text-sm text-ink">封面卡配色</span>
-                  <CoverTintRadio
-                    value={settings.coverTintMode}
-                    onChange={(v) => updateSetting("coverTintMode", v)}
-                  />
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <span className="text-sm text-ink">关系图鼠标</span>
-                  <MouseModeRadio
-                    value={settings.mouseMode}
-                    onChange={(v) => updateSetting("mouseMode", v)}
-                  />
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <span className="text-sm text-ink">关系图连线</span>
-                  <EdgeStyleRadio
-                    value={settings.edgeStyle}
-                    onChange={(v) => updateSetting("edgeStyle", v)}
-                  />
-                </div>
-
-                <div className="flex flex-col gap-3 pt-2 border-t border-line">
-                  <label className="flex items-center justify-between">
-                    <span className="text-sm text-ink">启用窗口模糊效果</span>
-                    <button
-                      role="switch"
-                      aria-checked={blurEnabled}
-                      disabled={toggleDisabled}
-                      onClick={handleBlurToggle}
-                      className={`${SWITCH_CLASSES.base} ${
-                        blurEnabled ? SWITCH_CLASSES.on : SWITCH_CLASSES.off
-                      } ${toggleDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
-                    >
-                      <span
-                        className={`${SWITCH_DOT} ${
-                          blurEnabled
-                            ? "translate-x-[18px] bg-paper"
-                            : "translate-x-[2px]"
-                        }`}
-                      />
-                    </button>
-                  </label>
-                </div>
-              </div>
-
-    </>
+      <div className={SETTINGS_GROUP}>
+        {switchRow(
+          "窗口模糊",
+          blurEnabled,
+          toggleDisabled || settings.backgroundImage !== "",
+          handleBlurToggle,
+          settings.backgroundImage !== "" ? <span className={SETTINGS_HINT}>与背景图互斥</span> : null,
+        )}
+        {switchRow("开机自启动", settings.autoStart, isMobile, () => updateSetting("autoStart", !settings.autoStart))}
+      </div>
+    </div>
   )
 }
-
-
-

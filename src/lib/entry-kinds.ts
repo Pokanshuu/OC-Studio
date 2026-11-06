@@ -22,3 +22,23 @@ export function isMapEntry(entry: { category?: string | null }): boolean {
 export function isCodexEntry(entry: { category?: string | null }): boolean {
   return !isNovelEntry(entry) && !isMapEntry(entry)
 }
+
+/**
+ * 导航项里的「工具」——插件提供的功能面板（`工具:<插件 id>`）。
+ *
+ * 与 `分类:<id>` 同一套路：导航状态是一个字符串，靠前缀区分是哪一类视图。
+ * 工具不是内容，所以不进词条树、不进相册、不落库。
+ */
+export const TOOL_PREFIX = '工具:'
+
+export function toolItem(pluginId: string): string {
+  return `${TOOL_PREFIX}${pluginId}`
+}
+
+export function isToolItem(item: string | null | undefined): boolean {
+  return (item ?? '').startsWith(TOOL_PREFIX)
+}
+
+export function toolIdFromItem(item: string): string {
+  return item.startsWith(TOOL_PREFIX) ? item.slice(TOOL_PREFIX.length) : ''
+}

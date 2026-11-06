@@ -1,4 +1,4 @@
-import type { Character, Country, Event, ProjectMeta } from '@/types'
+import type { Character, Country, Event, ProjectMeta, WorldEntry } from '@/types'
 import { normalizeRelPath } from './vault-paths'
 
 // ── 素材（图片）引用的改写原语 ───────────────────────────────────────────
@@ -14,11 +14,12 @@ export interface ImageRows {
   characters: Character[]
   countries: Country[]
   events: Event[]
+  worldEntries: WorldEntry[]
   meta: ProjectMeta[]
 }
 
 export interface RowPatch {
-  table: 'characters' | 'countries' | 'events' | 'meta'
+  table: 'characters' | 'countries' | 'events' | 'worldEntries' | 'meta'
   id: number
   patch: Record<string, unknown>
 }
@@ -59,7 +60,22 @@ export function planImageRewrites(rows: ImageRows, map: Map<string, string>): Ro
     if (flag !== country.flagUrl) patch.flagUrl = flag
     const header = swap(country.headerUrl)
     if (header !== country.headerUrl) patch.headerUrl = header
+    const gallery = swapList(country.gallery)
+    if (gallery !== undefined) patch.gallery = gallery
     if (Object.keys(patch).length > 0) out.push({ table: 'countries', id: country.id, patch })
+  }
+
+  for (const entry of rows.worldEntries) {
+    const patch: Record<string, unknown> = {}
+    const cover = swap(entry.cover)
+    if (cover !== entry.cover) patch.cover = cover
+    const avatar = swap(entry.avatar)
+    if (avatar !== entry.avatar) patch.avatar = avatar
+    const image = swap(entry.image)
+    if (image !== entry.image) patch.image = image
+    const gallery = swapList(entry.gallery)
+    if (gallery !== undefined) patch.gallery = gallery
+    if (Object.keys(patch).length > 0) out.push({ table: 'worldEntries', id: entry.id, patch })
   }
 
   for (const event of rows.events) {

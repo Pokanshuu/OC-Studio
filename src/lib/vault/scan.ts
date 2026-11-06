@@ -1,6 +1,5 @@
 import type {
   Character,
-  CharacterKind,
   Country,
   Event,
   Period,
@@ -22,6 +21,7 @@ import {
   readPosition,
   readString,
   readStringList,
+  ownedKeys,
   readTimestamp,
   type KeyChain,
 } from './fields'
@@ -94,7 +94,13 @@ function readCustomFields(
   fm: Record<string, unknown>,
   kind: 'character' | 'event' | 'worldEntry',
 ): Record<string, string> | undefined {
-  const keys = customFieldKeys(kind)
+  /**
+   * 已经被词汇表占用的键不再当自定义字段读：`时间` / `地点` / `简介` 这些
+   * 现在是模板组件的第一类列，同一份事实若两边都读，改一处另一处不动
+   * （落盘时后写的还会盖掉先写的）。自定义字段撞了名就换一个键。
+   */
+  const owned = new Set(ownedKeys(kind))
+  const keys = customFieldKeys(kind).filter((key) => !owned.has(key))
   if (keys.length === 0) return undefined
   const out: Record<string, string> = {}
   for (const key of keys) {
@@ -114,26 +120,6 @@ function tagNamesOf(note: VaultNote, chain: KeyChain): string[] {
   return readStringList(note.frontmatter, chain)
 }
 
-/**
- * 类别归一：`武器 / weapon` → weapon，`宠物 / pet` → pet，
- * `角色 / character` / 空 / 非法值 → character。
- *
- * 手写 frontmatter 里中英文两种写法都真实存在，还常带全角空格与大小写差异，
- * 所以先统一「去空白 + 小写」再认词。写回侧仍只写英文词汇（见 serialize.ts），
- * 这里只负责读回来的那一步 —— 归一失败不该让实体消失，一律回落「角色」。
- */
-export function normalizeCharacterKind(raw: string): CharacterKind {
-  switch (raw.replace(/[\s\u3000]/g, '').toLowerCase()) {
-    case '武器':
-    case 'weapon':
-      return 'weapon'
-    case '宠物':
-    case 'pet':
-      return 'pet'
-    default:
-      return 'character'
-  }
-}
 
 /** 按实体类型取它的 tags 键链 */
 function tagsChainOf(kind: VaultEntityKind): KeyChain {
@@ -331,6 +317,27 @@ export function scanVault(options: ScanOptions): VaultScanResult {
     return list.find((item) => item.kind === kind) ?? list[0]
   }
 
+  /** 指向笔记的命名边：笔记的 `relations` 与角色的 `related_notes` 共用同一套解析 */
+  const readNoteRelations = (
+    fm: Record<string, unknown>,
+    key: KeyChain,
+  ): WorldEntry['relations'] =>
+    readObjects(fm, key)
+      .map((item) => {
+        const name = typeof item.name === 'string' ? item.name.trim() : ''
+        const target = lookupTarget(name, 'worldEntry')
+        return {
+          targetId: target?.id,
+          // 目标已改名 / 被删时保留盘上的名字，关系块仍能显示
+          name: target?.title ?? name,
+          relation: typeof item.relation === 'string' ? item.relation : '',
+          color: normalizeRelationColor(item.color),
+          arrow:
+            item.arrow === undefined ? undefined : normalizeRelationArrow(item.arrow, 'none'),
+        }
+      })
+      .filter((item) => item.name !== '')
+
   /**
    * 软引用解析：不限实体类型，优先取「文件名正好等于该名字」的那个。
    * 用于 `阵营` 这类自由文本字段 —— 名字对得上就建立跳转，对不上就保持纯文本。
@@ -402,6 +409,7 @@ export function scanVault(options: ScanOptions): VaultScanResult {
             arrow: item.arrow === undefined ? undefined : normalizeRelationArrow(item.arrow, 'none'),
           }
         }),
+        relatedNotes: readNoteRelations(fm, CHARACTER_KEYS.relatedNotes),
         gallery: readImageList(fm, CHARACTER_KEYS.gallery).map((item) => ({
           url: item.url,
           caption: item.caption,
@@ -413,7 +421,7 @@ export function scanVault(options: ScanOptions): VaultScanResult {
         tags: tagIdsOf(note, CHARACTER_KEYS.tags),
         isMajor: readBool(fm, CHARACTER_KEYS.isMajor),
         folder: readString(fm, CHARACTER_KEYS.folder) || undefined,
-        kind: normalizeCharacterKind(readString(fm, CHARACTER_KEYS.kind)),
+        legacyKind: readString(fm, CHARACTER_KEYS.legacyKind) || undefined,
         order: readNumber(fm, CHARACTER_KEYS.order),
         graphPosition: readPosition(fm, CHARACTER_KEYS.graphPosition),
         custom: readCustomFields(fm, 'character'),
@@ -443,12 +451,13 @@ export function scanVault(options: ScanOptions): VaultScanResult {
         culture: readString(fm, COUNTRY_KEYS.culture),
         flagUrl: readString(fm, COUNTRY_KEYS.flag) || undefined,
         headerUrl: readString(fm, COUNTRY_KEYS.header) || undefined,
-        characters: readStringList(fm, COUNTRY_KEYS.characters)
-          .map((name) => lookupTarget(name, 'character')?.id)
-          .filter((id): id is number => id !== undefined),
-        events: readStringList(fm, COUNTRY_KEYS.events)
-          .map((name) => lookupTarget(name, 'event')?.id)
-          .filter((id): id is number => id !== undefined),
+        gallery: readImageList(fm, COUNTRY_KEYS.gallery).map((item) => ({
+          url: item.url,
+          caption: item.caption,
+        })),
+        // 成员名单不读了（阶段二·一）：真源是角色的 `countryId` 与事件的 `countries`，
+        // 国家页的两个列表由查询得出。这里的字段已经摘掉 —— 盘上遗留的键原样留着，
+        // 不读也不删（写回也不会碰，`COUNTRY_KEYS` 里没有它们）。
         tags: tagIdsOf(note, COUNTRY_KEYS.tags),
         order: readNumber(fm, COUNTRY_KEYS.order),
         graphPosition: readPosition(fm, COUNTRY_KEYS.graphPosition),
@@ -530,9 +539,22 @@ export function scanVault(options: ScanOptions): VaultScanResult {
         // `分类` 已废弃（层级只由 parentId 表达），界面不再编辑；
         // 但老笔记里已有的值仍然读回来 —— 迁移时不至于把它弄丢。
         category: readString(fm, WORLD_KEYS.category),
+        cover: readString(fm, WORLD_KEYS.cover) || undefined,
+        avatar: readString(fm, WORLD_KEYS.avatar) || undefined,
+        image: readString(fm, WORLD_KEYS.image) || undefined,
+        gallery: readImageList(fm, WORLD_KEYS.gallery).map((item) => ({
+          url: item.url,
+          caption: item.caption,
+        })),
+        time: readString(fm, WORLD_KEYS.time) || undefined,
+        endTime: readString(fm, WORLD_KEYS.endTime) || undefined,
+        location: readString(fm, WORLD_KEYS.location) || undefined,
+        summary: readString(fm, WORLD_KEYS.summary) || undefined,
+        template: readString(fm, WORLD_KEYS.template) || undefined,
         parentId: lookupTarget(parentName, 'worldEntry')?.id ?? null,
         order: readNumber(fm, WORLD_KEYS.order) ?? order ?? folderOrder,
         isConcept: readBool(fm, WORLD_KEYS.isConcept),
+        graphPosition: readPosition(fm, WORLD_KEYS.graphPosition),
         mapPosition: readPosition(fm, WORLD_KEYS.mapPosition),
         mapId: readString(fm, WORLD_KEYS.mapId) || undefined,
         novelAuthor: readString(fm, WORLD_KEYS.novelAuthor) || undefined,
@@ -546,6 +568,9 @@ export function scanVault(options: ScanOptions): VaultScanResult {
         mapHeight: readNumber(fm, WORLD_KEYS.mapHeight),
         mapSeed: readNumber(fm, WORLD_KEYS.mapSeed),
         mapParams: readString(fm, WORLD_KEYS.mapParams) || undefined,
+        mapMode: readString(fm, WORLD_KEYS.mapMode) || undefined,
+        mapAnnotations: readString(fm, WORLD_KEYS.mapAnnotations) || undefined,
+        relations: readNoteRelations(fm, WORLD_KEYS.relations),
         references: [],
         tags: tagIdsOf(note, WORLD_KEYS.tags),
         custom: readCustomFields(fm, 'worldEntry'),

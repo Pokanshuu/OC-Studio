@@ -2,6 +2,18 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+/* 助手插件自带的样式表：已在生成时收进 `.oc-agent-root` 作用域，不会泄进宿主。
+   生成脚本 `scripts/scope-plugin-css.mjs`，上游更新时重跑即可。 */
+@import "../plugins/agent/styles/agent-scoped.css";
+@import "../plugins/agent/styles/markdown-scoped.css";
+
+/* 自动内容扫描不要进构建产物：Tauri target / Android build 里是几十 MB 的二进制和压缩 JS，
+   扫进来会把 Tailwind 的 PostCSS 进程撑到 OOM（它们也不产生任何类名）。 */
+@source not "../../src-tauri";
+@source not "../../android";
+@source not "../../out";
+@source not "../../.next";
+
 @custom-variant dark (&:is(.dark *));
 
 :root {
@@ -35,6 +47,12 @@
 
   /* 危险操作的浅底（hover / 选中）：亮色是极淡的粉，暗色是极淡的同一枚红 */
   --oc-error-light: #FBF2EF;
+
+  /* 语义色：错误 / 警告 / 成功。**同一枚在亮暗两套里都成立**，
+     插件（助手）也直接取这三个名字，不再自带一份调色板。 */
+  --oc-error: #B36651;
+  --oc-warning: #C68D44;
+  --oc-success: #A5A098;
 
   /* 危险按钮的实心底色 —— **灰调红**（比 --color-error 低饱和一档，压在纸上不刺眼、
      压在暗底上也不糊）。只给「点下去数据就没了」的确认键：删除 / 永久删除 / 放弃未保存改动。
@@ -77,6 +95,9 @@
   --oc-hover: rgba(227, 223, 216, 0.06);
   --oc-scrim: rgba(0, 0, 0, 0.40);
   --oc-error-light: rgba(179, 102, 81, 0.18);
+  --oc-error: #B36651;
+  --oc-warning: #C68D44;
+  --oc-success: #A5A098;
   /* 强调色板在暗色下整体提亮，保证同样的 4.5:1（色相不变） */
   --oc-accent-1: #B8715D; /* 赤陶 */
   --oc-accent-2: #C68D44; /* 琥珀 */
@@ -324,9 +345,50 @@ html.tauri-mica [data-statusbar] {
   background: transparent;
 }
 
+/* 应用级背景图（docs/主题.md §2）：图铺在 html 上，外壳让位；
+   内容区仍是 bg-paper 的纸，背景不会穿过正文。遮罩由 JS 按纸色算成 --oc-bg-wash。 */
+html.oc-background {
+  background-color: var(--oc-paper);
+  background-image: linear-gradient(var(--oc-bg-wash), var(--oc-bg-wash)), var(--oc-bg-image);
+  background-size: var(--oc-bg-size);
+  background-position: center;
+  background-repeat: var(--oc-bg-repeat);
+  background-attachment: var(--oc-bg-attachment);
+}
+
+html.oc-background body {
+  background: transparent !important;
+}
+
+html.oc-background [data-app-shell],
+html.oc-background [data-sidebar],
+html.oc-background [data-menubar],
+html.oc-background [data-statusbar] {
+  background: var(--oc-bg-shell);
+}
+
+/* 地图整屏时状态栏不属于画布，藏掉；否则 fixed 画布只盖到内容区底 */
+body[data-map-immersive='true'] [data-statusbar],
+body[data-map-immersive='true'] [data-dev-mock] {
+  display: none;
+}
+
 .main-scroll::-webkit-scrollbar {
   width: 6px;
   height: 6px;
+}
+
+/* 画廊（Cover Flow）：横向翻页区域不显示滚动条 —— 翻页靠滚轮 / 拖动 /
+   触控板，画一条横杠只会在卡片下方多一道灰线。 */
+.coverflow-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.coverflow-scroll::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .main-scroll::-webkit-scrollbar-track {
@@ -836,6 +898,21 @@ html.tauri-mica [data-statusbar] {
   animation: overlay-panel-in 160ms ease-out;
 }
 
+/* 导出中心：窄屏上下分区。预览固定高度，配置区吃剩余并自己滚动。
+   不用 `max-md:h-[..]` —— 那一档在列向 flex 里会被 `flex-basis: 0` 吃掉。 */
+@media (max-width: 767px) {
+  .export-panel { flex-direction: column; }
+  .export-preview { flex: none; height: 46vh; }
+  .export-config {
+    width: 100%;
+    min-height: 0;
+    flex: 1 1 0%;
+    overflow: hidden;
+    border-left: 0;
+    border-top: 1px solid var(--oc-line);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .section-fade,
   .section-fade[data-visible="false"] {
@@ -855,3 +932,117 @@ html.tauri-mica [data-statusbar] {
 }
 
 
+
+/* css-rebuild-probe */
+
+
+/* ── 文档预览正文 ─────────────────────────────────────────────
+   只作用于 `PagePreview` 里那段 `entry.html`（导出中心「文档」页签 + 小说导出共用）。
+   注意：这段和 `.export-panel / .export-preview / .export-config` 都是导出器的样式，
+   重写 globals.css 时别一起丢了（滑杆曾经就因为同类重写退回原生控件）。 */
+.oc-doc-prose {
+  font-size: 12.5px;
+  line-height: 1.85;
+  color: var(--oc-ink);
+}
+.oc-doc-prose > * + * {
+  margin-top: 0.85em;
+}
+.oc-doc-prose p:empty {
+  display: none;
+}
+.oc-doc-prose h1,
+.oc-doc-prose h2,
+.oc-doc-prose h3,
+.oc-doc-prose h4 {
+  margin-top: 1.1em;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.oc-doc-prose strong {
+  font-weight: 600;
+}
+.oc-doc-prose em {
+  font-style: italic;
+}
+.oc-doc-prose ul,
+.oc-doc-prose ol {
+  padding-left: 1.4em;
+}
+.oc-doc-prose ul {
+  list-style: disc;
+}
+.oc-doc-prose ol {
+  list-style: decimal;
+}
+.oc-doc-prose li + li {
+  margin-top: 0.25em;
+}
+.oc-doc-prose blockquote {
+  padding-left: 0.85em;
+  border-left: 2px solid var(--oc-line);
+  color: var(--oc-ink-muted);
+}
+.oc-doc-prose hr {
+  border: 0;
+  border-top: 1px solid var(--oc-line);
+}
+.oc-doc-prose a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.oc-doc-prose code {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.95em;
+}
+.oc-doc-prose pre {
+  overflow-x: auto;
+  padding: 0.7em 0.85em;
+  border: 1px solid var(--oc-line);
+  border-radius: var(--radius-item);
+  background: var(--oc-paper-alt);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.oc-doc-prose pre code {
+  font-size: inherit;
+}
+.oc-doc-prose img {
+  max-width: 100%;
+  border-radius: var(--radius-item);
+}
+.oc-doc-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.oc-doc-prose th,
+.oc-doc-prose td {
+  padding: 0.35em 0.5em;
+  border: 1px solid var(--oc-line);
+  text-align: left;
+  vertical-align: top;
+}
+.oc-doc-prose th {
+  font-weight: 600;
+}
+
+/* ── 关系图：节点名 ─────────────────────────────────────────────
+   名字要压在别人的卡片和线上也能读：给两层纸色光晕（与地图标注层的「纸色外壳」同一手法）。
+   缩到 `LABEL_ZOOM`（0.7）以下整批淡出 —— 40 个节点的名字挤在 0.6 倍下只会糊成一片，
+   那时候留图形比留字有用。阈值在 `relation-graph-utils.ts`，这里只管表现。 */
+.graph-node-label {
+  text-shadow:
+    0 0 2px var(--oc-paper),
+    0 0 6px var(--oc-paper);
+  transition: opacity 120ms ease-out;
+}
+[data-graph-labels='off'] .graph-node-label {
+  opacity: 0;
+}
+
+/* 拖动中的名字浮尘（缩放很小时节点名看不见，跟着鼠标反而看得清） */
+.graph-drag-ghost {
+  animation: overlay-in 100ms ease-out;
+}

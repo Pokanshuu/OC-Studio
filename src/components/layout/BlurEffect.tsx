@@ -19,7 +19,9 @@ export function BlurEffect() {
     const init = async () => {
       try {
         const { invoke } = await import('@tauri-apps/api/core')
-        const enabled = window.localStorage.getItem('blur-effect-enabled') === 'true'
+        const enabled =
+          window.localStorage.getItem('blur-effect-enabled') === 'true' &&
+          !document.documentElement.classList.contains('oc-background')
         const isDark = document.documentElement.classList.contains('dark')
         invoke<boolean>('init_blur', { enabled, isDark })
           .then((applied) => {

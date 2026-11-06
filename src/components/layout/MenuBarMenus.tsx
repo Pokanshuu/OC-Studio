@@ -6,10 +6,9 @@ import { tauriReadClipboard } from '@/lib/tauri-clipboard'
 import { useSettingsTrigger } from '@/components/layout/SettingsTriggerContext'
 import { useSettings } from '@/lib/settings'
 import { useImportExport } from '@/components/shared/ImportExportUI'
-import { downloadMarkdown, downloadTxt, downloadFullBackup, exportStaticSite } from '@/lib/export'
-import { toast } from 'sonner'
+import { useExportCenter } from '@/components/shared/export/ExportCenterHost'
+import { JournalTimelineDialog } from '@/features/vault/components/JournalTimelineDialog'
 import { useActiveEditor } from '@/lib/editor-context'
-import { toggleCoverTuningPanel } from '@/lib/cover'
 import { VaultMenuSection } from '@/features/vault'
 import {
   DropdownMenu,
@@ -33,6 +32,8 @@ export function MenuBarMenus() {
   const { openSettings } = useSettingsTrigger()
   const { handleImportClick, dialog: importExportDialog } = useImportExport()
   const { activeEditor } = useActiveEditor()
+  const openExportCenter = useExportCenter()
+  const [journalOpen, setJournalOpen] = useState(false)
 
   const handleUndo = useCallback(() => {
     activeEditor?.chain().focus().undo().run()
@@ -116,65 +117,20 @@ export function MenuBarMenus() {
               <DropdownMenuTrigger>文件</DropdownMenuTrigger>
             </span>
             <DropdownMenuContent>
-              <VaultMenuSection />
+              <VaultMenuSection
+                extra={
+                  <DropdownMenuItem onClick={() => setJournalOpen(true)}>
+                    创作时间线...
+                  </DropdownMenuItem>
+                }
+              />
               <DropdownMenuItem onClick={handleImportClick}>
                 导入...
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>导出为</DropdownMenuSubTrigger>
-                <DropdownMenuSubContent>
-                  <DropdownMenuItem onClick={async () => {
-                    try {
-                      const name = await downloadFullBackup()
-                      toast.success(`完整备份导出成功：${name}`)
-                    } catch {
-                      toast.error('完整备份导出失败')
-                    }
-                  }}>
-                    完整备份（.ocbak）
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={async () => {
-                    try {
-                      await downloadMarkdown()
-                      toast.success('Markdown 导出成功')
-                    } catch {
-                      toast.error('导出失败')
-                    }
-                  }}>
-                    Markdown
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={async () => {
-                    try {
-                      await downloadTxt()
-                      toast.success('TXT 导出成功')
-                    } catch {
-                      toast.error('导出失败')
-                    }
-                  }}>
-                    TXT
-                  </DropdownMenuItem>
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-              <DropdownMenuSeparator />
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>发布为</DropdownMenuSubTrigger>
-                <DropdownMenuSubContent>
-                  <DropdownMenuItem disabled onClick={() => {}}>
-                    图片
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={async () => {
-                    try {
-                      const name = await exportStaticSite()
-                      toast.success(`静态网站已导出：${name}`, { description: '单文件静态站，改名 index.html 即可发布' })
-                    } catch (error) {
-                      toast.error('静态网站导出失败', { description: error instanceof Error ? error.message : undefined })
-                    }
-                  }}>
-                    静态网站
-                  </DropdownMenuItem>
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
+              <DropdownMenuItem onClick={() => openExportCenter()}>
+                导出中心...
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -223,7 +179,7 @@ export function MenuBarMenus() {
               <DropdownMenuSeparator />
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
-                  主题
+                  显示模式
                 </DropdownMenuSubTrigger>
                 <DropdownMenuSubContent>
                   <DropdownMenuItem onClick={() => updateSetting("theme", "light")}>
@@ -240,10 +196,6 @@ export function MenuBarMenus() {
                   </DropdownMenuItem>
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => toggleCoverTuningPanel()}>
-                封面卡参数
-              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -262,6 +214,7 @@ export function MenuBarMenus() {
           </DropdownMenu>
         </div>
       {importExportDialog}
+      <JournalTimelineDialog open={journalOpen} onOpenChange={setJournalOpen} />
     </>
   )
 }

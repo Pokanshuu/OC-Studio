@@ -2,8 +2,9 @@
 
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react'
 import type { Editor } from '@tiptap/core'
-import type { RelatedItem } from '@/components/shared/RelatedItemsSelector'
-import type { Event, EventRelation } from '@/types'
+import { FACT_RELATION, type RelationCandidate, type RelationRow, type RelationTargetKind } from '@/components/shared/relations/types'
+import type { RelationArrow } from '@/lib/relation-colors'
+import type { Event, EventRelation, ImageEntry } from '@/types'
 import type { EventFormData } from '../types'
 import { useCharacterList } from '@/features/characters/hooks/useCharacters'
 import { useCountryList } from '@/features/countries/hooks/useCountries'
@@ -32,6 +33,8 @@ interface EventValues {
   countryIds: number[]
   relations: EventRelation[]
   tags: number[]
+  /** 图集（模板「画廊」组件） */
+  images: ImageEntry[]
 }
 
 function valuesFromEntity(event: Event): EventValues {
@@ -54,6 +57,7 @@ function valuesFromEntity(event: Event): EventValues {
     countryIds: event.countries ?? [],
     relations: event.relations ?? [],
     tags: event.tags ?? [],
+    images: event.images ?? [],
   }
 }
 
@@ -72,6 +76,7 @@ function valuesSnapshot(values: EventValues): Record<string, unknown> {
     countries: values.countryIds,
     relations: values.relations,
     tags: values.tags,
+    images: values.images,
   }
 }
 
@@ -102,6 +107,7 @@ export function useEventForm(
   const [selectedCountryIds, setSelectedCountryIds] = useState<number[]>(initial.countryIds)
   const [relations, setRelations] = useState<EventRelation[]>(initial.relations)
   const [tags, setTags] = useState<number[]>(initial.tags)
+  const [images, setImages] = useState<ImageEntry[]>(initial.images)
   const [saving, setSaving] = useState(false)
   const editorRef = useRef<Editor | null>(null)
   const docBaselineRef = useRef<Editor['state']['doc'] | null>(null)
@@ -115,10 +121,10 @@ export function useEventForm(
 
   const values = useMemo<EventValues>(() => ({
     title, headerUrl, year, month, day, endYear, endMonth, endDay, location, summary,
-    isMajor, custom, characterIds: selectedCharacterIds, countryIds: selectedCountryIds, relations, tags,
+    isMajor, custom, characterIds: selectedCharacterIds, countryIds: selectedCountryIds, relations, tags, images,
   }), [
     title, headerUrl, year, month, day, endYear, endMonth, endDay, location, summary,
-    isMajor, custom, selectedCharacterIds, selectedCountryIds, relations, tags,
+    isMajor, custom, selectedCharacterIds, selectedCountryIds, relations, tags, images,
   ])
 
   const snapshot = useMemo(() => valuesSnapshot(values), [values])
@@ -148,6 +154,7 @@ export function useEventForm(
     setSelectedCountryIds(next.countryIds)
     setRelations(next.relations)
     setTags(next.tags)
+    setImages(next.images)
     markFieldsClean(nextKey)
   }, [event, markFieldsClean, saving])
 
@@ -155,56 +162,151 @@ export function useEventForm(
   const { countries } = useCountryList()
   const { events } = useEventList()
 
-  const characterItems: RelatedItem[] = useMemo(
-    () =>
-      characters.map((c) => ({
-        id: c.id,
-        name: c.name,
-        subtitle: c.aliases.length > 0 ? c.aliases.join('、') : undefined,
-      })),
-    [characters],
-  )
+  const characterById = useMemo(() => new Map(characters.map((item) => [item.id, item])), [characters])
+  const countryById = useMemo(() => new Map(countries.map((item) => [item.id, item])), [countries])
+  const eventById = useMemo(() => new Map(events.map((item) => [item.id, item])), [events])
 
-  const countryItems: RelatedItem[] = useMemo(
-    () =>
-      countries.map((c) => ({
-        id: c.id,
-        name: c.name,
-      })),
-    [countries],
-  )
+  /**
+   * 关系组件的数据：参与者（角色 / 国家）是**事实边**，关系名固定只读；
+   * 事件之间是**命名边**，可以当场改名字（`docs/模板.md §6.3`）。
+   */
+  const relationRows = useMemo<RelationRow[]>(() => {
+    const rows: RelationRow[] = []
 
-  /** 相关事件的候选：除自己以外的全部事件（时间是天然的第二行，与关系图节点一致） */
-  const eventItems: RelatedItem[] = useMemo(
-    () =>
-      events
-        .filter((e) => e.id !== event.id)
-        .map((e) => ({
-          id: e.id,
-          name: e.title,
-          subtitle: e.time || undefined,
+    selectedCharacterIds.forEach((id, index) => {
+      const target = characterById.get(id)
+      rows.push({
+        key: `character-${id}-${index}`,
+        kind: 'character',
+        targetId: id,
+        name: target?.name ?? '未命名',
+        relation: FACT_RELATION.participates,
+        relationEditable: false,
+        index,
+      })
+    })
+
+    selectedCountryIds.forEach((id, index) => {
+      const target = countryById.get(id)
+      rows.push({
+        key: `country-${id}-${index}`,
+        kind: 'country',
+        targetId: id,
+        name: target?.name ?? '未命名',
+        relation: FACT_RELATION.occurredAt,
+        relationEditable: false,
+        index,
+      })
+    })
+
+    relations.forEach((relation, index) => {
+      const target = eventById.get(relation.targetId)
+      rows.push({
+        key: `event-${relation.targetId}-${index}`,
+        kind: 'event',
+        targetId: relation.targetId,
+        name: target?.title ?? '未命名',
+        relation: relation.relation,
+        relationEditable: true,
+        directional: true,
+        defaultArrow: 'none',
+        arrow: relation.arrow,
+        index,
+        color: relation.color,
+      })
+    })
+
+    return rows
+  }, [characterById, countryById, eventById, relations, selectedCharacterIds, selectedCountryIds])
+
+  const relationCandidates = useMemo<RelationCandidate[]>(() => {
+    const linkedCharacters = new Set(selectedCharacterIds)
+    const linkedCountries = new Set(selectedCountryIds)
+    const linkedEvents = new Set(relations.map((relation) => relation.targetId))
+    return [
+      ...characters
+        .filter((item) => !linkedCharacters.has(item.id))
+        .map((item) => ({
+          kind: 'character' as const,
+          targetId: item.id,
+          name: item.name,
+          subtitle: item.aliases.length > 0 ? item.aliases.join('、') : undefined,
         })),
-    [events, event.id],
-  )
+      ...countries
+        .filter((item) => !linkedCountries.has(item.id))
+        .map((item) => ({
+          kind: 'country' as const,
+          targetId: item.id,
+          name: item.name,
+        })),
+      ...events
+        .filter((item) => item.id !== event.id && !linkedEvents.has(item.id))
+        .map((item) => ({
+          kind: 'event' as const,
+          targetId: item.id,
+          name: item.title,
+          subtitle: item.time || undefined,
+        })),
+    ]
+  }, [characters, countries, event.id, events, relations, selectedCharacterIds, selectedCountryIds])
 
-  const relatedEventIds = useMemo(() => relations.map((r) => r.targetId), [relations])
+  const addRelation = useCallback((kind: RelationTargetKind, targetId: number) => {
+    switch (kind) {
+      case 'character':
+        setSelectedCharacterIds((previous) =>
+          previous.includes(targetId) ? previous : [...previous, targetId],
+        )
+        break
+      case 'country':
+        setSelectedCountryIds((previous) =>
+          previous.includes(targetId) ? previous : [...previous, targetId],
+        )
+        break
+      case 'event':
+        setRelations((previous) =>
+          previous.some((relation) => relation.targetId === targetId)
+            ? previous
+            : [...previous, { targetId, relation: '' }],
+        )
+        break
+      default:
+        break
+    }
+  }, [])
 
-  /** 已选事件的「关系」名：键 = 目标事件 id */
-  const eventRelationLabels = useMemo(() => {
-    const out: Record<number, string> = {}
-    for (const relation of relations) out[relation.targetId] = relation.relation
-    return out
-  }, [relations])
+  const removeRelation = useCallback((row: RelationRow) => {
+    if (row.index === undefined) return
+    switch (row.kind) {
+      case 'character':
+        setSelectedCharacterIds((previous) => previous.filter((_, index) => index !== row.index))
+        break
+      case 'country':
+        setSelectedCountryIds((previous) => previous.filter((_, index) => index !== row.index))
+        break
+      case 'event':
+        setRelations((previous) => previous.filter((_, index) => index !== row.index))
+        break
+      default:
+        break
+    }
+  }, [])
 
-  const handleRelatedEventsChange = useCallback((ids: number[]) => {
-    setRelations((prev) =>
-      ids.map((id) => prev.find((relation) => relation.targetId === id) ?? { targetId: id, relation: '' }),
+  const renameRelation = useCallback((row: RelationRow, value: string) => {
+    if (row.index === undefined) return
+    setRelations((previous) =>
+      previous.map((relation, index) =>
+        index === row.index ? { ...relation, relation: value } : relation,
+      ),
     )
   }, [])
 
-  const setEventRelation = useCallback((id: number, value: string) => {
-    setRelations((prev) =>
-      prev.map((relation) => (relation.targetId === id ? { ...relation, relation: value } : relation)),
+  /** 命名边（事件↔事件）的箭头；参与者 / 国家是事实边，不经过它 */
+  const setRelationArrow = useCallback((row: RelationRow, arrow: RelationArrow) => {
+    if (row.index === undefined) return
+    setRelations((previous) =>
+      previous.map((relation, index) =>
+        index === row.index ? { ...relation, arrow } : relation,
+      ),
     )
   }, [])
 
@@ -256,6 +358,7 @@ export function useEventForm(
         relations,
         tags,
         custom,
+        images,
       })
       savedSnapshotRef.current = snapshotKey(snapshot)
       markFieldsClean()
@@ -287,6 +390,7 @@ export function useEventForm(
     relations,
     tags,
     custom,
+    images,
     onSave,
     markSaving,
     markFieldsClean,
@@ -326,19 +430,19 @@ export function useEventForm(
     selectedCharacterIds, setSelectedCharacterIds,
     selectedCountryIds, setSelectedCountryIds,
     relations, setRelations,
-    relatedEventIds,
-    eventRelationLabels,
-    handleRelatedEventsChange,
-    setEventRelation,
+    relationRows,
+    relationCandidates,
+    addRelation,
+    removeRelation,
+    renameRelation,
+    setRelationArrow,
     tags, setTags,
+    images, setImages,
     saving,
     docDirty,
     handleSave,
     handleEditorReady,
     handleDocChange,
-    characterItems,
-    countryItems,
-    eventItems,
   }
 }
 

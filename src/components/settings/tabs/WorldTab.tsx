@@ -1,19 +1,55 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { ArrowLeft, ChevronRight } from 'lucide-react'
+import { LayoutTemplate, FolderTree, Tag, ListTree } from 'lucide-react'
 import { useInputContextMenu } from '@/lib/use-input-context-menu'
 import { useProjectMeta } from '@/features/project'
 import { ImageUploader } from '@/components/shared/ImageUploader'
-import { FieldSettings } from '@/components/settings/FieldSettings'
-import { ICON_BTN } from '@/lib/ui-tokens'
+import { TemplatesPanel } from '@/components/settings/TemplatesPanel'
+import { CategoriesPanel } from '@/components/settings/CategoriesPanel'
+import { ComponentsPanel } from '@/components/settings/ComponentsPanel'
+import { TagsPanel } from '@/features/tags/components/TagsPanel'
+import type { SettingsSection } from '@/components/layout/SettingsTriggerContext'
+import { SettingsEntryRow } from '@/components/settings/EntryRow'
+import { SettingsSubPage } from '@/components/settings/SubPage'
 
-export function WorldTab({ open }: { open: boolean }) {
+type Panel = 'root' | SettingsSection
+
+/**
+ * 二级界面入口：图标 + 名称 + 箭头。
+ *
+ * 命名去掉了「自定义」前缀 —— 这四行的共同点是「世界怎么被组织起来」，
+ * `自定义` 只是其中两个的实现细节。带前缀和不带前缀混排，读起来像两个层级的东西。
+ * 图标只出现在**一级**的入口行上；进到二级页面以后标题就只是「返回 + 文字」，
+ * 同一个东西不在两级各标一次。
+ *
+ * 「主题」「关系图操作」不在这里：它们是外观 / 操作偏好，归**个性化**。
+ */
+const ENTRY_ITEMS: ReadonlyArray<{
+  panel: SettingsSection
+  label: string
+  icon: typeof ListTree
+}> = [
+  { panel: 'components', label: '组件', icon: ListTree },
+  { panel: 'templates', label: '模板', icon: LayoutTemplate },
+  { panel: 'categories', label: '分类', icon: FolderTree },
+  { panel: 'tags', label: '标签', icon: Tag },
+]
+
+export function WorldTab({
+  open,
+  section,
+  target,
+}: {
+  open: boolean
+  section?: SettingsSection
+  target?: string
+}) {
   const { meta, loading: metaLoading, save: saveMeta } = useProjectMeta()
   const worldNameRef = useInputContextMenu()
   const taglineRef = useInputContextMenu()
-  /** 二级界面：自定义表单字段（字段表太长，不铺在一级页面上） */
-  const [panel, setPanel] = useState<'root' | 'fields'>('root')
+  /** 二级界面：组件 / 模板 / 分类 / 标签（都太长，不铺在一级页面上） */
+  const [panel, setPanel] = useState<Panel>(section ?? 'root')
 
   const [worldName, setWorldName] = useState('')
   const [tagline, setTagline] = useState('')
@@ -31,88 +67,102 @@ export function WorldTab({ open }: { open: boolean }) {
     if (!open) touchedRef.current = false
   }, [open])
 
+  if (panel === 'categories') {
+    return (
+      <SettingsSubPage title="分类" onBack={() => setPanel('root')}>
+        <CategoriesPanel />
+      </SettingsSubPage>
+    )
+  }
+
+  if (panel === 'components') {
+    return (
+      <SettingsSubPage title="组件" onBack={() => setPanel('root')}>
+        <ComponentsPanel target={target} />
+      </SettingsSubPage>
+    )
+  }
+
+  if (panel === 'tags') {
+    return (
+      <SettingsSubPage title="标签" onBack={() => setPanel('root')}>
+        <TagsPanel />
+      </SettingsSubPage>
+    )
+  }
+
+  if (panel === 'templates') {
+    return (
+      <SettingsSubPage title="模板" onBack={() => setPanel('root')}>
+        <TemplatesPanel initialId={target} />
+      </SettingsSubPage>
+    )
+  }
+
   return (
-    <>
-      {panel === 'root' ? (
-        <div className="flex flex-col gap-5">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm text-ink">世界名称</label>
-            <input
-              ref={worldNameRef}
-              type="text"
-              value={worldName}
-              onChange={(e) => {
-                touchedRef.current = true
-                setWorldName(e.target.value)
-                void saveMeta({ worldName: e.target.value })
-              }}
-              placeholder="例：雾海纪元"
-              className="h-8 w-full border-b border-line bg-transparent text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
-            />
-          </div>
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm text-ink">世界名称</label>
+        <input
+          ref={worldNameRef}
+          type="text"
+          value={worldName}
+          onChange={(e) => {
+            touchedRef.current = true
+            setWorldName(e.target.value)
+            void saveMeta({ worldName: e.target.value })
+          }}
+          placeholder="例：雾海纪元"
+          className="h-8 w-full border-b border-line bg-transparent text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
+        />
+      </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm text-ink">简介</label>
-            <input
-              ref={taglineRef}
-              type="text"
-              value={tagline}
-              onChange={(e) => {
-                touchedRef.current = true
-                setTagline(e.target.value)
-                void saveMeta({ tagline: e.target.value })
-              }}
-              placeholder="例：被潮汐统治的群岛世界"
-              className="h-8 w-full border-b border-line bg-transparent text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
-            />
-          </div>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm text-ink">简介</label>
+        <input
+          ref={taglineRef}
+          type="text"
+          value={tagline}
+          onChange={(e) => {
+            touchedRef.current = true
+            setTagline(e.target.value)
+            void saveMeta({ tagline: e.target.value })
+          }}
+          placeholder="例：被潮汐统治的群岛世界"
+          className="h-8 w-full border-b border-line bg-transparent text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
+        />
+      </div>
 
-          <div className="flex flex-col items-center gap-1.5">
-            <span className="self-start text-sm text-ink">封面</span>
-            <ImageUploader
-              value={coverUrl}
-              onChange={(path) => {
-                touchedRef.current = true
-                setCoverUrl(path)
-                void saveMeta({ coverUrl: path })
-              }}
-              onRemove={() => {
-                touchedRef.current = true
-                setCoverUrl('')
-                void saveMeta({ coverUrl: '' })
-              }}
-              aspectRatio="3:2"
-              placeholderText="上传封面"
-              size="lg"
-            />
-          </div>
+      <div className="flex flex-col items-center gap-1.5">
+        <span className="self-start text-sm text-ink">封面</span>
+        <ImageUploader
+          value={coverUrl}
+          onChange={(path) => {
+            touchedRef.current = true
+            setCoverUrl(path)
+            void saveMeta({ coverUrl: path })
+          }}
+          onRemove={() => {
+            touchedRef.current = true
+            setCoverUrl('')
+            void saveMeta({ coverUrl: '' })
+          }}
+          aspectRatio="3:2"
+          placeholderText="上传封面"
+          size="lg"
+        />
+      </div>
 
-          {/* 二级界面入口：字段表本身太长，收进下一级 */}
-          <button
-            type="button"
-            onClick={() => setPanel('fields')}
-            className="flex items-center justify-between border-t border-line pt-4 text-sm text-ink transition-colors hover:bg-transparent hover:text-ink-muted"
-          >
-            <span>自定义表单字段</span>
-            <ChevronRight size={16} strokeWidth={2} className="text-ink-faint" />
-          </button>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setPanel('root')}
-              aria-label="返回"
-              className={ICON_BTN}
-            >
-              <ArrowLeft size={16} strokeWidth={2} />
-            </button>
-            <span className="text-sm text-ink">自定义表单字段</span>
-          </div>
-          <FieldSettings />
-        </div>
-      )}
-    </>
+      <div className="mt-2 flex flex-col border-t border-line">
+        {ENTRY_ITEMS.map((item) => (
+          <SettingsEntryRow
+            key={item.panel}
+            icon={item.icon}
+            label={item.label}
+            onClick={() => setPanel(item.panel)}
+          />
+        ))}
+      </div>
+    </div>
   )
 }

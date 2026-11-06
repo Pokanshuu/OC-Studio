@@ -2,11 +2,32 @@ import { db } from '@/lib/db'
 import { logOperation, pendingStamp } from '@/lib/sync'
 import { listActive, getById, softDelete } from '@/lib/repository'
 import { updateReferencesAfterRename, syncReferenceLabels } from '@/lib/reference-sync'
-import { purgeCountryReferences, syncCountryCharacters, syncCountryEvents } from '@/lib/membership'
-import type { Country } from '@/types'
+import { purgeCountryReferences, applyCountryCharacters, applyCountryEvents } from '@/lib/membership'
+import type { Character, Country, Event } from '@/types'
 import type { CountryFormData } from './types'
 
 const TABLE = 'countries'
+
+/**
+ * 国家页的「相关角色」= **查询结果**（阶段二·一）。
+ *
+ * 数据只有一份：角色的 `countryId`。`country.characters` 是历史遗留的两份列表里的
+ * 另一份，已经不读不写不删了（旧文件里还有，但没有任何界面路径依赖它）。
+ */
+export async function listCountryCharacters(countryId: number): Promise<Character[]> {
+  const rows = await db.characters
+    .filter((row) => !row.deleted && row.countryId === countryId)
+    .toArray()
+  return rows.sort((a, b) => a.name.localeCompare(b.name, 'zh'))
+}
+
+/** 国家页的「相关事件」= 查询结果（`event.countries` 里包含它） */
+export async function listCountryEvents(countryId: number): Promise<Event[]> {
+  const rows = await db.events
+    .filter((row) => !row.deleted && (row.countries ?? []).includes(countryId))
+    .toArray()
+  return rows.sort((a, b) => (a.time ?? '').localeCompare(b.time ?? '', 'zh'))
+}
 
 function buildDefaultCountry(data: CountryFormData, overrides: Partial<Country> = {}): Omit<Country, 'id'> {
   const now = Date.now()
@@ -17,8 +38,7 @@ function buildDefaultCountry(data: CountryFormData, overrides: Partial<Country> 
     system: data.system,
     geography: data.geography,
     culture: data.culture,
-    characters: data.characters ?? [],
-    events: data.events ?? [],
+    gallery: data.gallery,
     tags: data.tags ?? [],
     createdAt: now,
     updatedAt: now,
@@ -60,7 +80,7 @@ export async function updateCountry(id: number, data: Partial<CountryFormData>):
     ...pendingStamp(now),
   }
 
-  type FieldKey = keyof CountryFormData
+  type FieldKey = Extract<keyof CountryFormData, keyof Country>
   const fields: FieldKey[] = ['name', 'parentId', 'description', 'system', 'geography', 'culture', 'flagUrl', 'headerUrl']
 
   for (const field of fields) {
@@ -72,23 +92,20 @@ export async function updateCountry(id: number, data: Partial<CountryFormData>):
     }
   }
 
-  if (data.characters !== undefined) {
-    ;(updates as Record<string, unknown>).characters = data.characters
-    await logOperation(TABLE, id, 'characters', JSON.stringify(existing.characters), JSON.stringify(data.characters))
-  }
-  if (data.events !== undefined) {
-    ;(updates as Record<string, unknown>).events = data.events
-    await logOperation(TABLE, id, 'events', JSON.stringify(existing.events), JSON.stringify(data.events))
-  }
-
   if (data.tags !== undefined) {
     ;(updates as Record<string, unknown>).tags = data.tags
+    await logOperation(TABLE, id, 'tags', JSON.stringify(existing.tags ?? []), JSON.stringify(data.tags))
+  }
+
+  // 图集是对象数组：日志走 JSON，`String()` 会变成一串 [object Object]
+  if (data.gallery !== undefined) {
+    ;(updates as Record<string, unknown>).gallery = data.gallery
     await logOperation(
       TABLE,
       id,
-      'tags',
-      JSON.stringify(existing.tags ?? []),
-      JSON.stringify(data.tags),
+      'gallery',
+      JSON.stringify(existing.gallery ?? []),
+      JSON.stringify(data.gallery),
     )
   }
 
@@ -99,13 +116,15 @@ export async function updateCountry(id: number, data: Partial<CountryFormData>):
 
   await db.countries.update(id, updates)
 
-  // 国家侧的成员名单是镜像：相关角色 ⇄ 角色的国籍、相关事件 ⇄ 事件的相关国家。
-  // 不反向同步的话，从国家这边删掉一条，关系图上那条边还会因为国籍/事件侧而留着。
+  // 「相关角色 / 相关事件」不是这个行的列，是**实体侧的字段**（阶段二·一）：
+  // 国家编辑器的名单 → 写角色的国籍 / 事件的相关国家。不再有任何镜像要补。
   if (data.characters !== undefined) {
-    await syncCountryCharacters(id, existing.characters ?? [], data.characters, now)
+    const current = (await listCountryCharacters(id)).map((row) => row.id)
+    await applyCountryCharacters(id, current, data.characters, now)
   }
   if (data.events !== undefined) {
-    await syncCountryEvents(id, existing.events ?? [], data.events, now)
+    const current = (await listCountryEvents(id)).map((row) => row.id)
+    await applyCountryEvents(id, current, data.events, now)
   }
 
   if (data.name !== undefined) {

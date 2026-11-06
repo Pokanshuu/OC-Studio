@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useCallback } from 'react'
 import type { WorldEntry } from '@/types'
+import { isCodexEntry } from '@/lib/entry-kinds'
 import type { WorldFormData } from '../types'
 import * as service from '../services'
 import { DATA_UPDATED_EVENT } from '@/lib/data-events'
@@ -43,6 +44,31 @@ export function useEntryList(): {
     error: error instanceof Error ? error.message : null,
     refresh,
   }
+}
+
+/**
+ * 全部笔记（**不**按分类过滤）：给角色「相关笔记」提供候选与当前标题。
+ * 与 `useEntryList` 分开：那个列表是世界观目录，会把已启用分类的条目摘掉。
+ */
+export function useAllEntryList(): {
+  entries: WorldEntry[]
+  loading: boolean
+} {
+  const { data, isLoading } = useQuery({
+    queryKey: [...LIST_KEY, 'all'],
+    queryFn: () => service.getAllEntries(),
+    staleTime: 30_000,
+  })
+  return { entries: data ?? [], loading: isLoading }
+}
+
+/** 只看设定类笔记（角色相关笔记的候选）：小说 / 地图不进关系块 */
+export function useCodexEntryList(): {
+  entries: WorldEntry[]
+  loading: boolean
+} {
+  const all = useAllEntryList()
+  return { entries: all.entries.filter(isCodexEntry), loading: all.loading }
 }
 
 export function useEntry(id: number | null): {

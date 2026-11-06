@@ -1,5 +1,3 @@
-export type CharacterKind = 'character' | 'weapon' | 'pet'
-
 export interface RelatedCharacter {
   characterId?: number
   name: string
@@ -53,10 +51,16 @@ export interface Character {
   animationUrl?: string
   /** 角色文件夹名（空 / 缺省 = 未分组）；删文件夹不删角色 */
   folder?: string
-  /** 类别：角色 / 武器 / 宠物（缺省 = 角色） */
-  kind?: CharacterKind
   document?: unknown
   relatedCharacters: RelatedCharacter[]
+  /**
+   * 角色的「相关笔记」：目标只能是 `WorldEntry`。
+   *
+   * 与 `relatedCharacters` 分开存，因为盘上要解析的目标类型不同；
+   * 形状与笔记自己的 `relations` 一致（`{ name, relation, color?, arrow? }`）。
+   * 同一篇笔记在笔记侧显示为只读的「来自该角色」。
+   */
+  relatedNotes?: WorldRelation[]
   gallery: GalleryImage[]
   avatars: AvatarImage[]
   tags: number[]
@@ -66,6 +70,8 @@ export interface Character {
   order?: number
   /** 关系图里的坐标（用户拖过才有；落盘到 frontmatter 的 `graph_position`） */
   graphPosition?: GraphPosition
+  /** 旧版武器 / 宠物标记（`kind` / `类别`）；只用于一次性导入，导入后清掉 */
+  legacyKind?: string
   createdAt: number
   /** 自定义字段的值（键 = 字段表里的 key；内置字段仍然走各自的列） */
   custom?: Record<string, string>
@@ -138,8 +144,16 @@ export interface Country {
   culture: string
   flagUrl?: string
   headerUrl?: string
-  characters: number[]
-  events: number[]
+  /** 图集（模板「画廊」组件；落盘键 gallery） */
+  gallery?: GalleryImage[]
+  /**
+   * 阶段二·一收尾：国家侧的成员名单 `characters` / `events` **已从类型里摘掉**。
+   *
+   * 以前成员关系存两份，国家侧这份是镜像；现在唯一真源是 `Character.countryId` /
+   * `Event.countries`，国家页的名单是查询结果（`features/countries/services.ts#listCountryCharacters`
+   * / `listCountryEvents`）。盘上遗留的 `国家成员:` / `相关角色:` 键**不读、不写、不删**，
+   * 只是不再有字段接住它们 —— 留着字段就会有人再去读它。
+   */
   tags: number[]
   /** 手动排序位置（升序；缺省 = 排在已有项之后） */
   order?: number
@@ -158,6 +172,24 @@ export interface Country {
   _lastModified: number
 }
 
+/**
+ * 笔记之间的关系边。
+ *
+ * 与 `RelatedCharacter` / `EventRelation` 同形：只存**发起方**这一侧，
+ * 对方在关系块里显示为只读的「来自」。`targetId` 在盘上没有 id，靠 `name` 解析；
+ * `name` 同时是目标改名后解析不到时的显示兜底（序列化会按 `targetId` 重写成当前标题）。
+ */
+export interface WorldRelation {
+  targetId?: number
+  /** 目标标题（落盘键 `name`；改名后由序列化按 targetId 重写） */
+  name: string
+  relation: string
+  /** 连线颜色（色板名，见 lib/relation-colors.ts）；空 = 中性线色 */
+  color?: string
+  /** 箭头方向；空 = 无箭头 */
+  arrow?: 'none' | 'forward' | 'reverse' | 'both'
+}
+
 export interface WorldEntry {
   id: number
   title: string
@@ -165,16 +197,35 @@ export interface WorldEntry {
   aliases?: string[]
   content: string
   document?: unknown
+  /** 分类条目的封面（3:2 槽位，落盘键 cover）；普通词条一般不设 */
+  cover?: string
+  /** 头像（1:1 槽位，落盘键 avatar）；模板「头像」组件写这里 */
+  avatar?: string
+  /** 单张图片（落盘键 image）；模板「图片」组件写这里 */
+  image?: string
+  /** 图集（落盘键 gallery）；模板「画廊」组件写这里 */
+  gallery?: GalleryImage[]
+  /** 开始时间 / 结束时间（落盘键 time / endTime）；模板「时间」组件写这里 */
+  time?: string
+  endTime?: string
+  /** 地点（落盘键 location）；模板「地点」组件写这里 */
+  location?: string
+  /** 一行简介（分类条目的副标题 / 列表摘要；落盘键 简介） */
+  summary?: string
   /**
    * 历史字段（已废弃）：层级只由 `parentId` 表达，界面不再编辑、新条目一律空。
    * 保留是为了读得懂老数据和已有 vault 文件里的 `分类:` 键 —— 写回时也不再动它。
    */
   category: string
+  /** 单篇覆盖的模板名（空 = 跟随分类 / 内置词条模板；落盘键 模板） */
+  template?: string
   parentId: number | null
   order: number
   isConcept: boolean
   /** 地图锚点：归一化 0–1（docs/地图.md §2）；没摆过就没有这个键 */
   mapPosition?: GraphPosition
+  /** 关系图坐标：分类条目进图后拖动才有的键；没摆过就交给力导向布局 */
+  graphPosition?: GraphPosition
   /** 所属地图（`.ocstudio/maps/` 的文件名）；空 = 主地图 */
   mapId?: string
   /** 小说根节点：作者 / 简介 / 目标字数 / 作品笔记（其它词条不会有） */
@@ -191,8 +242,20 @@ export interface WorldEntry {
   /** 生成用的种子与参数快照（JSON 字符串） */
   mapSeed?: number
   mapParams?: string
+  /** 当前显示的视图（`terrain` / `contour` / …）。只有生成过的地图才有 */
+  mapMode?: string
+  /** 政治标注（国界 / 道路）：JSON 字符串，坐标归一化 0–1（`features/map/annotations.ts`） */
+  mapAnnotations?: string
   /** 章节：大纲 / 备注（一行说明，不是正文） */
   chapterOutline?: string
+  /**
+   * 手写的命名关系（目标只能是另一篇笔记）。
+   *
+   * 与 `parentId`（层级）和正文 `[[ ]]` / `@`（提及）**分开存**：
+   * 层级只能有一个父级、正文是文字；只有「叫得出名字的关系」需要自己的格子。
+   * 关系块把三类事实合在一起显示，同一目标已有命名边时不再重复显示「引用」。
+   */
+  relations: WorldRelation[]
   references: WorldReference[]
   tags: number[]
   /** 自定义字段的值（键 = 字段表里的 key；内置字段仍然走各自的列） */

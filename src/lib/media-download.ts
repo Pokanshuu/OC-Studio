@@ -17,7 +17,7 @@
  * 只有「用户在保存对话框里按了取消」才返回 null —— 那不是失败，调用方不该提示。
  */
 import { invoke } from '@tauri-apps/api/core'
-import { isCapacitor, isTauri } from '@/lib/env'
+import { isNativePlatform, isTauri } from '@/lib/env'
 import { getVaultImageContext } from '@/lib/image-service'
 import { vaultFs, isVaultSupported } from '@/lib/vault/vault-fs'
 import { getVaultSession } from '@/lib/vault/vault-session'
@@ -40,6 +40,8 @@ const MIME_BY_EXT: Record<string, string> = {
 }
 
 function fileNameOf(path: string, fallback: string): string {
+  // data: / blob: 里没有可用的文件名（data URL 的 base64 甚至会被当成分段）
+  if (/^(data:|blob:)/i.test(path)) return fallback
   const clean = path.split(/[?#]/)[0]
   const name = clean.split(/[\\/]/).pop() ?? ''
   return name.length > 0 ? name : fallback
@@ -88,7 +90,7 @@ async function readBytes(path: string): Promise<Uint8Array> {
   }
 
   // Capacitor：上传落的是 `file://` 绝对路径，走 WebView 的本地文件代理才读得到
-  if (isCapacitor() && path.startsWith('file://')) {
+  if (isNativePlatform() && path.startsWith('file://')) {
     const { Capacitor } = await import('@capacitor/core')
     return fetchBytes(Capacitor.convertFileSrc(path))
   }
@@ -178,6 +180,18 @@ function saveInBrowser(bytes: Uint8Array, name: string): string {
 }
 
 /**
+ * 把一段字节保存到用户选的位置（图片导出等「不是库里现成文件」的场景）。
+ * 三环境分支与 `downloadMediaFile` 完全一致：Tauri 系统对话框 + `save_bytes`，
+ * Capacitor 写 Documents，浏览器 `<a download>`。用户取消返回 null。
+ */
+export async function saveBytesFile(bytes: Uint8Array, name: string): Promise<string | null> {
+  if (bytes.length === 0) throw new Error('没有可保存的内容')
+  if (isTauri()) return saveWithDialog(bytes, name)
+  if (isNativePlatform()) return saveToDocuments(bytes, name)
+  return saveInBrowser(bytes, name)
+}
+
+/**
  * 让用户选位置并保存一张图片 / 一段动画。
  * 返回保存位置；**用户取消返回 null**；其它失败一律抛错。
  */
@@ -187,8 +201,5 @@ export async function downloadMediaFile(path: string, fallbackName = 'media'): P
 
   // 先读字节再弹对话框：读不到就别让用户白选一次路径
   const bytes = await readBytes(path)
-
-  if (isTauri()) return saveWithDialog(bytes, name)
-  if (isCapacitor()) return saveToDocuments(bytes, name)
-  return saveInBrowser(bytes, name)
+  return saveBytesFile(bytes, name)
 }

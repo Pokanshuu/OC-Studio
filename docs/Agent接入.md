@@ -69,6 +69,8 @@ Agent 和插件**都不许直接写文件**，必须经过 Dexie 中间件 → �
 
 每次授权都要能单独撤销；agent 的操作在 journal 里可筛。
 
+> **2026-11-05 实装（助手侧）**：读库由插件权限 `read-entities` 控制，默认关。没开时 `library_*` **不进本轮请求**（模型看不到就不会去调），执行器再加一道兜底（`host/library-tools.ts#libraryAccessGranted`）；条目页的「和助手聊聊」也只在授权后出现。写入仍是 `requiresApproval: true`（每次点同意），且都包在 `runAsActorAsync('agent:assistant')` 里。
+
 ---
 
 ## 3. 图鉴切片（agent 最需要的东西）
@@ -85,6 +87,14 @@ Agent 和你讨论一个角色时，要的不只是他的字段，而是一份**
 ```
 
 这份装配逻辑现在散在导出器、静态站、相册里。**做一次，三处受益**——它同时就是导出角色卡、生成静态站页面、喂给 agent 的同一份东西。
+
+> **2026-11-05 已落 A1 + A2 的内存版**：
+> - `src/lib/capabilities/types.ts`：`Caller { actor, permissions }`、`CapabilityStore`、`CodexEntry`
+> - `src/lib/capabilities/index.ts`：`createCapabilities(store)` 提供 `listEntities` / `getEntity` / `search` / `graphSlice` / `buildCodexSlice`
+> - `src/lib/capabilities/dexie-store.ts`：Dexie 适配器（软删除不返回）
+> - `scripts/capabilities-check.ts`：19 项断言（权限入口 / 列表 / 读取 / 搜索 / 关系切片 / markdown 装配）
+>
+> **v1 的边界**：只读；`search` 只搜标题 / 别名 / 标签名，不扫正文；`graphSlice` 只连实体关系与相关事件（1–2 跳）；正文是**纯文本**，还没接 markdown 桥；还没有 MCP / REST 传输层。A2 的「导出卡 / 静态站复用」也还没接，先保住这一份装配是唯一实现。
 
 ---
 
@@ -130,6 +140,8 @@ Agent 和你讨论一个角色时，要的不只是他的字段，而是一份**
 
 - **自己的 agent**：开箱即用，体验最顺（选中角色 → "聊聊他"）
 - **外部 agent（MCP）**：用户带自己的模型和习惯来
+
+> **2026-11-05 已接「聊聊他」**：角色 / 事件 / 国家 / 词条编辑器页头一个按钮 —— 先保存当前条目，再把 `{ kind, id, title }` 放进 `lib/plugins/agent-bridge.ts` 的一次性槽，切到助手页后开新会话、预填「先用 `library_read` 读一遍」的提示词。**不自动发送**：花 token 的动作由用户按。切片不在这里塞 —— 助手自己读才是唯一真源。
 
 **复用**：本项目作者此前开发过一个安卓原生 AI 对话应用，已经预留 agent 能力，可以搬过来做对话壳与 skill 调度——省掉"从零做聊天界面"那段。
 

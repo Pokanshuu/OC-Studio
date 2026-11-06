@@ -2,12 +2,13 @@
 
 import { useSettingsTrigger } from '@/components/layout/SettingsTriggerContext'
 import { useProjectMeta } from '@/features/project'
+import { InspirationQuickNote } from '@/features/inspirations'
 import { MenuBarSearch } from './MenuBarSearch'
 import { MenuBarMenus } from './MenuBarMenus'
 import { WindowControls } from './WindowControls'
 
 /**
- * 顶栏外壳：品牌按钮 + 菜单（`MenuBarMenus`）+ 搜索（`MenuBarSearch`）+ 窗口控制（`WindowControls`）。
+ * 顶栏外壳：品牌按钮 + 菜单（`MenuBarMenus`）+ 搜索（`MenuBarSearch`）+ 灵感便签 + 窗口控制。
  */
 export function MenuBar() {
   const { openSettings } = useSettingsTrigger()
@@ -33,7 +34,10 @@ export function MenuBar() {
 
       <MenuBarSearch />
 
-      <WindowControls />
+      <div className="flex items-center gap-1">
+        <InspirationQuickNote />
+        <WindowControls />
+      </div>
     </nav>
   )
 }

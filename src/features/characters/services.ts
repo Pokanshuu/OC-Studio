@@ -2,7 +2,7 @@ import { db } from '@/lib/db'
 import { logOperation, pendingStamp } from '@/lib/sync'
 import { listActive, getById, softDelete } from '@/lib/repository'
 import { updateReferencesAfterRename, syncReferenceLabels } from '@/lib/reference-sync'
-import { purgeCharacterReferences, syncCharacterCountry } from '@/lib/membership'
+import { purgeCharacterReferences } from '@/lib/membership'
 import type { Character } from '@/types'
 import type { CharacterFormData } from './types'
 
@@ -28,11 +28,11 @@ function buildDefaultCharacter(
     bio: data.bio,
     lifeStory: data.lifeStory,
     relatedCharacters: data.relatedCharacters,
+    relatedNotes: data.relatedNotes ?? [],
     gallery: data.gallery,
     avatars: data.avatars,
     tags: data.tags ?? [],
     isMajor: data.isMajor ?? false,
-    kind: data.kind ?? 'character',
     custom: data.custom ?? {},
     createdAt: now,
     updatedAt: now,
@@ -91,7 +91,6 @@ export async function updateCharacter(
     'bio',
     'lifeStory',
     'isMajor',
-    'kind',
   ]
 
   for (const field of fields) {
@@ -122,6 +121,17 @@ export async function updateCharacter(
       'relatedCharacters',
       JSON.stringify(existing.relatedCharacters),
       JSON.stringify(data.relatedCharacters),
+    )
+  }
+
+  if (data.relatedNotes !== undefined) {
+    ;(updates as Record<string, unknown>).relatedNotes = data.relatedNotes
+    await logOperation(
+      TABLE,
+      id,
+      'relatedNotes',
+      JSON.stringify(existing.relatedNotes ?? []),
+      JSON.stringify(data.relatedNotes),
     )
   }
 
@@ -176,14 +186,7 @@ export async function updateCharacter(
 
   await db.characters.update(id, updates)
 
-  // 国籍变了 → 国家侧的「相关角色」跟着增删（成员关系两边都写，与关系图拖拽同一口径）
-  if (data.countryId !== undefined) {
-    const previousCountryId = existing.countryId ?? null
-    const nextCountryId = data.countryId ?? null
-    if (previousCountryId !== nextCountryId) {
-      await syncCharacterCountry(id, previousCountryId, nextCountryId, now)
-    }
-  }
+  // 国籍是**唯一真源**（阶段二·一）：国家页的「相关角色」是查询出来的，没有镜像要补
 
   if (data.name !== undefined) {
     updateReferencesAfterRename('character', id, data.name).catch(() => {})
@@ -193,6 +196,26 @@ export async function updateCharacter(
 export async function deleteCharacter(id: number): Promise<void> {
   await softDelete(db.characters, id, TABLE)
   await purgeCharacterReferences(id, Date.now())
+}
+
+/**
+ * 表格里的「所属国家」下拉：`null` = 清空国籍。
+ *
+ * 不能走 `updateCharacter({ countryId: undefined })` —— `undefined` 在那里表示
+ * 「这个字段没改」，于是「选回未归属」永远不会落库。落库形态与 `lib/membership.ts`
+ * 一致：没有国籍就是 `null`（角色表单清空国籍时写的也是它）。
+ */
+export async function assignCharacterCountry(id: number, countryId: number | null): Promise<void> {
+  const existing = await db.characters.get(id)
+  if (!existing) throw new Error(`Character not found: ${id}`)
+  if ((existing.countryId ?? null) === countryId) return
+  const now = Date.now()
+  await db.characters.update(id, {
+    countryId,
+    updatedAt: now,
+    ...pendingStamp(now),
+  } as unknown as Partial<Character>)
+  await logOperation(TABLE, id, 'countryId', String(existing.countryId ?? ''), String(countryId ?? ''))
 }
 
 /**

@@ -1,0 +1,482 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Markdown 渲染 — 同样遵循寂静工作台：暖灰、极小圆角、零阴影、线只用于分块
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.md {
+  font-size: calc(15px * var(--font-scale));
+  line-height: 1.75;
+  color: var(--oc-ink);
+  /*
+   * 断行规则：
+   * - `word-break: normal` + `overflow-wrap: break-word` 只在单个超长词放不下时才断；
+   * - `overflow-wrap: anywhere`（曾经的写法）等于「任何位置都可以断」，于是 `、`、`，`
+   *   这类标点会被甩到行首，行首禁则直接失效；
+   * - `line-break: strict` 让浏览器按更严格的 CJK 断行规则走，避免标点落在行首。
+   */
+  word-break: normal;
+  overflow-wrap: break-word;
+  line-break: strict;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+/* 中文两端对齐，西文左对齐 */
+[data-lang='zh'] .md {
+  text-align: justify;
+  text-justify: inter-ideograph;
+}
+
+.md-block {
+  display: block;
+}
+
+.md-block > :first-child {
+  margin-top: 0;
+}
+
+.md-block > :last-child {
+  margin-bottom: 0;
+}
+
+.md p {
+  margin: 0 0 0.55em;
+}
+
+.md-block p:last-child {
+  margin-bottom: 0;
+}
+
+.md h1,
+.md h2,
+.md h3,
+.md h4,
+.md h5,
+.md h6 {
+  margin: 1.1em 0 0.45em;
+  font-family: var(--font-serif);
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+  color: var(--oc-ink);
+}
+
+.md-block > h1:first-child,
+.md-block > h2:first-child,
+.md-block > h3:first-child,
+.md-block > h4:first-child {
+  margin-top: 0.1em;
+}
+
+.md h1 { font-size: 1.5em; }
+.md h2 { font-size: 1.28em; }
+.md h3 { font-size: 1.14em; }
+.md h4 { font-size: 1.02em; }
+.md h5,
+.md h6 {
+  font-size: 0.96em;
+  color: var(--oc-ink-muted);
+}
+
+.md ul,
+.md ol {
+  margin: 0 0 0.55em;
+  padding-left: 1.4em;
+}
+
+.md li {
+  margin: 0.16em 0;
+}
+
+.md li > p {
+  margin: 0.2em 0;
+}
+
+.md li::marker {
+  color: var(--oc-ink-faint);
+}
+
+.md ul ul,
+.md ol ol,
+.md ul ol,
+.md ol ul {
+  margin: 0.2em 0;
+}
+
+.md blockquote {
+  margin: 0.35em 0;
+  padding: 0.05em 0 0.05em 0.9em;
+  border-left: 2px solid var(--oc-line-hover);
+  color: var(--oc-ink-muted);
+}
+
+.md blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+.md hr {
+  border: none;
+  border-top: 1px solid var(--oc-line);
+  margin: 1em 0;
+}
+
+.md a {
+  color: var(--oc-ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--oc-line-hover);
+}
+
+.md a:hover {
+  text-decoration-color: var(--oc-ink-muted);
+}
+
+.md strong {
+  font-weight: 600;
+}
+
+.md code {
+  /* 代码片段里是路径和 URL，必须允许任意位置断开 */
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  padding: 0.1em 0.34em;
+  border-radius: var(--r-item);
+  background: var(--oc-paper-card);
+  word-break: break-word;
+}
+
+.md pre code {
+  padding: 0;
+  background: none;
+  font-size: inherit;
+}
+
+.md img {
+  max-width: 100%;
+  border-radius: var(--r-item);
+}
+
+/* 表格：线只出现在行与行之间 */
+.md-table-wrap {
+  overflow-x: auto;
+  margin: 0.4em 0;
+  border: 1px solid var(--oc-line);
+  border-radius: var(--r-item);
+  max-width: 100%;
+}
+
+.md table {
+  border-collapse: collapse;
+  width: max-content;
+  min-width: 100%;
+  font-size: 0.94em;
+}
+
+.md th,
+.md td {
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--oc-line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.md th {
+  background: var(--oc-paper-alt);
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--oc-ink);
+}
+
+.md tr:last-child td {
+  border-bottom: none;
+}
+
+/* 任务清单：复选框 16px 方块，选中实心 + 纸色勾 */
+.md li:has(.task-check) {
+  list-style: none;
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin-left: -1.1em;
+}
+
+.md li:has(.task-check) > p {
+  margin: 0;
+  min-width: 0;
+}
+
+.md li .task-check {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 15px;
+  width: 15px;
+  height: 15px;
+  margin-top: 4px;
+  border-radius: var(--r-item);
+  border: 1px solid var(--oc-line-hover);
+  background: transparent;
+  font-size: 9px;
+  line-height: 1;
+  color: var(--oc-paper);
+}
+
+.md .task-check.checked {
+  background: var(--oc-ink-muted);
+  border-color: var(--oc-ink-muted);
+}
+
+/* ── 代码块 ───────────────────────────────────────────────────────────── */
+
+.code-block {
+  margin: 0.4em 0;
+  border: 1px solid var(--oc-line);
+  border-radius: var(--r-item);
+  background: var(--oc-paper-card);
+  overflow: hidden;
+}
+
+.code-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 4px 3px 10px;
+  min-height: 26px;
+}
+
+.code-lang {
+  font-family: var(--font-mono);
+  font-size: calc(11px * var(--font-scale));
+  color: var(--oc-ink-muted);
+}
+
+.code-meta {
+  font-size: calc(11px * var(--font-scale));
+  color: var(--oc-ink-faint);
+  font-variant-numeric: tabular-nums;
+  flex: 1;
+}
+
+.code-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--r-item);
+  font-size: calc(11px * var(--font-scale));
+  color: var(--oc-ink-faint);
+  transition: background var(--dur-fast) var(--ease-quiet),
+    color var(--dur-fast) var(--ease-quiet);
+}
+
+.code-copy:hover {
+  background: var(--oc-hover);
+  color: var(--oc-ink-muted);
+}
+
+.code-copy.copied {
+  color: var(--oc-ink-muted);
+}
+
+.code-body {
+  display: flex;
+  align-items: stretch;
+  overflow: auto;
+  max-height: 460px;
+  position: relative;
+  overscroll-behavior: contain;
+}
+
+.code-block.collapsed .code-body {
+  max-height: 300px;
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, rgb(0 0 0) 74%, transparent 100%);
+}
+
+.code-gutter {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  flex: 0 0 auto;
+  /* ⚠️ `pre` is load-bearing：gutter 是一个含 \n 的文本节点 */
+  white-space: pre;
+  padding: 6px 8px 8px 10px;
+  text-align: right;
+  user-select: none;
+  font-family: var(--font-mono);
+  font-size: calc(11.5px * var(--font-scale));
+  line-height: 1.62;
+  color: var(--oc-ink-faint);
+  background: var(--oc-paper-card);
+  border-right: 1px solid var(--oc-line);
+  font-variant-numeric: tabular-nums;
+}
+
+.code-pre {
+  margin: 0;
+  padding: 6px 12px 8px;
+  font-family: var(--font-mono);
+  font-size: calc(12.2px * var(--font-scale));
+  line-height: 1.62;
+  color: var(--oc-ink);
+  white-space: pre;
+  tab-size: 2;
+  flex: 1 0 auto;
+}
+
+.code-expand {
+  display: block;
+  width: 100%;
+  padding: 5px;
+  text-align: center;
+  font-size: calc(11px * var(--font-scale));
+  color: var(--oc-ink-faint);
+  border-top: 1px solid var(--oc-line);
+  transition: background var(--dur-fast) var(--ease-quiet),
+    color var(--dur-fast) var(--ease-quiet);
+}
+
+.code-expand:hover {
+  background: var(--oc-hover);
+  color: var(--oc-ink-muted);
+}
+
+/* ── 语法高亮（highlight.js 类名） ────────────────────────────────────── */
+
+[data-theme='light'] {
+  --hl-keyword: #7a4b8f;
+  --hl-string: #4a6b4f;
+  --hl-number: #8a6136;
+  --hl-comment: #a5a098;
+  --hl-func: #3f5a7a;
+  --hl-type: #3d6b6b;
+  --hl-attr: #8a5560;
+  --hl-meta: #6e6a63;
+}
+
+[data-theme='dark'] {
+  --hl-keyword: #c3a6d4;
+  --hl-string: #a6c9a9;
+  --hl-number: #d8b98a;
+  --hl-comment: #6e6a63;
+  --hl-func: #a8bfd6;
+  --hl-type: #93c4c4;
+  --hl-attr: #d4a3ad;
+  --hl-meta: #a5a098;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-doctag {
+  color: var(--hl-keyword);
+}
+
+.hljs-string,
+.hljs-regexp,
+.hljs-addition,
+.hljs-template-variable {
+  color: var(--hl-string);
+}
+
+.hljs-number,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-link {
+  color: var(--hl-number);
+}
+
+.hljs-comment,
+.hljs-quote {
+  color: var(--hl-comment);
+  font-style: italic;
+}
+
+.hljs-title,
+.hljs-title.function_,
+.hljs-section,
+.hljs-selector-id {
+  color: var(--hl-func);
+}
+
+.hljs-type,
+.hljs-class .hljs-title,
+.hljs-title.class_,
+.hljs-built_in,
+.hljs-selector-class {
+  color: var(--hl-type);
+}
+
+.hljs-attr,
+.hljs-attribute,
+.hljs-variable,
+.hljs-property,
+.hljs-selector-attr {
+  color: var(--hl-attr);
+}
+
+.hljs-meta,
+.hljs-meta .hljs-keyword,
+.hljs-tag,
+.hljs-punctuation {
+  color: var(--hl-meta);
+}
+
+.hljs-name,
+.hljs-tag .hljs-name {
+  color: var(--hl-keyword);
+}
+
+.hljs-params,
+.hljs-subst {
+  color: var(--oc-ink);
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-strong {
+  font-weight: 600;
+}
+
+.hljs-deletion {
+  color: var(--oc-error);
+}
+
+/* ── 提示块 ───────────────────────────────────────────────────────────── */
+
+.md .alert {
+  border-left: 2px solid var(--oc-ink-faint);
+  padding: 6px 0 6px 10px;
+  margin: 0.4em 0;
+  background: transparent;
+}
+
+.md .alert::before {
+  content: attr(data-alert);
+  display: block;
+  font-size: calc(11px * var(--font-scale));
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--oc-ink-faint);
+  margin-bottom: 2px;
+}
+
+.md .alert[data-alert='WARNING'] {
+  border-left-color: var(--oc-warning);
+}
+
+.md .alert[data-alert='WARNING']::before {
+  color: var(--oc-warning);
+}
+
+.md .alert[data-alert='CAUTION'] {
+  border-left-color: var(--oc-error);
+}
+
+.md .alert[data-alert='CAUTION']::before {
+  color: var(--oc-error);
+}

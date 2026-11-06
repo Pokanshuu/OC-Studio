@@ -5,9 +5,13 @@
  *
  * 交互口径：
  * - 单击锚点 = 打开实体；桌面拖动锚点 = 改位置（松手才写回）
- * - 右键 / 长按锚点 = 菜单（打开 / 移除锚点）
- * - 空白拖动平移、滚轮以光标为中心缩放、双指捏合、右下角复位
+ * - 右键 / 长按锚点 = 菜单（查看态只给「打开」，删除只在编辑态出现）
+ * - 空白拖动平移、滚轮以光标为中心缩放、双指捏合
  * - 移动端锚点不拖动（`docs/地图.md` §4），只导航
+ *
+ * **画布上不放控件**：缩放、加锚点、标注都在 `MapView` 的四角浮层里。
+ * 这里只剩「图 + 点 + 右键」，空态也一样 —— 没有底图时给一张居中的小卡（生成 / 导入）,
+ * 它是**一次性入口**，不是常驻工具。
  *
  * 锚点坐标始终是归一化 0–1；缩放只作用于 stage，写回时用 stage 的
  * `getBoundingClientRect()` 反算，所以放大后拖动仍然准。
@@ -20,16 +24,24 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react'
-import { ExternalLink, MapPinOff, Minus, Plus, RotateCcw } from 'lucide-react'
+import { ExternalLink, Layers, MapPin, MapPinOff, Upload, Wand2 } from 'lucide-react'
 import { MediaContextMenu } from '@/components/shared/MediaContextMenu'
 import { ListEmptyState } from '@/components/shared/ListEmptyState'
+import { BTN_PRIMARY, BTN_QUIET, ROUND_ITEM, PANEL } from '@/lib/ui-tokens'
 import { triggerHaptic } from '@/lib/haptics'
 import { resolveImageUrl } from '@/lib/image-service'
-import { ICON_BTN_MD, ROUND_CONTROL, ROUND_ITEM } from '@/lib/ui-tokens'
 import { useDevice } from '@/lib/use-device'
 import { MAP_LAYER_LABELS, type MapAnchor } from '../types'
 import type { AnchorPoint, MapEntity } from '../services'
-import { useMapViewport } from '../hooks/useMapViewport'
+import type { AnnotationKind, AnnotationPoint, MapAnnotation } from '../annotations'
+import { AnnotationLayer } from './AnnotationLayer'
+import type { MapViewport } from '../hooks/useMapViewport'
+
+/** 正在画的那条线（点还在增加） */
+export interface AnnotationDraft {
+  kind: AnnotationKind
+  points: AnnotationPoint[]
+}
 
 const LONG_PRESS_MS = 320
 const LONG_PRESS_MOVE = 8
@@ -55,19 +67,32 @@ interface MenuState {
 
 export interface MapCanvasProps {
   map: MapEntity
+  /** 缩放 / 平移状态：由宿主持有，浮层里的缩放条才能和画布共用同一个视口 */
+  viewport: MapViewport
   /** 当前地图 + 当前图层下要显示的锚点 */
   points: readonly AnchorPoint[]
-  /** 当前地图上的锚点总数（不受图层开关影响） */
-  totalOnMap: number
   /** 三层全部关掉 */
   allLayersOff: boolean
   onMoveAnchor: (point: AnchorPoint, anchor: MapAnchor) => void
   onCommitAnchor: (point: AnchorPoint, anchor: MapAnchor) => void
   onRemoveAnchor: (point: AnchorPoint) => void
   onOpenAnchor: (point: AnchorPoint) => void
-  onAddAnchor: () => void
   onEnableAllLayers: () => void
   onPickBackground: () => void
+  /** 没有底图时，空态里的第二个出口 */
+  onGenerate: () => void
+  /** 查看模式：只读（锚点不可拖、右键不给删除），点锚点=跳实体 */
+  readOnly?: boolean
+  /** 铺满整块内容区（整屏画布）：去掉边框与圆角 */
+  bleed?: boolean
+  /** 政治标注（国界 / 道路） */
+  annotations?: readonly MapAnnotation[]
+  /** 正在画的那条线 */
+  draft?: AnnotationDraft | null
+  /** 画线时点一下（归一化坐标） */
+  onDraftPoint?: (anchor: MapAnchor) => void
+  /** 空白处右键：由宿主决定开什么菜单（画国界 / 画道路 / 删除标注） */
+  onCanvasContextMenu?: (anchor: MapAnchor, at: { x: number; y: number }) => void
 }
 
 function anchorKey(point: AnchorPoint): string {
@@ -80,18 +105,26 @@ function clamp01(value: number): number {
 
 export function MapCanvas({
   map,
+  viewport,
   points,
-  totalOnMap,
   allLayersOff,
   onMoveAnchor,
   onCommitAnchor,
   onRemoveAnchor,
   onOpenAnchor,
-  onAddAnchor,
   onEnableAllLayers,
   onPickBackground,
+  onGenerate,
+  readOnly = false,
+  bleed = false,
+  annotations = [],
+  draft = null,
+  onDraftPoint,
+  onCanvasContextMenu,
 }: MapCanvasProps) {
   const { isMobile } = useDevice()
+  /** 移动端与「查看模式」都只读：能缩放 / 平移，不改数据 */
+  const locked = isMobile || readOnly
   const {
     viewportRef,
     stageWidth,
@@ -99,16 +132,16 @@ export function MapCanvas({
     scale,
     transform: stageTransform,
     panning,
-    reset,
-    zoomIn,
-    zoomOut,
     viewportProps,
-  } = useMapViewport(map.width && map.height ? map.width / map.height : 16 / 9, map.id)
+  } = viewport
   const stageRef = useRef<HTMLDivElement | null>(null)
   const pressRef = useRef<AnchorPress | null>(null)
   const suppressClickRef = useRef<string | null>(null)
   const [dragKey, setDragKey] = useState<string | null>(null)
   const [menu, setMenu] = useState<MenuState | null>(null)
+  /** 底图加载失败（文件被移走 / 浏览器里存的 blob: 已过期）时退回空态，别留一个破图图标 */
+  const [failedImage, setFailedImage] = useState<string | null>(null)
+  const hasImage = Boolean(map.image) && failedImage !== map.image
 
   useEffect(() => {
     return () => {
@@ -154,7 +187,7 @@ export function MapCanvas({
     }
     event.currentTarget.setPointerCapture(event.pointerId)
 
-    if (isMobile) {
+    if (locked) {
       press.timer = window.setTimeout(() => {
         const current = pressRef.current
         if (!current || current.key !== key) return
@@ -179,7 +212,7 @@ export function MapCanvas({
     const dy = event.clientY - press.startY
     const distance = Math.hypot(dx, dy)
 
-    if (isMobile) {
+    if (locked) {
       if (press.timer !== null && distance > LONG_PRESS_MOVE) {
         window.clearTimeout(press.timer)
         press.timer = null
@@ -205,7 +238,7 @@ export function MapCanvas({
       press.timer = null
     }
 
-    if (!isMobile && press.moved) {
+    if (!locked && press.moved) {
       const anchor =
         event.type === 'pointercancel'
           ? press.lastAnchor
@@ -245,39 +278,34 @@ export function MapCanvas({
     setMenu({ x, y, point })
   }
 
+  /** 空白处右键：坐标交给宿主，它来决定菜单（画国界 / 画道路 / 删除标注） */
+  const handleCanvasContextMenu = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (locked || !onCanvasContextMenu) return
+    event.preventDefault()
+    const anchor = pointFromClient(event.clientX, event.clientY)
+    if (!anchor) return
+    onCanvasContextMenu(anchor, { x: event.clientX, y: event.clientY })
+  }
+
+  /** 空态：有锚点或标注时不抢画面 */
   const empty = (() => {
     if (points.length > 0) return null
-    if (!map.image) {
-      return {
-        message: '还没有底图',
-        action: { label: '设置底图', onClick: onPickBackground },
-      }
-    }
-    if (allLayersOff) {
-      return {
-        message: '图层都关掉了',
-        action: { label: '全部打开', onClick: onEnableAllLayers },
-      }
-    }
-    if (totalOnMap === 0) {
-      return {
-        message: '还没有锚点',
-        action: { label: '添加锚点', onClick: onAddAnchor },
-      }
-    }
-    return {
-      message: '这些图层还没有锚点',
-      action: { label: '全部打开', onClick: onEnableAllLayers },
-    }
+    // 有标注（或正在画）时，中间那块空态会压在图形上；没有底图这件事交给这张卡
+    if (draft !== null || annotations.length > 0) return null
+    if (!hasImage) return 'no-image' as const
+    if (allLayersOff) return 'layers-off' as const
+    // 「还没有锚点」不进中间那块：加号在右下角，压在画布正中的提示会一直挡住地图
+    return null
   })()
 
   return (
     <div
       ref={viewportRef}
       {...viewportProps}
-      className={`relative h-full w-full touch-none overflow-hidden border border-line bg-paper ${ROUND_ITEM} ${
-        panning ? 'cursor-grabbing' : map.image ? 'cursor-grab' : ''
-      }`}
+      onContextMenu={handleCanvasContextMenu}
+      className={`relative h-full w-full touch-none overflow-hidden bg-paper ${
+        bleed ? '' : `border border-line ${ROUND_ITEM}`
+      } ${panning ? 'cursor-grabbing' : hasImage ? 'cursor-grab' : ''}`}
     >
       <div
         ref={stageRef}
@@ -288,13 +316,36 @@ export function MapCanvas({
           transform: stageTransform,
         }}
       >
-        {map.image ? (
+        {map.image && hasImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={resolveImageUrl(map.image, 'map')}
             alt=""
             draggable={false}
+            onError={() => setFailedImage(map.image ?? null)}
             className="pointer-events-none absolute inset-0 h-full w-full select-none object-contain"
+          />
+        ) : null}
+
+        {/* 政治标注（国界 / 道路）画在底图之上、锚点之下 */}
+        <AnnotationLayer
+          items={annotations}
+          draft={draft}
+          width={stageWidth}
+          height={stageHeight}
+          scale={scale}
+        />
+
+        {/* 画线时把点击收在这一层：不冒泡到画布，免得一边加点一边平移 */}
+        {draft ? (
+          <div
+            className="absolute inset-0 z-10 cursor-crosshair"
+            onPointerDown={(event) => event.stopPropagation()}
+            onContextMenu={(event) => event.preventDefault()}
+            onClick={(event) => {
+              const anchor = pointFromClient(event.clientX, event.clientY)
+              if (anchor) onDraftPoint?.(anchor)
+            }}
           />
         ) : null}
 
@@ -323,7 +374,7 @@ export function MapCanvas({
                 onContextMenu={(event) => handleContextMenu(event, point)}
                 className={`select-none whitespace-nowrap rounded-item border bg-paper/90 px-2 py-0.5 text-[11px] text-ink backdrop-blur transition-colors max-md:max-w-[36vw] max-md:truncate ${
                   dragging ? 'border-ink' : 'border-line hover:border-line-hover'
-                } ${isMobile ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'}`}
+                } ${locked ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'}`}
                 style={{ transform: `scale(${1 / scale})` }}
               >
                 {point.title}
@@ -333,48 +384,36 @@ export function MapCanvas({
         })}
       </div>
 
-      {empty ? (
-        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-4">
-          <ListEmptyState
-            message={empty.message}
-            action={empty.action}
-            className="pointer-events-none w-full [&_button]:pointer-events-auto"
-          />
+      {empty === 'no-image' ? (
+        // 一次性入口：生成一张，或者导入自己画好的底图。两种地图从这里开始分岔。
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-6">
+          <div
+            className={`pointer-events-auto flex w-[264px] flex-col items-center gap-3 p-5 text-center ${PANEL}`}
+          >
+            <MapPin size={20} strokeWidth={2} className="text-ink-faint" />
+            <p className="text-sm text-ink-muted">还没有底图</p>
+            <div className="flex w-full flex-col gap-1.5">
+              <button type="button" onClick={onGenerate} className={`${BTN_PRIMARY} justify-center`}>
+                <Wand2 size={14} strokeWidth={2} />
+                生成地图
+              </button>
+              <button type="button" onClick={onPickBackground} className={`${BTN_QUIET} justify-center`}>
+                <Upload size={14} strokeWidth={2} />
+                导入底图
+              </button>
+            </div>
+          </div>
         </div>
       ) : null}
 
-      {map.image ? (
-        <div className={`absolute bottom-2 right-2 z-20 flex items-center gap-0.5 border border-line bg-paper/85 p-1 backdrop-blur ${ROUND_CONTROL}`}>
-          <button
-            type="button"
-            className={ICON_BTN_MD}
-            onClick={zoomOut}
-            aria-label="缩小"
-            title="缩小"
-          >
-            <Minus size={14} strokeWidth={2} />
-          </button>
-          <span className="w-9 text-center text-[11px] tabular-nums text-ink-faint">
-            {Math.round(scale * 100)}%
-          </span>
-          <button
-            type="button"
-            className={ICON_BTN_MD}
-            onClick={zoomIn}
-            aria-label="放大"
-            title="放大"
-          >
-            <Plus size={14} strokeWidth={2} />
-          </button>
-          <button
-            type="button"
-            className={ICON_BTN_MD}
-            onClick={reset}
-            aria-label="复位"
-            title="复位"
-          >
-            <RotateCcw size={14} strokeWidth={2} />
-          </button>
+      {empty === 'layers-off' ? (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-4">
+          <ListEmptyState
+            icon={Layers}
+            message="图层都关掉了"
+            action={{ label: '全部打开', onClick: onEnableAllLayers }}
+            className="pointer-events-none w-full [&_button]:pointer-events-auto"
+          />
         </div>
       ) : null}
 
@@ -382,19 +421,29 @@ export function MapCanvas({
         <MediaContextMenu
           at={{ x: menu.x, y: menu.y }}
           onClose={() => setMenu(null)}
-          items={[
-            {
-              label: '打开',
-              icon: <ExternalLink size={13} strokeWidth={2} />,
-              onSelect: () => onOpenAnchor(menu.point),
-            },
-            {
-              label: '移除锚点',
-              danger: true,
-              icon: <MapPinOff size={13} strokeWidth={2} />,
-              onSelect: () => onRemoveAnchor(menu.point),
-            },
-          ]}
+          items={
+            locked
+              ? [
+                  {
+                    label: '打开',
+                    icon: <ExternalLink size={13} strokeWidth={2} />,
+                    onSelect: () => onOpenAnchor(menu.point),
+                  },
+                ]
+              : [
+                  {
+                    label: '打开',
+                    icon: <ExternalLink size={13} strokeWidth={2} />,
+                    onSelect: () => onOpenAnchor(menu.point),
+                  },
+                  {
+                    label: '移除锚点',
+                    danger: true,
+                    icon: <MapPinOff size={13} strokeWidth={2} />,
+                    onSelect: () => onRemoveAnchor(menu.point),
+                  },
+                ]
+          }
         />
       ) : null}
     </div>

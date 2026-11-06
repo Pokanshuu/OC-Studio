@@ -16,8 +16,10 @@ export interface CoverTuning {
   aspect: number
   /** 照片左右留边：画布宽 %（0 = 满幅） */
   inset: number
-  /** 照片高度上限：画布高 %（照片按宽度铺满后的自然高度超了才裁上下） */
+  /** 照片区高度：卡片高 %（固定值，图片 cover 裁进来；小说书封单传 100） */
   photoHeight: number
+  /** 溶解带厚度：画布高 %（照片下缘从这里开始淡进色块；越宽过渡越柔） */
+  dissolve: number
   /** 模糊强度：1080 宽下的 px */
   blur: number
   /** 颗粒 0–100 */
@@ -65,7 +67,9 @@ export function normalizeTintMode(value: unknown): CoverTintMode {
  * 默认值 = 2026-11-04 定稿的参数，起点仍是参考实现 Simple_Cover。
  *
  * 比例 **7:6**（≈1.17）：头图基本都是横向的，卡片就按接近原图的比例来。
- * 照片**只按宽度铺满**（`scene.ts` 的 `photoPlateHeight`），左右永远不裁。
+ * 照片区是**卡片高度的固定 78%**，图片按 cover 裁进去（`scene.ts` 的 `photoPlateHeight`）——
+ * 卡片比例固定，照片区也就必须固定，否则 3:1 的横幅会和 3:2 的卡长成两种版式。
+ * 78% 正好是 3:2 头图按 7:6 卡片宽度铺满时的高度，所以常规头图几乎不裁。
  *
  * 模糊起点 / 混色起点**不在这里**：规范是「模糊从标题开始、混色从小字开始」，
  * 由 `CoverCard` 量出标题与小字的真实位置再交给画布（见 `docs/封面卡.md` §1）。
@@ -73,7 +77,8 @@ export function normalizeTintMode(value: unknown): CoverTintMode {
 export const COVER_TUNING_DEFAULTS: CoverTuning = {
   aspect: 7 / 6,
   inset: 0,
-  photoHeight: 100,
+  photoHeight: 78,
+  dissolve: 15,
   blur: 30,
   grain: 57,
   textBottom: 5,
@@ -86,14 +91,15 @@ export const COVER_TUNING_DEFAULTS: CoverTuning = {
 }
 
 /** 参数结构的版本：改默认值时 +1，老的面板数据直接作废（否则用户永远看不到新默认值） */
-const COVER_TUNING_VERSION = 7
+const COVER_TUNING_VERSION = 9
 
 /** 滑杆的范围、步长与名字 —— 面板据此生成控件，`sanitize` 据此夹取 */
 export type CoverSliderKey = Exclude<keyof CoverTuning, 'aspect'>
 
 export const COVER_TUNING_RANGES: Record<CoverSliderKey, CoverTuningRange> = {
   inset: { label: '照片留边', min: 0, max: 12, step: 0.5, unit: '%' },
-  photoHeight: { label: '照片高度上限', min: 40, max: 100, step: 1, unit: '%' },
+  photoHeight: { label: '照片高度', min: 40, max: 100, step: 1, unit: '%' },
+  dissolve: { label: '溶解带', min: 4, max: 30, step: 0.5, unit: '%' },
   blur: { label: '模糊强度', min: 0, max: 80, step: 1, unit: 'px' },
   grain: { label: '颗粒', min: 0, max: 100, step: 1, unit: '%' },
   textBottom: { label: '文字底边距', min: 0, max: 40, step: 0.5, unit: '%' },

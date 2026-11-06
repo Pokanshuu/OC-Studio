@@ -26,6 +26,15 @@ import { MAP_ASSET_DIR } from './services'
 export interface SaveMapImageOptions {
   /** 地图名，用作文件名前缀；缺省 `map` */
   name?: string
+  /**
+   * 固定文件名（`.ocstudio/maps/` 下的相对文件名，不带目录）。
+   *
+   * 切视图用：一档一张、原地覆盖，文件名由「地图名 + 视图」决定。
+   * 不给就退回「地图名-时间戳」，撞名自动 `-2` 不覆盖。
+   */
+  fileName?: string
+  /** 允许覆盖同路径的已有文件（`fileName` 给定时才有意义） */
+  replace?: boolean
 }
 
 export interface SavedMapImage {
@@ -153,6 +162,33 @@ async function allocateAssetPath(root: string, fileName: string): Promise<string
 }
 
 /**
+ * 这一档的图是不是已经在盘上。
+ *
+ * 生成地图时一次把六档都渲染存盘，切档就是换个路径 —— 但**老地图**只有当时切过
+ * 的那几档，所以要问一句。路径是相对库根的（`.ocstudio/maps/<名>-<视图>.png`），
+ * 不是文件名：`mapViewFileName()` 只给文件名，拼目录是调用方的事。
+ *
+ * 用 `vaultFs.exists`（一次 stat），不读整张图；浏览器 Mock 里底图是 `data:`/`blob:`，
+ * 那边没有文件系统，直接当存在（预览本来就只活在这一屏）。
+ */
+export async function mapImageExists(relPath: string): Promise<boolean> {
+  const path = relPath.trim()
+  if (path.length === 0) return false
+  if (/^(data:|blob:|https?:)/i.test(path)) return true
+  const session = getVaultSession()
+  if (session === null || !isVaultSupported()) return false
+  try {
+    return await vaultFs.exists(session.root, path)
+  } catch {
+    return false
+  }
+}
+export function mapViewFileName(mapName: string, view: string): string {
+  const stem = sanitizeFileName(mapName.trim() || 'map')
+  return `${stem}-${view}.png`
+}
+
+/**
  * 保存一张地图底图，返回可直接写入 `map_image` 的相对路径与像素尺寸。
  *
  * 只在“桌面 + 已打开笔记库”时落进 `.ocstudio/maps/`；其它情况返回临时地址，
@@ -162,13 +198,18 @@ export async function saveMapImage(blob: Blob, opts: SaveMapImageOptions = {}): 
   const { width, height } = await measureImage(blob)
   const extension = extensionOf(blob.type || 'image/png')
   const stem = sanitizeFileName((opts.name ?? '').trim() || 'map')
-  const fileName = `${stem}-${timestamp()}.${extension}`
+  // 固定文件名（切视图）必须带 .png，否则 `<stem>-terrain` 会写成没有扩展名的文件
+  const fileName = opts.fileName
+    ? `${sanitizeFileName(opts.fileName.replace(/\.png$/i, ''))}.${extension}`
+    : `${stem}-${timestamp()}.${extension}`
 
   const session = getVaultSession()
   if (isTauri() && isVaultSupported() && session !== null) {
     const tempPath = await writeBlobToAppDataTemp(blob, fileName)
     try {
-      const relPath = await allocateAssetPath(session.root, fileName)
+      const relPath = opts.fileName && opts.replace
+        ? `${MAP_ASSET_DIR}/${fileName}`
+        : await allocateAssetPath(session.root, fileName)
       await vaultFs.importFile(session.root, tempPath, relPath)
       return { relPath, width, height, ephemeral: false }
     } catch (err) {

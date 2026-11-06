@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { ChevronDown, LayoutGrid, List } from 'lucide-react'
+import { ChevronDown, GalleryHorizontalEnd, LayoutGrid, List } from 'lucide-react'
 import { FILTER_TRIGGER, MENU, MENU_ITEM_BASE, ROUND_ITEM } from '@/lib/ui-tokens'
 
 export interface SortOption {
@@ -10,17 +10,21 @@ export interface SortOption {
   value: string
 }
 
-export type ViewMode = 'grid' | 'list'
+/**
+ * 三种视图（三种列表页共用，偏好各存各的 key）：
+ * - `grid`    卡片：封面卡网格
+ * - `gallery` 画廊：一排封面左右翻页（Cover Flow）
+ * - `list`    列表：目录行
+ */
+export type ViewMode = 'grid' | 'gallery' | 'list'
 
-const SORT_LABEL_MAP: Record<string, string> = {}
+/** localStorage 里可能是旧值 / 脏值，读出来一律过这一道 */
+export function normalizeViewMode(raw: unknown): ViewMode {
+  return raw === 'gallery' || raw === 'list' ? raw : 'grid'
+}
 
 function getSortLabel(options: SortOption[], value: string): string {
-  if (SORT_LABEL_MAP[value]) return SORT_LABEL_MAP[value]
-  const found = options.find((o) => o.value === value)
-  if (found) {
-    SORT_LABEL_MAP[value] = found.label
-  }
-  return SORT_LABEL_MAP[value] ?? value
+  return options.find((option) => option.value === value)?.label ?? value
 }
 
 export function SortSelect({
@@ -37,11 +41,17 @@ export function SortSelect({
   const panelRef = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState({ x: 0, y: 0 })
 
-  useEffect(() => {
-    if (open && triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect()
-      setPos({ x: rect.left, y: rect.bottom + 4 })
+  // 位置必须和「打开」在同一次更新里算好：先按 (0,0) 渲染、再在 effect 里量真实坐标，
+  // 面板会先在左上角画一帧再跳回来（下拉「闪现再归位」）。
+  const toggle = useCallback(() => {
+    if (open) {
+      setOpen(false)
+      return
     }
+    const rect = triggerRef.current?.getBoundingClientRect()
+    if (!rect) return
+    setPos({ x: rect.left, y: rect.bottom + 4 })
+    setOpen(true)
   }, [open])
 
   const handleClickOutside = useCallback((e: MouseEvent) => {
@@ -65,7 +75,7 @@ export function SortSelect({
     <div>
       <button
         ref={triggerRef}
-        onClick={() => setOpen(!open)}
+        onClick={toggle}
         className={FILTER_TRIGGER}
       >
         <span>{getSortLabel(options, sortKey)}</span>
@@ -103,6 +113,50 @@ export function SortSelect({
   )
 }
 
+/** 视图切换：卡片 / 画廊 / 列表，当前项用墨色，其余淡出 */
+export function ViewToggle({
+  viewMode,
+  onViewModeChange,
+}: {
+  viewMode: ViewMode
+  onViewModeChange: (mode: ViewMode) => void
+}) {
+  return (
+    <div className="flex items-center">
+      <button
+        onClick={() => onViewModeChange('grid')}
+        aria-label="卡片视图"
+        title="卡片"
+        className={`flex h-8 w-8 items-center justify-center ${ROUND_ITEM} transition-colors ${
+          viewMode === 'grid' ? 'text-ink' : 'text-ink-faint hover:text-ink-muted'
+        }`}
+      >
+        <LayoutGrid size={16} strokeWidth={2} />
+      </button>
+      <button
+        onClick={() => onViewModeChange('gallery')}
+        aria-label="画廊视图"
+        title="画廊"
+        className={`flex h-8 w-8 items-center justify-center ${ROUND_ITEM} transition-colors ${
+          viewMode === 'gallery' ? 'text-ink' : 'text-ink-faint hover:text-ink-muted'
+        }`}
+      >
+        <GalleryHorizontalEnd size={16} strokeWidth={2} />
+      </button>
+      <button
+        onClick={() => onViewModeChange('list')}
+        aria-label="列表视图"
+        title="列表"
+        className={`flex h-8 w-8 items-center justify-center ${ROUND_ITEM} transition-colors ${
+          viewMode === 'list' ? 'text-ink' : 'text-ink-faint hover:text-ink-muted'
+        }`}
+      >
+        <List size={16} strokeWidth={2} />
+      </button>
+    </div>
+  )
+}
+
 export interface SortViewControlsProps {
   sortKey: string
   onSortChange: (key: string) => void
@@ -121,29 +175,7 @@ export function SortViewControls({
   return (
     <>
       <SortSelect sortKey={sortKey} onChange={onSortChange} options={sortOptions} />
-      {/* 视图切换：图标（画廊 / 目录），当前项用墨色，另一项淡出 */}
-      <div className="flex items-center">
-        <button
-          onClick={() => onViewModeChange('grid')}
-          aria-label="画廊视图"
-          title="画廊"
-          className={`flex h-8 w-8 items-center justify-center ${ROUND_ITEM} transition-colors ${
-            viewMode === 'grid' ? 'text-ink' : 'text-ink-faint hover:text-ink-muted'
-          }`}
-        >
-          <LayoutGrid size={16} strokeWidth={2} />
-        </button>
-        <button
-          onClick={() => onViewModeChange('list')}
-          aria-label="目录视图"
-          title="目录"
-          className={`flex h-8 w-8 items-center justify-center ${ROUND_ITEM} transition-colors ${
-            viewMode === 'list' ? 'text-ink' : 'text-ink-faint hover:text-ink-muted'
-          }`}
-        >
-          <List size={16} strokeWidth={2} />
-        </button>
-      </div>
+      <ViewToggle viewMode={viewMode} onViewModeChange={onViewModeChange} />
     </>
   )
 }

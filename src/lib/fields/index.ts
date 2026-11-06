@@ -14,6 +14,7 @@ export {
   useFieldConfig,
   useFields,
 } from './store'
+export { useOrphanFieldKeys, type OrphanFields } from './orphans'
 export {
   CUSTOM_FIELD_PREFIX,
   FIELD_KINDS,

@@ -1,138 +1,74 @@
-import { db } from '@/lib/db'
+/**
+ * 文档导出的文字形态：Markdown / TXT。
+ *
+ * 内容与 Word 走同一份 `DocumentModel`（`./document`）—— 以前这里自己读库、自己拼字符串，
+ * 于是正文是 HTML 的时候会把 `<p></p>` 原样写进 .md，分区开关也只对角色生效。
+ * 现在只负责「模型 → 文本」这一段：`renderMarkdown` / `renderTxt` 是纯函数，
+ * 面板拿同一个模型出预览和文件，不会出现「预览是一份、导出又是一份」。
+ */
+import {
+  buildDocumentModel,
+  type DocumentBuildOptions,
+  type DocumentModel,
+  type DocumentSection,
+} from './document'
 
-export async function exportToMarkdown(): Promise<string> {
-  const [characters, events, countries, worldEntries] = await Promise.all([
-    db.characters.filter((c) => !c.deleted).toArray(),
-    db.events.filter((e) => !e.deleted).toArray(),
-    db.countries.filter((c) => !c.deleted).toArray(),
-    db.worldEntries.filter((w) => !w.deleted).toArray(),
-  ])
+export type { DocumentSection }
+export type DocumentExportOptions = DocumentBuildOptions
 
-  const lines: string[] = []
-  const date = new Date().toISOString().slice(0, 10)
-  lines.push(`# OC Studio 导出 — ${date}`)
-  lines.push('')
-
-  if (characters.length > 0) {
-    lines.push('## 角色')
-    lines.push('')
-    for (const c of characters) {
-      lines.push(`### ${c.name}`)
-      if (c.aliases.length) lines.push(`- 别名：${c.aliases.join('、')}`)
-      if (c.race) lines.push(`- 种族：${c.race}`)
-      if (c.element) lines.push(`- 元素：${c.element}`)
-      if (c.occupation) lines.push(`- 职业：${c.occupation}`)
-      if (c.nationalityLegacy) lines.push(`- 国籍：${c.nationalityLegacy}`)
-      if (c.height) lines.push(`- 身高：${c.height}`)
-      if (c.birthday) lines.push(`- 生日：${c.birthday}`)
-      if (c.bio) { lines.push(''); lines.push(c.bio) }
-      if (c.lifeStory) { lines.push(''); lines.push(c.lifeStory) }
-      lines.push('')
-    }
-  }
-
-  if (events.length > 0) {
-    lines.push('## 事件')
-    lines.push('')
-    for (const e of events) {
-      lines.push(`### ${e.title}`)
-      if (e.time) lines.push(`- 时间：${e.time}${e.endTime ? ` ~ ${e.endTime}` : ''}`)
-      if (e.location) lines.push(`- 地点：${e.location}`)
-      if (e.isMajor) lines.push(`- 重大事件`)
-      if (e.summary) { lines.push(''); lines.push(e.summary) }
-      if (e.content) { lines.push(''); lines.push(e.content) }
-      lines.push('')
-    }
-  }
-
-  if (countries.length > 0) {
-    lines.push('## 国家')
-    lines.push('')
-    for (const c of countries) {
-      lines.push(`### ${c.name}`)
-      if (c.description) { lines.push(''); lines.push(c.description) }
-      if (c.system) { lines.push(''); lines.push('**体制**'); lines.push(''); lines.push(c.system) }
-      if (c.geography) { lines.push(''); lines.push('**地理**'); lines.push(''); lines.push(c.geography) }
-      if (c.culture) { lines.push(''); lines.push('**文化**'); lines.push(''); lines.push(c.culture) }
-      lines.push('')
-    }
-  }
-
-  if (worldEntries.length > 0) {
-    lines.push('## 词条')
-    lines.push('')
-    for (const w of worldEntries) {
-      lines.push(`### ${w.title}`)
-      if (w.content) { lines.push(''); lines.push(w.content) }
-      lines.push('')
-    }
-  }
-
-  return lines.join('\n')
+function inline(value: string): string {
+  return value.replace(/\s*\n\s*/g, ' ')
 }
 
-export async function exportToTxt(): Promise<string> {
-  const [characters, events, countries, worldEntries] = await Promise.all([
-    db.characters.filter((c) => !c.deleted).toArray(),
-    db.events.filter((e) => !e.deleted).toArray(),
-    db.countries.filter((c) => !c.deleted).toArray(),
-    db.worldEntries.filter((w) => !w.deleted).toArray(),
-  ])
+export function renderMarkdown(model: DocumentModel): string {
+  const lines: string[] = [`# ${model.title}`, '', `> ${model.subtitle}`, '']
 
-  const lines: string[] = []
-  const date = new Date().toISOString().slice(0, 10)
-  lines.push(`OC Studio 导出 — ${date}`)
-  lines.push('='.repeat(40))
-  lines.push('')
-
-  if (characters.length > 0) {
-    lines.push('【角色】')
+  for (const section of model.sections) {
+    lines.push(`## ${section.label}`)
     lines.push('')
-    for (const c of characters) {
-      lines.push(`  ${c.name}`)
-      if (c.aliases.length) lines.push(`  别名：${c.aliases.join('、')}`)
-      if (c.race) lines.push(`  种族：${c.race}`)
-      if (c.element) lines.push(`  元素：${c.element}`)
-      if (c.occupation) lines.push(`  职业：${c.occupation}`)
-      if (c.birthday) lines.push(`  生日：${c.birthday}`)
-      if (c.bio) { lines.push(''); lines.push(`  ${c.bio.replace(/\n/g, '\n  ')}`) }
+    for (const entry of section.entries) {
+      lines.push(`### ${entry.title}`)
+      for (const field of entry.fields) lines.push(`- ${field.label}：${inline(field.value)}`)
+      if (entry.text !== '') {
+        lines.push('')
+        lines.push(entry.text)
+      }
       lines.push('')
     }
   }
 
-  if (events.length > 0) {
-    lines.push('【事件】')
-    lines.push('')
-    for (const e of events) {
-      lines.push(`  ${e.title}`)
-      if (e.time) lines.push(`  时间：${e.time}${e.endTime ? ` ~ ${e.endTime}` : ''}`)
-      if (e.location) lines.push(`  地点：${e.location}`)
-      if (e.summary) { lines.push(''); lines.push(`  ${e.summary.replace(/\n/g, '\n  ')}`) }
-      lines.push('')
-    }
-  }
-
-  if (countries.length > 0) {
-    lines.push('【国家】')
-    lines.push('')
-    for (const c of countries) {
-      lines.push(`  ${c.name}`)
-      if (c.description) { lines.push(''); lines.push(`  ${c.description.replace(/\n/g, '\n  ')}`) }
-      lines.push('')
-    }
-  }
-
-  if (worldEntries.length > 0) {
-    lines.push('【词条】')
-    lines.push('')
-    for (const w of worldEntries) {
-      lines.push(`  ${w.title}`)
-      if (w.content) { lines.push(''); lines.push(`  ${w.content.replace(/\n/g, '\n  ')}`) }
-      lines.push('')
-    }
-  }
-
-  return lines.join('\n')
+  return `${lines.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd()}\n`
 }
 
+export function renderTxt(model: DocumentModel): string {
+  const lines: string[] = [
+    model.title,
+    '='.repeat(Math.max(8, model.title.length * 2)),
+    model.subtitle,
+    '',
+  ]
 
+  for (const section of model.sections) {
+    lines.push(`【${section.label}】`)
+    lines.push('')
+    for (const entry of section.entries) {
+      lines.push(`  ${entry.title}`)
+      for (const field of entry.fields) lines.push(`  ${field.label}：${inline(field.value)}`)
+      if (entry.text !== '') {
+        lines.push('')
+        lines.push(entry.text.replace(/^/gm, '  '))
+      }
+      lines.push('')
+    }
+  }
+
+  return `${lines.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd()}\n`
+}
+
+export async function exportToMarkdown(options: DocumentExportOptions = {}): Promise<string> {
+  return renderMarkdown(await buildDocumentModel(options))
+}
+
+export async function exportToTxt(options: DocumentExportOptions = {}): Promise<string> {
+  return renderTxt(await buildDocumentModel(options))
+}

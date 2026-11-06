@@ -2,7 +2,13 @@
  * 边样式自检：`npx tsx scripts/edge-style-check.ts`
  * 只验纯函数（合并补丁 / 清空 / 非法值 / 找不到边）。
  */
-import { applyEdgeStyle, patchCharacterEdge, patchEventEdge } from '../src/features/relations/edge-style'
+import {
+  applyEdgeStyle,
+  patchCharacterEdge,
+  patchCharacterNoteEdge,
+  patchEventEdge,
+  patchWorldEdge,
+} from '../src/features/relations/edge-style'
 
 let passed = 0
 function check(name: string, ok: boolean) {
@@ -10,12 +16,18 @@ function check(name: string, ok: boolean) {
   else { console.error(`  FAIL ${name}`); process.exitCode = 1 }
 }
 
-const base = { color: '苔绿' as string | undefined, arrow: 'both' as const }
+const base: { color?: string; arrow?: 'none' | 'forward' | 'reverse' | 'both' } = {
+  color: '苔绿',
+  arrow: 'both',
+}
 const setColor = applyEdgeStyle(base, { color: '玫瑰' })
 check('改颜色生效', setColor.edge.color === '玫瑰' && setColor.changed)
 
 const clearArrow = applyEdgeStyle({ ...base }, { arrow: 'none' })
-check('arrow=none 被清掉', clearArrow.edge.arrow === undefined && clearArrow.changed)
+check('arrow=none 保留为显式无箭头', clearArrow.edge.arrow === 'none' && clearArrow.changed)
+
+const resetArrow = applyEdgeStyle({ ...base }, { arrow: null })
+check('arrow=null 真正清掉（回到默认）', resetArrow.edge.arrow === undefined)
 
 const clearColor = applyEdgeStyle({ ...base }, { color: null })
 check('color=null 被清掉', clearColor.edge.color === undefined)
@@ -36,5 +48,35 @@ check('找不到目标时返回 null', patchCharacterEdge(character, 99, { color
 const event = { id: 5, relations: [{ targetId: 6, relation: '关联' }] } as unknown as Parameters<typeof patchEventEdge>[0]
 const eventPatched = patchEventEdge(event, 6, { arrow: 'both' })
 check('事件边改箭头', eventPatched?.relations[0].arrow === 'both')
+
+const world = {
+  id: 7,
+  relations: [{ targetId: 8, name: 'B', relation: '共生' }],
+} as unknown as Parameters<typeof patchWorldEdge>[0]
+const worldPatched = patchWorldEdge(world, 8, { color: '苔绿', arrow: 'forward', relation: '寄生' })
+check(
+  '笔记边改颜色 / 箭头 / 关系名',
+  worldPatched?.relations[0].color === '苔绿' &&
+    worldPatched.relations[0].arrow === 'forward' &&
+    worldPatched.relations[0].relation === '寄生',
+)
+check('笔记边找不到目标时返回 null', patchWorldEdge(world, 99, { color: '赤陶' }) === null)
+
+const characterNotes = {
+  id: 9,
+  relatedNotes: [{ targetId: 10, name: '笔记', relation: '守护' }],
+} as unknown as Parameters<typeof patchCharacterNoteEdge>[0]
+const characterNotesPatched = patchCharacterNoteEdge(characterNotes, 10, {
+  color: '靛蓝',
+  arrow: 'reverse',
+  relation: '守望',
+})
+check(
+  '角色 → 笔记边改颜色 / 箭头 / 关系名',
+  characterNotesPatched?.relatedNotes[0].color === '靛蓝' &&
+    characterNotesPatched.relatedNotes[0].arrow === 'reverse' &&
+    characterNotesPatched.relatedNotes[0].relation === '守望',
+)
+check('角色 → 笔记边找不到目标时返回 null', patchCharacterNoteEdge(characterNotes, 99, { color: '赤陶' }) === null)
 
 console.log(`\n共 ${passed} 项断言通过`)

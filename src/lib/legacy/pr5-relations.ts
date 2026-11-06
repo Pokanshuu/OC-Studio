@@ -78,7 +78,8 @@ export function planRelationImport(rows: LegacyRelationRow[]): LegacyRelationImp
     const relation = (row.label ?? '').trim() || KIND_LABELS[row.kind ?? ''] || '关系'
     const edge: LegacyEdge = { targetId: row.targetId, relation }
     if (row.color) edge.color = row.color
-    if (row.arrow && row.arrow !== 'none') edge.arrow = row.arrow
+    // `none` 也要带过来：角色边不写箭头 = 默认双向，丢掉它就丢掉了「无箭头」
+    if (row.arrow) edge.arrow = row.arrow
 
     if (row.sourceType === 'character' && row.targetType === 'character') {
       push(characterEdges, row.sourceId, edge)

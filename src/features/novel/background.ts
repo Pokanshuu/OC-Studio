@@ -55,6 +55,18 @@ const CUSTOM_FALLBACK_FILL = 'rgb(249, 246, 240)'
 /** 自定义背景图上的正文底板（预览与 PNG 导出共用）：图可能很花，字要读得清 */
 export const NOVEL_READING_PANEL = 'rgba(250, 247, 241, 0.86)'
 
+/**
+ * 版面文字色 —— **不跟界面主题反转**。
+ *
+ * 纸张永远是浅色（纸白 / 米黄 / 羊皮纸 / 用户图 + 可读底板），所以正文必须是深墨。
+ * 以前预览用的是界面令牌 `text-ink`：暗色主题下 `--oc-ink` 是浅色，纸面上就成白字
+ * （`NovelPreview` 与 PNG 导出因此长得不一样）。CSS 那边拿不到 Canvas 的常量，
+ * 所以这一份由本文件独家持有，两边都从这里取。
+ */
+export const NOVEL_PAGE_INK = 'rgb(58, 48, 36)'
+/** 页码比正文淡一档 */
+export const NOVEL_PAGE_NUMBER_INK = 'rgba(80, 64, 45, 0.68)'
+
 const PAPER_CSS = 'linear-gradient(160deg, rgb(251, 248, 242) 0%, rgb(248, 245, 238) 55%, rgb(241, 237, 229) 100%)'
 
 const CREAM_CSS = 'linear-gradient(160deg, rgb(248, 239, 221) 0%, rgb(243, 231, 208) 55%, rgb(234, 217, 183) 100%)'

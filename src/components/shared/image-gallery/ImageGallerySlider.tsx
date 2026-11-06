@@ -1,14 +1,26 @@
 'use client'
 
 import { useState, useRef, useCallback } from 'react'
-import { Plus, ChevronLeft, ChevronRight, Trash2, ImageIcon, Loader2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ImageIcon, Loader2 } from 'lucide-react'
 import { resolveImageUrl } from '@/lib/image-service'
+import { useMediaMenu } from '@/lib/use-media-menu'
+
+/** 删除后 state 可能停在旧下标上：显示和翻页都先夹回有效范围 */
+function clampSliderIndex(index: number, length: number): number {
+  return Math.min(Math.max(0, index), Math.max(0, length - 1))
+}
+
+function stepSliderIndex(index: number, length: number, direction: 1 | -1): number {
+  const max = Math.max(0, length - 1)
+  const current = clampSliderIndex(index, length)
+  if (direction === 1) return current < max ? current + 1 : 0
+  return current > 0 ? current - 1 : max
+}
 
 interface ImageGallerySliderProps {
   images: string[]
-  onAdd?: (path: string) => void
-  onRemove?: (index: number) => void
   onViewImage: (index: number) => void
+  onOpenMenu: (index: number, at: { x: number; y: number }) => void
   uploading: boolean
   onUploadClick: () => void
 }
@@ -16,9 +28,8 @@ interface ImageGallerySliderProps {
 /** slider 模式：左右滑动/鼠标拖拽切换 + 圆点导航 + 全屏查看 */
 export function ImageGallerySlider({
   images,
-  onAdd,
-  onRemove,
   onViewImage,
+  onOpenMenu,
   uploading,
   onUploadClick,
 }: ImageGallerySliderProps) {
@@ -27,6 +38,11 @@ export function ImageGallerySlider({
   const touchSwipingRef = useRef(false)
   const mouseStartRef = useRef<{ x: number; y: number } | null>(null)
   const mouseDraggingRef = useRef(false)
+  const handlersFor = useMediaMenu<number>((index, at) => {
+    if (index !== undefined) onOpenMenu(index, at)
+  })
+
+  const currentIndex = clampSliderIndex(sliderIndex, images.length)
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     touchStartRef.current = e.touches[0].clientX
@@ -39,11 +55,7 @@ export function ImageGallerySlider({
       touchSwipingRef.current = false
       const diff = touchStartRef.current - e.changedTouches[0].clientX
       if (Math.abs(diff) > 40) {
-        if (diff > 0) {
-          setSliderIndex((i) => (i < images.length - 1 ? i + 1 : 0))
-        } else {
-          setSliderIndex((i) => (i > 0 ? i - 1 : images.length - 1))
-        }
+        setSliderIndex((i) => stepSliderIndex(i, images.length, diff > 0 ? 1 : -1))
       }
     },
     [images.length],
@@ -72,11 +84,7 @@ export function ImageGallerySlider({
       const diff = mouseStartRef.current.x - e.clientX
       mouseStartRef.current = null
       if (Math.abs(diff) > 40) {
-        if (diff > 0) {
-          setSliderIndex((i) => (i < images.length - 1 ? i + 1 : 0))
-        } else {
-          setSliderIndex((i) => (i > 0 ? i - 1 : images.length - 1))
-        }
+        setSliderIndex((i) => stepSliderIndex(i, images.length, diff > 0 ? 1 : -1))
       }
     },
     [images.length],
@@ -94,11 +102,11 @@ export function ImageGallerySlider({
   )
 
   const prevImage = useCallback(() => {
-    setSliderIndex((i) => (i > 0 ? i - 1 : images.length - 1))
+    setSliderIndex((i) => stepSliderIndex(i, images.length, -1))
   }, [images.length])
 
   const nextImage = useCallback(() => {
-    setSliderIndex((i) => (i < images.length - 1 ? i + 1 : 0))
+    setSliderIndex((i) => stepSliderIndex(i, images.length, 1))
   }, [images.length])
 
   return (
@@ -125,7 +133,7 @@ export function ImageGallerySlider({
           >
             <div
               className="flex h-full transition-transform duration-300 ease-out"
-              style={{ transform: `translateX(-${sliderIndex * 100}%)` }}
+              style={{ transform: `translateX(-${currentIndex * 100}%)` }}
             >
               {images.map((url, i) => (
                 <div key={i} className="h-full w-full shrink-0">
@@ -133,7 +141,8 @@ export function ImageGallerySlider({
                   <img
                     src={resolveImageUrl(url)}
                     alt=""
-                    className="h-full w-full cursor-pointer object-contain"
+                    className="h-full w-full cursor-zoom-in object-contain"
+                    {...handlersFor(i)}
                     onClick={() => onViewImage(i)}
                     onError={(e) => {
                       (e.target as HTMLImageElement).src = '/images/defaults/character-avatar.svg'
@@ -141,34 +150,6 @@ export function ImageGallerySlider({
                   />
                 </div>
               ))}
-            </div>
-            <div className="absolute right-1 top-1 flex gap-1 opacity-100 md:opacity-0 md:transition-opacity md:group-hover:opacity-100">
-              {onRemove ? (
-                <button
-                  onClick={() => {
-                    onRemove(sliderIndex)
-                    setSliderIndex((i) => Math.max(0, Math.min(i, images.length - 2)))
-                  }}
-                  className="flex h-8 w-8 items-center justify-center rounded-full bg-black/40 text-white/80 hover:bg-black/60 transition-colors"
-                  title="删除"
-                >
-                  <Trash2 size={16} strokeWidth={2} />
-                </button>
-              ) : null}
-              {onAdd ? (
-                <button
-                  onClick={onUploadClick}
-                  disabled={uploading}
-                  className="flex h-8 w-8 items-center justify-center rounded-full bg-black/40 text-white/80 hover:bg-black/60 transition-colors disabled:opacity-50"
-                  title="添加"
-                >
-                  {uploading ? (
-                    <Loader2 size={16} strokeWidth={2} className="animate-spin" />
-                  ) : (
-                    <Plus size={16} strokeWidth={2} />
-                  )}
-                </button>
-              ) : null}
             </div>
           </div>
           {images.length > 1 ? (
@@ -184,9 +165,14 @@ export function ImageGallerySlider({
         <button
           type="button"
           onClick={onUploadClick}
-          className="flex h-full w-full flex-col items-center justify-center gap-2 rounded-item border border-dashed border-line bg-paper-card transition-colors hover:border-line-hover"
+          disabled={uploading}
+          className="flex h-full w-full flex-col items-center justify-center gap-2 rounded-item border border-dashed border-line bg-paper-card transition-colors hover:border-line-hover disabled:opacity-50"
         >
-          <ImageIcon size={24} strokeWidth={1.5} className="text-ink-faint" />
+          {uploading ? (
+            <Loader2 size={24} strokeWidth={1.5} className="animate-spin text-ink-faint" />
+          ) : (
+            <ImageIcon size={24} strokeWidth={1.5} className="text-ink-faint" />
+          )}
           <span className="text-xs text-ink-faint">点击上传立绘</span>
         </button>
       )}
@@ -197,7 +183,7 @@ export function ImageGallerySlider({
               key={i}
               onClick={() => setSliderIndex(i)}
               className={`h-1.5 transition-all ${
-                i === sliderIndex ? 'w-4 bg-ink-muted' : 'w-1.5 bg-line'
+                i === currentIndex ? 'w-4 bg-ink-muted' : 'w-1.5 bg-line'
               }`}
             />
           ))}

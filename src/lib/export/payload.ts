@@ -58,6 +58,9 @@ type ImageRecord = {
   /** 词条：小说封面 / 地图底图 */
   novelCover?: string
   mapImage?: string
+  /** 词条 / 国家的模板组件槽位：头像 / 单张图片 */
+  avatar?: string
+  image?: string
   avatars?: unknown[]
   gallery?: unknown[]
   images?: unknown[]
@@ -99,6 +102,9 @@ function inlineImageUrls(records: unknown[], map: Map<string, string>): void {
     if (r.animationUrl) r.animationUrl = replace(r.animationUrl)
     if (r.novelCover) r.novelCover = replace(r.novelCover)
     if (r.mapImage) r.mapImage = replace(r.mapImage)
+    // 模板组件的图片槽位（词条头像 / 单图；注意与角色的 `avatarUrl` 不是一个键）
+    if (r.avatar) r.avatar = replace(r.avatar)
+    if (r.image) r.image = replace(r.image)
     if (Array.isArray(r.avatars)) {
       r.avatars = r.avatars.map((a) => (typeof a === 'string' ? replace(a) : { ...(a as object), url: replace((a as { url?: string }).url) }))
     }

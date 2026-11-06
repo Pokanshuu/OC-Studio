@@ -41,9 +41,7 @@ export function CharacterEditorList({ currentId, onSelect, onCollapse, onCreate 
   const groups = useMemo(() => {
     const countryIdOf = (character: Character): number | undefined => {
       if (character.countryId != null) return character.countryId
-      // 国家侧是成员关系的镜像；列表数据可能只带了这一侧。
-      const byRelation = countries.find((country) => country.characters.includes(character.id))
-      if (byRelation) return byRelation.id
+      // 只剩 legacy 文本可回落（国家侧的 id 名单已退役，见 lib/membership.ts 顶部）
       const byLegacy = countries.find((country) => country.name === character.nationalityLegacy)
       return byLegacy?.id
     }

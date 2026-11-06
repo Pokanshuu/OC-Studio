@@ -39,6 +39,9 @@ const LITERAL_ALLOWLIST = [
   'src/lib/entity-accent.ts',
   // 封面取色：从封面图里抽出来的色调（内容色，随图片变），不是界面样式
   'src/lib/cover/',
+  // 官方主题内置包：一份 theme.json 等价物的颜色字面量（主题数据，不是界面样式），
+  // 与标签色 / 地图色板同理；运行时由 applyThemePreset() 落到 CSS 变量
+  'src/lib/theme/presets.ts',
 ]
 
 interface Rule {
@@ -72,7 +75,9 @@ const RULES: Rule[] = [
   {
     name: 'radius-bare',
     why: '裸 rounded(4px) → 用语义名',
-    test: /\brounded\b(?!-)/,
+    // 只看「类名形态」：`rounded` 后紧跟 `=` / `>` 的是变量或 JSX 表达式，
+    // 不是类名（`const rounded = 0` / `${rounded > 0}` 都被误伤过）。
+    test: /\brounded\b(?!-)(?!\s*[=>])/,
   },
   {
     name: 'palette-color',
@@ -122,6 +127,15 @@ const RULES: Rule[] = [
   },
 ]
 
+/**
+ * 整目录移植物不归这套规则管。
+ *
+ * `src/plugins/agent/` 原样搬自 Simple-Agent（`docs/插件.md` §0.0）：它的样式自带
+ * 一套收在 `.oc-agent-root` 作用域里的 CSS，令牌名与色值和宿主一致，但代码由上游
+ * 维护 —— 我们既不改它的类名，也就不该拿宿主的原子类规则去扫它的源码。
+ */
+const SKIP_DIRS = ['src/plugins/agent/']
+
 function walk(dir: string): string[] {
   const out: string[] = []
   for (const entry of readdirSync(dir)) {
@@ -135,6 +149,11 @@ function walk(dir: string): string[] {
   return out
 }
 
+function skipped(file: string): boolean {
+  const rel = relative(ROOT, file).replace(/\\/g, '/')
+  return SKIP_DIRS.some((prefix) => rel.startsWith(prefix))
+}
+
 function allowed(file: string): boolean {
   const rel = relative(ROOT, file).replace(/\\/g, '/')
   return LITERAL_ALLOWLIST.some((prefix) => rel.startsWith(prefix))
@@ -143,6 +162,7 @@ function allowed(file: string): boolean {
 const violations: Violation[] = []
 
 for (const file of walk(SRC)) {
+  if (skipped(file)) continue
   const rel = relative(ROOT, file).replace(/\\/g, '/')
   const lines = readFileSync(file, 'utf8').split(/\r?\n/)
   let inBlockComment = false
@@ -183,6 +203,7 @@ for (const v of violations) {
 // 同一串长类名在 ≥3 个文件里重复出现 = 该收进 ui-tokens 了。
 const fragments = new Map<string, Set<string>>()
 for (const file of walk(SRC)) {
+  if (skipped(file)) continue
   const rel = relative(ROOT, file).replace(/\\/g, '/')
   if (rel.endsWith('ui-tokens.ts')) continue
   const text = readFileSync(file, 'utf8')

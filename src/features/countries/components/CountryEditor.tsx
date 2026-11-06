@@ -8,7 +8,9 @@ import { EntityDocumentBody } from '@/components/editor/EntityDocumentBody'
 import { EditorBodyPane } from '@/components/editor/EditorBodyPane'
 import { EditorSplitPane } from '@/components/editor/EditorSplitPane'
 import { EntityEditorShell } from '@/components/shared/EntityEditorShell'
+import { TalkToAgentButton } from '@/components/shared/TalkToAgentButton'
 import { EntityHistoryButton } from '@/features/vault'
+import { EntityExportButton } from '@/components/shared/EntityExportButton'
 import { useEditorLayout } from '@/lib/use-editor-layout'
 import { useDevice } from '@/lib/use-device'
 import type { CountryFormData } from '../types'
@@ -142,7 +144,15 @@ function CountryEditorInner({
 
   const headerActions = (
     <>
+      <TalkToAgentButton
+        kind="country"
+        id={country.id}
+        title={form.name}
+        onBeforeOpen={form.handleSave}
+      />
       <EntityHistoryButton table="countries" id={country.id} name={form.name} />
+      {/* 导出走**全局导出中心**（海报页签落在这一条上），这里只传身份 */}
+      <EntityExportButton kind="country" id={country.id} onBeforeOpen={form.handleSave} />
       <button
         onClick={form.handleSave}
         disabled={form.saving || !form.name.trim()}
@@ -217,9 +227,8 @@ function CountryEditorInner({
               compact={false}
               onNavigateToCharacter={onNavigateToCharacter}
               onNavigateToEvent={onNavigateToEvent}
+              body={body}
             />
-            <div className="mt-8 border-t border-line" />
-            <div className="mt-8">{body}</div>
           </div>
         </div>
       )}

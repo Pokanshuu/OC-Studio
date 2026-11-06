@@ -33,13 +33,15 @@ interface CoverArtProps {
   watermark?: string
   /** 卡片比例覆盖（小说封面 2:3 这类）；不传就用调试面板的全局值 */
   aspect?: number
+  /** 照片区高度（卡片高度 %）：小说书封整张铺满时单传 100 */
+  photoHeight?: number
   /** 模糊起点（卡片高度比）：规范是「从标题开始」，由 CoverCard 量出来 */
   blurStart?: number
   /** 混色起点（卡片高度比）：规范是「从小字开始」 */
   mixStart?: number
 }
 
-export function CoverArt({ src, tintSrc, watermark, aspect, blurStart, mixStart }: CoverArtProps) {
+export function CoverArt({ src, tintSrc, watermark, aspect, photoHeight, blurStart, mixStart }: CoverArtProps) {
   const hostRef = useRef<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const [active, setActive] = useState(false)
@@ -121,7 +123,8 @@ export function CoverArt({ src, tintSrc, watermark, aspect, blurStart, mixStart 
             watermark,
             aspect: aspect ?? tuning.aspect,
             inset: tuning.inset / 100,
-            photoHeight: tuning.photoHeight / 100,
+            photoHeight: (photoHeight ?? tuning.photoHeight) / 100,
+            dissolve: tuning.dissolve / 100,
             blurStart,
             blur: tuning.blur,
             mixStart,
@@ -151,7 +154,7 @@ export function CoverArt({ src, tintSrc, watermark, aspect, blurStart, mixStart 
       if (timer !== undefined) window.clearTimeout(timer)
       resize.disconnect()
     }
-  }, [active, src, tintSrc, tuning, mono, monoColor, watermark, aspect, blurStart, mixStart])
+  }, [active, src, tintSrc, tuning, mono, monoColor, watermark, aspect, photoHeight, blurStart, mixStart])
 
   return (
     <div

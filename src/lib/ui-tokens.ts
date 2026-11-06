@@ -36,6 +36,29 @@ export const FIELD_LABEL = 'w-16 shrink-0 text-sm text-ink-muted'
 /** 竖排表单里的标签（弹窗/设置） */
 export const FIELD_LABEL_BLOCK = 'mb-1.5 block text-[13px] text-ink-muted'
 
+/* ── 设置弹窗的行 ───────────────────────────────────────
+   只有两种，按控件的形状取，绝不混用：
+   - **开关 / 单行输入** → `SETTINGS_TOGGLE_ROW`：标签靠左、控件靠右，一行放下。
+   - **单选组 / 色板 / 图片** → `SETTINGS_FIELD`：**标签在上、控件在下**。这些控件
+     要的是横向宽度：挤进「108px 标签 + 其余」那一列，三个选项会被压成两行
+     （「白天 / 模式」），等分网格也排不开。
+   分组之间靠 `SETTINGS_GROUP` 的 1px 线 + 20px 间距，而不是只靠空隙。 */
+export const SETTINGS_TOGGLE_ROW = 'flex items-center justify-between gap-4'
+export const SETTINGS_FIELD = 'flex min-w-0 flex-col gap-2'
+export const SETTINGS_LABEL = 'text-[13px] leading-5 text-ink'
+/**
+ * 一组「标签在上」的字段（单选组 / 色板）：**字段之间 24px**，比开关行的 12px 松。
+ * 12px 时下一组的标签只比它自己的控件远一点点 —— 两条设置读起来像同一条的续行。
+ */
+export const SETTINGS_FIELD_GROUP_FIRST = 'flex flex-col gap-6'
+export const SETTINGS_FIELD_GROUP = 'mt-5 flex flex-col gap-6 border-t border-line pt-5'
+/** 分组：除第一组外都带上边线（`SETTINGS_GROUP`）—— 一行一个类，别就地写 */
+export const SETTINGS_GROUP = 'mt-5 flex flex-col gap-3 border-t border-line pt-5'
+/** 组内更细的分隔（如「背景」下的铺法 / 遮罩），不占整行 */
+export const SETTINGS_HINT = 'text-[11px] leading-4 text-ink-faint'
+/** 列表里「这一栏还是空的」那一行：和列表行同高基线，别用小一号的灰字凑数 */
+export const SETTINGS_EMPTY = 'py-2 text-[13px] leading-5 text-ink-faint'
+
 /* ── 区块标题 ───────────────────────────────────────────
    衬线 15px：靠字族而非字号与 14px 的字段标签拉开层级。 */
 export const SECTION_TITLE = 'mb-3 font-serif text-[15px] font-bold tracking-[-0.01em] text-ink'
@@ -46,9 +69,19 @@ export const SECTION_TITLE_BARE = 'font-serif text-[15px] font-bold tracking-[-0
    页头统一 48px；页面标题统一 18px 衬线加粗（列表页 / 编辑器 / 浮层共用）。 */
 export const PAGE_TITLE = 'text-lg text-ink font-serif font-bold tracking-[-0.01em]'
 
-/** 列表页 / 时间线 / 相册的页头（桌面 48px，粘顶） */
-export const TOOLBAR =
-  'max-md:hidden flex items-center justify-between sticky top-0 z-10 h-12 border-b border-line px-6 bg-paper/85 backdrop-blur-lg'
+/**
+ * 列表页 / 时间线 / 相册的页头骨架（桌面 48px）。
+ *
+ * 粘顶与底色 / 模糊在 `ListShell` 的页头表面上，这里只排这一行的内容。
+ */
+export const TOOLBAR = 'max-md:hidden flex h-12 items-center justify-between px-6'
+/**
+ * 页头「浮起来」的那一档：1px 线与模糊（滚动后才加）。**只给页头表面**（`ListShell`），
+ * 页头里的行不要再叠一层 —— 多行页头各糊各的，落后的那一行就会露出「没糊」的缝。
+ */
+export const TOOLBAR_SHADE = 'border-b border-line bg-paper/85 backdrop-blur-lg'
+/** 页头静止态：线占住位置但不画出来（底色透明） */
+export const TOOLBAR_PLAIN = 'border-b border-transparent'
 
 /** 编辑器页头：桌面粘顶 48px，移动端固定在安全区之下 */
 export const EDITOR_HEADER =
@@ -79,6 +112,22 @@ export const ICON_BTN =
 export const ICON_BTN_MD =
   `flex h-8 w-8 shrink-0 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink ${ROUND_CONTROL}`
 
+/* ── 压在画布上的浮条（地图这类整屏画布） ─────────────
+   整屏画布没有页头，控件只能**压在画面上**。皮肤只有一种：浮层底色 + 一层模糊，
+   外壳 h-8、p-1，里面的按钮 h-6（外层 6 减内边距 4 = 内层 4，同心）。
+   地图的「身份 / 控制条 / 缩放」三处都从这里取，别再各写一遍。 */
+/** 浮条皮肤（不含布局）：高度 / 内边距要自定义时与它拼 */
+export const FLOAT_SKIN = `border border-line bg-paper/85 backdrop-blur-lg float-shadow ${ROUND_CONTROL}`
+export const FLOAT_BAR = `flex h-8 items-center gap-0.5 p-1 ${FLOAT_SKIN}`
+/** 浮条里的图标按钮（24 见方） */
+export const FLOAT_BAR_ICON = `flex h-6 w-6 shrink-0 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink ${ROUND_ITEM}`
+/** 浮条里的文字按钮（图标 + 12px 字） */
+export const FLOAT_BAR_TEXT = `flex h-6 shrink-0 items-center gap-1 px-1.5 text-[12px] text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink ${ROUND_ITEM}`
+/** 竖排浮条（右下角工具栈）：与 `FLOAT_BAR` 同一皮肤，只换方向 */
+export const FLOAT_STACK = `flex flex-col gap-0.5 p-1 ${FLOAT_SKIN}`
+/** 面板内的分组小标题（比 `MENU_GROUP_LABEL` 少一级缩进，配 `p-2` 的 `PANEL`） */
+export const PANEL_GROUP_LABEL = 'px-1.5 py-1 text-[11px] tracking-[0.08em] text-ink-faint'
+
 /**
  * 压在图片 / 封面上的圆形图标按钮（删除 / 移到文件夹 / 拖拽手柄 / 图片菜单）—— **唯一皮肤**。
  *
@@ -94,8 +143,12 @@ export const OVERLAY_ROUND_BTN =
    原则：一屏之内不该出现第二块深色；动作靠位置与文字表达，不靠反相。 */
 export const BTN_PRIMARY =
   `touch-feedback flex h-8 shrink-0 items-center gap-1.5 bg-paper-card px-3 text-[13px] text-ink transition-colors hover:bg-line disabled:opacity-40 ${ROUND_CONTROL}`
+/**
+ * 纯文字按钮。禁用态要显式收掉悬停：全局 `button:hover` 会给任何按钮铺底色，
+ * 光加 `opacity-40` 的话鼠标移上去仍像能点。
+ */
 export const BTN_QUIET =
-  'flex h-8 shrink-0 items-center gap-1.5 px-1.5 text-[13px] text-ink-muted transition-colors hover:text-ink'
+  'flex h-8 shrink-0 items-center gap-1.5 px-1.5 text-[13px] text-ink-muted transition-colors hover:text-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink-muted'
 
 /**
  * 区块标题右侧的「＋ 添加」：纯文字、和标题同排，不另占一整行。
@@ -127,12 +180,28 @@ export const INPUT_LINE =
 export const INLINE_INPUT =
   'h-6 w-28 min-w-0 border-b border-line bg-transparent px-0 text-[12px] text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none'
 
+/**
+ * 数字输入 —— **不要用 `type="number"`**。
+ *
+ * WebView 自带的上下箭头是系统控件：暗色下是一块白底，hover / focus 也不走令牌，
+ * 和 `<datalist>` / `<input type="date">` 是同一类问题（§约束 2）。
+ * 做法：`type="text"` + `inputMode="numeric"` + 自己过滤非数字，↑/↓ 键步进。
+ * 宽度不在这里定：字段行里的宽高是 64，种子是 80 —— 调用点带一个 `w-*`。
+ */
+export const NUMBER_INPUT =
+  'h-7 shrink-0 border-b border-line bg-transparent px-0 text-right text-[12px] tabular-nums text-ink transition-colors focus:border-line-hover focus:outline-none'
+
 /* ── 浮层 ─────────────────────────────────────────────
    只有浮层允许有边框；**阴影只有一档**（`FLOAT_SHADOW`，值在 globals.css 的 `--oc-shadow-float`）——
    小、淡、两层，只用来把浮层从内容上「抬起来」；卡片 / 按钮 / 输入仍然是零阴影。
    菜单容器**只有上下内边距**：左右不留白，行自带 px-3，hover 才能横向铺满。 */
 export const FLOAT_SHADOW = 'float-shadow'
 export const PANEL = `border border-line bg-paper/85 backdrop-blur-lg ${FLOAT_SHADOW} ${ROUND_PANEL}`
+/**
+ * 不透明面板：压在**图片 / 地图**这种花底上时用。
+ * `PANEL` 的 `bg-paper/85` 会把底图的颜色和纹理透上来 —— 看着像「遮罩失效」。
+ */
+export const PANEL_SOLID = `border border-line bg-paper ${FLOAT_SHADOW} ${ROUND_PANEL}`
 export const MENU = `border border-line bg-paper/85 backdrop-blur-lg py-1 ${FLOAT_SHADOW} ${ROUND_CONTROL}`
 /** 菜单行骨架：只含盒子与排版，不带文字色和 hover 底色（危险项 / 禁用项 / 高亮态用它） */
 export const MENU_ITEM_BASE =
@@ -145,9 +214,22 @@ export const MENU_GROUP_LABEL = 'px-3 py-1 text-[11px] tracking-[0.08em] text-in
 export const CHIP = `inline-flex items-center gap-1 bg-paper-alt px-2 py-[3px] text-[12px] text-ink-muted ${ROUND_ITEM}`
 /** chip 选中态：反相为实心墨色（只用于「选中」语义，不当按钮强调色用） */
 export const CHIP_ON = `inline-flex items-center gap-1 bg-ink px-2 py-[3px] text-[12px] text-paper ${ROUND_ITEM}`
+/**
+ * chip 的**编辑态**（行内改名）：退回纸面。
+ *
+ * 「选中 chip + 行内输入框」是个会吃掉字的组合：`CHIP_ON` 是反相（`bg-ink` 浅底 +
+ * `text-paper` 深字），而 `INLINE_INPUT` 写的是 `text-ink`（暗色下是浅字）——
+ * 浅字压浅底，暗色主题里就成了「看不见字」。改名时不要再反相。
+ */
+export const CHIP_EDIT = `inline-flex items-center gap-1 bg-paper-alt px-2 py-[3px] text-[12px] text-ink ${ROUND_ITEM}`
 
-/* ── 空态 / 加载 ─────────────────────────────────────── */
-export const EMPTY_STATE = 'flex flex-1 flex-col items-center justify-center gap-2 py-24'
+/* ── 空态 / 加载 ───────────────────────────────────────
+   空态 = **一个图标 + 一句话 + 一个主按钮**（`BTN_PRIMARY`），整块在内容区里**横向 + 纵向居中**。
+   图标是必需品：只有一句话时分不清「还没内容」还是「加载失败」（实现见 `ListEmptyState`）。
+   要真居中，父级必须给出高度：`ListShell` 的滚动容器是 flex 列，
+   内容那一层加 `flex-1` 就会撑满可视区（见 `ListShell` 顶部注释）。
+   动作不许再写成可点的衬线小字（`EMPTY_HINT` 只留给侧栏 / 卡片里的行内入口）。 */
+export const EMPTY_STATE = 'flex flex-1 flex-col items-center justify-center gap-3 px-6 py-16 text-center'
 export const LOADING_TEXT = 'text-[13px] text-ink-faint'
 
 /* ── 列表页（网格 / 搜索） ─────────────────────────────
@@ -221,6 +303,13 @@ export const DRAG_SLOT_ROW = 'absolute left-2 top-1/2 -translate-y-1/2'
 /* ── 关系图节点 ──────────────────────────────────────── */
 /** 节点外壳：图标在上、名字在下的竖排 */
 export const NODE_WRAPPER = 'flex flex-col items-center gap-1 group cursor-pointer'
-/** 节点的连线手柄：四向小圆点（Loose 模式，任一端都能起手）。桌面悬停节点才显形，移动端常显 */
+/**
+ * 节点的连线手柄：四向小圆点（Loose 模式，任一端都能起手）。桌面悬停节点才显形，移动端常显。
+ *
+ * ⚠️ `z-10` 不能删：手柄的圆心正好落在节点边界上，**里侧半个圆和节点内容（头像 / 卡片 / 名字）
+ * 重叠**。两者都是定位元素、z-index 都是 auto，按 DOM 顺序内容在后 → 盖住手柄里侧那一半，
+ * 按在圆点中间就变成拖节点而不是拉线（「从圆点连不了线，只能移动节点」）。
+ * 抬到手柄这一层以后：按圆点 = 拉线，按内容 = 选 / 拖节点，互不抢。
+ */
 export const NODE_HANDLE =
-  '!h-3 !w-3 max-md:!h-4 max-md:!w-4 !rounded-full !border !border-line !bg-paper opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 hover:!bg-paper-card [&.valid]:!bg-ink-muted [&.valid]:opacity-100'
+  'z-10 !h-3 !w-3 max-md:!h-4 max-md:!w-4 !rounded-full !border !border-line !bg-paper opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 hover:!bg-paper-card [&.valid]:!bg-ink-muted [&.valid]:opacity-100'

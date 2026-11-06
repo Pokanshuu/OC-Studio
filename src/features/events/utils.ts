@@ -1,54 +1,14 @@
 import type { Event } from '@/types'
 import { compareManual } from '@/lib/sort-manual'
+import { normalizeTime, parseTime } from '@/lib/time-field'
+
+/**
+ * 时间三段解析 / 拼装 / 归一化已迁到 `lib/time-field.ts`（事件与词条共用）。
+ * 这里保留导出，现有调用点不用改。
+ */
+export { parseTime, assembleTime, normalizeTime } from '@/lib/time-field'
 
 export type SortKey = 'manual' | 'time' | 'updatedAt' | 'createdAt'
-
-interface ParsedTime {
-  year: string
-  month: string
-  day: string
-}
-
-export function parseTime(time: string): ParsedTime {
-  if (!time) return { year: '', month: '', day: '' }
-
-  const negative = time.startsWith('-')
-  const clean = negative ? time.slice(1) : time
-  const parts = clean.split('-')
-  return {
-    year: (negative ? '-' : '') + (parts[0] ?? ''),
-    month: parts[1] ?? '',
-    day: parts[2] ?? '',
-  }
-}
-
-export function assembleTime(year: string, month: string, day: string): string {
-  if (!year) return ''
-
-  let result = year
-  if (month) {
-    result += '-' + month.padStart(2, '0')
-  }
-  if (month && day) {
-    result += '-' + day.padStart(2, '0')
-  }
-
-  return result
-}
-
-export function normalizeTime(time: string): string {
-  if (!time) return ''
-
-  const negative = time.startsWith('-')
-  const clean = negative ? time.slice(1) : time
-  const parts = clean.split('-')
-  let year = (parts[0] ?? '').padStart(4, '0')
-  if (negative) year = '-' + year
-  const month = (parts[1] ?? '00').padStart(2, '0')
-  const day = (parts[2] ?? '00').padStart(2, '0')
-
-  return `${year}-${month}-${day}`
-}
 
 export function sortEvents(events: Event[], key: SortKey): Event[] {
   const sorted = [...events]
@@ -110,24 +70,5 @@ export function formatEventTime(time: string): string {
   return yearLabel
 }
 
-export function formatRelativeTime(timestamp: number): string {
-  const now = Date.now()
-  const diff = now - timestamp
-
-  if (diff < 0) return '刚刚'
-
-  const seconds = Math.floor(diff / 1000)
-  if (seconds < 60) return '刚刚'
-
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}分钟前`
-
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}小时前`
-
-  const days = Math.floor(hours / 24)
-  if (days < 30) return `${days}天前`
-
-  const date = new Date(timestamp)
-  return `${date.getMonth() + 1}月${date.getDate()}日`
-}
+/** 相对时间统一走 `lib/relative-time`；这里保留导出，事件列表的既有 import 不用改 */
+export { formatRelativeTime } from '@/lib/relative-time'

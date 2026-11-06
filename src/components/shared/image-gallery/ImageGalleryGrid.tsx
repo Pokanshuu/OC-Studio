@@ -1,21 +1,17 @@
 'use client'
 
-import { useState } from 'react'
-import { Plus, Trash2, ImageIcon, Loader2 } from 'lucide-react'
+import { Plus, ImageIcon, Loader2 } from 'lucide-react'
 import { resolveImageUrl } from '@/lib/image-service'
-import { MediaContextMenu, type MediaMenuItem } from '@/components/shared/MediaContextMenu'
-import { OverlayIconButton } from '@/components/shared/OverlayIconButton'
-import { downloadMediaFile } from '@/lib/media-download'
-import { toast } from 'sonner'
+import { useMediaMenu } from '@/lib/use-media-menu'
 
 interface ImageGalleryGridProps {
   images: string[]
   columns: number
-  gridAspect: 'square' | 'portrait'
+  gridAspect: 'square' | 'portrait' | 'wide'
   addTile: boolean
   onAdd?: (path: string) => void
-  onRemove?: (index: number) => void
   onViewImage: (index: number) => void
+  onOpenMenu: (index: number, at: { x: number; y: number }) => void
   uploading: boolean
   onUploadClick: () => void
 }
@@ -27,29 +23,16 @@ export function ImageGalleryGrid({
   gridAspect,
   addTile,
   onAdd,
-  onRemove,
   onViewImage,
+  onOpenMenu,
   uploading,
   onUploadClick,
 }: ImageGalleryGridProps) {
-  const aspectClass = gridAspect === 'portrait' ? 'aspect-[9/16]' : 'aspect-square'
-  const [menuAt, setMenuAt] = useState<{ x: number; y: number; index: number } | null>(null)
-
-  const menuItems = (index: number): MediaMenuItem[] => {
-    const items: MediaMenuItem[] = [
-      { label: '查看', onSelect: () => onViewImage(index) },
-      {
-        label: '保存到…',
-        onSelect: () => {
-          void downloadMediaFile(images[index]).catch((err: unknown) => {
-            toast.error('保存失败', { description: err instanceof Error ? err.message : String(err) })
-          })
-        },
-      },
-    ]
-    if (onRemove) items.push({ label: '移除', danger: true, onSelect: () => onRemove(index) })
-    return items
-  }
+  const aspectClass =
+    gridAspect === 'portrait' ? 'aspect-[9/16]' : gridAspect === 'wide' ? 'aspect-[3/2]' : 'aspect-square'
+  const handlersFor = useMediaMenu<number>((index, at) => {
+    if (index !== undefined) onOpenMenu(index, at)
+  })
 
   return (
     <div className="relative">
@@ -67,28 +50,18 @@ export function ImageGalleryGrid({
             <div
               key={idx}
               className={`group relative overflow-hidden rounded-item bg-paper-card ${aspectClass}`}
-              onContextMenu={(event) => {
-                event.preventDefault()
-                setMenuAt({ x: event.clientX, y: event.clientY, index: idx })
-              }}
+              {...handlersFor(idx)}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={resolveImageUrl(url)}
                 alt=""
-                className="h-full w-full cursor-pointer object-cover"
+                className="h-full w-full cursor-zoom-in object-cover"
                 onClick={() => onViewImage(idx)}
                 onError={(e) => {
                   (e.target as HTMLImageElement).src = '/images/defaults/character-avatar.svg'
                 }}
               />
-              {onRemove ? (
-                <span className="absolute right-1 top-1 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
-                  <OverlayIconButton label="移除图片" onClick={() => onRemove(idx)}>
-                    <Trash2 size={12} strokeWidth={2} />
-                  </OverlayIconButton>
-                </span>
-              ) : null}
             </div>
           ))}
 
@@ -117,14 +90,6 @@ export function ImageGalleryGrid({
           <Plus size={16} strokeWidth={2} />
           <span>添加图片</span>
         </button>
-      ) : null}
-
-      {menuAt ? (
-        <MediaContextMenu
-          at={{ x: menuAt.x, y: menuAt.y }}
-          items={menuItems(menuAt.index)}
-          onClose={() => setMenuAt(null)}
-        />
       ) : null}
     </div>
   )

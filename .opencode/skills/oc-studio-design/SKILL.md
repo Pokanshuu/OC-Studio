@@ -107,6 +107,7 @@ description: >
   | 字段标签（世界名称 / 版本 / 服务端地址） | `text-sm text-ink` |
   | 说明 / 状态（JSON 不含图片、开发中） | `text-xs text-ink-faint` |
 - **动作按钮文字居中**（导入 / 导出 / 发布 / 检查更新 / 访问 GitHub）：`justify-center`。**二级页面入口不是动作按钮，是列表行**：文字靠左、`›` 靠右，两端对齐（`justify-between`）
+- **行只有两种，按控件形状取**：开关 / 单行输入 = `SETTINGS_TOGGLE_ROW`（标签靠左、控件靠右）；**单选组 / 色板 / 图片 = `SETTINGS_FIELD`（标签在上、控件在下）**。挤进「108px 标签 + 其余」那一列，三个选项会把「白天模式」折成两行，色板也排不开
 - 分组之间用 `border-t border-line` 分隔，不写副标题、不加小标题说明（见 §9 文案预算）
 
 ### 输入
@@ -150,9 +151,9 @@ description: >
 
 ### 复选框 / 单选框 / 开关
 - 复选框 `rounded-item`（3px）；单选框、开关滑块保持**圆形/方块**语义（勾选与开关滑块不使用 `rounded-*` 之外的造型）
-- 复选框：`h-4 w-4 border border-line bg-paper-card`，勾为 `ink-muted` 的 `strokeWidth={2}` 折线
-- **正文任务列表的复选框**（编辑器内）：16px 方块 `rounded-item`，未选 `border-line bg-paper-card`，选中 `bg-ink-muted` 实心 + 纸色勾。原生 `<input type="checkbox">` 必须 `appearance:none; opacity:0` 铺满命中区 —— 否则会露出 WebView 的蓝色默认样式，那是界面上唯一一处不在令牌里的颜色
-- 单选框 / 主题选择：`h-4 w-4 rounded-full border`，选中为内部 8px **圆点**（`bg-ink-muted rounded-full`）
+- **复选框只有一种视觉**，实现在 `components/ui/checkbox.tsx` 的 `CheckboxBox`：`h-4 w-4` 方块，未选 `border-line bg-paper-card`，选中 `border-ink-muted bg-ink-muted` 实心 + 纸色勾（lucide `Check size={11} strokeWidth={2.5}`）。行内（图层行 / 文件夹成员行）直接用 `CheckboxBox`，独立的一枚用 `Checkbox`（内部就是 `CheckboxBox`）—— **不要再用「空框 + 浅色勾」那种半亮不亮的画法**
+- **正文任务列表的复选框**（编辑器内）同一口径：16px 方块 `rounded-item`，未选 `border-line bg-paper-card`，选中 `bg-ink-muted` 实心 + 纸色勾。原生 `<input type="checkbox">` 必须 `appearance:none; opacity:0` 铺满命中区 —— 否则会露出 WebView 的蓝色默认样式，那是界面上唯一一处不在令牌里的颜色
+- 单选框 / 主题选择：14px 圆环（`h-3.5 w-3.5 rounded-full border`，选中描边 `line-hover`）+ 内部 6px **墨点**（`bg-ink-muted`，与复选框、开关同一枚选中色）；选项组一律等分（三项窄屏退两列），文字**不换行**
 - 开关：**胶囊**轨道 `h-5 w-9 rounded-full border`（on: `border-line-hover bg-ink-muted`）+ **圆形**滑块 `h-3.5 w-3.5 rounded-full`（`SWITCH_CLASSES` / `SWITCH_DOT`）
 - 滑杆（时间线缩放、裁剪缩放）：轨道与拇指都用 `rounded-full`
 - 禁用：`opacity-50`；包裹文字 `text-sm text-ink gap-2`
@@ -170,6 +171,7 @@ description: >
 - **无 `ring` 光晕**；菜单项 hover 统一 `bg-[var(--oc-hover)]`（亮暗自适应的一档极低透明度墨色）
 - 危险操作：`text-error`
 - 遮罩：`bg-[var(--oc-scrim)]`（值见 `globals.css`）
+- **`FLOAT_SKIN` 就是纸面本身**（85% 纸 + 1px 线 + 唯一阴影）：**不要**再给它叠 `hover:bg-[var(--oc-hover)]` —— `hover:` 变体会把 `background-color` 整个顶掉，卡片只剩 6% 墨，底下的地图 / 图片直接从字底下透上来（地图左上那张名片曾经如此，看着像一块半透明绿）。浮层本体的鼠标反馈只改纸：`hover:bg-paper`（纸变实）
 
 ### 浮层内的按钮（历史方案已废弃）
 早期版本为「毛玻璃上按钮用 `bg-white/60` 隆起、`bg-black/5` 凹陷」的分层体系，**现已全部废弃**。
@@ -248,6 +250,8 @@ description: >
 - 全局按钮默认带 `border-radius: var(--radius-control)`（6px）：漏写圆角类的按钮，hover 底色也不会是方块。显式 `rounded-*` 覆盖它；贴边的整条按钮（移动端 TabBar）用 `rounded-none`
 - **副作用**：任何整行/整格的按钮都会拿到一块底色，因此**必须自带横向 padding**；想要更宽的高亮用「行加 `px-*` + 外层等量负 margin」（概览的统计行与最近更新行即此做法）
 - 不需要底色的按钮显式写 `hover:bg-transparent`
+- **按钮的盒子就是它的可点范围**：`flex: 1` / `w-full` 的按钮（页头标题、行里的「展开」钮）会把 hover 底色和焦点圈一起拉成一条通栏。页头标题这类「点开才改名」的文字**不铺 hover 底色**（文字不是控件），按钮也只包住文字（`flex: 0 1 auto` + `margin-right: auto` 占位），空白处不算点它
+- 行里的可点区域被拆成「复选框 / 中间按钮 / 版本号」时，**悬停单位是整行**（行 `rounded-item` + `hover:bg-[var(--oc-hover)]`，里面的按钮 `hover:bg-transparent`），不要只亮中间那截 —— 否则一行看着被切成两半（设置 › 插件、自定义分类曾经如此）。**不可点的行不铺底色**（内置分类行只给开关）
 - 危险项的**浅底** `hover:bg-error-light`（`--oc-error-light` 自带明暗）只给「行」与图标按钮（菜单行 / 删除图标）；**危险按钮**是实心 `BTN_DANGER`，两套别混用。不要写 `bg-red-50` / `dark:bg-red-950/30` 这类 Tailwind 原色
 
 ## 4. 图标
@@ -328,4 +332,4 @@ description: >
   2. 它是不是把「禁用 / 选中 / 空 / 有内容」又说了一遍？是 → 删
   3. 它是不是在解释布局（「下面可以…」「这里是…」）？是 → 删
   4. 它属于上面四种允许类型吗？不属于 → 删
-- 空态是例外：空态允许**一句话**，且优先用可点的 `EMPTY_HINT`（「点这里去建一个」），不要写说明文
+- 空态是例外：空态允许**一句话**，但必须三件套——**一个图标**（20px lucide、`text-ink-faint`）+ 一句话 + **一个主按钮**（`BTN_PRIMARY`：「新建小说」「创建第一个」），不要写说明文；**动作不许做成可点的衬线小字**，整块要在内容区里横向 + 纵向居中（父级给高度，实现见 `ListEmptyState` / `ListShell`）。图标不许有的有、有的没有

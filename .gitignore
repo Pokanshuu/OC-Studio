@@ -70,6 +70,12 @@ Thumbs.db
 *.swp
 *.swo
 
+# 临时浏览器配置（Tailwind 自动扫描会读非 ignore 文件，浏览器 profile 有几百 MB 二进制）
+/.tmp-edge*/
+
+# 本地验证产物（截图 / 下载 / 一次性 CDP 脚本），不进仓库
+/tmp/
+
 # 编辑器配置
 .vscode/
 .vs/
@@ -100,3 +106,8 @@ docs/PR5-拆解清单.md
 
 # 桌面壳调试日志
 logs/
+
+# Android 构建缓存 / 产物（Tailwind 自动扫描会读非 ignore 文件，别把二进制和压缩产物扫进去）
+/android/.gradle/
+/android/app/build/
+/android/app/src/main/assets/public/

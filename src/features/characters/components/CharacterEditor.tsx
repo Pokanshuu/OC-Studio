@@ -7,8 +7,10 @@ import { EntityDocumentBody } from '@/components/editor/EntityDocumentBody'
 import { EditorBodyPane } from '@/components/editor/EditorBodyPane'
 import { EditorSplitPane } from '@/components/editor/EditorSplitPane'
 import { EntityEditorShell } from '@/components/shared/EntityEditorShell'
+import { TalkToAgentButton } from '@/components/shared/TalkToAgentButton'
 import type { Character } from '@/types'
 import { EntityHistoryButton } from '@/features/vault'
+import { EntityExportButton } from '@/components/shared/EntityExportButton'
 import { useEditorLayout } from '@/lib/use-editor-layout'
 import { useDevice } from '@/lib/use-device'
 import type { CharacterFormData } from '../types'
@@ -24,12 +26,14 @@ interface CharacterEditorProps {
   onCreate?: () => void
   onNavigateToCharacter?: (id: number) => void
   onNavigateToCountry?: (id: number) => void
+  /** 关系里的「相关笔记」 */
+  onNavigateToWorld?: (id: number) => void
   onMentionClick?: (id: string, entityType?: string) => void
   onCharacterCount?: (count: number) => void
   onWikiLinkClick?: (id: string) => void
 }
 
-export function CharacterEditor({ editCharacterId, onBack, onCreate, onNavigateToCharacter, onNavigateToCountry, onMentionClick, onCharacterCount, onWikiLinkClick }: CharacterEditorProps) {
+export function CharacterEditor({ editCharacterId, onBack, onCreate, onNavigateToCharacter, onNavigateToCountry, onNavigateToWorld, onMentionClick, onCharacterCount, onWikiLinkClick }: CharacterEditorProps) {
   const { character, loading, error, refresh } = useCharacter(editCharacterId)
   const { updateCharacter } = useUpdateCharacter()
 
@@ -71,6 +75,7 @@ export function CharacterEditor({ editCharacterId, onBack, onCreate, onNavigateT
       onCreate={onCreate}
       onNavigateToCharacter={onNavigateToCharacter}
       onNavigateToCountry={onNavigateToCountry}
+      onNavigateToWorld={onNavigateToWorld}
       onMentionClick={onMentionClick}
       onCharacterCount={onCharacterCount}
       onWikiLinkClick={onWikiLinkClick}
@@ -88,6 +93,7 @@ function CharacterEditorInner({
   onSave,
   onNavigateToCharacter,
   onNavigateToCountry,
+  onNavigateToWorld,
   onMentionClick,
   onCharacterCount,
   onWikiLinkClick,
@@ -98,6 +104,7 @@ function CharacterEditorInner({
   onSave: (id: number, data: Partial<CharacterFormData>) => Promise<void>
   onNavigateToCharacter?: (id: number) => void
   onNavigateToCountry?: (id: number) => void
+  onNavigateToWorld?: (id: number) => void
   onMentionClick?: (id: string, entityType?: string) => void
   onCharacterCount?: (count: number) => void
   onWikiLinkClick?: (id: string) => void
@@ -136,7 +143,15 @@ function CharacterEditorInner({
 
   const headerActions = (
     <>
+      <TalkToAgentButton
+        kind="character"
+        id={character.id}
+        title={form.name}
+        onBeforeOpen={form.handleSave}
+      />
       <EntityHistoryButton table="characters" id={character.id} name={form.name} />
+      {/* 导出走**全局导出中心**（海报页签落在这一条上），这里只传身份 */}
+      <EntityExportButton kind="character" id={character.id} onBeforeOpen={form.handleSave} />
       <button
         onClick={form.handleSave}
         disabled={form.saving || !form.name.trim()}
@@ -195,6 +210,7 @@ function CharacterEditorInner({
               compact
               onNavigateToCharacter={onNavigateToCharacter}
               onNavigateToCountry={onNavigateToCountry}
+              onNavigateToWorld={onNavigateToWorld}
             />
           }
         >
@@ -211,9 +227,9 @@ function CharacterEditorInner({
               compact={false}
               onNavigateToCharacter={onNavigateToCharacter}
               onNavigateToCountry={onNavigateToCountry}
+              onNavigateToWorld={onNavigateToWorld}
+              body={body}
             />
-            <div className="mt-8 border-t border-line" />
-            <div className="mt-8">{body}</div>
           </div>
         </div>
       )}

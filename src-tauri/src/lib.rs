@@ -1,5 +1,6 @@
 use std::sync::OnceLock;
 
+mod agent;
 mod files;
 mod journal;
 mod open;
@@ -125,6 +126,7 @@ pub fn run() {
     .plugin(tauri_plugin_clipboard_manager::init())
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_fs::init())
+    .plugin(tauri_plugin_opener::init())
     .setup(|app| {
       if cfg!(debug_assertions) {
         // 开发期只往 stdout 打日志。
@@ -151,6 +153,9 @@ pub fn run() {
       use tauri::webview::Color;
       let _ = window.set_background_color(Some(Color(254, 252, 248, 255)));
 
+      // 助手插件自己的库与网络客户端（原样搬自 Simple-Agent）。
+      app.manage(agent::init(app.handle())?);
+
       Ok(())
     })
     .invoke_handler(tauri::generate_handler![
@@ -172,7 +177,52 @@ pub fn run() {
       journal::journal_append,
       journal::journal_tail,
       files::save_text,
-      files::save_bytes
+      files::save_bytes,
+      // ── 助手插件（原样搬自 Simple-Agent）────────────────────────────────
+      agent::commands::list_conversations,
+      agent::commands::find_conversation,
+      agent::commands::create_conversation,
+      agent::commands::update_conversation,
+      agent::commands::delete_conversation,
+      agent::commands::touch_conversation,
+      agent::commands::fork_conversation,
+      agent::commands::load_messages,
+      agent::commands::append_message,
+      agent::commands::update_message,
+      agent::commands::set_active_variant,
+      agent::commands::delete_subtree,
+      agent::commands::get_draft,
+      agent::commands::save_draft,
+      agent::commands::clear_draft_title,
+      agent::commands::list_drafts,
+      agent::commands::list_presets,
+      agent::commands::save_preset,
+      agent::commands::delete_preset,
+      agent::commands::get_conversation_presets,
+      agent::commands::set_conversation_presets,
+      agent::commands::get_compaction,
+      agent::commands::save_compaction,
+      agent::commands::delete_compaction,
+      agent::commands::get_settings,
+      agent::commands::save_settings,
+      agent::commands::search_conversations,
+      agent::commands::export_backup_to,
+      agent::commands::import_backup_from,
+      agent::commands::import_chatbox_from,
+      agent::commands::run_tool,
+      agent::commands::audit_tool_call,
+      agent::tools::workspace_info,
+      agent::commands::read_text_file,
+      agent::commands::read_image_file,
+      agent::commands::write_text_file,
+      agent::commands::app_info,
+      agent::net::chat_stream,
+      agent::net::cancel_stream,
+      agent::net::http_get,
+      agent::secrets::save_api_key,
+      agent::secrets::load_api_key,
+      agent::secrets::clear_api_key,
+      agent::secrets::api_key_hint
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

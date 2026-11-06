@@ -176,6 +176,15 @@ export function MapAnchorPicker({
     close()
   }
 
+  // Esc 关闭：浮层挂在 #overlay-root，离开地图页时也要能收掉
+  useEffect(() => {
+    if (!open) return
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') close()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, close])
   const overlayRoot =
     portalContainer !== undefined
       ? portalContainer
@@ -185,7 +194,7 @@ export function MapAnchorPicker({
 
   const dialog = (
     <div
-      className="fixed inset-0 z-40 flex items-start justify-center bg-[var(--oc-scrim)] px-4 pt-[12vh]"
+      className="pointer-events-auto fixed inset-0 z-40 flex items-start justify-center bg-[var(--oc-scrim)] px-4 pt-[12vh]"
       onPointerDown={(event) => {
         if (event.target === event.currentTarget) close()
       }}
@@ -204,16 +213,20 @@ export function MapAnchorPicker({
           <span className="shrink-0 text-[11px] text-ink-faint">{mapName.length > 0 ? mapName : '主地图'}</span>
         </div>
 
+        {/* 放大镜挂在输入框自己的坐标系里：外层 px-3 是给行的，
+            图标若直接绝对定在这层会吊在内容列外沿（图标 10 / 文字 44，中间空一大截） */}
         <div className="relative shrink-0 px-3 py-2">
-          <Search size={14} strokeWidth={2} className={SEARCH_ICON} />
-          <input
-            autoFocus
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="搜索国家 / 事件 / 词条"
-            className={`${SEARCH_INPUT} !w-full`}
-            aria-label="搜索可添加的实体"
-          />
+          <div className="relative">
+            <Search size={14} strokeWidth={2} className={SEARCH_ICON} />
+            <input
+              autoFocus
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="搜索国家 / 事件 / 词条"
+              className={`${SEARCH_INPUT} !w-full`}
+              aria-label="搜索可添加的实体"
+            />
+          </div>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto pb-1">

@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useMemo, useCallback, useEffect } from 'react'
-import { Download, ExternalLink, Eye, Menu, RefreshCw, Search } from 'lucide-react'
+import { Download, ExternalLink, Eye, Images, Menu, RefreshCw, Search } from 'lucide-react'
 import { ICON_BTN_MD, LOADING_TEXT } from '@/lib/ui-tokens'
+import { useScrollShade } from '@/lib/use-scroll-shade'
 import { PageToolbar } from './PageToolbar'
 import { ListEmptyState } from './ListEmptyState'
 import { FullscreenViewer } from './FullscreenViewer'
@@ -37,6 +38,9 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
   const [treeCollapsed, setTreeCollapsed] = useState(false)
   const { width: listWidth, startDrag: startListDrag, reset: resetListWidth } = useListWidth()
   const [showMobileTree, setShowMobileTree] = useState(false)
+  /** 右栏自己滚（相册不是 ListShell）：页头的线 / 模糊跟着它的滚动位置走 */
+  const [gridScrollEl, setGridScrollEl] = useState<HTMLDivElement | null>(null)
+  const gridScrolled = useScrollShade(gridScrollEl)
   const [tagFilter, setTagFilter] = useState<number | 'all'>('all')
   /** 按来源实体筛选（角色 / 事件 / 国家）；分类变了就复位 */
   const [sourceFilter, setSourceFilter] = useState<number | 'all'>('all')
@@ -101,7 +105,7 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
       actions: [
         {
           id: 'view',
-          label: '查看',
+          label: '查看大图',
           icon: <Eye size={20} strokeWidth={2} />,
           onPress: () => setViewerIndex(index),
         },
@@ -206,13 +210,14 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
       ) : null}
 
       {/* Right column */}
-      <div className="flex flex-1 flex-col min-w-0 overflow-auto max-md:overflow-visible">
+      <div ref={setGridScrollEl} className="flex flex-1 flex-col min-w-0 overflow-auto max-md:overflow-visible">
         <div className="md:hidden h-[calc(60px+var(--safe-top))] flex-shrink-0" />
-        {/* Grid — scroll container, header inside for blur */}
+        {/* 页头就挂在这个滚动容器里：上滑后由它自己的底色 + 模糊挡住背后的图 */}
         <div className="flex-1">
           {/* Desktop header */}
           <PageToolbar
             title={selectedLabel}
+            scrolled={gridScrolled}
             className="max-md:hidden"
             actions={
               <>
@@ -283,7 +288,7 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
           {loading ? (
             <div className="flex flex-1 items-center justify-center"><span className={LOADING_TEXT}>加载中…</span></div>
           ) : filtered.length === 0 ? (
-            <ListEmptyState message="暂无图片" className="min-h-[40vh]" />
+            <ListEmptyState icon={Images} message="暂无图片" className="min-h-[40vh]" />
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
               {filtered.map((entry, idx) => (

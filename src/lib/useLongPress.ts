@@ -1,10 +1,16 @@
 'use client'
 
-import { useRef, useCallback } from 'react'
+import { useRef, useCallback, useEffect } from 'react'
 import { triggerHaptic } from './haptics'
 
+export interface LongPressPoint {
+  clientX: number
+  clientY: number
+}
+
 interface UseLongPressOptions {
-  onLongPress: () => void
+  /** 长按触发时带上按下位置，供右键菜单 / 动作表定位 */
+  onLongPress: (point: LongPressPoint) => void
   threshold?: number
   moveThreshold?: number
   enabled?: boolean
@@ -18,8 +24,13 @@ export function useLongPress({
 }: UseLongPressOptions) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const startRef = useRef<{ x: number; y: number } | null>(null)
+  const pointRef = useRef<LongPressPoint>({ clientX: 0, clientY: 0 })
+  /** 长按已经出过菜单：吞掉松手后合成的那次 click（否则会同时打开大图） */
+  const firedRef = useRef(false)
   const callbackRef = useRef(onLongPress)
-  callbackRef.current = onLongPress
+  useEffect(() => {
+    callbackRef.current = onLongPress
+  }, [onLongPress])
 
   const clear = useCallback(() => {
     if (timerRef.current) {
@@ -32,11 +43,16 @@ export function useLongPress({
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
       if (!enabled) return
+      // 右键 / 中键走 contextmenu，不参与长按
+      if (e.pointerType === 'mouse' && e.button !== 0) return
       clear()
+      firedRef.current = false
       startRef.current = { x: e.clientX, y: e.clientY }
+      pointRef.current = { clientX: e.clientX, clientY: e.clientY }
       timerRef.current = setTimeout(() => {
+        firedRef.current = true
         triggerHaptic()
-        callbackRef.current()
+        callbackRef.current(pointRef.current)
       }, threshold)
     },
     [enabled, threshold, clear],
@@ -58,5 +74,18 @@ export function useLongPress({
     clear()
   }, [clear])
 
-  return { onPointerDown, onPointerMove, onPointerUp, onPointerCancel: onPointerUp }
+  const onClickCapture = useCallback((e: React.MouseEvent) => {
+    if (!firedRef.current) return
+    firedRef.current = false
+    e.preventDefault()
+    e.stopPropagation()
+  }, [])
+
+  return {
+    onPointerDown,
+    onPointerMove,
+    onPointerUp,
+    onPointerCancel: onPointerUp,
+    onClickCapture,
+  }
 }

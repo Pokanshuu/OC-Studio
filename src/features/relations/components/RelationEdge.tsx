@@ -12,6 +12,7 @@ import {
 import { arrowEnds, relationColorValue, type RelationArrow } from '@/lib/relation-colors'
 import { useSettings } from '@/lib/settings'
 import { nodeRect, relationEdgePath } from './floating-edge'
+import type { GraphEdgeKind } from '../types'
 
 /** 标签点击回调：屏幕坐标，与画布上点线打开的样式面板共用同一条路径 */
 export type RelationLabelClick = (point: { x: number; y: number }) => void
@@ -89,6 +90,9 @@ export function RelationEdge({
 
   // 关系名可以为空（如角色关系只连了线没起名）——空标签不画那个白框
   const relation = (data?.relation as string | undefined) ?? ''
+  // 关系图里默认只在悬停 / 选中时显示（`RelationGraph` 在 data 上给 showLabel）；
+  // 导出等其它消费方没有这个键时保持显示，免得导出图丢名字
+  const showLabel = data?.showLabel !== false
   // 点标签 = 点线：标签是 EdgeLabelRenderer 里的独立元素，不经过画布的 onEdgeClick
   const onLabelClick = data?.onLabelClick as RelationLabelClick | undefined
   // 颜色与箭头是**边的数据**（docs/关系图.md §2.1），文字永远跟线同色
@@ -98,13 +102,25 @@ export function RelationEdge({
   const startId = `arrow-start-${id}`
   const endId = `arrow-end-${id}`
 
+  /* 线的分级（docs/关系图.md §10）：不新增视觉语汇，只改权重 ——
+     语义关系实线稍粗；归属 / 参与细一档；@ 引用推出来的线用虚线（机器推的，不是人手画的）。 */
+  const kind = (data?.kind as GraphEdgeKind | undefined) ?? 'relation'
+  const strokeWidth = kind === 'member' ? 1 : kind === 'reference' ? 1 : 1.4
+  const dash = kind === 'reference' ? '2 3' : undefined
+  const baseOpacity = kind === 'reference' ? 0.45 : kind === 'member' ? 0.6 : 0.85
+
   return (
     <>
+      {/* 起点 / 终点的三角是**镜像**的，所以两个 marker 都用 `orient="auto"`（顺着线方向）：
+          终点的尖在右（x=10），起点的尖在左（x=0）。
+          ⚠️ 起点**别写 `auto-start-reverse`** —— 那个属性会在起点再翻 180°，把「尖在左」
+          翻成「尖在右」，箭头于是从起点往回扎进节点里、被节点整块盖住：双向边看着像单向
+          （2026-11-06 修的就是这个）。 */}
       <defs>
-        <marker id={startId} viewBox="0 0 10 10" refX="1" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <marker id={startId} viewBox="0 0 10 10" refX="1" refY="5" markerWidth="6" markerHeight="6" orient="auto">
           <path d="M 10 0 L 0 5 L 10 10 z" fill={color} />
         </marker>
-        <marker id={endId} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <marker id={endId} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
           <path d="M 0 0 L 10 5 L 0 10 z" fill={color} />
         </marker>
       </defs>
@@ -113,11 +129,16 @@ export function RelationEdge({
         path={edgePath}
         // hover 聚焦会把 opacity 挂在 edge.style 上（见 RelationGraph 的 displayEdges），
         // 自定义边必须自己接住它，否则节点淡了、线还全亮
-        style={{ stroke: color, ...style }}
+        style={{
+          stroke: color,
+          strokeWidth,
+          ...(dash ? { strokeDasharray: dash } : {}),
+          opacity: typeof style?.opacity === 'number' ? style.opacity : baseOpacity,
+        }}
         markerStart={ends.start ? `url(#${startId})` : undefined}
         markerEnd={ends.end ? `url(#${endId})` : undefined}
       />
-      {relation ? (
+      {relation && showLabel ? (
         <EdgeLabelRenderer>
           <div
             onClick={(event) => {

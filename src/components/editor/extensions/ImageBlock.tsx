@@ -2,9 +2,13 @@ import { Node, mergeAttributes } from '@tiptap/core'
 import { ReactNodeViewRenderer, NodeViewWrapper } from '@tiptap/react'
 import type { ReactNodeViewProps } from '@tiptap/react'
 import { useState, useRef, useEffect } from 'react'
-import { ImageIcon, Crop } from 'lucide-react'
+import { ImageIcon } from 'lucide-react'
 import { uploadImage, getImageUrl } from '@/lib/image-service'
+import { useMediaDownload } from '@/lib/use-media-download'
+import { useMediaMenu } from '@/lib/use-media-menu'
 import { InlineCrop } from '@/components/shared/InlineCrop'
+import { FullscreenViewer } from '@/components/shared/FullscreenViewer'
+import { MediaContextMenu, type MediaMenuItem } from '@/components/shared/MediaContextMenu'
 
 export const ImageBlock = Node.create({
   name: 'imageBlock',
@@ -43,10 +47,19 @@ export const ImageBlock = Node.create({
   },
 })
 
+/**
+ * 正文图片块：单击看大图，右键 / 长按出菜单（更换 / 编辑 / 保存到… / 删除）。
+ * 缩放拖柄保留；图上不再压裁剪 / 删除圆钮。
+ */
 function ImageBlockView({ node, updateAttributes, deleteNode }: ReactNodeViewProps) {
   const src = node.attrs.src as string | null
   const [cropping, setCropping] = useState(false)
+  const [viewing, setViewing] = useState(false)
+  const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null)
   const dragRef = useRef<{ move: (ev: MouseEvent) => void; up: () => void } | null>(null)
+  const { save } = useMediaDownload()
+  const handlersFor = useMediaMenu<never>((_, at) => setMenuAt(at))
+  const imageMenuHandlers = handlersFor()
 
   useEffect(() => {
     return () => {
@@ -100,6 +113,13 @@ function ImageBlockView({ node, updateAttributes, deleteNode }: ReactNodeViewPro
   }
 
   const width = node.attrs.width as number | null
+  const menuItems: MediaMenuItem[] = [
+    { label: '查看大图', onSelect: () => setViewing(true) },
+    { label: '更换', onSelect: () => void handleUpload() },
+    { label: '编辑', onSelect: () => setCropping(true) },
+    { label: '保存到…', onSelect: () => void save(src, '图片.png') },
+    { label: '删除', danger: true, onSelect: () => deleteNode() },
+  ]
 
   return (
     <NodeViewWrapper>
@@ -108,26 +128,12 @@ function ImageBlockView({ node, updateAttributes, deleteNode }: ReactNodeViewPro
         <img
           src={getImageUrl(src, 'avatar')}
           alt=""
-          className="max-w-full"
+          className="max-w-full cursor-zoom-in"
           style={width ? { width: `${width}px` } : undefined}
           draggable={true}
+          {...imageMenuHandlers}
+          onClick={() => setViewing(true)}
         />
-        <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-          <button
-            onClick={() => setCropping(true)}
-            className="flex h-7 w-7 items-center justify-center rounded-full bg-black/40 text-white/80 hover:bg-black/60"
-            title="裁剪"
-          >
-            <Crop size={14} strokeWidth={2} />
-          </button>
-          <button
-            onClick={() => deleteNode()}
-            className="flex h-7 w-7 items-center justify-center rounded-full bg-black/40 text-white/80 hover:bg-black/60"
-            title="删除"
-          >
-            <ImageIcon size={14} strokeWidth={2} />
-          </button>
-        </div>
         <div
           className="absolute bottom-1 right-1 h-4 w-4 cursor-se-resize opacity-0 group-hover:opacity-100"
           style={{
@@ -152,6 +158,14 @@ function ImageBlockView({ node, updateAttributes, deleteNode }: ReactNodeViewPro
           }}
         />
       </div>
+
+      {menuAt ? (
+        <MediaContextMenu at={menuAt} items={menuItems} onClose={() => setMenuAt(null)} />
+      ) : null}
+
+      {viewing ? (
+        <FullscreenViewer images={[src]} initialIndex={0} onClose={() => setViewing(false)} />
+      ) : null}
     </NodeViewWrapper>
   )
 }

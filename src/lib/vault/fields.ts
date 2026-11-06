@@ -36,8 +36,6 @@ export const CHARACTER_KEYS = {
   /** 旧版「人生故事」：早期版本的大段文本，编辑器已合并进正文展示，但数据不能丢 */
   lifeStory: chain('lifeStory', '人生故事'),
   isMajor: chain('isMajor', '主要角色'),
-  /** 实体类别：角色 / 武器 / 宠物（缺省 = 角色；武器与宠物是「角色模板实体」，不是新表） */
-  kind: chain('kind', '类别', '类型'),
   avatar: chain('avatar', 'avatarUrl'),
   header: chain('header', 'headerUrl'),
   /** OC 动画（视频文件，存在库里附件目录） */
@@ -45,6 +43,8 @@ export const CHARACTER_KEYS = {
   gallery: chain('gallery'),
   avatars: chain('avatars'),
   relations: chain('relations'),
+  /** 角色 → 笔记的命名关系（与笔记自身 relations 同形） */
+  relatedNotes: chain('related_notes', '相关笔记'),
   tags: chain('tags'),
   order: chain('order', '排序'),
   /** 角色文件夹：只存文件夹**名字**（不是 id），空 = 未分组；删文件夹不删角色（见 docs/待设计决策清单 §2） */
@@ -52,6 +52,11 @@ export const CHARACTER_KEYS = {
   /** 关系图坐标：`{ x, y }`。只有用户拖过节点才有这个键 */
   graphPosition: chain('graph_position', 'graphPosition'),
   date: chain('date'),
+  /**
+   * 旧版武器 / 宠物标记（`kind` / `类别`）：只用于一次性导入，导入后清掉；
+   * 不属于现行角色模型，但由序列化器持有，才能把盘上的旧键真正删掉。
+   */
+  legacyKind: chain('kind', '类别'),
 } as const
 
 export const COUNTRY_KEYS = {
@@ -64,8 +69,11 @@ export const COUNTRY_KEYS = {
   culture: chain('culture', '文化'),
   flag: chain('flag', 'flagUrl', '旗帜'),
   header: chain('header', 'headerUrl'),
-  characters: chain('characters', '角色', '相关角色'),
-  events: chain('events', '事件', '相关事件'),
+  /** 图集（模板「画廊」组件的槽位） */
+  gallery: chain('gallery'),
+  // `characters` / `events` 两格**已退役**（阶段二·一）：成员关系只有实体侧一份
+  // （`Character.countryId` / `Event.countries`），国家页的名单是查询结果。
+  // 从词汇表里摘掉 = 既不读也不写；盘上遗留的键原样留着，一个字节都不动。
   tags: chain('tags'),
   order: chain('order', '排序'),
   /** 关系图坐标：`{ x, y }`。只有用户拖过节点才有这个键 */
@@ -106,9 +114,32 @@ export const WORLD_KEYS = {
   title: chain('title', 'name'),
   aliases: chain('aliases'),
   category: chain('category', '分类'),
+  /** 分类条目封面（3:2）；`封面图` 是手写常见写法，`封面` 留给小说根节点 */
+  cover: chain('cover', '封面图'),
+  /**
+   * 模板组件的图片 / 时间 / 地点槽位（2026-11-06 新增）。
+   *
+   * **不给中文别名**：中文键是用户自定义字段最常用的写法（「时间」「地点」「图片」），
+   * 认作同义词会让同一份 frontmatter 键有两个主人 —— 自定义字段那边一写就把组件值盖掉。
+   * 自定义字段与词汇表撞名时以第一类列为准（scan / serialize 的 readCustomFields 会跳过）。
+   */
+  avatar: chain('avatar'),
+  image: chain('image'),
+  gallery: chain('gallery'),
+  time: chain('time'),
+  endTime: chain('endTime'),
+  location: chain('location'),
+  /** 一行简介：分类条目的副标题，也给列表摘要用 */
+  summary: chain('summary', '简介'),
+  /** 单篇笔记覆盖用的模板名（空 = 跟随所在分类 / 内置词条模板） */
+  template: chain('template', '模板'),
+  /** 笔记之间的命名关系（与角色 / 事件同形：`{ name, relation, color?, arrow? }`） */
+  relations: chain('relations'),
   parent: chain('parent', '父词条'),
   order: chain('order', '排序'),
   isConcept: chain('isConcept', '概念'),
+  /** 关系图坐标：只有分类条目进图并拖动过才有 */
+  graphPosition: chain('graph_position', 'graphPosition'),
   /** 地图锚点：归一化 0–1，换分辨率不用重摆（docs/地图.md §2） */
   mapPosition: chain('map_position', 'mapPosition'),
   mapId: chain('map_id', 'mapId'),
@@ -126,6 +157,10 @@ export const WORLD_KEYS = {
   /** 地图生成参数快照（JSON 字符串）+ 种子：重生成用 */
   mapSeed: chain('map_seed', '种子'),
   mapParams: chain('map_params', '生成参数'),
+  /** 当前视图：切模式只是换 `map_image` 指向的文件，视图名必须记在自己的格子里 */
+  mapMode: chain('map_mode', '视图'),
+  /** 政治标注：国界多边形 / 道路折线（JSON，归一化坐标） */
+  mapAnnotations: chain('map_annotations', '标注'),
   /** 章节大纲 / 备注（只有章节会写） */
   chapterOutline: chain('chapter_outline', '章节大纲'),
   tags: chain('tags'),

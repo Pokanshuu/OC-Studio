@@ -20,6 +20,7 @@ import {
   legacyImageSourcePath,
   type LegacyRows,
 } from '../src/lib/vault/export-dir'
+import { worldBodyOf } from '../src/lib/world-body'
 import {
   collectBodyImageRefs,
   collectCharacterAnimationRefs,
@@ -69,8 +70,6 @@ const countries: Country[] = [
     system: '君主制',
     geography: '雪山与峡湾',
     culture: '尚武',
-    characters: [1],
-    events: [1],
     tags: [2],
     createdAt: 1,
     updatedAt: 1,
@@ -98,7 +97,9 @@ const characters: Character[] = [
     animationUrl: '附件/凯尔.mp4',
     bio: '沉默的铁匠',
     lifeStory: '雪线之战里丢了一只手',
+    legacyKind: 'pet',
     relatedCharacters: [{ characterId: 2, name: '阿尔法', relation: '挚友' }],
+    relatedNotes: [{ targetId: 1, name: '世界树', relation: '守护' }],
     gallery: [{ url: '附件/凯尔-立绘.png', caption: '常服' }],
     avatars: [{ url: '附件/凯尔-头像.png', type: 'portrait' }],
     tags: [1, 2],
@@ -196,6 +197,7 @@ const worldEntries: WorldEntry[] = [
     parentId: null,
     order: 1,
     isConcept: false,
+    relations: [{ targetId: 4, name: '小灰', relation: '共生', color: '苔绿', arrow: 'forward' }],
     references: [],
     tags: [2],
     createdAt: 1,
@@ -215,6 +217,7 @@ const worldEntries: WorldEntry[] = [
     order: 1,
     isConcept: false,
     novelCover: '附件/小说封面.png',
+    relations: [],
     references: [],
     tags: [],
     createdAt: 3,
@@ -235,6 +238,7 @@ const worldEntries: WorldEntry[] = [
     mapImage: '.ocstudio/maps/北境.png',
     mapWidth: 1920,
     mapHeight: 1080,
+    relations: [],
     references: [],
     tags: [],
     createdAt: 4,
@@ -242,6 +246,28 @@ const worldEntries: WorldEntry[] = [
     deleted: false,
     _syncStatus: 'local',
     _lastModified: 4,
+  },
+  {
+    id: 4,
+    title: '小灰',
+    aliases: [],
+    content: '',
+    category: '宠物',
+    cover: '附件/小灰.png',
+    summary: '一只灰羽风灵',
+    custom: { 物种: '风灵', 习性: '夜行' },
+    graphPosition: { x: 448, y: 104 },
+    parentId: null,
+    order: 3,
+    isConcept: false,
+    relations: [],
+    references: [],
+    tags: [],
+    createdAt: 5,
+    updatedAt: 5,
+    deleted: false,
+    _syncStatus: 'local',
+    _lastModified: 5,
   },
 ]
 
@@ -266,7 +292,7 @@ const rows: LegacyRows = {
 // ── 全量物化（与 exportLegacyToFolder 同一套拼装规则） ───────────────────
 
 // 自定义字段的 key 要先登记，否则序列化不会写它（这正是迁移必须带 fields.json 的原因）
-setCustomFieldKeys({ character: ['favoriteFood'] })
+setCustomFieldKeys({ character: ['favoriteFood'], worldEntry: ['物种', '习性'] })
 
 const ctx = buildContext(rows)
 const files: { relPath: string; content: string; size: number; mtimeMs: number }[] = []
@@ -285,6 +311,7 @@ emit('event', '余烬', events[1])
 emit('worldEntry', '世界树', worldEntries[0])
 emit('worldEntry', '灰烬纪年', worldEntries[1])
 emit('worldEntry', '北境地图', worldEntries[2])
+emit('worldEntry', '小灰', worldEntries[3])
 emit('period', '黎明纪元', rows.periods[0])
 
 const scan = scanVault({ root: '/memory', files, skippedDirs: [], marker: null })
@@ -295,7 +322,7 @@ const tagMeta = parseTagMeta(serializeTagMeta(tagMetaFromTags(tags)))
 
 // ── 断言 ────────────────────────────────────────────────────────────────
 
-eq('迁移出的文件数', files.length, 9)
+eq('迁移出的文件数', files.length, 10)
 eq(
   '扫描回来的数量（角色/国家/事件/词条/标签/时期）',
   [
@@ -306,7 +333,7 @@ eq(
     scan.dataset.tags.length,
     scan.dataset.periods.length,
   ],
-  [2, 1, 2, 3, 2, 1],
+  [2, 1, 2, 4, 2, 1],
 )
 
 const period = scan.dataset.periods[0]?.entity
@@ -333,6 +360,7 @@ if (character === undefined) {
   eq('角色 · OC 动画引用', character.animationUrl, '附件/凯尔.mp4')
   eq('角色 · 简介', character.bio, '沉默的铁匠')
   eq('角色 · 旧版人生故事', character.lifeStory, '雪线之战里丢了一只手')
+  eq('角色 · 旧武器/宠物标记', character.legacyKind, 'pet')
   const countryOfCharacter = scan.dataset.countries.find((item) => item.entity.id === character.countryId)
   eq('角色 · 所属国家解析', countryOfCharacter?.entity.name, '北境')
   eq(
@@ -340,6 +368,15 @@ if (character === undefined) {
     character.relatedCharacters.map((item) => [item.name, item.relation]),
     [['阿尔法', '挚友']],
   )
+  eq(
+    '角色 · 相关笔记（目标 + 关系）',
+    (character.relatedNotes ?? []).map((item) => [item.name, item.relation]),
+    [['世界树', '守护']],
+  )
+  const noteTarget = scan.dataset.worldEntries.find(
+    (item) => item.entity.id === character.relatedNotes?.[0]?.targetId,
+  )?.entity
+  eq('角色 · 相关笔记解析回目标', noteTarget?.title, '世界树')
   eq('角色 · 立绘', character.gallery.map((item) => [item.url, item.caption]), [['附件/凯尔-立绘.png', '常服']])
   eq('角色 · 头像组', character.avatars.map((item) => [item.url, item.type]), [['附件/凯尔-头像.png', 'portrait']])
   const tagNames = character.tags
@@ -373,8 +410,16 @@ if (worldEntry === undefined) {
 } else {
   eq('词条 · 标题', worldEntry.title, '世界树')
   eq('词条 · 分类', worldEntry.category, '神话')
-  const parsed = JSON.parse(worldEntry.content) as { content?: { content?: { text?: string }[] }[] }
+  // 正文只存在于 `document`（`lib/world-body.ts`）；`content` 装载后必须是空串，
+  // 否则又变成两份真源 —— 这条断言就是防回退的那颗钉子。
+  const parsed = worldBodyOf(worldEntry) as { content?: { content?: { text?: string }[] }[] }
   eq('词条 · 正文', parsed.content?.[0]?.content?.[0]?.text, '支撑世界的巨树')
+  eq('词条 · content 不再镜像正文', worldEntry.content, '')
+  eq(
+    '词条 · 命名关系（目标 + 关系 + 颜色 + 箭头）',
+    worldEntry.relations.map((item) => [item.name, item.targetId, item.relation, item.color, item.arrow]),
+    [['小灰', 4, '共生', '苔绿', 'forward']],
+  )
 }
 
 // 小说根 / 地图笔记：封面与底图是各自的字段图，落地必须一起带过去
@@ -395,12 +440,25 @@ if (mapNote === undefined) {
   eq('地图 · 像素尺寸', [mapNote.mapWidth, mapNote.mapHeight], [1920, 1080])
 }
 
+const pet = scan.dataset.worldEntries.find((item) => item.entity.title === '小灰')?.entity
+if (pet === undefined) {
+  failures.push('找不到读回来的分类条目')
+} else {
+  eq('分类条目 · 分类', pet.category, '宠物')
+  eq('分类条目 · 封面引用', pet.cover, '附件/小灰.png')
+  eq('分类条目 · 简介', pet.summary, '一只灰羽风灵')
+  eq('分类条目 · 自定义字段', pet.custom, { 物种: '风灵', 习性: '夜行' })
+  eq('分类条目 · 关系图坐标', pet.graphPosition, { x: 448, y: 104 })
+}
+
 const country = scan.dataset.countries[0]?.entity
 if (country === undefined) {
   failures.push('找不到读回来的国家')
 } else {
   eq('国家 · 制度/地理/文化', [country.system, country.geography, country.culture], ['君主制', '雪山与峡湾', '尚武'])
   eq('国家 · 描述', country.description, '雪原上的王国')
+  // 阶段二·一收尾：国家侧的成员名单字段**已从类型里摘掉**（盘上遗留的键不读不写不删）。
+  eq('国家 · 字段上不再有成员名单', 'characters' in country || 'events' in country, false)
 }
 
 const tagged = applyTagMeta(scan.dataset.tags.map((item) => item.entity), tagMeta)
@@ -474,6 +532,7 @@ eq(
     parentId: null,
     order: 0,
     isConcept: false,
+    relations: [],
     references: [],
     tags: [],
   } as never).map((ref) => ref.url),

@@ -16,11 +16,9 @@ const RELEASE_DELAY = 140
 interface StretchyHeaderProps {
   /** 图区内容（图片 / 占位），会跟着放大层整体缩放 */
   children: ReactNode
-  /** 不跟着缩放的浮层（换图、删除），绝对定位铺满头图 */
-  overlay?: ReactNode
   /** 宽高比（宽 / 高），默认 3:2 —— 与原来的头图一致 */
   ratio?: number
-  /** 头图框的点击（桌面端点一下换图） */
+  /** 头图框的点击（看图 / 选图由调用方决定） */
   onClick?: () => void
   className?: string
   maxPull?: number
@@ -47,7 +45,6 @@ interface StretchyHeaderProps {
  */
 export function StretchyHeader({
   children,
-  overlay,
   ratio = 3 / 2,
   onClick,
   className,
@@ -73,7 +70,6 @@ export function StretchyHeader({
       <div ref={mediaRef} className="absolute inset-0 origin-top">
         {children}
       </div>
-      {overlay ? <div className="absolute inset-0">{overlay}</div> : null}
     </div>
   )
 }

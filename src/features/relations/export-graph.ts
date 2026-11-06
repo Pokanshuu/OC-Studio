@@ -20,6 +20,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import type { Edge, Node } from '@xyflow/react'
 import type { EdgeStyle } from '@/lib/edge-style'
+import { cssVar, token, resolveColor, withAlpha, roundedRectPath, truncateText } from '@/lib/canvas-tokens'
 import { isTauri } from '@/lib/env'
 import { getImageUrl, getVaultImageContext } from '@/lib/image-service'
 import { blobFromLocalPath, isTauriRuntime, mimeFromPath } from '@/lib/local-media'
@@ -27,6 +28,7 @@ import { arrowEnds, relationColorValue, type RelationArrow } from '@/lib/relatio
 import { isVaultSupported, vaultFs } from '@/lib/vault/vault-fs'
 import { getVaultSession } from '@/lib/vault/vault-session'
 import { NODE_AVATAR_SIZE, NODE_CARD_SIZE } from './layout'
+import { normalizeGraphStyle, type GraphExportStyle } from './export-options'
 import {
   nodeAnchor,
   nodeRect,
@@ -36,12 +38,10 @@ import {
 } from './components/floating-edge'
 import type { RelationNodeType } from './types'
 
-/** 画布四周留白（标题 / 时间 / 溢出到节点框外的名字都在这里） */
-const PADDING = 96
 /** 点阵间距：与画布 Background 的 gap=24 一致 */
 const DOT_GAP = 24
 /** 导出倍率上限与最长边上限（太大既慢又费内存） */
-const MAX_SCALE = 2
+const MAX_SCALE = 3
 const MAX_SIDE = 4096
 /** 关系名标签的最大文字宽度 */
 const LABEL_MAX_WIDTH = 240
@@ -62,24 +62,6 @@ interface Point {
   y: number
 }
 
-function cssVar(name: string): string {
-  if (typeof window === 'undefined') return ''
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim()
-}
-
-/** 设计令牌是唯一源（globals.css）；读不到说明样式还没加载，直接报错而不是猜一个色 */
-function token(name: string): string {
-  const value = cssVar(name)
-  if (!value) throw new Error(`读取不到界面令牌 ${name}`)
-  return value
-}
-
-/** `var(--oc-accent-3)` → `#6A7A4C`（canvas 认不了 var()） */
-function resolveColor(cssColor: string): string {
-  const match = /^var\(\s*(--[\w-]+)\s*\)$/.exec(cssColor.trim())
-  return match ? token(match[1]) : cssColor
-}
-
 function readTokens(): ExportTokens {
   return {
     paper: token('--oc-paper'),
@@ -95,52 +77,6 @@ function readTokens(): ExportTokens {
 }
 
 /** 给令牌色加透明度（标签描边、点阵都要半透明；`#RRGGBB` / `rgb()` 都认） */
-function withAlpha(color: string, alpha: number): string {
-  const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color.trim())
-  if (hex) {
-    let value = hex[1]
-    if (value.length === 3) value = value.split('').map((c) => c + c).join('')
-    const numeric = parseInt(value, 16)
-    const r = (numeric >> 16) & 255
-    const g = (numeric >> 8) & 255
-    const b = numeric & 255
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`
-  }
-  const rgb = /^rgba?\(([^)]+)\)$/i.exec(color.trim())
-  if (rgb) {
-    const parts = rgb[1].split(',').map((part) => part.trim())
-    if (parts.length >= 3) return `rgba(${parts[0]}, ${parts[1]}, ${parts[2]}, ${alpha})`
-  }
-  return color
-}
-
-function roundedRectPath(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  radius: number,
-): void {
-  const r = Math.max(0, Math.min(radius, width / 2, height / 2))
-  ctx.beginPath()
-  ctx.moveTo(x + r, y)
-  ctx.arcTo(x + width, y, x + width, y + height, r)
-  ctx.arcTo(x + width, y + height, x, y + height, r)
-  ctx.arcTo(x, y + height, x, y, r)
-  ctx.arcTo(x, y, x + width, y, r)
-  ctx.closePath()
-}
-
-function truncateText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string {
-  if (ctx.measureText(text).width <= maxWidth) return text
-  let result = text
-  while (result.length > 1 && ctx.measureText(`${result}…`).width > maxWidth) {
-    result = result.slice(0, -1)
-  }
-  return `${result}…`
-}
-
 /** 等比填充 + 居中裁切（等价于 CSS `object-cover`） */
 function drawCover(
   ctx: CanvasRenderingContext2D,
@@ -455,15 +391,125 @@ interface RenderGraphOptions {
   edges: Edge[]
   edgeStyle: EdgeStyle
   title: string
+  /** 版式：纸 / 节点样子 / 线宽 / 配色 / 标题日期 / 留白 / 倍率（`export-options.ts`） */
+  style?: Partial<GraphExportStyle>
+}
+
+/** 名字标签的尺寸（`nodeShape: 'name'` 时节点就是一块带名字的小方片） */
+function measureNameTag(
+  ctx: CanvasRenderingContext2D,
+  label: string,
+  sans: string,
+): { width: number; height: number } {
+  ctx.font = `12px ${sans}`
+  const width = Math.min(240, Math.max(44, Math.round(ctx.measureText(label).width) + 22))
+  return { width, height: 26 }
+}
+
+/**
+ * 节点矩形。两种节点形态：
+ * - `avatar`：画布上的尺寸（角色 56 圆 / 卡片 96×64）
+ * - `name`：贴着名字的小块，**中心对齐原来的锚点中心** —— 边上落点、箭头、关系名
+ *   都用同一份矩形算，所以切成名字模式后线是贴着方片画的，不会留一圈缝。
+ */
+function buildRects(
+  nodes: Node[],
+  style: GraphExportStyle,
+  tokens: ExportTokens,
+): Map<string, GraphNodeRect> {
+  const rects = new Map<string, GraphNodeRect>()
+  const measurer = typeof document === 'undefined' ? null : document.createElement('canvas').getContext('2d')
+  for (const node of nodes) {
+    const original = nodeRectOf(node)
+    if (style.nodeShape === 'name') {
+      const anchor = nodeAnchor(original)
+      const size =
+        measurer === null
+          ? { width: 96, height: 26 }
+          : measureNameTag(measurer, String(node.data?.label ?? ''), tokens.sans)
+      rects.set(node.id, {
+        x: anchor.cx - size.width / 2,
+        y: anchor.cy - size.height / 2,
+        width: size.width,
+        height: size.height,
+        // 让 `nodeAnchor` 按矩形（而不是圆）求交 —— 名字节点没有圆
+        entityType: 'event',
+      })
+      continue
+    }
+    rects.set(node.id, original)
+  }
+  return rects
+}
+
+/** 名字节点：一块纸色小方片 + 一行名字 */
+function drawNameNode(
+  ctx: CanvasRenderingContext2D,
+  tokens: ExportTokens,
+  rect: GraphNodeRect,
+  label: string,
+): void {
+  roundedRectPath(ctx, rect.x, rect.y, rect.width, rect.height, 4)
+  ctx.fillStyle = tokens.paperCard
+  ctx.fill()
+  ctx.strokeStyle = tokens.line
+  ctx.lineWidth = 1
+  ctx.stroke()
+  ctx.font = `12px ${tokens.sans}`
+  ctx.fillStyle = tokens.ink
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(truncateText(ctx, label, rect.width - 16), rect.x + rect.width / 2, rect.y + rect.height / 2 + 0.5)
+}
+
+/** 纸面：点阵 / 纯色 / 网格（与画布 Background 的两种纹理同观感） */
+function paintPaper(
+  ctx: CanvasRenderingContext2D,
+  tokens: ExportTokens,
+  paper: GraphExportStyle['paper'],
+  minX: number,
+  minY: number,
+  maxX: number,
+  maxY: number,
+): void {
+  if (paper === 'plain') return
+  if (paper === 'grid') {
+    ctx.strokeStyle = withAlpha(tokens.line, 0.5)
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    for (let x = minX + DOT_GAP / 2; x < maxX; x += DOT_GAP) {
+      ctx.moveTo(x, minY)
+      ctx.lineTo(x, maxY)
+    }
+    for (let y = minY + DOT_GAP / 2; y < maxY; y += DOT_GAP) {
+      ctx.moveTo(minX, y)
+      ctx.lineTo(maxX, y)
+    }
+    ctx.stroke()
+    return
+  }
+  ctx.fillStyle = withAlpha(tokens.line, 0.75)
+  for (let x = minX + DOT_GAP / 2; x < maxX; x += DOT_GAP) {
+    for (let y = minY + DOT_GAP / 2; y < maxY; y += DOT_GAP) {
+      ctx.fillRect(x, y, 1, 1)
+    }
+  }
 }
 
 /** 按当前坐标把整张图重绘到离屏画布（不做任何视口变换：导出的是收敛态，不是屏幕截图） */
-export async function renderRelationGraphCanvas({ nodes, edges, edgeStyle, title }: RenderGraphOptions): Promise<HTMLCanvasElement> {
+export async function renderRelationGraphCanvas({
+  nodes,
+  edges,
+  edgeStyle,
+  title,
+  style: styleInput,
+}: RenderGraphOptions): Promise<HTMLCanvasElement> {
   if (nodes.length === 0) throw new Error('当前关系图为空，无法导出')
 
   const tokens = readTokens()
-  const rects = new Map<string, GraphNodeRect>()
-  for (const node of nodes) rects.set(node.id, nodeRectOf(node))
+  const style = normalizeGraphStyle(styleInput)
+  const rects = buildRects(nodes, style, tokens)
+  const padding = style.padding
 
   let minX = Number.POSITIVE_INFINITY
   let minY = Number.POSITIVE_INFINITY
@@ -477,15 +523,15 @@ export async function renderRelationGraphCanvas({ nodes, edges, edgeStyle, title
   }
   if (!Number.isFinite(minX) || !Number.isFinite(minY)) throw new Error('当前关系图为空，无法导出')
 
-  minX -= PADDING
-  minY -= PADDING
-  maxX += PADDING
-  maxY += PADDING
+  minX -= padding
+  minY -= padding
+  maxX += padding
+  maxY += padding
 
   const contentWidth = Math.max(320, maxX - minX)
   const contentHeight = Math.max(240, maxY - minY)
-  // 图特别大时按最长边封顶缩小（不然 canvas 会超出引擎上限），平时固定 2 倍
-  const scale = Math.min(MAX_SCALE, MAX_SIDE / Math.max(contentWidth, contentHeight))
+  // 图特别大时按最长边封顶缩小（不然 canvas 会超出引擎上限），平时按版式倍率
+  const scale = Math.min(style.scale, MAX_SCALE, MAX_SIDE / Math.max(contentWidth, contentHeight))
 
   const canvas = document.createElement('canvas')
   canvas.width = Math.max(1, Math.round(contentWidth * scale))
@@ -498,16 +544,10 @@ export async function renderRelationGraphCanvas({ nodes, edges, edgeStyle, title
   // 纸底
   ctx.fillStyle = tokens.paper
   ctx.fillRect(minX, minY, contentWidth, contentHeight)
-
-  // 点阵（与画布 Background gap=24 / size=1 同观感）
-  ctx.fillStyle = withAlpha(tokens.line, 0.75)
-  for (let x = minX + DOT_GAP / 2; x < maxX; x += DOT_GAP) {
-    for (let y = minY + DOT_GAP / 2; y < maxY; y += DOT_GAP) {
-      ctx.fillRect(x, y, 1, 1)
-    }
-  }
+  paintPaper(ctx, tokens, style.paper, minX, minY, maxX, maxY)
 
   // 边：先线、后箭头、再关系名（节点最后画，压住穿过去的线）
+  const monoColor = withAlpha(tokens.ink, 0.58)
   for (const edge of edges) {
     if (edge.hidden) continue
     const source = rects.get(edge.source)
@@ -520,10 +560,10 @@ export async function renderRelationGraphCanvas({ nodes, edges, edgeStyle, title
       target,
       parallelIndex: parallelIndexOf(edge),
     })
-    const color = resolveColor(relationColorValue(edge.data?.color))
+    const color = style.monochrome ? monoColor : resolveColor(relationColorValue(edge.data?.color))
 
     ctx.strokeStyle = color
-    ctx.lineWidth = 1.6
+    ctx.lineWidth = style.edgeWidth
     ctx.lineJoin = 'round'
     ctx.lineCap = 'round'
     strokeEdgePath(ctx, geometry.path, { x: geometry.sourceX, y: geometry.sourceY }, { x: geometry.targetX, y: geometry.targetY })
@@ -541,37 +581,49 @@ export async function renderRelationGraphCanvas({ nodes, edges, edgeStyle, title
     }
 
     const relation = String(edge.data?.relation ?? '').trim()
-    if (relation) {
+    if (style.edgeLabels && relation) {
       drawEdgeLabel(ctx, tokens, relation, geometry.labelX, geometry.labelY, color)
     }
   }
 
   // 节点
-  const images = await loadNodeImages(nodes)
-  for (const node of nodes) {
-    const rect = rects.get(node.id)
-    if (!rect) continue
-    const label = String(node.data?.label ?? '')
-    const image = images.get(node.id) ?? null
-    if (entityTypeOf(node) === 'character') {
-      drawCharacterNode(ctx, tokens, rect, label, image)
-    } else {
-      drawCardNode(ctx, tokens, rect, label, image)
+  if (style.nodeShape === 'name') {
+    for (const node of nodes) {
+      const rect = rects.get(node.id)
+      if (!rect) continue
+      drawNameNode(ctx, tokens, rect, String(node.data?.label ?? ''))
+    }
+  } else {
+    const images = await loadNodeImages(nodes)
+    for (const node of nodes) {
+      const rect = rects.get(node.id)
+      if (!rect) continue
+      const label = String(node.data?.label ?? '')
+      const image = images.get(node.id) ?? null
+      if (entityTypeOf(node) === 'character') {
+        drawCharacterNode(ctx, tokens, rect, label, image)
+      } else {
+        drawCardNode(ctx, tokens, rect, label, image)
+      }
     }
   }
 
   // 标题 / 时间
-  ctx.font = `600 16px ${tokens.serif}`
-  ctx.fillStyle = tokens.ink
-  ctx.textAlign = 'left'
-  ctx.textBaseline = 'top'
-  ctx.fillText(title, minX + 24, minY + 22)
+  if (style.showTitle && title.trim().length > 0) {
+    ctx.font = `600 16px ${tokens.serif}`
+    ctx.fillStyle = tokens.ink
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'top'
+    ctx.fillText(title, minX + 24, minY + 22)
+  }
 
-  ctx.font = `11px ${tokens.sans}`
-  ctx.fillStyle = tokens.inkFaint
-  ctx.textAlign = 'left'
-  ctx.textBaseline = 'bottom'
-  ctx.fillText(dateLabel(), minX + 24, maxY - 22)
+  if (style.showDate) {
+    ctx.font = `11px ${tokens.sans}`
+    ctx.fillStyle = tokens.inkFaint
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'bottom'
+    ctx.fillText(dateLabel(), minX + 24, maxY - 22)
+  }
 
   return canvas
 }
@@ -608,6 +660,7 @@ export interface ExportRelationGraphOptions {
   edgeStyle: EdgeStyle
   title?: string
   filename?: string
+  style?: Partial<GraphExportStyle>
 }
 
 /**
@@ -620,8 +673,9 @@ export async function exportRelationGraphPng({
   edgeStyle,
   title = '关系图',
   filename,
+  style,
 }: ExportRelationGraphOptions): Promise<string | null> {
-  const canvas = await renderRelationGraphCanvas({ nodes, edges, edgeStyle, title })
+  const canvas = await renderRelationGraphCanvas({ nodes, edges, edgeStyle, title, style })
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
   if (!blob) throw new Error('导出图片失败，请重试')
   return savePng(blob, filename ?? `OC关系图-${stampOf()}.png`)

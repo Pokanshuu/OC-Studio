@@ -8,6 +8,8 @@ interface WorldEntryBodyProps {
   selectedId: number
   /** 分栏右栏：只留滚动；工具条由 EntityEditorShell 顶栏统一渲染 */
   pane: boolean
+  /** 正文占位：分类条目比词条短一档，别在手机上被裁掉半句 */
+  placeholder?: string
   onReady: (editor: Editor) => void
   onContentChange: (html: string) => void
   onMentionClick?: (id: string, entityType?: string) => void
@@ -19,6 +21,7 @@ interface WorldEntryBodyProps {
 export function WorldEntryBody({
   selectedId,
   pane,
+  placeholder = '编写词条内容... 输入 @ 引用角色/事件/国家，输入 / 插入块',
   onReady,
   onContentChange,
   onMentionClick,
@@ -31,7 +34,7 @@ export function WorldEntryBody({
       key={selectedId}
       onReady={onReady}
       content=""
-      placeholder="编写词条内容... 输入 @ 引用角色/事件/国家，输入 / 插入块"
+      placeholder={placeholder}
       onContentChange={onContentChange}
       onMentionClick={onMentionClick}
       onCharacterCount={onCharacterCount}

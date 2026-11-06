@@ -21,6 +21,10 @@ import { WorldLayout } from '@/features/world/components/WorldLayout'
 import { TimelineView } from '@/features/timeline/components/TimelineView'
 import { GlobalAlbum } from '@/components/shared/GlobalAlbum'
 import { Dashboard } from '@/features/dashboard'
+import { CategorySection } from '@/features/categories/CategorySection'
+import { categoryIdFromItem, isCategoryItem } from '@/lib/categories/types'
+import { isToolItem } from '@/lib/entry-kinds'
+import { ToolSection } from '@/features/tools/ToolSection'
 import { useEntityWorkspace } from '@/lib/use-entity-workspace'
 
 const MapView = dynamic(() => import('@/features/map').then((mod) => ({ default: mod.MapView })), {
@@ -48,6 +52,8 @@ export default function Home() {
     charactersLoading,
     characterView,
     charSlide,
+    categoryEntryTarget,
+    clearCategoryEntryTarget,
     clearNovelEntryTarget,
     clearWorldSelectedEntry,
     countrySlide,
@@ -149,6 +155,7 @@ export default function Home() {
             onCreate={handleCreateCharacter}
             onNavigateToCharacter={(id) => handleRelatedItemNavigate(id, 'character')}
             onNavigateToCountry={(id) => handleRelatedItemNavigate(id, 'country')}
+            onNavigateToWorld={(id) => handleWikiLinkClick(String(id))}
             onMentionClick={handleMentionClick}
             onCharacterCount={handleCharacterCharCount}
             onWikiLinkClick={handleWikiLinkClick}
@@ -212,6 +219,27 @@ export default function Home() {
       </div>
 
       <div
+        className="h-full section-fade overflow-y-auto section-fade-no-gutter max-md:pt-[calc(60px+var(--safe-top))] max-md:pb-[calc(60px+var(--safe-bottom))]"
+        data-visible={activeItem !== null && isCategoryItem(activeItem) ? "true" : "false"}
+      >
+        {activeItem !== null && isCategoryItem(activeItem) ? (
+          <CategorySection
+            key={categoryIdFromItem(activeItem)}
+            categoryId={categoryIdFromItem(activeItem)}
+            openEntryRequest={
+              categoryEntryTarget !== null && categoryEntryTarget.item === activeItem
+                ? { entryId: categoryEntryTarget.entryId, nonce: categoryEntryTarget.nonce }
+                : null
+            }
+            onOpenEntryConsumed={clearCategoryEntryTarget}
+            onMentionClick={handleMentionClick}
+            onCharacterCount={handleWorldCharCount}
+            onWikiLinkClick={handleWikiLinkClick}
+          />
+        ) : null}
+      </div>
+
+      <div
         className="h-full section-fade overflow-y-auto max-md:pt-[calc(60px+var(--safe-top))] max-md:pb-[calc(60px+var(--safe-bottom))]"
         data-visible={showTimeline ? "true" : "false"}
       >
@@ -246,6 +274,14 @@ export default function Home() {
         <TreeTable onNavigate={(id, type) => handleRelatedItemNavigate(id, type)} />
       </div>
 
+      {/* 工具：插件提供的能力面板（`工具:<插件 id>`），不是内容，不进词条树 / 相册 */}
+      <div
+        className="h-full section-fade overflow-hidden section-fade-no-gutter max-md:pt-[calc(60px+var(--safe-top))] max-md:pb-[calc(60px+var(--safe-bottom))]"
+        data-visible={isToolItem(activeItem) ? "true" : "false"}
+      >
+        {isToolItem(activeItem) && activeItem !== null ? <ToolSection item={activeItem} /> : null}
+      </div>
+
       <div
         className="h-full section-fade overflow-y-auto section-fade-no-gutter"
         data-visible={showAlbum ? "true" : "false"}
@@ -272,6 +308,10 @@ export default function Home() {
           onNavigateToCountry={(id) => {
             setSource('relations')
             handleRelatedItemNavigate(id, 'country')
+          }}
+          onNavigateToWorld={(id) => {
+            setSource('relations')
+            handleRelatedItemNavigate(id, 'world')
           }}
         />
       </div>

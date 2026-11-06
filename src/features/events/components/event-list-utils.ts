@@ -1,4 +1,5 @@
 import type { ViewMode, SortOption } from '@/components/shared/SortViewControls'
+import { normalizeViewMode } from '@/components/shared/SortViewControls'
 import type { Event } from '@/types'
 import { formatEventTime } from '../utils'
 
@@ -17,7 +18,7 @@ export const SORT_STORAGE_KEY = 'oc-events-sort'
 /** 视图偏好（网格 / 目录）落 localStorage */
 export function readViewPreference(): ViewMode {
   if (typeof window === 'undefined') return 'grid'
-  return (localStorage.getItem('oc-events-view') as ViewMode) ?? 'grid'
+  return normalizeViewMode(localStorage.getItem('oc-events-view'))
 }
 
 export function writeViewPreference(mode: ViewMode): void {

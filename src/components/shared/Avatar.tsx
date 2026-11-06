@@ -6,7 +6,10 @@ import { resolveImageUrl, getDefaultImage } from '@/lib/image-service'
 export interface AvatarProps {
   src?: string
   alt?: string
-  size?: 'sm' | 'md' | 'lg'
+  /** 预设档位；也可以直接给像素边长 */
+  size?: 'sm' | 'md' | 'lg' | number
+  /** 填满父级（封面卡的头像槽位随卡片缩放，用这个） */
+  fill?: boolean
   className?: string
   type?: 'avatar' | 'flag'
   shape?: 'circle' | 'square'
@@ -18,15 +21,18 @@ const SIZE_MAP: Record<string, string> = {
   lg: 'w-16 h-16',
 }
 
-export function Avatar({ src, alt = '', size = 'md', className = '', type = 'avatar', shape = 'circle' }: AvatarProps) {
+export function Avatar({ src, alt = '', size = 'md', fill = false, className = '', type = 'avatar', shape = 'circle' }: AvatarProps) {
   const [failedImgSrc, setFailedImgSrc] = useState<string | undefined>()
   const imgSrc = resolveImageUrl(src, type)
   const showImage = imgSrc && imgSrc !== failedImgSrc
   const roundClass = shape === 'square' ? 'rounded-item' : 'rounded-full'
+  const sizeClass = fill ? 'h-full w-full' : typeof size === 'number' ? '' : SIZE_MAP[size]
+  const sizeStyle = fill ? undefined : typeof size === 'number' ? { width: size, height: size } : undefined
 
   return (
     <div
-      className={`shrink-0 overflow-hidden border border-line ${roundClass} ${SIZE_MAP[size]} ${className}`}
+      className={`shrink-0 overflow-hidden border border-line ${roundClass} ${sizeClass} ${className}`}
+      style={sizeStyle}
     >
       {showImage ? (
         // eslint-disable-next-line @next/next/no-img-element

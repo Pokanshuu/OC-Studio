@@ -1,4 +1,4 @@
-import type { Character, Country, Event, Period, Tag, WorldEntry } from '@/types'
+import type { Character, Country, Event, Period, Tag, WorldEntry, WorldRelation } from '@/types'
 import {
   CHARACTER_KEYS,
   COUNTRY_KEYS,
@@ -7,6 +7,7 @@ import {
   TAG_KEYS,
   WORLD_KEYS,
   chainKeys,
+  ownedKeys,
   writeBool,
   writeNumber,
   writePosition,
@@ -111,7 +112,10 @@ function putCustomFields(
   current: Record<string, string> | undefined,
   previous: Record<string, string> | undefined,
 ): void {
+  // 词汇表已占用的键归第一类列管（时间 / 地点 / 简介…），自定义字段撞名不写
+  const owned = new Set(ownedKeys(kind))
   for (const key of customFieldKeys(kind)) {
+    if (owned.has(key)) continue
     const now = writeString(current?.[key] ?? '')
     const before = previous === undefined ? undefined : writeString(previous[key] ?? '')
     if (now === undefined && before === undefined) continue
@@ -173,11 +177,37 @@ function relationDisk(
       const row: Record<string, unknown> = { name: resolved }
       if (item.relation) row.relation = item.relation
       if (item.color) row.color = item.color
-      if (item.arrow && item.arrow !== 'none') row.arrow = item.arrow
+      // `none` 也要写：角色边不写 = 默认双向，写 `none` 才是真的不要箭头
+      if (item.arrow) row.arrow = item.arrow
       return row
     })
     .filter((row): row is Record<string, unknown> => row !== null)
   return rows.length === 0 ? undefined : rows
+}
+
+/**
+ * 指向笔记的命名边（笔记自己的 `relations` / 角色的 `relatedNotes` 共用）。
+ * `name` 是目标的标题，落盘后靠它重新解析；`targetId` 只活在内存里。
+ */
+function noteRelationDisk(
+  rows: WorldRelation[] | undefined,
+  ctx: SerializeContext,
+): Record<string, unknown>[] | undefined {
+  const out = (rows ?? [])
+    .map((item) => {
+      const resolved =
+        (item.targetId !== undefined ? ctx.nameOf('worldEntry', item.targetId) : undefined) ??
+        item.name
+      if (resolved === '') return null
+      const row: Record<string, unknown> = { name: resolved }
+      if (item.relation) row.relation = item.relation
+      if (item.color) row.color = item.color
+      // 笔记边默认无箭头；`none` 仍写出来，和角色边的「不写 = 双向」区分开
+      if (item.arrow) row.arrow = item.arrow
+      return row
+    })
+    .filter((row): row is Record<string, unknown> => row !== null)
+  return out.length === 0 ? undefined : out
 }
 
 /** 事件之间的关系（与角色关系同形，只是目标换成事件） */
@@ -193,7 +223,7 @@ function eventRelationDisk(
       const row: Record<string, unknown> = { name: resolved }
       if (item.relation) row.relation = item.relation
       if (item.color) row.color = item.color
-      if (item.arrow && item.arrow !== 'none') row.arrow = item.arrow
+      if (item.arrow) row.arrow = item.arrow
       return row
     })
     .filter((row): row is Record<string, unknown> => row !== null)
@@ -228,9 +258,10 @@ export function serializeCharacter(
   putIfChanged(out, existing, CHARACTER_KEYS.gallery, imageListDisk(entity.gallery), prev === null ? null : imageListDisk(prev.gallery))
   putIfChanged(out, existing, CHARACTER_KEYS.avatars, imageListDisk(entity.avatars), prev === null ? null : imageListDisk(prev.avatars))
   putIfChanged(out, existing, CHARACTER_KEYS.relations, relationDisk(entity, ctx), prev === null ? null : relationDisk(prev, ctx))
+  putIfChanged(out, existing, CHARACTER_KEYS.relatedNotes, noteRelationDisk(entity.relatedNotes, ctx), prev === null ? null : noteRelationDisk(prev.relatedNotes, ctx))
   putIfChanged(out, existing, CHARACTER_KEYS.order, writeNumber(entity.order), prev === null ? null : writeNumber(prev.order))
   putIfChanged(out, existing, CHARACTER_KEYS.folder, writeString(entity.folder ?? ''), prev === null ? null : writeString(prev.folder ?? ''))
-  putIfChanged(out, existing, CHARACTER_KEYS.kind, writeString(entity.kind ?? ''), prev === null ? null : writeString(prev.kind ?? ''))
+  putIfChanged(out, existing, CHARACTER_KEYS.legacyKind, writeString(entity.legacyKind ?? ''), prev === null ? null : writeString(prev.legacyKind ?? ''))
   putIfChanged(out, existing, CHARACTER_KEYS.graphPosition, writePosition(entity.graphPosition), prev === null ? null : writePosition(prev.graphPosition))
   putCustomFields(out, existing, 'character', entity.custom, prev === null ? undefined : prev.custom)
 
@@ -262,8 +293,9 @@ export function serializeCountry(
   putIfChanged(out, existing, COUNTRY_KEYS.culture, writeString(entity.culture), p === null ? null : writeString(p.culture))
   putIfChanged(out, existing, COUNTRY_KEYS.flag, writeString(entity.flagUrl ?? ''), p === null ? null : writeString(p.flagUrl ?? ''))
   putIfChanged(out, existing, COUNTRY_KEYS.header, writeString(entity.headerUrl ?? ''), p === null ? null : writeString(p.headerUrl ?? ''))
-  putIfChanged(out, existing, COUNTRY_KEYS.characters, namesOf(ctx, 'character', entity.characters), p === null ? null : namesOf(ctx, 'character', p.characters))
-  putIfChanged(out, existing, COUNTRY_KEYS.events, namesOf(ctx, 'event', entity.events), p === null ? null : namesOf(ctx, 'event', p.events))
+  putIfChanged(out, existing, COUNTRY_KEYS.gallery, imageListDisk(entity.gallery ?? []), p === null ? null : imageListDisk(p.gallery ?? []))
+  // 成员名单不再落盘（阶段二·一）：角色侧国籍 / 事件侧相关国家才是真源。
+  // 盘上遗留的 `characters` / `events` 键我们不管，也不删（外科式写入只动自己持有的键）。
   putIfChanged(out, existing, COUNTRY_KEYS.tags, tagNames(ctx, entity.tags), p === null ? null : tagNames(ctx, p.tags))
   putIfChanged(out, existing, COUNTRY_KEYS.order, writeNumber(entity.order), p === null ? null : writeNumber(p.order))
   putIfChanged(out, existing, COUNTRY_KEYS.graphPosition, writePosition(entity.graphPosition), p === null ? null : writePosition(p.graphPosition))
@@ -331,9 +363,20 @@ export function serializeWorldEntry(
   if (entity.category.trim() !== '') {
     putIfChanged(out, existing, WORLD_KEYS.category, writeString(entity.category), p === null ? null : writeString(p.category))
   }
+  putIfChanged(out, existing, WORLD_KEYS.summary, writeString(entity.summary ?? ''), p === null ? null : writeString(p.summary ?? ''))
+  putIfChanged(out, existing, WORLD_KEYS.cover, writeString(entity.cover ?? ''), p === null ? null : writeString(p.cover ?? ''))
+  putIfChanged(out, existing, WORLD_KEYS.avatar, writeString(entity.avatar ?? ''), p === null ? null : writeString(p.avatar ?? ''))
+  putIfChanged(out, existing, WORLD_KEYS.image, writeString(entity.image ?? ''), p === null ? null : writeString(p.image ?? ''))
+  putIfChanged(out, existing, WORLD_KEYS.gallery, imageListDisk(entity.gallery ?? []), p === null ? null : imageListDisk(p.gallery ?? []))
+  putIfChanged(out, existing, WORLD_KEYS.time, writeString(entity.time ?? ''), p === null ? null : writeString(p.time ?? ''))
+  putIfChanged(out, existing, WORLD_KEYS.endTime, writeString(entity.endTime ?? ''), p === null ? null : writeString(p.endTime ?? ''))
+  putIfChanged(out, existing, WORLD_KEYS.location, writeString(entity.location ?? ''), p === null ? null : writeString(p.location ?? ''))
+  putIfChanged(out, existing, WORLD_KEYS.template, writeString(entity.template ?? ''), p === null ? null : writeString(p.template ?? ''))
+  putIfChanged(out, existing, WORLD_KEYS.relations, noteRelationDisk(entity.relations, ctx), p === null ? null : noteRelationDisk(p.relations, ctx))
   putIfChanged(out, existing, WORLD_KEYS.parent, parentValue(entity), p === null ? null : parentValue(p))
   putIfChanged(out, existing, WORLD_KEYS.order, writeNumber(entity.order), p === null ? null : writeNumber(p.order))
   putIfChanged(out, existing, WORLD_KEYS.isConcept, writeBool(entity.isConcept), p === null ? null : writeBool(p.isConcept))
+  putIfChanged(out, existing, WORLD_KEYS.graphPosition, writePosition(entity.graphPosition), p === null ? null : writePosition(p.graphPosition))
   putIfChanged(out, existing, WORLD_KEYS.mapPosition, writePosition(entity.mapPosition), p === null ? null : writePosition(p.mapPosition))
   putIfChanged(out, existing, WORLD_KEYS.mapId, writeString(entity.mapId ?? ''), p === null ? null : writeString(p.mapId ?? ''))
   putIfChanged(out, existing, WORLD_KEYS.novelAuthor, writeString(entity.novelAuthor ?? ''), p === null ? null : writeString(p.novelAuthor ?? ''))
@@ -347,6 +390,8 @@ export function serializeWorldEntry(
   putIfChanged(out, existing, WORLD_KEYS.mapHeight, writeNumber(entity.mapHeight), p === null ? null : writeNumber(p.mapHeight))
   putIfChanged(out, existing, WORLD_KEYS.mapSeed, writeNumber(entity.mapSeed), p === null ? null : writeNumber(p.mapSeed))
   putIfChanged(out, existing, WORLD_KEYS.mapParams, writeString(entity.mapParams ?? ''), p === null ? null : writeString(p.mapParams ?? ''))
+  putIfChanged(out, existing, WORLD_KEYS.mapMode, writeString(entity.mapMode ?? ''), p === null ? null : writeString(p.mapMode ?? ''))
+  putIfChanged(out, existing, WORLD_KEYS.mapAnnotations, writeString(entity.mapAnnotations ?? ''), p === null ? null : writeString(p.mapAnnotations ?? ''))
   putIfChanged(out, existing, WORLD_KEYS.tags, tagNames(ctx, entity.tags), p === null ? null : tagNames(ctx, p.tags))
   putCustomFields(out, existing, 'worldEntry', entity.custom, p === null ? undefined : p.custom)
   return out

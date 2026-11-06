@@ -1,10 +1,10 @@
 'use client'
 
 /**
- * 图片 / 媒体卡片的统一右键菜单（桌面用；手机端仍走长按动作表）。
+ * 图片 / 媒体卡片的统一菜单。
  *
- * 口径：**单击看大图，右键出菜单**。菜单项由调用方给。
- * 定位 / Portal / 点外关闭 / Escape 全部交给 `MenuSurface`（S2），这里只保留菜单项语义。
+ * 口径：**单击看大图，桌面右键 / 移动端长按出菜单**（入口见 `lib/use-media-menu.ts`）。
+ * 菜单项由调用方给；定位 / Portal / 点外关闭 / Escape 全部交给 `MenuSurface`。
  */
 import type { ReactNode } from 'react'
 import { MENU_ITEM_BASE } from '@/lib/ui-tokens'

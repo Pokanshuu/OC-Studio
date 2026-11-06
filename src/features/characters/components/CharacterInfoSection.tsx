@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Download, Maximize2, Trash2, X } from 'lucide-react'
 import { RelatedItemsSelector } from '@/components/shared/RelatedItemsSelector'
-import { TagPicker } from '@/features/tags'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   AlertDialog,
@@ -21,20 +20,12 @@ import { useFieldConfig, type FieldDef } from '@/lib/fields'
 import { resolveImageUrl } from '@/lib/image-service'
 import { useMediaDownload } from '@/lib/use-media-download'
 import { uploadAnimation } from '@/lib/video-upload'
-import type { CharacterKind } from '@/types'
 import { toast } from 'sonner'
 import type { CharacterForm } from '../hooks/useCharacterForm'
 
 const TEXT_PLACEHOLDERS: Record<string, string> = {
   aliases: '多个用、分隔',
 }
-
-/** 类别：三选一。值与列表筛选（`CharacterList` 的 kindFilter）同一套词汇 */
-const KIND_OPTIONS: { value: CharacterKind; label: string }[] = [
-  { value: 'character', label: '角色' },
-  { value: 'weapon', label: '武器' },
-  { value: 'pet', label: '宠物' },
-]
 
 /**
  * 桌面看整段动画：与 `FullscreenViewer` 同一套深色遮罩，只是把 `<img>` 换成 `<video controls>`
@@ -131,14 +122,12 @@ export function CharacterInfoSection({
   }
 
   const renderRow = (field: FieldDef) => {
-    const wide = field.type === 'tags'
-    const rowClass = wide
-      ? `${FIELD_ROW_TOP}${compact ? '' : ' sm:col-span-2'}`
-      : FIELD_ROW
+    // 标签是独立区块（`docs/模板.md §6.4`），不再占基本信息的一行
+    if (field.id === 'tags') return null
 
     if (field.type === 'bool') {
       return (
-        <label key={field.id} className={`${rowClass} cursor-pointer`}>
+        <label key={field.id} className={`${FIELD_ROW} cursor-pointer`}>
           <span className={FIELD_LABEL}>{field.label}</span>
           <Checkbox
             checked={form.isMajor}
@@ -148,20 +137,9 @@ export function CharacterInfoSection({
       )
     }
 
-    if (field.type === 'tags') {
-      return (
-        <div key={field.id} className={rowClass}>
-          <span className={FIELD_LABEL}>{field.label}</span>
-          <div className="min-w-0 flex-1">
-            <TagPicker selectedIds={form.tags} onChange={form.setTags} />
-          </div>
-        </div>
-      )
-    }
-
     if (field.type === 'country') {
       return (
-        <div key={field.id} className={rowClass}>
+        <div key={field.id} className={FIELD_ROW}>
           <span className={FIELD_LABEL}>{field.label}</span>
           <div className="min-w-0 flex-1">
             {form.countries.length > 0 ? (
@@ -190,7 +168,7 @@ export function CharacterInfoSection({
     // 年份填了才会出现在时间线上（`出生` 节点）。
     if (field.id === 'birthday') {
       return (
-        <div key={field.id} className={rowClass}>
+        <div key={field.id} className={FIELD_ROW}>
           <span className={FIELD_LABEL}>{field.label}</span>
           <div className="flex min-w-0 flex-1 items-center gap-1">
             <input value={form.birthdayYear} onChange={(e) => form.setBirthdayYear(e.target.value)} placeholder="年" className={DATE_INPUT} />
@@ -206,7 +184,7 @@ export function CharacterInfoSection({
       // 自定义字段
       const key = field.key ?? field.id
       return (
-        <div key={field.id} className={rowClass}>
+        <div key={field.id} className={FIELD_ROW}>
           <span className={FIELD_LABEL}>{field.label}</span>
           <input
             type="text"
@@ -219,7 +197,7 @@ export function CharacterInfoSection({
     }
 
     return (
-      <div key={field.id} className={rowClass}>
+      <div key={field.id} className={FIELD_ROW}>
         <span className={FIELD_LABEL}>{field.label}</span>
         <input
           type="text"
@@ -242,36 +220,7 @@ export function CharacterInfoSection({
             : `grid grid-cols-1 gap-x-10 sm:grid-cols-2 ${FIELD_GRID}`
         }
       >
-        {/* 类别：不是字段表里的文本行（字段表只管可增删的文本 / 布尔 / 标签行） */}
-        <div className={`${FIELD_ROW} ${compact ? '' : 'sm:col-span-2'}`}>
-          <span className={FIELD_LABEL}>类别</span>
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-4">
-            {KIND_OPTIONS.map((option) => {
-              const checked = form.kind === option.value
-              return (
-                <label key={option.value} className="flex cursor-pointer items-center gap-2">
-                  <span
-                    className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border ${
-                      checked ? 'border-ink' : 'border-line'
-                    }`}
-                  >
-                    {checked ? <span className="h-1.5 w-1.5 rounded-full bg-ink" /> : null}
-                  </span>
-                  <input
-                    type="radio"
-                    name="characterKind"
-                    value={option.value}
-                    checked={checked}
-                    onChange={() => form.setKind(option.value)}
-                    className="sr-only"
-                  />
-                  <span className="text-sm leading-none text-ink">{option.label}</span>
-                </label>
-              )
-            })}
-          </div>
-        </div>
-
+        {/* 类别已进字段表（`kind`），不再在这里硬编码 */}
         {fields.map(renderRow)}
 
         {/* OC 动画：不属于字段表（它是媒体槽位，不是文本字段） */}

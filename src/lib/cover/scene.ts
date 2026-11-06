@@ -21,11 +21,18 @@ import { progressiveBlur } from './blur'
 export const COVER_ASPECT = 4 / 5
 
 /**
- * 照片从自身高度的这个位置开始淡出（最后 14%）。
- * 原来给的是 0.78（最后 22%）—— 宽图（比如 800×300 的占位图）本身就矮，
- * 再淡 22% 会在照片底边拉出一条又宽又白的雾带，看着像没擦干净的边。
+ * 溶解带默认厚度：**卡片高度**的 15%，由参数 `dissolve` 覆盖（面板「溶解带」）。
+ *
+ * 厚度按卡片高度取，不按照片高度取 —— 这是「所有卡片效果一致」的关键：
+ * 早先固定淡掉照片自身高度的 14%，3:2 的头图（占卡片 78% 高）看着正好，
+ * 但 3:1 的横幅只占卡片 39% 高，同样 14% 只剩三十几像素，就成了硬边。
+ *
+ * 11% → 15%（2026-11-05）：照片与色块之间的过渡再柔和一点；宽度成为参数，
+ * 太窄就只剩一条线，太宽会把照片主体吃掉，面板里 4–30% 实时可调。
  */
-const PHOTO_FADE_START = 0.86
+const DEFAULT_DISSOLVE_RATIO = 0.15
+/** 极端横幅（照片本身比溶解带还矮）时最多淡掉下半部分，别把主体整个吃掉 */
+const DISSOLVE_MAX_PHOTO_RATIO = 0.5
 /** 参考实现按 1080 宽出图，所有 px 参数都以它为基准等比缩放 */
 const DESIGN_WIDTH = 1080
 const GRAIN_TILE = 160
@@ -46,8 +53,10 @@ export interface CoverSceneOptions {
   aspect: number
   /** 照片左右留边：画布宽比（0 = 满幅） */
   inset: number
-  /** 照片高度：画布高比 */
+  /** 照片区高度：卡片高比（固定值，图片按 cover 裁进来） */
   photoHeight: number
+  /** 溶解带厚度：卡片高比（照片下缘从这里开始淡进色块） */
+  dissolve: number
   /** 模糊起点：画布高比 */
   blurStart: number
   /** 模糊强度：1080 宽下的 px */
@@ -78,6 +87,8 @@ export interface CoverRenderOptions {
   aspect?: number
   inset?: number
   photoHeight?: number
+  /** 溶解带厚度：卡片高比 */
+  dissolve?: number
   blurStart?: number
   blur?: number
   mixStart?: number
@@ -94,9 +105,8 @@ const DEFAULT_BLUR = 42
 const DEFAULT_MIX_START = 0.54
 const DEFAULT_MIX_POINT = 1
 const DEFAULT_GRAIN = 0.28
-const DEFAULT_PHOTO_HEIGHT = 0.66
+const DEFAULT_PHOTO_HEIGHT = 0.78
 const DEFAULT_MAX_PIXEL_WIDTH = 760
-
 let noiseTile: HTMLCanvasElement | null = null
 let plateCanvas: HTMLCanvasElement | null = null
 
@@ -122,7 +132,7 @@ function getNoiseTile(): HTMLCanvasElement | null {
   return canvas
 }
 
-/** 覆盖式裁切（保持比例、多余部分裁掉）—— 只给取色用 */
+/** 覆盖式裁切（保持比例、多余部分裁掉）—— 照片块与取色共用 */
 function drawCover(
   ctx: CanvasRenderingContext2D,
   image: CoverImage,
@@ -140,41 +150,32 @@ function drawCover(
 }
 
 /**
- * 照片块的高度（画布像素）—— **只按宽度铺满，左右永远不裁**：
+ * 照片块的高度（画布像素）—— **卡片高度的固定比例**。
  *
- * ```
- * 自然高度 = 卡片宽 × (图片高 / 图片宽)
- * 块高度   = min(自然高度, 画布高 × 照片高度上限)
- * ```
- *
- * 所以 3:2 的横图放在 1:1 的卡上只占约 67% 高，下面那段留给色块与文字 ——
- * 这正是封面的样子；只有竖图超出上限时才**裁上下**，左右始终完整。
+ * 封面卡的长宽比是固定的（实体卡 7:6、书封 2:3），照片区也必须固定：
+ * 早先按「图片自然高度」走，3:2 的头图占 78% 高、3:1 的横幅只占 39%，
+ * 同一排卡片就成了两种版式。现在统一按卡片高度的比例取，图片用 cover 裁进来。
  */
-export function photoPlateHeight(
-  cardWidth: number,
-  cardHeight: number,
-  imageWidth: number,
-  imageHeight: number,
-  maxRatio: number,
-): number {
-  const natural = cardWidth * (imageHeight / Math.max(1, imageWidth))
-  const cap = cardHeight * maxRatio
-  return Math.max(4, Math.round(Math.min(natural, cap)))
+export function photoPlateHeight(cardHeight: number, ratio: number): number {
+  const clamped = Math.min(1, Math.max(0.2, ratio))
+  return Math.max(4, Math.round(cardHeight * clamped))
 }
 
-/** 按宽度铺满照片块；超出块高时按 `focusY` 裁上下 */
-function drawPhoto(
-  ctx: CanvasRenderingContext2D,
-  image: CoverImage,
-  width: number,
-  height: number,
-  focusY: number,
-): void {
-  const scale = width / image.width
-  const dh = Math.max(height, image.height * scale)
-  ctx.imageSmoothingEnabled = true
-  ctx.imageSmoothingQuality = 'high'
-  ctx.drawImage(image.element, 0, (height - dh) * focusY, width, dh)
+/**
+ * 照片从自己的第几行开始淡出（照片高度比）。
+ *
+ * 溶解带厚度按**卡片高度**的 `dissolve` 取，所以 3:1 的横幅照片也有一条和 3:2
+ * 一样厚的渐变，不会因为照片矮就被压成一条硬边；照片特别矮时最多淡掉下半部分。
+ * 没有照片高度时返回 1（整块透明，不淡出）。
+ */
+export function photoDissolveStart(
+  cardHeight: number,
+  photoHeight: number,
+  dissolve = DEFAULT_DISSOLVE_RATIO,
+): number {
+  if (photoHeight <= 0) return 1
+  const band = Math.min(cardHeight * Math.max(0, dissolve), photoHeight * DISSOLVE_MAX_PHOTO_RATIO)
+  return Math.min(1, Math.max(0, 1 - band / photoHeight))
 }
 
 /** 从照片里提混色：缩到 48×60 就够，权重见 `tintFromPixels` */
@@ -235,8 +236,8 @@ export function paintPhoto(
   const plateX = width * options.inset
   const plateW = width * (1 - options.inset * 2)
   const plateY = 0
-  // 只按宽度铺满：横图自己就矮，下面那段留给色块；竖图超出上限才裁上下
-  const plateH = photoPlateHeight(plateW, height, image.width, image.height, options.photoHeight)
+  // 照片区高度是卡片高度的固定比例；图片按 cover 裁进去（见 `photoPlateHeight`）
+  const plateH = photoPlateHeight(height, options.photoHeight)
   const photoWidth = Math.max(4, Math.round(plateW))
   const photoHeight = Math.max(4, Math.round(plateH))
 
@@ -248,16 +249,17 @@ export function paintPhoto(
   if (!plateCtx) return
 
   plateCtx.clearRect(0, 0, photoWidth, photoHeight)
-  drawPhoto(plateCtx, image, photoWidth, photoHeight, options.focusY)
+  drawCover(plateCtx, image, photoWidth, photoHeight, options.focusX, options.focusY)
 
   if (image.readable) {
     // 起点换算到照片自己的行号（参数是画布比例，不是照片比例）
     const startRatio = (options.blurStart * height - plateY) / plateH
     const blurStartRow = Math.round(Math.min(1, Math.max(0, startRatio)) * photoHeight)
-    // 淡出是照片自己的事（照片高度的 78% 起），跟模糊起点无关。
-    // 照片比模糊起点还矮时（很宽的图），起点落在照片外面 —— 这时候如果整段跳过，
-    // 照片就会一刀切在色块上：所以从「模糊起点」和「淡出起点」里更靠上的那个开始算。
-    const fadeRow = Math.round(PHOTO_FADE_START * photoHeight)
+    // 淡出是照片自己的事，但溶解带的**厚度按卡片高度**算（见 `photoDissolveStart`）。
+    // 起点以上是清晰的，模糊从「模糊起点」和「溶解起点」里更靠上的那个开始 ——
+    // 标题落在照片下面时（卡片矮 / 字号大），靠这一条才不会一刀切在色块上。
+    const fadeStart = photoDissolveStart(height, plateH, options.dissolve)
+    const fadeRow = Math.round(fadeStart * photoHeight)
     const startRow = Math.max(0, Math.min(blurStartRow, fadeRow))
     const radius = options.blur * (width / DESIGN_WIDTH)
 
@@ -273,7 +275,7 @@ export function paintPhoto(
           firstRow: startRow,
           fullHeight: photoHeight,
           radius,
-          fadeStart: PHOTO_FADE_START,
+          fadeStart,
         })
         plateCtx.putImageData(new ImageData(blurred, photoWidth, rows), 0, startRow)
       } catch {
@@ -448,6 +450,7 @@ export function renderCover(
     aspect,
     inset: options.inset ?? 0,
     photoHeight: options.photoHeight ?? DEFAULT_PHOTO_HEIGHT,
+    dissolve: options.dissolve ?? DEFAULT_DISSOLVE_RATIO,
     blurStart: options.blurStart ?? DEFAULT_BLUR_START,
     blur: options.blur ?? DEFAULT_BLUR,
     mixStart: options.mixStart ?? DEFAULT_MIX_START,

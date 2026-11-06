@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import { withTouchFeedback } from '@/lib/animation'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Flag, Pencil, SearchX, Trash2 } from 'lucide-react'
 import type { Country } from '@/types'
 import { MobileActionSheet, type ActionItem } from '@/components/shared/MobileActionSheet'
 import {
@@ -20,6 +20,9 @@ import { useDevice } from '@/lib/use-device'
 import { MobileFab } from '@/components/layout/MobileFab'
 import { CountryCard, CountryRow } from './CountryListItems'
 import { CountryListToolbar } from './CountryListToolbar'
+import { ListShell } from '@/components/shared/ListShell'
+import { CoverFlow } from '@/components/shared/CoverFlow'
+import { VerticalSplit } from '@/components/shared/VerticalSplit'
 import { readViewPreference, writeViewPreference, sortCountryList, SORT_STORAGE_KEY } from './country-list-utils'
 import type { CountrySortKey } from './country-list-utils'
 import { readSortKey, writeSortKey } from '@/lib/sort-manual'
@@ -120,29 +123,76 @@ export function CountryList({
   }
 
   return (
-    <div className="flex flex-col min-h-full">
-      <CountryListToolbar
-        search={search}
-        onSearchChange={setSearch}
-        sortKey={sortKey}
-        onSortKeyChange={handleSortChange}
-        viewMode={viewMode}
-        onViewModeChange={handleViewChange}
-        onCreateCountry={onCreateCountry}
-      />
-
-      <div className="max-md:h-10 flex-shrink-0" />
-
-      <div className="flex-1 p-4 flex flex-col">
+    <>
+      <ListShell
+        fill={viewMode === 'gallery'}
+        header={() => (
+          <CountryListToolbar
+            search={search}
+            onSearchChange={setSearch}
+            sortKey={sortKey}
+            onSortKeyChange={handleSortChange}
+            viewMode={viewMode}
+            onViewModeChange={handleViewChange}
+            onCreateCountry={onCreateCountry}
+          />
+        )}
+      >
+        <div className="max-md:h-10" />
+        <div className={viewMode === 'gallery' ? 'flex min-h-0 flex-1 flex-col' : 'flex flex-1 flex-col p-4'}>
         {countries.length === 0 ? (
           <ListEmptyState
+            icon={Flag}
             message="还没有国家"
             action={{ label: '创建第一个', onClick: onCreateCountry }}
           />
         ) : filtered.length === 0 ? (
           <ListEmptyState
+            icon={SearchX}
             message="没有匹配的国家"
             action={{ label: '清除筛选', onClick: () => setSearch('') }}
+          />
+        ) : viewMode === 'gallery' ? (
+          <VerticalSplit
+            storageKey="oc-countries-gallery-split"
+            className="min-h-0 flex-1"
+            top={
+              <CoverFlow fill aspect={7 / 6} maxItemWidth={540} className="h-full">
+                {filtered.map((country) => (
+                  <CountryCard
+                    key={country.id}
+                    country={country}
+                    onSelect={handleSelect}
+                    onDelete={onDeleteCountry}
+                    onLongPress={() => openActionSheet(country)}
+                    isMobile={isMobile}
+                  />
+                ))}
+              </CoverFlow>
+            }
+            bottom={
+              <SortableList
+                activation="longPress"
+                ids={filtered.map((c) => c.id)}
+                onReorder={handleReorder}
+                layout="list"
+                disabled={!manual}
+              >
+                <div className="flex flex-col rules-end px-1">
+                  {filtered.map((country) => (
+                    <CountryRow
+                      key={country.id}
+                      country={country}
+                      onSelect={handleSelect}
+                      onDelete={onDeleteCountry}
+                      onLongPress={() => openActionSheet(country)}
+                      isMobile={isMobile}
+                      sortable={manual}
+                    />
+                  ))}
+                </div>
+              </SortableList>
+            }
           />
         ) : viewMode === 'grid' ? (
           <SortableList
@@ -167,7 +217,7 @@ export function CountryList({
               ))}
             </div>
           </SortableList>
-        ) : (
+        ) : viewMode === 'list' ? (
           <SortableList
               activation="longPress"
             ids={filtered.map((c) => c.id)}
@@ -189,9 +239,10 @@ export function CountryList({
               ))}
             </div>
           </SortableList>
-        )}
+        ) : null}
         <MobileFab viewMode={viewMode} onViewModeChange={handleViewChange} />
-      </div>
+        </div>
+      </ListShell>
 
       <MobileActionSheet
         open={actionSheet.open}
@@ -219,6 +270,6 @@ export function CountryList({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </>
   )
 }

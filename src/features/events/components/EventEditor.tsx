@@ -7,8 +7,10 @@ import { EntityDocumentBody } from '@/components/editor/EntityDocumentBody'
 import { EditorBodyPane } from '@/components/editor/EditorBodyPane'
 import { EditorSplitPane } from '@/components/editor/EditorSplitPane'
 import { EntityEditorShell } from '@/components/shared/EntityEditorShell'
+import { TalkToAgentButton } from '@/components/shared/TalkToAgentButton'
 import type { Event } from '@/types'
 import { EntityHistoryButton } from '@/features/vault'
+import { EntityExportButton } from '@/components/shared/EntityExportButton'
 import { useEditorLayout } from '@/lib/use-editor-layout'
 import { useDevice } from '@/lib/use-device'
 import type { EventFormData } from '../types'
@@ -61,7 +63,15 @@ export function EventEditor({ event, onBack, onCreate, onSave, onNavigateToEvent
 
   const headerActions = (
     <>
+      <TalkToAgentButton
+        kind="event"
+        id={event.id}
+        title={form.title}
+        onBeforeOpen={form.handleSave}
+      />
       <EntityHistoryButton table="events" id={event.id} name={form.title} />
+      {/* 导出走**全局导出中心**（海报页签落在这一条上），这里只传身份 */}
+      <EntityExportButton kind="event" id={event.id} onBeforeOpen={form.handleSave} />
       <button
         onClick={form.handleSave}
         disabled={form.saving || !form.title.trim()}
@@ -126,9 +136,7 @@ export function EventEditor({ event, onBack, onCreate, onSave, onNavigateToEvent
         <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="h-12 shrink-0" aria-hidden />
           <div className="mx-auto w-full max-w-3xl px-4 py-3 md:px-8 md:py-6">
-            <EventFrontmatter form={form} compact={false} onNavigateItem={onNavigateItem} />
-            <div className="mt-8 border-t border-line" />
-            <div className="mt-8">{body}</div>
+            <EventFrontmatter form={form} compact={false} onNavigateItem={onNavigateItem} body={body} />
           </div>
         </div>
       )}
