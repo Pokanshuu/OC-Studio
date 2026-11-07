@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Tauri 会把这个文件合并进 bundle 的 Info.plist。
+
+  这里只放 macOS 的「用途说明」：应用会在用户选择的文件夹里读写 Markdown 与图片，
+  而文稿 / 桌面 / 下载 / 外接磁盘都属于受 TCC 保护的目录 —— 系统弹授权框时，
+  第二行那句「为什么」就取自这里的 key。缺了它，弹窗只有一个裸标题。
+
+  **不要**在这里写 CFBundleIdentifier / CFBundleVersion 这类标识：
+  它们由 tauri.conf.json 生成，覆盖了会和构建产物打架。
+-->
+<plist version="1.0">
+<dict>
+  <key>NSDocumentsFolderUsageDescription</key>
+  <string>用于读取和写入你选择的笔记库文件夹（Markdown 与图片）。</string>
+  <key>NSDesktopFolderUsageDescription</key>
+  <string>用于读取和写入放在桌面的笔记库文件夹。</string>
+  <key>NSDownloadsFolderUsageDescription</key>
+  <string>用于导入你下载的备份文件与图片素材。</string>
+  <key>NSRemovableVolumesUsageDescription</key>
+  <string>用于读取和写入放在外接磁盘上的笔记库文件夹。</string>
+</dict>
+</plist>

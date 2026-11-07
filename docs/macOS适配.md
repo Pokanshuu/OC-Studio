@@ -43,6 +43,7 @@ Windows 的壳是「无边框窗口 + 自绘标题栏 + Mica」，macOS 的壳�
 | 14 | 全屏界面让位 | `globals.css` + 导出中心 / 模板编排 / 裁剪 / 看图 / 地图 | 新增 `--oc-titlebar-h`（mac 32px / 其它 0）；全屏界面用它把自己推到标题栏之下，页头不再压红绿灯 |
 | 15 | 模糊默认开 | `src/lib/blur-preference.ts`（新增） | 偏好默认 **开**，只有用户手动关过（写过 `'false'`）才关；`BlurEffect` 先问 `blur_supported` 再调 `init_blur` |
 | 16 | 顶栏右侧留白 | `globals.css` | `padding-left` 78 → **92px**。实测：红绿灯占 14–73.5，标题从 93 起，间距 4.5 → **19.5px** |
+| 17 | 授权用途说明 | `src-tauri/Info.plist`（新增） | 文稿 / 桌面 / 下载 / 外接磁盘 四个 `NS*UsageDescription`，Tauri 自动合并进 bundle Info.plist |
 
 ### 2.1 已验证
 
@@ -105,10 +106,11 @@ Windows 的壳是「无边框窗口 + 自绘标题栏 + Mica」，macOS 的壳�
 
 **第一次测试被误判成「永久转圈」**：硬盘睡眠 + 授权框没有出现在截图里，看起来像挂死。
 **复查结论**：库放 `~/Documents` 时 macOS 会弹**标准 TCC 授权框**——「“OC Studio”想访问“文稿”文件夹中的文件」，点「允许」后正常载入。
-**仍然值得做的**：
-- 新增 `src-tauri/Info.plist`，补 `NSDocumentsFolderUsageDescription` / `NSDesktopFolderUsageDescription` / `NSDownloadsFolderUsageDescription`，让授权框里能写明用途（Tauri 会把 `src-tauri/Info.plist` 合并进 bundle）；
-- 载入期间的状态文案已经够用，但可以补一句「首次访问文件夹需要系统授权」；
-- 排查时**先看屏幕有没有授权框**，别再当成挂死。
+**已经做了的**：`src-tauri/Info.plist` 补了四个用途说明（文稿 / 桌面 / 下载 / 外接磁盘）。
+验证方式是**看构建产物**而不是看源文件：`plutil -p ".../OC Studio.app/Contents/Info.plist" | grep UsageDescription`
+四个 key 都在合并后的 plist 里；再把库放在 `~/Documents` 实测，载入成功。
+
+**排查时先看屏幕有没有授权框**，别再当成挂死。
 
 ### P1-2 vibrancy 实测
 
