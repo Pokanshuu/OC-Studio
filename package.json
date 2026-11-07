@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "tauri:dev": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tauri-dev.ps1",
+    "tauri:dev:mac": "tauri dev",
+    "tauri:build:mac": "tauri build --bundles app",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -32,7 +34,8 @@
     "audit:actor": "tsx scripts/journal-actor-check.ts",
     "audit:paths": "tsx scripts/vault-paths-check.ts",
     "cap:dev": "npm run build && npx cap sync && npx cap open android",
-    "cap:hot": "npm run build && npx cap sync"
+    "cap:hot": "npm run build && npx cap sync",
+    "tauri:build:mac:dmg": "CI=true tauri build --bundles dmg"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",

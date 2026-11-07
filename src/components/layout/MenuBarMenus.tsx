@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { Check } from 'lucide-react'
 import { tauriReadClipboard } from '@/lib/tauri-clipboard'
+import { shortcutLabel } from '@/lib/shortcut-label'
 import { useSettingsTrigger } from '@/components/layout/SettingsTriggerContext'
 import { useSettings } from '@/lib/settings'
 import { useImportExport } from '@/components/shared/ImportExportUI'
@@ -10,6 +11,8 @@ import { useExportCenter } from '@/components/shared/export/ExportCenterHost'
 import { JournalTimelineDialog } from '@/features/vault/components/JournalTimelineDialog'
 import { useActiveEditor } from '@/lib/editor-context'
 import { VaultMenuSection } from '@/features/vault'
+import { useVault } from '@/lib/vault/vault-provider'
+import { NativeMacMenu } from './NativeMacMenu'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -29,6 +32,7 @@ import {
  */
 export function MenuBarMenus() {
   const { settings, updateSetting } = useSettings()
+  const vault = useVault()
   const { openSettings } = useSettingsTrigger()
   const { handleImportClick, dialog: importExportDialog } = useImportExport()
   const { activeEditor } = useActiveEditor()
@@ -111,7 +115,26 @@ export function MenuBarMenus() {
 
   return (
     <>
-        <div className="hidden md:flex md:items-center md:gap-1">
+      {/* macOS：窗口内那排菜单由 CSS 隐藏（见 globals.css 的 [data-inapp-menus]），
+          动作改由系统菜单栏承担 —— 两边调的是同一批 handler，不是两套实现。 */}
+      <NativeMacMenu
+        vaultName={vault.name}
+        recentVaults={vault.recent}
+        onOpenFolder={() => void vault.openFolder()}
+        onCreateFolder={() => void vault.createFolder()}
+        onOpenRecent={(path) => void vault.openFolder(path)}
+        onJournal={() => setJournalOpen(true)}
+        onImport={handleImportClick}
+        onExportCenter={() => openExportCenter()}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        sidebarVisible={settings.sidebarVisible}
+        onToggleSidebar={() => updateSetting("sidebarVisible", !settings.sidebarVisible)}
+        theme={settings.theme}
+        onTheme={(theme) => updateSetting("theme", theme)}
+        onAbout={() => openSettings("about")}
+      />
+        <div data-inapp-menus className="hidden md:flex md:items-center md:gap-1">
           <DropdownMenu open={openMenu === 'file'} onOpenChange={(o) => { if (o) setOpen('file'); else if (openMenuRef.current === 'file') setOpen(null) }}>
             <span data-menu-trigger="file">
               <DropdownMenuTrigger>文件</DropdownMenuTrigger>
@@ -141,29 +164,29 @@ export function MenuBarMenus() {
             <DropdownMenuContent>
               <DropdownMenuItem onClick={handleUndo}>
                 撤销
-                <DropdownMenuShortcut>Ctrl+Z</DropdownMenuShortcut>
+                <DropdownMenuShortcut>{shortcutLabel('Ctrl+Z')}</DropdownMenuShortcut>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleRedo}>
                 重做
-                <DropdownMenuShortcut>Ctrl+Shift+Z</DropdownMenuShortcut>
+                <DropdownMenuShortcut>{shortcutLabel('Ctrl+Shift+Z')}</DropdownMenuShortcut>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleCut}>
                 剪切
-                <DropdownMenuShortcut>Ctrl+X</DropdownMenuShortcut>
+                <DropdownMenuShortcut>{shortcutLabel('Ctrl+X')}</DropdownMenuShortcut>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleCopy}>
                 复制
-                <DropdownMenuShortcut>Ctrl+C</DropdownMenuShortcut>
+                <DropdownMenuShortcut>{shortcutLabel('Ctrl+C')}</DropdownMenuShortcut>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handlePaste}>
                 粘贴
-                <DropdownMenuShortcut>Ctrl+V</DropdownMenuShortcut>
+                <DropdownMenuShortcut>{shortcutLabel('Ctrl+V')}</DropdownMenuShortcut>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSelectAll}>
                 全选
-                <DropdownMenuShortcut>Ctrl+A</DropdownMenuShortcut>
+                <DropdownMenuShortcut>{shortcutLabel('Ctrl+A')}</DropdownMenuShortcut>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

@@ -126,7 +126,7 @@ export function ExportCenter({ onClose, initialTab = 'poster', initialSubject, n
       role="dialog"
       aria-modal="true"
       aria-labelledby="export-center-title"
-      className="pointer-events-auto fixed inset-0 z-50 flex flex-col bg-paper"
+      className="pointer-events-auto fixed inset-0 z-50 flex flex-col bg-paper pt-[var(--oc-titlebar-h)]"
       onKeyDown={onKeyDown}
     >
       <header className="flex h-12 shrink-0 items-center gap-3 border-b border-line px-4">

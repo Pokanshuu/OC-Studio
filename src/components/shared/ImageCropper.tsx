@@ -69,7 +69,7 @@ export function ImageCropper({
   }
 
   return createPortal(
-    <div className="pointer-events-auto fixed inset-0 z-[99999] flex flex-col bg-paper pt-[var(--safe-top)] pb-[var(--safe-bottom)]">
+    <div className="pointer-events-auto fixed inset-0 z-[99999] flex flex-col bg-paper pt-[calc(var(--safe-top,0px)+var(--oc-titlebar-h))] pb-[var(--safe-bottom)]">
       {/* Header bar */}
       <div className="flex shrink-0 items-center justify-between border-b border-line px-4 py-3">
         <h2 className="text-base font-medium text-ink">裁剪图片</h2>

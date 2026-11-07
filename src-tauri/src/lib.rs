@@ -1,3 +1,6 @@
+// `OnceLock` 只服务 Windows 11 版本探测；macOS 上这个 import 必须跟着一起关掉，
+// 否则 `cargo check` 会报 unused import（Windows 上照旧）。
+#[cfg(target_os = "windows")]
 use std::sync::OnceLock;
 
 mod agent;
@@ -63,7 +66,13 @@ fn init_blur(window: tauri::WebviewWindow, enabled: bool, is_dark: bool) -> bool
     {
         if enabled {
             let _ = window.set_background_color(Some(Color(0, 0, 0, 0)));
-            window_vibrancy::apply_blur(&window, None, None, None).ok();
+            window_vibrancy::apply_vibrancy(
+                &window,
+                window_vibrancy::NSVisualEffectMaterial::UnderWindowBackground,
+                None,
+                None,
+            )
+            .ok();
         } else {
             window_vibrancy::clear_vibrancy(&window).ok();
             let color = if is_dark { Color(28, 27, 26, 255) } else { Color(254, 252, 248, 255) };
@@ -106,7 +115,13 @@ fn update_blur_effect(window: tauri::WebviewWindow, enabled: bool, is_dark: bool
     {
         if enabled {
             let _ = window.set_background_color(Some(Color(0, 0, 0, 0)));
-            window_vibrancy::apply_blur(&window, None, None, None).ok();
+            window_vibrancy::apply_vibrancy(
+                &window,
+                window_vibrancy::NSVisualEffectMaterial::UnderWindowBackground,
+                None,
+                None,
+            )
+            .ok();
             return true;
         } else {
             window_vibrancy::clear_vibrancy(&window).ok();
@@ -152,6 +167,26 @@ pub fn run() {
       let window = app.get_webview_window("main").expect("主窗口未找到");
       use tauri::webview::Color;
       let _ = window.set_background_color(Some(Color(254, 252, 248, 255)));
+
+      // macOS：应用一启动就必须有菜单栏（⌘Q / ⌘H 这些由系统项转发给 AppKit）。
+      // 这里**只放系统项**，不重复任何业务动作 —— 「文件 / 编辑 / 视图」由前端的
+      // `NativeMacMenu` 在界面就绪后接管（同一批 handler，只有一份实现）。
+      // 不用 `Menu::default()`：它给的是一套英文菜单（File/Edit/View/Window/Help），
+      // 在还没打开笔记库的启动页会明显和中文界面打架。
+      #[cfg(target_os = "macos")]
+      {
+        use tauri::menu::{IsMenuItem, Menu, PredefinedMenuItem, Submenu};
+        let handle = app.handle();
+        let hide = PredefinedMenuItem::hide(handle, Some("隐藏 OC Studio"))?;
+        let hide_others = PredefinedMenuItem::hide_others(handle, Some("隐藏其他"))?;
+        let show_all = PredefinedMenuItem::show_all(handle, Some("显示全部"))?;
+        let separator = PredefinedMenuItem::separator(handle)?;
+        let quit = PredefinedMenuItem::quit(handle, Some("退出 OC Studio"))?;
+        let items: Vec<&dyn IsMenuItem<_>> = vec![&hide, &hide_others, &show_all, &separator, &quit];
+        let app_menu = Submenu::with_items(handle, "OC Studio", true, &items)?;
+        let menu = Menu::with_items(handle, &[&app_menu])?;
+        handle.set_menu(menu)?;
+      }
 
       // 助手插件自己的库与网络客户端（原样搬自 Simple-Agent）。
       app.manage(agent::init(app.handle())?);

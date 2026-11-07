@@ -458,7 +458,7 @@ export function TemplateComposer({
         )
 
   const content = (
-    <div className="pointer-events-auto fixed inset-0 z-50 flex flex-col bg-paper">
+    <div className="pointer-events-auto fixed inset-0 z-50 flex flex-col bg-paper pt-[var(--oc-titlebar-h)]">
       <header className="flex h-12 shrink-0 items-center gap-3 border-b border-line px-4">
         <button type="button" onClick={onClose} className={`${ICON_BTN} w-auto gap-1 px-1.5`} aria-label="返回">
           <ArrowLeft size={16} strokeWidth={2} />

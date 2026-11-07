@@ -373,6 +373,41 @@ body[data-map-immersive='true'] [data-dev-mock] {
   display: none;
 }
 
+/* macOS 窗口外壳：装饰交给系统（titleBarStyle: Overlay），原生红绿灯浮在顶栏左上。
+   两件事必须由 CSS 做，不能等 React 起来按 isMacOS() 改 className —— 那会和
+   服务端渲染的 HTML 对不上，首帧先按 Windows 排版再跳一下。
+   - 顶栏左侧给红绿灯留位：14px 起点 + 三颗 12px 圆钮的整段 ≈ 78px
+   - 自绘的最小化/最大化/关闭在 macOS 上多余（系统已经有），藏掉
+   判定来源是 `<html data-os>`，由 `PLATFORM_BOOT_SCRIPT` 在 hydration 前落值。 */
+/* 标题栏高度：macOS 的 Overlay 标题栏把内容顶到 y=0，红绿灯浮在上面。
+   全屏界面（导出中心 / 模板编排 / 裁剪 / 看图）用它把自己往下推 32px；
+   其余平台为 0，布局完全不变。 */
+:root {
+  --oc-titlebar-h: 0px;
+}
+
+[data-os='mac'] {
+  --oc-titlebar-h: 32px;
+}
+
+[data-os='mac'] [data-menubar] {
+  /* 红绿灯从 x=14 起、三颗按钮到 x≈73.5 结束（见 tauri.macos.conf.json 的
+     trafficLightPosition），这里再留 ~18px 呼吸位，标题才不会贴住绿灯。
+     改红绿灯位置时这里的数要一起改。 */
+  padding-left: 92px;
+}
+
+[data-os='mac'] [data-window-controls] {
+  display: none;
+}
+
+/* macOS 的菜单在屏幕顶部，不在窗口里：窗口内那排「文件 / 编辑 / 视图 / 关于」隐藏，
+   动作由 `NativeMacMenu` 注册到系统菜单栏（同一批 handler）。
+   只藏这一组，品牌名 / 搜索 / 灵感便签 / 拖拽区都留着。 */
+[data-os='mac'] [data-inapp-menus] {
+  display: none;
+}
+
 .main-scroll::-webkit-scrollbar {
   width: 6px;
   height: 6px;

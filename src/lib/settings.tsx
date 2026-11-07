@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react"
 import { invoke } from "@tauri-apps/api/core"
 import { isTauri } from "./env"
+import { readBlurPreference } from "./blur-preference"
 import { DEFAULT_SIDEBAR_WIDTH, clampSidebarWidth } from "./sidebar-width"
 import type { EditorLayout } from "./editor-layout"
 import type { CoverTintMode } from "./cover/tuning"
@@ -160,7 +161,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
       if (isTauri()) {
         try {
-          const enabled = window.localStorage.getItem("blur-effect-enabled") === "true"
+          const enabled = readBlurPreference()
           invoke<boolean>("update_blur_effect", { enabled, isDark })
             .then((applied) => {
               root.classList.toggle("tauri-mica", applied)
