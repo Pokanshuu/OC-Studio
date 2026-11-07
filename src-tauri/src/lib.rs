@@ -168,13 +168,24 @@ pub fn run() {
       use tauri::webview::Color;
       let _ = window.set_background_color(Some(Color(254, 252, 248, 255)));
 
-      // macOS：没有原生菜单栏，「编辑」菜单就不存在，WKWebView 里的 ⌘C / ⌘V / ⌘A
-      // 全部失效（它们由菜单的键盘等价项转发，不是 WebView 自己实现的）；⌘Q 退出、
-      // ⌘W 关窗同理。Windows/Linux 是窗口内的自绘菜单，不需要这一套。
+      // macOS：应用一启动就必须有菜单栏（⌘Q / ⌘H 这些由系统项转发给 AppKit）。
+      // 这里**只放系统项**，不重复任何业务动作 —— 「文件 / 编辑 / 视图」由前端的
+      // `NativeMacMenu` 在界面就绪后接管（同一批 handler，只有一份实现）。
+      // 不用 `Menu::default()`：它给的是一套英文菜单（File/Edit/View/Window/Help），
+      // 在还没打开笔记库的启动页会明显和中文界面打架。
       #[cfg(target_os = "macos")]
       {
-        let menu = tauri::menu::Menu::default(app.handle())?;
-        app.handle().set_menu(menu)?;
+        use tauri::menu::{IsMenuItem, Menu, PredefinedMenuItem, Submenu};
+        let handle = app.handle();
+        let hide = PredefinedMenuItem::hide(handle, Some("隐藏 OC Studio"))?;
+        let hide_others = PredefinedMenuItem::hide_others(handle, Some("隐藏其他"))?;
+        let show_all = PredefinedMenuItem::show_all(handle, Some("显示全部"))?;
+        let separator = PredefinedMenuItem::separator(handle)?;
+        let quit = PredefinedMenuItem::quit(handle, Some("退出 OC Studio"))?;
+        let items: Vec<&dyn IsMenuItem<_>> = vec![&hide, &hide_others, &show_all, &separator, &quit];
+        let app_menu = Submenu::with_items(handle, "OC Studio", true, &items)?;
+        let menu = Menu::with_items(handle, &[&app_menu])?;
+        handle.set_menu(menu)?;
       }
 
       // 助手插件自己的库与网络客户端（原样搬自 Simple-Agent）。

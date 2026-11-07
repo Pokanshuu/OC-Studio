@@ -29,7 +29,7 @@ Windows 的壳是「无边框窗口 + 自绘标题栏 + Mica」，macOS 的壳�
 |---|---|---|---|
 | 1 | 平台覆盖配置 | `src-tauri/tauri.macos.conf.json`（新增） | `decorations:true` + `titleBarStyle:"Overlay"` + `hiddenTitle` + 红绿灯位置；`bundle.targets` 改为 `app/dmg` |
 | 2 | 私有 API 开关 | `src-tauri/tauri.conf.json` / `Cargo.toml` | `app.macOSPrivateApi:true` + `tauri` 的 `macos-private-api` feature（两者必须成对，见 §4.2） |
-| 3 | 系统菜单栏（初版） | `src-tauri/src/lib.rs` | `Menu::default()` + `set_menu()`，解决 ⌘C/⌘V/⌘Q 在 WKWebView 里失灵。**它和应用自己的菜单栏共存，不替代**；目前是 Tauri 的英文默认菜单（App/File/Edit/Window/Help），中文化可选 |
+| 3 | 启动期菜单 | `src-tauri/src/lib.rs` | 不再用 `Menu::default()`（英文 File/Edit/View/Window/Help）。改成**只有系统项的最小中文应用菜单**（隐藏 / 隐藏其他 / 显示全部 / 退出），业务菜单由前端就绪后接管 |
 | 4 | vibrancy 修复 | `src-tauri/src/lib.rs` | macOS 分支原来调的是 **Windows 专用** 的 `apply_blur`，改成 `apply_vibrancy(…, UnderWindowBackground, …)` |
 | 5 | `OnceLock` 条件编译 | `src-tauri/src/lib.rs` | 只服务 Windows 11 探测，macOS 上会报 unused import |
 | 6 | WebKit 兼容 | `src/components/layout/BlurEffect.tsx` | `requestIdleCallback` 在 WKWebView 不存在，退回 `setTimeout` |
@@ -99,15 +99,14 @@ Windows 的壳是「无边框窗口 + 自绘标题栏 + Mica」，macOS 的壳�
 > 只是右上角那三个**自绘窗口按键**（最小化 / 最大化 / 关闭）隐藏 —— 这几个动作由系统的
 > 红绿灯接管，走系统 API。该隐藏已由 `[data-os='mac'] [data-window-controls]` 实现。
 
-### P1-1 TCC 与文件访问（实测会挂死）
+### P1-1 TCC 与文件访问（实测：是标准授权框，不是卡死）
 
-**现象**：笔记库放在 `~/Documents` 时，界面永久停在「正在载入文件夹…」。
-**原因**：未签名（ad-hoc）应用访问受保护目录会触发 TCC 授权，弹窗没有正常出现/无法交互，进程挂在等待上。
-**基线**：同一份二进制，库放 `/tmp/oc-vault` 一切正常。
-**计划**：
-- 新增 `src-tauri/Info.plist`，补 `NSDocumentsFolderUsageDescription` / `NSDesktopFolderUsageDescription` / `NSDownloadsFolderUsageDescription`（Tauri 会把 `src-tauri/Info.plist` 合并进 bundle）；
-- 加载加超时与可读报错，**不允许无限转圈**；
-- 文档里写清「开发时把库放在非受保护目录」。
+**第一次测试被误判成「永久转圈」**：硬盘睡眠 + 授权框没有出现在截图里，看起来像挂死。
+**复查结论**：库放 `~/Documents` 时 macOS 会弹**标准 TCC 授权框**——「“OC Studio”想访问“文稿”文件夹中的文件」，点「允许」后正常载入。
+**仍然值得做的**：
+- 新增 `src-tauri/Info.plist`，补 `NSDocumentsFolderUsageDescription` / `NSDesktopFolderUsageDescription` / `NSDownloadsFolderUsageDescription`，让授权框里能写明用途（Tauri 会把 `src-tauri/Info.plist` 合并进 bundle）；
+- 载入期间的状态文案已经够用，但可以补一句「首次访问文件夹需要系统授权」；
+- 排查时**先看屏幕有没有授权框**，别再当成挂死。
 
 ### P1-2 vibrancy 实测
 
