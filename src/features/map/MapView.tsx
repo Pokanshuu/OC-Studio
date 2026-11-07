@@ -982,7 +982,7 @@ export function MapView() {
         ) : null}
 
         {/* 顶栏：左 = 我在看哪张图，右 = 模式与输出 */}
-        <div className="pointer-events-none absolute inset-x-3 top-3 z-20 flex items-start justify-between gap-2">
+        <div className="pointer-events-none absolute inset-x-3 top-[calc(0.75rem+var(--oc-titlebar-h))] z-20 flex items-start justify-between gap-2">
           {mode === 'draw' && active ? (
             <div className="pointer-events-auto relative min-w-0">
               {/* 悬停只把纸变实：叠 `--oc-hover` 会把 `bg-paper/85` 整个顶掉，

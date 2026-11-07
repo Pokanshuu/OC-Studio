@@ -1,3 +1,6 @@
+// `OnceLock` 只服务 Windows 11 版本探测；macOS 上这个 import 必须跟着一起关掉，
+// 否则 `cargo check` 会报 unused import（Windows 上照旧）。
+#[cfg(target_os = "windows")]
 use std::sync::OnceLock;
 
 mod agent;
@@ -63,7 +66,13 @@ fn init_blur(window: tauri::WebviewWindow, enabled: bool, is_dark: bool) -> bool
     {
         if enabled {
             let _ = window.set_background_color(Some(Color(0, 0, 0, 0)));
-            window_vibrancy::apply_blur(&window, None, None, None).ok();
+            window_vibrancy::apply_vibrancy(
+                &window,
+                window_vibrancy::NSVisualEffectMaterial::UnderWindowBackground,
+                None,
+                None,
+            )
+            .ok();
         } else {
             window_vibrancy::clear_vibrancy(&window).ok();
             let color = if is_dark { Color(28, 27, 26, 255) } else { Color(254, 252, 248, 255) };
@@ -106,7 +115,13 @@ fn update_blur_effect(window: tauri::WebviewWindow, enabled: bool, is_dark: bool
     {
         if enabled {
             let _ = window.set_background_color(Some(Color(0, 0, 0, 0)));
-            window_vibrancy::apply_blur(&window, None, None, None).ok();
+            window_vibrancy::apply_vibrancy(
+                &window,
+                window_vibrancy::NSVisualEffectMaterial::UnderWindowBackground,
+                None,
+                None,
+            )
+            .ok();
             return true;
         } else {
             window_vibrancy::clear_vibrancy(&window).ok();
@@ -152,6 +167,15 @@ pub fn run() {
       let window = app.get_webview_window("main").expect("主窗口未找到");
       use tauri::webview::Color;
       let _ = window.set_background_color(Some(Color(254, 252, 248, 255)));
+
+      // macOS：没有原生菜单栏，「编辑」菜单就不存在，WKWebView 里的 ⌘C / ⌘V / ⌘A
+      // 全部失效（它们由菜单的键盘等价项转发，不是 WebView 自己实现的）；⌘Q 退出、
+      // ⌘W 关窗同理。Windows/Linux 是窗口内的自绘菜单，不需要这一套。
+      #[cfg(target_os = "macos")]
+      {
+        let menu = tauri::menu::Menu::default(app.handle())?;
+        app.handle().set_menu(menu)?;
+      }
 
       // 助手插件自己的库与网络客户端（原样搬自 Simple-Agent）。
       app.manage(agent::init(app.handle())?);

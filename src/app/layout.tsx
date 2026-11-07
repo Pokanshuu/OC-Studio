@@ -16,6 +16,7 @@ import { Toaster } from "@/components/shared/toaster";
 import { NativeMenuBlocker } from "@/components/shared/NativeMenuBlocker";
 import { KeyboardProvider } from "@/lib/KeyboardContext";
 import { THEME_BOOT_SCRIPT } from "@/lib/theme/boot";
+import { PLATFORM_BOOT_SCRIPT } from "@/lib/env";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -42,7 +43,9 @@ export default function RootLayout({
       <head>
           <script
             dangerouslySetInnerHTML={{
-              __html: THEME_BOOT_SCRIPT,
+              // 两段 IIFE 必须用 `;` 隔开：主题脚本结尾不带分号，直接拼
+              // `(function(){…})()` 会被解析成「调用前一个的返回值」而抛错。
+              __html: THEME_BOOT_SCRIPT + ';' + PLATFORM_BOOT_SCRIPT,
             }}
           />
         </head>

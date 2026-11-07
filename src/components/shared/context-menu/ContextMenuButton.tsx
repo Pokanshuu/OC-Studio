@@ -1,6 +1,7 @@
 'use client'
 
 import { MENU_ITEM_BASE } from '@/lib/ui-tokens'
+import { shortcutLabel } from '@/lib/shortcut-label'
 import type { ContextMenuItem } from './context-menu-types'
 
 /** 菜单项按钮（顶层与子菜单共用同一套样式） */
@@ -28,7 +29,7 @@ export function ContextMenuButton({
     >
       <span>{item.label}</span>
       {item.shortcut ? (
-        <span className="ml-auto text-xs text-ink-faint">{item.shortcut}</span>
+        <span className="ml-auto text-xs text-ink-faint">{shortcutLabel(item.shortcut)}</span>
       ) : null}
     </button>
   )

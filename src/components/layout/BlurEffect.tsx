@@ -30,7 +30,15 @@ export function BlurEffect() {
           .catch(() => {})
       } catch { /* 非 Tauri 环境静默跳过 */ }
     }
-    requestIdleCallback(() => { void init() })
+    // `requestIdleCallback` 是 Chromium 专有 API，**Safari / WKWebView（macOS 与 iOS
+    // 桌面壳）没有**：直接调用会在 useEffect 里抛 ReferenceError，整棵树挂掉。
+    // Windows 走 WebView2（Chromium）所以一直没暴露。没有就退回 setTimeout。
+    const run = () => { void init() }
+    if (typeof window.requestIdleCallback === 'function') {
+      window.requestIdleCallback(run)
+    } else {
+      window.setTimeout(run, 1)
+    }
   }, [])
 
   return null

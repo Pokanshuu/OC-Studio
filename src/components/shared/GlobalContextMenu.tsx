@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom'
 import { Separator } from '@/components/ui/separator'
 import { MENU, MENU_ITEM } from '@/lib/ui-tokens'
 import { adjustContextMenuPosition } from '@/lib/menu-utils'
+import { shortcutLabel } from '@/lib/shortcut-label'
 
 interface InputMenuContextValue {
   openMenuAt: (target: HTMLElement, x: number, y: number) => void
@@ -205,20 +206,20 @@ export function GlobalContextMenu({ children }: { children: ReactNode }) {
       >
         <button onClick={handleCut} className={MENU_ITEM}>
           <span>剪切</span>
-          <span className="ml-auto text-[11px] text-ink-faint">Ctrl+X</span>
+          <span className="ml-auto text-[11px] text-ink-faint">{shortcutLabel('Ctrl+X')}</span>
         </button>
         <button onClick={handleCopy} className={MENU_ITEM}>
           <span>复制</span>
-          <span className="ml-auto text-[11px] text-ink-faint">Ctrl+C</span>
+          <span className="ml-auto text-[11px] text-ink-faint">{shortcutLabel('Ctrl+C')}</span>
         </button>
         <button onClick={handlePaste} className={MENU_ITEM}>
           <span>粘贴</span>
-          <span className="ml-auto text-[11px] text-ink-faint">Ctrl+V</span>
+          <span className="ml-auto text-[11px] text-ink-faint">{shortcutLabel('Ctrl+V')}</span>
         </button>
         <Separator className="mx-2 my-1" />
         <button onClick={handleSelectAll} className={MENU_ITEM}>
           <span>全选</span>
-          <span className="ml-auto text-[11px] text-ink-faint">Ctrl+A</span>
+          <span className="ml-auto text-[11px] text-ink-faint">{shortcutLabel('Ctrl+A')}</span>
         </button>
       </div>
     </div>

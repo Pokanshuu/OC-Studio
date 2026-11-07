@@ -98,7 +98,7 @@ export function FullscreenViewer({ images, initialIndex, onClose }: FullscreenVi
 
   return createPortal(
     <div
-      className="pointer-events-auto fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 overflow-hidden pt-[var(--safe-top)] pb-[var(--safe-bottom)] transition-opacity duration-150"
+      className="pointer-events-auto fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 overflow-hidden pt-[calc(var(--safe-top,0px)+var(--oc-titlebar-h))] pb-[var(--safe-bottom)] transition-opacity duration-150"
       style={{ opacity: visible ? 1 : 0 }}
       onClick={(e) => { if (e.target === e.currentTarget) handleClose() }}
     >

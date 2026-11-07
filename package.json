@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "tauri:dev": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tauri-dev.ps1",
+    "tauri:dev:mac": "tauri dev",
+    "tauri:build:mac": "tauri build",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

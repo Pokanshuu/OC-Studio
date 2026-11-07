@@ -28,8 +28,12 @@ export function WindowControls() {
 
   // 与顶栏的内边距对齐：菜单栏 px-3（12px），按钮 24px / 栏 32px → 上边留 4px，
   // 这里用 -mr-2 把右边也收到 4px，窗口右上角的留白才一致。
+  //
+  // macOS 不渲染这一组：系统红绿灯已经提供了同样的三个动作，见 globals.css 的
+  // `[data-os='mac'] [data-window-controls]`（用 CSS 藏，不用 isMacOS() 判，
+  // 否则首帧服务端与客户端不一致）。
   return (
-    <div className="flex items-center gap-0 -mr-2">
+    <div data-window-controls className="flex items-center gap-0 -mr-2">
       <button
         className="flex h-6 w-6 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink"
         onClick={() => { import('@tauri-apps/api/window').then(({ getCurrentWindow }) => getCurrentWindow().minimize()).catch(() => {}) }}
