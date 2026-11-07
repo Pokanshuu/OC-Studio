@@ -5,6 +5,7 @@ import { updateReferencesAfterRename, syncReferenceLabels } from '@/lib/referenc
 import { purgeCharacterReferences } from '@/lib/membership'
 import type { Character } from '@/types'
 import type { CharacterFormData } from './types'
+import { bodyPresetDoc } from '@/lib/templates/body-preset'
 
 const TABLE = 'characters'
 
@@ -51,7 +52,10 @@ export async function getCharacter(id: number): Promise<Character | undefined> {
 }
 
 export async function createCharacter(data: CharacterFormData): Promise<number> {
-  const character = buildDefaultCharacter(data)
+  // 模板里设了「正文预设」就铺进去（只在正文还空着的新条目上；模板没设 = 什么都没变）
+  const draft = buildDefaultCharacter(data)
+  const preset = draft.document == null ? await bodyPresetDoc('character') : null
+  const character = preset === null ? draft : { ...draft, document: preset }
   const id = await db.characters.add(character)
 
   await logOperation(TABLE, id, 'name', '', data.name)

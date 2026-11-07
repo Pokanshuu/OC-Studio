@@ -4,6 +4,7 @@ import { listActive, getById, softDelete } from '@/lib/repository'
 import { updateReferencesAfterRename, syncReferenceLabels } from '@/lib/reference-sync'
 import type { WorldEntry } from '@/types'
 import type { WorldFormData } from './types'
+import { bodyPresetDoc } from '@/lib/templates/body-preset'
 import { isCodexEntry } from '@/lib/entry-kinds'
 import { getCategories, loadCategories } from '@/lib/categories/store'
 import { worldBodyPatch } from '@/lib/world-body'
@@ -67,7 +68,13 @@ export async function getAllEntries(): Promise<WorldEntry[]> {
 }
 
 export async function createEntry(data: WorldFormData): Promise<number> {
-  const entry = buildDefaultEntry(data)
+  // 模板的正文预设：笔记的模板 = 条目自己的 `template`，没写就是内置词条模板
+  const draft = buildDefaultEntry(data)
+  const preset =
+    draft.document == null && (draft.content ?? '').trim() === ''
+      ? await bodyPresetDoc(draft.template?.trim() || 'entry')
+      : null
+  const entry = preset === null ? draft : { ...draft, document: preset }
   const id = await db.worldEntries.add(entry)
   await logOperation(TABLE, id, 'title', '', data.title)
   return id

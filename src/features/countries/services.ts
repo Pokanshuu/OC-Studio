@@ -5,6 +5,7 @@ import { updateReferencesAfterRename, syncReferenceLabels } from '@/lib/referenc
 import { purgeCountryReferences, applyCountryCharacters, applyCountryEvents } from '@/lib/membership'
 import type { Character, Country, Event } from '@/types'
 import type { CountryFormData } from './types'
+import { bodyPresetDoc } from '@/lib/templates/body-preset'
 
 const TABLE = 'countries'
 
@@ -57,7 +58,10 @@ export async function getCountry(id: number): Promise<Country | undefined> {
 }
 
 export async function createCountry(data: CountryFormData): Promise<number> {
-  const country = buildDefaultCountry(data)
+  // 模板的正文预设（见 `lib/templates/body-preset.ts`）：只在空正文的新条目上铺
+  const draft = buildDefaultCountry(data)
+  const preset = draft.document == null ? await bodyPresetDoc('country') : null
+  const country = preset === null ? draft : { ...draft, document: preset }
   const id = await db.countries.add(country)
 
   await logOperation(TABLE, id, 'name', '', data.name)

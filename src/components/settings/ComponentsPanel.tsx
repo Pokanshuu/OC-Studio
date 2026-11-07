@@ -12,12 +12,14 @@
  *   点进去才是那一份字段表（`BasicInfoPanel`）
  * - 关系 / 画廊 → **两级**：先列接受这组参数的模板，点进去是那几个分段按钮
  *   （`TemplateParamPanel`）—— 参数的可编范围由 `lib/templates/params.ts` 决定
- * - 正文 → 预设段落还没做，显示「开发中」
+ * - 正文 → 两级：先列含正文的模板，点进去用**我们自己的编辑器**写预设段落
+ *   （`BodyPresetPanel`；新建条目时铺进正文，见 `lib/templates/body-preset.ts`）
  */
 import { useState } from 'react'
 import { BasicInfoPanel } from '@/components/settings/BasicInfoPanel'
 import { SettingsEntryRow } from '@/components/settings/EntryRow'
 import { TemplateParamPanel } from '@/components/settings/TemplateParamPanel'
+import { BodyPresetPanel } from '@/components/settings/BodyPresetPanel'
 import type { TemplateComponentId } from '@/lib/templates/types'
 
 type Panel = 'list' | 'info' | 'body' | 'relations' | 'gallery'
@@ -25,7 +27,7 @@ type Panel = 'list' | 'info' | 'body' | 'relations' | 'gallery'
 interface Row {
   key: Panel
   label: string
-  /** 没有配置面时为 `undefined`（显示「开发中」） */
+  /** 组件 id；没有配置面的行不填（当前没有这样的行，留字段给以后） */
   component?: TemplateComponentId
 }
 
@@ -45,21 +47,15 @@ export function ComponentsPanel({ target }: { target?: string }) {
   if (panel === 'relations' || panel === 'gallery') {
     return <TemplateParamPanel componentId={panel} onBack={() => setPanel('list')} />
   }
+  if (panel === 'body') {
+    return <BodyPresetPanel onBack={() => setPanel('list')} />
+  }
 
   return (
     <div className="flex flex-col">
-      {ROWS.map((row) => {
-        const enabled = row.key === 'info' || row.component !== undefined
-        return (
-          <SettingsEntryRow
-            key={row.key}
-            label={row.label}
-            meta={enabled ? undefined : '开发中'}
-            disabled={!enabled}
-            onClick={() => setPanel(row.key)}
-          />
-        )
-      })}
+      {ROWS.map((row) => (
+        <SettingsEntryRow key={row.key} label={row.label} onClick={() => setPanel(row.key)} />
+      ))}
     </div>
   )
 }

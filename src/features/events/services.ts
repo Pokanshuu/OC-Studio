@@ -5,6 +5,7 @@ import { updateReferencesAfterRename, syncReferenceLabels } from '@/lib/referenc
 
 import type { Event } from '@/types'
 import type { EventFormData } from './types'
+import { bodyPresetDoc } from '@/lib/templates/body-preset'
 
 const TABLE = 'events'
 
@@ -42,7 +43,10 @@ export async function getEvent(id: number): Promise<Event | undefined> {
 }
 
 export async function createEvent(data: EventFormData): Promise<number> {
-  const event = buildDefaultEvent(data)
+  // 模板的正文预设（见 `lib/templates/body-preset.ts`）：只在空正文的新条目上铺
+  const draft = buildDefaultEvent(data)
+  const preset = draft.document == null ? await bodyPresetDoc('event') : null
+  const event = preset === null ? draft : { ...draft, document: preset }
   const id = await db.events.add(event)
 
   await logOperation(TABLE, id, 'title', '', data.title)

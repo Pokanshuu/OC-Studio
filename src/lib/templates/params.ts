@@ -22,9 +22,10 @@ export interface TemplateParamDef {
   /**
    * `choice` = 行内分段按钮；
    * `group` = 选中的基本信息组件 id（值域是用户数据，不在这里枚举）；
-   * `fields` = 字符串数组（旧的内联字段表，只读兼容）
+   * `fields` = 字符串数组（旧的内联字段表，只读兼容）；
+   * `text` = 自由文本（正文预设的 Markdown。编辑器是独立配置面，不进编排行）
    */
-  kind: 'choice' | 'group' | 'fields'
+  kind: 'choice' | 'group' | 'fields' | 'text'
   /** 没写 / 写坏时的默认值（渲染器必须按同一个默认值走） */
   fallback: TemplateParamValue
   /** `choice` 的可选值；`fields` 为空 */
@@ -33,6 +34,16 @@ export interface TemplateParamDef {
 
 /** 每个组件允许的参数。没登记的组件不给参数入口。 */
 export const TEMPLATE_PARAM_SCHEMA: Partial<Record<TemplateComponentId, TemplateParamDef[]>> = {
+  body: [
+    {
+      key: 'preset',
+      label: '预设正文',
+      // 存 Markdown：模板文件里可读、可分享；新建条目时转成编辑器文档铺进去
+      kind: 'text',
+      fallback: '',
+      options: [],
+    },
+  ],
   info: [
     {
       key: 'group',
@@ -179,6 +190,8 @@ export const TEMPLATE_PARAM_SCHEMA: Partial<Record<TemplateComponentId, Template
  * 这里登记的是内置的那几个，脚本与不带 doc 的调用按它兜底。
  */
 export const TEMPLATE_PARAM_SUPPORT: Partial<Record<TemplateComponentId, string[]>> = {
+  // 六个内置模板都含正文；自建笔记模板走 `TEMPLATE_PARAM_ANY_NOTE`
+  body: ['character', 'event', 'country', 'entry', 'pet', 'weapon'],
   info: ['pet', 'weapon', 'entry'],
   relations: ['character', 'event', 'country'],
   gallery: ['character', 'event', 'country'],
@@ -195,6 +208,7 @@ export const TEMPLATE_PARAM_SUPPORT: Partial<Record<TemplateComponentId, string[
  * 硬编码一份 id 名单会漏掉自建模板，而且每接一个宿主就要改两处。
  */
 export const TEMPLATE_PARAM_ANY_NOTE: Partial<Record<TemplateComponentId, boolean>> = {
+  body: true,
   info: true,
   relations: true,
   gallery: true,
@@ -262,6 +276,12 @@ export function validateTemplateParams(doc: TemplateDoc): string[] {
       }
       if (!templateAcceptsParam(doc.id, component.id, doc)) {
         errors.push(`「${doc.name}」的「${component.id}」不该有参数（渲染器未消费）`)
+        continue
+      }
+      if (def.kind === 'text') {
+        if (typeof value !== 'string') {
+          errors.push(`「${doc.name}」的「${component.id}.${key}」必须是文本`)
+        }
         continue
       }
       if (def.kind === 'fields') {

@@ -12,10 +12,13 @@ import {
   TEMPLATE_PARAM_SCHEMA,
   TEMPLATE_PARAM_SUPPORT,
   TEMPLATE_PARAM_ANY_NOTE,
+  inlineParamDefs,
   validateTemplateParams,
 } from '../src/lib/templates/params'
 import { COUNTRY_KEYS, EVENT_KEYS, WORLD_KEYS, CHARACTER_KEYS } from '../src/lib/vault/fields'
 import { isNoteTemplate, NOTE_COMPONENT_IDS } from '../src/lib/templates/note'
+import { bodyPresetFromDoc } from '../src/lib/templates/body-preset'
+import { bodyDocFromMarkdown } from '../src/lib/vault/write-body'
 import { templateFieldKeys, templateFieldLabels, templateFieldTypes } from '../src/lib/templates/fields'
 import {
   BUILTIN_INFO_GROUPS,
@@ -257,6 +260,37 @@ check(
   '带参数的模板往返后 params 变了',
 )
 check(validateTemplateParams(withParams).length === 0, '合法参数被校验器判错')
+
+// 13b. 正文预设：Markdown 多行 + [[链接]] 必须原样往返，且只对含正文的模板开放
+const presetMarkdown = ['## 人物简介', '', '写三句话。', '', '- 出生地', '- 年龄', '', '相关：[[主角]]'].join('\n')
+const withPreset: TemplateDoc = {
+  id: 'character',
+  name: '正文预设往返',
+  aliases: [],
+  components: [{ id: 'body', enabled: true, params: { preset: presetMarkdown } }],
+}
+const presetRoundTrip = parseTemplate(serializeTemplate(withPreset), 'character')
+check(
+  presetRoundTrip?.components[0]?.params?.preset === presetMarkdown,
+  '正文预设的 Markdown 往返后变了',
+)
+check(validateTemplateParams(withPreset).length === 0, '合法的正文预被判错')
+const numericPreset: TemplateDoc = {
+  ...withPreset,
+  components: [{ id: 'body', enabled: true, params: { preset: 42 } }],
+}
+check(validateTemplateParams(numericPreset).length > 0, '正文预设接受非文本值')
+check(
+  inlineParamDefs('body').length === 0,
+  '正文预设不该出现在编排行内（它是独立配置面）',
+)
+// 13c. 预设 Markdown ⇄ 编辑器文档 必须逐字往返（含指向还没建的条目的 [[ ]]
+const presetDoc = bodyDocFromMarkdown(presetMarkdown, { unresolvedLinks: 'keep' })
+check(bodyPresetFromDoc(presetDoc) === presetMarkdown, '正文预设的 Markdown ⇄ 文档 往返变了')
+// 写正文（助手写章节）时的口径不变：未建链接降级成纯文本，方括号消失
+const droppedDoc = bodyDocFromMarkdown('相关：[[主角]]')
+check(!bodyPresetFromDoc(droppedDoc).includes('[['), '写正文时未建链接仍该降级成纯文本')
+
 
 /* ── 内置基本信息组件：字段必须真能显示 ─────────────────────────────── */
 
