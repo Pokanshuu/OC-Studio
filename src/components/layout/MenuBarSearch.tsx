@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { Search, Users, Calendar, Flag, BookOpen, Clock, GitBranch, Images } from 'lucide-react'
+import { Search, Users, Calendar, Flag, type LucideIcon } from 'lucide-react'
 import { refreshSearchIndex, searchGlobal, type GlobalSearchGroup, type GlobalSearchHit } from '@/lib/search'
 import { searchTerms } from '@/lib/search/matcher'
 import { SearchHitRow } from '@/components/shared/search/SearchHitRow'
@@ -11,23 +11,24 @@ import { useNavigation } from './NavigationContext'
 import { useCategories } from '@/lib/categories/store'
 import { categoryItemName } from '@/lib/categories/types'
 import { categoryIconOf } from '@/lib/categories/icons'
+import { sectionCommands, toolIcon } from '@/lib/nav-sections'
+import { toolItem } from '@/lib/entry-kinds'
+import { isPluginEnabled, isSidebarTool, usePlugins } from '@/lib/plugins'
 import { MENU, MENU_GROUP_LABEL, MENU_ITEM_BASE } from '@/lib/ui-tokens'
 
-const SECTION_COMMANDS: { label: string; icon: typeof Users }[] = [
-  { label: '角色', icon: Users },
-  { label: '事件', icon: Calendar },
-  { label: '国家', icon: Flag },
-  { label: '世界观', icon: BookOpen },
-  { label: '时间线', icon: Clock },
-  { label: '关系图', icon: GitBranch },
-  { label: '相册', icon: Images },
-]
-
-const CREATE_COMMANDS: { label: string; type: 'character' | 'event' | 'country'; icon: typeof Users }[] = [
+const CREATE_COMMANDS: { label: string; type: 'character' | 'event' | 'country'; icon: LucideIcon }[] = [
   { label: '新建角色', type: 'character', icon: Users },
   { label: '新建事件', type: 'event', icon: Calendar },
   { label: '新建国家', type: 'country', icon: Flag },
 ]
+
+interface CommandItem {
+  label: string
+  /** 点击后 `setActiveItem` 的值（板块 = 标签本身；工具插件 = `tool:<id>`） */
+  value: string
+  Icon: LucideIcon
+  group: string
+}
 
 /**
  * 顶栏搜索（Ctrl/Cmd+K 聚焦）：标题 / 别名 / 字段 / **正文** 全文检索 + 快速新建 / 切换板块。
@@ -37,6 +38,7 @@ export function MenuBarSearch() {
   const { navigateToEntity } = useEntityNavigate()
   const { setActiveItem } = useNavigation()
   const categories = useCategories()
+  const { plugins } = usePlugins()
   const [query, setQuery] = useState('')
   const [groups, setGroups] = useState<GlobalSearchGroup[]>([])
   const [searching, setSearching] = useState(false)
@@ -45,15 +47,36 @@ export function MenuBarSearch() {
 
   const terms = useMemo(() => searchTerms(query), [query])
 
+  /**
+   * 空白态与输入时都用的「板块 / 工具」命令表。
+   * 板块清单来自 `lib/nav-sections.ts`（与侧栏同一份），工具插件来自插件表 ——
+   * 面板不再自己维护一张会过期的列表。
+   */
+  const sectionItems = useMemo<CommandItem[]>(() => {
+    const sections: CommandItem[] = sectionCommands().map((item) => ({
+      label: item.label,
+      value: item.label,
+      Icon: item.icon,
+      group: '切换板块',
+    }))
+    const tools: CommandItem[] = plugins
+      .filter((plugin) => isSidebarTool(plugin) && isPluginEnabled(plugin))
+      .map((plugin) => ({
+        label: plugin.name,
+        value: toolItem(plugin.id),
+        Icon: toolIcon(plugin.id),
+        group: '工具',
+      }))
+    return [...sections, ...tools]
+  }, [plugins])
+
   /** 输入时也把板块 / 分类命令带出来：搜「宠物」不该只有实体，还得能直接切过去 */
-  const sectionMatches = useMemo(() => {
+  const sectionMatches = useMemo<CommandItem[]>(() => {
     const needle = query.trim().toLowerCase()
     if (needle === '') return []
-    const sections = SECTION_COMMANDS.filter((cmd) => cmd.label.toLowerCase().includes(needle)).map(
-      (cmd) => ({ label: cmd.label, value: cmd.label, Icon: cmd.icon, group: '切换板块' }),
-    )
-    const used = new Set(sections.map((item) => item.label))
-    const categoryMatches = categories
+    const matched = sectionItems.filter((cmd) => cmd.label.toLowerCase().includes(needle))
+    const used = new Set(matched.map((item) => item.label))
+    const categoryMatches: CommandItem[] = categories
       .filter((category) => category.enabled && category.name.toLowerCase().includes(needle))
       .filter((category) => !used.has(category.name))
       .map((category) => ({
@@ -62,8 +85,8 @@ export function MenuBarSearch() {
         Icon: categoryIconOf(category.icon),
         group: '自定义分类',
       }))
-    return [...sections, ...categoryMatches]
-  }, [query, categories])
+    return [...matched, ...categoryMatches]
+  }, [query, categories, sectionItems])
 
   const inputRef = useRef<HTMLInputElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
@@ -209,7 +232,7 @@ export function MenuBarSearch() {
           ? createPortal(
               <div
                 ref={panelRef}
-                className={`fixed max-h-[380px] overflow-auto pointer-events-auto ${MENU}`}
+                className={`fixed max-h-[min(560px,calc(100vh-140px))] overflow-auto pointer-events-auto ${MENU}`}
                 style={{
                   left: panelPos.x,
                   top: panelPos.y,
@@ -233,21 +256,24 @@ export function MenuBarSearch() {
                         </button>
                       )
                     })}
-                    <div className={`mt-1 ${MENU_GROUP_LABEL}`}>切换板块</div>
-                    {SECTION_COMMANDS.map((cmd) => {
-                      const Icon = cmd.icon
-                      return (
-                        <button
-                          key={cmd.label}
-                          className={`${MENU_ITEM_BASE} text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink`}
-                          onMouseDown={(e) => e.preventDefault()}
-                          onClick={() => handleSectionSelect(cmd.label)}
-                        >
-                          <Icon size={14} strokeWidth={2} className="shrink-0 text-ink-faint" />
-                          <span>{cmd.label}</span>
-                        </button>
-                      )
-                    })}
+                    {[...new Set(sectionItems.map((item) => item.group))].map((groupName) => (
+                      <div key={groupName}>
+                        <div className={`mt-1 ${MENU_GROUP_LABEL}`}>{groupName}</div>
+                        {sectionItems
+                          .filter((item) => item.group === groupName)
+                          .map((item) => (
+                            <button
+                              key={`${groupName}-${item.value}`}
+                              className={`${MENU_ITEM_BASE} text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink`}
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => handleSectionSelect(item.value)}
+                            >
+                              <item.Icon size={14} strokeWidth={2} className="shrink-0 text-ink-faint" />
+                              <span>{item.label}</span>
+                            </button>
+                          ))}
+                      </div>
+                    ))}
                     {categories.some((category) => category.enabled) ? (
                       <>
                         <div className={`mt-1 ${MENU_GROUP_LABEL}`}>自定义分类</div>

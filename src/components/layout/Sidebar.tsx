@@ -7,24 +7,8 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react'
-import {
-  House,
-  Users,
-  Calendar,
-  Flag,
-  BookOpen,
-  BookText,
-  Table2,
-  Map,
-  Clock,
-  GitBranch,
-  Settings,
-  Trash2,
-  Images,
-  Plus,
-  Wrench,
-  Wand2,
-} from 'lucide-react'
+import { Settings, Trash2, Plus, Users } from 'lucide-react'
+import { ALBUM_ITEM, HOME_ITEM, NAV_GROUPS, toolIcon } from '@/lib/nav-sections'
 import { useNavigation } from './NavigationContext'
 import { useSettingsTrigger } from './SettingsTriggerContext'
 import { useTrashOverlay } from './TrashOverlayContext'
@@ -46,36 +30,12 @@ import {
   clampSidebarWidth,
 } from '@/lib/sidebar-width'
 
-const CREATE_ITEMS = [
-  { label: '世界观', icon: BookOpen },
-  { label: '小说', icon: BookText },
-] as const
-
-const CODEX_ITEMS = [
-  { label: '角色', icon: Users },
-  { label: '事件', icon: Calendar },
-  { label: '国家', icon: Flag },
-] as const
-
-/** 视图 = 看世界的几个角度（相册与回收站固定在底部，不在这组） */
-const VIEW_ITEMS = [
-  { label: '表格', icon: Table2 },
-  { label: '地图', icon: Map },
-  { label: '时间线', icon: Clock },
-  { label: '关系图', icon: GitBranch },
-] as const
-
 const ITEM_BASE =
   'relative flex h-8 w-full items-center gap-2 px-4 text-left text-[13px] transition-colors'
 const ITEM_OFF = 'text-ink-muted hover:text-ink hover:bg-[var(--oc-hover)]'
 const ITEM_ON =
   "text-ink before:absolute before:inset-y-1.5 before:left-0 before:w-[2px] before:bg-ink before:content-['']"
 const GROUP_LABEL = 'px-4 pb-1.5 pt-3 text-[11px] tracking-[0.14em] text-ink-faint'
-
-/** 工具插件在侧栏的图标（插件 id → lucide 图标）；没登记的一律扳手 */
-const TOOL_ICONS: Record<string, typeof Users> = {
-  'official.map-generator': Wand2,
-}
 
 const subscribeNoop = () => () => {}
 
@@ -200,26 +160,24 @@ export function Sidebar() {
             onClick={() => setActiveItem(null)}
             className={`${ITEM_BASE} ${activeItem === null ? ITEM_ON : ITEM_OFF}`}
           >
-            <House size={16} strokeWidth={2} className="shrink-0" />
-            <span className="transparent-text">主页</span>
+            <HOME_ITEM.icon size={16} strokeWidth={2} className="shrink-0" />
+            <span className="transparent-text">{HOME_ITEM.label}</span>
           </button>
 
-          {/* 图鉴 = 从世界里抽出来的条目；创作 = 你自己的世界（词条树） */}
-          <div className={GROUP_LABEL}>图鉴</div>
-          {CODEX_ITEMS.map((item) => renderItem(item.label, item.icon))}
-
-          <div className={GROUP_LABEL}>创作</div>
-          {CREATE_ITEMS.map((item) => renderItem(item.label, item.icon))}
-
-          <div className={GROUP_LABEL}>视图</div>
-          {VIEW_ITEMS.map((item) => renderItem(item.label, item.icon))}
+          {/* 分组（图鉴 / 创作 / 视图）来自 `lib/nav-sections.ts`，命令面板共用同一份 */}
+          {NAV_GROUPS.map((group) => (
+            <div key={group.label}>
+              <div className={GROUP_LABEL}>{group.label}</div>
+              {group.items.map((item) => renderItem(item.label, item.icon))}
+            </div>
+          ))}
 
           {/* 工具：插件给的能力面板。装 / 关都在 设置 › 插件，这里只列已启用的 */}
           {toolPlugins.length > 0 ? (
             <>
               <div className={GROUP_LABEL}>工具</div>
               {toolPlugins.map((plugin) => {
-                const Icon = TOOL_ICONS[plugin.id] ?? Wrench
+                const Icon = toolIcon(plugin.id)
                 const item = toolItem(plugin.id)
                 return (
                   <button
@@ -299,7 +257,7 @@ export function Sidebar() {
 
         {/* 底部固定区：相册 / 回收站 / 设置 —— 不是「内容」，一直贴在最下面 */}
         <div className="flex flex-col border-t border-line py-2">
-          {renderItem('相册', Images)}
+          {renderItem(ALBUM_ITEM.label, ALBUM_ITEM.icon)}
           <button onClick={openTrash} className={`${ITEM_BASE} ${ITEM_OFF}`}>
             <Trash2 size={16} strokeWidth={2} className="shrink-0" />
             <span className="transparent-text">回收站</span>
