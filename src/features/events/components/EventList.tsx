@@ -177,7 +177,6 @@ export function EventList({
             }
             bottom={
               <SortableList
-                activation="longPress"
                 ids={filteredEvents.map((e) => e.id)}
                 onReorder={handleReorder}
                 layout="list"
@@ -201,7 +200,6 @@ export function EventList({
           />
         ) : viewMode === 'grid' ? (
           <SortableList
-              activation="longPress"
             ids={filteredEvents.map((e) => e.id)}
             onReorder={handleReorder}
             layout="grid"
@@ -224,7 +222,6 @@ export function EventList({
           </SortableList>
         ) : viewMode === 'list' ? (
           <SortableList
-              activation="longPress"
             ids={filteredEvents.map((e) => e.id)}
             onReorder={handleReorder}
             layout="list"

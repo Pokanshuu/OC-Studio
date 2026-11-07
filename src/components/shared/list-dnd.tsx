@@ -8,13 +8,20 @@
  * 把 ref / transform 挂到**自己的根节点**上（不要套一层 div —— 网格布局会错位）。
  *
  * 手柄是唯一的拖拽入口（`DragHandle`）：卡片可以照常点击进入，不会误触拖拽。
+ * 但**鼠标和触屏的起拖方式不一样**（`activation`，默认 `auto`）：
+ * - 鼠标（细指针）：只认手柄，4px 起拖 —— 抓起来就走，不延迟
+ * - 触屏（粗指针）：整张卡片按住 320ms 起拖 —— 移动端没有 hover 手柄，这是唯一顺手的入口
  *
  * 「压住另一项 → 叠成文件夹」（`onMerge`）：给列表传了这个回调，拖着一项压住另一项
- * **停一下（400ms）** 再松手就不是换位，而是把这两项叠成一个文件夹（图标手势）。
+ * **停一下（350ms）** 再松手就不是换位，而是把这两项叠成一个文件夹（图标手势）。
  * 排序的落点预览是实时的，所以靠三件事把两种意图分开：
  * - 一压上去先亮文件夹小标（不用猜要等多久），停够了才变成「松手新建文件夹」
  * - 落点带迟滞（`COLLISION_HYSTERESIS`）：停住时不会因为 1px 抖动来回换目标
  * - 桌面按住 Alt 掠过哪张就是哪张，完全不用等
+ *
+ * 亮起「松手新建文件夹」之后**指针一离开那张卡就撤销**（`MERGE_RELEASE_MARGIN`）：
+ * 成夹是个会改结构的动作，撤销必须跟得上手，不能等落点判定换目标才散 ——
+ * 否则「停住了想反悔」会僵在那张卡上出不来。
  */
 
 import {
@@ -50,7 +57,13 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { GripVertical } from 'lucide-react'
 import { OverlayIconButton } from './OverlayIconButton'
-import { centerOfRect, rankCollisions, type CollisionCandidate } from './list-dnd-collision'
+import {
+  centerOfRect,
+  pointInsideRect,
+  rankCollisions,
+  type CollisionCandidate,
+  type CollisionRect,
+} from './list-dnd-collision'
 
 type DragListeners = ReturnType<typeof useSortable>['listeners']
 
@@ -69,11 +82,13 @@ interface SortableListProps {
   disabled?: boolean
   /**
    * 怎么起拖：
-   * - `handle`（默认）：只能抓左侧手柄，4px 起拖 —— 桌面精确、绝不误触
+   * - `auto`（默认）：按指针类型选 —— 鼠标只认手柄（4px 起拖，抓起来就走），
+   *   触屏整卡长按（320ms）。**别在列表里写死 `longPress`**：那会让桌面上的手柄也要按够 320ms。
+   * - `handle`：只能抓手柄，4px 起拖 —— 桌面精确、绝不误触
    * - `longPress`：**整张卡片**按住 320ms 起拖（移动端没有 hover 手柄，这是唯一顺手的入口）；
    *   阈值内松手仍然是点击，不耽误进入详情
    */
-  activation?: 'handle' | 'longPress'
+  activation?: SortActivation | 'auto'
   children: ReactNode
 }
 
@@ -103,11 +118,26 @@ const LONG_PRESS_TOLERANCE = 8
 /**
  * 「叠成文件夹」的驻留阈值（ms）。
  * 只要压在另一项上停一下就算，不需要「一动不动」—— 停住之后目标就锁住，
- * 之后再抖也不会撤销（撤销只在换目标 / 松手 / 按 Esc 时发生）。
+ * 之后再抖也不撤销（撤销只在换目标 / 离开这张卡 / 松手 / 按 Esc 时发生）。
  */
-const MERGE_DWELL = 400
+const MERGE_DWELL = 350
 /** 驻留期间允许的抖动（px）：超过就算「还在找位置」，计时重来 */
 const MERGE_TOLERANCE = 12
+/** 已经亮起「松手新建文件夹」后，指针离开这张卡多少 px 就撤销（外扩，容忍圆角与边缘） */
+const MERGE_RELEASE_MARGIN = 10
+
+/** 指针是触屏还是鼠标 —— CSS 的 `(pointer: coarse)`，比窗口宽度靠谱（窄窗口不等于触屏） */
+function useCoarsePointer(): boolean {
+  const [coarse, setCoarse] = useState(false)
+  useEffect(() => {
+    const query = window.matchMedia('(pointer: coarse)')
+    const update = (): void => setCoarse(query.matches)
+    update()
+    query.addEventListener('change', update)
+    return () => query.removeEventListener('change', update)
+  }, [])
+  return coarse
+}
 
 function sameId(a: UniqueIdentifier | null, b: UniqueIdentifier | null): boolean {
   if (a === null || b === null) return false
@@ -120,13 +150,16 @@ export function SortableList({
   onMerge,
   layout = 'grid',
   disabled = false,
-  activation = 'handle',
+  activation = 'auto',
   children,
 }: SortableListProps) {
+  const coarse = useCoarsePointer()
+  /** 鼠标只认手柄（抓起来就走），触屏整卡长按 —— 见文件头 */
+  const sortActivation: SortActivation = activation === 'auto' ? (coarse ? 'longPress' : 'handle') : activation
   // 两个传感器都无条件创建（Hooks 不能条件调用），只切换起拖阈值
   const pointerSensor = useSensor(PointerSensor, {
     activationConstraint:
-      activation === 'longPress'
+      sortActivation === 'longPress'
         ? { delay: LONG_PRESS_DELAY, tolerance: LONG_PRESS_TOLERANCE }
         : // 4px 才起拖：点一下仍然是点击，不会把「打开」变成「拖动」
           { distance: 4 },
@@ -150,6 +183,14 @@ export function SortableList({
   const pointerDragRef = useRef(false)
   /** 桌面：按住 Alt（⌥）掠过哪张卡，哪张直接就是成夹目标，不用等 */
   const altRef = useRef(false)
+  /** 指针按下的位置（`event.delta` 是累计位移，加它才是当前指针） */
+  const startPointRef = useRef<{ x: number; y: number } | null>(null)
+  /** 当前指针位置（拖拽中每帧更新） */
+  const pointerRef = useRef<{ x: number; y: number } | null>(null)
+  /** 每一项的矩形（落点判定时顺手存下，撤销成夹要用） */
+  const rectsRef = useRef<Map<UniqueIdentifier, CollisionRect>>(new Map())
+  /** 正在驻留的那一项的矩形 */
+  const dwellRectRef = useRef<CollisionRect | null>(null)
 
   const clearDwell = useCallback(() => {
     if (dwellTimerRef.current !== null) {
@@ -165,23 +206,42 @@ export function SortableList({
     clearDwell()
     hoverIdRef.current = null
     dwellAnchorRef.current = null
+    dwellRectRef.current = null
+    pointerRef.current = null
+    startPointRef.current = null
     setHoverTargetId(null)
     setMergeTargetId(null)
   }, [clearDwell])
 
-  /** 从当前位移开始重新计时：只有真的「停在这儿」才会成夹 */
+  /**
+   * 从当前位移开始重新计时：只有真的「停在这儿」才会成夹。
+   * 到点还要再确认一次指针没走开 —— 指针停在一张卡外面不动时不会再有事件，
+   * 少了这一步，驻留会在卡片之外的地方「隔空」点着。
+   */
   const startDwell = useCallback(
     (hoverId: UniqueIdentifier, delta: { x: number; y: number }) => {
       clearDwell()
       dwellAnchorRef.current = { x: delta.x, y: delta.y }
+      dwellRectRef.current = rectsRef.current.get(hoverId) ?? null
       dwellTimerRef.current = setTimeout(() => {
         dwellTimerRef.current = null
+        const pointer = pointerRef.current
+        const rect = dwellRectRef.current
         // 停住之后 dnd-kit 不会再来事件：到点就认下这一项
-        if (sameId(hoverIdRef.current, hoverId)) setMergeTargetId(hoverId)
+        if (!sameId(hoverIdRef.current, hoverId)) return
+        if (rect && pointer && !pointInsideRect(rect, pointer.x, pointer.y, MERGE_RELEASE_MARGIN)) return
+        setMergeTargetId(hoverId)
       }, MERGE_DWELL)
     },
     [clearDwell],
   )
+
+  /** 拖拽中指针的当前位置；键盘拖拽（没有指针）返回 null */
+  const pointerOf = useCallback((delta: { x: number; y: number }): { x: number; y: number } | null => {
+    const start = startPointRef.current
+    if (!start) return null
+    return { x: start.x + delta.x, y: start.y + delta.y }
+  }, [])
 
   const mergeEnabled = onMerge !== undefined && !disabled
 
@@ -192,9 +252,13 @@ export function SortableList({
   const collisionDetection: CollisionDetection = (args) => {
     const { pointerCoordinates, droppableContainers, droppableRects, collisionRect } = args
     const candidates: (CollisionCandidate & { container: (typeof droppableContainers)[number] })[] = []
+    rectsRef.current = new Map()
     for (const container of droppableContainers) {
       const rect = droppableRects.get(container.id)
-      if (rect) candidates.push({ id: container.id, rect, container })
+      if (rect) {
+        rectsRef.current.set(container.id, rect)
+        candidates.push({ id: container.id, rect, container })
+      }
     }
     const point = pointerCoordinates ?? centerOfRect(collisionRect)
     return rankCollisions(candidates, point, hoverIdRef.current).map(({ id, value, candidate }) => ({
@@ -235,10 +299,17 @@ export function SortableList({
 
   const handleDragStart = (event: DragStartEvent) => {
     // PointerSensor 的激活事件是 pointerdown；键盘是 keydown
-    pointerDragRef.current = event.activatorEvent.type === 'pointerdown'
+    const activator = event.activatorEvent as PointerEvent
+    pointerDragRef.current = activator.type === 'pointerdown'
     // 起拖时 Alt 已经按着（先按 Alt 再拖），也算数
-    altRef.current = (event.activatorEvent as PointerEvent).altKey === true
+    altRef.current = activator.altKey === true
     activeIdRef.current = event.active.id
+    const point =
+      pointerDragRef.current && typeof activator.clientX === 'number'
+        ? { x: activator.clientX, y: activator.clientY }
+        : null
+    startPointRef.current = point
+    pointerRef.current = point
     setDragging(true)
     resetMerge()
   }
@@ -247,11 +318,13 @@ export function SortableList({
     if (!mergeEnabled || !pointerDragRef.current) return
     const { active, over } = event
     const hoverId = over?.id ?? null
+    pointerRef.current = pointerOf(event.delta) ?? pointerRef.current
     if (sameId(hoverId, hoverIdRef.current)) return
 
     // 换了目标（或离开了任何一项）：之前攒的驻留时间作废
     hoverIdRef.current = hoverId
     dwellAnchorRef.current = null
+    dwellRectRef.current = null
     clearDwell()
     setMergeTargetId(null)
     const other = hoverId !== null && !sameId(hoverId, active.id) ? hoverId : null
@@ -266,8 +339,25 @@ export function SortableList({
 
   const handleDragMove = (event: DragMoveEvent) => {
     if (!mergeEnabled) return
-    // 已经锁定或按着 Alt：不动摇，直接松手就成夹
-    if (mergeTargetId !== null || altRef.current) return
+    const pointer = pointerOf(event.delta)
+    if (pointer) pointerRef.current = pointer
+
+    // 已经亮了「松手新建文件夹」：指针离开那张卡就立刻撤销，不等落点判定换目标。
+    // 成夹会改结构，反悔必须跟得上手 —— 停在那儿不动时没有新事件，所以也在这里判。
+    if (mergeTargetId !== null && !altRef.current) {
+      const rect = dwellRectRef.current
+      if (!rect || !pointer || !pointInsideRect(rect, pointer.x, pointer.y, MERGE_RELEASE_MARGIN)) {
+        clearDwell()
+        hoverIdRef.current = null
+        dwellAnchorRef.current = null
+        dwellRectRef.current = null
+        setMergeTargetId(null)
+        setHoverTargetId(null)
+      }
+      return
+    }
+    // 按着 Alt：不动摇，直接松手就成夹
+    if (altRef.current) return
     const anchor = dwellAnchorRef.current
     const hoverId = hoverIdRef.current
     if (anchor === null || hoverId === null) return
@@ -301,7 +391,7 @@ export function SortableList({
 
   return (
     <SortableStateContext.Provider
-      value={{ activation, mergeTargetId, mergeHoverId: hoverTargetId, mergeEnabled }}
+      value={{ activation: sortActivation, mergeTargetId, mergeHoverId: hoverTargetId, mergeEnabled }}
     >
       <DndContext
         sensors={sensors}

@@ -38,8 +38,22 @@ function sameId(a: CollisionCandidate['id'], b: CollisionCandidate['id']): boole
   return String(a) === String(b)
 }
 
-export function pointInsideRect(rect: CollisionRect, x: number, y: number): boolean {
-  return x >= rect.left && x <= rect.left + rect.width && y >= rect.top && y <= rect.top + rect.height
+/**
+ * 指针是否在矩形里。`margin` 是「松一点」的外扩（px）：卡片有圆角、有内边距，
+ * 指针擦着边缘过去时仍算在里面 —— 撤销成夹要用它，不然一抖就散。
+ */
+export function pointInsideRect(
+  rect: CollisionRect,
+  x: number,
+  y: number,
+  margin = 0,
+): boolean {
+  return (
+    x >= rect.left - margin &&
+    x <= rect.left + rect.width + margin &&
+    y >= rect.top - margin &&
+    y <= rect.top + rect.height + margin
+  )
 }
 
 /**

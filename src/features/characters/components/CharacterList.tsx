@@ -463,7 +463,6 @@ export function CharacterList({
                 }
                 bottom={
                   <SortableList
-                    activation="longPress"
                     ids={filtered.map((c) => c.id)}
                     onReorder={handleReorder}
                     layout="list"
@@ -492,7 +491,6 @@ export function CharacterList({
 
             {viewMode === 'grid' ? (
           <SortableList
-              activation="longPress"
             ids={filtered.map((c) => c.id)}
             onReorder={handleReorder}
             // 拖拽成夹：站在文件夹里再叠一张没有地方放（夹不嵌套），所以只在「全部」里给
@@ -538,7 +536,6 @@ export function CharacterList({
           </SortableList>
             ) : viewMode === 'list' ? (
           <SortableList
-              activation="longPress"
             ids={filtered.map((c) => c.id)}
             onReorder={handleReorder}
             layout="list"

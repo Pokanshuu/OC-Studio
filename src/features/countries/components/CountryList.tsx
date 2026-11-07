@@ -172,7 +172,6 @@ export function CountryList({
             }
             bottom={
               <SortableList
-                activation="longPress"
                 ids={filtered.map((c) => c.id)}
                 onReorder={handleReorder}
                 layout="list"
@@ -196,7 +195,6 @@ export function CountryList({
           />
         ) : viewMode === 'grid' ? (
           <SortableList
-              activation="longPress"
             ids={filtered.map((c) => c.id)}
             onReorder={handleReorder}
             layout="grid"
@@ -219,7 +217,6 @@ export function CountryList({
           </SortableList>
         ) : viewMode === 'list' ? (
           <SortableList
-              activation="longPress"
             ids={filtered.map((c) => c.id)}
             onReorder={handleReorder}
             layout="list"

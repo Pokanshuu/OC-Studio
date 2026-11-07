@@ -80,6 +80,10 @@ check('指针在网格下方 → 仍有落点', rankCollisions(cards, { x: 100, 
 // 6. 几何辅助
 check('pointInsideRect 认边界', pointInsideRect(cards[1].rect, 216, 0) && pointInsideRect(cards[1].rect, 415, 170))
 check('pointInsideRect 不认外面一像素', !pointInsideRect(cards[1].rect, 215, 0))
+// 撤销成夹用「外扩」判定：擦着边过去仍算在里面，出到卡外才散
+check('pointInsideRect 外扩 10px 认边缘', pointInsideRect(cards[1].rect, 210, 0, 10))
+check('pointInsideRect 外扩 10px 仍不认更外面', !pointInsideRect(cards[1].rect, 205, 0, 10))
+check('pointInsideRect 外扩不影响内部判定', pointInsideRect(cards[1].rect, 300, 80, 10))
 check('centerOfRect', centerOfRect(cards[1].rect).x === 316 && centerOfRect(cards[1].rect).y === 85)
 
 if (failures.length > 0) {
