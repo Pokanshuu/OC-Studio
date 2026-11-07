@@ -113,9 +113,24 @@ Windows 的壳是「无边框窗口 + 自绘标题栏 + Mica」，macOS 的壳�
 代码已修好，但「窗口模糊」默认关闭。验证步骤：
 `localStorage['blur-effect-enabled']='true'` → 重启 → 截图应看到窗口半透明 + 背后桌面模糊。
 
-### P2 打包与签名
+### P2 打包 —— `.app` / `.dmg` 均已实测
 
-- `bundle.targets: ["app","dmg"]` 已配；dmg 未实测；
+| 产物 | 命令 | 结果 |
+|---|---|---|
+| `.app` | `npm run tauri:build:mac` | ✅ `src-tauri/target/release/bundle/macos/OC Studio.app` |
+| `.dmg` | `npm run tauri:build:mac:dmg` | ✅ 8.9 MB，挂载后含 `OC Studio.app` + `Applications` 快捷方式 |
+
+**`.dmg` 的坑**：默认会用 AppleScript 让 Finder 摆 DMG 窗口图标，在没给终端授「自动化 → Finder」权限的机器上会**超时**：
+
+```
+execution error: "Finder"遇到一个错误：AppleEvent已超时。 (-1712)
+```
+
+解决办法是脚本里的 `--skip-jenkins`（跳过美化，只关心能不能装），Tauri 在 `CI` 环境变量存在时会带上它 —— 所以 `tauri:build:mac:dmg` 里写了 `CI=true`。
+代价：DMG 窗口没有背景图和图标位置，只是「拖进 Applications」的默认外观。要好看就本机授一次自动化权限再直接 `npx tauri build --bundles dmg`。
+
+其余仍是待办：
+
 - 未签名应用在别的机器上会被 Gatekeeper 拦（`xattr -dr com.apple.quarantine`）；
 - 架构：当前只出当前机器架构（arm64）。要 `universal` 需追加 `--target universal-apple-darwin`。
 
