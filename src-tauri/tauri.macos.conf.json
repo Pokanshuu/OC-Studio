@@ -25,6 +25,9 @@
     "targets": [
       "app",
       "dmg"
+    ],
+    "icon": [
+      "icons/macos/icon.icns"
     ]
   }
 }
