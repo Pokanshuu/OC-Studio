@@ -1,10 +1,20 @@
 /**
- * 会话的「资料范围」：扮演带哪些角色、创作读哪部小说、能不能写回。
+ * 会话的「资料范围」：扮演带哪些角色、创作读哪部小说、能不能写回，
+ * 以及「这次是盯着哪一条进来的」（`focus`，条目页的「和助手聊聊」）。
  *
  * 存在 localStorage 而不是插件的 SQLite：角色 / 小说的 id 来自笔记库，是宿主
  * 才知道的东西。按会话 id 存一份；未落库的新会话先放 `pending`，等
  * `ensureConversation` 建出 id 再绑过去。
+ *
+ * **`focus` 只进系统提示词，不进输入框**：用户看到的输入框里只该有他自己会说的话，
+ * `kind=` / `id=` / 工具名这些是宿主的事（2026-11-08 改，之前是把一整句指令预填进输入框）。
  */
+import type { AgentContextKind } from './agent-bridge'
+
+export interface AgentSessionFocus {
+  kind: AgentContextKind
+  id: number
+}
 
 export interface AgentSessionContext {
   /** 本场角色，**第一个是主角**（扮演时由助手扮演）；空数组 = 还没选 */
@@ -13,6 +23,8 @@ export interface AgentSessionContext {
   novelRootId: number | null
   /** 创作：允许助手把新章节写回这部小说（每次写入仍要审批） */
   novelWritable: boolean
+  /** 「和助手聊聊」点进来的那一条：只读资料，进系统提示词 */
+  focus?: AgentSessionFocus | null
 }
 
 const STORAGE_KEY = 'oc-agent-session-contexts'
@@ -41,7 +53,7 @@ function writeAll(next: Record<string, AgentSessionContext>): void {
 }
 
 export function emptyAgentSessionContext(): AgentSessionContext {
-  return { characterIds: [], novelRootId: null, novelWritable: false }
+  return { characterIds: [], novelRootId: null, novelWritable: false, focus: null }
 }
 
 export function getAgentSessionContext(conversationId: string | null): AgentSessionContext | null {
@@ -80,5 +92,5 @@ export function clearPendingAgentSessionContext(): void {
 /** 有内容才算「选了资料」 */
 export function hasAgentSessionContext(context: AgentSessionContext | null): boolean {
   if (!context) return false
-  return context.characterIds.length > 0 || context.novelRootId !== null
+  return context.characterIds.length > 0 || context.novelRootId !== null || context.focus != null
 }

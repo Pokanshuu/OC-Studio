@@ -21,7 +21,7 @@ import {
 import { READ_PERMISSION, type Caller, type CapabilityStore, type EntityKind } from '../src/lib/capabilities/types'
 import { AGENT_PLUGIN, OFFICIAL_PLUGINS } from '../src/lib/plugins/official'
 import { hasPermission, isPluginActive } from '../src/lib/plugins/store'
-import { agentContextPrompt } from '../src/lib/plugins/agent-bridge'
+import { agentContextOpener, agentContextTitle } from '../src/lib/plugins/agent-bridge'
 import { emptyAgentSessionContext, hasAgentSessionContext } from '../src/lib/plugins/agent-session'
 import { ALL_TOOLS, toOpenAiTools, toolByName, toolSummary } from '../src/plugins/agent/core/agent/tools'
 import { parseSseLine } from '../src/plugins/agent/core/sseParser'
@@ -874,9 +874,17 @@ async function main(): Promise<void> {
     OFFICIAL_PLUGINS.length === 2 && OFFICIAL_PLUGINS.every((plugin) => plugin.author.trim().length > 0),
   )
 
-  const contextPrompt = agentContextPrompt({ kind: 'character', id: 7, title: '林知遥' })
-  check('入口提示带 kind / id', contextPrompt.includes('kind=character') && contextPrompt.includes('id=7'))
-  check('入口提示让它自己读（library_read）', contextPrompt.includes('library_read'))
+  const request = { kind: 'character' as const, id: 7, title: '林知遥' }
+  const opener = agentContextOpener(request)
+  // 输入框里只该有「人话」：kind / id / 工具名都是宿主的事，写进系统提示词
+  check('入口开场白是人话（不带 kind / id）', !opener.includes('kind=') && !opener.includes('id=7'))
+  check('入口开场白不带工具名', !opener.includes('library_read') && !opener.includes('library_'))
+  check('入口开场白点到了标题', opener.includes('林知遥'))
+  check('会话标题带书名号', agentContextTitle(request) === '关于《林知遥》')
+  check(
+    '「和助手聊聊」挂到资料上就算有资料（进系统提示词）',
+    hasAgentSessionContext({ ...emptyAgentSessionContext(), focus: { kind: 'character', id: 7 } }) === true,
+  )
 
   // ── 会话资料（扮演 / 创作） ───────────────────────────────────────────
   const emptyContext = emptyAgentSessionContext()

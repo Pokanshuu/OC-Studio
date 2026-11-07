@@ -23,8 +23,12 @@ import { ChatView } from '@/plugins/agent/components/chat/ChatView'
 import { SettingsView } from '@/plugins/agent/components/chat/SettingsView'
 import { flushSettings, useSettingsStore } from '@/plugins/agent/state/settings'
 import { useChatStore } from '@/plugins/agent/state/chat'
-import { agentContextPrompt, takeAgentContext } from '@/lib/plugins/agent-bridge'
-import { clearPendingAgentSessionContext } from '@/lib/plugins/agent-session'
+import { agentContextOpener, agentContextTitle, takeAgentContext } from '@/lib/plugins/agent-bridge'
+import {
+  clearPendingAgentSessionContext,
+  emptyAgentSessionContext,
+  setAgentSessionContext,
+} from '@/lib/plugins/agent-session'
 import { addNewLibraryTools } from '@/plugins/agent/host/library-tools'
 import { isTauri } from '@/lib/env'
 import { useVault } from '@/lib/vault/vault-provider'
@@ -149,15 +153,22 @@ export function AgentPlugin() {
       await initChat()
       if (cancelled) return
 
-      // 「和助手聊聊」留下的一次性请求：开一个新会话，把「聊谁」预填进输入框。
+      // 「和助手聊聊」留下的一次性请求：开一个新会话，「聊谁」挂进会话资料
+      // （系统提示词里的一段只读数据），输入框只留一句用户会说的话。
       // 不自动发送 —— 花 token 的动作由用户按发送。
       const request = takeAgentContext()
       if (!request) return
       const chat = useChatStore.getState()
       await chat.newConversation()
       // 标题跟着这条请求走；会话是首次发送时才落库的，所以写在这里有效。
-      useChatStore.setState({ pendingTitle: `关于《${request.title}》` })
-      chat.setDraft(agentContextPrompt(request))
+      useChatStore.setState({ pendingTitle: agentContextTitle(request) })
+      // 还没落库的新会话：`setAgentSessionContext(null, …)` 先放进 pending，
+      // 等建出 id 由 `bindPendingAgentSessionContext` 绑过去。
+      setAgentSessionContext(null, {
+        ...emptyAgentSessionContext(),
+        focus: { kind: request.kind, id: request.id },
+      })
+      chat.setDraft(agentContextOpener(request))
     })()
     return () => {
       cancelled = true
