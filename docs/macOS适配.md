@@ -44,6 +44,7 @@ Windows 的壳是「无边框窗口 + 自绘标题栏 + Mica」，macOS 的壳�
 | 15 | 模糊默认开 | `src/lib/blur-preference.ts`（新增） | 偏好默认 **开**，只有用户手动关过（写过 `'false'`）才关；`BlurEffect` 先问 `blur_supported` 再调 `init_blur` |
 | 16 | 顶栏右侧留白 | `globals.css` | `padding-left` 78 → **92px**。实测：红绿灯占 14–73.5，标题从 93 起，间距 4.5 → **19.5px** |
 | 17 | 授权用途说明 | `src-tauri/Info.plist`（新增） | 文稿 / 桌面 / 下载 / 外接磁盘 四个 `NS*UsageDescription`，Tauri 自动合并进 bundle Info.plist |
+| 18 | 应用图标尺寸 | `src-tauri/icons/macos/`（新增）+ `tauri.macos.conf.json` | 原 `icon.icns` 的画布是**满幅**的（主体 ≈ 98%），Dock 里比邻居大一圈。macOS 的图标网格是 **1024 画布 / 824 主体**（四周各留 100px），于是按 824 重排了一份 `icon.icns`（`icon-1024.png` 是同源落盘图），并用平台的 `bundle.icon` 覆盖**只对 macOS 生效** —— Windows 的 `icon.ico` / 各尺寸 PNG 一个字节没动 |
 
 ### 2.1 已验证
 

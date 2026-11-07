@@ -2,14 +2,14 @@
 
 本地优先的原创角色（OC）与世界观创作工作台。
 
-当前版本：**v0.20.1-beta**
+当前版本：**v0.20.2-beta**
 
 > ⚠️ **这是测试版**：只用于预览新功能，**不保证对旧版本（v0.19.2 及更早）的备份与笔记库、以及 OC-editor 的兼容性**。试之前请先复制一份笔记库。
 >
-> - 上一版：[Pokanshuu/OC-Studio v0.20.0-beta](https://github.com/Pokanshuu/OC-Studio/releases/tag/v0.20.0-beta)
+> - 上一版：[Pokanshuu/OC-Studio v0.20.1-beta](https://github.com/Pokanshuu/OC-Studio/releases/tag/v0.20.1-beta)
 > - 旧架构：[nekibud/OC-editor v0.18.3](https://github.com/nekibud/OC-editor/releases/tag/v0.18.3)
 >
-> v0.20.1-beta 已发布，PR 恢复接收（见「贡献」）。
+> v0.20.2-beta 开发中，尚未发布。PR 接收中（见「贡献」）。
 
 ---
 
@@ -18,6 +18,8 @@
 ### 自定义版面
 
 角色、事件、国家、词条、宠物、武器都可以选择模板，并通过拖拽调整组件的顺序，以及决定显示或隐藏哪些组件。支持新建模板、复制现有模板后修改，也可以为单篇笔记单独指定模板；宠物和武器的字段组可以修改，也可以新建字段组供其他模板使用。
+
+模板的正文组件可以写一份**预设段落**（用的是同一个编辑器内核）：新建这条模板的条目时，骨架自动铺进正文，不用每次从空白页开始。
 
 ### 浏览方式
 
@@ -77,6 +79,7 @@
 |------|------|
 | Web | 浏览器开发模式，`npm run dev` |
 | Windows 桌面 | Tauri v2 打包，原生 Mica 半透明窗口效果 |
+| macOS 桌面 | Tauri v2 打包（`.app` / `.dmg`），原生红绿灯与系统菜单栏、窗口模糊；见 `docs/macOS适配.md` |
 | Android | Capacitor v8 封装，底部 Tab 导航，编辑器键盘适配 |
 
 ---
@@ -92,6 +95,8 @@ npm run dev
 
 ```bash
 npm run build && npx tauri build   # Windows 桌面打包
+npm run tauri:build:mac            # macOS 打包（.app）
+npm run tauri:build:mac:dmg        # macOS 打包（.dmg）
 npm run build && npx cap sync && npx cap open android  # Android 打包
 ```
 

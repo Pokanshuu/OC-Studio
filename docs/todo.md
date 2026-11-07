@@ -109,6 +109,8 @@
 
 ## 9. 其它（不属于上面八项）
 
+- [ ] **P0 空文件夹在重启后从列表里消失**（2026-11-08 实测）：`.ocstudio/folders.json` 里好好写着 `["新建文件夹", "新建文件夹 2"]`，但重启应用后角色列表只剩「新建文件夹 2」（计数来自成员），空的那只不显示。`listFolders(characters, registered)` 本身没问题（它会把登记过的空夹按 0 计入），所以问题在**清单没读回来**：`loadFolderRegistry` 在「库会话还没建立 / 读盘失败」时把 `registry` 置空并 `registryLoaded = true` **钉死**，之后整个进程都不再读。已确认 `getVaultSession().root` 正确、文件存在；`vault_exists` 返回什么还没测到（`console.*` 在 Tauri WKWebView 里不进 dev 终端）。修之前先解决「怎么看到渲染进程的日志」，别再盲改
+
 - [ ] **验证手段（留给后面的轮次，别再重复试错）**：窗口在后台、前台焦点被系统拦时，`SetForegroundWindow` + `mouse_event` **点不动**（截图字节完全不变）。只读核对用 `PrintWindow(hwnd, hdc, 2)`，能抓到窗口自身内容、不受遮挡与焦点影响。要真正**驱动**界面得换路子（自动化脚本 / 应用内命令面板），别在坐标点击上反复烧时间
 - [ ] **P2 仓储 create/update 模板**：`listActive` / `getById` / `softDelete` 已收敛，create/update 因字段级日志与引用同步差异仍各自手写
 - [ ] **P3 命令面板与移动端搜索合并**：内核（`lib/search`）与结果行（`SearchHitRow`）已经共用，顶栏菜单与移动端全屏仍是两套壳
