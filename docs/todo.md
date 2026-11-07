@@ -7,6 +7,18 @@
 
 ---
 
+## 0. 下一阶段路线（2026-11-08 定）
+
+按这个顺序推进；「修 bug」是贯穿的，不排在某一步后面：
+
+1. **模板** —— 组件 / 编排 / 分类，见 §1
+2. **插件** —— 助手与官方插件，见 §5
+3. **导出** —— 海报 / 静态站 / 文档，见 §1
+4. **修 bug** —— 现存问题见 `docs/现状问题.md`，其余随用随修
+5. **备份互通** —— 统一 `.ocbak` 读取，做到与 OC-editor 双向可读，见 §9「备份互通」
+
+---
+
 ## 1. 模板更新 → `docs/模板.md`
 
 - [ ] **P2 导出 · 真实笔记库验收**：浏览器 Mock 的封面是占位图；用带真封面 / 大图 / 超长正文 / 中文长标题的库把六套版式与三套站再过一遍
@@ -111,6 +123,24 @@
 - [ ] **P3 正文桥的既有归因失败**：段落首行缩进空格被吞、`<small>` 内加粗被合并进同一段 —— `vault-markdown-check` 基线里一直红着的那 1 项，属规范化边界，非回归
 - [ ] **挂起 小说 fork 合并**：合并后再做编辑器大纲（要对齐章节结构，现在的 `OutlinePanel` 只是雏形），并拍板 `Ctrl+B` / `Ctrl+K` 键位
 - [ ] **P3 `cargo test --lib`** 需在非受限环境跑一遍（本机 `%TEMP%` 写入被拒，12 项全挂在建临时目录）
+
+### 备份互通（与 OC-editor）
+
+现状（2026-11-08 核对过两边源码）：
+
+| | 我们 | OC-editor |
+|---|---|---|
+| 版本字段 | `version: 1` | `version: 2`（导入侧 1 和 2 都收） |
+| `data` 分表 | characters / events / countries / worldEntries / tags / periods / meta | 同左 + **`maps`** + **`worlds`**（多世界观） |
+| 标识 | 无 `meta` | `meta: { app: 'OC editor', format: 'oc-editor-backup', offline, includes }` |
+| 形态 | 单文件 JSON（图片内联） | 单文件 JSON **和** ZIP（manifest + 分表 JSON + 图片目录） |
+
+我们现在的导入（`lib/import.ts`）已经收 v1/v2，但 v2 的 `maps` 只统计不导入、`worlds` 完全没处理，且不认 ZIP。
+
+- [ ] **P1 读取入口统一**：新增 `parseBackup(file)` 作为**唯一**入口 —— 按内容识别 JSON / ZIP，解出同一个 `{ version, app, data, images }`，后面的合并策略（`skip` / `overwrite` / `keep-both` / `replace`）一行不改。禁止在导入界面里各写一套解包
+- [ ] **P1 字段映射表**：两边都叫 v2 但模型不同（我们删过 `kind` / `类别`，多了 `periods` / `meta`；它多了 `worlds` / `maps`）。先出「OC-editor 键 → 我们键」对照表，读不出的进 `custom` 或忽略并**在导入报告里报数量**，不允许静默丢
+- [ ] **P2 导出侧兼容**：给我们的备份补 `meta: { app, format }` 并评估是否升到 v2（带空 `maps` / `worlds`），让 OC-editor 读得回；**先验证它是否真的接受**，再改版本号
+
 
 ---
 
