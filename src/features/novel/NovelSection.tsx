@@ -70,8 +70,11 @@ export function NovelSection({
   const [legacyCount, setLegacyCount] = useState(0)
   const [importing, setImporting] = useState(false)
   const { isMobile } = useDevice()
+  // 小说默认画廊（书封是竖槽位，一排封面比网格更像书架）；用户选过就按用户的
   const [viewMode, setViewMode] = useState<ViewMode>(() =>
-    typeof window === 'undefined' ? 'grid' : normalizeViewMode(localStorage.getItem(VIEW_KEY)),
+    typeof window === 'undefined'
+      ? 'gallery'
+      : normalizeViewMode(localStorage.getItem(VIEW_KEY) ?? 'gallery'),
   )
   const [sortKey, setSortKey] = useState<'default' | 'name'>(() =>
     typeof window !== 'undefined' && localStorage.getItem(SORT_KEY) === 'name' ? 'name' : 'default',
