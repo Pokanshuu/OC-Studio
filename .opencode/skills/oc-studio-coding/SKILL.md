@@ -123,6 +123,8 @@ description: >
 - 条件渲染优先用三元运算符，避免 `&&`（防 falsy 渲染）。
 - 所有数据变更必须立即写入 Dexie + 更新操作日志，无网络依赖。
 - 代码必须通过 ESLint 规则：`no-restricted-imports`（禁止跨域内部引用）、`import/no-cycle`。
+- **数据 vs 展示**：反向列表 / 成员名单一律**查出来**，不落库。反例：`country.characters` / `country.events` 曾把「这个国家有哪些角色」存成镜像数组，与 `Character.countryId` 双写、四处会漂；阶段二·一拆掉后 `membership.ts` 只剩「单向应用」（真源只有实体侧：角色 `countryId`、事件 `countries`），国家页的名单是 `listCountryCharacters` / `listCountryEvents` 的查询结果。**再遇到「这里要不要也存一份」的问题，答案是不存。**
+- **一个实体不要一套编辑器**：统一形态是 `components/<X>Editor.tsx`（页头 + 头图 + 各 section 组装，约 120–240 行）+ `hooks/use<X>Form.ts`（表单状态 / 派生 / 保存管线，返回单个对象）+ 分节组件。不要在某个实体里另起一套保存管线或另一份派生逻辑 —— 那是「同一逻辑写四遍」的起点。
 
 ## 9. z-index 层级与浮层诊断
 
