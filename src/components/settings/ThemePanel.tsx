@@ -15,6 +15,7 @@ import { ImagePlus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useSettings } from '@/lib/settings'
 import { isTauri as isTauriEnv } from '@/lib/env'
+import { readBlurPreference } from '@/lib/blur-preference'
 import { compressBackgroundImage, BACKGROUND_MAX_SCRIM, BACKGROUND_MIN_SCRIM } from '@/lib/theme/background'
 import { THEME_PRESETS } from '@/lib/theme/presets'
 import { getVaultSession } from '@/lib/vault/vault-session'
@@ -48,7 +49,7 @@ export function ThemePanel() {
 
   /** 去掉背景后按偏好把材质还回来 */
   const restoreBlur = () => {
-    const wanted = localStorage.getItem('blur-effect-enabled') === 'true'
+    const wanted = readBlurPreference()
     if (!wanted || !isTauri) {
       document.documentElement.classList.remove('tauri-mica')
       return

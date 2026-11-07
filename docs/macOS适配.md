@@ -41,6 +41,8 @@ Windows 的壳是「无边框窗口 + 自绘标题栏 + Mica」，macOS 的壳�
 | 12 | 隐藏窗口内菜单 | `globals.css` + `MenuBarMenus.tsx` | `[data-os='mac'] [data-inapp-menus]` 隐藏「文件/编辑/视图/关于」；品牌名 / 搜索 / 灵感 / 拖拽区保留 |
 | 13 | 系统菜单栏（正式） | `src/components/layout/NativeMacMenu.tsx`（新增） | 用 `@tauri-apps/api/menu` 建中文原生菜单：OC Studio / 文件 / 编辑 / 视图，**动作复用 `MenuBarMenus` 的 handler** |
 | 14 | 全屏界面让位 | `globals.css` + 导出中心 / 模板编排 / 裁剪 / 看图 / 地图 | 新增 `--oc-titlebar-h`（mac 32px / 其它 0）；全屏界面用它把自己推到标题栏之下，页头不再压红绿灯 |
+| 15 | 模糊默认开 | `src/lib/blur-preference.ts`（新增） | 偏好默认 **开**，只有用户手动关过（写过 `'false'`）才关；`BlurEffect` 先问 `blur_supported` 再调 `init_blur` |
+| 16 | 顶栏右侧留白 | `globals.css` | `padding-left` 78 → **92px**。实测：红绿灯占 14–73.5，标题从 93 起，间距 4.5 → **19.5px** |
 
 ### 2.1 已验证
 
@@ -207,7 +209,19 @@ __html: THEME_BOOT_SCRIPT + ';' + PLATFORM_BOOT_SCRIPT
 release 构建的 `tauri` 没开 `devtools` feature，出错只能靠：
 `log stream --predicate 'process == "app"'` / 直接跑 `Contents/MacOS/app` 看 stdout / 用 `tauri dev` 复现。
 
-### 5.5 本机权限（排查用）
+### 5.5 标题栏相关数字是**互相咬合**的
+
+这三个数改一个就要一起改：
+
+| 数字 | 位置 | 值 |
+|---|---|---|
+| 红绿灯起点 / 垂直位置 | `tauri.macos.conf.json` 的 `trafficLightPosition` | `{ x: 14, y: 18 }` |
+| 顶栏左内边距 | `globals.css` 的 `[data-os='mac'] [data-menubar]` | `92px` |
+| 全屏界面让位高度 | `globals.css` 的 `--oc-titlebar-h` | `32px`（= 顶栏 `h-8`） |
+
+`y = 顶栏高/2 + 2`；`padding-left ≈ 红绿灯终点(73.5) + 18`。
+
+### 5.6 本机权限（排查用）
 
 - `screencapture` 需要「屏幕录制」授权，否则 `could not create image from display`；
 - `osascript … System Events` 需要「辅助功能」授权，否则 `-1728`；
@@ -244,7 +258,7 @@ open "src-tauri/target/release/bundle/macos/OC Studio.app"
 3. 应用自己的菜单栏（文件/编辑/视图/关于）仍在窗口内，可用；右上角没有自绘窗口按键；
 4. ⌘C / ⌘V / ⌘Q / ⌘W 可用；
 5. 能打开 `/tmp` 下的库，界面进主界面不卡「正在载入文件夹…」；
-6. 勾选窗口模糊后，窗口背景是 vibrancy 而不是死色块。
+6. 窗口模糊**默认就是开的**（首次安装无需去设置里找开关）；侧栏 / 菜单栏是 vibrancy，内容面板仍是纸色。
 
 ---
 

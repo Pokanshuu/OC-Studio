@@ -5,6 +5,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { Palette, Waypoints } from 'lucide-react'
 import { useSettings } from '@/lib/settings'
 import { useDevice } from '@/lib/use-device'
+import { readBlurPreference, writeBlurPreference } from '@/lib/blur-preference'
 import { isTauri as isTauriEnv } from '@/lib/env'
 import { SettingsEntryRow } from '../EntryRow'
 import { SettingsSubPage } from '../SubPage'
@@ -27,9 +28,10 @@ export function GeneralTab() {
   const { settings, updateSetting } = useSettings()
   const { isMobile } = useDevice()
   const [panel, setPanel] = useState<Panel>('root')
+  // 默认开：支持的系统一装上就有毛玻璃（见 lib/blur-preference.ts）
   const [blurEnabled, setBlurEnabled] = useState(() => {
     if (typeof window === "undefined") return false
-    return localStorage.getItem("blur-effect-enabled") === "true"
+    return readBlurPreference()
   })
   const [blurSupported, setBlurSupported] = useState(false)
 
@@ -51,7 +53,7 @@ export function GeneralTab() {
     if (toggleDisabled || settings.backgroundImage !== '') return
     const next = !blurEnabled
     setBlurEnabled(next)
-    try { localStorage.setItem("blur-effect-enabled", String(next)) } catch {}
+    writeBlurPreference(next)
     try {
       invoke<boolean>("update_blur_effect", {
         enabled: next,
@@ -127,7 +129,8 @@ export function GeneralTab() {
       <div className={SETTINGS_GROUP}>
         {switchRow(
           "窗口模糊",
-          blurEnabled,
+          // 能力未知 / 不支持时显示为关，别让一个点不动的开关亮着
+          blurSupported && blurEnabled,
           toggleDisabled || settings.backgroundImage !== "",
           handleBlurToggle,
           settings.backgroundImage !== "" ? <span className={SETTINGS_HINT}>与背景图互斥</span> : null,

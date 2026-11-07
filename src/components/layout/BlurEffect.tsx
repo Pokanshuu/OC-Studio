@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { readBlurPreference } from '@/lib/blur-preference'
 
 /**
  * 窗口模糊（Windows Mica / macOS vibrancy）的**唯一入口**。
@@ -12,6 +13,10 @@ import { useEffect } from 'react'
  *
  * `init_blur` 只在这里调一次；之后主题/开关变化走 `settings.tsx` 的
  * `update_blur_effect`，别在这里重复开关（那会把已生效的效果刷掉）。
+ *
+ * **默认开**：偏好见 `lib/blur-preference.ts`（只有用户手动关过才是关）。
+ * 先问 `blur_supported` 再开关 —— 不支持的平台（Linux、Windows 10）连
+ * `init_blur` 都不调，窗口保持 `setup` 刷的不透明纸色，不会出现半透明空窗。
  */
 export function BlurEffect() {
   useEffect(() => {
@@ -19,8 +24,10 @@ export function BlurEffect() {
     const init = async () => {
       try {
         const { invoke } = await import('@tauri-apps/api/core')
+        const supported = await invoke<boolean>('blur_supported').catch(() => false)
+        if (!supported) return
         const enabled =
-          window.localStorage.getItem('blur-effect-enabled') === 'true' &&
+          readBlurPreference() &&
           !document.documentElement.classList.contains('oc-background')
         const isDark = document.documentElement.classList.contains('dark')
         invoke<boolean>('init_blur', { enabled, isDark })

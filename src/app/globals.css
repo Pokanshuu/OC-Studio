@@ -391,7 +391,10 @@ body[data-map-immersive='true'] [data-dev-mock] {
 }
 
 [data-os='mac'] [data-menubar] {
-  padding-left: 78px;
+  /* 红绿灯从 x=14 起、三颗按钮到 x≈73.5 结束（见 tauri.macos.conf.json 的
+     trafficLightPosition），这里再留 ~18px 呼吸位，标题才不会贴住绿灯。
+     改红绿灯位置时这里的数要一起改。 */
+  padding-left: 92px;
 }
 
 [data-os='mac'] [data-window-controls] {
