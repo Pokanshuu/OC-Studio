@@ -80,7 +80,8 @@ export interface MapCanvasProps {
   onEnableAllLayers: () => void
   onPickBackground: () => void
   /** 没有底图时，空态里的第二个出口 */
-  onGenerate: () => void
+  /** 生成器插件关掉时不传：空态卡里只剩「导入底图」 */
+  onGenerate?: () => void
   /** 查看模式：只读（锚点不可拖、右键不给删除），点锚点=跳实体 */
   readOnly?: boolean
   /** 铺满整块内容区（整屏画布）：去掉边框与圆角 */
@@ -393,11 +394,17 @@ export function MapCanvas({
             <MapPin size={20} strokeWidth={2} className="text-ink-faint" />
             <p className="text-sm text-ink-muted">还没有底图</p>
             <div className="flex w-full flex-col gap-1.5">
-              <button type="button" onClick={onGenerate} className={`${BTN_PRIMARY} justify-center`}>
-                <Wand2 size={14} strokeWidth={2} />
-                生成地图
-              </button>
-              <button type="button" onClick={onPickBackground} className={`${BTN_QUIET} justify-center`}>
+              {onGenerate !== undefined ? (
+                <button type="button" onClick={onGenerate} className={`${BTN_PRIMARY} justify-center`}>
+                  <Wand2 size={14} strokeWidth={2} />
+                  生成地图
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={onPickBackground}
+                className={`${onGenerate === undefined ? BTN_PRIMARY : BTN_QUIET} justify-center`}
+              >
                 <Upload size={14} strokeWidth={2} />
                 导入底图
               </button>

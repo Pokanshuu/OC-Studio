@@ -50,8 +50,8 @@ interface MapDetailDialogProps {
   onDelete: (id: number) => Promise<void>
   /** 关掉弹窗、进编辑态 */
   onEdit: () => void
-  /** 带着种子与参数打开生成器 */
-  onRegenerate: () => void
+  /** 带着种子与参数打开生成器；生成器插件关掉时不传（按钮整条不出现） */
+  onRegenerate?: () => void
   onExport: () => Promise<void>
   onExportJpg: () => Promise<void>
   onExportArchive: () => Promise<void>
@@ -274,15 +274,17 @@ export function MapDetailDialog({
             <button type="button" onClick={onEdit} className={`${BTN_PRIMARY} justify-center`}>
               编辑地图
             </button>
-            <button
-              type="button"
-              onClick={onRegenerate}
-              disabled={map.seed === undefined}
-              className={`${BTN_QUIET} justify-center`}
-            >
-              <RefreshCw size={13} strokeWidth={2} />
-              在生成器中重新生成
-            </button>
+            {onRegenerate !== undefined ? (
+              <button
+                type="button"
+                onClick={onRegenerate}
+                disabled={map.seed === undefined}
+                className={`${BTN_QUIET} justify-center`}
+              >
+                <RefreshCw size={13} strokeWidth={2} />
+                在生成器中重新生成
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() => void onExport()}

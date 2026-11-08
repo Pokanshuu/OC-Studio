@@ -43,6 +43,8 @@ import {
 import { toast } from 'sonner'
 import { MediaContextMenu, type MediaMenuItem } from '@/components/shared/MediaContextMenu'
 import { MapGeneratorPanel } from './MapGeneratorPanel'
+import { usePlugins } from '@/lib/plugins'
+import { MAP_GENERATOR_PLUGIN } from '@/lib/plugins/official'
 import {
   normalizeMapParams,
   type MapView as MapViewKind,
@@ -132,7 +134,8 @@ interface MoreMenuOptions {
   onImportArchive: () => void
   onPickBackground: () => void
   onRemoveBackground: () => void
-  onGenerate: () => void
+  /** 地图生成器插件关掉时不给这一项（见 `canGenerate`） */
+  onGenerate?: () => void
   onOpenLibrary: () => void
 }
 
@@ -171,11 +174,13 @@ function buildMoreItems(options: MoreMenuOptions): MediaMenuItem[] {
       onSelect: options.onRemoveBackground,
     })
   }
-  items.push({
-    label: '生成地图',
-    icon: <Wand2 size={13} strokeWidth={2} />,
-    onSelect: options.onGenerate,
-  })
+  if (options.onGenerate !== undefined) {
+    items.push({
+      label: '生成地图',
+      icon: <Wand2 size={13} strokeWidth={2} />,
+      onSelect: options.onGenerate,
+    })
+  }
   items.push({
     label: '地图详情',
     icon: <Library size={13} strokeWidth={2} />,
@@ -189,7 +194,10 @@ export function MapView() {
   const [activeId, setActiveId] = useState<number | null>(null)
   const [points, setPoints] = useState<AnchorPoint[]>([])
   const [loading, setLoading] = useState(true)
-  const [mode, setMode] = useState<'draw' | 'generate'>('draw')
+  const [generatorOpen, setGeneratorOpen] = useState(false)
+  // 地图生成器是插件：关掉之后**不该还有入口**（空态按钮 / ⋯ 菜单 / 详情页重新生成 / 生成器本身）
+  const { enabled: pluginEnabled } = usePlugins()
+  const canGenerate = pluginEnabled(MAP_GENERATOR_PLUGIN) && MAP_GENERATOR_PLUGIN.available
   /** 查看 / 编辑：默认查看，记住上次选择（`oc-map-mode`） */
   const [mapMode, setMapMode] = useState<'view' | 'edit'>(() => {
     if (typeof window === 'undefined') return 'view'
@@ -449,7 +457,7 @@ export function MapView() {
     })
     await reload(active.id)
     notifyDataUpdated()
-    setMode('draw')
+    setGeneratorOpen(false)
   }
 
   /**
@@ -812,8 +820,9 @@ export function MapView() {
    * 种子与参数原样带过去，调几下参数再生成，出来的还是同一片大陆。
    */
   const openGenerator = (preset?: { seed?: number; params?: string }): void => {
+    if (!canGenerate) return
     setGeneratorPreset(preset ?? null)
-    setMode('generate')
+    setGeneratorOpen(true)
     setLibraryOpen(false)
     setSwitcherOpen(false)
     setCanvasMenu(null)
@@ -823,6 +832,9 @@ export function MapView() {
     setProfile(null)
     setProfileError(null)
   }
+
+  // 生成器开着的时候把插件关掉：不写 state，渲染期直接当作没开（见 `showGenerator`）
+  const showGenerator = generatorOpen && canGenerate
 
   const menuTarget = canvasMenu?.target ?? null
   const canvasMenuItems = [
@@ -938,7 +950,7 @@ export function MapView() {
             onOpenAnchor={handleOpenAnchor}
             onEnableAllLayers={handleEnableAllLayers}
             onPickBackground={pickBackground}
-            onGenerate={() => openGenerator()}
+            onGenerate={canGenerate ? () => openGenerator() : undefined}
             readOnly={mapMode === 'view'}
             annotations={annotations}
             draft={draft}
@@ -955,7 +967,7 @@ export function MapView() {
         {/* 生成器是一整块工作区，盖在画布上（画布保持挂载：视口尺寸不能因为切走一次就丢）。
             md 以上用 flex 把剩余高度整块交给面板（面板自己 `h-full`，内部各栏各自滚）；
             手机上保持自然流，长表单交给这层滚动 —— 别把这层 `overflow-y-auto` 关掉。 */}
-        {mode === 'generate' ? (
+        {showGenerator ? (
           <div className="absolute inset-0 z-10 overflow-y-auto bg-paper px-4 pb-6 pt-3 md:flex md:flex-col md:overflow-hidden md:px-6">
             {/* 标题只给「从地图跳进来」的这一条路：画布退到后面，别处没有东西告诉用户这是哪一页。
                 侧栏「工具 › 地图生成器」那条入口不加（侧栏已经点明了），见 `MapToolView`。 */}
@@ -983,7 +995,7 @@ export function MapView() {
 
         {/* 顶栏：左 = 我在看哪张图，右 = 模式与输出 */}
         <div className="pointer-events-none absolute inset-x-3 top-[calc(0.75rem+var(--oc-titlebar-h))] z-20 flex items-start justify-between gap-2">
-          {mode === 'draw' && active ? (
+          {!showGenerator && active ? (
             <div className="pointer-events-auto relative min-w-0">
               {/* 悬停只把纸变实：叠 `--oc-hover` 会把 `bg-paper/85` 整个顶掉，
                   卡片就只剩 6% 墨，地图直接从字底下透上来（看着像一块半透明绿）。 */}
@@ -1051,8 +1063,8 @@ export function MapView() {
           )}
 
           <div className={`pointer-events-auto shrink-0 ${FLOAT_BAR}`}>
-            {mode === 'generate' ? (
-              <button type="button" onClick={() => setMode('draw')} className={FLOAT_BAR_TEXT}>
+            {showGenerator ? (
+              <button type="button" onClick={() => setGeneratorOpen(false)} className={FLOAT_BAR_TEXT}>
                 <ArrowLeft size={13} strokeWidth={2} />
                 画布
               </button>
@@ -1068,7 +1080,7 @@ export function MapView() {
               {immersive ? <Minimize2 size={14} strokeWidth={2} /> : <Maximize2 size={14} strokeWidth={2} />}
             </button>
 
-            {mode === 'draw' ? (
+            {!showGenerator ? (
               <button
                 type="button"
                 onClick={toggleMapMode}
@@ -1086,7 +1098,7 @@ export function MapView() {
               </button>
             ) : null}
 
-            {mode === 'draw' ? (
+            {!showGenerator ? (
               <button
                 type="button"
                 onClick={(event) => {
@@ -1105,7 +1117,7 @@ export function MapView() {
                       onImportArchive: () => archiveInputRef.current?.click(),
                       onPickBackground: pickBackground,
                       onRemoveBackground: () => void handleRemoveBackground(),
-                      onGenerate: () => openGenerator(),
+                      ...(canGenerate ? { onGenerate: () => openGenerator() } : {}),
                       onOpenLibrary: () => setLibraryOpen(true),
                     }),
                   })
@@ -1121,7 +1133,7 @@ export function MapView() {
         </div>
 
         {/* 左下 / 底部居中：一条控制条（图层 + 底图档位） */}
-        {mode === 'draw' && active ? (
+        {!showGenerator && active ? (
           <div className="pointer-events-none absolute bottom-3 left-3 z-20">
             <MapControlBar
               views={canSwitchView ? VIEWS : []}
@@ -1137,7 +1149,7 @@ export function MapView() {
         ) : null}
 
         {/* 右下：编辑态才有「标记 / 标注」，缩放常驻 */}
-        {mode === 'draw' && active?.image ? (
+        {!showGenerator && active?.image ? (
           <div className="pointer-events-none absolute bottom-3 right-3 z-20 flex flex-col items-end gap-2">
             {mapMode === 'edit' ? (
               <div className={`pointer-events-auto max-md:hidden ${FLOAT_STACK}`}>
@@ -1266,7 +1278,9 @@ export function MapView() {
             applyMapMode('edit')
             setLibraryOpen(false)
           }}
-          onRegenerate={() => openGenerator({ seed: active.seed, params: active.params })}
+          onRegenerate={
+            canGenerate ? () => openGenerator({ seed: active.seed, params: active.params }) : undefined
+          }
           onExport={() => handleExportMap(active)}
           onExportJpg={() => handleExportMap(active, 'jpg')}
           onExportArchive={() => handleExportArchive(active)}
