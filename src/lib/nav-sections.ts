@@ -54,15 +54,19 @@ export const NAV_GROUPS: NavGroup[] = [
   },
 ]
 
-/** 主页不是「板块」，但命令面板里要能跳过去（侧栏最上面那一项） */
+/**
+ * 主页（概览）。**只在侧栏用**：它的 `activeItem` 是 `null`，而命令面板的每一项
+ * 都是「把 `activeItem` 设成这个字符串」—— 面板里放一条「主页」只会设成字符串
+ * `'主页'`，落到「功能正在开发中」。所以面板不要收它（2026-11-08 撤掉）。
+ */
 export const HOME_ITEM: NavItem = { label: '主页', icon: House }
 
 /** 相册固定在侧栏底部，但它是可以跳的页面 */
 export const ALBUM_ITEM: NavItem = { label: '相册', icon: Images }
 
-/** 命令面板「切换板块」：主页 + 三个分组 + 相册，顺序照侧栏 */
+/** 命令面板「切换板块」：三个分组 + 相册，顺序照侧栏（**不含主页**，见上） */
 export function sectionCommands(): NavItem[] {
-  return [HOME_ITEM, ...NAV_GROUPS.flatMap((group) => group.items), ALBUM_ITEM]
+  return [...NAV_GROUPS.flatMap((group) => group.items), ALBUM_ITEM]
 }
 
 /** 工具插件在侧栏 / 命令面板的图标（插件 id → lucide 图标）；没登记的一律扳手 */
