@@ -228,7 +228,8 @@ export function CharacterInfoSection({
         {fields.map(renderRow)}
 
         {/* OC 动画：不属于字段表（它是媒体槽位，不是文本字段） */}
-        <div className={`${FIELD_ROW_TOP} ${compact ? '' : 'sm:col-span-2'}`}>
+        {/* 没有视频时跟其它行一样垂直居中：盒子是 32px 的按钮，顶对齐会让文字低半行 */}
+        <div className={`${playableUrl ? FIELD_ROW_TOP : FIELD_ROW} ${compact ? '' : 'sm:col-span-2'}`}>
           <span className={FIELD_LABEL}>动画</span>
           <div className="flex min-w-0 flex-1 items-center gap-2">
             {playableUrl ? (
