@@ -16,8 +16,6 @@ import type { WorldFormData } from '../types'
 import { useWorldEntryDraft } from '../hooks/useWorldEntryDraft'
 import { useNoteLinks } from '../hooks/useNoteLinks'
 import { NoteTemplateContent } from './note/NoteTemplateContent'
-import { MediaContextMenu } from '@/components/shared/MediaContextMenu'
-import { BTN_QUIET } from '@/lib/ui-tokens'
 import { useTemplates } from '@/lib/templates/store'
 import { templateFieldKeys, templateFieldLabels, templateFieldTypes } from '@/lib/templates/fields'
 import { useInfoGroups } from '@/lib/templates/info-groups'
@@ -45,7 +43,6 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
   const [treeCollapsed, setTreeCollapsed] = useState(false)
   const [treeQuery, setTreeQuery] = useState('')
   const [tags, setTags] = useState<number[]>([])
-  const [templateMenu, setTemplateMenu] = useState<{ x: number; y: number } | null>(null)
   const [bodyEditor, setBodyEditor] = useState<Editor | null>(null)
   const handledNavRef = useRef<number | null>(null)
   const worldFields = useFields('worldEntry')
@@ -235,18 +232,8 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
         headerRight={
           currentEntry ? (
             <>
-              {/* 单篇覆盖模板：落 `模板:` 键；「跟随分类」= 清空 */}
-              <button
-                type="button"
-                onClick={(event) => {
-                  const rect = event.currentTarget.getBoundingClientRect()
-                  setTemplateMenu({ x: Math.max(8, rect.right - 160), y: rect.bottom + 4 })
-                }}
-                className={BTN_QUIET}
-                title="这篇用哪个模板"
-              >
-                {entryTemplate?.name ?? '模板'}
-              </button>
+              {/* 单篇换模板的入口先撤掉了：那条路写进去不生效（见 docs/todo.md §9），
+                  留着就是「点了没反应」。模板仍由分类绑定 / 模板页决定。 */}
               <TalkToAgentButton
                 kind="world"
                 id={currentEntry.id}
@@ -325,30 +312,6 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
         )}
       </EntityEditorShell>
 
-      {templateMenu ? (
-        <MediaContextMenu
-          at={templateMenu}
-          onClose={() => setTemplateMenu(null)}
-          items={[
-            {
-              label: currentEntry?.category ? `跟随分类（${currentEntry.category}）` : '默认模板',
-              onSelect: () => {
-                const id = selectedIdRef.current
-                if (id === null) return
-                void updateEntry(id, { template: '' }).then(() => refresh())
-              },
-            },
-            ...templates.map((template) => ({
-              label: template.name,
-              onSelect: () => {
-                const id = selectedIdRef.current
-                if (id === null) return
-                void updateEntry(id, { template: template.name }).then(() => refresh())
-              },
-            })),
-          ]}
-        />
-      ) : null}
     </>
   )
 }
