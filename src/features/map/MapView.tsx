@@ -303,6 +303,12 @@ export function MapView() {
 
   const active = maps.find((map) => map.id === activeId) ?? maps[0] ?? null
   const activeName = active?.name ?? ''
+  /**
+   * 有底图才算是「一张能看的地图」。没有底图时画布只有中间那张空态卡，
+   * 四角的浮层（全屏 / 编辑 / ⋯ / 图层 / 缩放）全部不渲染 —— 它们此刻都没有作用对象。
+   * 左上那张地图名片留着：它是切换到别的地图 / 新建地图的唯一入口，藏了就出不去。
+   */
+  const hasBase = Boolean(active?.image)
 
   // 缩放 / 平移的视口：浮层里的缩放条与画布共用同一个 —— 所以状态提到这里，
   // `MapCanvas` 只负责把 stage 画出来（见 `hooks/useMapViewport` 的 resetKey 说明）。
@@ -511,6 +517,8 @@ export function MapView() {
       })
       await setMapView(active.id, view, saved.relPath)
       await reload(active.id)
+      // 底图没了四角浮层就撤了，全屏的出口也在里面 —— 顺手退出全屏，别留一个关不掉的整屏
+      setImmersive(false)
       notifyDataUpdated()
     } catch (err) {
       toast.error('切换视图失败', { description: messageOf(err) })
@@ -532,6 +540,8 @@ export function MapView() {
         height: saved.height,
       })
       await reload(active.id)
+      // 底图没了四角浮层就撤了，全屏的出口也在里面 —— 顺手退出全屏，别留一个关不掉的整屏
+      setImmersive(false)
       notifyDataUpdated()
     } catch (err) {
       toast.error('设置底图失败', { description: messageOf(err) })
@@ -554,6 +564,8 @@ export function MapView() {
         }
       }
       await reload(active.id)
+      // 底图没了四角浮层就撤了，全屏的出口也在里面 —— 顺手退出全屏，别留一个关不掉的整屏
+      setImmersive(false)
       notifyDataUpdated()
     } catch (err) {
       toast.error('移除底图失败', { description: messageOf(err) })
@@ -565,6 +577,8 @@ export function MapView() {
     try {
       await setAnchor(selection.kind, selection.id, { x: 0.5, y: 0.5 }, active.name)
       await reload(active.id)
+      // 底图没了四角浮层就撤了，全屏的出口也在里面 —— 顺手退出全屏，别留一个关不掉的整屏
+      setImmersive(false)
       notifyDataUpdated()
     } catch (err) {
       toast.error('添加锚点失败', { description: messageOf(err) })
@@ -1062,6 +1076,7 @@ export function MapView() {
             <span />
           )}
 
+          {hasBase || showGenerator ? (
           <div className={`pointer-events-auto shrink-0 ${FLOAT_BAR}`}>
             {showGenerator ? (
               <button type="button" onClick={() => setGeneratorOpen(false)} className={FLOAT_BAR_TEXT}>
@@ -1130,10 +1145,11 @@ export function MapView() {
               </button>
             ) : null}
           </div>
+          ) : null}
         </div>
 
         {/* 左下 / 底部居中：一条控制条（图层 + 底图档位） */}
-        {!showGenerator && active ? (
+        {!showGenerator && active && hasBase ? (
           <div className="pointer-events-none absolute bottom-3 left-3 z-20">
             <MapControlBar
               views={canSwitchView ? VIEWS : []}
