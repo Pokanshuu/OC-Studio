@@ -1,24 +1,32 @@
 /**
- * 正文组件的「预设段落」—— 新建条目时铺进正文的那份骨架。
+ * 正文组件 → 新建条目时铺进正文的那份骨架。
  *
- * 存的是 **Markdown**（`body.params.preset`，写进 `.ocstudio/templates/<id>.md` 的
- * frontmatter）：模板文件要能读、能手改、能跟着库一起分享。用的时候转成编辑器文档
- * （`bodyDocFromMarkdown`，和助手写正文、导回笔记走的是同一个解析器），
- * 这样 `[[词条]]` 之类的链接在铺进去时就已经是带 id 的节点。
+ * 模板只记**选择**（`body.params.group = <id>`），骨架本身在正文组件里
+ * （`lib/templates/body-groups.ts`，存 `.ocstudio/body-groups.json`）——
+ * 与「基本信息组件」同一套设计：组件独立、可复用、名字与模板名无关。
  *
- * **只读「含正文的模板」**：没有正文组件的模板给了预设也没地方放，这里直接当没有。
- * 预设为空 = 不铺（新建的正文仍然是空的，别塞一堆空段落）。
+ * 存的是 **Markdown**：库文件可读、可手改、随库走。铺进去时才转成编辑器文档，
+ * 与助手写正文、语料导回共用同一个解析器（`bodyDocFromMarkdown`）。
  */
 import { createLinkSerializer } from '@/lib/vault/markdown-bridge'
 import { tiptapToMarkdown } from '@/lib/vault/markdown/to-markdown'
 import { bodyDocFromMarkdown } from '@/lib/vault/write-body'
-import { getTemplates, loadTemplates, findTemplateByName } from './store'
+import {
+  defaultBodyGroupIdOfTemplate,
+  findBodyGroup,
+  getBodyGroups,
+  loadBodyGroups,
+  type BodyGroup,
+} from './body-groups'
+import { findTemplateByName, getTemplates, loadTemplates } from './store'
 import type { TemplateDoc } from './types'
 
-/** 正文组件里存预设的键（`docs/模板.md §6.10`） */
-export const BODY_PRESET_KEY = 'preset'
+/** 正文组件在模板里的参数键 */
+export const BODY_GROUP_KEY = 'group'
+/** 旧版把 Markdown 直接塞在模板里（`body.params.preset`）：只读兼容，不再写 */
+export const LEGACY_BODY_PRESET_KEY = 'preset'
 
-/** 模板里有没有正文组件（含被关掉的：关掉再打开不该把预设弄丢） */
+/** 模板里有没有正文组件（含被关掉的：关掉再打开不该把选择弄丢） */
 export function hasBodyComponent(doc: TemplateDoc): boolean {
   return doc.components.some((component) => component.id === 'body')
 }
@@ -30,17 +38,53 @@ function resolveTemplate(templateId: string | null | undefined): TemplateDoc | u
   return getTemplates().find((doc) => doc.id === target) ?? findTemplateByName(target)
 }
 
-/** 预设 Markdown（没设 / 只有空白 → 空串） */
-export function bodyPresetMarkdown(templateId: string | null | undefined): string {
-  const doc = resolveTemplate(templateId)
-  if (!doc || !hasBodyComponent(doc)) return ''
-  const value = doc.components.find((component) => component.id === 'body')?.params?.[BODY_PRESET_KEY]
-  return typeof value === 'string' ? value.trim() : ''
+function bodyParamsOf(doc: TemplateDoc | undefined): Record<string, unknown> {
+  const component = doc?.components.find((item) => item.id === 'body')
+  return component?.params ?? {}
 }
 
-/** 模板有没有预设（设置面板里显示「已设」用，不必解成文档） */
-export function hasBodyPreset(templateId: string | null | undefined): boolean {
-  return bodyPresetMarkdown(templateId) !== ''
+/** 模板选中的正文组件 id；没选 / 选到已删除的 → 默认组件 */
+export function bodyGroupIdOfTemplate(templateId: string | null | undefined): string {
+  const target = (templateId ?? '').trim()
+  const params = bodyParamsOf(resolveTemplate(target))
+  const selected = typeof params[BODY_GROUP_KEY] === 'string' ? (params[BODY_GROUP_KEY] as string).trim() : ''
+  if (selected !== '' && findBodyGroup(selected)) return selected
+  return defaultBodyGroupIdOfTemplate(target)
+}
+
+/**
+ * 模板的正文组件。旧数据把 Markdown 内联在模板里（`body.params.preset`）时，
+ * 包成一份**匿名组件**返回，让上层不必区分两种来源。
+ */
+export function bodyGroupOfTemplate(templateId: string | null | undefined): BodyGroup | null {
+  const target = (templateId ?? '').trim()
+  const doc = resolveTemplate(target)
+  const params = bodyParamsOf(doc)
+  const selected = typeof params[BODY_GROUP_KEY] === 'string' ? (params[BODY_GROUP_KEY] as string).trim() : ''
+  if (selected !== '') {
+    const group = findBodyGroup(selected)
+    if (group) return group
+  }
+  const legacy = typeof params[LEGACY_BODY_PRESET_KEY] === 'string' ? (params[LEGACY_BODY_PRESET_KEY] as string) : ''
+  if (legacy.trim() !== '') {
+    return { id: `${target}:legacy`, name: '（旧的内联预设）', markdown: legacy }
+  }
+  return findBodyGroup(defaultBodyGroupIdOfTemplate(target)) ?? null
+}
+
+/** 预设 Markdown（没选 / 组件是空的 → 空串） */
+export function bodyPresetMarkdown(templateId: string | null | undefined): string {
+  return bodyGroupOfTemplate(templateId)?.markdown.trim() ?? ''
+}
+
+/** 某个正文组件有没有骨架（列表里显示「已设」用） */
+export function bodyGroupHasPreset(group: BodyGroup): boolean {
+  return group.markdown.trim() !== ''
+}
+
+/** 正文组件列表（模板选择器 / 设置面板共用同一份快照） */
+export function bodyGroupsSnapshot(): BodyGroup[] {
+  return getBodyGroups()
 }
 
 /**
@@ -48,8 +92,8 @@ export function hasBodyPreset(templateId: string | null | undefined): boolean {
  * （调用方就别往 `document` 里写东西，空文档和没写是两回事）。
  */
 export async function bodyPresetDoc(templateId: string | null | undefined): Promise<unknown | null> {
-  // 新建可能发生在模板还没装载完的时候（冷启动第一件事就是新建）
-  await loadTemplates()
+  // 新建可能发生在组件表还没装载完的时候（冷启动第一件事就是新建）
+  await Promise.all([loadTemplates(), loadBodyGroups()])
   const markdown = bodyPresetMarkdown(templateId)
   if (!markdown) return null
   // 与助手写正文、语料导回共用同一个解析器；`unresolvedLinks: 'keep'` 保住「指向还没建的条目」
@@ -58,7 +102,7 @@ export async function bodyPresetDoc(templateId: string | null | undefined): Prom
   return hasDocContent(doc) ? doc : null
 }
 
-/** 编辑器文档 → 预设 Markdown（保存用）。空文档 → 空串，等于删掉预设 */
+/** 编辑器文档 → 预设 Markdown（保存用）。空文档 → 空串，等于这份组件没骨架 */
 export function bodyPresetFromDoc(doc: unknown): string {
   // 不解析 id → 名字：预设是骨架，里面允许出现**还没建的**条目（`[[主角]]`）。
   // 序列化器优先用节点上的 `raw`（逐字还原），没有 raw 就按显示名拼，

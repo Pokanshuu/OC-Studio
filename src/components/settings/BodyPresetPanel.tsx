@@ -3,50 +3,140 @@
 /**
  * 设置 › 世界 › 自定义组件 › 正文。
  *
- * 正文组件唯一的可配置项：**预设段落**（`body.params.preset`）。
- * 新建条目时把这份骨架铺进正文，写的人不用每次都从空页开始。
+ * 和「基本信息」同构：**正文组件是独立的一层**（`lib/templates/body-groups.ts`），
+ * 一个组件 = 一份名字 + 一份骨架（Markdown），可被多个模板复用；模板只存
+ * `body.params.group = <id>`。内置组件可改不可删，自建组件可删。
  *
- * 三个刻意的选择：
- * - **存 Markdown**：模板文件（`.ocstudio/templates/<id>.md`）要能读、能手改、能跟着库走；
- *   铺进去时才转成编辑器文档（`lib/templates/body-preset.ts`）
- * - **编辑器就是我们自己的内核**：不另写一个文本框 —— 骨架里要能放标题、列表、图片、
- *   `[[词条]]`，只有同一个编辑器内核才保证「设置里长什么样，新建出来就是什么样」
- * - **改完自动存**（600ms）：这里没有「保存」按钮，和模板编排的其它入口一致
+ * 编辑面就是我们的编辑器内核（`BodyPresetEditor`）—— 骨架里能放标题、列表、图片、
+ * `[[词条]]`，和写正文的手感一致。
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { Editor } from '@tiptap/core'
-import { ArrowLeft, ChevronRight } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { EditorCore } from '@/components/editor/EditorCore'
+import { BodyPresetEditor } from '@/components/settings/BodyPresetEditor'
 import {
-  bodyPresetFromDoc,
-  bodyPresetMarkdown,
-  hasBodyComponent,
-  hasBodyPreset,
-} from '@/lib/templates/body-preset'
-import { setTemplateComponentParam, useTemplates } from '@/lib/templates/store'
-import { bodyDocFromMarkdown } from '@/lib/vault/write-body'
-import { ICON_BTN, SETTINGS_EMPTY } from '@/lib/ui-tokens'
+  createBodyGroup,
+  deleteBodyGroup,
+  isBuiltinBodyGroup,
+  updateBodyGroup,
+  useBodyGroups,
+  type BodyGroup,
+} from '@/lib/templates/body-groups'
+import { bodyGroupHasPreset } from '@/lib/templates/body-preset'
+import { useTemplates } from '@/lib/templates/store'
+import { BTN_QUIET, ICON_BTN, INPUT_LINE, SETTINGS_EMPTY } from '@/lib/ui-tokens'
 
-/** 落盘延迟：一次输入一串字只写一次（模板是整份文件重写） */
-const SAVE_DELAY = 600
+function nextName(groups: readonly BodyGroup[]): string {
+  const names = new Set(groups.map((group) => group.name))
+  let name = '新正文组件'
+  let counter = 2
+  while (names.has(name)) {
+    name = `新正文组件 ${counter}`
+    counter += 1
+  }
+  return name
+}
 
-export function BodyPresetPanel({ onBack }: { onBack: () => void }) {
+/** 一个正文组件值多少字（给人一个「设没设」的直觉） */
+function wordCount(markdown: string): number {
+  return markdown.replace(/\s+/g, '').length
+}
+
+export function BodyPresetPanel({ onBack, initialId }: { onBack: () => void; initialId?: string }) {
+  const groups = useBodyGroups()
   const { templates } = useTemplates()
-  const [activeId, setActiveId] = useState<string | null>(null)
+  const initialGroupId = initialId?.startsWith('body:') ? initialId.slice('body:'.length) : null
+  const [activeId, setActiveId] = useState<string | null>(initialGroupId)
+  const [renaming, setRenaming] = useState(false)
+  const [nameDraft, setNameDraft] = useState('')
 
-  /** 只有含正文组件的模板才配得上预设（没有正文，设了也没地方铺） */
-  const rows = useMemo(() => templates.filter(hasBodyComponent), [templates])
-  const active = rows.find((doc) => doc.id === activeId) ?? null
+  const active = activeId === null ? null : groups.find((group) => group.id === activeId) ?? null
+  /** 哪些模板选了这份组件（删不掉 / 改名时给个底） */
+  const usage = useMemo(() => {
+    if (!active) return []
+    return templates.filter((doc) =>
+      doc.components.some(
+        (component) => component.id === 'body' && component.enabled && component.params?.group === active.id,
+      ),
+    )
+  }, [active, templates])
 
-  if (active !== null) {
+  const createGroup = (): void => {
+    void createBodyGroup({ name: nextName(groups) })
+      .then((group) => setActiveId(group.id))
+      .catch((err: unknown) => {
+        toast.error('新建失败', { description: err instanceof Error ? err.message : String(err) })
+      })
+  }
+
+  const commitRename = (): void => {
+    setRenaming(false)
+    if (!active) return
+    const next = nameDraft.trim()
+    if (next === '' || next === active.name) return
+    if (groups.some((group) => group.id !== active.id && group.name === next)) {
+      toast.error(`已经有叫「${next}」的正文组件了`)
+      return
+    }
+    void updateBodyGroup(active.id, { name: next }).catch((err: unknown) => {
+      toast.error('改名失败', { description: err instanceof Error ? err.message : String(err) })
+    })
+  }
+
+  if (active) {
     return (
-      <PresetEditor
-        key={active.id}
-        templateId={active.id}
-        name={active.name}
-        onBack={() => setActiveId(null)}
-      />
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => setActiveId(null)} aria-label="返回" className={ICON_BTN}>
+            <ArrowLeft size={16} strokeWidth={2} />
+          </button>
+          {renaming ? (
+            <input
+              autoFocus
+              value={nameDraft}
+              onChange={(event) => setNameDraft(event.target.value)}
+              onBlur={commitRename}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') commitRename()
+                if (event.key === 'Escape') setRenaming(false)
+              }}
+              className={`${INPUT_LINE} max-w-[200px]`}
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setRenaming(true)
+                setNameDraft(active.name)
+              }}
+              title="重命名"
+              className="text-sm font-medium text-ink transition-colors hover:text-ink-muted"
+            >
+              {active.name}
+            </button>
+          )}
+          {isBuiltinBodyGroup(active.id) ? null : (
+            <button
+              type="button"
+              onClick={() => {
+                void deleteBodyGroup(active.id)
+                  .then(() => setActiveId(null))
+                  .catch((err: unknown) => {
+                    toast.error('删除失败', { description: err instanceof Error ? err.message : String(err) })
+                  })
+              }}
+              className={`${BTN_QUIET} ml-auto`}
+            >
+              <Trash2 size={13} strokeWidth={2} />
+              删除
+            </button>
+          )}
+        </div>
+        <p className={SETTINGS_EMPTY}>
+          {usage.length > 0 ? `${usage.length} 个模板在用` : '新建条目时铺进正文'}
+        </p>
+        <BodyPresetEditor key={active.id} groupId={active.id} />
+      </div>
     )
   }
 
@@ -59,98 +149,26 @@ export function BodyPresetPanel({ onBack }: { onBack: () => void }) {
         <span className="text-sm text-ink">正文</span>
       </div>
 
-      {rows.length === 0 ? (
-        <p className={SETTINGS_EMPTY}>没有含正文的模板</p>
-      ) : (
-        rows.map((doc) => (
-          <button
-            key={doc.id}
-            type="button"
-            onClick={() => setActiveId(doc.id)}
-            className="flex items-center justify-between border-b border-line py-2.5 text-left text-sm text-ink transition-colors last:border-b-0 hover:bg-[var(--oc-hover)]"
-          >
-            <span>{doc.name}</span>
-            <span className="flex items-center gap-1 text-[11px] text-ink-faint">
-              {hasBodyPreset(doc.id) ? '已设' : ''}
-              <ChevronRight size={16} strokeWidth={2} />
-            </span>
-          </button>
-        ))
-      )}
-    </div>
-  )
-}
+      {groups.length === 0 ? <p className={SETTINGS_EMPTY}>还没有正文组件</p> : null}
 
-function PresetEditor({
-  templateId,
-  name,
-  onBack,
-}: {
-  templateId: string
-  name: string
-  onBack: () => void
-}) {
-  const editorRef = useRef<Editor | null>(null)
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // 初始内容只在挂载时算一次（组件按模板 id 重建）：编辑器自己持有文档，之后以它为准
-  const [initial] = useState(() => {
-    const markdown = bodyPresetMarkdown(templateId)
-    return { markdown, doc: bodyDocFromMarkdown(markdown) as Record<string, unknown> }
-  })
-  /** 上次写盘的内容：没变就不写（切来切去不该反复重写模板文件） */
-  const savedRef = useRef(initial.markdown)
-  const initialDoc = initial.doc
-
-  const flush = useCallback(() => {
-    if (timerRef.current !== null) {
-      clearTimeout(timerRef.current)
-      timerRef.current = null
-    }
-    const editor = editorRef.current
-    if (!editor) return
-    const markdown = bodyPresetFromDoc(editor.getJSON())
-    if (markdown === savedRef.current) return
-    savedRef.current = markdown
-    void setTemplateComponentParam(templateId, 'body', 'preset', markdown).catch((err: unknown) => {
-      toast.error('正文预设没保存上', { description: err instanceof Error ? err.message : String(err) })
-    })
-  }, [templateId])
-
-  const schedule = useCallback(() => {
-    if (timerRef.current !== null) clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(flush, SAVE_DELAY)
-  }, [flush])
-
-  // 离开（返回 / 关设置）时把还没落盘的那一下补上：600ms 内的最后一段字不该丢
-  useEffect(() => flush, [flush])
-
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2">
+      {groups.map((group) => (
         <button
+          key={group.id}
           type="button"
-          onClick={() => {
-            flush()
-            onBack()
-          }}
-          aria-label="返回"
-          className={ICON_BTN}
+          onClick={() => setActiveId(group.id)}
+          className="flex items-center justify-between border-b border-line py-2.5 text-left text-sm text-ink transition-colors last:border-b-0 hover:bg-[var(--oc-hover)]"
         >
-          <ArrowLeft size={16} strokeWidth={2} />
+          <span>{group.name}</span>
+          <span className="shrink-0 text-[11px] tabular-nums text-ink-faint">
+            {bodyGroupHasPreset(group) ? `${wordCount(group.markdown)} 字` : '空'}
+          </span>
         </button>
-        <span className="text-sm font-medium text-ink">{name}</span>
-      </div>
-      <p className={SETTINGS_EMPTY}>新建这条模板的条目时铺进正文；留空就不铺。</p>
-      <EditorCore
-        plain
-        key={templateId}
-        content={initialDoc}
-        placeholder="写下骨架…"
-        onReady={(editor) => {
-          editorRef.current = editor
-        }}
-        onContentChange={schedule}
-      />
+      ))}
+
+      <button type="button" onClick={createGroup} className={`${BTN_QUIET} mt-3 self-start`}>
+        <Plus size={13} strokeWidth={2} />
+        新建正文组件
+      </button>
     </div>
   )
 }

@@ -12,8 +12,9 @@
  *   点进去才是那一份字段表（`BasicInfoPanel`）
  * - 关系 / 画廊 → **两级**：先列接受这组参数的模板，点进去是那几个分段按钮
  *   （`TemplateParamPanel`）—— 参数的可编范围由 `lib/templates/params.ts` 决定
- * - 正文 → 两级：先列含正文的模板，点进去用**我们自己的编辑器**写预设段落
- *   （`BodyPresetPanel`；新建条目时铺进正文，见 `lib/templates/body-preset.ts`）
+ * - 正文 → **两级**：先列正文组件（与基本信息组件同构：独立、可复用、模板只存选择），
+ *   点进去用**我们自己的编辑器**写骨架（`BodyPresetPanel`）；新建条目时铺进正文，
+ *   见 `lib/templates/body-preset.ts`
  */
 import { useState } from 'react'
 import { BasicInfoPanel } from '@/components/settings/BasicInfoPanel'
@@ -39,7 +40,10 @@ const ROWS: Row[] = [
 ]
 
 export function ComponentsPanel({ target }: { target?: string }) {
-  const [panel, setPanel] = useState<Panel>(target ? 'info' : 'list')
+  // 深链：`body:<id>` 直接落到正文组件，其余（`group:<id>`）落基本信息
+  const [panel, setPanel] = useState<Panel>(
+    target === undefined ? 'list' : target.startsWith('body:') ? 'body' : 'info',
+  )
 
   if (panel === 'info') {
     return <BasicInfoPanel onBack={() => setPanel('list')} initialId={target} />
@@ -48,7 +52,7 @@ export function ComponentsPanel({ target }: { target?: string }) {
     return <TemplateParamPanel componentId={panel} onBack={() => setPanel('list')} />
   }
   if (panel === 'body') {
-    return <BodyPresetPanel onBack={() => setPanel('list')} />
+    return <BodyPresetPanel onBack={() => setPanel('list')} initialId={target} />
   }
 
   return (

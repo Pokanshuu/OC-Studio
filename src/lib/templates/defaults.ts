@@ -84,3 +84,25 @@ export function builtinTemplate(id: BuiltinTemplateId): TemplateDoc {
   // 深拷贝：调用方会就地改 components
   return JSON.parse(JSON.stringify(found)) as TemplateDoc
 }
+
+/** 自建模板 id：稳定、可读、不会与内置冲突 */
+export function customTemplateId(): string {
+  return `custom-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`
+}
+
+/**
+ * 空白模板 = 封面 + 基本信息 + 正文（`docs/模板.md §8.6`）。
+ *
+ * `taken` 是现有模板名：重名就往后加序号 —— 两处「新建模板」（设置 › 模板、
+ * 设置 › 组件 › 正文）共用这一份，别各自拼一个「新模板」出来。
+ */
+export function blankTemplateDoc(taken: Iterable<string> = []): TemplateDoc {
+  const used = new Set(taken)
+  let name = '新模板'
+  for (let index = 2; used.has(name); index += 1) name = `新模板 ${index}`
+  const components: TemplateComponent[] = (['cover', 'info', 'body'] as const).map((id) => ({
+    id,
+    enabled: true,
+  }))
+  return { id: customTemplateId(), name, aliases: [], components }
+}

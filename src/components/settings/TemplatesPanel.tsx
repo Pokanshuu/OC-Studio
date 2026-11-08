@@ -34,6 +34,7 @@ import { COMPONENT_BY_ID, COMPONENT_IDS } from '@/lib/templates/registry'
 import { BUILTIN_TEMPLATES } from '@/lib/templates/defaults'
 import { isComponentAvailable, isComponentWired } from '@/lib/templates/support'
 import { templateParamsFor, type TemplateParamValue } from '@/lib/templates/params'
+import { blankTemplateDoc, customTemplateId } from '@/lib/templates/defaults'
 import { useInfoGroups } from '@/lib/templates/info-groups'
 import { resetTemplateToBuiltin, saveTemplate, saveTemplates, useTemplates } from '@/lib/templates/store'
 import type { TemplateComponent, TemplateComponentId, TemplateDoc } from '@/lib/templates/types'
@@ -41,16 +42,6 @@ import { BTN_DANGER, BTN_QUIET, ICON_BTN, INPUT_LINE, ROUND_ITEM, SETTINGS_EMPTY
 import { SettingsEntryRow } from './EntryRow'
 function isBuiltin(id: string): boolean {
   return BUILTIN_TEMPLATES.some((doc) => doc.id === id)
-}
-
-/** 自建模板 id：稳定、可读、不会与内置冲突 */
-function customId(): string {
-  return `custom-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`
-}
-
-function blankTemplate(): TemplateDoc {
-  const components: TemplateComponent[] = (['cover', 'info', 'body'] as const).map((id) => ({ id, enabled: true }))
-  return { id: customId(), name: '新模板', aliases: [], components }
 }
 
 /** 一行组件：手柄 + 名称 +（开发中）+ 已选组件名 + 设置 + 移除 */
@@ -156,7 +147,7 @@ export function TemplatesPanel({ initialId }: { initialId?: string }) {
         <button
           type="button"
           onClick={() => {
-            const doc = blankTemplate()
+            const doc = blankTemplateDoc(templates.map((item) => item.name))
             void saveTemplates([...templates, doc])
               .then(() => setActiveId(doc.id))
               .catch((err: unknown) => toast.error('新建失败', { description: String(err) }))
@@ -324,7 +315,7 @@ export function TemplatesPanel({ initialId }: { initialId?: string }) {
           onClick={() => {
             const copy: TemplateDoc = {
               ...active,
-              id: customId(),
+              id: customTemplateId(),
               name: `${active.name} 副本`,
               aliases: [],
               components: active.components.map((component) => ({ ...component })),

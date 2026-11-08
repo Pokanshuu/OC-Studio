@@ -18,6 +18,11 @@ import {
 import { COUNTRY_KEYS, EVENT_KEYS, WORLD_KEYS, CHARACTER_KEYS } from '../src/lib/vault/fields'
 import { isNoteTemplate, NOTE_COMPONENT_IDS } from '../src/lib/templates/note'
 import { bodyPresetFromDoc } from '../src/lib/templates/body-preset'
+import {
+  BUILTIN_BODY_GROUPS,
+  defaultBodyGroupIdOfTemplate,
+  selectableBodyGroups,
+} from '../src/lib/templates/body-groups'
 import { bodyDocFromMarkdown } from '../src/lib/vault/write-body'
 import { templateFieldKeys, templateFieldLabels, templateFieldTypes } from '../src/lib/templates/fields'
 import {
@@ -261,36 +266,54 @@ check(
 )
 check(validateTemplateParams(withParams).length === 0, '合法参数被校验器判错')
 
-// 13b. 正文预设：Markdown 多行 + [[链接]] 必须原样往返，且只对含正文的模板开放
-const presetMarkdown = ['## 人物简介', '', '写三句话。', '', '- 出生地', '- 年龄', '', '相关：[[主角]]'].join('\n')
-const withPreset: TemplateDoc = {
+// 13b. 正文组件：模板只存「选择」（`body.params.group`），骨架在组件自己身上
+const bodyGroupMarkdown = ['## 人物简介', '', '写三句话。', '', '- 出生地', '- 年龄', '', '相关：[[主角]]'].join('\n')
+const withBodyGroup: TemplateDoc = {
   id: 'character',
-  name: '正文预设往返',
+  name: '正文组件选择',
   aliases: [],
-  components: [{ id: 'body', enabled: true, params: { preset: presetMarkdown } }],
+  components: [{ id: 'body', enabled: true, params: { group: 'body-character' } }],
 }
-const presetRoundTrip = parseTemplate(serializeTemplate(withPreset), 'character')
+const bodyGroupRoundTrip = parseTemplate(serializeTemplate(withBodyGroup), 'character')
 check(
-  presetRoundTrip?.components[0]?.params?.preset === presetMarkdown,
-  '正文预设的 Markdown 往返后变了',
+  bodyGroupRoundTrip?.components[0]?.params?.group === 'body-character',
+  '正文组件的选择往返后变了',
 )
-check(validateTemplateParams(withPreset).length === 0, '合法的正文预被判错')
-const numericPreset: TemplateDoc = {
-  ...withPreset,
-  components: [{ id: 'body', enabled: true, params: { preset: 42 } }],
+check(validateTemplateParams(withBodyGroup).length === 0, '合法的正文组件选择被校验器判错')
+const numericGroup: TemplateDoc = {
+  ...withBodyGroup,
+  components: [{ id: 'body', enabled: true, params: { group: 42 } }],
 }
-check(validateTemplateParams(numericPreset).length > 0, '正文预设接受非文本值')
-check(
-  inlineParamDefs('body').length === 0,
-  '正文预设不该出现在编排行内（它是独立配置面）',
-)
-// 13c. 预设 Markdown ⇄ 编辑器文档 必须逐字往返（含指向还没建的条目的 [[ ]]
-const presetDoc = bodyDocFromMarkdown(presetMarkdown, { unresolvedLinks: 'keep' })
-check(bodyPresetFromDoc(presetDoc) === presetMarkdown, '正文预设的 Markdown ⇄ 文档 往返变了')
+check(validateTemplateParams(numericGroup).length > 0, '正文组件接受非字符串的值')
+const emptyGroup: TemplateDoc = {
+  ...withBodyGroup,
+  components: [{ id: 'body', enabled: true, params: { group: '  ' } }],
+}
+check(validateTemplateParams(emptyGroup).length > 0, '正文组件接受空值')
+check(inlineParamDefs('body').length === 0, '正文组件不该出现在编排行内（它是独立配置面）')
+
+// 13c. 组件里的骨架 Markdown ⇄ 编辑器文档 必须逐字往返（含指向还没建的条目的 [[ ]]
+const presetDoc = bodyDocFromMarkdown(bodyGroupMarkdown, { unresolvedLinks: 'keep' })
+check(bodyPresetFromDoc(presetDoc) === bodyGroupMarkdown, '正文骨架的 Markdown ⇄ 文档 往返变了')
 // 写正文（助手写章节）时的口径不变：未建链接降级成纯文本，方括号消失
 const droppedDoc = bodyDocFromMarkdown('相关：[[主角]]')
 check(!bodyPresetFromDoc(droppedDoc).includes('[['), '写正文时未建链接仍该降级成纯文本')
 
+// 13d. 内置正文组件：每个实体宿主都有出厂骨架，且「空正文」是空的
+for (const group of BUILTIN_BODY_GROUPS) {
+  check(group.name.trim() !== '', '内置正文组件缺名字')
+  if (group.id === 'body-empty') check(group.markdown === '', '「空正文」组件不该带骨架')
+}
+check(
+  defaultBodyGroupIdOfTemplate('character') === 'body-character' &&
+    defaultBodyGroupIdOfTemplate('country') === 'body-country' &&
+    defaultBodyGroupIdOfTemplate('entry') === 'body-empty',
+  '默认正文组件映射不对',
+)
+check(
+  selectableBodyGroups('character', BUILTIN_BODY_GROUPS).every((group) => group.for === undefined || group.for === 'character'),
+  '角色模板选到了别的宿主的正文组件',
+)
 
 /* ── 内置基本信息组件：字段必须真能显示 ─────────────────────────────── */
 

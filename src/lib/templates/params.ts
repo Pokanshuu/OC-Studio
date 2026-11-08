@@ -36,10 +36,10 @@ export interface TemplateParamDef {
 export const TEMPLATE_PARAM_SCHEMA: Partial<Record<TemplateComponentId, TemplateParamDef[]>> = {
   body: [
     {
-      key: 'preset',
-      label: '预设正文',
-      // 存 Markdown：模板文件里可读、可分享；新建条目时转成编辑器文档铺进去
-      kind: 'text',
+      // 只存**选择**（正文组件 id），骨架在组件自己身上 —— 与 `info.group` 同一套设计
+      key: 'group',
+      label: '正文组件',
+      kind: 'group',
       fallback: '',
       options: [],
     },

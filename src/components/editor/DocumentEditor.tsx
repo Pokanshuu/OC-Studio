@@ -5,6 +5,7 @@ import type { Editor } from '@tiptap/core'
 import { EditorCore } from '@/components/editor/EditorCore'
 import { EditorToolbar } from '@/components/editor/EditorToolbar'
 import { useDocument } from '@/hooks/useDocument'
+import { defaultBodyDocument } from '@/lib/body-skeleton'
 
 type EntityType = 'character' | 'event' | 'country' | 'worldEntry'
 
@@ -61,7 +62,7 @@ export function DocumentEditor({
     )
   }
 
-  const content = document ?? fallbackContent ?? getDefaultDocument(entityType)
+  const content = document ?? fallbackContent ?? defaultBodyDocument(entityType)
 
   return (
     <div>
@@ -80,39 +81,3 @@ export function DocumentEditor({
   )
 }
 
-type DocNode = { type: string; attrs?: Record<string, unknown>; content?: DocNode[]; text?: string }
-
-function t(value: string): DocNode { return { type: 'text', text: value } }
-function h2b(text: string): DocNode { return { type: 'heading', attrs: { level: 2 }, content: [t(text)] } }
-function p(text?: string): DocNode { return text ? { type: 'paragraph', content: [t(text)] } : { type: 'paragraph' } }
-function pp(placeholder: string): DocNode { return { type: 'paragraph', attrs: { placeholder } } }
-function hr(): DocNode { return { type: 'horizontalRule' } }
-
-function getDefaultDocument(type: EntityType): DocNode {
-  switch (type) {
-    case 'character':
-      return {
-        type: 'doc',
-        content: [
-          h2b('人物简介'), pp('编写角色简介...'),
-          hr(),
-          h2b('人物生平'), pp('编写角色生平...'),
-        ],
-      }
-    case 'event':
-      return { type: 'doc', content: [pp('开始编写事件内容...')] }
-    case 'country':
-      return {
-        type: 'doc',
-        content: [
-          h2b('政治制度'), pp('政治制度、权力结构...'),
-          hr(),
-          h2b('地理环境'), pp('地形、气候、自然资源...'),
-          hr(),
-          h2b('人文风貌'), pp('文化、宗教、人口...'),
-        ],
-      }
-    case 'worldEntry':
-      return { type: 'doc', content: [p()] }
-  }
-}
