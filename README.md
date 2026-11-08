@@ -7,7 +7,7 @@
 > ⚠️ **这是测试版**：只用于预览新功能，**不保证对旧版本（v0.19.2 及更早）的备份与笔记库、以及 OC-editor 的兼容性**。试之前请先复制一份笔记库。
 >
 > - 上一版：[Pokanshuu/OC-Studio v0.20.1-beta](https://github.com/Pokanshuu/OC-Studio/releases/tag/v0.20.1-beta)
-> - 旧架构：[nekibud/OC-editor v0.18.3](https://github.com/nekibud/OC-editor/releases/tag/v0.19.1)
+> - 旧架构：[nekibud/OC-editor v0.19.1](https://github.com/nekibud/OC-editor/releases/tag/v0.19.1)
 >
 
 ---
