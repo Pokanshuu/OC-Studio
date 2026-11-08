@@ -21,6 +21,7 @@ import type { InfoFieldType } from '@/lib/templates/info-groups'
 import { Checkbox } from '@/components/ui/checkbox'
 import { updateEntry } from '@/features/world/services'
 import { FIELD_GRID, FIELD_INPUT, FIELD_LABEL, FIELD_ROW, SECTION_TITLE } from '@/lib/ui-tokens'
+import { ComponentEditButton } from '@/components/shared/ComponentEdit'
 
 /**
  * 一个字段的控件。类型来自模板选中的基本信息组件（`InfoGroup.types`）：
@@ -123,8 +124,11 @@ export function WorldCustomFields({
   })
 
   return (
-    <section>
-      <h3 className={SECTION_TITLE}>基本信息</h3>
+    <section className="group">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className={SECTION_TITLE}>基本信息</h3>
+        <ComponentEditButton componentId="info" />
+      </div>
       <div className={`grid grid-cols-1 gap-x-10 sm:grid-cols-2 ${FIELD_GRID}`}>
         {rows.map((row) => (
           <div key={row.field.id} className={FIELD_ROW}>

@@ -16,6 +16,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { BTN_QUIET, DATE_INPUT, FIELD_GRID, FIELD_INPUT, FIELD_LABEL, FIELD_ROW, FIELD_ROW_TOP, ICON_BTN, SECTION_TITLE } from '@/lib/ui-tokens'
+import { ComponentEditButton } from '@/components/shared/ComponentEdit'
 import { useFieldConfig, type FieldDef } from '@/lib/fields'
 import { resolveImageUrl } from '@/lib/image-service'
 import { useMediaDownload } from '@/lib/use-media-download'
@@ -211,8 +212,11 @@ export function CharacterInfoSection({
   }
 
   return (
-    <section>
-      <h3 className={SECTION_TITLE}>基本信息</h3>
+    <section className="group">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className={SECTION_TITLE}>基本信息</h3>
+        <ComponentEditButton componentId="info" />
+      </div>
       <div
         className={
           compact

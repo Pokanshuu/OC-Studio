@@ -2,6 +2,7 @@
 
 import { Checkbox } from '@/components/ui/checkbox'
 import { DATE_INPUT, FIELD_GRID, FIELD_INPUT, FIELD_LABEL, FIELD_ROW, SECTION_TITLE } from '@/lib/ui-tokens'
+import { ComponentEditButton } from '@/components/shared/ComponentEdit'
 import { useFields, type FieldDef } from '@/lib/fields'
 import type { EventForm } from '../hooks/useEventForm'
 
@@ -96,8 +97,11 @@ export function EventInfoSection({
   }
 
   return (
-    <section>
-      <h3 className={SECTION_TITLE}>基本信息</h3>
+    <section className="group">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className={SECTION_TITLE}>基本信息</h3>
+        <ComponentEditButton componentId="info" />
+      </div>
       <div
         className={
           compact
