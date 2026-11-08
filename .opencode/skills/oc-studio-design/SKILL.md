@@ -22,7 +22,8 @@ description: >
 
 ### 色彩（亮色模式）
 - **基底**：`paper` #FEFCF8 (主背景)、`paper-alt` #FAF7F2 (侧边栏)、`paper-card` #F3EFE9 (卡片/输入框底)
-- **边框**：`line` #E7E3DC (默认)、`line-hover` #D6D0C4 (悬停/焦点)
+- **边框**：`line` #E7E3DC (默认)、`line-hover` #D6D0C4 (悬停/焦点)、`line-soft`（`--oc-line` 的 45%/55% 透明版）
+  - **线压在模糊 / 背景图上的时候用 `line-soft`**：外壳铺在 vibrancy 或背景图上时，实色的线会突然亮一截（侧栏底部固定区那条线曾经如此）。普通纸面上的分隔线仍用 `line`
 - **文字**：`ink` #2B2B2B (主文)、`ink-muted` #6E6A63 (辅助)、`ink-faint` #A5A098 (占位/禁用)
 - **状态色（仅三种 + 一枚危险底色）**：
   - 错误：`error` #B36651 —— 错误文字（`text-error`）、危险项的 hover 浅底（`bg-error-light`）

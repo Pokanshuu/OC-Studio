@@ -24,6 +24,7 @@ export const THEME_TOKENS: readonly TokenRegistration[] = [
   { name: '--oc-paper-alt', scope: 'page', note: '次级纸色（画布 / 侧栏内容）' },
   { name: '--oc-paper-card', scope: 'page', note: '卡片底色' },
   { name: '--oc-line', scope: 'page', note: '分隔线 / 描边' },
+  { name: '--oc-line-soft', scope: 'page', note: '压在模糊 / 背景图上的半透明分隔线' },
   { name: '--oc-line-hover', scope: 'page', note: '线在悬停 / 强调时的加深' },
   { name: '--oc-ink', scope: 'page', note: '正文墨色' },
   { name: '--oc-ink-muted', scope: 'page', note: '次级文字' },

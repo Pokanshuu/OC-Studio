@@ -256,7 +256,8 @@ export function Sidebar() {
         ) : null}
 
         {/* 底部固定区：相册 / 回收站 / 设置 —— 不是「内容」，一直贴在最下面 */}
-        <div className="flex flex-col border-t border-line py-2">
+        {/* 这条线压在模糊 / 背景图上：用半透明的线，别让实色 `line` 突然亮一截 */}
+        <div className="flex flex-col border-t border-line-soft py-2">
           {renderItem(ALBUM_ITEM.label, ALBUM_ITEM.icon)}
           <button onClick={openTrash} className={`${ITEM_BASE} ${ITEM_OFF}`}>
             <Trash2 size={16} strokeWidth={2} className="shrink-0" />

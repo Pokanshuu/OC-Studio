@@ -22,6 +22,8 @@
   --oc-paper-card: #F3EFE9;
   --oc-line: #E7E3DC;
   --oc-line-hover: #D6D0C4;
+  /* 半透明的线：外壳铺在模糊 / 背景图上时，实色的线会突然「变亮」一截 */
+  --oc-line-soft: color-mix(in oklab, var(--oc-line) 45%, transparent);
   --oc-ink: #2B2B2B;
   --oc-ink-muted: #6E6A63;
   --oc-ink-faint: #A5A098;
@@ -89,6 +91,7 @@
   --oc-paper-card: #2D2B28;
   --oc-line: #38352F;
   --oc-line-hover: #4A4642;
+  --oc-line-soft: color-mix(in oklab, var(--oc-line) 55%, transparent);
   --oc-ink: #E3DFD8;
   --oc-ink-muted: #A5A098;
   --oc-ink-faint: #6E6A63;
@@ -120,6 +123,7 @@
   --color-paper-alt: var(--oc-paper-alt);
   --color-paper-card: var(--oc-paper-card);
   --color-line: var(--oc-line);
+  --color-line-soft: var(--oc-line-soft);
   --color-line-hover: var(--oc-line-hover);
   --color-ink: var(--oc-ink);
   --color-ink-muted: var(--oc-ink-muted);
