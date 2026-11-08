@@ -7,9 +7,8 @@
 > ⚠️ **这是测试版**：只用于预览新功能，**不保证对旧版本（v0.19.2 及更早）的备份与笔记库、以及 OC-editor 的兼容性**。试之前请先复制一份笔记库。
 >
 > - 上一版：[Pokanshuu/OC-Studio v0.20.1-beta](https://github.com/Pokanshuu/OC-Studio/releases/tag/v0.20.1-beta)
-> - 旧架构：[nekibud/OC-editor v0.18.3](https://github.com/nekibud/OC-editor/releases/tag/v0.18.3)
+> - 旧架构：[nekibud/OC-editor v0.18.3](https://github.com/nekibud/OC-editor/releases/tag/v0.19.1)
 >
-> v0.20.2-beta 开发中，尚未发布。PR 接收中（见「贡献」）。
 
 ---
 
@@ -79,7 +78,7 @@
 |------|------|
 | Web | 浏览器开发模式，`npm run dev` |
 | Windows 桌面 | Tauri v2 打包，原生 Mica 半透明窗口效果 |
-| macOS 桌面 | Tauri v2 打包（`.app` / `.dmg`），原生红绿灯与系统菜单栏、窗口模糊；见 `docs/macOS适配.md` |
+| macOS 桌面 | Tauri v2 打包（`.app` / `.dmg`），原生红绿灯与系统菜单栏、窗口模糊 |
 | Android | Capacitor v8 封装，底部 Tab 导航，编辑器键盘适配 |
 
 ---
@@ -137,15 +136,15 @@ Next.js 16 · TypeScript · Tailwind CSS v4 · Tiptap · Dexie.js (IndexedDB) ·
    npm run audit:design  # 设计令牌检查
    ```
 
-   改到笔记库（`src/lib/vault/`、`src-tauri/`）时，再跑一遍 `AGENTS.md` 里列的那组验收脚本。
+   修改笔记库（`src/lib/vault/`、`src-tauri/`）时，再跑一遍 `AGENTS.md` 里列的那组验收脚本。
 
 4. 提交信息 `类型(范围): 一句话`，中文描述；类型取 `feat` / `fix` / `refactor` / `docs` / `chore` / `style`。
 
-5. 推送到自己的 fork，开 PR 指向 `main`。说明里写清改了什么。
+5. 推送到自己的 fork，开 PR 指向 `main`。说明里写清改了什么并附上截图。
 
 请勿更改：
 
-`CHANGELOG.md`、`docs/todo.md`、`AGENTS.md` 由维护者在发版时统一更新。
+`CHANGELOG.md`、`docs/todo.md`、`AGENTS.md` `.opencode` 由维护者在发版时统一更新。
 
 **冲突**
 
