@@ -346,7 +346,9 @@ export function useEventForm(
       await onSave(event.id, {
         title,
         time,
-        endTime: endTimeVal || undefined,
+        // 空字符串 = 清掉结束时间。传 undefined 会被 `updateEvent` 当成「没改」跳过，
+        // 于是把三格删空之后旧值还留在盘上（结束时间行现在是可删的普通字段）
+        endTime: endTimeVal,
         location,
         summary,
         isMajor,

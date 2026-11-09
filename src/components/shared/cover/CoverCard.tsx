@@ -173,6 +173,11 @@ export function CoverCard({
     <div
       ref={setNodeRef}
       style={longPressSort ? { ...style, touchAction: 'none' } : style}
+      /*
+       * 按压的缩放反馈保留（`.touch-feedback:active { scale(.96) }`）。
+       * 它会提层，但圆角已经改用 `clip-path`（见 `COVER_FRAME`），
+       * 由合成器裁，不会再漏出黑角。
+       */
       className={`group relative touch-feedback ${longPressSort ? 'touch-none' : ''}`}
       {...longPress}
       {...cardAttributes}

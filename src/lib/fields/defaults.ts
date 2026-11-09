@@ -17,18 +17,21 @@ export const BUILTIN_FIELDS: Record<FieldKind, FieldDef[]> = {
     { id: 'height', label: '身高', type: 'text' },
     { id: 'birthday', label: '生日', type: 'text' },
     { id: 'isMajor', label: '主要角色', type: 'bool' },
-    { id: 'tags', label: '标签', type: 'tags' },
   ],
+  // 时间 / 结束时间 / 地点**是**基本信息里的行（2026-11-10 收回）：值仍写 `Event.time` /
+  // `endTime` / `location`，控件由 `EventInfoSection` 按列名特判成「年 / 月 / 日」三段。
+  // 独立的「时间 / 地点」组件已退役 —— 同一份数据只能有一个入口，也不能随模板开关漂移。
+  // 标签仍然归「标签」组件，不在这里。
   event: [
-    { id: 'time', label: '开始', type: 'text' },
-    { id: 'endTime', label: '结束', type: 'text' },
+    { id: 'time', label: '时间', type: 'text' },
+    { id: 'endTime', label: '结束时间', type: 'text' },
     { id: 'location', label: '地点', type: 'text' },
     { id: 'isMajor', label: '重大事件', type: 'bool' },
-    { id: 'tags', label: '标签', type: 'tags' },
   ],
-  worldEntry: [
-    { id: 'tags', label: '标签', type: 'tags' },
-  ],
+  // 国家：体制 / 地理 / 文化已经并进正文，没有内置列可编；这里只放自建字段
+  country: [],
+  // 词条没有全局字段：它的字段来自「按篇选的模板」里的基本信息组件（见 `docs/模板.md` §6.2）
+  worldEntry: [],
 }
 
 /** 默认配置 = 全部内置字段、默认顺序 */
@@ -40,6 +43,7 @@ export function defaultFieldConfig(): FieldConfig {
   return {
     character: defaultFields('character'),
     event: defaultFields('event'),
+    country: defaultFields('country'),
     worldEntry: defaultFields('worldEntry'),
   }
 }

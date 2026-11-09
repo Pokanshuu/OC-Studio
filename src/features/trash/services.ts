@@ -85,13 +85,52 @@ export async function restoreItem(type: TrashItemType, id: number): Promise<void
   const now = Date.now()
 
   const table = db.table(tableName)
-  await table.update(id, {
-    deleted: false,
-    updatedAt: now,
-    ...pendingStamp(now),
-  })
+  // 世界观 / 小说是树（`parentId`），回收站里却逐行列。只恢复被点的那一行会出现
+  // 「书回来了、章节还在回收站」或「章节回来了、没有父级哪都看不见」，所以整棵树一起带回来。
+  const ids = type === 'worldEntry' ? await withEntryTree(id) : [id]
 
-  await logOperation(tableName, id, 'deleted', 'true', 'false')
+  for (const rowId of ids) {
+    await table.update(rowId, {
+      deleted: false,
+      updatedAt: now,
+      ...pendingStamp(now),
+    })
+    await logOperation(tableName, rowId, 'deleted', 'true', 'false')
+  }
+}
+
+/**
+ * 与 `id` 同属一棵树、且**当前仍在回收站**的行（含自己）。
+ * 祖先里已经恢复的、没有删过的行不再碰 —— 免得把它们的 `updatedAt` 顶到「最近编辑」前面。
+ */
+async function withEntryTree(id: number): Promise<number[]> {
+  const rows = await db.worldEntries.toArray()
+  const byId = new Map(rows.map((row) => [row.id, row]))
+  const tree = new Set<number>([id])
+
+  let cursor = byId.get(id)
+  for (let guard = 0; cursor?.parentId != null && guard < 128; guard += 1) {
+    tree.add(cursor.parentId)
+    cursor = byId.get(cursor.parentId)
+  }
+
+  // 向下：每一轮把「父级已在树里」的行收进来，直到不再增长
+  let grew = true
+  while (grew) {
+    grew = false
+    for (const row of rows) {
+      if (row.parentId === null || tree.has(row.id) || !tree.has(row.parentId)) continue
+      tree.add(row.id)
+      grew = true
+    }
+  }
+
+  const isDeleted = (rowId: number): boolean => {
+    if (rowId === id) return true
+    const row = byId.get(rowId)
+    return row?.deleted === true || (row?.deleted as unknown) === 1
+  }
+  return [...tree].filter(isDeleted)
 }
 
 export async function permanentlyDeleteItem(

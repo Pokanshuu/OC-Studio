@@ -3,8 +3,6 @@
 import { useState } from 'react'
 import { Plus, RotateCcw } from 'lucide-react'
 import {
-  BUILTIN_FIELDS,
-  FIELD_KINDS,
   FIELD_KIND_LABELS,
   FIELD_KIND_SUPPORTS_CUSTOM,
   isCustomField,
@@ -15,7 +13,7 @@ import {
   type FieldDef,
   type FieldKind,
 } from '@/lib/fields'
-import { defaultFields } from '@/lib/fields/defaults'
+import { defaultFields, missingBuiltinFields } from '@/lib/fields/defaults'
 import { ROUND_ITEM, SETTINGS_EMPTY } from '@/lib/ui-tokens'
 import { SortableList, moveId } from '@/components/shared/list-dnd'
 import { SettingsFieldRow } from './FieldRow'
@@ -28,9 +26,8 @@ function FieldGroup({ kind, showTitle = true }: { kind: FieldKind; showTitle?: b
   /** 数据里还在、表里已经没有的键：删了行不等于删了值，得留一条找回的路 */
   const { keys: orphanKeys } = useOrphanFieldKeys(kind, fields)
 
-  const missing = BUILTIN_FIELDS[kind].filter(
-    (builtin) => !fields.some((field) => field.id === builtin.id),
-  )
+  /** 删掉的内置字段：给一条找回的路（自建字段不会被加回，它们是用户自己加的） */
+  const missing = missingBuiltinFields(kind, fields)
 
   const commit = (next: FieldDef[]) => { void replaceFields(kind, next) }
 
@@ -66,6 +63,7 @@ function FieldGroup({ kind, showTitle = true }: { kind: FieldKind; showTitle?: b
             <button
               type="button"
               onClick={() => commit([...fields, ...missing])}
+              title={missing.map((field) => field.label).join('、')}
               className="flex items-center gap-1 text-[11px] text-ink-muted transition-colors hover:text-ink"
             >
               <RotateCcw size={12} strokeWidth={2} />
@@ -77,6 +75,7 @@ function FieldGroup({ kind, showTitle = true }: { kind: FieldKind; showTitle?: b
         <button
           type="button"
           onClick={() => commit([...fields, ...missing])}
+          title={missing.map((field) => field.label).join('、')}
           className="flex items-center gap-1 self-start text-[11px] text-ink-muted transition-colors hover:text-ink"
         >
           <RotateCcw size={12} strokeWidth={2} />
@@ -149,22 +148,6 @@ function FieldGroup({ kind, showTitle = true }: { kind: FieldKind; showTitle?: b
 }
 
 /**
- * 字段管理（设置 › 世界）。
- *
- * 改的是**这张表本身**：删一行表单一整行消失、加一行表单多一个输入框，
- * 对该类实体的所有条目立刻生效。删内置字段只删「行」，不值清数据。
- */
-export function FieldSettings() {
-  return (
-    <div className="flex flex-col gap-4">
-      {FIELD_KINDS.map((kind) => (
-        <FieldKindSettings key={kind} kind={kind} />
-      ))}
-    </div>
-  )
-}
-
-/**
  * 单类实体的字段表 —— 「基本信息」面板点进去的那一屏（见 `BasicInfoPanel`）。
  *
  * 与 `FieldSettings` 的区别只是不再自带宽标题：进去时标题已经在页头上，
@@ -173,11 +156,15 @@ export function FieldSettings() {
 export function FieldKindSettings({ kind }: { kind: FieldKind }) {
   const config = useFieldConfig()
   const [confirmReset, setConfirmReset] = useState(false)
+  /** 内置部分（顺序 / 显示名 / 有没有少）与出厂不一致才给「恢复默认」 */
+  const builtinShape = (fields: readonly FieldDef[]): string =>
+    JSON.stringify(fields.filter((field) => !isCustomField(field)).map((field) => [field.id, field.label]))
+  const resetAvailable = builtinShape(config[kind]) !== builtinShape(defaultFields(kind))
 
   return (
     <div className="flex flex-col gap-1">
       <FieldGroup kind={kind} showTitle={false} />
-      {config[kind].length !== defaultFields(kind).length ? (
+      {resetAvailable ? (
         <button
           type="button"
           onClick={() => setConfirmReset(true)}

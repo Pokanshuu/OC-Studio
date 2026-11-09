@@ -246,7 +246,9 @@ export const SEARCH_ICON = 'pointer-events-none absolute left-2.5 top-1/2 -trans
    简介与小字落在色块里。
    比例 / 边距 / 字号全部来自 `lib/cover/tuning.ts`（视图菜单里可实时拖），
    这里只留「画什么色、怎么截断」这类不随手调的。 */
-export const COVER_FRAME = `relative w-full overflow-hidden bg-paper-card ${ROUND_ITEM}`
+// 圆角用 clip-path 而不是 `overflow: hidden`：卡片被 transform 提层时，
+// overflow+radius 在 WebKit 里会漏 1–2px 透明（黑角）；clip-path 由合成器裁，稳定。
+export const COVER_FRAME = `relative w-full bg-paper-card ${ROUND_ITEM} [clip-path:inset(0_round_var(--radius-item))]`
 export const COVER_TEXT = 'absolute'
 export const COVER_TITLE =
   'line-clamp-2 font-serif font-semibold leading-[1.14] tracking-[0.012em] text-paper-fixed [overflow-wrap:anywhere]'

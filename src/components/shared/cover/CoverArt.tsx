@@ -56,7 +56,6 @@ export function CoverArt({ src, tintSrc, watermark, aspect, photoHeight, blurSta
     () => (mono ? readTokenColor('--oc-paper-card', isDark ? MONO_DARK_TINT : MONO_LIGHT_TINT) : undefined),
     [mono, isDark],
   )
-  const underlay = monoColor ?? NEUTRAL_TINT
 
   useEffect(() => {
     const host = hostRef.current
@@ -160,8 +159,9 @@ export function CoverArt({ src, tintSrc, watermark, aspect, photoHeight, blurSta
     <div
       ref={hostRef}
       aria-hidden="true"
-      className="absolute inset-0"
-      style={{ backgroundColor: underlay }}
+      /* 垫纸色而不是炭黑：卡片被提升成合成层（画廊的 3D transform）时，
+         圆角裁切会在边 / 角漏 1px —— 漏出来的若是炭黑，就是四角那道黑边。 */
+      className="absolute inset-0 bg-paper-card"
     >
       <canvas ref={canvasRef} className="block h-full w-full" />
     </div>

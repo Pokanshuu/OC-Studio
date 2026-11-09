@@ -36,7 +36,15 @@ import { isComponentAvailable, isComponentWired } from '@/lib/templates/support'
 import { templateParamsFor, type TemplateParamValue } from '@/lib/templates/params'
 import { blankTemplateDoc, customTemplateId } from '@/lib/templates/defaults'
 import { useInfoGroups } from '@/lib/templates/info-groups'
-import { resetTemplateToBuiltin, saveTemplate, saveTemplates, useTemplates } from '@/lib/templates/store'
+import { useBodyGroups } from '@/lib/templates/body-groups'
+import { bodyGroupIdOfTemplate } from '@/lib/templates/body-preset'
+import {
+  resetTemplateToBuiltin,
+  saveTemplate,
+  saveTemplates,
+  setTemplateComponentParams,
+  useTemplates,
+} from '@/lib/templates/store'
 import type { TemplateComponent, TemplateComponentId, TemplateDoc } from '@/lib/templates/types'
 import { BTN_DANGER, BTN_QUIET, ICON_BTN, INPUT_LINE, ROUND_ITEM, SETTINGS_EMPTY } from '@/lib/ui-tokens'
 import { SettingsEntryRow } from './EntryRow'
@@ -106,6 +114,7 @@ function ComponentRow({
 export function TemplatesPanel({ initialId }: { initialId?: string }) {
   const { templates, loading } = useTemplates()
   const infoGroups = useInfoGroups()
+  const bodyGroups = useBodyGroups()
   const [activeId, setActiveId] = useState<string | null>(initialId ?? null)
   const [renaming, setRenaming] = useState<string | null>(null)
   const [nameDraft, setNameDraft] = useState('')
@@ -196,15 +205,11 @@ export function TemplatesPanel({ initialId }: { initialId?: string }) {
   }
 
   const setParam = (componentId: TemplateComponentId, key: string, value: TemplateParamValue): void => {
-    void persist({
-      ...active,
-      components: active.components.map((component) => {
-        if (component.id !== componentId) return component
-        const params = { ...component.params, [key]: value }
-        // 选了基本信息组件就清掉旧的内联字段：关系只由「选择」决定
-        if (key === 'group') delete params.fields
-        return { ...component, params }
-      }),
+    // 从 store 读当前值再写：连点不会用上一帧的快照互相覆盖。
+    // 选了组件就清掉旧的内联兼容键（基本信息 `fields` / 正文 `preset`）。
+    const patch = key === 'group' ? { group: value, fields: null, preset: null } : { [key]: value }
+    void setTemplateComponentParams(active.id, componentId, patch).catch((err: unknown) => {
+      toast.error('模板保存失败', { description: err instanceof Error ? err.message : String(err) })
     })
   }
 
@@ -258,11 +263,14 @@ export function TemplatesPanel({ initialId }: { initialId?: string }) {
             const hasParams = wired && templateParamsFor(active.id, component.id, active).length > 0
             const expanded = paramsFor === component.id
             const groupId = typeof component.params?.group === 'string' ? component.params.group : ''
+            const bodyGroupId = component.id === 'body' ? bodyGroupIdOfTemplate(active.id) : ''
             const detail =
               component.id === 'info' && hasParams
                 ? infoGroups.find((group) => group.id === groupId)?.name ??
-                  (Array.isArray(component.params?.fields) ? '内联字段' : '未选择')
-                : undefined
+                  (component.params?.fields !== undefined ? '内联字段' : '未选择')
+                : component.id === 'body'
+                  ? bodyGroups.find((group) => group.id === bodyGroupId)?.name
+                  : undefined
             return (
               <ComponentRow
                 key={component.id}

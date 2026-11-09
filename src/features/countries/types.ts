@@ -15,4 +15,6 @@ export interface CountryFormData {
   characters?: number[]
   events?: number[]
   tags: number[]
+  /** 自建字段（键 = 字段表里的 key；内置字段仍走各自的列） */
+  custom?: Record<string, string>
 }

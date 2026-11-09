@@ -11,15 +11,17 @@ import { ListEmptyState } from '@/components/shared/ListEmptyState'
 import { TalkToAgentButton } from '@/components/shared/TalkToAgentButton'
 import { useEntryList, useEntry, useCreateEntry, useDeleteEntry } from '../hooks/useWorldEntries'
 import { renameEntry, reorderEntries, updateEntry } from '../services'
-import { useFields } from '@/lib/fields'
 import type { WorldFormData } from '../types'
 import { useWorldEntryDraft } from '../hooks/useWorldEntryDraft'
 import { useNoteLinks } from '../hooks/useNoteLinks'
 import { NoteTemplateContent } from './note/NoteTemplateContent'
 import { useTemplates } from '@/lib/templates/store'
+import { perNoteTemplateByName } from '@/lib/templates/note'
+import { NoteTemplateButton } from './NoteTemplateButton'
 import { templateFieldKeys, templateFieldLabels, templateFieldTypes } from '@/lib/templates/fields'
 import { useInfoGroups } from '@/lib/templates/info-groups'
 import { useCategories } from '@/lib/categories/store'
+import { toast } from 'sonner'
 import { WorldTreePanel } from './WorldTreePanel'
 import { WorldEntryBody } from './WorldEntryBody'
 import { filterEntriesWithAncestors } from './world-content-utils'
@@ -43,10 +45,10 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
   const [treeCollapsed, setTreeCollapsed] = useState(false)
   const [treeQuery, setTreeQuery] = useState('')
   const [tags, setTags] = useState<number[]>([])
+  /** 本篇刚选的模板：`{ 条目 id, 名字 }`，切到别的条目就自然失效（不需要 effect 重置） */
+  const [templateChoice, setTemplateChoice] = useState<{ id: number; name: string } | null>(null)
   const [bodyEditor, setBodyEditor] = useState<Editor | null>(null)
   const handledNavRef = useRef<number | null>(null)
-  const worldFields = useFields('worldEntry')
-  const showTags = worldFields.some((field) => field.id === 'tags')
   // 词条编辑器走模板渲染循环（阶段一：顺序/开关来自模板，数据仍写原列）
   const { templates } = useTemplates()
   const categories = useCategories()
@@ -71,13 +73,16 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
 
   const { entry: currentEntry } = useEntry(selectedId)
 
-  // 模板解析顺序：单篇覆盖（模板:）→ 分类绑定 → 内置词条模板
+  // 模板解析顺序：单篇覆盖（模板:）→ 分类绑定 → 内置词条模板。
+  // 单篇覆盖只认「按篇候选」（`perNoteTemplateByName`）：实体模板 / 旧脏值一律忽略。
   const categoryTemplate = categories.find(
     (category) => category.name === (currentEntry?.category ?? ''),
   )?.template
-  const requestedTemplate = currentEntry?.template?.trim() || categoryTemplate
+  const chosenName = templateChoice?.id === selectedId ? templateChoice.name : undefined
+  const overrideTemplate = perNoteTemplateByName(templates, chosenName ?? currentEntry?.template)
   const entryTemplate =
-    templates.find((doc) => doc.id === requestedTemplate || doc.name === requestedTemplate) ??
+    overrideTemplate ??
+    templates.find((doc) => doc.id === categoryTemplate || doc.name === categoryTemplate) ??
     templates.find((doc) => doc.id === 'entry')
 
 
@@ -91,6 +96,18 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
 
   // 被引用：哪些词条在正文里 [[链接]] 或 @ 引用了当前词条（与分类条目共用同一份查询）
   const { backlinks } = useNoteLinks(selectedId)
+
+  /** 单篇换模板：写 `WorldEntry.template`（名字），空 = 跟随分类 */
+  const handleTemplateSelect = (name: string) => {
+    const id = selectedIdRef.current
+    if (id === null) return
+    setTemplateChoice({ id, name })
+    void updateEntry(id, { template: name })
+      .then(() => refresh())
+      .catch((err: unknown) => {
+        toast.error('模板保存失败', { description: err instanceof Error ? err.message : String(err) })
+      })
+  }
 
   const infoGroups = useInfoGroups()
   const fieldKeys = useMemo(
@@ -232,8 +249,11 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
         headerRight={
           currentEntry ? (
             <>
-              {/* 单篇换模板的入口先撤掉了：那条路写进去不生效（见 docs/todo.md §9），
-                  留着就是「点了没反应」。模板仍由分类绑定 / 模板页决定。 */}
+              <NoteTemplateButton
+                template={entryTemplate}
+                followLabel={categoryTemplate ? `跟随分类（${currentEntry.category}）` : '默认模板'}
+                onSelect={handleTemplateSelect}
+              />
               <TalkToAgentButton
                 kind="world"
                 id={currentEntry.id}
@@ -258,7 +278,6 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
                   titlePlaceholder="词条标题"
                   tags={tags}
                   onTagsChange={handleTagsChange}
-                  showTags={showTags}
                   backlinks={backlinks}
                   onNavigateNote={(id) => {
                     const target = entries.find((e) => e.id === id)

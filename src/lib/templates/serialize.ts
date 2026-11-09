@@ -22,10 +22,24 @@
  */
 import { dump, load } from 'js-yaml'
 import { COMPONENT_BY_ID, COMPONENT_IDS } from './registry'
-import type { TemplateComponent, TemplateComponentId, TemplateDoc } from './types'
+import {
+  LEGACY_COMPONENT_IDS,
+  TEMPLATE_SCHEMA_VERSION,
+  type TemplateComponent,
+  type TemplateComponentId,
+  type TemplateDoc,
+} from './types'
 
 export function isTemplateComponentId(value: unknown): value is TemplateComponentId {
   return typeof value === 'string' && value in COMPONENT_BY_ID
+}
+
+/**
+ * 解析时放行已退役的 id：不这样的话旧文件里的「时间 / 地点」在解析阶段就被丢掉，
+ * 升级逻辑看不到它们，词条里那两块也就没有机会补成基本信息的字段行。
+ */
+function isParsedComponentId(value: unknown): value is TemplateComponentId {
+  return isTemplateComponentId(value) || (typeof value === 'string' && LEGACY_COMPONENT_IDS.includes(value))
 }
 
 function normalizeComponents(raw: unknown): TemplateComponent[] {
@@ -34,7 +48,7 @@ function normalizeComponents(raw: unknown): TemplateComponent[] {
   const seen = new Set<string>()
   for (const item of raw) {
     if (typeof item === 'string') {
-      if (!isTemplateComponentId(item) || seen.has(item)) continue
+      if (!isParsedComponentId(item) || seen.has(item)) continue
       seen.add(item)
       out.push({ id: item, enabled: true })
       continue
@@ -42,7 +56,7 @@ function normalizeComponents(raw: unknown): TemplateComponent[] {
     if (!item || typeof item !== 'object') continue
     const record = item as Record<string, unknown>
     const id = record.id
-    if (!isTemplateComponentId(id) || seen.has(id)) continue
+    if (!isParsedComponentId(id) || seen.has(id)) continue
     seen.add(id)
     const enabled = record['开'] ?? record.enabled
     const params = record['参数'] ?? record.params
@@ -59,6 +73,7 @@ export function serializeTemplate(doc: TemplateDoc): string {
   const frontmatter: Record<string, unknown> = {
     id: doc.id,
     名称: doc.name,
+    版本: TEMPLATE_SCHEMA_VERSION,
   }
   if (doc.aliases.length > 0) frontmatter['别名'] = doc.aliases
   frontmatter['组件'] = doc.components.map((component) => {
@@ -96,8 +111,10 @@ export function parseTemplate(raw: string, fallbackId: string): TemplateDoc | nu
 
   const components = normalizeComponents(record['组件'] ?? record.components)
   const theme = typeof record['主题'] === 'string' ? record['主题'] : undefined
+  const rawVersion = record['版本'] ?? record.version
+  const schema = typeof rawVersion === 'number' && Number.isFinite(rawVersion) ? rawVersion : undefined
 
-  return { id, name, aliases, components, theme }
+  return { id, name, aliases, components, theme, ...(schema !== undefined ? { schema } : {}) }
 }
 
 /** 模板里有没有「认不出的组件 id」—— 编排界面要提示，校验脚本要报 */

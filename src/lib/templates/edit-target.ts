@@ -22,12 +22,13 @@ function groupParamOf(templateId: string): string {
 /** 模板当前选中的基本信息组件 id；没选 → 按宿主给内置那一份（认不出宿主就不给入口） */
 export function infoGroupIdOfTemplate(templateId: string): string | null {
   const selected = groupParamOf(templateId)
-  if (selected !== '') return selected
+  // `group-world` 已退役（词条没有全局字段表）；旧模板里存着它时不给入口，免得跳进空页
+  if (selected !== '' && selected !== 'group-world') return selected
   const host = infoGroupHostOfTemplate(templateId)
   if (host === 'character') return 'group-character'
   if (host === 'event') return 'group-event'
-  if (host === 'world') return 'group-world'
-  // 国家没有字段表、笔记类模板的自建字段不在组件面板里：给不出能跳的目标就不给入口
+  if (host === 'country') return 'group-country'
+  // 笔记宿主（词条 / 国家 / 自建）没有全局字段表；没选组件就没得跳
   return null
 }
 

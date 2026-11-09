@@ -14,22 +14,11 @@ import { useMemo, useState } from 'react'
 import { ArrowLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { templateParamsFor, type TemplateParamDef } from '@/lib/templates/params'
-import { saveTemplate, useTemplates } from '@/lib/templates/store'
+import { setTemplateComponentParams, useTemplates } from '@/lib/templates/store'
 import { COMPONENT_BY_ID } from '@/lib/templates/registry'
+import { TemplateTextParamRow } from '@/components/shared/TemplateParams'
 import type { TemplateComponentId, TemplateDoc } from '@/lib/templates/types'
 import { CHIP, ICON_BTN } from '@/lib/ui-tokens'
-
-/** 把某个参数写回模板的对应组件（别的组件与别的参数原样保留） */
-function withParam(doc: TemplateDoc, componentId: TemplateComponentId, key: string, value: string | number | boolean): TemplateDoc {
-  return {
-    ...doc,
-    components: doc.components.map((component) =>
-      component.id === componentId
-        ? { ...component, params: { ...(component.params ?? {}), [key]: value } }
-        : component,
-    ),
-  }
-}
 
 function ParamRow({
   def,
@@ -55,9 +44,12 @@ function ParamRow({
               type="button"
               aria-pressed={selected}
               onClick={() => {
-                void saveTemplate(withParam(doc, componentId, def.key, option.value)).catch((err: unknown) => {
-                  toast.error('参数保存失败', { description: err instanceof Error ? err.message : String(err) })
-                })
+                // 写回走 store（读当前缓存合并）：连点两个参数不会互相覆盖
+                void setTemplateComponentParams(doc.id, componentId, { [def.key]: option.value }).catch(
+                  (err: unknown) => {
+                    toast.error('参数保存失败', { description: err instanceof Error ? err.message : String(err) })
+                  },
+                )
               }}
               className={`${CHIP} ${
                 selected
@@ -137,9 +129,31 @@ export function TemplateParamPanel({
         <span className="text-sm font-medium text-ink">{active.doc.name}</span>
       </div>
       <div className="flex flex-col">
-        {active.defs.map((def) => (
-          <ParamRow key={def.key} def={def} doc={active.doc} componentId={componentId} />
-        ))}
+        {active.defs
+          .filter((def) => def.kind === 'choice')
+          .map((def) => (
+            <ParamRow key={def.key} def={def} doc={active.doc} componentId={componentId} />
+          ))}
+        {active.doc.components
+          .filter((component) => component.id === componentId)
+          .flatMap((component) =>
+            active.defs
+              .filter((def) => def.kind === 'text')
+              .map((def) => (
+                <TemplateTextParamRow
+                  key={`${active.doc.id}-${def.key}`}
+                  def={def}
+                  component={component}
+                  onChange={(key, value) => {
+                    void setTemplateComponentParams(active.doc.id, componentId, { [key]: value }).catch(
+                      (err: unknown) => {
+                        toast.error('参数保存失败', { description: err instanceof Error ? err.message : String(err) })
+                      },
+                    )
+                  }}
+                />
+              )),
+          )}
       </div>
     </div>
   )

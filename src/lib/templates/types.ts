@@ -24,8 +24,8 @@ export type TemplateComponentId =
   | 'tags'
   | 'image'
   | 'gallery'
-  | 'time'
-  | 'place'
+  | 'portrait'
+  | 'animation'
   | 'summary'
   | 'body'
 
@@ -52,7 +52,30 @@ export interface TemplateDoc {
   components: TemplateComponent[]
   /** 主题 id（阶段五才消费） */
   theme?: string
+  /**
+   * 文件结构版本（`版本:` 键）。旧文件没有这个键 = 0/1。
+   * 只用来做**一次性的组件迁移**（立绘 / 动画组件化；时间 / 地点并回基本信息），
+   * 补完随下次保存写成当前版本，之后用户再删掉也不会被加回来。
+   */
+  schema?: number
 }
+
+/**
+ * 已退役的组件 id —— **只用于读旧文件**（`serialize.ts` 会放行，`store` 的升级会丢掉）。
+ *
+ * 它们不在 `COMPONENT_IDS` 里：不能新建、不能添加、不参与渲染。留这一份白名单，
+ * 只为让旧模板里的这两块能被认出来再迁移，而不是在解析阶段被静默忽略
+ * （静默忽略 = 词条的时间 / 地点从写作面上凭空消失，还找不到原因）。
+ */
+export const LEGACY_COMPONENT_IDS: readonly string[] = ['time', 'place']
+
+/**
+ * 当前模板文件结构版本。
+ * - 2：立绘 / 动画组件化
+ * - 3（2026-11-10）：时间 / 地点并回「基本信息」—— 两个组件退役，旧模板里的这两块
+ *   在升级时移除；时间 / 地点的值一直在实体列上，没动过
+ */
+export const TEMPLATE_SCHEMA_VERSION = 3
 
 /** 模板文件统一放在库的 `.ocstudio/templates/` 下（随库走、可分享） */
 export const TEMPLATE_DIR = '.ocstudio/templates'

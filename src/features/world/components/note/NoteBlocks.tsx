@@ -7,7 +7,8 @@
  * 这里只多一件事：**自己读写词条行**。所以世界观编辑器与分类条目编辑器可以共用同一套
  * 区块，不必各自再写一遍状态与保存管线。
  *
- * 标量字段（简介 / 时间 / 地点）防抖 700ms 写库，卸载时补一次；
+ * 标量字段（简介）防抖 700ms 写库，卸载时补一次；时间 / 地点是基本信息组件里的
+ * 特殊字段行（`WorldCustomFields`），不在这里；
  * 图片类（头像 / 图片 / 图集）立即写 —— 选完图就该在盘上，不该等防抖。
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -15,9 +16,8 @@ import { toast } from 'sonner'
 import type { GalleryImage, WorldEntry, WorldRelation } from '@/types'
 import type { RelationArrow } from '@/lib/relation-colors'
 import type { TemplateComponent, TemplateDoc } from '@/lib/templates/types'
-import { componentParam } from '@/lib/templates/params'
+import { componentLabel, componentParam } from '@/lib/templates/params'
 import { isCodexEntry } from '@/lib/entry-kinds'
-import { assembleTime, parseTime, type ParsedTime } from '@/lib/time-field'
 import { RelationsSection } from '@/components/shared/relations/RelationsSection'
 import { useRelationsBlock } from '@/components/shared/relations/use-relations-block'
 import type {
@@ -25,7 +25,7 @@ import type {
   RelationRow,
   RelationTargetKind,
 } from '@/components/shared/relations/types'
-import { AvatarBlock, GalleryBlock, ImageBlock, PlaceBlock, SummaryBlock, TimeBlock } from '@/components/shared/template-blocks'
+import { AvatarBlock, GalleryBlock, ImageBlock, SummaryBlock } from '@/components/shared/template-blocks'
 import { updateEntry } from '../../services'
 import type { WorldFormData } from '../../types'
 import { useNoteLinks } from '../../hooks/useNoteLinks'
@@ -98,65 +98,10 @@ export function NoteSummaryBlock({
     <SummaryBlock
       value={value}
       showTitle={showTitle}
+      title={componentLabel(component) || '简介'}
       onChange={(next) => {
         setValue(next)
         schedule({ summary: next })
-      }}
-    />
-  )
-}
-
-export function NoteTimeBlock({
-  entry,
-  component,
-}: {
-  entry: WorldEntry
-  component: TemplateComponent
-}) {
-  const [start, setStart] = useState<ParsedTime>(() => parseTime(entry.time ?? ''))
-  const [end, setEnd] = useState<ParsedTime>(() => parseTime(entry.endTime ?? ''))
-  const schedule = useNotePatch(entry.id)
-  const showTitle = componentParam(component, 'title', true) !== false
-  const interval = componentParam(component, 'interval', true) !== false
-
-  return (
-    <TimeBlock
-      start={start}
-      end={end}
-      interval={interval}
-      showTitle={showTitle}
-      onChange={(which, part, value) => {
-        if (which === 'start') {
-          const next = { ...start, [part]: value }
-          setStart(next)
-          schedule({ time: assembleTime(next.year, next.month, next.day) })
-          return
-        }
-        const next = { ...end, [part]: value }
-        setEnd(next)
-        schedule({ endTime: assembleTime(next.year, next.month, next.day) })
-      }}
-    />
-  )
-}
-
-export function NotePlaceBlock({
-  entry,
-  component,
-}: {
-  entry: WorldEntry
-  component: TemplateComponent
-}) {
-  const [value, setValue] = useState(entry.location ?? '')
-  const schedule = useNotePatch(entry.id)
-  const showTitle = componentParam(component, 'title', true) !== false
-  return (
-    <PlaceBlock
-      value={value}
-      showTitle={showTitle}
-      onChange={(next) => {
-        setValue(next)
-        schedule({ location: next })
       }}
     />
   )
@@ -183,6 +128,7 @@ export function NoteImageBlock({
       onChange={save}
       onRemove={() => save('')}
       showTitle={showTitle}
+      title={componentLabel(component) || '图片'}
       width={width}
     />
   )
@@ -210,7 +156,7 @@ export function NoteGalleryBlock({
     <GalleryBlock
       images={images.map((image) => image.url)}
       showTitle={showTitle}
-      title="画廊"
+      title={componentLabel(component) || '画廊'}
       mode={mode}
       columns={columns}
       onAdd={(url) => save([...images, { url, caption: '' }])}
@@ -470,6 +416,7 @@ export function NoteRelationsBlock({
       candidates={candidates}
       presentation={block.presentation}
       showTitle={block.showTitle}
+      title={block.title}
       onPresentationChange={block.canSwitch ? block.setPresentation : undefined}
       onAdd={addRelation}
       onRemove={removeRelation}

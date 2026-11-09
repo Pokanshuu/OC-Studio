@@ -4,7 +4,7 @@
  * 笔记宿主的模板渲染 —— **世界观编辑器与分类条目编辑器的唯一实现**。
  *
  * 两边以前各写一份 `switch (component.id)`，词汇表还不同（分类条目没有 relations /
- * time / place / gallery）。现在所有词条组件都实装了，两份 switch 又永远是同一份，
+ * gallery）。现在所有词条组件都实装了，两份 switch 又永远是同一份，
  * 于是收在这里：宿主只准备数据（标题状态、标签、被引用、正文编辑器）与两个导航回调。
  *
  * 实体侧没有走这里：它们的「基本信息」是强类型列（角色字段 / 事件时间…），
@@ -24,10 +24,8 @@ import {
   NoteAvatarBlock,
   NoteGalleryBlock,
   NoteImageBlock,
-  NotePlaceBlock,
   NoteRelationsBlock,
   NoteSummaryBlock,
-  NoteTimeBlock,
 } from '@/features/world/components/note/NoteBlocks'
 
 export interface NoteTemplateContentProps {
@@ -38,7 +36,6 @@ export interface NoteTemplateContentProps {
   titlePlaceholder?: string
   tags: number[]
   onTagsChange: (ids: number[]) => void
-  showTags: boolean
   backlinks: { id: number; title: string }[]
   /** 点关系 / 被引用里的另一篇笔记 */
   onNavigateNote: (id: number) => void
@@ -61,7 +58,6 @@ export function NoteTemplateContent({
   titlePlaceholder = '名称',
   tags,
   onTagsChange,
-  showTags,
   backlinks,
   onNavigateNote,
   onNavigateEntity,
@@ -76,73 +72,87 @@ export function NoteTemplateContent({
     (component) => component.id === 'relations' && component.enabled,
   )
   const backlinksForTags = relationsEnabled ? [] : backlinks
+  // 标题挂在「基本信息」块里；模板没有这一块（内置词条默认只有标签 + 正文）时
+  // 单独在上面补一行 —— 标题不是组件，不能因为没放基本信息就改不了名字
+  const infoEnabled = template.components.some(
+    (component) => component.id === 'info' && component.enabled,
+  )
+  // 封面永远贴顶（§6.1）：没有基本信息时，标题要排在封面**后面**，不能跑到封面上方
+  const firstEnabled = template.components.find((component) => component.enabled)?.id
+  const titleAfterCover = !infoEnabled && firstEnabled === 'cover'
+  const titleBlock = (
+    <WorldTitleField title={title} onTitleChange={onTitleChange} placeholder={titlePlaceholder} />
+  )
 
   return (
-    <TemplateRenderer
-      template={template}
-      render={(component) => {
-        switch (component.id) {
-          case 'cover':
-            return <WorldCoverField key={entry.id} entry={entry} />
-          case 'avatar':
-            return <NoteAvatarBlock key={entry.id} entry={entry} />
-          case 'info':
-            return (
-              <div className="flex min-w-0 flex-col gap-8">
-                <WorldTitleField
-                  title={title}
-                  onTitleChange={onTitleChange}
-                  placeholder={titlePlaceholder}
-                />
-                <WorldCustomFields
+    <>
+      {infoEnabled || titleAfterCover ? null : <div className="mb-8">{titleBlock}</div>}
+      <TemplateRenderer
+        template={template}
+        render={(component) => {
+          switch (component.id) {
+            case 'cover':
+              return (
+                <>
+                  <WorldCoverField key={entry.id} entry={entry} />
+                  {titleAfterCover ? <div className="mt-8">{titleBlock}</div> : null}
+                </>
+              )
+            case 'avatar':
+              return <NoteAvatarBlock key={entry.id} entry={entry} />
+            case 'info':
+              return (
+                <div className="flex min-w-0 flex-col gap-8">
+                  <WorldTitleField
+                    title={title}
+                    onTitleChange={onTitleChange}
+                    placeholder={titlePlaceholder}
+                  />
+                  <WorldCustomFields
+                    key={entry.id}
+                    entry={entry}
+                    fieldKeys={fieldKeys}
+                    fieldTypes={fieldTypes}
+                    fieldLabels={fieldLabels}
+                  />
+                </div>
+              )
+            case 'relations':
+              return (
+                <NoteRelationsBlock
                   key={entry.id}
                   entry={entry}
-                  fieldKeys={fieldKeys}
-                  fieldTypes={fieldTypes}
-                  fieldLabels={fieldLabels}
+                  template={template}
+                  onNavigate={(kind, id) => {
+                    if (onNavigateEntity) onNavigateEntity(kind, id)
+                    else if (kind === 'world') onNavigateNote(id)
+                  }}
+                  linkRows={linkRows}
                 />
-              </div>
-            )
-          case 'relations':
-            return (
-              <NoteRelationsBlock
-                key={entry.id}
-                entry={entry}
-                template={template}
-                onNavigate={(kind, id) => {
-                  if (onNavigateEntity) onNavigateEntity(kind, id)
-                  else if (kind === 'world') onNavigateNote(id)
-                }}
-                linkRows={linkRows}
-              />
-            )
-          case 'tags':
-            if (!showTags && backlinksForTags.length === 0) return null
-            return (
-              <WorldMetaFields
-                tags={tags}
-                onTagsChange={onTagsChange}
-                showTags={showTags}
-                backlinks={backlinksForTags}
-                onSelectBacklink={onNavigateNote}
-              />
-            )
-          case 'image':
-            return <NoteImageBlock key={entry.id} entry={entry} component={component} />
-          case 'gallery':
-            return <NoteGalleryBlock key={entry.id} entry={entry} component={component} />
-          case 'time':
-            return <NoteTimeBlock key={entry.id} entry={entry} component={component} />
-          case 'place':
-            return <NotePlaceBlock key={entry.id} entry={entry} component={component} />
-          case 'summary':
-            return <NoteSummaryBlock key={entry.id} entry={entry} component={component} />
-          case 'body':
-            return body
-          default:
-            return null
-        }
-      }}
-    />
+              )
+            case 'tags':
+              // 组件开着就一定有标签（没标签也留输入口）；「被引用」只在没有关系块时兜底
+              return (
+                <WorldMetaFields
+                  tags={tags}
+                  onTagsChange={onTagsChange}
+                  backlinks={backlinksForTags}
+                  onSelectBacklink={onNavigateNote}
+                />
+              )
+            case 'image':
+              return <NoteImageBlock key={entry.id} entry={entry} component={component} />
+            case 'gallery':
+              return <NoteGalleryBlock key={entry.id} entry={entry} component={component} />
+            case 'summary':
+              return <NoteSummaryBlock key={entry.id} entry={entry} component={component} />
+            case 'body':
+              return body
+            default:
+              return null
+          }
+        }}
+      />
+    </>
   )
 }

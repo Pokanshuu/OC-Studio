@@ -1,17 +1,19 @@
 'use client'
 
-import { useRef } from 'react'
-import { Plus } from 'lucide-react'
-import { ImageGallery, type ImageGalleryHandle } from '@/components/shared/image-gallery/ImageGallery'
 import { ProfileBannerEditor } from '@/components/shared/ProfileBannerEditor'
 import { RelationsSection } from '@/components/shared/relations/RelationsSection'
 import { useRelationsBlock } from '@/components/shared/relations/use-relations-block'
-import { GalleryBlock, SummaryBlock, AvatarBlock } from '@/components/shared/template-blocks'
+import {
+  AnimationBlock,
+  AvatarBlock,
+  GalleryBlock,
+  SummaryBlock,
+} from '@/components/shared/template-blocks'
 import { TagsSection } from '@/components/shared/TagsSection'
 import { TemplateRenderer } from '@/components/shared/TemplateRenderer'
 import { useTemplates } from '@/lib/templates/store'
-import { componentParam } from '@/lib/templates/params'
-import { ADD_ACTION, SECTION_TITLE_BARE, TITLE_INPUT } from '@/lib/ui-tokens'
+import { componentLabel, componentParam } from '@/lib/templates/params'
+import { TITLE_INPUT } from '@/lib/ui-tokens'
 import type { CharacterForm } from '../hooks/useCharacterForm'
 import { CharacterInfoSection } from './CharacterInfoSection'
 
@@ -30,13 +32,15 @@ interface CharacterFrontmatterProps {
  * 角色 frontmatter：**由模板决定区块顺序与开关**（阶段一，数据仍写原列）。
  *
  * 映射（进度见 `src/lib/templates/support.ts`）：
- * - `cover`     → 头图 + 头像
- * - `info`      → 名称 / 一句话 / 字段表 / **立绘**（立绘是基本信息组里的 atom，见 `模板.md §6.2`）
+ * - `cover`     → 头图（头像在 `avatar` 组件里）
+ * - `info`      → 名称 / 一句话 / 字段表
+ * - `portrait`  → 立绘（`avatars`，9:16 图集，角色专属）
+ * - `animation` → OC 动画（`animation`，视频槽，角色专属）
  * - `relations` → 关系（共用 `components/shared/relations`）
  * - `tags`      → 标签（独立成块，不再占基本信息的一行）
  * - `gallery`   → 相册
  *
- * 正文由 `EntityDocumentBody` 在编辑器壳里单独渲染，所以模板里的 `body` 这里返回 `null`。
+ * 正文节点由编辑器壳传进来（`body`），模板里的 `body` 就把它放回编排顺序里。
  */
 export function CharacterFrontmatter({
   form,
@@ -46,7 +50,6 @@ export function CharacterFrontmatter({
   onNavigateToWorld,
   body,
 }: CharacterFrontmatterProps) {
-  const portraitGallery = useRef<ImageGalleryHandle>(null)
   const { templates } = useTemplates()
   const template = templates.find((doc) => doc.id === 'character')
 
@@ -58,39 +61,49 @@ export function CharacterFrontmatter({
   const galleryMode = componentParam(galleryComponent, 'mode', 'grid') === 'slider' ? 'slider' : 'grid'
   const galleryTitle = componentParam(galleryComponent, 'title', true) !== false
   const summaryTitle = componentParam(summaryComponent, 'title', true) !== false
+  const galleryLabel = componentLabel(galleryComponent)
+  const summaryLabel = componentLabel(summaryComponent)
   const relationsBlock = useRelationsBlock(template)
+  const portraitComponent = template?.components.find((component) => component.id === 'portrait')
+  const animationComponent = template?.components.find((component) => component.id === 'animation')
+  const portraitLabel = componentLabel(portraitComponent)
+  const animationLabel = componentLabel(animationComponent)
+  // 头像是独立组件：模板启用了 `avatar`，封面就不再画一次（老模板兜底仍走封面）
+  const avatarEnabled = template?.components.some(
+    (component) => component.id === 'avatar' && component.enabled,
+  ) ?? false
 
   const portraitSection = (
-    <section>
-      <div className="mb-3 flex items-center justify-between gap-4">
-        <h3 className={SECTION_TITLE_BARE}>立绘</h3>
-        <button type="button" onClick={() => portraitGallery.current?.add()} className={ADD_ACTION}>
-          <Plus size={12} strokeWidth={2} />
-          <span>添加</span>
-        </button>
-      </div>
-      <ImageGallery
-        ref={portraitGallery}
-        mode="grid"
-        columns={columns}
-        gridAspect="portrait"
-        externalAdd
-        images={form.avatarUrls}
-        enableCrop
-        cropAspect={9 / 16}
-        onAdd={(path) => form.setAvatarUrls((prev) => [...prev, path])}
-        onReplace={(index, path) =>
-          form.setAvatarUrls((prev) => prev.map((url, i) => (i === index ? path : url)))}
-        onRemove={(index) => form.setAvatarUrls((prev) => prev.filter((_, i) => i !== index))}
-      />
-    </section>
+    <GalleryBlock
+      images={form.avatarUrls}
+      showTitle
+      title={portraitLabel || '立绘'}
+      mode="grid"
+      columns={compact ? 3 : 4}
+      gridAspect="portrait"
+      enableCrop
+      cropAspect={9 / 16}
+      onAdd={(path) => form.setAvatarUrls((prev) => [...prev, path])}
+      onReplace={(index, path) =>
+        form.setAvatarUrls((prev) => prev.map((url, i) => (i === index ? path : url)))}
+      onRemove={(index) => form.setAvatarUrls((prev) => prev.filter((_, i) => i !== index))}
+    />
+  )
+
+  const animationSection = (
+    <AnimationBlock
+      value={form.animationUrl}
+      onChange={form.setAnimationUrl}
+      onRemove={() => form.setAnimationUrl('')}
+      title={animationLabel || '动画'}
+    />
   )
 
   const photoSection = (
     <GalleryBlock
       images={form.galleryUrls}
       showTitle={galleryTitle}
-      title="相册"
+      title={galleryLabel || '相册'}
       mode={galleryMode}
       columns={columns}
       onAdd={(path) => form.setGalleryUrls((prev) => [...prev, path])}
@@ -101,7 +114,12 @@ export function CharacterFrontmatter({
   )
 
   const summarySection = (
-    <SummaryBlock value={form.bio} showTitle={summaryTitle} onChange={form.setBio} />
+    <SummaryBlock
+      value={form.bio}
+      showTitle={summaryTitle}
+      title={summaryLabel || '简介'}
+      onChange={form.setBio}
+    />
   )
 
   const relationSection = (
@@ -111,6 +129,7 @@ export function CharacterFrontmatter({
       candidates={form.relationCandidates}
       presentation={relationsBlock.presentation}
       showTitle={relationsBlock.showTitle}
+      title={relationsBlock.title}
       onPresentationChange={relationsBlock.canSwitch ? relationsBlock.setPresentation : undefined}
       onAdd={form.addRelation}
       onRemove={form.removeRelation}
@@ -151,6 +170,8 @@ export function CharacterFrontmatter({
         <div className="border-t border-line" />
         {portraitSection}
         <div className="border-t border-line" />
+        {animationSection}
+        <div className="border-t border-line" />
         {relationSection}
         <div className="border-t border-line" />
         {tagsSection}
@@ -170,9 +191,9 @@ export function CharacterFrontmatter({
             return (
               <ProfileBannerEditor
                 headerUrl={form.headerUrl}
-                avatarUrl={form.avatarUrl}
+                avatarUrl={avatarEnabled ? undefined : form.avatarUrl}
                 onHeaderChange={form.setHeaderUrl}
-                onAvatarChange={form.setAvatarUrl}
+                onAvatarChange={avatarEnabled ? undefined : form.setAvatarUrl}
                 onHeaderRemove={() => form.setHeaderUrl('')}
                 onAvatarRemove={() => form.setAvatarUrl('')}
               />
@@ -199,9 +220,12 @@ export function CharacterFrontmatter({
                   {form.summaryLine ? <p className="text-sm text-ink-muted">{form.summaryLine}</p> : null}
                 </div>
                 <CharacterInfoSection form={form} onNavigateToCountry={onNavigateToCountry} compact={compact} />
-                {portraitSection}
               </div>
             )
+          case 'portrait':
+            return portraitSection
+          case 'animation':
+            return animationSection
           case 'relations':
             return relationSection
           case 'summary':

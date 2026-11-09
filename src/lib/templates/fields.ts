@@ -10,7 +10,7 @@
  */
 import type { TemplateDoc } from './types'
 import { isNoteTemplate } from './note'
-import { getInfoGroups, type InfoFieldType, type InfoGroup } from './info-groups'
+import { getInfoGroups, isSpecialInfoFieldType, type InfoFieldType, type InfoGroup } from './info-groups'
 
 const SPLIT = /[,，、]/
 
@@ -47,7 +47,7 @@ export function templateFieldKeys(doc: TemplateDoc, groups?: readonly InfoGroup[
       /**
        * 只有 `note` 宿主的组件字段是**自建键**（落 `WorldEntry.custom`）。
        *
-       * 角色 / 事件 / 词条的组件字段是**实体列 id**（`race` / `birthday`），
+       * 角色 / 事件的组件字段是**实体列 id**（`race` / `birthday`），
        * 它们由 `lib/fields/defaults.ts` 的 `FieldConfig` 管，不能混进自定义键
        * 词表 —— 混进去会被当成“声明了但永远不出现的自建字段”，
        * 还会让落盘侧的键集合凭空变大。
@@ -62,9 +62,17 @@ export function templateFieldKeys(doc: TemplateDoc, groups?: readonly InfoGroup[
 /** 全部模板用到的字段键（给 frontmatter 词汇表登记用） */
 export function collectTemplateFieldKeys(docs: TemplateDoc[], groups?: readonly InfoGroup[]): string[] {
   const out = new Set<string>()
+  const resolved = groups ?? getInfoGroups()
   for (const doc of docs) {
     if (!isNoteTemplate(doc)) continue
-    for (const key of templateFieldKeys(doc, groups) ?? []) out.add(key)
+    const keys = templateFieldKeys(doc, resolved) ?? []
+    const types = templateFieldTypes(doc, resolved) ?? {}
+    for (const key of keys) {
+      // 特殊字段（时间 / 结束时间 / 地点）写的是词条自己的列，不是 frontmatter 自建键 ——
+      // 登记进来会让 scan 去读一个永远不存在的键，落盘时还会凭空多写一个空键
+      if (isSpecialInfoFieldType(types[key])) continue
+      out.add(key)
+    }
   }
   return [...out]
 }

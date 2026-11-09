@@ -26,6 +26,7 @@ export function newCountryData(): CountryFormData {
     geography: '',
     culture: '',
     tags: [],
+    custom: {},
   }
 }
 

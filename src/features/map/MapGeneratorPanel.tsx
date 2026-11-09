@@ -277,6 +277,7 @@ export function MapGeneratorPanel({
   initialSeed,
   initialParams,
   target,
+  onBusyChange,
 }: {
   /** 拿到 PNG 后交给宿主：落盘 + 设为当前地图底图（带上是哪一档视图） */
   onUseAsBackground: (
@@ -296,6 +297,12 @@ export function MapGeneratorPanel({
   initialParams?: string
   /** 生成结果写到哪：既有地图（提示写入哪张）/ 新建一张（工具页） */
   target?: MapGeneratorTarget
+  /**
+   * 「用作底图 / 保存为新地图」这段是否还在跑。
+   * 落盘 + 其余五档预渲染要几十秒，宿主据此别让用户把这一页关掉 ——
+   * 关掉之后既没有进度，地图也还是空的，看起来就像图丢了。
+   */
+  onBusyChange?: (busy: boolean) => void
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const workerRef = useRef<Worker | null>(null)
@@ -538,6 +545,8 @@ export function MapGeneratorPanel({
       setError('画布还没有内容')
       return
     }
+    // 落盘 + 其余五档预渲染要几十秒：这段里宿主不该让用户把这一页关掉
+    onBusyChange?.(true)
     try {
       await onUseAsBackground(
         blob,
@@ -555,6 +564,8 @@ export function MapGeneratorPanel({
     } catch (err) {
       setProgress(null)
       setError(err instanceof Error ? err.message : '保存底图失败')
+    } finally {
+      onBusyChange?.(false)
     }
   }
 

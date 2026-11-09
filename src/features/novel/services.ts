@@ -7,6 +7,7 @@
  */
 import { db } from '@/lib/db'
 import { logOperation, pendingStamp } from '@/lib/sync'
+import { softDelete } from '@/lib/repository'
 import type { WorldEntry } from '@/types'
 
 export { NOVEL_CATEGORY } from '@/lib/novel'
@@ -58,6 +59,34 @@ export async function createNovelChapter(parentId: number | null, title = '新�
   const id = await db.worldEntries.add(baseRow(title, parentId, order))
   await logOperation('worldEntries', id, 'title', '', title)
   return id
+}
+
+/**
+ * 删除一本小说 / 一章（连同全部子级）一起进回收站。
+ *
+ * 只软删当前这一行会留下**看不见的孤儿**（书架只列根节点，子章节没了父级再也不会出现），
+ * 所以这里沿 `parentId` 收全子树逐行软删 —— 每行都留操作日志，回收站里也能整棵恢复。
+ */
+export async function deleteNovelSubtree(rootId: number): Promise<void> {
+  const rows = await listNovelEntries()
+  const childrenOf = new Map<number, number[]>()
+  for (const row of rows) {
+    if (row.parentId === null) continue
+    const list = childrenOf.get(row.parentId)
+    if (list) list.push(row.id)
+    else childrenOf.set(row.parentId, [row.id])
+  }
+
+  const picked: number[] = []
+  const stack = [rootId]
+  while (stack.length > 0) {
+    const id = stack.pop() as number
+    if (picked.includes(id)) continue
+    picked.push(id)
+    stack.push(...(childrenOf.get(id) ?? []))
+  }
+
+  for (const id of picked) await softDelete(db.worldEntries, id, 'worldEntries')
 }
 
 /*/** 重命名（走 updateEntry 那条路会把 `category` 抹掉，这里直接写 title） */

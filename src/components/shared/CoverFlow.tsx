@@ -95,7 +95,10 @@ export function CoverFlow({
         const rect = item.getBoundingClientRect()
         const distance = rect.left + rect.width / 2 - centerX
         const t = Math.max(-1, Math.min(1, distance / half))
-        if (reduced) {
+        // 正中的那张**不加 3D transform**：WebKit 把带 3D transform 的元素提升成
+        // 合成层后，`overflow: hidden` + `border-radius` 的圆角会漏 1–2px 透明，
+        // 桌面 / 截图上就是四个黑角。两侧的卡不在乎那 1px，正中的那张是脸面。
+        if (reduced || Math.abs(distance) < 1) {
           item.style.transform = ''
           item.style.opacity = '1'
           continue
@@ -261,7 +264,7 @@ export function CoverFlow({
         {children.map((child, index) => (
           <div
             key={index}
-            className="shrink-0 snap-center transition-transform will-change-transform"
+            className="shrink-0 snap-center transition-transform"
             style={{ width }}
           >
             {child}

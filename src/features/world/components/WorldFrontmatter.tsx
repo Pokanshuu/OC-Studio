@@ -26,29 +26,30 @@ export function WorldTitleField({ title, onTitleChange, placeholder = '词条标
 interface WorldMetaFieldsProps {
   tags: number[]
   onTagsChange: (ids: number[]) => void
-  showTags: boolean
   backlinks: { id: number; title: string }[]
   onSelectBacklink: (id: number) => void
 }
 
-/** 标签 / 被引用（模板里的「标签」区块） */
+/**
+ * 标签 / 被引用（模板里的「标签」区块）。
+ *
+ * 标签是独立 block（`docs/模板.md §6.4`）——**在不在，由模板的组件开关决定**，
+ * 不再看字段表里有没有 `tags` 这一行（2026-11-09 起字段表不再有它）。
+ */
 export function WorldMetaFields({
   tags,
   onTagsChange,
-  showTags,
   backlinks,
   onSelectBacklink,
 }: WorldMetaFieldsProps) {
   return (
     <div className={`flex flex-col ${LIST_END}`}>
-      {showTags ? (
-        <div className={`${FIELD_ROW_TOP} last:border-b-0`}>
-          <span className={FIELD_LABEL}>标签</span>
-          <div className="min-w-0 flex-1">
-            <TagPicker selectedIds={tags} onChange={onTagsChange} />
-          </div>
+      <div className={`${FIELD_ROW_TOP} last:border-b-0`}>
+        <span className={FIELD_LABEL}>标签</span>
+        <div className="min-w-0 flex-1">
+          <TagPicker selectedIds={tags} onChange={onTagsChange} />
         </div>
-      ) : null}
+      </div>
 
       {backlinks.length > 0 ? (
         <div className={`${FIELD_ROW_TOP} last:border-b-0`}>

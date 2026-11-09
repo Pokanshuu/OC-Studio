@@ -20,26 +20,66 @@ export const INFO_GROUPS_REL_PATH = '.ocstudio/info-groups.json'
 const REL_PATH = INFO_GROUPS_REL_PATH
 const VERSION = 1
 
-export type InfoGroupHost = 'character' | 'event' | 'world' | 'note'
+export type InfoGroupHost = 'character' | 'event' | 'country' | 'world' | 'note'
 
 /**
  * 笔记型字段的控件类型（列型宿主不用它 —— 那边的控件由 `lib/fields` 的 `FieldDef.type` 决定）。
  *
- * 只有四种：写作面上真正需要区分的就这几类，再往上加就变成表单设计器了（`docs/模板.md §12`）。
- * **没有「多行」**：长文本归正文组件（富文本），基本信息只管结构化短字段 —— 在这里开一个
- * 多行框，等于在正文旁边再造一份长篇正文，两边还会各写各的。
+ * 前四种是通用的：写作面上真正需要区分的就这几类，再往上加就变成表单设计器了
+ * （`docs/模板.md §12`）。**没有「多行」**：长文本归正文组件（富文本），基本信息只管
+ * 结构化短字段 —— 在这里开一个多行框，等于在正文旁边再造一份长篇正文。
+ *
+ * 后三种是**特殊字段**（`time` / `timeEnd` / `place`）：控件是年 / 月 / 日三段与单行，
+ * 但值**不落 `custom`**，直接写词条自己的列（`time` / `endTime` / `location`）。
+ * 这样时间 / 地点既是「基本信息里的一行」，又仍然只有一份数据（时间线、导出读同一列）。
+ * 一个组件里每种最多一个 —— 两个输入绑同一列只会互相覆盖。
+ *
  * 存成字符串，读回来认不出来的一律回 `text`，不因为一个坏值把整份组件读废。
  */
-export type InfoFieldType = 'text' | 'number' | 'date' | 'boolean'
+export type InfoFieldType = 'text' | 'number' | 'date' | 'boolean' | 'time' | 'timeEnd' | 'place'
 
 export const INFO_FIELD_TYPE_LABELS: Record<InfoFieldType, string> = {
   text: '单行',
   number: '数字',
   date: '日期',
   boolean: '开关',
+  time: '时间',
+  timeEnd: '结束时间',
+  place: '地点',
 }
 
-const INFO_FIELD_TYPES: InfoFieldType[] = ['text', 'number', 'date', 'boolean']
+const INFO_FIELD_TYPES: InfoFieldType[] = [
+  'text',
+  'number',
+  'date',
+  'boolean',
+  'time',
+  'timeEnd',
+  'place',
+]
+
+/** 特殊字段类型 → 词条上的列名（值不走 `custom`） */
+export const INFO_FIELD_COLUMNS: Record<'time' | 'timeEnd' | 'place', InfoFieldColumn> = {
+  time: 'time',
+  timeEnd: 'endTime',
+  place: 'location',
+}
+
+/** 特殊字段写的列（`WorldEntry` 的同名列） */
+export type InfoFieldColumn = 'time' | 'endTime' | 'location'
+
+const SPECIAL_INFO_FIELD_TYPES = ['time', 'timeEnd', 'place'] as const
+
+export function isSpecialInfoFieldType(type: InfoFieldType | undefined): boolean {
+  return type !== undefined && (SPECIAL_INFO_FIELD_TYPES as readonly string[]).includes(type)
+}
+
+/** 字段类型 → 它绑的实体列；通用字段没有列（值落 `custom`） */
+export function infoFieldColumnOf(type: InfoFieldType | undefined): InfoFieldColumn | undefined {
+  return type !== undefined && isSpecialInfoFieldType(type)
+    ? INFO_FIELD_COLUMNS[type as keyof typeof INFO_FIELD_COLUMNS]
+    : undefined
+}
 
 export function isInfoFieldType(value: unknown): value is InfoFieldType {
   return typeof value === 'string' && (INFO_FIELD_TYPES as string[]).includes(value)
@@ -87,11 +127,12 @@ export const BUILTIN_INFO_GROUPS: InfoGroup[] = [
     fields: BUILTIN_FIELDS.event.map((field) => field.id),
   },
   {
-    id: 'group-world',
-    name: '词条',
+    id: 'group-country',
+    name: '国家',
     builtin: true,
-    for: 'world',
-    fields: BUILTIN_FIELDS.worldEntry.map((field) => field.id),
+    for: 'country',
+    // 国家的内置列（体制 / 地理 / 文化）在正文里，字段表只有自建字段
+    fields: [],
   },
   {
     id: 'group-pet',
@@ -153,7 +194,11 @@ export function isBuiltinInfoGroup(id: string): boolean {
 function hostOf(id: string, recordFor: unknown): InfoGroupHost | undefined {
   const builtin = BUILTIN_INFO_GROUPS.find((group) => group.id === id)
   if (builtin) return builtin.for
-  return recordFor === 'character' || recordFor === 'event' || recordFor === 'world' || recordFor === 'note'
+  return recordFor === 'character' ||
+    recordFor === 'event' ||
+    recordFor === 'country' ||
+    recordFor === 'world' ||
+    recordFor === 'note'
     ? recordFor
     : undefined
 }
@@ -161,14 +206,21 @@ function hostOf(id: string, recordFor: unknown): InfoGroupHost | undefined {
 /** 列型宿主的字段必须是真实存在的实体列；不认识的键直接丢，避免界面上出现死行 */
 function knownColumnKeys(host: InfoGroupHost | undefined, fields: string[]): string[] {
   if (host === 'note' || host === undefined) return fields
-  const kind = host === 'character' ? 'character' : host === 'event' ? 'event' : 'worldEntry'
+  const kind =
+    host === 'character'
+      ? 'character'
+      : host === 'event'
+        ? 'event'
+        : host === 'country'
+          ? 'country'
+          : 'worldEntry'
   const known = new Set(BUILTIN_FIELDS[kind].map((field) => field.id))
   return fields.filter((field) => known.has(field))
 }
 /**
  * 顺序与显示范围的**归属**（定死，别再猜）：
  *
- * - **列型宿主**（角色 / 事件 / 词条）：唯一源是 `lib/fields` 的 `FieldConfig`
+ * - **列型宿主**（角色 / 事件）：唯一源是 `lib/fields` 的 `FieldConfig`
  *   —— 显示哪些字段、什么顺序都由字段表编辑器说了算。组件里那一份只是**投影**，
  *   读回时直接按内置默认重建，忽略盘上的值（盘上写了也不作数）。
  * - **笔记型宿主**（宠物 / 武器 / 自建）：组件就是唯一源，字段顺序随组件走。
@@ -188,13 +240,23 @@ function clone(group: InfoGroup): InfoGroup {
   }
 }
 
-/** 只留字段表里真实存在的键，且类型必须是认识的五种之一 */
+/**
+ * 只留字段表里真实存在的键，类型必须是认识的几种之一。
+ *
+ * 特殊类型（时间 / 结束时间 / 地点）每种只留**第一个**：它们绑的是同一条列，
+ * 留两行等于两个输入抢一份数据。多出来的行退回 `text`（不删字段、不动数据）。
+ */
 function normalizeTypes(raw: unknown, fields: readonly string[]): Record<string, InfoFieldType> | undefined {
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return undefined
   const known = new Set(fields)
   const out: Record<string, InfoFieldType> = {}
+  const usedSpecial = new Set<string>()
   for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
     if (!known.has(key) || !isInfoFieldType(value) || value === 'text') continue
+    if (isSpecialInfoFieldType(value)) {
+      if (usedSpecial.has(value)) continue
+      usedSpecial.add(value)
+    }
     out[key] = value
   }
   return Object.keys(out).length > 0 ? out : undefined
@@ -234,6 +296,12 @@ function merge(saved: InfoGroup[]): InfoGroup[] {
   return [...byId.values()]
 }
 
+/**
+ * 已退役的内置组件：词条不再有全局字段表（2026-11-09，字段改由「按篇选的模板」决定）。
+ * 盘上残留的这条直接丢掉 —— 它只是内置字段的投影，丢掉不碰任何数据。
+ */
+const RETIRED_GROUP_IDS = new Set(['group-world'])
+
 function normalize(raw: unknown): InfoGroup[] {
   if (!Array.isArray(raw)) return []
   const out: InfoGroup[] = []
@@ -243,7 +311,7 @@ function normalize(raw: unknown): InfoGroup[] {
     const record = item as Record<string, unknown>
     const id = typeof record.id === 'string' ? record.id.trim() : ''
     const name = typeof record.name === 'string' ? record.name.trim() : ''
-    if (id === '' || name === '' || seen.has(id)) continue
+    if (id === '' || name === '' || seen.has(id) || RETIRED_GROUP_IDS.has(id)) continue
     seen.add(id)
     const fields = Array.isArray(record.fields)
       ? [...new Set(record.fields.filter((field): field is string => typeof field === 'string').map((field) => field.trim()).filter((field) => field !== ''))]
@@ -313,8 +381,10 @@ export async function loadInfoGroups(force = false): Promise<void> {
     } finally {
       loaded = true
       loading = null
-      emit()
     }
+    // 模板降级时登记的特殊字段，要等组件装载完才能补（见 `queueSpecialInfoFields`）
+    await applyPendingSpecialFields()
+    emit()
   })()
   return loading
 }
@@ -346,6 +416,79 @@ export function getInfoGroups(): InfoGroup[] {
 
 export function findInfoGroup(id: string): InfoGroup | undefined {
   return snapshot.find((group) => group.id === id)
+}
+
+/**
+ * 模板降级（v3 退役「时间 / 地点」组件）时，旧模板里的那两块不能凭空消失：
+ * 值还在词条列里，但写作面上得有一个入口。于是把对应的**特殊字段**补进
+ * 模板当时选中的基本信息组件（`time` / `timeEnd` / `place`）。
+ *
+ * 登记时组件可能还没装载（模板与组件是两条独立的读盘路径），所以先排队，
+ * 组件装载完（`loadInfoGroups` 末尾）再统一补。补法是**纯增量**：
+ * 已经有该类型就跳过，落盘一次；之后用户删掉也不会被加回来。
+ */
+const pendingSpecialFields = new Map<string, Set<InfoFieldType>>()
+
+const SPECIAL_FIELD_DEFAULT_LABELS: Record<'time' | 'timeEnd' | 'place', string> = {
+  time: '时间',
+  timeEnd: '结束时间',
+  place: '地点',
+}
+
+export function queueSpecialInfoFields(
+  groupId: string,
+  types: readonly ('time' | 'timeEnd' | 'place')[],
+): void {
+  const id = groupId.trim()
+  if (id === '' || types.length === 0) return
+  const bucket = pendingSpecialFields.get(id) ?? new Set<InfoFieldType>()
+  for (const type of types) bucket.add(type)
+  pendingSpecialFields.set(id, bucket)
+  if (loaded) void applyPendingSpecialFields()
+}
+
+/** 一个还不存在的位置：特殊字段的键只是行身份，撞名时加序号（列才是它的归属） */
+function freeFieldKey(taken: readonly string[], base: string): string {
+  if (!taken.includes(base)) return base
+  let index = 2
+  while (taken.includes(`${base}-${index}`)) index += 1
+  return `${base}-${index}`
+}
+
+async function applyPendingSpecialFields(): Promise<void> {
+  if (pendingSpecialFields.size === 0 || !loaded) return
+  const pending = new Map(pendingSpecialFields)
+  pendingSpecialFields.clear()
+
+  let changed = false
+  const next = snapshot.map((group) => {
+    const needs = pending.get(group.id)
+    if (needs === undefined) return group
+    const fields = [...group.fields]
+    const types = { ...(group.types ?? {}) }
+    const labels = { ...(group.labels ?? {}) }
+    let touched = false
+    for (const type of needs) {
+      if (!isSpecialInfoFieldType(type)) continue
+      if (Object.values(types).includes(type)) continue
+      const key = freeFieldKey(fields, INFO_FIELD_COLUMNS[type as keyof typeof INFO_FIELD_COLUMNS])
+      fields.push(key)
+      types[key] = type
+      labels[key] = SPECIAL_FIELD_DEFAULT_LABELS[type as keyof typeof SPECIAL_FIELD_DEFAULT_LABELS]
+      touched = true
+    }
+    if (!touched) return group
+    changed = true
+    return { ...group, fields, types, labels }
+  })
+
+  if (!changed) return
+  try {
+    await saveInfoGroups(next)
+  } catch {
+    // 落盘失败不该让开库流程中断：内存里已经补上（`saveInfoGroups` 先改内存再写盘），
+    // 下次任何一次保存会把它一起写出去
+  }
 }
 
 function subscribe(listener: () => void): () => void {
@@ -399,14 +542,24 @@ export function infoGroupHostOfTemplate(templateId: string): InfoGroupHost | und
   const id = templateId.trim().toLowerCase()
   if (id.startsWith('character')) return 'character'
   if (id.startsWith('event')) return 'event'
-  if (id.startsWith('entry') || id.startsWith('world')) return 'world'
-  if (id.startsWith('pet') || id.startsWith('weapon') || id.startsWith('country')) return 'note'
+  if (id.startsWith('country')) return 'country'
+  // 词条是**笔记宿主**：没有全局字段表，字段来自按篇选的模板 / 组件（2026-11-09 收口）
+  if (id.startsWith('entry') || id.startsWith('world')) return 'note'
+  if (id.startsWith('pet') || id.startsWith('weapon')) return 'note'
   return undefined
 }
 
-/** 某套模板能选的基本信息组件：宿主要么相同、要么没标宿主（自建的老组件） */
+/**
+ * 某套模板能选的基本信息组件。
+ *
+ * - **列型宿主**（角色 / 事件）：字段表是全局唯一真源，模板只是引用它 ——
+ *   所以只列同一宿主的那一份（自建组件的字段是自建键，混进来会渲染成空行）
+ * - **笔记宿主**（词条 / 国家 / 宠物 / 武器 / 自建模板）：列笔记型组件 + 没标宿主的老组件
+ */
 export function selectableInfoGroups(templateId: string, groups: readonly InfoGroup[]): InfoGroup[] {
   const host = infoGroupHostOfTemplate(templateId)
-  if (host === undefined) return [...groups]
-  return groups.filter((group) => group.for === undefined || group.for === host)
+  if (host === 'character' || host === 'event' || host === 'country') {
+    return groups.filter((group) => group.for === host)
+  }
+  return groups.filter((group) => group.for === undefined || group.for === 'note')
 }

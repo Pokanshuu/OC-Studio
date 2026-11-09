@@ -25,13 +25,12 @@ import { WorldEntryBody } from '@/features/world/components/WorldEntryBody'
 import { NoteTemplateContent } from '@/features/world/components/note/NoteTemplateContent'
 import { templateFieldKeys, templateFieldLabels, templateFieldTypes } from '@/lib/templates/fields'
 import { updateEntry } from '@/features/world/services'
-import { useFields } from '@/lib/fields'
 import { useTemplates } from '@/lib/templates/store'
-import { noteTemplates } from '@/lib/templates/note'
+import { perNoteTemplateByName } from '@/lib/templates/note'
 import { useInfoGroups } from '@/lib/templates/info-groups'
 import type { Category } from '@/lib/categories/types'
 import { EntityEditorShell } from '@/components/shared/EntityEditorShell'
-import { MediaContextMenu } from '@/components/shared/MediaContextMenu'
+import { NoteTemplateButton } from '@/features/world/components/NoteTemplateButton'
 import { BTN_QUIET, CENTER_STATE, LOADING_TEXT } from '@/lib/ui-tokens'
 
 interface CategoryEntryEditorProps {
@@ -81,13 +80,10 @@ function CategoryEntryEditorInner({
   const queryClient = useQueryClient()
   const { templates } = useTemplates()
   const infoGroups = useInfoGroups()
-  const worldFields = useFields('worldEntry')
-  const showTags = worldFields.some((field) => field.id === 'tags')
 
   const [title, setTitle] = useState(entry.title)
   const [tags, setTags] = useState<number[]>(entry.tags ?? [])
   const [templateOverride, setTemplateOverride] = useState<string | null>(null)
-  const [templateMenu, setTemplateMenu] = useState<{ x: number; y: number } | null>(null)
   const [bodyEditor, setBodyEditor] = useState<Editor | null>(null)
 
   const refresh = useCallback(() => {
@@ -105,13 +101,12 @@ function CategoryEntryEditorInner({
   // 被引用：哪些笔记在正文里 [[链接]] / @ 引用了这一条（与世界编辑器共用同一份查询）
   const { backlinks } = useNoteLinks(entryId, undefined, entry.updatedAt)
 
-  // 模板解析顺序：单篇覆盖（模板:）→ 分类绑定 → 内置词条模板
-  const requestedTemplate =
-    templateOverride !== null
-      ? (templateOverride.trim() || category.template)
-      : (entry.template?.trim() || category.template)
+  // 模板解析顺序：单篇覆盖（模板:）→ 分类绑定 → 内置词条模板。
+  // 单篇覆盖只认「按篇候选」（`perNoteTemplateByName`）：分类仍可绑实体模板（复制进分类那条路）。
+  const requestedOverride = templateOverride !== null ? templateOverride : entry.template
   const entryTemplate =
-    templates.find((doc) => doc.id === requestedTemplate || doc.name === requestedTemplate) ??
+    perNoteTemplateByName(templates, requestedOverride) ??
+    templates.find((doc) => doc.id === category.template || doc.name === category.template) ??
     templates.find((doc) => doc.id === 'entry') ??
     templates[0]
   /** 模板自己的字段（宠物：物种 / 习性；武器：材质 / 制造者）；没声明 = 字段表全部自定义字段 */
@@ -143,7 +138,7 @@ function CategoryEntryEditorInner({
     }
   }, [flushSave, onBack])
 
-  // 卸载时把还没落盘的标题 / 正文补上（简介 / 时间 / 地点由各自的区块 flush）
+  // 卸载时把还没落盘的标题 / 正文补上（简介由区块 flush，时间 / 地点在基本信息里防抖）
   useEffect(() => {
     return () => {
       void flushSave()
@@ -163,17 +158,16 @@ function CategoryEntryEditorInner({
         editor={bodyEditor}
         headerRight={
           <>
-            <button
-              type="button"
-              onClick={(event) => {
-                const rect = event.currentTarget.getBoundingClientRect()
-                setTemplateMenu({ x: Math.max(8, rect.right - 160), y: rect.bottom + 4 })
+            <NoteTemplateButton
+              template={entryTemplate}
+              followLabel={`跟随分类（${category.name}）`}
+              onSelect={(name) => {
+                setTemplateOverride(name)
+                void updateEntry(entryId, { template: name }).catch((err: unknown) =>
+                  toast.error('模板保存失败', { description: err instanceof Error ? err.message : String(err) }),
+                )
               }}
-              className={BTN_QUIET}
-              title="这篇用哪个模板"
-            >
-              {entryTemplate?.name ? `模板 · ${entryTemplate.name}` : '模板'}
-            </button>
+            />
             <EntityHistoryButton table="worldEntries" id={entry.id} name={title} />
           </>
         }
@@ -190,7 +184,6 @@ function CategoryEntryEditorInner({
                 titlePlaceholder="名称"
                 tags={tags}
                 onTagsChange={handleTagsChange}
-                showTags={showTags}
                 backlinks={backlinks}
                 onNavigateNote={(id) => onWikiLinkClick?.(String(id))}
                 onNavigateEntity={(kind, id) => {
@@ -218,32 +211,6 @@ function CategoryEntryEditorInner({
         </div>
       </EntityEditorShell>
 
-      {templateMenu ? (
-        <MediaContextMenu
-          at={templateMenu}
-          onClose={() => setTemplateMenu(null)}
-          items={[
-            {
-              label: `跟随分类（${category.name}）`,
-              onSelect: () => {
-                setTemplateOverride('')
-                void updateEntry(entryId, { template: '' }).catch((err: unknown) =>
-                  toast.error('模板保存失败', { description: String(err) }),
-                )
-              },
-            },
-            ...noteTemplates(templates).map((template) => ({
-              label: template.name,
-              onSelect: () => {
-                setTemplateOverride(template.name)
-                void updateEntry(entryId, { template: template.name }).catch((err: unknown) =>
-                  toast.error('模板保存失败', { description: String(err) }),
-                )
-              },
-            })),
-          ]}
-        />
-      ) : null}
     </>
   )
 }

@@ -22,6 +22,7 @@ import { categoryIconOf } from '@/lib/categories/icons'
 import { useDevice } from '@/lib/use-device'
 import { useMobilePageHeader } from '@/components/layout/MobilePageHeaderContext'
 import { ListShell } from '@/components/shared/ListShell'
+import { SectionSwap } from '@/components/shared/SectionSwap'
 import { ListEmptyState } from '@/components/shared/ListEmptyState'
 import { CoverFlow } from '@/components/shared/CoverFlow'
 import { VerticalSplit } from '@/components/shared/VerticalSplit'
@@ -249,23 +250,6 @@ export function CategorySection({
     )
   }
 
-  if (openId !== null) {
-    return (
-      <CategoryEntryEditor
-        key={openId}
-        entryId={openId}
-        category={category}
-        onBack={() => {
-          setOpenId(null)
-          void reload()
-        }}
-        onMentionClick={onMentionClick}
-        onCharacterCount={onCharacterCount}
-        onWikiLinkClick={onWikiLinkClick}
-      />
-    )
-  }
-
   const status = loading ? (
     <div className={CENTER_STATE}>
       <span className={LOADING_TEXT}>加载中…</span>
@@ -314,10 +298,30 @@ export function CategorySection({
     </SortableList>
   )
 
+  // 列表 ↔ 条目编辑器：与角色 / 事件 / 国家同一套滑动过渡（见 `SectionSwap`）
   return (
-    <>
-      <ListShell
-        fill={viewMode === 'gallery'}
+    <SectionSwap
+      open={openId !== null}
+      editor={
+        openId !== null ? (
+          <CategoryEntryEditor
+            key={openId}
+            entryId={openId}
+            category={category}
+            onBack={() => {
+              setOpenId(null)
+              void reload()
+            }}
+            onMentionClick={onMentionClick}
+            onCharacterCount={onCharacterCount}
+            onWikiLinkClick={onWikiLinkClick}
+          />
+        ) : null
+      }
+      list={
+        <>
+          <ListShell
+            fill={viewMode === 'gallery'}
         header={() => (
           <CategoryListToolbar
             title={category.name}
@@ -409,7 +413,9 @@ export function CategorySection({
             <AlertDialogAction onClick={() => void handleDelete()}>删除</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </AlertDialog>
-    </>
+          </AlertDialog>
+        </>
+      }
+    />
   )
 }

@@ -3,7 +3,7 @@
  *
  * 事件（`events.time` / `endTime`）与词条（`worldEntries.time` / `endTime`）用的是
  * 同一种落盘形态：`YYYY-MM-DD`，年月日都可缺（只有年、只有年月也合法，负年份表示「前」）。
- * 以前这三段逻辑住在 `features/events/utils.ts`，词条接时间组件时若复制一份，
+ * 以前这三段逻辑住在 `features/events/utils.ts`，词条接时间字段时若复制一份，
  * 两边迟早会出现「事件能解析、词条解析不出来」的漂移。纯函数，脚本也能直接读。
  */
 

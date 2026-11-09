@@ -26,36 +26,44 @@ export const BUILTIN_TEMPLATES: TemplateDoc[] = [
     id: 'character',
     name: '角色',
     aliases: ['人物'],
-    // 头像单独成一个组件：封面里已经含头像，所以默认关，想单摆时再开
-    components: components(
-      ['cover', 'avatar', 'info', 'relations', 'tags', 'gallery', 'summary', 'body'],
-      {},
-      ['avatar'],
-    ),
+    // 头像是独立组件（2026-11-09）：封面只画横幅，头像在自己的 1:1 槽里；
+    // 立绘 / 动画也是组件（2026-11-09），不再硬编码在「基本信息」里
+    components: components([
+      'cover',
+      'avatar',
+      'info',
+      'portrait',
+      'relations',
+      'tags',
+      'gallery',
+      'summary',
+      'animation',
+      'body',
+    ]),
   },
   {
     id: 'event',
     name: '事件',
     aliases: [],
-    // 简介紧跟地点：它是「一句话概括」，不是文末的附录
-    components: components(['cover', 'info', 'time', 'place', 'summary', 'relations', 'tags', 'gallery', 'body']),
+    // 时间 / 结束时间 / 地点是「基本信息」里的字段行（2026-11-10），不再是独立组件；
+    // 简介紧跟基本信息：它是「一句话概括」，不是文末的附录
+    components: components(['cover', 'info', 'summary', 'relations', 'tags', 'gallery', 'body']),
   },
   {
     id: 'country',
     name: '国家',
     aliases: ['势力'],
-    // 封面里已经含旗帜；「头像」组件单独摆旗帜时再开
-    components: components(
-      ['cover', 'avatar', 'info', 'relations', 'tags', 'gallery', 'summary', 'body'],
-      {},
-      ['avatar'],
-    ),
+    // 旗帜 = 国家的 avatar 组件（独立一块，封面只画横幅）
+    components: components(['cover', 'avatar', 'info', 'relations', 'tags', 'gallery', 'summary', 'body']),
   },
   {
+    // 词条**没有全局字段**：默认只给「标签 + 正文」。
+    // 想要结构化字段，就按篇换一个有「基本信息」的模板（宠物 / 武器 / 自建），
+    // 或在模板里给词条加上基本信息组件 —— 字段由那份组件决定。
     id: 'entry',
     name: '词条',
     aliases: [],
-    components: components(['info', 'tags', 'body']),
+    components: components(['tags', 'body']),
   },
   {
     // 宠物 / 武器：**内置模板，但不预建分类**（分类在 settings 里按需启用，见 categories/builtins）。
@@ -91,7 +99,7 @@ export function customTemplateId(): string {
 }
 
 /**
- * 空白模板 = 封面 + 基本信息 + 正文（`docs/模板.md §8.6`）。
+ * 空白模板 = 封面 + 基本信息 + 正文（`docs/模板.md §8.7`）。
  *
  * `taken` 是现有模板名：重名就往后加序号 —— 两处「新建模板」（设置 › 模板、
  * 设置 › 组件 › 正文）共用这一份，别各自拼一个「新模板」出来。

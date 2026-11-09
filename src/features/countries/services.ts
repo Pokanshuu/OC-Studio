@@ -41,6 +41,7 @@ function buildDefaultCountry(data: CountryFormData, overrides: Partial<Country> 
     culture: data.culture,
     gallery: data.gallery,
     tags: data.tags ?? [],
+    custom: data.custom ?? {},
     createdAt: now,
     updatedAt: now,
     deleted: false,
@@ -110,6 +111,17 @@ export async function updateCountry(id: number, data: Partial<CountryFormData>):
       'gallery',
       JSON.stringify(existing.gallery ?? []),
       JSON.stringify(data.gallery),
+    )
+  }
+
+  if (data.custom !== undefined) {
+    ;(updates as Record<string, unknown>).custom = data.custom
+    await logOperation(
+      TABLE,
+      id,
+      'custom',
+      JSON.stringify(existing.custom ?? {}),
+      JSON.stringify(data.custom),
     )
   }
 

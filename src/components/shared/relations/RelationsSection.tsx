@@ -37,6 +37,8 @@ interface RelationsSectionProps {
   presentation?: RelationPresentation
   showTitle?: boolean
   /** 模板参数 `relations.presentation` 的写回入口；不传 = 不显示切换 */
+  /** 标题文案（模板 `relations.label`），缺省「关系」 */
+  title?: string
   onPresentationChange?: (next: RelationPresentation) => void
   onAdd?: (kind: RelationTargetKind, targetId: number) => void
   onRemove?: (row: RelationRow) => void
@@ -317,6 +319,7 @@ export function RelationsSection({
   candidates = [],
   presentation = 'table',
   showTitle = true,
+  title = '关系',
   onPresentationChange,
   onAdd,
   onRemove,
@@ -352,7 +355,7 @@ export function RelationsSection({
           showTitle ? 'justify-between' : 'justify-end'
         }`}
       >
-        {showTitle ? <h3 className={SECTION_TITLE_BARE}>关系</h3> : null}
+        {showTitle ? <h3 className={SECTION_TITLE_BARE}>{title}</h3> : null}
         <div className="flex shrink-0 items-center gap-2">
           {canSwitch ? (
             <div className="pointer-events-none flex items-center gap-0.5 opacity-0 transition-opacity group-hover/relations:pointer-events-auto group-hover/relations:opacity-100 focus-within:pointer-events-auto focus-within:opacity-100">
@@ -366,7 +369,7 @@ export function RelationsSection({
                     onClick={() => onPresentationChange(option.id)}
                     aria-label={option.label}
                     aria-pressed={selected}
-                    title={option.label}
+                    title={`${option.label}（写在模板里，同类条目一起变）`}
                     className={`${VIEW_BTN} ${selected ? 'text-ink' : 'text-ink-faint hover:text-ink'}`}
                   >
                     <Icon size={13} strokeWidth={2} />

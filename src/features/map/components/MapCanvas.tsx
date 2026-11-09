@@ -140,9 +140,16 @@ export function MapCanvas({
   const suppressClickRef = useRef<string | null>(null)
   const [dragKey, setDragKey] = useState<string | null>(null)
   const [menu, setMenu] = useState<MenuState | null>(null)
-  /** 底图加载失败（文件被移走 / 浏览器里存的 blob: 已过期）时退回空态，别留一个破图图标 */
-  const [failedImage, setFailedImage] = useState<string | null>(null)
-  const hasImage = Boolean(map.image) && failedImage !== map.image
+  /**
+   * 底图加载失败（文件被移走 / 没有读取权限 / 浏览器里存的 blob: 已过期）。
+   *
+   * 记下**当时的路径 + 那次的行版本**：重新生成会写回同一个路径，只比路径的话
+   * 新图会被当成「还是那张坏图」，永远停在失败态。
+   */
+  const [failedImage, setFailedImage] = useState<{ image: string; updatedAt: number } | null>(null)
+  const imageFailed =
+    Boolean(map.image) && failedImage?.image === map.image && failedImage?.updatedAt === map.updatedAt
+  const hasImage = Boolean(map.image) && !imageFailed
 
   useEffect(() => {
     return () => {
@@ -293,7 +300,10 @@ export function MapCanvas({
     if (points.length > 0) return null
     // 有标注（或正在画）时，中间那块空态会压在图形上；没有底图这件事交给这张卡
     if (draft !== null || annotations.length > 0) return null
-    if (!hasImage) return 'no-image' as const
+    if (!map.image) return 'no-image' as const
+    // 有路径但读不出来：这是**另一种**状态，不能再说「还没有底图」
+    // （用户会以为图丢了，实际只是文件被移走 / 没有权限）
+    if (imageFailed) return 'image-failed' as const
     if (allLayersOff) return 'layers-off' as const
     // 「还没有锚点」不进中间那块：加号在右下角，压在画布正中的提示会一直挡住地图
     return null
@@ -323,7 +333,7 @@ export function MapCanvas({
             src={resolveImageUrl(map.image, 'map')}
             alt=""
             draggable={false}
-            onError={() => setFailedImage(map.image ?? null)}
+            onError={() => setFailedImage({ image: map.image ?? '', updatedAt: map.updatedAt })}
             className="pointer-events-none absolute inset-0 h-full w-full select-none object-contain"
           />
         ) : null}
@@ -385,14 +395,24 @@ export function MapCanvas({
         })}
       </div>
 
-      {empty === 'no-image' ? (
+      {empty === 'no-image' || empty === 'image-failed' ? (
         // 一次性入口：生成一张，或者导入自己画好的底图。两种地图从这里开始分岔。
+        // 读不出来时**不说**「还没有底图」：路径还在，只是文件没了 / 没权限。
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-6">
           <div
-            className={`pointer-events-auto flex w-[264px] flex-col items-center gap-3 p-5 text-center ${PANEL}`}
+            className={`pointer-events-auto flex w-[280px] flex-col items-center gap-3 p-5 text-center ${PANEL}`}
           >
             <MapPin size={20} strokeWidth={2} className="text-ink-faint" />
-            <p className="text-sm text-ink-muted">还没有底图</p>
+            <p className="text-sm text-ink-muted">
+              {empty === 'image-failed' ? '底图读不出来' : '还没有底图'}
+            </p>
+            {empty === 'image-failed' ? (
+              <p className="break-all text-[11px] leading-4 text-ink-faint">
+                {map.image}
+                <br />
+                文件可能被移走，或没有读取权限
+              </p>
+            ) : null}
             <div className="flex w-full flex-col gap-1.5">
               {onGenerate !== undefined ? (
                 <button type="button" onClick={onGenerate} className={`${BTN_PRIMARY} justify-center`}>
@@ -406,7 +426,7 @@ export function MapCanvas({
                 className={`${onGenerate === undefined ? BTN_PRIMARY : BTN_QUIET} justify-center`}
               >
                 <Upload size={14} strokeWidth={2} />
-                导入底图
+                {empty === 'image-failed' ? '重新选择底图' : '导入底图'}
               </button>
             </div>
           </div>

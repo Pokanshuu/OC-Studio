@@ -1,4 +1,6 @@
 import { db } from '@/lib/db'
+import { getTemplates } from '@/lib/templates/store'
+import { getFieldConfig } from '@/lib/fields/store'
 import { downloadText } from '../download'
 import { urlToDataUri } from '../payload'
 import {
@@ -82,6 +84,10 @@ export async function buildStaticSite(config: SiteExportConfig = {}): Promise<st
     sections: config.sections,
     theme: config.theme,
     template: config.template,
+    // 详情页的标题 / 显隐跟编辑器模板一致；没读过模板时 `getTemplates()` 是内置默认。
+    // 事件的时间 / 地点跟字段表走（它们已经并回「基本信息」，不再是模板组件）
+    templates: getTemplates(),
+    fields: getFieldConfig(),
   }
   return buildSite(data, options)
 }

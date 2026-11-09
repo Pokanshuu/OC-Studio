@@ -10,6 +10,8 @@
 import { buildSite, dateLabel, timeLabel, type SiteData } from '../src/lib/export/site/build'
 import { SITE_TEMPLATES, siteTemplateOf } from '../src/lib/export/site/templates'
 import type { Character, Country, Event, Period, ProjectMeta, Tag, WorldEntry } from '../src/types'
+import type { TemplateDoc } from '../src/lib/templates/types'
+import { defaultFieldConfig } from '../src/lib/fields/defaults'
 
 let passed = 0
 const failures: string[] = []
@@ -276,6 +278,118 @@ check(
   zz.indexOf('--paper: #111111;') > zz.indexOf('body[data-template="archive"]'),
   '纸色被版式令牌盖住了',
 )
+
+// ── 编辑器模板驱动详情页的标题 / 显隐 ────────────────────────────────
+{
+  const withGallery = buildSite(
+    {
+      ...data,
+      characters: [
+        character({
+          id: 11,
+          name: '有图角色',
+          gallery: [{ url: '附件/a.png', caption: '' }],
+          relatedCharacters: [{ characterId: 7, name: '乙', relation: '同伴' }],
+        }),
+      ],
+      events: [event({ id: 2, title: '带时间事件', time: '1999', location: '某地' })],
+    },
+    {
+      images: new Map(),
+      templates: [
+        {
+          id: 'character',
+          name: '角色',
+          aliases: [],
+          components: [
+            { id: 'gallery', enabled: true, params: { label: '照片墙' } },
+            { id: 'relations', enabled: true, params: { label: '人物关系' } },
+          ],
+        },
+      ] satisfies TemplateDoc[],
+      // 时间 / 地点并回「基本信息」后，显隐由字段表决定：这里只留一行地点（改个显示名）
+      fields: {
+        ...defaultFieldConfig(),
+        event: [{ id: 'location', label: '发生地', type: 'text' }],
+      },
+    },
+  )
+  const detailOf = (route: string): string =>
+    new RegExp(`<section class="page" data-route="${route}">([\\s\\S]*?)</section>`).exec(withGallery)?.[1] ?? ''
+  const eventDetail = detailOf('events/2')
+  check('模板 label 用到了图集标题', withGallery.includes('照片墙'))
+  check('模板 label 用到了关系标题', withGallery.includes('人物关系'))
+  check('字段表里没有时间行时不打印时间', eventDetail !== '' && !eventDetail.includes('1999'))
+  check('地点行的显示名来自字段表', eventDetail.includes('发生地') && eventDetail.includes('某地'))
+
+  // 标题参数只管标题行：关掉标题，内容（图片）仍在
+  const noHeading = buildSite(
+    {
+      ...data,
+      characters: [
+        character({
+          id: 12,
+          name: '无题角色',
+          gallery: [{ url: '附件/b.png', caption: '' }],
+        }),
+      ],
+    },
+    {
+      images: new Map(),
+      templates: [
+        {
+          id: 'character',
+          name: '角色',
+          aliases: [],
+          components: [
+            { id: 'gallery', enabled: true, params: { title: false, label: '照片墙' } },
+          ],
+        },
+      ] satisfies TemplateDoc[],
+    },
+  )
+  const noHeadingDetail = /<section class="page" data-route="characters\/12">([\s\S]*?)<\/section>/.exec(noHeading)?.[1] ?? ''
+  check('标题参数关了就不打印标题', !noHeadingDetail.includes('照片墙'))
+  check('标题参数关了内容仍在', noHeadingDetail.includes('附件/b.png'))
+
+  // 区块顺序跟着模板组件顺序：图集在正文前 / 后
+  const orderData = {
+    ...data,
+    characters: [
+      character({
+        id: 13,
+        name: '排序角色',
+        bio: '正文标记',
+        gallery: [{ url: '附件/c.png', caption: '' }],
+      }),
+    ],
+  }
+  const buildOrdered = (components: TemplateDoc['components']): string => {
+    const html = buildSite(orderData, {
+      images: new Map(),
+      templates: [{ id: 'character', name: '角色', aliases: [], components }] satisfies TemplateDoc[],
+    })
+    return /<section class="page" data-route="characters\/13">([\s\S]*?)<\/section>/.exec(html)?.[1] ?? ''
+  }
+  const galleryFirst = buildOrdered([
+    { id: 'gallery', enabled: true },
+    { id: 'body', enabled: true },
+  ])
+  const bodyFirst = buildOrdered([
+    { id: 'body', enabled: true },
+    { id: 'gallery', enabled: true },
+  ])
+  check(
+    '图集在正文前',
+    galleryFirst.indexOf('附件/c.png') !== -1 &&
+      galleryFirst.indexOf('附件/c.png') < galleryFirst.indexOf('正文标记'),
+  )
+  check(
+    '正文在图集前',
+    bodyFirst.indexOf('正文标记') !== -1 &&
+      bodyFirst.indexOf('正文标记') < bodyFirst.indexOf('附件/c.png'),
+  )
+}
 
 if (failures.length > 0) {
   console.error('静态站导出自检失败：')

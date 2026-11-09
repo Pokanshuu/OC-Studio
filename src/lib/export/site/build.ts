@@ -6,6 +6,9 @@ import { collectDocImages, escapeHtml, hasRichText, plainTextOf, renderRichText,
 import { SITE_CSS } from './styles'
 import { siteTemplateOf } from './templates'
 import type { SiteTemplateId } from './template-types'
+import { componentLabel, componentParam } from '@/lib/templates/params'
+import type { TemplateComponentId, TemplateDoc } from '@/lib/templates/types'
+import type { FieldConfig } from '@/lib/fields/types'
 
 /** 展示站需要的全部数据（软删除的行由调用方过滤掉）。 */
 export interface SiteData {
@@ -42,6 +45,16 @@ export interface BuildOptions {
   theme?: SiteThemeTokens
   /** 版式；缺省 = 书斋（侧栏 / 纸书观感） */
   template?: SiteTemplateId
+  /**
+   * 编辑器模板（可选）。给了就按模板的组件开关 / 标题文案 / 显示开关渲染详情页：
+   * 图集、相关角色、时间、地点这些标题与显隐不再写死。没给（脚本 / 旧调用）保持原行为。
+   */
+  templates?: TemplateDoc[]
+  /**
+   * 字段表（可选）。事件的时间 / 结束时间 / 地点现在是「基本信息」的字段行，
+   * 显隐与文案由字段表决定；没给（脚本 / 旧调用）按「有值就打印」保持原行为。
+   */
+  fields?: FieldConfig
 }
 
 const DEFAULT_SECTIONS: SiteSectionOptions = {
@@ -66,6 +79,54 @@ function normalizeSections(sections?: Partial<SiteSectionOptions>): SiteSectionO
     }
   }
   return on
+}
+
+/**
+ * 编辑器模板 → 导出用的「这一块显不显示、叫什么」。
+ *
+ * 语义与编辑器一致：组件存在且启用 → 显示；有 `title` 参数且为 false → 不显示；
+ * 标题文案优先 `label`。没有模板（脚本 / 老调用）时全部按显示、用默认文案。
+ */
+function siteTemplateViewOf(doc: TemplateDoc | undefined) {
+  const componentOf = (id: TemplateComponentId) =>
+    doc?.components.find((component) => component.id === id && component.enabled)
+  return {
+    /** 没有模板时不拦；有模板时看组件在不在、开没开（`title` 只管标题行，不管内容） */
+    enabled(id: TemplateComponentId): boolean {
+      if (doc === undefined) return true
+      return componentOf(id) !== undefined
+    },
+    label(id: TemplateComponentId, fallback: string): string {
+      const component = componentOf(id)
+      return component === undefined ? fallback : componentLabel(component) || fallback
+    },
+    /** 组件在模板里的位置（没有模板 / 没有这个组件 = 0，排序稳定） */
+    order(id: TemplateComponentId): number {
+      if (doc === undefined) return 0
+      const index = doc.components.findIndex((component) => component.id === id)
+      return index < 0 ? Number.MAX_SAFE_INTEGER : index
+    },
+    /** 标题行：`title: false` = 不打印标题（内容照常），组件没有 = 整块不打印 */
+    heading(id: TemplateComponentId, fallback: string): string | null {
+      const component = componentOf(id)
+      if (doc !== undefined && component === undefined) return null
+      if (component !== undefined && componentParam(component, 'title', true) === false) return null
+      return component === undefined ? fallback : componentLabel(component) || fallback
+    },
+  }
+}
+
+function siteTemplateView(templates: TemplateDoc[] | undefined, templateId: string) {
+  return siteTemplateViewOf(templates?.find((item) => item.id === templateId))
+}
+
+/** 详情页的内容区块按模板顺序排；没有模板时保持原来的固定顺序（稳定排序） */
+function joinByTemplateOrder(chunks: { order: number; html: string }[]): string {
+  return chunks
+    .slice()
+    .sort((a, b) => a.order - b.order)
+    .map((chunk) => chunk.html)
+    .join('')
 }
 
 export function applySiteSections(data: SiteData, sections?: Partial<SiteSectionOptions>): SiteData {
@@ -139,6 +200,12 @@ export function buildSite(input: SiteData, options: BuildOptions): string {
   const countriesById = new Map(data.countries.map((c) => [c.id, c]))
   const worldById = new Map(data.worldEntries.map((w) => [w.id, w]))
   const tagsById = new Map(data.tags.map((t) => [t.id, t]))
+
+  // 详情页的标题与显隐跟着编辑器模板走（没给模板时保持原来的写死行为）
+  const characterView = siteTemplateView(options.templates, 'character')
+  const eventView = siteTemplateView(options.templates, 'event')
+  const countryView = siteTemplateView(options.templates, 'country')
+  const entryView = siteTemplateView(options.templates, 'entry')
 
   const exists = (kind: string, id: number): boolean => {
     switch (kind) {
@@ -303,7 +370,48 @@ export function buildSite(input: SiteData, options: BuildOptions): string {
     const country = c.countryId ? countriesById.get(c.countryId) : undefined
     const relatedEvents = data.events.filter((e) => (e.characters ?? []).includes(c.id))
     const body = hasRichText(c.document) ? c.document : `${c.bio}\n\n${c.lifeStory}`
-    const gallery = [...c.gallery, ...c.avatars].filter((g) => g?.url)
+    const galleryEnabled = characterView.enabled('gallery')
+    const gallery = galleryEnabled ? [...c.gallery, ...c.avatars].filter((g) => g?.url) : []
+    const galleryHeading = characterView.heading('gallery', '图集')
+    const relationsHeading = characterView.heading('relations', '相关角色')
+    const relationsEnabled = characterView.enabled('relations')
+
+    const galleryChunk =
+      gallery.length > 0
+        ? `${galleryHeading === null ? '' : `<h2 class="section-title">${escapeHtml(galleryHeading)}</h2>`}<div class="gallery">${gallery
+            .map(
+              (g) => `<figure><img src="${escapeHtml(img(g.url))}" alt="" loading="lazy">${
+                'caption' in g && g.caption ? `<figcaption>${escapeHtml(g.caption)}</figcaption>` : ''
+              }</figure>`,
+            )
+            .join('')}</div>`
+        : ''
+
+    const relationsChunk = [
+      relationsEnabled && c.relatedCharacters.length > 0
+        ? `${relationsHeading === null ? '' : `<h2 class="section-title">${escapeHtml(relationsHeading)}</h2>`}
+           <table class="rel-table"><thead><tr><th>关系</th><th>角色</th></tr></thead><tbody>
+           ${c.relatedCharacters
+             .map(
+               (r) =>
+                 `<tr><td>${escapeHtml(r.relation)}</td><td>${
+                   r.characterId ? refLink('character', r.characterId, r.name) : escapeHtml(r.name)
+                 }</td></tr>`,
+             )
+             .join('')}
+           </tbody></table>`
+        : '',
+      relationsEnabled && relatedEvents.length > 0
+        ? `${relationsHeading === null ? '' : '<h2 class="section-title">相关事件</h2>'}
+           <div class="rows">${relatedEvents.map((e) => eventRow(e)).join('')}</div>`
+        : '',
+    ].join('')
+
+    const contentChunks = [
+      { order: characterView.order('relations'), html: relationsChunk },
+      { order: Math.min(characterView.order('gallery'), characterView.order('portrait')), html: galleryChunk },
+      { order: characterView.order('body'), html: doc(body) },
+    ].filter((chunk) => chunk.html !== '')
 
     return `
       <a class="crumb" href="#/characters">← 角色</a>
@@ -325,39 +433,7 @@ export function buildSite(input: SiteData, options: BuildOptions): string {
         ${fieldRow('生日', escapeHtml(c.birthday))}
         ${fieldRow('标签', tagChips(c.tags))}
       </div>
-      ${doc(body)}
-      ${
-        gallery.length > 0
-          ? `<h2 class="section-title">图集</h2><div class="gallery">${gallery
-              .map(
-                (g) => `<figure><img src="${escapeHtml(img(g.url))}" alt="" loading="lazy">${
-                  'caption' in g && g.caption ? `<figcaption>${escapeHtml(g.caption)}</figcaption>` : ''
-                }</figure>`,
-              )
-              .join('')}</div>`
-          : ''
-      }
-      ${
-        c.relatedCharacters.length > 0
-          ? `<h2 class="section-title">相关角色</h2>
-             <table class="rel-table"><thead><tr><th>关系</th><th>角色</th></tr></thead><tbody>
-             ${c.relatedCharacters
-               .map(
-                 (r) =>
-                   `<tr><td>${escapeHtml(r.relation)}</td><td>${
-                     r.characterId ? refLink('character', r.characterId, r.name) : escapeHtml(r.name)
-                   }</td></tr>`,
-               )
-               .join('')}
-             </tbody></table>`
-          : ''
-      }
-      ${
-        relatedEvents.length > 0
-          ? `<h2 class="section-title">相关事件</h2>
-             <div class="rows">${relatedEvents.map((e) => eventRow(e)).join('')}</div>`
-          : ''
-      }
+      ${joinByTemplateOrder(contentChunks)}
     `
   })
 
@@ -374,32 +450,44 @@ export function buildSite(input: SiteData, options: BuildOptions): string {
     const lands = (e.countries ?? []).map((id) => countriesById.get(id)).filter((c): c is Country => Boolean(c))
     const links = (e.relations ?? []).map((r) => eventsById.get(r.targetId)).filter((x): x is Event => Boolean(x))
     const body = hasRichText(e.document) ? e.document : `${e.summary}\n\n${e.content}`
-    const gallery = (e.images ?? []).filter((g) => g?.url)
+    const gallery = eventView.enabled('gallery') ? (e.images ?? []).filter((g) => g?.url) : []
+    const galleryHeading = eventView.heading('gallery', '图集')
+    // 时间 / 结束时间 / 地点是字段表的行（`lib/fields`），不是模板组件了。
+    // 没给字段表时（脚本 / 旧调用）保持原样：两条都打印。
+    const eventFields = options.fields?.event
+    const timeField = eventFields?.find((field) => field.id === 'time' || field.id === 'endTime')
+    const placeField = eventFields?.find((field) => field.id === 'location')
+    const timeShown = eventFields === undefined || timeField !== undefined
+    const placeShown = eventFields === undefined || placeField !== undefined
+
+    const galleryChunk =
+      gallery.length > 0
+        ? `${galleryHeading === null ? '' : `<h2 class="section-title">${escapeHtml(galleryHeading)}</h2>`}<div class="gallery">${gallery
+            .map(
+              (g) => `<figure><img src="${escapeHtml(img(g.url))}" alt="" loading="lazy">${
+                g.caption ? `<figcaption>${escapeHtml(g.caption)}</figcaption>` : ''
+              }</figure>`,
+            )
+            .join('')}</div>`
+        : ''
+    const contentChunks = [
+      { order: eventView.order('body'), html: doc(body) },
+      { order: eventView.order('gallery'), html: galleryChunk },
+    ].filter((chunk) => chunk.html !== '')
 
     return `
       <a class="crumb" href="#/events">← 事件</a>
       ${img(e.headerUrl) ? `<img class="banner" src="${escapeHtml(img(e.headerUrl))}" alt="">` : ''}
       <h1 class="page-title">${escapeHtml(e.title || '未命名')}${e.isMajor ? ' ★' : ''}</h1>
       <div class="fields">
-        ${fieldRow('时间', escapeHtml(timeLabel(e.time, e.endTime)))}
-        ${fieldRow('地点', escapeHtml(e.location))}
+        ${timeShown ? fieldRow(timeField?.label ?? '时间', escapeHtml(timeLabel(e.time, e.endTime))) : ''}
+        ${placeShown ? fieldRow(placeField?.label ?? '地点', escapeHtml(e.location)) : ''}
         ${fieldRow('参与角色', people.map((p) => refLink('character', p.id, p.name)).join('、'))}
         ${fieldRow('相关国家', lands.map((l) => refLink('country', l.id, l.name)).join('、'))}
         ${fieldRow('相关事件', links.map((l) => refLink('event', l.id, l.title)).join('、'))}
         ${fieldRow('标签', tagChips(e.tags))}
       </div>
-      ${doc(body)}
-      ${
-        gallery.length > 0
-          ? `<h2 class="section-title">图集</h2><div class="gallery">${gallery
-              .map(
-                (g) => `<figure><img src="${escapeHtml(img(g.url))}" alt="" loading="lazy">${
-                  g.caption ? `<figcaption>${escapeHtml(g.caption)}</figcaption>` : ''
-                }</figure>`,
-              )
-              .join('')}</div>`
-          : ''
-      }
+      ${joinByTemplateOrder(contentChunks)}
     `
   })
 
@@ -430,6 +518,42 @@ export function buildSite(input: SiteData, options: BuildOptions): string {
     const lands = data.events.filter((e) => (e.countries ?? []).includes(c.id))
     const body = hasRichText(c.document) ? c.document : [c.description, c.system, c.geography, c.culture].join('\n\n')
 
+    const galleryHeading = countryView.heading('gallery', '图集')
+    const galleryChunk =
+      countryView.enabled('gallery') && (c.gallery ?? []).length > 0
+        ? `${galleryHeading === null ? '' : `<h2 class="section-title">${escapeHtml(galleryHeading)}</h2>`}<div class="gallery">${(c.gallery ?? [])
+            .filter((g) => g?.url)
+            .map(
+              (g) =>
+                `<figure><img src="${escapeHtml(img(g.url))}" alt="" loading="lazy">${
+                  g.caption ? `<figcaption>${escapeHtml(g.caption)}</figcaption>` : ''
+                }</figure>`,
+            )
+            .join('')}</div>`
+        : ''
+
+    const relationsHeading = countryView.heading('relations', '人物')
+    const relationsChunk = countryView.enabled('relations')
+      ? [
+          people.length > 0
+            ? `${relationsHeading === null ? '' : `<h2 class="section-title">${escapeHtml(relationsHeading)}</h2>`}<div class="rows">${people
+                .map(
+                  (p) => `<a class="row" href="#/characters/${p.id}"><div class="when"></div><div class="body"><div class="title">${escapeHtml(p.name)}</div></div></a>`,
+                )
+                .join('')}</div>`
+            : '',
+          lands.length > 0
+            ? `${relationsHeading === null ? '' : '<h2 class="section-title">相关事件</h2>'}<div class="rows">${lands.map((e) => eventRow(e)).join('')}</div>`
+            : '',
+        ].join('')
+      : ''
+
+    const contentChunks = [
+      { order: countryView.order('body'), html: doc(body) },
+      { order: countryView.order('gallery'), html: galleryChunk },
+      { order: countryView.order('relations'), html: relationsChunk },
+    ].filter((chunk) => chunk.html !== '')
+
     return `
       <a class="crumb" href="#/countries">← 国家</a>
       ${img(c.headerUrl) ? `<img class="banner" src="${escapeHtml(img(c.headerUrl))}" alt="">` : ''}
@@ -442,23 +566,13 @@ export function buildSite(input: SiteData, options: BuildOptions): string {
         ${fieldRow('体制', escapeHtml(c.system))}
         ${fieldRow('地理', escapeHtml(c.geography))}
         ${fieldRow('文化', escapeHtml(c.culture))}
+        ${Object.entries(c.custom ?? {})
+          .filter(([, value]) => value.trim() !== '')
+          .map(([label, value]) => fieldRow(escapeHtml(label), escapeHtml(value)))
+          .join('')}
         ${fieldRow('标签', tagChips(c.tags))}
       </div>
-      ${doc(body)}
-      ${
-        people.length > 0
-          ? `<h2 class="section-title">人物</h2><div class="rows">${people
-              .map(
-                (p) => `<a class="row" href="#/characters/${p.id}"><div class="when"></div><div class="body"><div class="title">${escapeHtml(p.name)}</div></div></a>`,
-              )
-              .join('')}</div>`
-          : ''
-      }
-      ${
-        lands.length > 0
-          ? `<h2 class="section-title">相关事件</h2><div class="rows">${lands.map((e) => eventRow(e)).join('')}</div>`
-          : ''
-      }
+      ${joinByTemplateOrder(contentChunks)}
     `
   })
 
@@ -466,6 +580,15 @@ export function buildSite(input: SiteData, options: BuildOptions): string {
   // 章节按**词条树**分（`parentId`）：有子项的一级词条当章节标题，子孙按深度缩进。
   // 以前那个凭 `category` 自由文本分组的做法已经删了 —— 它跟树完全无关。
   const worldTree = buildEntryTree(data.worldEntries)
+
+  const entryViewFor = (entry: WorldEntry) =>
+    entry.template
+      ? siteTemplateViewOf(
+          options.templates?.find(
+            (doc) => doc.id === entry.template || doc.name === entry.template,
+          ),
+        )
+      : entryView
 
   const entryRow = (node: WorldTreeNode, depth: number): string => {
     const w = node.entry
@@ -539,6 +662,26 @@ export function buildSite(input: SiteData, options: BuildOptions): string {
       })
       .filter(Boolean)
 
+    const wView = entryViewFor(w)
+
+    const galleryHeading = wView.heading('gallery', '图集')
+    const galleryChunk =
+      wView.enabled('gallery') && (w.gallery ?? []).length > 0
+        ? `${galleryHeading === null ? '' : `<h2 class="section-title">${escapeHtml(galleryHeading)}</h2>`}<div class="gallery">${(w.gallery ?? [])
+            .filter((g) => g?.url)
+            .map(
+              (g) =>
+                `<figure><img src="${escapeHtml(img(g.url))}" alt="" loading="lazy">${
+                  g.caption ? `<figcaption>${escapeHtml(g.caption)}</figcaption>` : ''
+                }</figure>`,
+            )
+            .join('')}</div>`
+        : ''
+    const contentChunks = [
+      { order: wView.order('body'), html: doc(hasRichText(w.document) ? w.document : w.content) },
+      { order: wView.order('gallery'), html: galleryChunk },
+    ].filter((chunk) => chunk.html !== '')
+
     return `
       <a class="crumb" href="#/world">← 词条</a>
       ${w.cover ? `<img class="entry-cover" src="${escapeHtml(img(w.cover))}" alt="">` : ''}
@@ -548,15 +691,17 @@ export function buildSite(input: SiteData, options: BuildOptions): string {
         ${parent ? fieldRow('上级', `<a class="ref" href="#/world/${parent.id}">${escapeHtml(parent.title || '未命名')}</a>`) : ''}
         ${w.aliases?.length ? fieldRow('别名', escapeHtml(w.aliases.join('、'))) : ''}
         ${w.category ? fieldRow('分类', escapeHtml(w.category)) : ''}
+        ${w.time ? fieldRow('时间', escapeHtml(timeLabel(w.time, w.endTime))) : ''}
+        ${w.location ? fieldRow('地点', escapeHtml(w.location)) : ''}
         ${Object.entries(w.custom ?? {})
           .filter(([, value]) => value.trim() !== '')
           .map(([label, value]) => fieldRow(escapeHtml(label), escapeHtml(value)))
           .join('')}
         ${fieldRow('标签', tagChips(w.tags))}
-        ${manualRefs.length > 0 ? fieldRow('关系', manualRefs.join('、')) : ''}
+        ${manualRefs.length > 0 ? fieldRow(wView.label('relations', '关系'), manualRefs.join('、')) : ''}
         ${fieldRow('引用', refs.join('、'))}
       </div>
-      ${doc(hasRichText(w.document) ? w.document : w.content)}
+      ${joinByTemplateOrder(contentChunks)}
     `
   })
 

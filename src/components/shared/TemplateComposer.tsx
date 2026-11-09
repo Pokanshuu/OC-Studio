@@ -19,12 +19,20 @@ import { worldBodyOf } from '@/lib/world-body'
 import { useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { ArrowLeft, ChevronDown, ChevronUp, Download, GripVertical, Plus, SlidersHorizontal, X } from 'lucide-react'
+import { toast } from 'sonner'
 import { COMPONENT_BY_ID, COMPONENT_IDS } from '@/lib/templates/registry'
 import { isComponentAvailable, isComponentWired } from '@/lib/templates/support'
 import { templateParamsFor } from '@/lib/templates/params'
-import { templateFieldKeys } from '@/lib/templates/fields'
-import { useInfoGroups, type InfoGroup } from '@/lib/templates/info-groups'
-import { saveTemplate, useTemplates } from '@/lib/templates/store'
+import { templateFieldKeys, templateFieldTypes } from '@/lib/templates/fields'
+import {
+  infoFieldColumnOf,
+  infoFieldLabelOf,
+  useInfoGroups,
+  type InfoGroup,
+} from '@/lib/templates/info-groups'
+import { useBodyGroups } from '@/lib/templates/body-groups'
+import { bodyGroupIdOfTemplate } from '@/lib/templates/body-preset'
+import { saveTemplate, setTemplateComponentParams, useTemplates } from '@/lib/templates/store'
 import type { TemplateComponent, TemplateComponentId, TemplateDoc } from '@/lib/templates/types'
 import type { TemplateParamValue } from '@/lib/templates/params'
 import { db } from '@/lib/db'
@@ -291,10 +299,18 @@ async function loadPreview(
   const body = plainTextOf(typeof worldBodyOf(entry) === 'string' ? (worldBodyOf(entry) as string) : JSON.stringify(worldBodyOf(entry)))
   const summary = (entry.summary ?? '').trim() || body.slice(0, 80)
   const declared = templateFieldKeys(template, groups)
+  const types = templateFieldTypes(template, groups) ?? {}
+  const groupId = template.components.find((component) => component.id === 'info')?.params?.group
+  const group = typeof groupId === 'string' ? groups.find((item) => item.id === groupId) : undefined
   const fieldKeys = declared ?? Object.keys(entry.custom ?? {})
-  const fields = fieldKeys
-    .map((key) => [key, (entry.custom?.[key] ?? '').trim()] as [string, string])
-    .filter(([, value]) => value !== '')
+  const fields = fieldKeys.flatMap((key) => {
+    // 特殊字段（时间 / 结束时间 / 地点）读词条自己的列，不读 custom
+    const column = infoFieldColumnOf(types[key])
+    const value = (column === undefined ? (entry.custom?.[key] ?? '') : (entry[column] ?? '')).trim()
+    if (value === '') return []
+    const label = group === undefined ? key : infoFieldLabelOf(group, key)
+    return [[label, value] as [string, string]]
+  })
 
   return {
     ...empty,
@@ -323,8 +339,6 @@ const PREVIEW_SAMPLE: Partial<Record<TemplateComponentId, string[]>> = {
   tags: ['标签'],
   image: ['图片'],
   gallery: ['画廊'],
-  time: ['时间'],
-  place: ['地点'],
   summary: ['简介'],
   body: ['正文……'],
 }
@@ -339,6 +353,7 @@ export function TemplateComposer({
   const { templates } = useTemplates()
   const categories = useCategories()
   const infoGroups = useInfoGroups()
+  const bodyGroups = useBodyGroups()
   const { navigateToEntity } = useEntityNavigate()
   const { closeSettings, openSettings } = useSettingsTrigger()
   const [activeId, setActiveId] = useState(initialId)
@@ -420,15 +435,11 @@ export function TemplateComposer({
   }
 
   const setParam = (componentId: TemplateComponentId, key: string, value: TemplateParamValue): void => {
-    persist({
-      ...active,
-      components: active.components.map((component) => {
-        if (component.id !== componentId) return component
-        const params = { ...component.params, [key]: value }
-        // 选了基本信息组件就清掉旧的内联字段：关系只由「选择」决定
-        if (key === 'group') delete params.fields
-        return { ...component, params }
-      }),
+    // 从 store 读当前值合并：连点两个参数不会用上一帧快照互相覆盖；
+    // 选了组件顺手清掉旧的内联兼容键（`info.fields` / `body.preset`）。
+    const patch = key === 'group' ? { group: value, fields: null, preset: null } : { [key]: value }
+    void setTemplateComponentParams(active.id, componentId, patch).catch((err: unknown) => {
+      toast.error('模板保存失败', { description: err instanceof Error ? err.message : String(err) })
     })
   }
 
@@ -511,7 +522,11 @@ export function TemplateComposer({
               const hasParams = wired && paramDefs.length > 0
               const groupId = typeof component.params?.group === 'string' ? component.params.group : ''
               const groupName =
-                component.id === 'info' ? infoGroups.find((group) => group.id === groupId)?.name : undefined
+                component.id === 'info'
+                  ? infoGroups.find((group) => group.id === groupId)?.name
+                  : component.id === 'body'
+                    ? bodyGroups.find((group) => group.id === bodyGroupIdOfTemplate(active.id))?.name
+                    : undefined
               return (
                 <div key={component.id} className="border-b border-line">
                   <div className="flex items-center gap-2 py-2">
@@ -801,14 +816,21 @@ export function TemplateComposer({
                           </div>
                         )
                       break
-                    case 'time':
+                    case 'portrait':
                       body = (
-                        <p className="text-[12px] text-ink-muted">{previewData.time || '时间'}</p>
+                        <div className="grid grid-cols-4 gap-1">
+                          {[0, 1, 2, 3].map((slot) => (
+                            <div
+                              key={slot}
+                              className="aspect-[9/16] w-full rounded-item bg-paper-card"
+                            />
+                          ))}
+                        </div>
                       )
                       break
-                    case 'place':
+                    case 'animation':
                       body = (
-                        <p className="text-[12px] text-ink-muted">{previewData.location || '地点'}</p>
+                        <p className="text-[12px] text-ink-muted">动画视频</p>
                       )
                       break
                     default:

@@ -92,7 +92,7 @@ function baseNameOf(path: string): string {
  */
 function readCustomFields(
   fm: Record<string, unknown>,
-  kind: 'character' | 'event' | 'worldEntry',
+  kind: 'character' | 'event' | 'country' | 'worldEntry',
 ): Record<string, string> | undefined {
   /**
    * 已经被词汇表占用的键不再当自定义字段读：`时间` / `地点` / `简介` 这些
@@ -458,6 +458,7 @@ export function scanVault(options: ScanOptions): VaultScanResult {
         // 成员名单不读了（阶段二·一）：真源是角色的 `countryId` 与事件的 `countries`，
         // 国家页的两个列表由查询得出。这里的字段已经摘掉 —— 盘上遗留的键原样留着，
         // 不读也不删（写回也不会碰，`COUNTRY_KEYS` 里没有它们）。
+        custom: readCustomFields(fm, 'country'),
         tags: tagIdsOf(note, COUNTRY_KEYS.tags),
         order: readNumber(fm, COUNTRY_KEYS.order),
         graphPosition: readPosition(fm, COUNTRY_KEYS.graphPosition),

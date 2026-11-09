@@ -13,10 +13,10 @@ export interface WorldFormData {
   avatar?: string
   image?: string
   gallery?: GalleryImage[]
-  /** 时间组件（落盘键 time / endTime；形态与事件一致） */
+  /** 基本信息组件里的「时间 / 结束时间」特殊字段（落盘键 time / endTime；形态与事件一致） */
   time?: string
   endTime?: string
-  /** 地点组件（落盘键 location） */
+  /** 基本信息组件里的「地点」特殊字段（落盘键 location） */
   location?: string
   document?: unknown
   /** 手写的命名关系（目标为另一篇笔记；层级与正文提及不在这里） */

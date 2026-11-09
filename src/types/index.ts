@@ -199,10 +199,13 @@ export interface WorldEntry {
   image?: string
   /** 图集（落盘键 gallery）；模板「画廊」组件写这里 */
   gallery?: GalleryImage[]
-  /** 开始时间 / 结束时间（落盘键 time / endTime）；模板「时间」组件写这里 */
+  /**
+   * 开始时间 / 结束时间（落盘键 time / endTime）。
+   * 基本信息组件里的「时间 / 结束时间」特殊字段写这里（不是 `custom`）。
+   */
   time?: string
   endTime?: string
-  /** 地点（落盘键 location）；模板「地点」组件写这里 */
+  /** 地点（落盘键 location）：基本信息组件里的「地点」特殊字段写这里 */
   location?: string
   /** 一行简介（分类条目的副标题 / 列表摘要；落盘键 简介） */
   summary?: string

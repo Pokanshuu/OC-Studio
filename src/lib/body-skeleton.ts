@@ -66,9 +66,3 @@ export function defaultBodyDocument(kind: BodySkeletonKind): SkeletonNode {
       return { type: 'doc', content: [p()] }
   }
 }
-
-/** 模板 id → 骨架种类：三个实体模板各有骨架；笔记宿主（词条 / 宠物 / 武器 / 自建）是空的 */
-export function bodySkeletonOfTemplate(templateId: string): BodySkeletonKind {
-  if (templateId === 'character' || templateId === 'event' || templateId === 'country') return templateId
-  return 'worldEntry'
-}

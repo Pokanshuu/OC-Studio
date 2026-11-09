@@ -23,7 +23,8 @@ import {
   type PosterOptions,
 } from '../src/lib/export/poster/types'
 import { POSTER_TEMPLATE_INFO } from '../src/lib/export/poster/catalog'
-import { moveBlock, normalizePosterOptions, optionsForTemplate } from '../src/lib/export/poster/options'
+import { moveBlock, normalizePosterOptions, optionsForTemplate, posterTemplateDefaults } from '../src/lib/export/poster/options'
+import type { TemplateDoc } from '../src/lib/templates/types'
 import { clampCoverPosition, clampCoverZoom, coverOverflow, panCover, zoomCover } from '../src/lib/export/poster/cover-frame'
 
 let passed = 0
@@ -193,6 +194,34 @@ check('切到夜色 → 墨底', toNoir.background === 'ink')
 const backToPaper = optionsForTemplate(toNoir, 'editorial')
 check('从夜色切回 → 纸底', backToPaper.background === 'paper')
 check('同版式不动', optionsForTemplate(toNoir, 'noir') === toNoir)
+
+// ── 海报默认选项跟编辑器模板对齐（只在没存过选项时用）───────────────
+{
+  const characterTemplate: TemplateDoc = {
+    id: 'character',
+    name: '角色',
+    aliases: [],
+    components: [
+      { id: 'cover', enabled: false },
+      { id: 'avatar', enabled: true },
+      { id: 'info', enabled: false },
+      { id: 'tags', enabled: true },
+      { id: 'gallery', enabled: true },
+      { id: 'relations', enabled: true },
+      { id: 'body', enabled: true },
+    ],
+  }
+  const defaults = posterTemplateDefaults('character', [characterTemplate])
+  check('海报默认：模板关掉的基本信息不打印', defaults.showFields === false)
+  check('海报默认：标签 / 关系 / 正文跟随模板', defaults.showTags === true && defaults.showRelations === true && defaults.showBody === true)
+  check('海报默认：封面被关但头像在，仍算有封面', defaults.showCover === true)
+  check(
+    '海报默认：正文块顺序跟随模板',
+    (defaults.blockOrder ?? []).join(',') === 'tags,gallery,relations,body',
+    (defaults.blockOrder ?? []).join(','),
+  )
+  check('没有模板时不给默认覆盖', Object.keys(posterTemplateDefaults('event', undefined)).length === 0)
+}
 
 if (failures.length > 0) {
   console.error('导出契约自检失败：')

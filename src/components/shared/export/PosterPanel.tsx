@@ -38,7 +38,15 @@ import {
   type PosterCoverPlacement,
   type PosterOptions,
 } from '@/lib/export/poster/types'
-import { normalizePosterOptions, optionsForTemplate } from '@/lib/export/poster/options'
+import {
+  normalizePosterOptions,
+  optionsForTemplate,
+  posterTemplateDefaults,
+  type PosterInfoHints,
+} from '@/lib/export/poster/options'
+import { getTemplates } from '@/lib/templates/store'
+import { getFieldConfig } from '@/lib/fields/store'
+import { templateFieldTypes } from '@/lib/templates/fields'
 import {
   listPosterSubjects,
   loadPosterSubject,
@@ -153,14 +161,40 @@ function swatchStyle(background: PosterBackground): React.CSSProperties {
   return {}
 }
 
-function loadStoredOptions(): PosterOptions {
+/**
+ * 海报选项：存过就用存的；**第一次打开**时把默认值跟编辑器模板对齐
+ * （组件开关 / 正文块顺序），之后一切以导出面板为准。
+ */
+function loadStoredOptions(kind: PosterSubjectKind): PosterOptions {
   if (typeof window === 'undefined') return normalizePosterOptions(null)
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY)
-    return normalizePosterOptions(raw ? (JSON.parse(raw) as unknown) : null)
+    if (raw !== null) return normalizePosterOptions(JSON.parse(raw) as unknown)
   } catch {
     return normalizePosterOptions(null)
   }
+  return normalizePosterOptions({
+    ...normalizePosterOptions(null),
+    ...posterTemplateDefaults(kind, getTemplates(), posterInfoHints(kind)),
+  })
+}
+
+/**
+ * 海报的「时间 / 地点」开关默认值：跟编辑器的基本信息走。
+ * 事件读字段表，词条读内置词条模板选中的基本信息组件（海报本来也只认内置模板）。
+ */
+function posterInfoHints(kind: PosterSubjectKind): PosterInfoHints {
+  if (kind === 'event') {
+    const ids = new Set(getFieldConfig().event.map((field) => field.id))
+    return { time: ids.has('time') || ids.has('endTime'), location: ids.has('location') }
+  }
+  if (kind === 'world') {
+    const doc = getTemplates().find((item) => item.id === 'entry')
+    const types = doc === undefined ? {} : templateFieldTypes(doc) ?? {}
+    const used = new Set(Object.values(types))
+    return { time: used.has('time') || used.has('timeEnd'), location: used.has('place') }
+  }
+  return { time: false, location: false }
 }
 
 function safeFileName(title: string): string {
@@ -223,9 +257,9 @@ export function PosterPanel({
   const { settings, updateSetting } = useSettings()
   const posterRef = useRef<HTMLDivElement | null>(null)
 
-  const [options, setOptions] = useState<PosterOptions>(loadStoredOptions)
-  const [subjects, setSubjects] = useState<Record<PosterSubjectKind, PosterSubject[]> | null>(null)
   const [kind, setKind] = useState<PosterSubjectKind>(initialSubject?.kind ?? 'character')
+  const [options, setOptions] = useState<PosterOptions>(() => loadStoredOptions(kind))
+  const [subjects, setSubjects] = useState<Record<PosterSubjectKind, PosterSubject[]> | null>(null)
   const [subjectId, setSubjectId] = useState<number | null>(initialSubject?.id ?? null)
   const [bundle, setBundle] = useState<PosterSubjectBundle | null>(null)
   const [search, setSearch] = useState('')

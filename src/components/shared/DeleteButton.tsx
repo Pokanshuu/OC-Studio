@@ -19,6 +19,8 @@ import { OverlayIconButton } from './OverlayIconButton'
 interface DeleteButtonProps {
   onDelete: () => void
   label?: string
+  /** 确认框里的那句说明；默认按单条记录写。会连带删除子项时传自己的 */
+  description?: string
   /**
    * 底色：`default` 落在纸面上；`overlay` 压在封面卡的照片上（深色半透明圆底）——
    * 与 `DragHandle` 的 overlay 手柄共用 `OVERLAY_ROUND_BTN`。
@@ -26,7 +28,12 @@ interface DeleteButtonProps {
   tone?: 'default' | 'overlay'
 }
 
-export function DeleteButton({ onDelete, label = '删除', tone = 'default' }: DeleteButtonProps) {
+export function DeleteButton({
+  onDelete,
+  label = '删除',
+  description = '删除后将移至回收站，可在 30 天内恢复。',
+  tone = 'default',
+}: DeleteButtonProps) {
   const [done, setDone] = useState(false)
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const overlay = tone === 'overlay'
@@ -73,9 +80,7 @@ export function DeleteButton({ onDelete, label = '删除', tone = 'default' }: D
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>确认删除</AlertDialogTitle>
-            <AlertDialogDescription>
-              删除后将移至回收站，可在 30 天内恢复。
-            </AlertDialogDescription>
+            <AlertDialogDescription>{description}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>

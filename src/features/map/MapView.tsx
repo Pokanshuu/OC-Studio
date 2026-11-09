@@ -68,7 +68,7 @@ import {
   LOADING_TEXT,
   PAGE_TITLE,
 } from '@/lib/ui-tokens'
-import { notifyDataUpdated } from '@/lib/data-events'
+import { DATA_UPDATED_EVENT, notifyDataUpdated } from '@/lib/data-events'
 import { MapAnchorPicker, type MapAnchorSelection } from './components/MapAnchorPicker'
 import { AnnotationColorMenu } from './components/AnnotationColorMenu'
 import { MapCanvas, type AnnotationDraft } from './components/MapCanvas'
@@ -195,6 +195,8 @@ export function MapView() {
   const [points, setPoints] = useState<AnchorPoint[]>([])
   const [loading, setLoading] = useState(true)
   const [generatorOpen, setGeneratorOpen] = useState(false)
+  /** 生成结果正在落盘（六档预渲染要几十秒）：这段里不让关掉生成器 */
+  const [generatorBusy, setGeneratorBusy] = useState(false)
   // 地图生成器是插件：关掉之后**不该还有入口**（空态按钮 / ⋯ 菜单 / 详情页重新生成 / 生成器本身）
   const { enabled: pluginEnabled } = usePlugins()
   const canGenerate = pluginEnabled(MAP_GENERATOR_PLUGIN) && MAP_GENERATOR_PLUGIN.available
@@ -346,6 +348,16 @@ export function MapView() {
     void reload()
   }, [reload])
 
+  // 别处改了地图（后台保存完、导入地图包、笔记侧改了条目）→ 重读列表。
+  // 没有这条的话，恰好在保存完成前切回地图页会一直停在空态 —— 看着就像「图丢了」。
+  useEffect(() => {
+    const handler = (): void => {
+      void reload(activeIdRef.current ?? undefined)
+    }
+    window.addEventListener(DATA_UPDATED_EVENT, handler)
+    return () => window.removeEventListener(DATA_UPDATED_EVENT, handler)
+  }, [reload])
+
   // 「工具 › 地图生成器」建完图会交棒过来：切到地图时直接打开它，而不是停在上次那张
   useEffect(() => {
     if (activeItem !== '地图') return
@@ -464,6 +476,8 @@ export function MapView() {
     await reload(active.id)
     notifyDataUpdated()
     setGeneratorOpen(false)
+    // 六档预渲染要几十秒：只在生成器里画进度不够，用户切走再回来就什么都不知道了
+    toast.success('底图已保存', { description: `「${active.name}」六档视图都已存好` })
   }
 
   /**
@@ -993,6 +1007,7 @@ export function MapView() {
                 target={active ? { kind: 'existing', name: active.name } : undefined}
                 initialSeed={generatorPreset?.seed}
                 initialParams={generatorPreset?.params}
+                onBusyChange={setGeneratorBusy}
               />
             </div>
           </div>
@@ -1008,7 +1023,12 @@ export function MapView() {
         ) : null}
 
         {/* 顶栏：左 = 我在看哪张图，右 = 模式与输出 */}
-        <div className="pointer-events-none absolute inset-x-3 top-[calc(0.75rem+var(--oc-titlebar-h))] z-20 flex items-start justify-between gap-2">
+        {/* 非全屏时内容区已经在菜单栏之下，**不再**给红绿灯留位；只有整屏（fixed inset-0）
+            会盖住窗口标题栏，那时才需要把浮层往下推 32px。 */}
+        <div
+          className="pointer-events-none absolute inset-x-3 z-20 flex items-start justify-between gap-2"
+          style={{ top: immersive ? 'calc(0.75rem + var(--oc-titlebar-h))' : '0.75rem' }}
+        >
           {!showGenerator && active ? (
             <div className="pointer-events-auto relative min-w-0">
               {/* 悬停只把纸变实：叠 `--oc-hover` 会把 `bg-paper/85` 整个顶掉，
@@ -1079,9 +1099,15 @@ export function MapView() {
           {hasBase || showGenerator ? (
           <div className={`pointer-events-auto shrink-0 ${FLOAT_BAR}`}>
             {showGenerator ? (
-              <button type="button" onClick={() => setGeneratorOpen(false)} className={FLOAT_BAR_TEXT}>
+              <button
+                type="button"
+                onClick={() => setGeneratorOpen(false)}
+                disabled={generatorBusy}
+                title={generatorBusy ? '正在保存底图，稍等一下' : undefined}
+                className={`${FLOAT_BAR_TEXT} disabled:opacity-50`}
+              >
                 <ArrowLeft size={13} strokeWidth={2} />
-                画布
+                {generatorBusy ? '保存中…' : '画布'}
               </button>
             ) : null}
 

@@ -7,7 +7,7 @@
  * 改回来就全在）。但删完之后界面上没有任何入口能把它加回来 —— 那行数据就变成
  * 「存在但看不见」。这个 hook 把差集算出来，设置页据此给一个「找回 N 项」。
  *
- * 扫的是实体自己的 `custom`（角色 / 词条 / 分类条目共用 `WorldEntry.custom`），
+ * 扫的是实体自己的 `custom`（角色 / 事件 / 国家各一份；词条 / 分类条目共用 `WorldEntry.custom`），
  * 不读正文：正文里的东西不是字段。
  */
 import { useEffect, useState } from 'react'
@@ -31,6 +31,8 @@ async function collectCustomKeys(kind: FieldKind): Promise<string[]> {
     for (const row of await db.characters.toArray()) add(row.custom)
   } else if (kind === 'event') {
     for (const row of await db.events.toArray()) add(row.custom)
+  } else if (kind === 'country') {
+    for (const row of await db.countries.toArray()) add(row.custom)
   } else {
     for (const row of await db.worldEntries.toArray()) add(row.custom)
   }

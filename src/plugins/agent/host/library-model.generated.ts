@@ -68,9 +68,9 @@ export const LIBRARY_MODEL_MARKDOWN = `## 数据模型（由 \`npm run gen:libra
 - \`avatar?: string\` 头像（1:1 槽位，落盘键 avatar）；模板「头像」组件写这里
 - \`image?: string\` 单张图片（落盘键 image）；模板「图片」组件写这里
 - \`gallery?: GalleryImage[]\` 图集（落盘键 gallery）；模板「画廊」组件写这里
-- \`time?: string\` 开始时间 / 结束时间（落盘键 time / endTime）；模板「时间」组件写这里
+- \`time?: string\` 开始时间 / 结束时间（落盘键 time / endTime）。 基本信息组件里的「时间 / 结束时间」特殊字段写这里（不是 \`custom\`）。
 - \`endTime?: string\`
-- \`location?: string\` 地点（落盘键 location）；模板「地点」组件写这里
+- \`location?: string\` 地点（落盘键 location）：基本信息组件里的「地点」特殊字段写这里
 - \`summary?: string\` 一行简介（分类条目的副标题 / 列表摘要；落盘键 简介）
 - \`category: string\` 自定义分类归属（空 = 普通词条，进世界观目录树；小说根是 \`小说\`、地图笔记是 \`地图\`）。 历史上它兼过层级用途，那部分早已由 \`parentId\` 取代；盘上仍有老文件的 \`…
 - \`template?: string\` 单篇覆盖的模板名（空 = 跟随分类 / 内置词条模板；落盘键 模板）

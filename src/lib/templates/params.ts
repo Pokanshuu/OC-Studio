@@ -7,6 +7,7 @@
  * 这份文件不 import React，脚本与渲染器都能直接读。
  */
 import { isNoteTemplate } from './note'
+import { templateHostOf } from './support'
 import type { TemplateComponent, TemplateComponentId, TemplateDoc } from './types'
 
 export interface TemplateParamOption {
@@ -134,40 +135,6 @@ export const TEMPLATE_PARAM_SCHEMA: Partial<Record<TemplateComponentId, Template
       ],
     },
   ],
-  time: [
-    {
-      key: 'interval',
-      label: '区间',
-      kind: 'choice',
-      fallback: true,
-      options: [
-        { value: true, label: '开始—结束' },
-        { value: false, label: '只开始' },
-      ],
-    },
-    {
-      key: 'title',
-      label: '标题',
-      kind: 'choice',
-      fallback: true,
-      options: [
-        { value: true, label: '显示' },
-        { value: false, label: '隐藏' },
-      ],
-    },
-  ],
-  place: [
-    {
-      key: 'title',
-      label: '标题',
-      kind: 'choice',
-      fallback: true,
-      options: [
-        { value: true, label: '显示' },
-        { value: false, label: '隐藏' },
-      ],
-    },
-  ],
   summary: [
     {
       key: 'title',
@@ -183,6 +150,31 @@ export const TEMPLATE_PARAM_SCHEMA: Partial<Record<TemplateComponentId, Template
 }
 
 /**
+ * 标题文案（`label`）：空 = 用宿主给的默认文案（相册 / 关系 / 时间…）。
+ *
+ * 与 `title` 布尔分工：`title` 管显隐，`label` 管叫什么。旧模板只有 `title`，行为不变。
+ */
+const LABEL_PARAM: TemplateParamDef = {
+  key: 'label',
+  label: '标题文案',
+  kind: 'text',
+  fallback: '',
+  options: [],
+}
+
+// 有标题行的区块都能改文案；标签块固定叫「标签」，封面 / 头像 / 正文没有标题行。
+for (const id of ['relations', 'gallery', 'image', 'portrait', 'animation', 'summary'] as const) {
+  const defs = TEMPLATE_PARAM_SCHEMA[id]
+  if (defs !== undefined) defs.push({ ...LABEL_PARAM })
+}
+
+/** 读区块的标题文案；没设 / 设坏 = ''（渲染器据此回落默认文案） */
+export function componentLabel(component: TemplateComponent | undefined): string {
+  const value = component?.params?.label
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+/**
  * 参数只对**真正消费它的模板**开放。
  * 关系区块在角色 / 事件 / 国家三个编辑器里是同一套实现，所以三处都能改呈现。
  * `info.group` 由「基本信息组件」选择器写、`lib/templates/fields.ts` 消费 ——
@@ -192,19 +184,22 @@ export const TEMPLATE_PARAM_SCHEMA: Partial<Record<TemplateComponentId, Template
 export const TEMPLATE_PARAM_SUPPORT: Partial<Record<TemplateComponentId, string[]>> = {
   // 六个内置模板都含正文；自建笔记模板走 `TEMPLATE_PARAM_ANY_NOTE`
   body: ['character', 'event', 'country', 'entry', 'pet', 'weapon'],
-  info: ['pet', 'weapon', 'entry'],
+  // 内置词条模板默认没有「基本信息」（字段来自按篇选的模板 / 组件，2026-11-09）；
+  // 用户给它加上这一块时，走 `TEMPLATE_PARAM_ANY_NOTE` 的 doc 分支
+  info: ['pet', 'weapon'],
   relations: ['character', 'event', 'country'],
+  // 立绘 / 动画是角色专属组件
+  portrait: ['character'],
+  animation: ['character'],
   gallery: ['character', 'event', 'country'],
-  time: ['event'],
-  place: ['event'],
   summary: ['event', 'character', 'country'],
 }
 
 /**
  * 「这个组件对任何笔记类模板都开放」—— 判断要带 doc（`isNoteTemplate`）。
  *
- * 为什么需要它：基本信息字段表、画廊 / 图片 / 时间 / 地点的呈现参数已经不是
- * 实体模板的专利，用户在设置里新建的任何笔记类模板都该能声明。
+ * 为什么需要它：基本信息字段表、画廊 / 图片的呈现参数已经不是实体模板的专利，
+ * 用户在设置里新建的任何笔记类模板都该能声明。
  * 硬编码一份 id 名单会漏掉自建模板，而且每接一个宿主就要改两处。
  */
 export const TEMPLATE_PARAM_ANY_NOTE: Partial<Record<TemplateComponentId, boolean>> = {
@@ -213,8 +208,6 @@ export const TEMPLATE_PARAM_ANY_NOTE: Partial<Record<TemplateComponentId, boolea
   relations: true,
   gallery: true,
   image: true,
-  time: true,
-  place: true,
   summary: true,
 }
 
@@ -227,8 +220,12 @@ export function templateAcceptsParam(
   if (!defs || defs.length === 0) return false
   const listed = TEMPLATE_PARAM_SUPPORT[componentId]?.includes(templateId) ?? false
   if (TEMPLATE_PARAM_ANY_NOTE[componentId]) {
-    // 有 doc 就以它为准（自建模板也认）；没有 doc 时只能按内置名单兜底
-    return doc ? isNoteTemplate(doc) : listed
+    if (!doc) return listed
+    // 「任何笔记类模板」= **笔记宿主** + 含正文，不是「任何含正文的模板」——
+    // 角色 / 事件 / 国家也含正文，但它们的组件各有自己的数据源（基本信息没有组件库可换）。
+    // 这些实体模板在自己的 `TEMPLATE_PARAM_SUPPORT` 名单里照样能改（关系 / 画廊 / 简介 / 正文）。
+    if (templateHostOf(doc.id) === 'note' && isNoteTemplate(doc)) return true
+    return listed
   }
   return listed
 }

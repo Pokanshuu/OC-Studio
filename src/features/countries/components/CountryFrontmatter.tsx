@@ -7,9 +7,10 @@ import { AvatarBlock, GalleryBlock, SummaryBlock } from '@/components/shared/tem
 import { TagsSection } from '@/components/shared/TagsSection'
 import { TemplateRenderer } from '@/components/shared/TemplateRenderer'
 import { useTemplates } from '@/lib/templates/store'
-import { componentParam } from '@/lib/templates/params'
+import { componentLabel, componentParam } from '@/lib/templates/params'
 import { TITLE_INPUT } from '@/lib/ui-tokens'
 import type { CountryForm } from '../hooks/useCountryForm'
+import { CountryInfoSection } from './CountryInfoSection'
 
 interface CountryFrontmatterProps {
   form: CountryForm
@@ -36,10 +37,16 @@ export function CountryFrontmatter({
   const { templates } = useTemplates()
   const template = templates.find((doc) => doc.id === 'country')
   const relationsBlock = useRelationsBlock(template)
+  // 头像是独立组件（国家 = 旗帜）：模板启用 `avatar` 时封面不再画一遍
+  const avatarEnabled = template?.components.some(
+    (component) => component.id === 'avatar' && component.enabled,
+  ) ?? false
   const componentOf = (id: 'summary' | 'gallery') =>
     template?.components.find((component) => component.id === id)
   const summaryTitle = componentParam(componentOf('summary'), 'title', true) !== false
   const galleryTitle = componentParam(componentOf('gallery'), 'title', true) !== false
+  const summaryLabel = componentLabel(componentOf('summary'))
+  const galleryLabel = componentLabel(componentOf('gallery'))
   const galleryMode = componentParam(componentOf('gallery'), 'mode', 'grid') === 'slider' ? 'slider' : 'grid'
   const galleryColumns = Math.min(
     6,
@@ -47,14 +54,19 @@ export function CountryFrontmatter({
   )
 
   const summarySection = (
-    <SummaryBlock value={form.description} showTitle={summaryTitle} onChange={form.setDescription} />
+    <SummaryBlock
+      value={form.description}
+      showTitle={summaryTitle}
+      title={summaryLabel || '简介'}
+      onChange={form.setDescription}
+    />
   )
 
   const gallerySection = (
     <GalleryBlock
       images={form.gallery.map((image) => image.url)}
       showTitle={galleryTitle}
-      title="画廊"
+      title={galleryLabel || '画廊'}
       mode={galleryMode}
       columns={galleryColumns}
       onAdd={(url) => form.setGallery((prev) => [...prev, { url, caption: '' }])}
@@ -71,6 +83,7 @@ export function CountryFrontmatter({
       candidates={form.relationCandidates}
       presentation={relationsBlock.presentation}
       showTitle={relationsBlock.showTitle}
+      title={relationsBlock.title}
       onPresentationChange={relationsBlock.canSwitch ? relationsBlock.setPresentation : undefined}
       onAdd={form.addRelation}
       onRemove={form.removeRelation}
@@ -103,6 +116,7 @@ export function CountryFrontmatter({
           placeholder="国家/地区名称"
           className={TITLE_INPUT}
         />
+        <CountryInfoSection values={form.custom} onChange={form.setCustomValue} />
         <div className="border-t border-line" />
         {relationSection}
         <div className="border-t border-line" />
@@ -121,9 +135,9 @@ export function CountryFrontmatter({
             return (
               <ProfileBannerEditor
                 headerUrl={form.headerUrl}
-                avatarUrl={form.flagUrl}
+                avatarUrl={avatarEnabled ? undefined : form.flagUrl}
                 onHeaderChange={form.setHeaderUrl}
-                onAvatarChange={form.setFlagUrl}
+                onAvatarChange={avatarEnabled ? undefined : form.setFlagUrl}
                 onHeaderRemove={() => form.setHeaderUrl('')}
                 onAvatarRemove={() => form.setFlagUrl('')}
                 avatarType="flag"
@@ -140,13 +154,16 @@ export function CountryFrontmatter({
             )
           case 'info':
             return (
-              <input
-                type="text"
-                value={form.name}
-                onChange={(e) => form.setName(e.target.value)}
-                placeholder="国家/地区名称"
-                className={TITLE_INPUT}
-              />
+              <div className="flex min-w-0 flex-col gap-8">
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={(e) => form.setName(e.target.value)}
+                  placeholder="国家/地区名称"
+                  className={TITLE_INPUT}
+                />
+                <CountryInfoSection values={form.custom} onChange={form.setCustomValue} />
+              </div>
             )
           case 'summary':
             return summarySection

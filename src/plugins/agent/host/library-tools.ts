@@ -148,6 +148,27 @@ function imageFileName(url: string, filename?: string): string {
  *   1. 包在 `runAsActorAsync('agent:assistant', …)` 里（时间线才认得出是谁）
  *   2. 顺带把 `updatedAt` 推一下（列表按它排序）
  */
+/**
+ * 词条的单篇模板只能换「笔记类」模板。
+ *
+ * 角色 / 事件 / 国家是实体模板：它们的字段读实体列，摆到词条上只会渲染出一堆空行。
+ * 界面侧已经不列它们（`NoteTemplateButton`），助手这边也要挡住 —— 否则模型会
+ * 写进一个渲染侧会忽略的名字，用户看到的是「说了改了，其实没变」。
+ */
+async function assertPerNoteTemplate(name: string): Promise<void> {
+  const [{ getTemplates, loadTemplates }, { perNoteTemplates }] = await Promise.all([
+    import('@/lib/templates/store'),
+    import('@/lib/templates/note'),
+  ])
+  await loadTemplates()
+  const candidates = perNoteTemplates(getTemplates())
+  const found = candidates.some((doc) => doc.name === name || doc.id === name)
+  if (!found) {
+    const list = candidates.map((doc) => doc.name).join(' / ') || '（没有笔记类模板）'
+    throw new Error(`词条只能用笔记类模板：${list}`)
+  }
+}
+
 const writer: LibraryWriter = {
   async setFields(kind, id, patch) {
     const { db, runAsActorAsync } = await loadWriteDeps()
@@ -189,6 +210,9 @@ const writer: LibraryWriter = {
         return countries.createCountry({ ...defaults.newCountryData(), name: input.title, ...input.fields })
       }
       // 词条：分类 / 模板 / 父级是它的结构位（小说章节、自定义分类条目靠这三个）
+      if (input.template !== undefined && input.template.trim() !== '') {
+        await assertPerNoteTemplate(input.template.trim())
+      }
       return world.createEntry({
         ...defaults.newWorldEntryData(),
         title: input.title,
@@ -330,6 +354,7 @@ const writer: LibraryWriter = {
       if (template !== '') {
         const names = new Set(getTemplates().flatMap((doc) => [doc.name, doc.id]))
         if (!names.has(template)) throw new Error(`没有这个模板：${template}（先看库目录）`)
+        await assertPerNoteTemplate(template)
       }
     }
 
@@ -505,7 +530,7 @@ const writer: LibraryWriter = {
  * 库目录：模板（组件 + 字段组）与分类。
  *
  * 模型推不出这些 —— 只看到字段组名「宠物」时，它不知道该写 `物种` 还是 `species`；
- * 只看到模板名「地点」时，它不知道那个模板有没有时间组件。猜错就是往不存在的键里写值。
+ * 只看到模板名「宠物」时，它不知道那个模板用了哪份基本信息组件。猜错就是往不存在的键里写值。
  */
 const catalog: LibraryCatalog = {
   async describe() {
@@ -526,7 +551,12 @@ const catalog: LibraryCatalog = {
       const inline = Array.isArray(infoComponent?.params?.fields)
         ? (infoComponent.params.fields as unknown[]).filter((key): key is string => typeof key === 'string')
         : []
-      const keys = group ? group.fields : inline
+      // 特殊字段（时间 / 结束时间 / 地点）写的是实体列，不是自建键 ——
+      // 列在「自建字段」里会引着模型往 `custom` 里写一个永远不生效的键
+      const types = group?.types ?? {}
+      const keys = (group ? group.fields : inline).filter(
+        (key) => !info.isSpecialInfoFieldType(types[key]),
+      )
       return {
         id: template.id,
         name: template.name,

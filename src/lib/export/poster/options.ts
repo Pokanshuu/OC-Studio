@@ -5,6 +5,7 @@
  * 手改过的 JSON。一律先过这里，非法值回默认，不让界面落进「没有这个版式 /
  * 背景不存在」的状态。
  */
+import type { TemplateComponentId, TemplateDoc } from '@/lib/templates/types'
 import {
   DEFAULT_POSTER_OPTIONS,
   DEFAULT_POSTER_BLOCK_ORDER,
@@ -20,6 +21,7 @@ import {
   type PosterCoverPlacement,
   type PosterOptions,
   type PosterRatio,
+  type PosterBlockId,
   type PosterTemplateId,
 } from './types'
 
@@ -37,6 +39,82 @@ function oneOf<T extends string>(value: unknown, options: readonly T[], fallback
 
 export function isPosterTemplateId(value: unknown): value is PosterTemplateId {
   return typeof value === 'string' && (POSTER_TEMPLATE_IDS as string[]).includes(value)
+}
+
+/** 海报主体 → 编辑器模板 id（自建分类 / 宠物 / 武器都落在词条模板上） */
+const TEMPLATE_ID_BY_SUBJECT: Record<'character' | 'event' | 'country' | 'world', string> = {
+  character: 'character',
+  event: 'event',
+  country: 'country',
+  world: 'entry',
+}
+
+/**
+ * 模板组件 → 海报正文块（立绘 / 图片都并进海报的「画廊」）。
+ *
+ * 时间 / 地点不在这里：它们已经并回「基本信息」（`info` → `fields`），
+ * 海报的时间 / 地点块由 `PosterInfoHints` 单独决定（见下）。
+ */
+const POSTER_BLOCK_BY_COMPONENT: Partial<Record<TemplateComponentId, PosterBlockId>> = {
+  info: 'fields',
+  tags: 'tags',
+  summary: 'summary',
+  body: 'body',
+  relations: 'relations',
+  gallery: 'gallery',
+  portrait: 'gallery',
+  image: 'gallery',
+}
+
+/**
+ * 海报的**默认选项**从编辑器模板来：开关 / 正文块顺序与编辑器一致。
+ *
+ * 只在用户还没保存过海报选项时使用（见 `PosterPanel`）。之后用户在导出面板改的
+ * 一切以导出配置为准 —— 海报是成品图，排版参数不该被模板反复改回去。
+ * 只映射海报真实有的块；模板里没有的组件（封面 / 头像等）按海报自己的版式走。
+ */
+/**
+ * 基本信息里有没有时间 / 地点的行。
+ *
+ * 事件看字段表（`lib/fields`），词条看基本信息组件的字段类型（`InfoGroup.types`）——
+ * 这两个数据源都在调用方手里（`PosterPanel`），这里不 import 存储层：脚本里也能调。
+ */
+export interface PosterInfoHints {
+  time: boolean
+  location: boolean
+}
+
+export function posterTemplateDefaults(
+  kind: 'character' | 'event' | 'country' | 'world',
+  templates: readonly TemplateDoc[] | undefined,
+  hints?: PosterInfoHints,
+): Partial<PosterOptions> {
+  const doc = templates?.find((item) => item.id === TEMPLATE_ID_BY_SUBJECT[kind])
+  if (doc === undefined) return {}
+  const enabled = new Set(
+    doc.components.filter((component) => component.enabled).map((component) => component.id),
+  )
+  const order: PosterBlockId[] = []
+  for (const component of doc.components) {
+    if (!component.enabled) continue
+    const block = POSTER_BLOCK_BY_COMPONENT[component.id]
+    if (block !== undefined && !order.includes(block)) order.push(block)
+  }
+  const hasBlock = (block: PosterBlockId): boolean => order.includes(block)
+  // 时间 / 地点是基本信息里的行：基本信息不开，它们也没有入口
+  const infoEnabled = enabled.has('info')
+  return {
+    showFields: hasBlock('fields') && infoEnabled,
+    showTags: hasBlock('tags') && enabled.has('tags'),
+    showTime: infoEnabled && hints?.time === true,
+    showLocation: infoEnabled && hints?.location === true,
+    showSummary: hasBlock('summary') && enabled.has('summary'),
+    showBody: hasBlock('body') && enabled.has('body'),
+    showRelations: hasBlock('relations') && enabled.has('relations'),
+    showGallery: hasBlock('gallery') && (enabled.has('gallery') || enabled.has('portrait') || enabled.has('image')),
+    showCover: enabled.has('cover') || enabled.has('avatar'),
+    ...(order.length > 0 ? { blockOrder: order } : {}),
+  }
 }
 
 export function normalizePosterOptions(value: unknown): PosterOptions {

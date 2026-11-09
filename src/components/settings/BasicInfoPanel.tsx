@@ -4,7 +4,7 @@
  * 设置 › 世界 › 自定义组件 › 基本信息。
  *
  * 两类东西，**关系不同**：
- * - **字段表**（角色 / 词条）：实体自己的全局字段表（`lib/fields`），
+ * - **字段表**（角色 / 事件）：实体自己的全局字段表（`lib/fields`），
  *   实体模板直接消费，不存在「选择」。
  * - **基本信息组件**（宠物 / 武器 / 自建）：独立的、可复用的字段组；
  *   模板只是**选择**其中一个（`info.params.group = <id>`）。名字和模板名无关，
@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { SortableList, moveId } from '@/components/shared/list-dnd'
 import { MediaContextMenu } from '@/components/shared/MediaContextMenu'
-import type { FieldKind } from '@/lib/fields'
+import { useFieldConfig, type FieldKind } from '@/lib/fields'
 import type { InfoGroupHost } from '@/lib/templates/info-groups'
 import { SettingsFieldRow } from './FieldRow'
 import { SettingsEntryRow } from './EntryRow'
@@ -38,6 +38,7 @@ import {
   INFO_FIELD_TYPE_LABELS,
   createInfoGroup,
   deleteInfoGroup,
+  infoFieldColumnOf,
   infoFieldLabelOf,
   infoFieldTypeOf,
   isBuiltinInfoGroup,
@@ -56,14 +57,20 @@ import { BTN_DANGER, BTN_QUIET, ICON_BTN, INPUT_LINE, ROUND_ITEM, SETTINGS_EMPTY
 const FIELD_ROWS: { key: string; label: string; fieldKind: FieldKind }[] = [
   { key: 'character', label: '角色', fieldKind: 'character' },
   { key: 'event', label: '事件', fieldKind: 'event' },
-  { key: 'worldEntry', label: '词条', fieldKind: 'worldEntry' },
+  { key: 'country', label: '国家', fieldKind: 'country' },
 ]
 
-/** 宿主 → 字段表种类。列型宿主（角色 / 事件 / 词条）共用同一套字段表编辑器 */
+/** 宿主 → 字段表种类。列型宿主（角色 / 事件）共用同一套字段表编辑器 */
+/**
+ * 列型宿主 → 字段表种类。
+ *
+ * 词条**不在**这里：它没有全局字段表，字段来自按篇选的模板 / 基本信息组件
+ * （2026-11-09 收口，`docs/模板.md` §6.2）。
+ */
 function columnKindOf(host: InfoGroupHost | undefined): FieldKind | undefined {
   if (host === 'character') return 'character'
   if (host === 'event') return 'event'
-  if (host === 'world') return 'worldEntry'
+  if (host === 'country') return 'country'
   return undefined
 }
 function nextGroupName(groups: readonly InfoGroup[]): string {
@@ -92,6 +99,18 @@ function GroupFieldsSettings({ group }: { group: InfoGroup }) {
   }
 
   const setType = (key: string, type: InfoFieldType): void => {
+    // 特殊字段绑的是同一条实体列（时间 / 结束时间 / 地点）：一个组件里只能有一行，
+    // 两行等于两个输入抢同一份数据（渲染侧也会把第二行的类型丢掉）
+    const column = infoFieldColumnOf(type)
+    if (column !== undefined) {
+      const taken = Object.entries(group.types ?? {}).find(
+        ([other, otherType]) => other !== key && infoFieldColumnOf(otherType) === column,
+      )
+      if (taken !== undefined) {
+        toast.error(`已经有「${infoFieldLabelOf(group, taken[0])}」这一行了`)
+        return
+      }
+    }
     const next = { ...(group.types ?? {}) }
     if (type === 'text') delete next[key]
     else next[key] = type
@@ -164,34 +183,39 @@ function GroupFieldsSettings({ group }: { group: InfoGroup }) {
     <section className="flex flex-col gap-2">
       <SortableList ids={keys} onReorder={reorder} layout="list">
         <div className="flex flex-col">
-          {keys.map((key, index) => (
-            <SettingsFieldRow
-              key={key}
-              id={key}
-              value={infoFieldLabelOf(group, key)}
-              // 列型宿主的显示名在字段表里维护，这里只给笔记型组件第二列（落盘键）
-              keyValue={typed ? key : undefined}
-              onKeyChange={typed ? (next) => renameKey(key, next) : undefined}
-              typeSlot={
-                typed ? (
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      const rect = event.currentTarget.getBoundingClientRect()
-                      setTypeMenu({ key, at: { x: rect.left, y: rect.bottom + 4 } })
-                    }}
-                    title="字段类型"
-                    className="flex shrink-0 items-center gap-0.5 px-1 text-[11px] text-ink-faint transition-colors hover:text-ink"
-                  >
-                    {INFO_FIELD_TYPE_LABELS[infoFieldTypeOf(group, key)]}
-                    <ChevronDown size={10} strokeWidth={2} />
-                  </button>
-                ) : undefined
-              }
-              onRename={(next) => renameLabel(key, next)}
-              onRemove={() => commit(keys.filter((_, i) => i !== index))}
-            />
-          ))}
+          {keys.map((key, index) => {
+            // 特殊字段（时间 / 结束时间 / 地点）的键只是行身份，值写词条自己的列 ——
+            // 给它一个「落盘键」输入框会让人真去改，改了也还是写同一列。
+            const special = infoFieldColumnOf(infoFieldTypeOf(group, key)) !== undefined
+            return (
+              <SettingsFieldRow
+                key={key}
+                id={key}
+                value={infoFieldLabelOf(group, key)}
+                // 列型宿主的显示名在字段表里维护，这里只给笔记型组件第二列（落盘键）
+                keyValue={typed && !special ? key : undefined}
+                onKeyChange={typed && !special ? (next) => renameKey(key, next) : undefined}
+                typeSlot={
+                  typed ? (
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        const rect = event.currentTarget.getBoundingClientRect()
+                        setTypeMenu({ key, at: { x: rect.left, y: rect.bottom + 4 } })
+                      }}
+                      title="字段类型"
+                      className="flex shrink-0 items-center gap-0.5 px-1 text-[11px] text-ink-faint transition-colors hover:text-ink"
+                    >
+                      {INFO_FIELD_TYPE_LABELS[infoFieldTypeOf(group, key)]}
+                      <ChevronDown size={10} strokeWidth={2} />
+                    </button>
+                  ) : undefined
+                }
+                onRename={(next) => renameLabel(key, next)}
+                onRemove={() => commit(keys.filter((_, i) => i !== index))}
+              />
+            )
+          })}
         </div>
       </SortableList>
 
@@ -253,6 +277,7 @@ function GroupFieldsSettings({ group }: { group: InfoGroup }) {
 
 export function BasicInfoPanel({ onBack, initialId }: { onBack: () => void; initialId?: string }) {
   const groups = useInfoGroups()
+  const fieldConfig = useFieldConfig()
   const { templates } = useTemplates()
   const initialGroupId = initialId?.startsWith('group:') ? initialId.slice('group:'.length) : null
   const [activeGroupId, setActiveGroupId] = useState<string | null>(initialGroupId)
@@ -263,7 +288,7 @@ export function BasicInfoPanel({ onBack, initialId }: { onBack: () => void; init
 
   const activeGroup = activeGroupId === null ? null : groups.find((group) => group.id === activeGroupId) ?? null
   /**
-   * 列型宿主（角色 / 事件 / 词条）的组件**只是字段表的投影**：字段是真列 id、名字在
+   * 列型宿主（角色 / 事件）的组件**只是字段表的投影**：字段是真列 id、名字在
    * `lib/fields` 里。深链进来（`group:group-character`，模板参数里的设置键就这么跳）
    * 也必须落到字段表编辑器 —— 否则会看到一份 `aliases / race / isMajor` 的键名清单，
    * 既没有中文名，也不该在那儿改。
@@ -413,19 +438,19 @@ export function BasicInfoPanel({ onBack, initialId }: { onBack: () => void; init
         <span className="text-sm text-ink">基本信息</span>
       </div>
 
-      {/* 一张列表：内置（角色 / 事件 / 词条 / 宠物 / 武器）+ 自建。
+      {/* 一张列表：内置（角色 / 事件 / 宠物 / 武器）+ 自建。
           原来这里是「字段表」和「基本信息组件」两组 —— 同一件事的两种存储。
-          列型宿主（角色 / 事件 / 词条）点进去是字段表编辑器，笔记型宿主进组件编辑器。 */}
+          列型宿主（角色 / 事件）点进去是字段表编辑器，笔记型宿主进组件编辑器。 */}
       <div className="mt-1 flex flex-col">
         {groups.map((group) => {
           const count = usageOf(group.id).length
           const columnKind = columnKindOf(group.for)
-          // 列型宿主（角色 / 事件 / 词条）的字段表都已接到渲染器：
-          // 事件的时间 / 地点 / 重大 / 自定义字段由 `EventInfoSection` 消费
+          // 列型宿主（角色 / 事件）的字段表都已接到渲染器：
+          // 事件的时间 / 结束时间 / 地点 / 重大事件 / 自建字段都由 `EventInfoSection` 消费
           const meta =
             columnKind === undefined
               ? `${group.fields.length} 个字段 · ${count} 个模板`
-              : `${group.fields.length} 个字段`
+              : `${fieldConfig[columnKind].length} 个字段`
           return (
             <SettingsEntryRow
               key={group.id}

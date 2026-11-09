@@ -108,7 +108,7 @@ function putIfChanged(
 function putCustomFields(
   out: FrontmatterUpdates,
   existing: Record<string, unknown>,
-  kind: 'character' | 'event' | 'worldEntry',
+  kind: 'character' | 'event' | 'country' | 'worldEntry',
   current: Record<string, string> | undefined,
   previous: Record<string, string> | undefined,
 ): void {
@@ -297,6 +297,7 @@ export function serializeCountry(
   // 成员名单不再落盘（阶段二·一）：角色侧国籍 / 事件侧相关国家才是真源。
   // 盘上遗留的 `characters` / `events` 键我们不管，也不删（外科式写入只动自己持有的键）。
   putIfChanged(out, existing, COUNTRY_KEYS.tags, tagNames(ctx, entity.tags), p === null ? null : tagNames(ctx, p.tags))
+  putCustomFields(out, existing, 'country', entity.custom, p === null ? undefined : p.custom)
   putIfChanged(out, existing, COUNTRY_KEYS.order, writeNumber(entity.order), p === null ? null : writeNumber(p.order))
   putIfChanged(out, existing, COUNTRY_KEYS.graphPosition, writePosition(entity.graphPosition), p === null ? null : writePosition(p.graphPosition))
   putIfChanged(out, existing, COUNTRY_KEYS.mapPosition, writePosition(entity.mapPosition), p === null ? null : writePosition(p.mapPosition))

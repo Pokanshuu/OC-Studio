@@ -75,10 +75,11 @@ import { notifyDataUpdated } from '@/lib/data-events'
 import type { WorldEntry } from '@/types'
 import { WorldEntryBody } from '@/features/world/components/WorldEntryBody'
 import { useWorldEntryDraft } from '@/features/world/hooks/useWorldEntryDraft'
-import { deleteEntry, reorderEntries } from '@/features/world/services'
+import { reorderEntries } from '@/features/world/services'
 import { flattenNovel, countNovelWords } from './export'
 import {
   createNovelChapter,
+  deleteNovelSubtree,
   listNovelEntries,
   renameNovelEntry,
   updateChapterOutline,
@@ -113,7 +114,8 @@ export function NovelTree({
   const [treeQuery, setTreeQuery] = useState('')
   const [listOpen, setListOpen] = useState(true)
   const [showMobileTree, setShowMobileTree] = useState(false)
-  const [metaOpen, setMetaOpen] = useState(false)
+  // 作品信息默认展开：作者 / 简介 / 封面这些是新书第一件要填的事，收起等于藏起来
+  const [metaOpen, setMetaOpen] = useState(true)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
   const scrollRef = useRef<HTMLDivElement | null>(null)
@@ -271,7 +273,7 @@ export function NovelTree({
 
   const handleDeleteChapter = async (id: number) => {
     await flushSave()
-    await deleteEntry(id)
+    await deleteNovelSubtree(id)
     await reload()
     notifyDataUpdated()
   }

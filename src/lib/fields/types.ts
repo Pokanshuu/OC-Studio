@@ -14,10 +14,10 @@
 /**
  * 目前开放字段表的实体类型。
  *
- * **国家不在里面**：国家的「体制 / 地理 / 文化」已经并进正文（`mergeCountrySections`），
- * 没有独立的字段行可增删；等国家真的有字段行再加进来，别在配置里放一堆渲染不出来的条目。
+ * 国家 2026-11-09 加进来：它的「体制 / 地理 / 文化」仍在正文里，但**自建字段**落
+ * `Country.custom`、写 frontmatter 同名键 —— 与角色 / 事件同一套增删规则。
  */
-export const FIELD_KINDS = ['character', 'event', 'worldEntry'] as const
+export const FIELD_KINDS = ['character', 'event', 'country', 'worldEntry'] as const
 
 export type FieldKind = (typeof FIELD_KINDS)[number]
 
@@ -42,6 +42,7 @@ export type FieldConfig = Record<FieldKind, FieldDef[]>
 export const FIELD_KIND_LABELS: Record<FieldKind, string> = {
   character: '角色基本信息',
   event: '事件信息',
+  country: '国家基本信息',
   worldEntry: '词条信息',
 }
 
@@ -53,6 +54,7 @@ export const FIELD_KIND_LABELS: Record<FieldKind, string> = {
 export const FIELD_KIND_SUPPORTS_CUSTOM: Record<FieldKind, boolean> = {
   character: true,
   event: true,
+  country: true,
   worldEntry: true,
 }
 

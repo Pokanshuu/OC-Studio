@@ -10,19 +10,22 @@
 import { useCallback } from 'react'
 import { toast } from 'sonner'
 import type { TemplateDoc } from '@/lib/templates/types'
-import { componentParam, templateAcceptsParam } from '@/lib/templates/params'
+import { componentLabel, componentParam, templateAcceptsParam } from '@/lib/templates/params'
 import { setTemplateComponentParam } from '@/lib/templates/store'
 import { normalizeRelationPresentation, type RelationPresentation } from './types'
 
 export function useRelationsBlock(template: TemplateDoc | undefined): {
   presentation: RelationPresentation
   showTitle: boolean
+  /** 标题文案（模板参数 `label`，空 = 「关系」） */
+  title: string
   canSwitch: boolean
   setPresentation: (next: RelationPresentation) => void
 } {
   const component = template?.components.find((item) => item.id === 'relations')
   const presentation = normalizeRelationPresentation(componentParam(component, 'presentation', 'table'))
   const showTitle = componentParam(component, 'title', true) !== false
+  const label = componentLabel(component)
   const canSwitch = template !== undefined && templateAcceptsParam(template.id, 'relations', template)
 
   const setPresentation = useCallback(
@@ -37,5 +40,5 @@ export function useRelationsBlock(template: TemplateDoc | undefined): {
     [template],
   )
 
-  return { presentation, showTitle, canSwitch, setPresentation }
+  return { presentation, showTitle, title: label || '关系', canSwitch, setPresentation }
 }

@@ -44,6 +44,15 @@ export function TemplateRenderer({ template, render, className = 'flex flex-col 
         // 封面与下方内容之间不画线（`docs/模板.md §6.1`）；第一个区块也不画
         const previous = blocks[index - 1]?.id
         const divider = index > 0 && previous !== 'cover'
+        /**
+         * 头像紧跟封面时**叠在封面上**（用户拍板：这是完全可接受的版式）。
+         *
+         * 头像槽固定 64px（`Avatar` 的 `lg`）：相对上移 64，圆心正好落在封面上缘
+         * （抵消 gap-8(32) + 再叠进封面 32）；底部再补 -mb-16 把后面的区块拉回来。
+         * **不用负 top margin**：margin 会参与 flex 尺寸计算，后面的区块会被顶到脸上。
+         * 容器缩进 16px，和以前头像在封面里的位置一致。
+         */
+        const overlapCover = block.id === 'avatar' && previous === 'cover'
         // 有组件库的两块（基本信息 / 正文）：悬停时右上角给一个「去编辑这个组件」
         // 正文没有标题行，设置键只能浮在块右上角；基本信息放在自己「基本信息」标题行上
         const edit = block.id === 'body' ? componentEditTarget(template.id, 'body') : null
@@ -52,6 +61,7 @@ export function TemplateRenderer({ template, render, className = 'flex flex-col 
             key={block.id}
             // 标题由各渲染器自己画（它们知道自己的动作按钮），壳这里不重复
             divider={divider}
+            className={overlapCover ? 'relative z-10 -top-16 -mb-16 ml-4' : ''}
             componentId={block.id}
             componentLabel={COMPONENT_BY_ID[block.id as keyof typeof COMPONENT_BY_ID]?.label}
             onEdit={edit ? () => openSettings('world', 'components', edit.target) : undefined}

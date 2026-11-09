@@ -3,7 +3,7 @@ import { db } from '@/lib/db'
 import { isVaultSupported, vaultFs } from '@/lib/vault/vault-fs'
 import { getVaultSession } from '@/lib/vault/vault-session'
 import { setCustomFieldKeys } from '@/lib/vault/vault-field-keys'
-import { defaultFieldConfig, defaultFields } from './defaults'
+import { defaultFieldConfig, defaultFields, missingBuiltinFields } from './defaults'
 import {
   CUSTOM_FIELD_PREFIX,
   FIELD_KINDS,
@@ -20,7 +20,14 @@ import {
 // 字段表坏了最坏情况只是「全部字段又冒出来」，不会丢数据。
 
 export const FIELDS_REL_PATH = '.ocstudio/fields.json'
-const FIELDS_VERSION = 1
+/**
+ * 字段表文件版本。
+ * - 1：初版
+ * - 2（2026-11-10）：时间 / 结束时间 / 地点收回「基本信息」。旧配置里没有这三行
+ *   （当年退役时从读盘结果里丢掉了），升级时**一次性**补回默认位置；
+ *   之后用户删掉就写版本 2，不会再被加回来。
+ */
+const FIELDS_VERSION = 2
 
 let snapshot: FieldConfig = defaultFieldConfig()
 const listeners = new Set<() => void>()
@@ -44,8 +51,51 @@ export function syncCustomFieldKeys(config: FieldConfig): void {
   setCustomFieldKeys(kinds)
 }
 
+/**
+ * 已退役的内置字段：标签升级成了独立 block，不再属于「基本信息」。
+ * 盘上的旧配置里还留着这一行 —— 读回时丢掉（列与已存的值都不动，只是不再出现第二个入口）。
+ *
+ * 时间 / 结束时间 / 地点**不在**这里（2026-11-10 收回基本信息，见 `defaults.ts`）：
+ * 那三个组件退役了，它们重新成为字段表的行。
+ */
+const RETIRED_FIELDS: Record<FieldKind, readonly string[]> = {
+  character: ['tags'],
+  event: ['tags'],
+  country: [],
+  worldEntry: ['tags'],
+}
+
+/** 版本 2 升级时补回的内置字段（只补这几个，别的内置字段不动） */
+const RESTORED_FIELDS: Record<FieldKind, readonly string[]> = {
+  character: [],
+  event: ['time', 'endTime', 'location'],
+  country: [],
+  worldEntry: [],
+}
+
+/**
+ * 字段表升级：把「当年退役、现在收回」的内置字段补回默认位置。
+ *
+ * 只在版本落后时补一次；补完随下次保存写成当前版本，之后用户再删掉就不会被加回来
+ * （和模板的 `schema` 同一个套路）。旧配置里时间 / 地点不在表里是**退役**造成的，
+ * 不是用户删的 —— 那时候他们根本删不到这两行。
+ */
+export function upgradeFieldConfig(config: FieldConfig, version: number): FieldConfig {
+  if (version >= FIELDS_VERSION) return config
+  let next = config
+  for (const kind of FIELD_KINDS) {
+    const restored = missingBuiltinFields(kind, next[kind]).filter((field) =>
+      RESTORED_FIELDS[kind].includes(field.id),
+    )
+    if (restored.length === 0) continue
+    // 这几行原本就排在「重大事件」之前，补回时也放前面
+    next = { ...next, [kind]: [...restored, ...next[kind]] }
+  }
+  return next
+}
+
 /** 把任意来源的数据收成合法配置：坏条目丢弃、内置字段补回默认 label/type */
-function normalize(raw: unknown): FieldConfig {
+export function normalizeFieldConfig(raw: unknown): FieldConfig {
   const config = defaultFieldConfig()
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return config
 
@@ -63,6 +113,7 @@ function normalize(raw: unknown): FieldConfig {
       const record = item as Record<string, unknown>
       const id = typeof record.id === 'string' ? record.id.trim() : ''
       if (id === '' || seen.has(id)) continue
+      if (RETIRED_FIELDS[kind].includes(id) && typeof record.key !== 'string') continue
       seen.add(id)
 
       const builtin = builtins.get(id)
@@ -82,8 +133,8 @@ function normalize(raw: unknown): FieldConfig {
   return config
 }
 
-/** 字段表 → `.ocstudio/fields.json` 的原文（迁移时也要用它，所以导出） */
-export function serializeFieldConfig(config: FieldConfig): string {
+/** 字段表 → 落盘 / 落库的载荷（vault 写 JSON，浏览器模式写 meta 的同一形状） */
+function fieldConfigPayload(config: FieldConfig): Record<string, unknown> {
   const payload: Record<string, unknown> = { version: FIELDS_VERSION }
   for (const kind of FIELD_KINDS) {
     payload[kind] = config[kind].map((field) =>
@@ -92,7 +143,28 @@ export function serializeFieldConfig(config: FieldConfig): string {
         : { id: field.id, label: field.label, key: field.key },
     )
   }
-  return `${JSON.stringify(payload, null, 2)}\n`
+  return payload
+}
+
+/** 字段表 → `.ocstudio/fields.json` 的原文（迁移时也要用它，所以导出） */
+export function serializeFieldConfig(config: FieldConfig): string {
+  return `${JSON.stringify(fieldConfigPayload(config), null, 2)}\n`
+}
+
+/**
+ * 读回来的载荷 → 配置 + 版本。
+ * 认两种形状：`{ version, character, event, … }`（文件与现在的 meta）和裸配置
+ * （早期浏览器模式的 `meta.fields` 没有版本号 → 当 0 处理，走一次升级）。
+ */
+function readFieldPayload(raw: unknown): { config: FieldConfig; version: number } {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+    return { config: defaultFieldConfig(), version: 0 }
+  }
+  const record = raw as Record<string, unknown>
+  return {
+    config: normalizeFieldConfig(record),
+    version: typeof record.version === 'number' ? record.version : 0,
+  }
 }
 
 /** 读配置：有文件夹时读 `.ocstudio/fields.json`，没有（浏览器预览）读 meta；读不到就是默认（全字段可见） */
@@ -103,7 +175,12 @@ export async function loadFieldConfig(): Promise<void> {
       snapshot = await readFieldConfigFromRoot(session.root)
     } else {
       const row = await db.meta.get(1)
-      snapshot = row?.fields === undefined ? defaultFieldConfig() : normalize(row.fields)
+      if (row?.fields === undefined) {
+        snapshot = defaultFieldConfig()
+      } else {
+        const { config, version } = readFieldPayload(row.fields)
+        snapshot = upgradeFieldConfig(config, version)
+      }
     }
   } catch {
     snapshot = defaultFieldConfig()
@@ -120,7 +197,10 @@ export async function readFieldConfigFromRoot(root: string): Promise<FieldConfig
   try {
     if (await vaultFs.exists(root, FIELDS_REL_PATH)) {
       const bytes = await vaultFs.readBytes(root, FIELDS_REL_PATH)
-      return normalize(JSON.parse(new TextDecoder().decode(new Uint8Array(bytes))))
+      const { config, version } = readFieldPayload(
+        JSON.parse(new TextDecoder().decode(new Uint8Array(bytes))),
+      )
+      return upgradeFieldConfig(config, version)
     }
   } catch {
     // 坏文件回落默认：字段表坏了不能让笔记库打不开
@@ -157,11 +237,11 @@ export async function saveFieldConfig(next: FieldConfig): Promise<void> {
       tagline: '',
       coverUrl: '',
       updatedAt: Date.now(),
-      fields: next,
+      fields: fieldConfigPayload(next),
     })
     return
   }
-  await db.meta.update(1, { fields: next })
+  await db.meta.update(1, { fields: fieldConfigPayload(next) })
 }
 
 export function getFieldConfig(): FieldConfig {

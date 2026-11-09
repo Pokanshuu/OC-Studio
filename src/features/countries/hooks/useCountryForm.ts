@@ -30,6 +30,8 @@ interface CountryValues {
   headerUrl: string
   gallery: GalleryImage[]
   tags: number[]
+  /** 自建字段（键 = 字段表里的 key） */
+  custom: Record<string, string>
 }
 
 function valuesFromEntity(country: Country): CountryValues {
@@ -40,6 +42,7 @@ function valuesFromEntity(country: Country): CountryValues {
     headerUrl: country.headerUrl ?? '',
     gallery: country.gallery ?? [],
     tags: country.tags ?? [],
+    custom: { ...(country.custom ?? {}) },
   }
 }
 
@@ -52,6 +55,7 @@ function valuesSnapshot(values: CountryValues): Record<string, unknown> {
     headerUrl: values.headerUrl,
     gallery: values.gallery.map((image) => image.url),
     tags: values.tags,
+    custom: values.custom,
   }
 }
 
@@ -79,6 +83,11 @@ export function useCountryForm(
   const [gallery, setGallery] = useState<GalleryImage[]>(initial.gallery)
   const [saving, setSaving] = useState(false)
   const [tags, setTags] = useState(initial.tags)
+  const [custom, setCustom] = useState<Record<string, string>>(initial.custom)
+
+  const setCustomValue = useCallback((key: string, value: string) => {
+    setCustom((prev) => ({ ...prev, [key]: value }))
+  }, [])
 
   const { characters: allCharacters } = useCharacterList()
   const { events: allEvents } = useEventList()
@@ -115,8 +124,8 @@ export function useCountryForm(
   const savedSnapshotRef = useRef<string | null>(null)
 
   const values = useMemo<CountryValues>(() => ({
-    name, description, flagUrl, headerUrl, gallery, tags,
-  }), [name, description, flagUrl, headerUrl, gallery, tags])
+    name, description, flagUrl, headerUrl, gallery, tags, custom,
+  }), [name, description, flagUrl, headerUrl, gallery, tags, custom])
 
   const snapshot = useMemo(() => valuesSnapshot(values), [values])
   const { dirty: fieldsDirty, diffSummary, markClean: markFieldsClean } = useDirtySnapshot(snapshot)
@@ -140,6 +149,7 @@ export function useCountryForm(
     setHeaderUrl(next.headerUrl)
     setGallery(next.gallery)
     setTags(next.tags)
+    setCustom(next.custom)
     // 名单没有本地副本要回灌：清掉覆盖就自动跟着查询走
     setEditedCharIds(null)
     setEditedEventIds(null)
@@ -191,6 +201,7 @@ export function useCountryForm(
         characters: characterIds,
         events: eventIds,
         tags,
+        custom,
       })
       savedSnapshotRef.current = snapshotKey(snapshot)
       markFieldsClean()
@@ -209,7 +220,7 @@ export function useCountryForm(
     }
   }, [
     country.id, country.parentId, country.system, country.geography, country.culture,
-    name, description, flagUrl, headerUrl, gallery, characterIds, eventIds, tags,
+    name, description, flagUrl, headerUrl, gallery, characterIds, eventIds, tags, custom,
     onSave, markSaving, markFieldsClean, reportDirty, snapshot,
   ])
 
@@ -327,6 +338,7 @@ export function useCountryForm(
     flagUrl, setFlagUrl,
     headerUrl, setHeaderUrl,
     gallery, setGallery,
+    custom, setCustomValue,
     saving,
     docDirty,
     tags, setTags,

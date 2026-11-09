@@ -8,7 +8,7 @@
  * - 实体模板（角色 / 事件 / 国家）只有它们**真有数据列**的组件：这个列表既是
  *   「已接线」，也是「添加组件」菜单的候选 —— 宿主根本存不住的东西不出现在列表里
  * - **笔记宿主**（内置词条 / 宠物 / 武器 + 自建模板）走同一套渲染路径，
- *   十一个组件全部实装，见 `note.ts` 的 `NOTE_COMPONENT_IDS`
+ *   组件全部实装，见 `note.ts` 的 `NOTE_COMPONENT_IDS`
  * - `npm run audit:templates` 会检查这里列出的 id 都真实存在于组件登记表
  *
  * **接完一个宿主就更新这张表**，否则界面上的进度会撒谎。
@@ -20,10 +20,10 @@ export type TemplateHost = 'character' | 'event' | 'country' | 'note'
 
 /** 实体宿主：只列它们真有强类型列的组件（不存在的连「添加」入口都不给） */
 export const WIRED_BY_TEMPLATE: Record<string, TemplateComponentId[]> = {
-  // 角色：封面 / 头像 / 名称+字段+立绘 / 关系 / 标签 / 相册 / 简介 / 正文
-  character: ['cover', 'avatar', 'info', 'relations', 'tags', 'gallery', 'summary', 'body'],
-  // 事件：封面 / 基本信息 / 时间 / 地点 / 简介 / 关系 / 标签 / 图片 / 正文
-  event: ['cover', 'info', 'time', 'place', 'summary', 'relations', 'tags', 'gallery', 'body'],
+  // 角色：封面 / 头像 / 名称+字段 / 立绘 / 关系 / 标签 / 相册 / 简介 / 动画 / 正文
+  character: ['cover', 'avatar', 'info', 'portrait', 'relations', 'tags', 'gallery', 'summary', 'animation', 'body'],
+  // 事件：封面 / 基本信息（含时间 / 结束时间 / 地点字段行）/ 简介 / 关系 / 标签 / 图片 / 正文
+  event: ['cover', 'info', 'summary', 'relations', 'tags', 'gallery', 'body'],
   // 国家：封面 + 旗帜 / 头像（旗帜）/ 名称 / 关系 / 标签 / 画廊 / 简介 / 正文
   country: ['cover', 'avatar', 'info', 'relations', 'tags', 'gallery', 'summary', 'body'],
 }
