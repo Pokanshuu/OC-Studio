@@ -271,7 +271,14 @@ description: >
 ## 6. 动画规范
 - **不引入动画库**（项目未安装 `framer-motion`）：一律 CSS `transition` + `tw-animate-css` 的数据属性动画
 - 令牌（`globals.css`）：`--dur-fast: 150ms`、`--dur-base: 200ms`、`--ease-quiet: cubic-bezier(0.2, 0.6, 0.2, 1)`
-- 类型：浮层淡入（150ms）、面板滑入（200ms ease-out）、列表淡入（150ms）、按压反馈（120ms）
+- 类型：浮层淡入（150ms）、面板滑入（200ms ease-out）、列表淡入（150ms）、按压反馈（120ms）、
+  **列表 ↔ 编辑器换页**（150ms，列表左滑出 / 编辑器右滑入，返回反向）
+- **列表 ↔ 编辑器换页只走 `SectionSwap`**（`components/shared/SectionSwap.tsx`）：`.section-stack` 叠放 +
+  `.section-fade` 的 `data-visible` / `data-animate`。角色 / 事件 / 国家在 `page.tsx` 用它，
+  小说书架 ↔ 目录、自定义分类列表 ↔ 条目编辑器也接在它上面；新页面别再手写 `setTimeout + animation`
+- **提升成合成层的元素不要指望 `overflow: hidden` 裁圆角**：带 3D transform / `will-change` / 按压
+  `scale` 的卡片，WebKit 会在圆角处漏 1–2px 透明（桌面 / 截图就是四个黑角）。圆角用
+  `clip-path: inset(0 round var(--radius-item))`（见 `COVER_FRAME`）；画廊正中的卡片也不做 3D 提升
 - `prefers-reduced-motion` 下全局关闭过渡与动画
 - **禁止**：弹性动画、大幅位移、循环动画
 - **唯一例外：头图弹性**（`src/components/shared/StretchyHeader.tsx`）—— 头图是**内容**不是控件：在页面顶部继续下拉时跟着手 / 滚轮**放大**（框跟着长高，图等比放大不变形，左右被裁、上下不裁）、松手回弹，上滚时收窄并带一点视差。它是**直接操纵反馈**（拉多少动多少、停在手指位置），不是自动播放的动画。`prefers-reduced-motion` 下整段关闭，退回静态 3:2 图。**别把这种弹性搬到按钮 / 面板 / 列表 / 页头上**
