@@ -808,6 +808,8 @@ width: 100%;
   margin: 0 auto;
 
   padding: 20px 24px 200px;
+  /* 底部留白跟着输入区栈实际高度走：任务清单展开时正文也能整个滚上来 */
+  padding-bottom: max(200px, calc(var(--composer-height, 0px) + 24px));
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -1347,9 +1349,30 @@ background: var(--oc-paper-card);
 display: flex;
   align-items: center;
   gap: 6px;
+  width: 100%;
+  margin: 0 0 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
   font-size: calc(11px * var(--font-scale));
   color: var(--oc-ink-faint);
-  margin-bottom: 4px;
+  text-align: left;
+  cursor: pointer;
+}
+.oc-agent-root .todos-head:hover{
+color: var(--oc-ink-muted);
+}
+.oc-agent-root .todos-toggle{
+margin-left: auto;
+  display: inline-grid;
+  place-items: center;
+}
+.oc-agent-root .todos.collapsed{
+padding-bottom: 7px;
+}
+.oc-agent-root .todos.collapsed .todos-head{
+margin-bottom: 0;
 }
 .oc-agent-root .todo-item{
 display: flex;

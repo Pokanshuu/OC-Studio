@@ -132,25 +132,57 @@ export function StepTimeline({
 }
 
 /** Progress list written by the model via `todo_write`. */
-export function TodoPanel({ todos }: { todos: Array<{ content: string; status: string }> }) {
+export function TodoPanel({
+  todos,
+  open = true,
+  onToggle,
+}: {
+  todos: Array<{ content: string; status: string }>
+  /** 折叠状态由 ChatView 持有（要记住偏好，也要据此调整正文底部留白） */
+  open?: boolean
+  onToggle?: () => void
+}) {
   const t = useT()
   if (todos.length === 0) return null
 
-  return (
-    <div className="todos">
-      <div className="todos-head">
-        <Icon name="list" size={12} />
-        {t('agent.todos')}
-        <span className="faint">
-          {todos.filter((todo) => todo.status === 'completed').length}/{todos.length}
+  const done = todos.filter((todo) => todo.status === 'completed').length
+  const head = (
+    <>
+      <Icon name="list" size={12} />
+      <span>{t('agent.todos')}</span>
+      <span className="faint">
+        {done}/{todos.length}
+      </span>
+      {onToggle && (
+        <span className="todo-toggle">
+          <Icon name={open ? 'chevron-up' : 'chevron-down'} size={12} />
         </span>
-      </div>
-      {todos.map((todo, index) => (
-        <div key={index} className={`todo-item ${todo.status}`}>
-          <span className="todo-mark">{todo.status === 'completed' ? '✓' : ''}</span>
-          <span>{todo.content}</span>
-        </div>
-      ))}
+      )}
+    </>
+  )
+
+  return (
+    <div className={`todos${open ? '' : ' collapsed'}`}>
+      {onToggle ? (
+        <button
+          type="button"
+          className="todos-head"
+          aria-expanded={open}
+          title={t(open ? 'agent.todosCollapse' : 'agent.todosExpand')}
+          onClick={onToggle}
+        >
+          {head}
+        </button>
+      ) : (
+        <div className="todos-head">{head}</div>
+      )}
+      {open &&
+        todos.map((todo, index) => (
+          <div key={index} className={`todo-item ${todo.status}`}>
+            <span className="todo-mark">{todo.status === 'completed' ? '✓' : ''}</span>
+            <span>{todo.content}</span>
+          </div>
+        ))}
     </div>
   )
 }

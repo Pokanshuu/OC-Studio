@@ -18,6 +18,19 @@ import { Composer } from './Composer'
 import { ApprovalDialog } from './ApprovalDialog'
 
 const STICK_THRESHOLD = 80
+/**
+ * 任务清单默认展开；用户折叠过就记住。
+ * 以前它只钉在输入区上方、正文不知道它有多高，于是最后一段永远被压在它背后。
+ */
+const TODOS_OPEN_KEY = 'simple-agent.todos-open'
+
+function readTodosOpen(): boolean {
+  try {
+    return localStorage.getItem(TODOS_OPEN_KEY) !== '0'
+  } catch {
+    return true
+  }
+}
 
 export function ChatView({
   collapsed,
@@ -40,13 +53,56 @@ export function ChatView({
   const counts = useMemo(() => siblingCounts(allMessages), [allMessages])
 
   const scrollRef = useRef<HTMLDivElement>(null)
+  const stackRef = useRef<HTMLDivElement>(null)
   const [stick, setStick] = useState(true)
+  const [todosOpen, setTodosOpen] = useState(readTodosOpen)
   const [menuAnchor, setMenuAnchor] = useState<MenuAnchor | null>(null)
   const [renaming, setRenaming] = useState(false)
   const [titleDraft, setTitleDraft] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   const conversation = conversations.find((c) => c.id === currentId) ?? null
+
+  /**
+   * 输入区栈（任务清单 + Composer）是浮层，正文会在它背后滚。
+   * 把它实际高度写进 CSS 变量，`.chat-inner` 的底部留白跟着长：
+   * 清单展开时多留一截，折叠 / 附件变化时自动收回，不用写死数字。
+   */
+  useEffect(() => {
+    const stack = stackRef.current
+    const scroll = scrollRef.current
+    if (!stack || !scroll) return
+    const apply = () => {
+      scroll.style.setProperty('--composer-height', `${Math.round(stack.offsetHeight)}px`)
+    }
+    apply()
+    const observer = new ResizeObserver(apply)
+    observer.observe(stack)
+    return () => observer.disconnect()
+  }, [])
+
+  // 清单展开/收起会改变底部留白：贴底时跟着滚一下，否则会停在半空
+  useEffect(() => {
+    if (!stick) return
+    const element = scrollRef.current
+    if (!element) return
+    const id = requestAnimationFrame(() => {
+      element.scrollTop = element.scrollHeight
+    })
+    return () => cancelAnimationFrame(id)
+  }, [todosOpen, todos.length, stick])
+
+  const toggleTodos = () => {
+    setTodosOpen((open) => {
+      const next = !open
+      try {
+        localStorage.setItem(TODOS_OPEN_KEY, next ? '1' : '0')
+      } catch {
+        // 隐私模式写不进去：本次会话内仍然生效
+      }
+      return next
+    })
+  }
 
   useEffect(() => {
     setStick(true)
@@ -162,7 +218,7 @@ export function ChatView({
        * 之前 composer 是普通流里的兄弟节点，正文永远到不了它下面，模糊等于白做。
        */}
       <div className="chat-fade" aria-hidden="true" />
-      <div className="composer-stack">
+      <div className="composer-stack" ref={stackRef}>
         {!stick && path.length > 0 && (
           <button
             type="button"
@@ -177,7 +233,7 @@ export function ChatView({
 
         {todos.length > 0 && (
           <div className="todo-dock">
-            <TodoPanel todos={todos} />
+            <TodoPanel todos={todos} open={todosOpen} onToggle={toggleTodos} />
           </div>
         )}
 
