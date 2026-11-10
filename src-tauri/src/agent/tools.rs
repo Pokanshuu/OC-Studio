@@ -559,6 +559,9 @@ fn grep_tool(root: &Path, args: &Value) -> Result<(String, Option<Value>), Strin
 
 async fn run_shell(root: &Path, args: &Value) -> Result<(String, Option<Value>), String> {
     let command = req_s(args, "command")?;
+    if command.trim().is_empty() {
+        return Err("`command` 不能为空".into());
+    }
     let cwd = match s(args, "cwd") {
         Some(c) if !c.trim().is_empty() => resolve_existing(root, &c)?,
         _ => root.to_path_buf(),
@@ -569,12 +572,23 @@ async fn run_shell(root: &Path, args: &Value) -> Result<(String, Option<Value>),
 
     #[cfg(windows)]
     let mut cmd = {
+        // ⚠️ 这里**必须**用 `raw_arg`，不能 `.arg("/D").arg("/S").arg("/C").arg(command)`。
+        //
+        // Windows 上 std 的 `arg()` 会把每个参数按 MSVCRT 规则重新拼进命令行：
+        // 含空格就整体加引号、内部的 `"` 转义成 `\"`。而 `cmd /S /C` 的规则是
+        // 「剥掉命令行首尾各一个引号，剩下的原样执行」—— 于是 `\"` 原样留在参数里：
+        //   `dir "角色"`   → 实际执行 `dir \"角色\"`   → 找不到文件
+        //   `echo > "a b"` → 实际执行 `echo > \"a b\"` → 重定向失败，什么都不写
+        //   `curl -w "%{http_code}"` → 格式串带上引号，URL 也带上引号 → curl 退出码 3（URL 非法）
+        // 表现就像「引号不会被剥离」「中文路径不工作」「shell 没网」，其实是同一处引用问题。
+        // raw_arg 把整段命令行原样交给 cmd，`/S` 剥掉的正好是我们自己包的那一对。
         let mut c = tokio::process::Command::new("cmd");
-        c.arg("/D").arg("/S").arg("/C").arg(&command);
+        c.raw_arg(format!("/D /S /C \"{command}\""));
         c
     };
     #[cfg(not(windows))]
     let mut cmd = {
+        // Unix 上 argv 是分开传的，`arg()` 不会被任何东西重新解析，这里反而不能 raw。
         let mut c = tokio::process::Command::new("sh");
         c.arg("-lc").arg(&command);
         c
@@ -1005,5 +1019,37 @@ mod tests {
         assert!(text.contains("Hello"), "{text}");
         assert!(!text.contains("var x"), "{text}");
         assert!(!text.contains("<h1>"), "{text}");
+    }
+
+    /// 命令必须**原样**交给 `cmd /S /C`。
+    ///
+    /// 用 `arg()` 时 std 会按 MSVCRT 规则把整段命令再引用一次（内部 `"` → `\"`），
+    /// 而 `/S` 只剥外层那一对 —— `echo hi > "角色\_t.md"` 于是变成往
+    /// `\"角色\_t.md\"` 里写，重定向失败、文件压根不出现。这条测试盯着它。
+    #[cfg(windows)]
+    #[tokio::test]
+    async fn run_shell_keeps_quotes_and_unicode_paths() {
+        let ws = Workspace::new();
+        let root = canonical_root(ws.path()).unwrap();
+        std::fs::create_dir_all(ws.root.join("角色")).unwrap();
+
+        let quoted = run_shell(&root, &json!({ "command": "echo hi > \"角色\\_t.md\"" }))
+            .await
+            .expect("run_shell 不该报错");
+        assert!(
+            ws.root.join("角色/_t.md").exists(),
+            "引号 / 中文路径没有原样传给 cmd：\n{}",
+            quoted.0
+        );
+
+        // `/S` 只剥外层引号，`&` 仍然是命令分隔符
+        let chained = run_shell(
+            &root,
+            &json!({ "command": "echo a > a.txt & echo b > b.txt" }),
+        )
+        .await
+        .expect("run_shell 不该报错");
+        assert_eq!(chained.1.as_ref().unwrap()["exitCode"].as_i64(), Some(0), "{}", chained.0);
+        assert!(ws.root.join("a.txt").exists() && ws.root.join("b.txt").exists());
     }
 }
