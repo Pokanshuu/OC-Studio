@@ -18,7 +18,7 @@ import { setTemplateComponentParams, useTemplates } from '@/lib/templates/store'
 import { COMPONENT_BY_ID } from '@/lib/templates/registry'
 import { TemplateTextParamRow } from '@/components/shared/TemplateParams'
 import type { TemplateComponentId, TemplateDoc } from '@/lib/templates/types'
-import { CHIP, ICON_BTN } from '@/lib/ui-tokens'
+import { CHIP, CHIP_ON, ICON_BTN } from '@/lib/ui-tokens'
 
 function ParamRow({
   def,
@@ -51,11 +51,9 @@ function ParamRow({
                   },
                 )
               }}
-              className={`${CHIP} ${
-                selected
-                  ? 'bg-[var(--oc-hover)] text-ink'
-                  : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
-              }`}
+              className={
+                selected ? CHIP_ON : `${CHIP} transition-colors hover:text-ink`
+              }
             >
               {option.label}
             </button>

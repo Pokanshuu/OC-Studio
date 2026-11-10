@@ -162,7 +162,7 @@ export function ThemePanel() {
                       onClick={() => updateSetting('backgroundMode', mode.value)}
                       className={`rounded-item px-2 py-1 text-[12px] transition-colors ${
                         settings.backgroundMode === mode.value
-                          ? 'bg-[var(--oc-hover)] text-ink'
+                          ? 'bg-ink text-paper'
                           : 'text-ink-muted hover:text-ink'
                       }`}
                     >

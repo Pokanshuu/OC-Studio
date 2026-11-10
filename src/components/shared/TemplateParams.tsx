@@ -22,7 +22,7 @@ import {
 import { bodyGroupIdOfTemplate } from '@/lib/templates/body-preset'
 import type { TemplateComponent, TemplateDoc } from '@/lib/templates/types'
 import { useSettingsTrigger } from '@/components/layout/SettingsTriggerContext'
-import { ADD_ACTION, CHIP, ICON_BTN, INPUT_LINE } from '@/lib/ui-tokens'
+import { ADD_ACTION, CHIP, CHIP_ON, ICON_BTN, INPUT_LINE } from '@/lib/ui-tokens'
 
 /**
  * 行内参数：只放轻量选项（分段按钮）。
@@ -57,11 +57,9 @@ export function TemplateParamRow({
                     type="button"
                     onClick={() => onChange(def.key, option.value)}
                     aria-pressed={selected}
-                    className={`${CHIP} ${
-                      selected
-                        ? 'bg-[var(--oc-hover)] text-ink'
-                        : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
-                    }`}
+                    className={
+                      selected ? CHIP_ON : `${CHIP} transition-colors hover:text-ink`
+                    }
                   >
                     {option.label}
                   </button>

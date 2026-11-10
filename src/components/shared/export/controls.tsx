@@ -66,7 +66,7 @@ export function Segmented<T extends string | number>({
             onClick={() => onChange(option.value)}
             className={`${ROUND_ITEM} h-7 px-2 text-[12px] transition-colors ${
               active
-                ? 'bg-[var(--oc-hover)] font-medium text-ink'
+                ? 'bg-ink font-medium text-paper'
                 : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
             }`}
           >

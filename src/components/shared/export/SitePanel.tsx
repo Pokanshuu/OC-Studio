@@ -326,7 +326,7 @@ export function SitePanel() {
                   aria-pressed={previewMode === mode}
                   onClick={() => setPreviewMode(mode)}
                   className={`px-2 py-0.5 transition-colors ${ROUND_ITEM} ${
-                    previewMode === mode ? 'bg-[var(--oc-hover)] text-ink' : 'text-ink-faint hover:text-ink'
+                    previewMode === mode ? 'bg-ink text-paper' : 'text-ink-faint hover:text-ink'
                   }`}
                 >
                   {mode === 'desktop' ? '桌面' : '手机'}
@@ -356,7 +356,7 @@ export function SitePanel() {
                     aria-pressed={active}
                     onClick={() => setTemplate(item.id)}
                     className={`${ROUND_ITEM} flex items-baseline justify-between gap-2 border px-2 py-1.5 text-left transition-colors ${
-                      active ? 'border-line-hover bg-[var(--oc-hover)]' : 'border-line hover:bg-[var(--oc-hover)]'
+                      active ? 'border-ink bg-[var(--oc-hover)]' : 'border-line hover:bg-[var(--oc-hover)]'
                     }`}
                   >
                     <span className="text-[12px] text-ink">{item.name}</span>

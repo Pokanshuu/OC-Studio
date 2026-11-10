@@ -428,7 +428,7 @@ export function GraphPanel() {
                     onClick={() => setTypeFilter(option.value)}
                     className={`${ROUND_ITEM} h-6 px-1.5 text-[11px] tabular-nums transition-colors ${
                       active
-                        ? 'bg-[var(--oc-hover)] font-medium text-ink'
+                        ? 'bg-ink font-medium text-paper'
                         : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
                     }`}
                   >

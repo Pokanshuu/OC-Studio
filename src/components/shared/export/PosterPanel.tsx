@@ -532,7 +532,7 @@ export function PosterPanel({
                     onClick={() => setOptions((current) => optionsForTemplate(current, template.id))}
                     className={`${ROUND_ITEM} flex flex-col items-start gap-0.5 border px-2 py-1.5 text-left transition-colors ${
                       active
-                        ? 'border-line-hover bg-[var(--oc-hover)]'
+                        ? 'border-ink bg-[var(--oc-hover)]'
                         : 'border-line hover:bg-[var(--oc-hover)]'
                     }`}
                   >
