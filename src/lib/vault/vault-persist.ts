@@ -749,8 +749,24 @@ export async function flushVaultWrites(): Promise<VaultFlushReport> {
       }
 
       if (!nowTrashed && wasTrashed && state !== undefined) {
-        const restored = originalRelPathFromTrash(state.relPath)
-        if (restored !== null) {
+        const original = originalRelPathFromTrash(state.relPath)
+        if (original !== null) {
+          /**
+           * 原路径可能已经被**别的条目**占了：删掉「亚瑟」之后又建了一个「亚瑟」，
+           * `vault_move` 会以「目标已存在」拒绝，这条就永远恢复不出来（重试也一样）。
+           * 恢复时先看占用表，撞名就按同一套规则改名（`亚瑟 (2).md`）。
+           */
+          const kind = KIND_BY_TABLE[state.table]
+          const restored =
+            kind !== null && session.occupied.has(original)
+              ? allocateRelPath(
+                  kind,
+                  titleOfRow(state.table, row),
+                  session.occupied,
+                  original.slice(0, Math.max(0, original.lastIndexOf('/'))),
+                  original.slice(original.lastIndexOf('/') + 1).replace(/\.md$/i, ''),
+                )
+              : original
           const from = state.relPath
           moves.push({
             from,

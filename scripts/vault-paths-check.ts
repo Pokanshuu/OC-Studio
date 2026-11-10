@@ -29,6 +29,19 @@ const path = allocateRelPath('worldEntry', '新章节', new Set(), '小说', '�
 check('小说章节落 小说/ 目录', path === '小说/第01章-新章节.md', path)
 const collided = allocateRelPath('worldEntry', '新章节', new Set([path]), '小说', '第01章-新章节')
 check('撞名自动加序号', collided === '小说/第01章-新章节 (2).md', collided)
+
+// 回收站恢复撞名：删掉「亚瑟」后又建了一个「亚瑟」，恢复旧的那条不能永远失败
+// （`vault_move` 对已存在的目标会直接报错），要按同一套规则改名到 `亚瑟 (2).md`
+const restoreTarget = '角色/亚瑟.md'
+const occupiedByNew = new Set([restoreTarget])
+const renamedRestore = allocateRelPath(
+  'character',
+  '亚瑟',
+  occupiedByNew,
+  restoreTarget.slice(0, restoreTarget.lastIndexOf('/')),
+  restoreTarget.slice(restoreTarget.lastIndexOf('/') + 1).replace(/\.md$/i, ''),
+)
+check('回收站恢复撞名时改名而不是覆盖', renamedRestore === '角色/亚瑟 (2).md', renamedRestore)
 check('Windows 非法字符被清掉', sanitizeFileName('a/b:c*?"<>|') === 'a b c')
 
 // ── 新建条目的落点：回收站与 .ocstudio 不能参与推断 ──────────────────────
