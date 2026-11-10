@@ -225,8 +225,51 @@ async function main(): Promise<void> {
   check(bodyRejected.includes('不能删除'), '内置正文组件删不掉，且给出了原因')
 }
 
+// ── 8. 与内置目录同名的自定义分类：载入丢掉、写回清理、新建 / 改名拒绝 ──
+{
+  const CATEGORIES = '.ocstudio/categories.json'
+  disk.clear()
+  disk.set(
+    CATEGORIES,
+    JSON.stringify({
+      version: 1,
+      categories: [
+        { id: 'cat-place', name: '地点', template: 'entry', icon: 'sparkles', order: 0, enabled: true },
+        { id: 'cat-bad', name: '小说', template: 'entry', icon: 'sparkles', order: 1, enabled: true },
+      ],
+    }),
+  )
+  const store = await import('../src/lib/categories/store')
+  await store.loadCategories(true)
+  check(!store.getCategories().some((category) => category.name === '小说'), '载入时丢掉与内置目录同名的分类')
+  check(store.getCategories().some((category) => category.name === '地点'), '正常的自定义分类留着')
+
+  // 清理会异步写回盘：等它落盘（最多 200ms）
+  const onDisk = (): string => disk.get(CATEGORIES) ?? ''
+  for (let attempt = 0; attempt < 20 && onDisk().includes('"小说"'); attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 10))
+  }
+  check(!onDisk().includes('"小说"'), '清理结果写回了盘（下次开机不会再冒出来）')
+
+  let created = ''
+  await store.createCategory({ name: '地图' }).catch((err: unknown) => {
+    created = err instanceof Error ? err.message : String(err)
+  })
+  check(created.includes('内置目录'), `新建同名分类被拒绝（实际：${created || '居然建成功了'}）`)
+
+  let renamed = ''
+  await store.updateCategory('cat-place', { name: '角色' }).catch((err: unknown) => {
+    renamed = err instanceof Error ? err.message : String(err)
+  })
+  check(renamed.includes('内置目录'), `改名到内置目录名被拒绝（实际：${renamed || '居然改成功了'}）`)
+  check(
+    store.getCategories().some((category) => category.name === '地点'),
+    '被拒绝的改名没有动原来的分类',
+  )
+}
+
   if (failures === 0) {
-    console.log('  ✓ 通过（7 个场景）')
+    console.log('  ✓ 通过（8 个场景）')
     process.exit(0)
   }
   console.error(`\n${failures} 项未通过`)
