@@ -47,6 +47,18 @@ function locateBlock(lines: string[]): { start: number; end: number } | null {
   return null
 }
 
+/**
+ * 从行数组里取正文：跳过 frontmatter 块，再吃掉**恰好一个**分隔空行。
+ *
+ * `parseFrontmatter` 与 `setBody` 必须用同一个口径判断「正文是什么」，
+ * 否则「设置成它本来就有的值」会被判成有变化、把文件重写一遍。
+ */
+function bodyFromLines(lines: string[], block: { start: number; end: number }): string {
+  const tail = lines.slice(block.end + 1)
+  if (tail.length > 0 && tail[0].trim() === '') tail.shift()
+  return tail.join('\n')
+}
+
 export function parseFrontmatter(source: string): ParsedFrontmatter {
   const { lines } = splitSource(source)
   const block = locateBlock(lines)
@@ -55,10 +67,7 @@ export function parseFrontmatter(source: string): ParsedFrontmatter {
   }
 
   const raw = lines.slice(block.start + 1, block.end).join('\n')
-  const tail = lines.slice(block.end + 1)
-  // 约定上 frontmatter 与正文之间恰好一个空行；只吃掉那一行，不多吃
-  if (tail.length > 0 && tail[0].trim() === '') tail.shift()
-  const body = tail.join('\n')
+  const body = bodyFromLines(lines, block)
 
   let data: Record<string, unknown> = {}
   let error: string | null = null
@@ -203,10 +212,18 @@ export function setBody(source: string, body: string): string {
     return prefix + body
   }
 
+  // 设成「它本来就是这个值」时**必须原样返回**。
+  //
+  // 正文区末尾的空行数没法从 `body` 里反推（`split` 丢掉尾随空串，`parseFrontmatter`
+  // 又会吃掉分隔空行），按行重拼会把 `---\n\n` 变成 `---\n` —— 于是「没改过正文的保存」
+  // 也产生字节差异，整库「未修改的笔记字节不变」这条承诺就破了
+  // （`vault-frontmatter-check` 一直在报 25/30 篇）。真改了正文才走下面的重拼。
+  if (body === bodyFromLines(lines, block)) return source
+
   const head = lines.slice(0, block.end + 1)
   const hadBlank = block.end + 1 < lines.length && lines[block.end + 1].trim() === ''
   const separator = hadBlank ? [''] : []
-  const tail = body === '' ? [] : [...separator, ...body.split(/\r?\n/)]
+  const tail = body === '' ? separator : [...separator, ...body.split(/\r?\n/)]
   return prefix + [...head, ...tail].join(eol)
 }
 

@@ -321,6 +321,9 @@ function main(): void {
     }],
     countries: [{ id: 2, flagUrl: 'images/e.png', headerUrl: 'images/f.png' }],
     events: [{ id: 3, headerUrl: 'images/g.png', images: [{ url: 'images/h.png', caption: '' }] }],
+    // 笔记（词条 / 小说 / 分类条目）也是图片引用的宿主：以前这里漏了这条分支，
+    // 脚本一跑到 worldEntries 就 TypeError —— 也就是说这段断言很久没真正执行过
+    worldEntries: [{ id: 4, cover: 'images/j.png', avatar: '附件/已在vault.png' }],
     meta: [{ id: 1, coverUrl: 'images/i.png' }, { id: 2, coverUrl: '附件/已在vault.png' }],
   } as unknown as ImageRows
 
@@ -328,7 +331,7 @@ function main(): void {
   // 这里只验它复用的两个纯函数：按映射改写引用、素材撞名去重。
   const candidates = [
     'images/a.png', 'images/b.png', 'images/d.png', 'images/e.png',
-    'images/f.png', 'images/g.png', 'images/h.png', 'images/i.png',
+    'images/f.png', 'images/g.png', 'images/h.png', 'images/i.png', 'images/j.png',
   ]
 
   const map = new Map(candidates.map((item) => [item, `附件/mig-${item.slice('images/'.length)}`]))
@@ -347,7 +350,7 @@ function main(): void {
   if (!allSwapped) problems.push('仍有未被改写的 images/ 引用')
   if (!headerUntouched) problems.push('已指向 vault 的 headerUrl 被误列入 patch')
   if (!metaUntouched) problems.push('只用 vault 图片的项目元信息被误列入 patch')
-  if (patches.length !== 4) problems.push(`应改写 4 行，实际 ${patches.length}`)
+  if (patches.length !== 5) problems.push(`应改写 5 行（角色 / 国家 / 事件 / 笔记 / 项目），实际 ${patches.length}`)
 
   const allocated = allocateAssetPath('附件', 'a.png', new Set(['附件/a.png', '附件/a-2.png']))
   const allocOk = allocated === '附件/a-3.png'
