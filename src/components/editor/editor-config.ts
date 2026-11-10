@@ -18,6 +18,7 @@ import { openExternal } from '@/lib/open-external'
 import { safeHref } from '@/lib/safe-href'
 import { ImageBlock } from './extensions/ImageBlock'
 import { SmallMark } from './extensions/SmallMark'
+import { FirstLineIndent } from './extensions/FirstLineIndent'
 import { SlashCommand } from './SlashCommandMenu'
 import { createWikiLinkExtension } from './WikiLinkExtension'
 import { createMentionRender, type ExtendedReferableEntity } from './mention-render'
@@ -140,6 +141,8 @@ export function buildEditorConfig({
       }),
       ImageBlock,
       SmallMark,
+      // Tab = 段首缩进两个全角空格（中文排版）。列表 / 表格 / 代码块里让路给它们自己的 Tab
+      FirstLineIndent,
       SlashCommand,
       createWikiLinkExtension(),
       ...(isMobile ? [] : [

@@ -476,6 +476,31 @@ function targetedCases(): void {
     adjacentFirst.markdown === adjacentSecond.markdown,
     shortDiff(adjacentFirst.markdown, adjacentSecond.markdown),
   )
+
+  // 10) 首行缩进：编辑器里 Tab 插的是两个全角空格（U+3000），必须逐字节往返
+  const indentCases = [
+    '\u3000\u3000这是首行缩进的段落。\n\n第二段没有缩进。\n',
+    '\u3000\u3000**加粗** 与 `代码` 开头的缩进段落。\n',
+    '\u3000\u3000[[条目]] 开头的缩进段落。\n',
+  ]
+  for (const source of indentCases) {
+    const run = runBridge(source)
+    checkIdempotent(`首行缩进「${JSON.stringify(source.slice(0, 8))}…」`, run)
+    // 序列化不补文件末尾的换行（写文件的地方统一补），所以比对时去掉
+    const expected = source.replace(/\n$/, '')
+    check(
+      `首行缩进「${JSON.stringify(source.slice(0, 8))}…」：全角空格逐字节保留`,
+      run.md1 === expected,
+      shortDiff(expected, run.md1),
+    )
+  }
+  // 半角空格不行：4 个会被 CommonMark 判成代码块，2 个会被吃掉 —— 这正是 Tab 用全角空格的原因
+  const halfWidth = runBridge('    四个半角空格开头\n')
+  check(
+    '首行缩进：半角空格开头会被判成代码块（所以 Tab 不用它）',
+    halfWidth.md1.startsWith('```'),
+    JSON.stringify(halfWidth.md1),
+  )
 }
 
 // ── 真实 vault 全量 ─────────────────────────────────────────────────────

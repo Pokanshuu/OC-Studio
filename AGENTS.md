@@ -36,6 +36,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - `src/lib/sidebar-width.ts` — **侧边栏宽度唯一源**：默认 140px，可调范围 0.8–1.2 倍（112–168px），`clampSidebarWidth()` 负责夹取；宽度存在 settings 的 `sidebarWidth`（localStorage），拖动中只更新本地 state，松手才落盘
 - `src/lib/cover/` — **封面卡算法唯一源**（角色 / 国家 / 事件的网格视图）：照搬 Simple_Cover 的「照片下缘逐行递增模糊 → 完全混色」+ 自动取色。`color.ts`（取色，**无彩度的图走中性、不猜色相**）· `blur.ts`（渐进模糊，纯函数，`npx tsx scripts/cover-check.ts` 自检 65 项）· `scene.ts`（画面合成；**文字衬底**按标题带实际亮度补块色，暗图不铺 —— 标题压在照片上不再靠图自己够暗）· `tuning.ts`（**所有版式数字的唯一源**，面板实时调，「视图 → 封面卡参数」或 `Ctrl/Cmd + Shift + K`）。**改这块先读 `docs/封面卡.md`**（算法、参数表、取色规则、性能策略）
 - `src/components/shared/cover/` — `CoverCard`（三个列表共用的封面卡：标题压模糊区、简介与小字落色块、头像/国徽在标题上方）+ `CoverArt`（画布：进视口才画、一帧两张、按画布去重）+ `CoverTuningPanel`（调参面板）
+- `src/components/shared/OverflowBar.tsx` — **工具栏收口的唯一实现**：按**容器实际宽度**（不按窗口）决定留哪些条目，放不下的进一个「…」菜单。`lead` / `trail` 永远不收（标题、保存、锁定）；条目收进菜单后长什么样由各自的 `menu` 给（**没给 `menu` 的条目收起来就是彻底消失**，只用于装饰）；`menuGroups` 是常驻菜单项（表格 / 查找这类从来不占栏的）。度量靠一条常驻的 `visibility: hidden` 度量行 + 每次渲染后重算（`ResizeObserver` 会漏掉「面板从 `display:none` 切回来」「字体加载完字宽变了」这类事件）。**新工具栏不要再自己写 `min-w-0` + `shrink-0` 那一套**：子项 `shrink-0` 只会把图标挤到隔壁按钮上
 - `src/components/shared/ListShell.tsx` — **列表页外壳唯一实现**：页头贴在滚动容器**里面**（内容从它背后穿过），粘顶、底色、模糊、底线全由外壳的**一块页头表面**统一给；`header()` 只排内容，页头里的每一行（工具栏 / 文件夹条…）**不要**再各写一层底色或 `backdrop-blur`（多行页头各糊各的，落后那行就会漏成「没糊、内容穿过去」）。**静止无分隔线**，上滑后才叠 `TOOLBAR_SHADE`；`useScrollShade` 在 `src/lib/use-scroll-shade.ts`。列表页禁止再各写一套 `min-h-full` + `sticky` 的组合
 - `src/components/shared/CoverFlow.tsx` — **画廊视图（Cover Flow）**：横向 snap 翻页，滚动时 rAF 直接写每格 `transform`（不进 state）；`prefers-reduced-motion` 退化成横排
 - `src/components/shared/FolderStack.tsx` — 卡片 / 画廊里的**文件夹「堆」**：单击进入、右键改名 / 管理内容 / 删除。列表模式仍用 `CharacterFolderBar` 的 chip（文件夹图标 + 名称 + 数量）
@@ -53,6 +54,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - `src/components/editor/WikiLinkExtension.ts` — [[ 词条内链。**每个编辑器各建一份**（`createWikiLinkExtension()`），不要提升成模块常量：`popup` / `AbortController` 活在闭包里，模块级共享会让第二个编辑器把前一个弹层的「点外部关闭」监听 abort 掉、节点永久留在 DOM 里。弹层 `fixed` + Portal 到 `#overlay-root`，关闭只走 `closePopup()`（节点与监听一起收）
 - `src/components/editor/extensions/ImageBlock.tsx` — 自定义图片块
 - `src/components/editor/extensions/SmallMark.ts` — `<small>` 行内标记（vault 里唯一用到的行内 HTML，保住 Markdown 往返）
+- `src/components/editor/extensions/FirstLineIndent.ts` — **首行缩进（中文排版）**：Tab 在段首插**两个全角空格 U+3000**，Shift+Tab 退一级、再按不变；多段选区按段处理；列表 / 表格 / 代码块里**直接放行**（表格的 Tab 是跳格、列表的 Tab 是降级）。**不要改成 `text-indent` 或半角空格**：`text-indent` 在 Markdown 里无处可存，半角空格 4 个会被 CommonMark 判成代码块、2 个会被解析器吃掉（`npx tsx scripts/vault-markdown-check.ts "<vault>"` 的定向用例盯着这条）
 
 ### 架构
 - `src/features/<domain>/` — 功能模块（characters, events, countries, world, timeline, relations, trash, periods, project, dashboard）

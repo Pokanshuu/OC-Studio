@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Editor } from '@tiptap/core'
 import { useEditorState } from '@tiptap/react'
@@ -25,17 +25,19 @@ import {
   Minus,
   Undo2,
   Redo2,
-  MoreHorizontal,
   ChevronDown,
   Search,
   ListTree,
+  IndentIncrease,
+  IndentDecrease,
 } from 'lucide-react'
 import { ICON_BTN_MD, ROUND_CONTROL } from '@/lib/ui-tokens'
+import { OverflowBar, type OverflowEntry } from '@/components/shared/OverflowBar'
 import { LinkPopover } from './LinkPopover'
 import { ToolbarMenu, type ToolbarMenuGroup, type ToolbarMenuItem } from './ToolbarMenu'
 import { requestFind, requestOutline } from './editor-events'
 
-type MenuKind = 'block' | 'list' | 'more'
+type MenuKind = 'block' | 'list'
 
 interface IconButtonProps {
   label: string
@@ -102,6 +104,11 @@ function ToolbarTrigger({
   )
 }
 
+/** 组间留白（原来是一个 `w-1` 的 span，跟着所属条目一起收口） */
+function Gap() {
+  return <span className="w-1" />
+}
+
 function headingIcon(level: number): ReactNode {
   if (level === 1) return <Heading1 size={14} strokeWidth={2} />
   if (level === 2) return <Heading2 size={14} strokeWidth={2} />
@@ -113,8 +120,11 @@ function headingIcon(level: number): ReactNode {
 /**
  * 正文常驻格式栏（桌面；移动端仍走 MobileEditorToolbar）。
  *
- * 最小集 + 组级溢出：宽/中/窄按**工具栏容器宽度**切换，不按窗口宽度。
- * 只挂 Markdown 桥能表达的节点与标记；颜色/字体/对齐不在这里。
+ * 只挂 Markdown 桥能表达的节点与标记；颜色 / 字体 / 对齐不在这里。
+ *
+ * **宽度由 `OverflowBar` 量容器决定**，不按窗口宽度切档：这一栏长在编辑器面板里，
+ * 三分栏或侧栏展开时同一块屏幕只剩四五百像素，按窗口切档会让图标挤成一堆、
+ * 压到右边的保存按钮上。放不下的条目收进「…」（`表格 / 分割线 / 查找 / 大纲` 本来就在那里）。
  */
 export function EditorToolbar({
   editor,
@@ -125,20 +135,8 @@ export function EditorToolbar({
   sticky?: boolean
   embedded?: boolean
 }) {
-  const toolbarRef = useRef<HTMLDivElement>(null)
-  const [width, setWidth] = useState(0)
   const [menu, setMenu] = useState<{ kind: MenuKind; anchor: HTMLButtonElement } | null>(null)
   const [linkAnchor, setLinkAnchor] = useState<HTMLElement | null | undefined>(undefined)
-
-  useEffect(() => {
-    const el = toolbarRef.current
-    if (!el) return
-    const observer = new ResizeObserver((entries) => {
-      setWidth(entries[0]?.contentRect.width ?? 0)
-    })
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [])
 
   const state = useEditorState({
     editor,
@@ -160,16 +158,6 @@ export function EditorToolbar({
       }
     },
   })
-
-  const medium = width >= 640
-  const show = {
-    redo: embedded || medium,
-    code: embedded || medium,
-    heading: embedded || medium,
-    list: embedded || medium,
-    link: embedded || medium,
-    image: embedded || medium,
-  }
 
   const chain = () => editor.chain().focus()
 
@@ -220,6 +208,22 @@ export function EditorToolbar({
     icon: <Strikethrough size={14} strokeWidth={2} />,
     active: state.strike,
     onClick: () => chain().toggleStrike().run(),
+  }
+
+  const boldItem: ToolbarMenuItem = {
+    label: '粗体',
+    icon: <Bold size={14} strokeWidth={2} />,
+    active: state.bold,
+    onClick: () => chain().toggleBold().run(),
+    shortcut: 'Ctrl+B',
+  }
+
+  const italicItem: ToolbarMenuItem = {
+    label: '斜体',
+    icon: <Italic size={14} strokeWidth={2} />,
+    active: state.italic,
+    onClick: () => chain().toggleItalic().run(),
+    shortcut: 'Ctrl+I',
   }
 
   const quoteItem: ToolbarMenuItem = {
@@ -275,10 +279,32 @@ export function EditorToolbar({
     onClick: () => requestOutline(editor),
   }
 
+  const undoItem: ToolbarMenuItem = {
+    label: '撤销',
+    icon: <Undo2 size={14} strokeWidth={2} />,
+    onClick: () => chain().undo().run(),
+    shortcut: 'Ctrl+Z',
+  }
+
   const redoItem: ToolbarMenuItem = {
     label: '重做',
     icon: <Redo2 size={14} strokeWidth={2} />,
     onClick: () => chain().redo().run(),
+    shortcut: 'Ctrl+Shift+Z',
+  }
+
+  const indentItem: ToolbarMenuItem = {
+    label: '首行缩进',
+    icon: <IndentIncrease size={14} strokeWidth={2} />,
+    shortcut: 'Tab',
+    onClick: () => chain().indentFirstLine().run(),
+  }
+
+  const outdentItem: ToolbarMenuItem = {
+    label: '取消首行缩进',
+    icon: <IndentDecrease size={14} strokeWidth={2} />,
+    shortcut: 'Shift+Tab',
+    onClick: () => chain().outdentFirstLine().run(),
   }
 
   const blockGroups: ToolbarMenuGroup[] = [
@@ -289,145 +315,139 @@ export function EditorToolbar({
     { items: [bulletItem, orderedItem, taskItem] },
   ]
 
-  const moreGroups: ToolbarMenuGroup[] = []
-  const textItems: ToolbarMenuItem[] = [strikeItem]
-  if (!show.code) textItems.push(codeItem)
-  moreGroups.push({ label: '文本格式', items: textItems })
+  /** 一直留在「…」里的：Markdown 桥能表达、但不值得占栏的东西 */
+  const permanentGroups: ToolbarMenuGroup[] = [
+    { label: '文本格式', items: [strikeItem, codeItem, indentItem, outdentItem] },
+    { label: '插入', items: [tableItem, hrItem] },
+    { label: '编辑', items: [findItem, outlineItem] },
+  ]
 
-  // 块格式 / 列表：能放下时全部收进块/列表下拉，窄屏才回落到「更多」。
-  const blockItems: ToolbarMenuItem[] = []
-  if (!show.heading) {
-    blockItems.push(paragraphItem, headingItem(1), headingItem(2), headingItem(3), headingItem(4), quoteItem, codeBlockItem)
-  }
-  if (blockItems.length) moreGroups.push({ label: '块格式', items: blockItems })
-
-  const listItems: ToolbarMenuItem[] = []
-  if (!show.list) listItems.push(bulletItem, orderedItem, taskItem)
-  if (listItems.length) moreGroups.push({ label: '列表', items: listItems })
-
-  const insertItems: ToolbarMenuItem[] = []
-  if (!show.link) insertItems.push(linkItem)
-  if (!show.image) insertItems.push(imageItem)
-  insertItems.push(tableItem, hrItem)
-  moreGroups.push({ label: '插入', items: insertItems })
-
-  const editItems: ToolbarMenuItem[] = [findItem, outlineItem]
-  if (!show.redo) editItems.push(redoItem)
-  moreGroups.push({ label: '编辑', items: editItems })
+  const entries: OverflowEntry[] = [
+    {
+      key: 'undo',
+      node: (
+        <IconButton label="撤销" disabled={!state.canUndo} onActivate={() => chain().undo().run()}>
+          <Undo2 size={16} strokeWidth={2} />
+        </IconButton>
+      ),
+      menu: [{ label: '编辑', items: [undoItem] }],
+    },
+    {
+      key: 'redo',
+      node: (
+        <IconButton label="重做" disabled={!state.canRedo} onActivate={() => chain().redo().run()}>
+          <Redo2 size={16} strokeWidth={2} />
+        </IconButton>
+      ),
+      menu: [{ label: '编辑', items: [redoItem] }],
+    },
+    {
+      key: 'bold',
+      node: (
+        <>
+          <Gap />
+          <IconButton label="粗体" active={state.bold} onActivate={() => chain().toggleBold().run()}>
+            <Bold size={16} strokeWidth={2} />
+          </IconButton>
+        </>
+      ),
+      menu: [{ label: '文本格式', items: [boldItem] }],
+    },
+    {
+      key: 'italic',
+      node: (
+        <IconButton label="斜体" active={state.italic} onActivate={() => chain().toggleItalic().run()}>
+          <Italic size={16} strokeWidth={2} />
+        </IconButton>
+      ),
+      menu: [{ label: '文本格式', items: [italicItem] }],
+    },
+    {
+      key: 'code',
+      node: (
+        <IconButton label="行内代码" active={state.code} onActivate={() => chain().toggleCode().run()}>
+          <Code size={16} strokeWidth={2} />
+        </IconButton>
+      ),
+      menu: [{ label: '文本格式', items: [codeItem] }],
+    },
+    {
+      key: 'block',
+      node: (
+        <ToolbarTrigger
+          label={state.block}
+          icon={
+            state.block === '引用'
+              ? <Quote size={14} strokeWidth={2} />
+              : state.block === '代码块'
+                ? <Code2 size={14} strokeWidth={2} />
+                : headingIcon(state.headingLevel)
+          }
+          active={state.headingLevel > 0}
+          onClick={(anchor) => setMenu({ kind: 'block', anchor })}
+        />
+      ),
+      menu: [{ label: '块格式', items: blockGroups[0].items }],
+    },
+    {
+      key: 'list',
+      node: (
+        <ToolbarTrigger
+          label="列表"
+          icon={<List size={14} strokeWidth={2} />}
+          active={state.bullet || state.ordered || state.task}
+          onClick={(anchor) => setMenu({ kind: 'list', anchor })}
+        />
+      ),
+      menu: [{ label: '列表', items: listGroups[0].items }],
+    },
+    {
+      key: 'link',
+      node: (
+        <>
+          <Gap />
+          <IconButton label="链接" active={state.link} onActivate={(anchor) => setLinkAnchor(anchor)}>
+            <LinkIcon size={16} strokeWidth={2} />
+          </IconButton>
+        </>
+      ),
+      menu: [{ label: '插入', items: [linkItem] }],
+    },
+    {
+      key: 'image',
+      node: (
+        <IconButton label="图片" onActivate={() => chain().insertContent({ type: 'imageBlock' }).run()}>
+          <ImageIcon size={16} strokeWidth={2} />
+        </IconButton>
+      ),
+      menu: [{ label: '插入', items: [imageItem] }],
+    },
+  ]
 
   return (
     <>
       <div
-        ref={toolbarRef}
         role="toolbar"
         aria-label="格式工具"
-        className={`flex items-center gap-0.5 px-2 max-md:hidden ${
+        className={
           embedded
-            ? 'h-full w-full justify-center bg-transparent'
-            : `${sticky ? 'sticky top-12' : ''} z-10 h-10 border-b border-line bg-paper/85 backdrop-blur-lg`
-        }`}
+            ? 'flex h-full w-full items-center justify-center'
+            : `flex items-center px-2 max-md:hidden ${sticky ? 'sticky top-12' : ''} z-10 h-10 border-b border-line bg-paper/85 backdrop-blur-lg`
+        }
       >
-        <IconButton
-          label="撤销"
-          disabled={!state.canUndo}
-          onActivate={() => chain().undo().run()}
-        >
-          <Undo2 size={16} strokeWidth={2} />
-        </IconButton>
-        {show.redo ? (
-          <IconButton
-            label="重做"
-            disabled={!state.canRedo}
-            onActivate={() => chain().redo().run()}
-          >
-            <Redo2 size={16} strokeWidth={2} />
-          </IconButton>
-        ) : null}
-
-        <span className="w-1" />
-        <IconButton
-          label="粗体"
-          active={state.bold}
-          onActivate={() => chain().toggleBold().run()}
-        >
-          <Bold size={16} strokeWidth={2} />
-        </IconButton>
-        <IconButton
-          label="斜体"
-          active={state.italic}
-          onActivate={() => chain().toggleItalic().run()}
-        >
-          <Italic size={16} strokeWidth={2} />
-        </IconButton>
-        {show.code ? (
-          <IconButton
-            label="行内代码"
-            active={state.code}
-            onActivate={() => chain().toggleCode().run()}
-          >
-            <Code size={16} strokeWidth={2} />
-          </IconButton>
-        ) : null}
-
-        {show.heading ? (
-          <ToolbarTrigger
-            label={state.block}
-            icon={
-              state.block === '引用'
-                ? <Quote size={14} strokeWidth={2} />
-                : state.block === '代码块'
-                  ? <Code2 size={14} strokeWidth={2} />
-                  : headingIcon(state.headingLevel)
-            }
-            active={state.headingLevel > 0}
-            onClick={(anchor) => setMenu({ kind: 'block', anchor })}
-          />
-        ) : null}
-        {show.list ? (
-          <ToolbarTrigger
-            label="列表"
-            icon={<List size={14} strokeWidth={2} />}
-            active={state.bullet || state.ordered || state.task}
-            onClick={(anchor) => setMenu({ kind: 'list', anchor })}
-          />
-        ) : null}
-
-        <span className="w-1" />
-        {show.link ? (
-          <IconButton
-            label="链接"
-            active={state.link}
-            onActivate={(anchor) => setLinkAnchor(anchor)}
-          >
-            <LinkIcon size={16} strokeWidth={2} />
-          </IconButton>
-        ) : null}
-        {show.image ? (
-          <IconButton
-            label="图片"
-            onActivate={() => chain().insertContent({ type: 'imageBlock' }).run()}
-          >
-            <ImageIcon size={16} strokeWidth={2} />
-          </IconButton>
-        ) : null}
-
-        <button
-          type="button"
-          title="更多"
-          aria-label="更多"
-          aria-haspopup="menu"
-          onPointerDown={(e) => e.preventDefault()}
-          onClick={(e) => setMenu({ kind: 'more', anchor: e.currentTarget })}
-          className={`${ICON_BTN_MD} shrink-0`}
-        >
-          <MoreHorizontal size={16} strokeWidth={2} />
-        </button>
+        <OverflowBar
+          entries={entries}
+          menuGroups={permanentGroups}
+          gap={2}
+          className={embedded ? 'h-full w-full justify-center' : 'h-full w-full'}
+          moreTitle="更多格式"
+        />
       </div>
 
       {menu ? (
         <ToolbarMenu
           anchor={menu.anchor}
-          groups={menu.kind === 'block' ? blockGroups : menu.kind === 'list' ? listGroups : moreGroups}
+          groups={menu.kind === 'block' ? blockGroups : listGroups}
           onClose={() => setMenu(null)}
         />
       ) : null}

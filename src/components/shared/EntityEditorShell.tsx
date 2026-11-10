@@ -61,8 +61,8 @@ export function EntityEditorShell({
 
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
         {/* 顶栏覆盖在滚动内容上（z-30），backdrop-blur 才有内容可模糊；内容在滚动容器内用 h-12 spacer 让出位置 */}
-        <div className="absolute inset-x-0 top-0 z-30 flex h-12 shrink-0 items-center border-b border-line bg-paper/85 px-3 backdrop-blur-lg">
-          <div className="flex min-w-0 flex-1 items-center gap-2">
+        <div className="absolute inset-x-0 top-0 z-30 flex h-12 shrink-0 items-center gap-2 border-b border-line bg-paper/85 px-3 backdrop-blur-lg">
+          <div className="flex shrink-0 items-center gap-2">
             {hasList && !listOpen && onToggleList ? (
               <button
                 type="button"
@@ -90,14 +90,16 @@ export function EntityEditorShell({
             <h2 className="sr-only">{title}</h2>
           </div>
 
-          <div
-            className="flex min-w-0 flex-none items-center justify-center"
-            style={{ width: 'min(640px, 60%)' }}
-          >
+          {/*
+            格式栏吃掉剩下的宽度，**不设固定宽度**：以前写死 `min(640px, 60%)` +
+            `flex-none`，面板被三分栏压窄时工具条仍然按六十趴占位，图标就压到右边的保存上。
+            现在它自己量宽度、放不下的收进「…」。
+          */}
+          <div className="flex min-w-0 flex-1 items-center justify-center">
             {editor ? <EditorToolbar editor={editor} embedded /> : null}
           </div>
 
-          <div className="flex min-w-0 flex-1 items-center justify-end gap-1">{headerRight}</div>
+          <div className="flex shrink-0 items-center justify-end gap-1">{headerRight}</div>
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col">{children}</div>

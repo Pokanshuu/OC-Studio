@@ -2,7 +2,7 @@
 
 import { createPortal } from 'react-dom'
 import type { RefObject } from 'react'
-import { Pilcrow, ChevronDown, Bold, Italic, Underline as UnderlineIcon, AtSign, Link2, Undo2, Redo2, Heading1, Heading2, Heading3, List, ListOrdered, ListTodo, Quote, Scissors, Image, Table as TableIcon } from 'lucide-react'
+import { Pilcrow, ChevronDown, Bold, Italic, Underline as UnderlineIcon, AtSign, Link2, Undo2, Redo2, Heading1, Heading2, Heading3, List, ListOrdered, ListTodo, Quote, Scissors, Image, Table as TableIcon, IndentIncrease, IndentDecrease } from 'lucide-react'
 import type { Editor } from '@tiptap/core'
 import { isBelowTargetVersion } from '@/lib/browser-compat'
 import { ROUND_ITEM } from '@/lib/ui-tokens'
@@ -131,6 +131,9 @@ export function MobileEditorToolbar({
                 { label: '有序列表', icon: <ListOrdered size={16} strokeWidth={2} />, action: () => editor?.chain().focus().toggleOrderedList().run(), active: () => editor?.isActive('orderedList') ?? false },
                 { label: '任务列表', icon: <ListTodo size={16} strokeWidth={2} />, action: () => editor?.chain().focus().toggleTaskList().run(), active: () => editor?.isActive('taskList') ?? false },
                 { label: '引用', icon: <Quote size={16} strokeWidth={2} />, action: () => editor?.chain().focus().toggleBlockquote().run(), active: () => editor?.isActive('blockquote') ?? false },
+                // 手机上没 Tab 键，首行缩进只能从这里进（与桌面 Tab / Shift+Tab 同一套命令）
+                { label: '首行缩进', icon: <IndentIncrease size={16} strokeWidth={2} />, action: () => editor?.chain().focus().indentFirstLine().run(), active: () => false },
+                { label: '取消缩进', icon: <IndentDecrease size={16} strokeWidth={2} />, action: () => editor?.chain().focus().outdentFirstLine().run(), active: () => false },
                 { label: '分割线', icon: <Scissors size={16} strokeWidth={2} />, action: () => editor?.chain().focus().setHorizontalRule().run(), active: () => false },
                 { label: '图片', icon: <Image size={16} strokeWidth={2} />, action: () => editor?.chain().focus().insertContent({ type: 'imageBlock' }).run(), active: () => false },
                 { label: '表格', icon: <TableIcon size={16} strokeWidth={2} />, action: () => editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(), active: () => false },

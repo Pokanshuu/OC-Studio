@@ -23,6 +23,9 @@ const eslintConfig = defineConfig([
     // 本地浏览器自动化临时 profile：不是产品代码，扫进来会产出两万条无关告警
     ".tmp-edge/**",
     ".tmp-edge-cdp/**",
+    // 临时脚本 / 探针 / 浏览器 profile 目录（`/tmp/` 已在 .gitignore 里）：
+    // 这些只跑一次就丢，扫进 lint 会把「0 error」这条门槛淹掉
+    "tmp/**",
     // 桌面壳 / 浏览器调试日志与 profile（已在 .gitignore 里）
     "logs/**",
   ]),
