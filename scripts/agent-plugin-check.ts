@@ -550,6 +550,31 @@ async function main(): Promise<void> {
   const lastPatch = writes[writes.length - 1]?.patch ?? {}
   check('超长值被截断', (lastPatch.bio ?? '').length === 4000)
 
+  // 时间 / 生日：纪年名、月名不能塞进日期列（否则界面三段输入会把它当「年」）
+  const badBirthday = await resolveW('library_set_fields', {
+    kind: 'character',
+    id: 7,
+    fields: { birthday: '霜月三日' },
+  })
+  check(
+    '非法日期按 invalid-value 拒绝并给出格式',
+    badBirthday?.isError === true &&
+      badBirthday?.content.includes('[invalid-value] birthday') === true &&
+      badBirthday?.content.includes('1203-04-15') === true,
+    badBirthday?.content,
+  )
+  const normalizedBirthday = await resolveW('library_set_fields', {
+    kind: 'character',
+    id: 7,
+    fields: { birthday: '1203-4-5' },
+  })
+  check(
+    '合法日期补零成 YYYY-MM-DD',
+    normalizedBirthday?.isError === false &&
+      writes[writes.length - 1]?.patch.birthday === '1203-04-05',
+    JSON.stringify(writes[writes.length - 1]?.patch),
+  )
+
   check(
     'toolSummary 认 library_set_fields',
     toolSummary({ id: 'c3', name: 'library_set_fields', args: '{"fields":{"race":"精灵"}}' } as never) === 'race',
@@ -667,6 +692,18 @@ async function main(): Promise<void> {
   check('新建成功', created?.isError === false, created?.content.slice(0, 60))
   check('新建落到 writer 上', creates.length === 1 && creates[0]?.title === '沈砚的师父')
   check('新建只带白名单字段', Object.keys(creates[0]?.fields ?? {}).join('、') === 'race、occupation')
+  const badCreateDate = await resolveW('library_create', {
+    kind: 'character',
+    title: '时间测试',
+    fields: { birthday: '霜月三日' },
+  })
+  check(
+    '新建时非法日期直接拒绝，不落库',
+    badCreateDate?.isError === true &&
+      badCreateDate?.content.includes('不是合法日期') === true &&
+      creates.length === 1,
+    badCreateDate?.content,
+  )
   check('回执里有新 id', created?.content.includes('#100') === true, created?.content.slice(0, 40))
 
   const duplicate = await resolveW('library_create', { kind: 'character', title: '林知遥' })

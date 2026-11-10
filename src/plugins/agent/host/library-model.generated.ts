@@ -37,6 +37,7 @@ export const LIBRARY_MODEL_MARKDOWN = `## 能力卡片（由 \`npm run gen:libra
 - 正文 = \`library_set_body\`（整篇覆盖，先读再写）；改名 / 别名 = \`library_rename\`；标签 = \`library_set_tags\`
 - 新建前先 \`library_search\` 查重：同名条目会直接返回既有 id，不会再建一条
 - **id 只在当前库里有效**：每次先 \`library_search\` / \`library_list\` 取当前 id，不要复用上一轮的 id
+- 时间 / 生日只收数字年月日（\`1203\` / \`1203-04\` / \`1203-04-15\`，负年份前加 -）；纪年名 / 月名写正文或自建字段
 - 在线图片只认**图片直链**（搜索页常被 403 挡）；库里已有的图用 \`path\`
 - 写完看**回执**（路径 / 改动键 / 版本），不需要再读一遍文件或翻 journal
 - 不要手写 frontmatter 或直接改 \`.md\`：落盘键名与工具字段名不是一套，手改必错

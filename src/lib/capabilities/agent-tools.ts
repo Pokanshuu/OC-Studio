@@ -238,6 +238,45 @@ const FIELD_MAX_LENGTH = 4000
 /** 正文上限：比字段宽得多，但挡住「模型一口气吐一万字」这种事故 */
 const BODY_MAX_LENGTH = 20_000
 
+/**
+ * 时间 / 生日列（落盘形态见 `lib/time-field.ts`）。
+ *
+ * 模型很容易把「霜月三日」「霜岚纪年」这种**纪年名 / 月名**当日期写进来，
+ * 界面上的三段输入会把它整个塞进「年」格，变成一眼可见的脏数据。
+ * 这里在工具边界就挡掉，并告诉它该写进哪里。
+ */
+const TIME_FIELDS: Partial<Record<EntityKind, readonly string[]>> = {
+  character: ['birthday'],
+  event: ['time', 'endTime'],
+  world: ['time', 'endTime'],
+}
+
+/** `1203` / `1203-04` / `1203-04-15` / `-1203-04-15`，年月日都可缺 */
+const TIME_PATTERN = /^-?\d{1,4}(?:-\d{1,2}(?:-\d{1,2})?)?$/
+
+const TIME_FORMAT_HINT =
+  '时间只收数字年月日：`1203` / `1203-04` / `1203-04-15`（负年份前加 -）；纪年名 / 月名写进正文或自建字段。'
+
+/** 合规就补零成 `YYYY-MM-DD` 的缺省形态；不合规返回 `null`（空串 = 清空，合法） */
+export function normalizeTimeValue(value: string): string | null {
+  const text = value.trim()
+  if (text === '') return ''
+  if (!TIME_PATTERN.test(text)) return null
+  const negative = text.startsWith('-')
+  const clean = negative ? text.slice(1) : text
+  const [year, month, day] = clean.split('-')
+  if (month !== undefined && (Number(month) < 1 || Number(month) > 12)) return null
+  if (day !== undefined && (Number(day) < 1 || Number(day) > 31)) return null
+  let out = `${negative ? '-' : ''}${year.padStart(4, '0')}`
+  if (month !== undefined) out += `-${month.padStart(2, '0')}`
+  if (day !== undefined) out += `-${day.padStart(2, '0')}`
+  return out
+}
+
+function isTimeField(kind: EntityKind, key: string): boolean {
+  return (TIME_FIELDS[kind] ?? []).includes(key)
+}
+
 /** 关系标签长度上限：`同门` / `宿敌` 这种，不该是一段话 */
 const RELATION_MAX_LENGTH = 40
 
@@ -494,8 +533,8 @@ async function declaredFieldsOf(
   }
 }
 
-/** 被拒键的三分类：实体没这个字段 / 字段由界面维护 / 自建字段还没建 */
-type RejectedCode = 'unknown-field' | 'ui-only' | 'new-field'
+/** 被拒键的分类：字段不存在 / 由界面维护 / 自建字段还没建 / 值本身不合法 */
+type RejectedCode = 'unknown-field' | 'ui-only' | 'new-field' | 'invalid-value'
 
 interface RejectedKey {
   key: string
@@ -709,7 +748,18 @@ export function createLibraryToolExecutor(
           }
           for (const [key, value] of Object.entries(args.fields as Record<string, unknown>)) {
             if (!writable.includes(key)) continue
-            fields[key] = textOf(value).slice(0, FIELD_MAX_LENGTH)
+            const raw = textOf(value)
+            if (isTimeField(createKind, key)) {
+              const normalized = normalizeTimeValue(raw)
+              if (normalized === null) {
+                return finish(
+                  fail(`${KIND_LABEL[createKind]}的 ${key} 不是合法日期，没有新建。${TIME_FORMAT_HINT}`),
+                )
+              }
+              fields[key] = normalized
+              continue
+            }
+            fields[key] = raw.slice(0, FIELD_MAX_LENGTH)
           }
         }
         // 词条的结构参数：分类 / 模板 / 父词条（小说章节、自定义分类条目靠它们）
@@ -1072,6 +1122,15 @@ export function createLibraryToolExecutor(
           const key = rawKey.trim().slice(0, 60)
           if (key === '') continue
           const text = textOf(value).slice(0, FIELD_MAX_LENGTH)
+          if (isTimeField(kind, key)) {
+            const normalized = normalizeTimeValue(text)
+            if (normalized === null) {
+              rejected.push({ key, code: 'invalid-value', note: TIME_FORMAT_HINT })
+            } else {
+              columns[key] = normalized
+            }
+            continue
+          }
           if (writable.includes(key)) {
             columns[key] = text
           } else if (knownCustom.has(key) || allowNew || declared.has(key)) {
