@@ -95,6 +95,17 @@ export const MEDIA_SLOTS: Record<EntityKind, readonly MediaSlot[]> = {
   world: ['cover', 'avatar', 'image', 'novelCover'],
 }
 
+/**
+ * 有的类型确实没有封面槽位 —— 直接说清替代品。
+ *
+ * 不写这一句，模型会认为「工具坏了」而不是「国家就没有 cover 这个列」，
+ * 然后换个槽位名反复试（`cover` / `banner` / `poster`），或者转去搬 `gallery`。
+ * 注意这是**媒体列名**与**模板组件名**的区别：国家的「封面」组件读的是 `header`。
+ */
+const MEDIA_SLOT_NOTE: Partial<Record<EntityKind, string>> = {
+  country: '国家没有叫 cover 的列：模板的「封面」组件读 header（横幅），「头像」组件读 flag（旗帜）。',
+}
+
 const FIELD_MAX_LENGTH = 4000
 
 /** 正文上限：比字段宽得多，但挡住「模型一口气吐一万字」这种事故 */
@@ -534,7 +545,13 @@ export function createLibraryToolExecutor(
         if (mediaId < 0) return finish(fail('需要实体 id。'))
         const slot = textOf(args.slot) as MediaSlot
         if (!MEDIA_SLOTS[mediaKind].includes(slot)) {
-          return finish(fail(`${KIND_LABEL[mediaKind]}的图片槽位只有：${MEDIA_SLOTS[mediaKind].join(' / ')}。`))
+          const note = MEDIA_SLOT_NOTE[mediaKind]
+          return finish(
+            fail(
+              `${KIND_LABEL[mediaKind]}的图片槽位只有：${MEDIA_SLOTS[mediaKind].join(' / ')}。` +
+                (note ? `\n${note}` : ''),
+            ),
+          )
         }
         const url = textOf(args.url).slice(0, 2000)
         const path = textOf(args.path).replace(/\\/g, '/').slice(0, 500)

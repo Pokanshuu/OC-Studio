@@ -410,3 +410,14 @@ vault 装载未完成前**不渲染主界面**（否则列表先按空库渲染�
 
 - **导航意图是一次性的**：`worldSelectedEntryId` 只是「跳到这里」的指令，消费后必须清空（`handledNavRef` + `onSelectedEntryConsumed`）。那个导航 effect 的依赖里有 `entries`，而自动保存落库后会 `refresh()` 列表；不做一次性判定，上次内链的落点会在每次保存后被重放 —— 表现为「编辑着突然跳到别的词条」。
 - **草稿的写入目标绑 id，不绑「当前选中」**：`useWorldEntryDraft` 的 pending 存 `{ entryId, title, content }`。写入前 `await syncReferenceLabels()` 会让出执行权，这期间用户切走词条，再读 `selectedIdRef.current` 就会把 A 的正文写进 B。
+
+### 4.24 新建条目的落点：回收站与 `.ocstudio` 不能参与投票
+
+`vault-persist` 的 `planTextWrite` 用「同类型已有笔记所在的目录」来决定新文件落哪（`pickPreferredFolder`），这套规则本身没问题，**投票的数据源必须干净**。曾经出过一次事故：把某类型的条目全删进回收站后再新建，文件落到了 `.ocstudio/` 根下，分类目录反而是空的。
+
+原因有两层，都在 `foldersOfKind`：
+
+- 回收站条目**还留在 `session.entries` 里**（`relPath` 已经改成 `.ocstudio/trash/<批次>/国家/x.md`），它们的目录也被投了一票，且顶层就是 `.ocstudio`。
+- 一旦有文件被写进 `.ocstudio/`，它会**继续投票**，把后面每一条新建都拖进同一个错误目录（自我延续）。
+
+判据必须是「**活着的 + 不在内部目录里**」：`foldersOfKind` 跳过 `trashed` 与顶层点目录，`pickPreferredFolder` 再挡一道。回执里出现「列表里有、点开报文件不存在」时先看这一条。`scripts/vault-paths-check.ts` 有用例钉着。
