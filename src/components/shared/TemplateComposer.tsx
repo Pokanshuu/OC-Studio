@@ -18,7 +18,7 @@
 import { worldBodyOf } from '@/lib/world-body'
 import { useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { ArrowLeft, ChevronDown, ChevronUp, Download, GripVertical, Plus, SlidersHorizontal, X } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronUp, Download, Plus, SlidersHorizontal, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { COMPONENT_BY_ID, COMPONENT_IDS } from '@/lib/templates/registry'
 import { isComponentAvailable, isComponentWired } from '@/lib/templates/support'
@@ -45,6 +45,7 @@ import type { PosterSubjectKind } from '@/lib/export/poster/subjects'
 import { ComponentSection } from './ComponentSection'
 import { TemplateComponentParams } from './TemplateParams'
 import { FullscreenViewer } from './FullscreenViewer'
+import { DragHandle, SortableList, moveId, useSortableItem } from './list-dnd'
 import { useEntityNavigate } from '@/components/layout/EntityNavigateContext'
 import { useSettingsTrigger } from '@/components/layout/SettingsTriggerContext'
 import { BTN_PRIMARY, BTN_QUIET, CHIP, ICON_BTN, MENU_ITEM, PANEL, SECTION_TITLE_BARE } from '@/lib/ui-tokens'
@@ -343,6 +344,92 @@ const PREVIEW_SAMPLE: Partial<Record<TemplateComponentId, string[]>> = {
   body: ['正文……'],
 }
 
+/**
+ * 编排里的一行：手柄 + 名称 +（开发中）+ 组件名 + 参数键 + 上移 / 下移 / 移除。
+ *
+ * 单独抽成组件是因为**拖拽要调 hook**（`useSortableItem`）：hook 不能写在
+ * `enabled.map()` 的回调里（顺序会随列表长度变）。以前这一行只画了一枚
+ * `GripVertical` 图标、根本没接 dnd —— 看着能拖，拖着没反应。
+ */
+function ComposerRow({
+  component,
+  wired,
+  hasParams,
+  groupName,
+  paramsOpen,
+  isFirst,
+  isLast,
+  onToggleParams,
+  onMove,
+  onRemove,
+}: {
+  component: TemplateComponent
+  wired: boolean
+  hasParams: boolean
+  groupName?: string
+  paramsOpen: boolean
+  isFirst: boolean
+  isLast: boolean
+  onToggleParams: () => void
+  onMove: (delta: number) => void
+  onRemove: () => void
+}) {
+  const { setNodeRef, style, attributes, listeners } = useSortableItem(component.id, false)
+  const meta = COMPONENT_BY_ID[component.id]
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-2 border-b border-line py-2"
+    >
+      <DragHandle handleProps={{ attributes, listeners }} />
+      <span className={`min-w-0 flex-1 truncate text-[13px] ${wired ? 'text-ink' : 'text-ink-faint'}`}>
+        {meta?.label ?? component.id}
+      </span>
+      {!wired ? <span className="shrink-0 text-[11px] text-ink-faint">开发中</span> : null}
+      {groupName ? <span className="shrink-0 text-[11px] text-ink-faint">{groupName}</span> : null}
+      {hasParams ? (
+        <button
+          type="button"
+          onClick={onToggleParams}
+          aria-label="组件参数"
+          aria-expanded={paramsOpen}
+          className={`${ICON_BTN} ${paramsOpen ? 'bg-[var(--oc-hover)] text-ink' : ''}`}
+        >
+          <SlidersHorizontal size={13} strokeWidth={2} />
+        </button>
+      ) : null}
+      <button
+        type="button"
+        onClick={() => onMove(-1)}
+        disabled={isFirst}
+        className={`${ICON_BTN} disabled:opacity-30`}
+        aria-label="上移"
+      >
+        <ChevronUp size={14} strokeWidth={2} />
+      </button>
+      <button
+        type="button"
+        onClick={() => onMove(1)}
+        disabled={isLast}
+        className={`${ICON_BTN} disabled:opacity-30`}
+        aria-label="下移"
+      >
+        <ChevronDown size={14} strokeWidth={2} />
+      </button>
+      <button
+        type="button"
+        onClick={onRemove}
+        className={`${ICON_BTN} hover:text-error`}
+        aria-label={`移除「${meta?.label ?? component.id}」`}
+      >
+        <X size={14} strokeWidth={2} />
+      </button>
+    </div>
+  )
+}
+
 export function TemplateComposer({
   initialId,
   onClose,
@@ -412,6 +499,18 @@ export function TemplateComposer({
     const next = enabled.slice()
     const [item] = next.splice(index, 1)
     next.splice(target, 0, item)
+    persist({ ...active, components: [...next, ...active.components.filter((c) => !c.enabled)] })
+  }
+
+  /** 拖拽落位：与上下键走同一条写回路径（禁用组件始终保持在实际顺序之后） */
+  const reorder = (activeId: string | number, overId: string | number): void => {
+    const ids = enabled.map((component) => component.id)
+    const nextIds = moveId(ids, String(activeId), String(overId))
+    const byId = new Map(enabled.map((component) => [component.id, component]))
+    const next = nextIds
+      .map((id) => byId.get(id as TemplateComponentId))
+      .filter((component): component is TemplateComponent => component !== undefined)
+    if (next.length !== enabled.length) return
     persist({ ...active, components: [...next, ...active.components.filter((c) => !c.enabled)] })
   }
 
@@ -514,70 +613,43 @@ export function TemplateComposer({
 
         {/* 中：编排 */}
         <section className="flex min-w-0 flex-1 flex-col overflow-y-auto px-6 py-4 max-md:px-4">
-          <div className="flex flex-col">
-            {enabled.map((component, index) => {
-              const meta = COMPONENT_BY_ID[component.id]
-              const wired = isComponentWired(active.id, component.id)
-              const paramDefs = templateParamsFor(active.id, component.id, active)
-              const hasParams = wired && paramDefs.length > 0
-              const groupId = typeof component.params?.group === 'string' ? component.params.group : ''
-              const groupName =
-                component.id === 'info'
-                  ? infoGroups.find((group) => group.id === groupId)?.name
-                  : component.id === 'body'
-                    ? bodyGroups.find((group) => group.id === bodyGroupIdOfTemplate(active.id))?.name
-                    : undefined
-              return (
-                <div key={component.id} className="border-b border-line">
-                  <div className="flex items-center gap-2 py-2">
-                    <GripVertical size={13} strokeWidth={2} className="shrink-0 text-ink-faint" />
-                    <span className={`min-w-0 flex-1 truncate text-[13px] ${wired ? 'text-ink' : 'text-ink-faint'}`}>
-                      {meta?.label ?? component.id}
-                    </span>
-                    {!wired ? <span className="shrink-0 text-[11px] text-ink-faint">开发中</span> : null}
-                    {groupName ? <span className="shrink-0 text-[11px] text-ink-faint">{groupName}</span> : null}
-                    {hasParams ? (
-                      <button
-                        type="button"
-                        onClick={() => setParamsFor((prev) => (prev === component.id ? null : component.id))}
-                        aria-label="组件参数"
-                        aria-expanded={paramsFor === component.id}
-                        className={`${ICON_BTN} ${paramsFor === component.id ? 'bg-[var(--oc-hover)] text-ink' : ''}`}
-                      >
-                        <SlidersHorizontal size={13} strokeWidth={2} />
-                      </button>
-                    ) : null}
-                    <button
-                      type="button"
-                      onClick={() => move(index, -1)}
-                      disabled={index === 0}
-                      className={`${ICON_BTN} disabled:opacity-30`}
-                      aria-label="上移"
-                    >
-                      <ChevronUp size={14} strokeWidth={2} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => move(index, 1)}
-                      disabled={index === enabled.length - 1}
-                      className={`${ICON_BTN} disabled:opacity-30`}
-                      aria-label="下移"
-                    >
-                      <ChevronDown size={14} strokeWidth={2} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => remove(component)}
-                      className={`${ICON_BTN} hover:text-error`}
-                      aria-label={`移除「${meta?.label ?? component.id}」`}
-                    >
-                      <X size={14} strokeWidth={2} />
-                    </button>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+          <SortableList
+            ids={enabled.map((component) => component.id)}
+            onReorder={reorder}
+            layout="list"
+          >
+            <div className="flex flex-col">
+              {enabled.map((component, index) => {
+                const wired = isComponentWired(active.id, component.id)
+                const paramDefs = templateParamsFor(active.id, component.id, active)
+                const hasParams = wired && paramDefs.length > 0
+                const groupId = typeof component.params?.group === 'string' ? component.params.group : ''
+                const groupName =
+                  component.id === 'info'
+                    ? infoGroups.find((group) => group.id === groupId)?.name
+                    : component.id === 'body'
+                      ? bodyGroups.find((group) => group.id === bodyGroupIdOfTemplate(active.id))?.name
+                      : undefined
+                return (
+                  <ComposerRow
+                    key={component.id}
+                    component={component}
+                    wired={wired}
+                    hasParams={hasParams}
+                    groupName={groupName}
+                    paramsOpen={paramsFor === component.id}
+                    isFirst={index === 0}
+                    isLast={index === enabled.length - 1}
+                    onToggleParams={() =>
+                      setParamsFor((prev) => (prev === component.id ? null : component.id))
+                    }
+                    onMove={(delta) => move(index, delta)}
+                    onRemove={() => remove(component)}
+                  />
+                )
+              })}
+            </div>
+          </SortableList>
 
           {disabled.length > 0 ? (
             <div className="mt-3 flex flex-wrap gap-1.5">
