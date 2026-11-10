@@ -118,6 +118,9 @@ interface ChatStore {
    *
    * 只靠消息正文去估上下文会漏掉这一大块 —— AGENT 模式的库手册和十几个工具的
    * schema 加起来往往比几轮对话还大，漏了它百分比就永远是 0。
+   *
+   * 刻意**不随切会话清零**：切过去多半还是同一种对话，保留上一次的读数比瞬间掉回 0 更可信；
+   * 换了模式（AGENT → 创作）时这个值会偏高一点，下一次发送就校正回来。
    */
   overheadTokens: number
 
@@ -626,7 +629,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
       if (get().streamingMessageId) await get().stop()
       draftPersist.flush()
 
-      set({ currentId: id, allMessages: [], draft: '', todos: [], compactPreview: '', overheadTokens: 0 })
+      set({ currentId: id, allMessages: [], draft: '', todos: [], compactPreview: '' })
       useSettingsStore.getState().patch((current) => ({
         ...current,
         ui: { ...current.ui, lastConversationId: id },
@@ -654,7 +657,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
     newConversation: async () => {
       if (get().streamingMessageId) await get().stop()
       draftPersist.flush()
-      set({ currentId: null, allMessages: [], compaction: null, todos: [], draft: '', overheadTokens: 0 })
+      set({ currentId: null, allMessages: [], compaction: null, todos: [], draft: '' })
       const stored = await cmd.getDraft('').catch(() => null)
       set({ draft: stored?.text ?? '', pendingTitle: stored?.title ?? null })
     },
