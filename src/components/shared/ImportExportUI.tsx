@@ -16,6 +16,8 @@ import {
 
 import { downloadFullBackup } from '@/lib/export'
 import { validateImportData, importData } from '@/lib/import'
+import { exportLegacyToFolder } from '@/lib/vault/export-dir'
+import { useVault } from '@/lib/vault/vault-provider'
 import type { ImportResult, ImportSummary, MergeStrategy } from '@/lib/import'
 import { notifyDataUpdated } from '@/lib/data-events'
 import { BTN_DANGER, BTN_PRIMARY } from '@/lib/ui-tokens'
@@ -28,6 +30,7 @@ export function useImportExport(options?: {
 }) {
   const onImported = options?.onImported
   const queryClient = useQueryClient()
+  const vault = useVault()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [pendingJson, setPendingJson] = useState<unknown>(null)
   const [summary, setSummary] = useState<ImportSummary | null>(null)
@@ -46,7 +49,9 @@ export function useImportExport(options?: {
       toast.success(`完整备份导出成功：${name}`)
     } catch (error) {
       const message = error instanceof Error ? error.message : ''
-      if (message !== '已取消') toast.error('导出失败')
+      if (message !== '已取消') {
+        toast.error('导出失败', { description: message || undefined })
+      }
     } finally {
       setExporting(false)
     }
@@ -83,27 +88,71 @@ export function useImportExport(options?: {
 
   const handleConfirmImport = useCallback(async () => {
     if (!pendingJson) return
+    // 「替换」= 清空整库。开着笔记库时这条路只说清一半（Dexie 被清空、文件还在），
+    // 刷新之后旧笔记又全回来 —— 与其给出一个假替换，不如当场拒绝并说清楚。
+    if (vault.status === 'ready' && vault.root !== null && strategy === 'replace') {
+      toast.error('笔记库开着时不能用「替换」导入', {
+        description: '替换会清空当前库。请改用「跳过」或「覆盖」，或换个文件夹后从欢迎页导入。',
+      })
+      return
+    }
     setImporting(true)
     try {
+      // 先把待写队列清干净：否则它在导入之后才落盘，会把导入前的旧内容写回文件，
+      // 紧跟着的 rescan 又用这份旧内容盖掉刚导入的行
+      if (vault.status === 'ready' && vault.root !== null) await vault.flush()
       const result = await importData(pendingJson, strategy, queryClient)
       notifyDataUpdated()
+
+      /**
+       * **开着笔记库时，导入必须落到文件夹里。**
+       *
+       * `importData` 只写 Dexie；而这个库的真相是文件夹 —— 下次载入（重启 / 刷新）
+       * 会用磁盘整库替换 Dexie，刚导进来的东西就这样消失了。以前主界面的
+       * 「文件 › 导入…」与「设置 › 数据 › 导入」正是这样：导入成功、看不到、重启没。
+       *
+       * 落地用和「旧版本数据迁移」同一个函数（同名策略也照抄）：`skip` 时已有文件
+       * 一个字都不动，只写这次新进来的那些。
+       */
+      const materialize =
+        vault.status === 'ready' && vault.root !== null
+          ? await exportLegacyToFolder(vault.root, { strategy })
+          : null
+      if (materialize !== null) {
+        await vault.rescan()
+      }
 
       const parts: string[] = []
       if (result.added > 0) parts.push(`新增 ${result.added} 条`)
       if (result.skipped > 0) parts.push(`跳过 ${result.skipped} 条`)
       if (result.overwritten > 0) parts.push(`覆盖 ${result.overwritten} 条`)
+      if (materialize !== null) {
+        parts.push(`写进文件夹 ${materialize.created} 篇`)
+        if (materialize.skippedExisting > 0) parts.push(`同名跳过 ${materialize.skippedExisting} 篇`)
+        if (materialize.missingImages.length > 0) {
+          parts.push(`${materialize.missingImages.length} 张图片找不到原件`)
+        }
+      }
 
-      toast.success(`导入完成：${parts.join('，')}`)
+      toast.success(`导入完成：${parts.join('，')}`, {
+        description:
+          materialize !== null && materialize.created === 0 && result.added > 0
+            ? '没有新文件写到磁盘：选「同名跳过」时已存在的笔记不会被覆盖，换个策略再试'
+            : undefined,
+      })
       setConfirmOpen(false)
       setPendingJson(null)
       setSummary(null)
       onImported?.(result, strategy)
-    } catch {
-      toast.error('导入失败')
+    } catch (error) {
+      // 以前只有一句「导入失败」：既不知道是备份坏了、还是写盘坏了，也没法照着修
+      toast.error('导入失败', {
+        description: error instanceof Error ? error.message : String(error),
+      })
     } finally {
       setImporting(false)
     }
-  }, [pendingJson, strategy, queryClient, onImported])
+  }, [pendingJson, strategy, queryClient, onImported, vault])
 
   const handleCancel = useCallback(() => {
     setConfirmOpen(false)
