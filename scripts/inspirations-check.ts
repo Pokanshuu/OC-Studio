@@ -68,6 +68,15 @@ function main(): void {
   check('非法 promotedId 丢掉', badPromoted[0] !== undefined && 'promotedId' in badPromoted[0] === false)
   const roundTripPromoted = parseInspirations(serializeInspirations([item({ id: 'p4', promotedId: 7 })]))
   check('promotedId 往返还在', roundTripPromoted[0]?.promotedId === 7)
+  // 升级后记的标题是「身份」：id 会随扫描重排，打开时要靠它找回那一篇
+  const promotedTitle = normalizeInspirations({ items: [{ id: 'p5', promotedId: 9, promotedTitle: '  雨夜  ' }] })
+  check('promotedTitle 去掉首尾空白后保留', promotedTitle[0]?.promotedTitle === '雨夜', String(promotedTitle[0]?.promotedTitle))
+  const roundTripTitle = parseInspirations(
+    serializeInspirations([item({ id: 'p6', promotedId: 9, promotedTitle: '雨夜' })]),
+  )
+  check('promotedTitle 往返还在', roundTripTitle[0]?.promotedTitle === '雨夜')
+  const emptyTitle = normalizeInspirations({ items: [{ id: 'p7', promotedTitle: '   ' }] })
+  check('空标题不留键', emptyTitle[0] !== undefined && 'promotedTitle' in emptyTitle[0] === false)
   // ── 往返不丢字 ────────────────────────────────────────────────────────
   const tricky = item({
     id: 'round-trip',

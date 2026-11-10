@@ -972,58 +972,69 @@ export const useChatStore = create<ChatStore>((set, get) => {
 
       set({ compacting: true, compactPreview: '', banner: null })
 
-      const transcript: string[] = []
-      if (previous) transcript.push(`(已有提要)\n${previous}\n\n(新增内容)`)
-      for (const message of toSummarize) {
-        const speaker = message.role === 'user' ? '用户' : '助手'
-        transcript.push(`${speaker}：${message.content.trim()}`)
-        for (const attachment of message.attachments) {
-          if (attachment.kind === 'text' && attachment.data) {
-            transcript.push(attachment.data)
-          } else if (attachment.kind === 'image') {
-            transcript.push('(附图)')
+      // 这一步会走网络：以前没有任何 catch，抛出来 `compacting` 就一直是 true，
+      // 「压缩上下文」按钮永远转圈、还把后续发送一起挡住（与 generate 同一类问题）。
+      try {
+        const transcript: string[] = []
+        if (previous) transcript.push(`(已有提要)\n${previous}\n\n(新增内容)`)
+        for (const message of toSummarize) {
+          const speaker = message.role === 'user' ? '用户' : '助手'
+          transcript.push(`${speaker}：${message.content.trim()}`)
+          for (const attachment of message.attachments) {
+            if (attachment.kind === 'text' && attachment.data) {
+              transcript.push(attachment.data)
+            } else if (attachment.kind === 'image') {
+              transcript.push('(附图)')
+            }
           }
         }
-      }
 
-      let summary = ''
-      let failure: string | null = null
-      await streamCompletion({
-        url: chatCompletionsUrl(settings.api.baseUrl),
-        headers: headersFor(settings.api.provider, installId()),
-        body: buildChatRequest({
-          provider: settings.api.provider,
-          modelId: settings.api.model,
-          messages: [
-            { role: 'system', content: compactSystemPrompt(language) },
-            { role: 'user', content: transcript.join('\n\n') },
-          ],
-          reasoning: 'off',
-          temperature: 0.3,
-          topP: 1,
-          maxTokens: null,
-        }),
-        signal: new AbortController().signal,
-        onEvent: (event) => {
-          if (event.type === 'content') {
-            summary += event.text
-            set({ compactPreview: summary })
-          }
-          if (event.type === 'error') failure = event.message
-        },
-      })
+        let summary = ''
+        let failure: string | null = null
+        await streamCompletion({
+          url: chatCompletionsUrl(settings.api.baseUrl),
+          headers: headersFor(settings.api.provider, installId()),
+          body: buildChatRequest({
+            provider: settings.api.provider,
+            modelId: settings.api.model,
+            messages: [
+              { role: 'system', content: compactSystemPrompt(language) },
+              { role: 'user', content: transcript.join('\n\n') },
+            ],
+            reasoning: 'off',
+            temperature: 0.3,
+            topP: 1,
+            maxTokens: null,
+          }),
+          signal: new AbortController().signal,
+          onEvent: (event) => {
+            if (event.type === 'content') {
+              summary += event.text
+              set({ compactPreview: summary })
+            }
+            if (event.type === 'error') failure = event.message
+          },
+        })
 
-      if (failure || !summary.trim()) {
+        if (failure || !summary.trim()) {
+          set({
+            compacting: false,
+            compactPreview: '',
+            banner: { kind: 'error', text: failure ?? tFor(language)('error.empty') },
+          })
+          return
+        }
+
+        const saved = await cmd.saveCompaction(conversationId, throughId, summary.trim())
+        set({ compaction: saved, compacting: false, compactPreview: '' })
+      } catch (error) {
+        // 网络 / 存储出错也要把按钮放回来，并说清是哪一步失败
         set({
           compacting: false,
           compactPreview: '',
-          banner: { kind: 'error', text: failure ?? tFor(language)('error.empty') },
+          banner: { kind: 'error', text: error instanceof Error ? error.message : String(error) },
         })
-        return
       }
-
-      const saved = await cmd.saveCompaction(conversationId, throughId, summary.trim())
-      set({ compaction: saved, compacting: false, compactPreview: '' })
     },
 
     clearCompaction: async () => {

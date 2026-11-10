@@ -20,8 +20,14 @@ export interface Inspiration {
    *
    * 升级是**单向**的：灵感留着（草稿是过程），词条才是结果。记下 id 是为了
    * 界面上能说清「这条已经变成哪一篇了」，而不是让人猜自己按过没有。
+   *
+   * **`id` 是位置号，不是身份**（扫描时按路径排序重新编号，`lib/vault/scan.ts`）：
+   * 换库或增删文件后它就指向别的条目。所以 `promotedTitle` 才是真正的指针，
+   * `promotedId` 只是个快取；打开时按标题找回，找不到就说「原文不在了」，绝不照 id 跳。
    */
   promotedId?: number
+  /** 升级出来的词条标题（打开前用它校准 `promotedId`） */
+  promotedTitle?: string
 }
 
 export const INSPIRATIONS_REL_PATH = '.ocstudio/inspirations.json'
@@ -127,6 +133,9 @@ export function normalizeInspirations(raw: unknown): Inspiration[] {
       updatedAt,
       ...(typeof record.promotedId === 'number' && Number.isFinite(record.promotedId)
         ? { promotedId: record.promotedId }
+        : {}),
+      ...(typeof record.promotedTitle === 'string' && record.promotedTitle.trim() !== ''
+        ? { promotedTitle: record.promotedTitle.trim() }
         : {}),
     })
   }

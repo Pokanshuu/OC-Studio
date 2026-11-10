@@ -138,12 +138,24 @@ export async function deleteInspiration(id: string): Promise<void> {
   await persist(snapshot.filter((item) => item.id !== id))
 }
 
-/** 记下「这条已经变成哪一篇词条了」。升级是单向的：灵感留着，词条才是结果。 */
-export async function markPromoted(id: string, entryId: number): Promise<void> {
+/**
+ * 记下「这条已经变成哪一篇词条了」。升级是单向的：灵感留着，词条才是结果。
+ *
+ * 除了 id 还记标题：id 是位置号（见 `Inspiration.promotedTitle` 的说明），
+ * 只靠它，换库 / 重排之后「打开」会跳到别的条目上。
+ */
+export async function markPromoted(id: string, entryId: number, entryTitle?: string): Promise<void> {
   await loadInspirations()
   const current = snapshot.find((item) => item.id === id)
   if (current === undefined) return
-  await persist(snapshot.map((item) => (item.id === id ? { ...item, promotedId: entryId } : item)))
+  const title = entryTitle?.trim()
+  await persist(
+    snapshot.map((item) =>
+      item.id === id
+        ? { ...item, promotedId: entryId, ...(title ? { promotedTitle: title } : {}) }
+        : item,
+    ),
+  )
 }
 
 /** 测试与「切库」时清掉内存快照 */

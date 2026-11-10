@@ -161,7 +161,7 @@ export function InspirationQuickNote() {
       // 世界观目录是 react-query 缓存（staleTime 30s）：不广播一声，
       // 刚建出来的词条在列表里查不到，「打开」就跳不过去。
       notifyDataUpdated()
-      await markPromoted(selected.id, entryId)
+      await markPromoted(selected.id, entryId, title)
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : '变成笔记失败')
@@ -170,11 +170,36 @@ export function InspirationQuickNote() {
     }
   }, [draft, promoting, selected])
 
-  const handleOpenPromoted = useCallback(() => {
+  /**
+   * 打开升级出来的那篇词条。
+   *
+   * 不能直接拿 `promotedId` 跳：id 是扫描时按路径排出来的**位置号**，
+   * 换库或增删文件之后它就指向别的条目了。以标题为准重新找一遍：
+   * 找得到就用现在这个 id，找不到就明说「原文不在了」，不要跳到别人身上。
+   */
+  const handleOpenPromoted = useCallback(async () => {
     const entryId = selected?.promotedId
-    if (entryId === undefined) return
-    closeWindow()
-    navigateToEntity(entryId, 'world')
+    const entryTitle = selected?.promotedTitle
+    if (entryId === undefined && entryTitle === undefined) return
+    try {
+      const { db } = await import('@/lib/db')
+      let target: number | null = null
+      if (entryTitle !== undefined) {
+        const rows = await db.worldEntries.filter((row) => !row.deleted).toArray()
+        target = rows.find((row) => (row.title.trim() || '未命名') === entryTitle)?.id ?? null
+      } else if (entryId !== undefined) {
+        const row = await db.worldEntries.get(entryId)
+        target = row && !row.deleted ? entryId : null
+      }
+      if (target === null) {
+        setError('原先升级出来的笔记已经不在了（可能被删或改过名）')
+        return
+      }
+      closeWindow()
+      navigateToEntity(target, 'world')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '打开失败')
+    }
   }, [closeWindow, navigateToEntity, selected])
 
   const openWindow = useCallback(() => {
@@ -382,11 +407,13 @@ export function InspirationQuickNote() {
                   </div>
                   {selected.promotedId !== undefined ? (
                     <div className="flex shrink-0 items-center gap-2 px-3 pb-2 text-[11px] text-ink-faint">
-                      <span className="min-w-0 flex-1 truncate">已变成笔记「{inspirationLabel(selected)}」</span>
+                      <span className="min-w-0 flex-1 truncate">
+                        已变成笔记「{selected.promotedTitle ?? inspirationLabel(selected)}」
+                      </span>
                       <button
                         type="button"
                         className="shrink-0 transition-colors hover:text-ink"
-                        onClick={handleOpenPromoted}
+                        onClick={() => void handleOpenPromoted()}
                       >
                         打开
                       </button>
