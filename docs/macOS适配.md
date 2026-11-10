@@ -1,8 +1,9 @@
 # macOS 桌面端适配
 
-> 分支：`feature/macos-support`（自 `main` / v0.20.1-beta 切出）
-> 目标：在 macOS 上 `npm run tauri:dev:mac` 能起、能读笔记库、能写回；`npm run tauri:build:mac` 出 `.app`。
+> **已合回 `main`**（2026-11-08 随 0.20.2-beta 发版；分支 `feature/macos-support` 只作历史）。
+> 现在能做的：`npm run tauri:dev:mac` 起、读笔记库、写回；`npm run tauri:build:mac` 出 `.app`，`tauri:build:mac:dmg` 出 `.dmg`（需在 Mac 上跑）。
 > **Windows 端行为不得改变**（现有用户全在 Windows，这是硬约束）。
+> 下面 §3 记的是分支期的坑与标定值 —— 标题里的「待办」都已关掉，留着是为了下次别再踩。
 
 ---
 
@@ -61,7 +62,7 @@ Windows 的壳是「无边框窗口 + 自绘标题栏 + Mica」，macOS 的壳�
 
 ---
 
-## 3. 待办
+## 3. 分支期的坑与结论（都已关闭，留作记录）
 
 ### P0-1 红绿灯垂直居中 —— 已完成
 

@@ -1,5 +1,9 @@
 # 审查：`feat/intake-pr5` 的视觉一致性与 PR #5 超集判定
 
+> **已归档 2026-11-10** —— 一次性审查（2026-11-03，对象 `7607fcf`），结论已全部执行：§5 的 17 项修复进了
+> `review/pr5-ui`（`307f708`）并合回主线，§3 的能力缺口全部补齐（见同目录 `PR5-收尾计划.md` 顶部的归档说明）。
+> 留档价值只剩一处：§2 的视觉问题清单是「同类控件只有一份实现」这条原则的原始证据。
+
 > 2026-11-03。对象：分支 `feat/intake-pr5`（HEAD `7607fcf`，含当时工作区的未提交改动）。对照：`pr-5` @ `ca9c025`（worktree `../oc-pr5`）、`docs/PR5-拆解清单.md` §4.2 能力矩阵、`docs/待设计决策清单.md`、`oc-studio-design` skill。
 >
 > 方法：① 静态检查（`tsc --noEmit` / `eslint` / `audit:design` / `audit:theme` / 构建）；② 在**隔离 worktree**（`../oc-review`，`node_modules` 用 junction、webpack 构建）里跑静态导出并用 CDP 截图；③ 逐文件对照 PR 与文档；④ 4 个只读子代理分别深挖关系图 / 小说 / 地图 / 角色与媒体。
