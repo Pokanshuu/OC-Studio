@@ -78,6 +78,14 @@ export interface Banner {
 /** Tools the user chose to always allow for this session. */
 const sessionAllowed = new Set<string>()
 
+/**
+ * 审批最多等多久（毫秒）。
+ *
+ * 审批是插件面板里的一个 Dialog：面板被关掉、或者用户没看见它，这一轮就会永远
+ * 停在「等确认」—— 界面看着像卡死，token 却一直在算。到点自动拒绝并给一条横幅。
+ */
+const APPROVAL_TIMEOUT_MS = 5 * 60 * 1000
+
 /** Stable per-install id for `x-opencode-session` (must not change per request). */
 function installId(): string {
   const KEY = 'simple-agent.install-id'
@@ -431,8 +439,25 @@ export const useChatStore = create<ChatStore>((set, get) => {
         if (policy === 'never') return 'deny'
         if (sessionAllowed.has(call.name)) return 'allow'
         return new Promise<ApprovalDecision>((resolve) => {
+          /**
+           * 没人回答时不能挂一辈子。
+           *
+           * 审批弹窗是插件面板里的一个 Dialog：面板被关掉、或者用户压根没看见它，
+           * 这一轮就永远停在「等确认」——界面看着就是「助手卡住不输出了」，
+           * 而且 token 一直在计。到点自动拒绝，并留一条看得懂的横幅。
+           */
+          const timer = setTimeout(() => {
+            set((state) => ({ approvals: state.approvals.filter((item) => item.call.id !== call.id) }))
+            const language = resolveLang(useSettingsStore.getState().settings.ui.language)
+            set({ banner: { kind: 'info', text: tFor(language)('agent.approvalTimeout') } })
+            resolve('deny')
+          }, APPROVAL_TIMEOUT_MS)
+          const resolveOnce = (decision: ApprovalDecision) => {
+            clearTimeout(timer)
+            resolve(decision)
+          }
           set((state) => ({
-            approvals: [...state.approvals, { conversationId, call, resolve }],
+            approvals: [...state.approvals, { conversationId, call, resolve: resolveOnce }],
           }))
         })
       },
