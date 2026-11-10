@@ -34,6 +34,8 @@ import { COMPONENT_BY_ID, COMPONENT_IDS } from '@/lib/templates/registry'
 import { BUILTIN_TEMPLATES } from '@/lib/templates/defaults'
 import { isComponentAvailable, isComponentWired } from '@/lib/templates/support'
 import { templateParamsFor, type TemplateParamValue } from '@/lib/templates/params'
+import { componentEditTarget } from '@/lib/templates/edit-target'
+import { useSettingsTrigger } from '@/components/layout/SettingsTriggerContext'
 import { blankTemplateDoc, customTemplateId } from '@/lib/templates/defaults'
 import { useInfoGroups } from '@/lib/templates/info-groups'
 import { useBodyGroups } from '@/lib/templates/body-groups'
@@ -60,6 +62,7 @@ function ComponentRow({
   hasParams,
   expanded,
   onToggleSettings,
+  onEditComponent,
   onRemove,
   children,
 }: {
@@ -70,6 +73,8 @@ function ComponentRow({
   hasParams: boolean
   expanded: boolean
   onToggleSettings: () => void
+  /** 没有参数可调、但有独立的组件库时：跳去编辑那个组件（基本信息 / 正文） */
+  onEditComponent?: () => void
   onRemove: () => void
   children?: ReactNode
 }) {
@@ -96,6 +101,16 @@ function ComponentRow({
           >
             <SlidersHorizontal size={13} strokeWidth={2} />
           </button>
+        ) : onEditComponent ? (
+          <button
+            type="button"
+            onClick={onEditComponent}
+            title="编辑这个组件"
+            aria-label={`编辑${meta?.label ?? component.id}组件`}
+            className={ICON_BTN}
+          >
+            <SlidersHorizontal size={13} strokeWidth={2} />
+          </button>
         ) : null}
         <button
           type="button"
@@ -113,6 +128,7 @@ function ComponentRow({
 
 export function TemplatesPanel({ initialId }: { initialId?: string }) {
   const { templates, loading } = useTemplates()
+  const { openSettings } = useSettingsTrigger()
   const infoGroups = useInfoGroups()
   const bodyGroups = useBodyGroups()
   const [activeId, setActiveId] = useState<string | null>(initialId ?? null)
@@ -282,6 +298,13 @@ export function TemplatesPanel({ initialId }: { initialId?: string }) {
                 onToggleSettings={() =>
                   setParamsFor((prev) => (prev === component.id ? null : component.id))
                 }
+                onEditComponent={(() => {
+                  // 角色 / 事件 / 国家的「基本信息」没有模板参数可调（字段表是全局真源），
+                  // 但那一行仍然需要一个入口 —— 不然从模板里根本跳不到字段表
+                  const target = componentEditTarget(active.id, component.id)
+                  if (!target) return undefined
+                  return () => openSettings('world', 'components', target.target)
+                })()}
                 onRemove={() => remove(component)}
               >
                 {expanded ? (

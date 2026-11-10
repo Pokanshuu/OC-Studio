@@ -32,6 +32,7 @@ import {
 } from '@/lib/templates/info-groups'
 import { useBodyGroups } from '@/lib/templates/body-groups'
 import { bodyGroupIdOfTemplate } from '@/lib/templates/body-preset'
+import { componentEditTarget } from '@/lib/templates/edit-target'
 import { saveTemplate, setTemplateComponentParams, useTemplates } from '@/lib/templates/store'
 import type { TemplateComponent, TemplateComponentId, TemplateDoc } from '@/lib/templates/types'
 import type { TemplateParamValue } from '@/lib/templates/params'
@@ -360,6 +361,7 @@ function ComposerRow({
   isFirst,
   isLast,
   onToggleParams,
+  onEditComponent,
   onMove,
   onRemove,
 }: {
@@ -371,6 +373,8 @@ function ComposerRow({
   isFirst: boolean
   isLast: boolean
   onToggleParams: () => void
+  /** 没有参数可调、但有独立组件库时：跳去编辑那个组件（基本信息 / 正文） */
+  onEditComponent?: () => void
   onMove: (delta: number) => void
   onRemove: () => void
 }) {
@@ -396,6 +400,16 @@ function ComposerRow({
           aria-label="组件参数"
           aria-expanded={paramsOpen}
           className={`${ICON_BTN} ${paramsOpen ? 'bg-[var(--oc-hover)] text-ink' : ''}`}
+        >
+          <SlidersHorizontal size={13} strokeWidth={2} />
+        </button>
+      ) : onEditComponent ? (
+        <button
+          type="button"
+          onClick={onEditComponent}
+          title="编辑这个组件"
+          aria-label={`编辑${meta?.label ?? component.id}组件`}
+          className={ICON_BTN}
         >
           <SlidersHorizontal size={13} strokeWidth={2} />
         </button>
@@ -643,6 +657,15 @@ export function TemplateComposer({
                     onToggleParams={() =>
                       setParamsFor((prev) => (prev === component.id ? null : component.id))
                     }
+                    onEditComponent={(() => {
+                      // 角色 / 事件 / 国家的「基本信息」没有可调参数，但字段表要能跳过去
+                      const target = componentEditTarget(active.id, component.id)
+                      if (!target) return undefined
+                      return () => {
+                        onClose()
+                        openSettings('world', 'components', target.target)
+                      }
+                    })()}
                     onMove={(delta) => move(index, delta)}
                     onRemove={() => remove(component)}
                   />
@@ -690,7 +713,10 @@ export function TemplateComposer({
                     ? fields
                     : (PREVIEW_SAMPLE[component.id] ?? [])
                 const previous = enabled[index - 1]?.id
-                const divider = index > 0 && previous !== 'cover'
+                // 与真实渲染（`TemplateRenderer`）同一条规则：封面 / 头像之后不画线，
+                // 紧跟头像的那块再收紧一点 —— 以前预览比实际界面多一条线、间距也松。
+                const divider = index > 0 && previous !== 'cover' && previous !== 'avatar'
+                const snuggle = previous === 'avatar' ? '-mt-3' : ''
 
                 let body: ReactNode
                 if (previewData !== null) {
@@ -932,6 +958,7 @@ export function TemplateComposer({
                   <ComponentSection
                     key={component.id}
                     divider={divider}
+                    className={snuggle}
                     title={component.id === 'cover' || component.id === 'body' ? undefined : meta?.label}
                   >
                     {body}
