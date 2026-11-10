@@ -167,6 +167,8 @@ export function AgentPlugin() {
       setAgentSessionContext(null, {
         ...emptyAgentSessionContext(),
         focus: { kind: request.kind, id: request.id },
+        // 名字快照：id 是位置号，笔记库重排后会指向别的条目（`resolveAgentSessionContext` 靠它自愈）
+        focusTitle: request.title,
       })
       chat.setDraft(agentContextOpener(request))
     })()

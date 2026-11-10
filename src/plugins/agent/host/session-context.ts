@@ -10,7 +10,7 @@
  */
 import { createCapabilities } from '@/lib/capabilities'
 import { READ_PERMISSION, type Caller, type CodexEntry } from '@/lib/capabilities/types'
-import { getAgentSessionContext, type AgentSessionContext } from '@/lib/plugins/agent-session'
+import { getAgentSessionContext, setAgentSessionContext, emptyAgentSessionContext, type AgentSessionContext, type AgentSessionFocus } from '@/lib/plugins/agent-session'
 import type { ConversationMode } from '@/plugins/agent/core/types'
 import { libraryAccessGranted } from './library-tools'
 import { LIBRARY_MODEL_MARKDOWN } from './library-model.generated'
@@ -90,16 +90,160 @@ export async function describeAgentSessionContext(context: AgentSessionContext):
     import('@/lib/db'),
     import('@/lib/novel'),
   ])
+  const { context: current } = await resolveAgentSessionContext(context)
   const names: string[] = []
-  for (const id of context.characterIds) {
+  for (const id of current.characterIds) {
     const character = await db.characters.get(id)
     if (character) names.push(character.name.trim() || '未命名')
   }
-  if (context.novelRootId != null) {
-    const novel = await db.worldEntries.get(context.novelRootId)
+  if (current.novelRootId != null) {
+    const novel = await db.worldEntries.get(current.novelRootId)
     if (novel && novel.category === NOVEL_CATEGORY) names.push(`《${novel.title.trim() || '未命名'}》`)
   }
   return names
+}
+
+/**
+ * 把会话资料里的 id 校准到「现在这个库」。
+ *
+ * **为什么需要**：`id` 是扫描时按路径排出来的**位置号**（`lib/vault/scan.ts`），
+ * 增删一个文件就整体前移/后移；换库更是完全对不上。而这份上下文存在 localStorage 里、
+ * 跨重启活着 —— 不校准的话，`#152` 昨天是《霜烬纪年》，今天可能是一篇词条：
+ * 提示词里读错资料，写回时**把章节挂到别人底下**。
+ *
+ * 规则（名字是身份，id 只是索引）：
+ * - 库根变了 → 整份作废（那些 id 属于另一个库）；
+ * - 名字对得上 → 原样保留；
+ * - 名字对不上但按名字还能找到同一条 → 换成新的 id（自愈）；
+ * - 名字找不到 → 丢掉这一项（宁可让作者重选，也不猜）。
+ */
+export async function resolveAgentSessionContext(
+  context: AgentSessionContext,
+): Promise<{ context: AgentSessionContext; changed: boolean }> {
+  const [{ db }, { NOVEL_CATEGORY }, { getVaultSession }] = await Promise.all([
+    import('@/lib/db'),
+    import('@/lib/novel'),
+    import('@/lib/vault/vault-session'),
+  ])
+  const root = getVaultSession()?.root ?? null
+  if (context.vaultRoot !== undefined && root !== null && context.vaultRoot !== root) {
+    return { context: { ...emptyAgentSessionContext(), vaultRoot: root }, changed: true }
+  }
+
+  let changed = context.vaultRoot !== root
+  const characterIds: number[] = []
+  const characterNames: string[] = []
+  const wantedNames = context.characterNames ?? []
+  for (let index = 0; index < context.characterIds.length; index += 1) {
+    const id = context.characterIds[index]
+    const wanted = wantedNames[index]
+    const byId = await db.characters.get(id)
+    const byIdName = byId?.name.trim() || ''
+    if (byId && (wanted === undefined || byIdName === wanted)) {
+      characterIds.push(id)
+      characterNames.push(byIdName || '未命名')
+      if (wanted === undefined) changed = true
+      continue
+    }
+    const byName = wanted === undefined ? undefined : await findCharacterByName(wanted)
+    if (byName) {
+      characterIds.push(byName.id as number)
+      characterNames.push(byName.name.trim() || '未命名')
+    }
+    changed = true
+  }
+
+  let novelRootId = context.novelRootId
+  let novelTitle = context.novelTitle
+  if (novelRootId != null) {
+    const byId = await db.worldEntries.get(novelRootId)
+    const ok =
+      byId !== undefined &&
+      byId.category === NOVEL_CATEGORY &&
+      byId.parentId === null &&
+      (novelTitle === undefined || (byId.title.trim() || '未命名') === novelTitle)
+    if (ok) {
+      novelTitle = byId.title.trim() || '未命名'
+    } else {
+      const byTitle = novelTitle === undefined ? undefined : await findNovelByTitle(novelTitle)
+      if (byTitle) {
+        novelRootId = byTitle.id as number
+        novelTitle = byTitle.title.trim() || '未命名'
+      } else {
+        novelRootId = null
+        novelTitle = undefined
+      }
+      changed = true
+    }
+  } else if (novelTitle !== undefined) {
+    novelTitle = undefined
+    changed = true
+  }
+
+  let focus = context.focus ?? null
+  let focusTitle = context.focusTitle
+  if (focus) {
+    const resolved = await resolveFocusTitle(focus)
+    if (resolved === null) {
+      focus = null
+      focusTitle = undefined
+      changed = true
+    } else {
+      if (focusTitle === undefined) changed = true
+      focusTitle = resolved
+    }
+  }
+
+  const novelWritable = novelRootId === null ? false : context.novelWritable
+  if (novelWritable !== context.novelWritable) changed = true
+
+  return {
+    context: {
+      characterIds,
+      characterNames,
+      novelRootId,
+      novelWritable,
+      novelTitle,
+      focus,
+      focusTitle,
+      vaultRoot: root ?? undefined,
+    },
+    changed,
+  }
+}
+
+async function findCharacterByName(name: string) {
+  const { db } = await import('@/lib/db')
+  const rows = await db.characters.filter((row) => !row.deleted).toArray()
+  return rows.find((row) => (row.name.trim() || '未命名') === name)
+}
+
+async function findNovelByTitle(title: string) {
+  const { db } = await import('@/lib/db')
+  const { NOVEL_CATEGORY } = await import('@/lib/novel')
+  const rows = await db.worldEntries
+    .filter((row) => !row.deleted && row.category === NOVEL_CATEGORY && row.parentId === null)
+    .toArray()
+  return rows.find((row) => (row.title.trim() || '未命名') === title)
+}
+
+/** 焦点条目还在不在；在就回它的名字 */
+async function resolveFocusTitle(focus: AgentSessionFocus): Promise<string | null> {
+  const { db } = await import('@/lib/db')
+  if (focus.kind === 'character') {
+    const row = await db.characters.get(focus.id)
+    return row && !row.deleted ? row.name.trim() || '未命名' : null
+  }
+  if (focus.kind === 'country') {
+    const row = await db.countries.get(focus.id)
+    return row && !row.deleted ? row.name.trim() || '未命名' : null
+  }
+  if (focus.kind === 'event') {
+    const row = await db.events.get(focus.id)
+    return row && !row.deleted ? row.title.trim() || '未命名' : null
+  }
+  const row = await db.worldEntries.get(focus.id)
+  return row && !row.deleted ? row.title.trim() || '未命名' : null
 }
 
 /** 把小说根下的章节按 `order` 排好，取最后 N 章 */
@@ -287,7 +431,17 @@ export async function buildAgentSessionContextBlock(
   // agent 模式永远带库手册；资料块排在它后面（越靠后越贴近当前请求）
   const parts: string[] = []
   if (mode === 'AGENT') parts.push(await buildAgentLibraryGuide())
-  const data = await buildSessionDataBlock(mode, getAgentSessionContext(conversationId))
+  // id 先校准再喂给模型：位置号会随库变化，提示词里出现「#152」这种过期引用
+  // 会让模型照着改错条目（见 resolveAgentSessionContext 的说明）
+  const stored = getAgentSessionContext(conversationId)
+  let context = stored
+  if (stored) {
+    const resolved = await resolveAgentSessionContext(stored)
+    context = resolved.context
+    // 校准结果写回：下一轮不必再算，界面上的 tag 也跟着变成新的名字
+    if (resolved.changed) setAgentSessionContext(conversationId, resolved.context)
+  }
+  const data = await buildSessionDataBlock(mode, context)
   if (data) parts.push(data)
   return parts.join('\n\n')
 }
@@ -441,12 +595,16 @@ export async function writeNovelChapter(
   if (markdown.length > 30_000) {
     return { content: '一章正文超过 3 万字，请拆成两章。', isError: true, durationMs: Date.now() - started }
   }
-  const context = getAgentSessionContext(conversationId)
+  const stored = getAgentSessionContext(conversationId)
+  // 先校准：id 是位置号，重排后可能指向别的条目。校准把它换成现在这条的 id，
+  // 找不到就说明那部小说真的没了 —— 宁可拒绝，也不能把章节挂到别人底下。
+  const context = stored ? (await resolveAgentSessionContext(stored)).context : null
   if (!context?.novelRootId || !context.novelWritable) {
     return {
       content:
         '这场对话没有打开「写回小说」——写回要作者自己授权，助手打不开。' +
         '请让作者：把助手切到「创作」模式 → 在输入框上方的「上下文」里选中这部小说 → 打开「允许写回」，然后重试。' +
+        '（如果之前选过、现在 tag 空了，说明笔记库重排过，那本书已经不在了，需要重选一次。）' +
         '在授权之前，正文只能作为回复贴给作者，不要直接写库。',
       isError: true,
       durationMs: Date.now() - started,
@@ -461,6 +619,17 @@ export async function writeNovelChapter(
       import('@/lib/vault/write-body'),
       import('@/lib/world-body'),
     ])
+
+  // 再确认一次目标真的是「小说根」：上面的校准按 id + 名字对，这里按字段对，
+  // 万一有别的路径把 novelRootId 塞成一篇普通词条，也不会在它下面挂章节。
+  const novelRoot = await db.worldEntries.get(context.novelRootId)
+  if (novelRoot === undefined || novelRoot.parentId !== null) {
+    return {
+      content: '选中的小说已经不在了（笔记库可能重排过），请让作者重新选择作品。',
+      isError: true,
+      durationMs: Date.now() - started,
+    }
+  }
 
   if (chapterId > 0) {
     const row = await db.worldEntries.get(chapterId)

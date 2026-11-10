@@ -30,6 +30,7 @@ import {
   finalAnswer,
   finalReasoning,
   runAgentLoop,
+  type AgentLoopResult,
   type ApprovalDecision,
 } from '@/plugins/agent/core/agent/loop'
 import {
@@ -142,6 +143,14 @@ interface ChatStore {
 
   send: (text: string, attachments?: Attachment[]) => Promise<void>
   stop: () => Promise<void>
+  /**
+   * 异常路径的唯一出口：把这条消息收成 ERROR 并放开输入框。
+   *
+   * 单独抽出来是因为「一轮对话抛异常」有三个入口（发送 / 重生成 / 改完重发），
+   * 以前每个都直接 `await generate(...)`，抛出来就没人收 —— `streamingMessageId`
+   * 留在状态里，输入框永远发不出去，看起来就是「助手卡死不输出」。
+   */
+  failTurn: (messageId: string, error: unknown) => void
   regenerate: (assistantId: string) => Promise<void>
   editAndResend: (userId: string, text: string) => Promise<void>
   removeMessage: (id: string) => Promise<void>
@@ -370,7 +379,18 @@ export const useChatStore = create<ChatStore>((set, get) => {
 
     let failure: string | null = null
 
-    const result = await runAgentLoop({
+    /**
+     * 跑这一轮。
+     *
+     * **必须兜住异常**：以前这里是裸 `await`，`runAgentLoop` 里任何一个意料之外的
+     * 抛出（工具回调、事件序列化、插件侧 IPC 抖动）都会让 `generate` 提前结束，
+     * 而收尾代码（把 `streamingMessageId` 清掉、把消息标成 ERROR）永远不执行 ——
+     * 表现就是「助手卡住不再输出、输入框也发不出去」，只能切会话或重启才能恢复。
+     * 现在异常变成一条 ERROR 消息，界面立刻可继续用。
+     */
+    let result: AgentLoopResult = { steps: [], error: null, stopped: false, exhausted: false }
+    try {
+      result = await runAgentLoop({
       history,
       tools,
       // 旧工具名要继承合并后工具的审批属性，否则会绕过审批直接执行
@@ -481,7 +501,15 @@ export const useChatStore = create<ChatStore>((set, get) => {
           publish()
         }
       },
-    })
+      })
+    } catch (error) {
+      result = {
+        steps,
+        error: error instanceof Error ? error.message : String(error),
+        stopped: false,
+        exhausted: false,
+      }
+    }
 
     publish.flush()
 
@@ -748,7 +776,30 @@ export const useChatStore = create<ChatStore>((set, get) => {
       draftPersist('', '')
       draftPersist.flush()
 
-      await generate(assistant.id, conversation.id)
+      try {
+        await generate(assistant.id, conversation.id)
+      } catch (error) {
+        // generate 在进入循环**之前**也可能抛（拼提示词、读库、落消息）。
+        // 那些路径不归它内部的 try 管，异常若漏到这里，`streamingMessageId`
+        // 就永远留在状态里 —— 输入框发不出去、界面看着像卡死。这里兜住并显性报错。
+        get().failTurn(assistant.id, error)
+      }
+    },
+
+    failTurn: (messageId, error) => {
+      const message = error instanceof Error ? error.message : String(error)
+      // 未决的审批一起放掉：那一轮已经结束了，留着只会挂住一个再也无人回答的弹窗
+      for (const pending of get().approvals) pending.resolve('deny')
+      set((state) => ({
+        streamingMessageId: null,
+        activity: null,
+        approvals: [],
+        allMessages: replaceMessage(state.allMessages, messageId, {
+          status: 'ERROR',
+          errorMessage: message,
+        }),
+      }))
+      void patchMessage(messageId, { status: 'ERROR', errorMessage: message }).catch(() => undefined)
     },
 
     stop: async () => {
@@ -791,7 +842,11 @@ export const useChatStore = create<ChatStore>((set, get) => {
       // Reloading (instead of appending) is what makes the path end at the new row.
       await reload()
       set({ streamingMessageId: row.id, streamStartedAt: Date.now() })
-      await generate(row.id, conversationId)
+      try {
+        await generate(row.id, conversationId)
+      } catch (error) {
+        get().failTurn(row.id, error)
+      }
     },
 
     editAndResend: async (userId, text) => {
@@ -833,7 +888,11 @@ export const useChatStore = create<ChatStore>((set, get) => {
 
       await reload()
       set({ streamingMessageId: assistantRow.id, streamStartedAt: Date.now() })
-      await generate(assistantRow.id, conversationId)
+      try {
+        await generate(assistantRow.id, conversationId)
+      } catch (error) {
+        get().failTurn(assistantRow.id, error)
+      }
     },
 
     removeMessage: async (id) => {

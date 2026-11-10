@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react'
 import { Icon } from '@/plugins/agent/components/ui/Icon'
 import {
   describeAgentSessionContext,
+  resolveAgentSessionContext,
 } from '@/plugins/agent/host/session-context'
 import {
   emptyAgentSessionContext,
@@ -42,9 +43,19 @@ export function ContextStrip({
       return
     }
     let alive = true
-    void describeAgentSessionContext(next).then((list) => {
-      if (alive) setNames(list)
-    })
+    // 先校准 id（位置号会随笔记库变化），再取名字；校准结果写回，tag 与提示词都用同一份
+    void resolveAgentSessionContext(next)
+      .then(async (resolved) => {
+        if (resolved.changed) {
+          setAgentSessionContext(conversationId, resolved.context)
+          if (alive) setContext(resolved.context)
+        }
+        const list = await describeAgentSessionContext(resolved.context)
+        if (alive) setNames(list)
+      })
+      .catch(() => {
+        if (alive) setNames([])
+      })
     return () => {
       alive = false
     }
@@ -59,7 +70,13 @@ export function ContextStrip({
   const removeCharacter = (index: number) => {
     if (!context) return
     const ids = context.characterIds.filter((_, position) => position !== index)
-    const next: AgentSessionContext = { ...context, characterIds: ids }
+    // 名字快照跟着一起删：它和 characterIds 是按下标对齐的，错位会让下一次校准认错人
+    const names2 = context.characterNames?.filter((_, position) => position !== index)
+    const next: AgentSessionContext = {
+      ...context,
+      characterIds: ids,
+      characterNames: names2 !== undefined && names2.length === ids.length ? names2 : undefined,
+    }
     setAgentSessionContext(conversationId, next)
     setContext(next)
     setNames((current) => current.filter((_, position) => position !== index))
@@ -74,7 +91,7 @@ export function ContextStrip({
 
   const removeNovel = () => {
     if (!context) return
-    const next: AgentSessionContext = { ...context, novelRootId: null, novelWritable: false }
+    const next: AgentSessionContext = { ...context, novelRootId: null, novelTitle: undefined, novelWritable: false }
     setAgentSessionContext(conversationId, next)
     setContext(next)
     setNames((current) => current.slice(0, context.characterIds.length))

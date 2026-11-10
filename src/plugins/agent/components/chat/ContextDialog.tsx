@@ -90,7 +90,24 @@ export function ContextDialog({
           <button
             className="btn primary"
             disabled={!allowed}
-            onClick={() => onSave({ characterIds, novelRootId: creative ? novelRootId : null, novelWritable })}
+            onClick={() => {
+              // 连名字一起存：id 是扫描出来的位置号，重排后会指向别的条目，
+              // 名字才是身份（见 `resolveAgentSessionContext`）。名字取不全就不存，
+              // 宁可按 id 兜一次，也不要写半份对不上的快照。
+              const picked = characterIds.map((id) => characters.find((row) => row.id === id)?.name)
+              const characterNames = picked.every((name): name is string => typeof name === 'string')
+                ? picked
+                : undefined
+              const novelTitle = novels.find((row) => row.id === novelRootId)?.title
+              onSave({
+                ...(value ?? emptyAgentSessionContext()),
+                characterIds,
+                characterNames,
+                novelRootId: creative ? novelRootId : null,
+                novelTitle: creative ? novelTitle : undefined,
+                novelWritable: creative ? novelWritable : false,
+              })
+            }}
           >
             {t('common.save')}
           </button>

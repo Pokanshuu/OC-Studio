@@ -25,6 +25,19 @@ export interface AgentSessionContext {
   novelWritable: boolean
   /** 「和助手聊聊」点进来的那一条：只读资料，进系统提示词 */
   focus?: AgentSessionFocus | null
+  /**
+   * 存这些 id 时的笔记库根。
+   *
+   * **id 是位置号，不是身份**：扫描时同类按路径排序后从 1 开始编号
+   * （`lib/vault/scan.ts`），所以增删一个文件、换一个库，同一个 id 就指向别的条目。
+   * 地图锚点早就按「存名字」处理（`map_id`）。这份上下文以前只存 id，
+   * 结果就是「助手报的 #147 在下一轮变成了 #1」，写回章节甚至可能落到别的条目下。
+   */
+  vaultRoot?: string
+  /** 名字快照：id 重排后靠它把同一条找回来；对不上就丢掉这一项（宁可让作者重选） */
+  characterNames?: string[]
+  novelTitle?: string
+  focusTitle?: string
 }
 
 const STORAGE_KEY = 'oc-agent-session-contexts'

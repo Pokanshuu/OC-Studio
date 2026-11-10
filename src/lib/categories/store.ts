@@ -32,6 +32,16 @@ function emit(): void {
   for (const listener of listeners) listener()
 }
 
+/** 盘上（或 localStorage 里）有没有与内置目录同名的老条目 —— 有就说明该清理一次 */
+function hasReservedCategory(raw: unknown): boolean {
+  if (!Array.isArray(raw)) return false
+  return raw.some((item) => {
+    if (item === null || typeof item !== 'object') return false
+    const name = (item as Record<string, unknown>).name
+    return typeof name === 'string' && isReservedCategoryName(name)
+  })
+}
+
 function normalize(raw: unknown): Category[] {
   if (!Array.isArray(raw)) return []
   const out: Category[] = []
@@ -114,20 +124,23 @@ export async function loadCategories(force = false): Promise<void> {
   loading = (async () => {
     let next = snapshot
     let failed = false
+    /** 盘上有与内置目录同名的老条目：载入时丢掉，并把清理结果写回去 */
+    let staleReserved = false
     try {
       if (root) {
         if (await vaultFs.exists(root, CATEGORIES_REL_PATH)) {
           const bytes = await vaultFs.readBytes(root, CATEGORIES_REL_PATH)
           const payload = JSON.parse(new TextDecoder().decode(new Uint8Array(bytes))) as { categories?: unknown }
+          staleReserved = hasReservedCategory(payload?.categories)
           next = mergeBuiltins(normalize(payload?.categories))
         } else {
           next = mergeBuiltins([])
         }
       } else if (typeof window !== 'undefined') {
         const raw = localStorage.getItem(LS_KEY)
-        next = raw === null
-          ? mergeBuiltins([])
-          : mergeBuiltins(normalize((JSON.parse(raw) as { categories?: unknown })?.categories))
+        const parsed = raw === null ? null : (JSON.parse(raw) as { categories?: unknown })
+        staleReserved = hasReservedCategory(parsed?.categories)
+        next = parsed === null ? mergeBuiltins([]) : mergeBuiltins(normalize(parsed.categories))
       } else {
         next = mergeBuiltins([])
       }
@@ -142,6 +155,10 @@ export async function loadCategories(force = false): Promise<void> {
       loading = null
       emit()
     }
+    // 清理只做一次，而且要在载入完成之后：写盘走的是同一套「先落盘再换内存」
+    if (staleReserved && !failed) {
+      void saveCategories(next).catch(() => undefined)
+    }
   })()
   return loading
 }
@@ -154,13 +171,12 @@ export async function loadCategories(force = false): Promise<void> {
  */
 export async function saveCategories(next: Category[]): Promise<void> {
   if (readFailed) throw new Error('分类表上次没有读成功，先刷新笔记库再改')
-  // 内置目录名一律挡在写盘之前：`normalize` 会把它们丢掉，但那太晚了 ——
-  // 用户会看到「创建成功」而侧栏什么都没有。改名到这些名字也一样拒绝。
-  for (const category of next) {
-    const reason = reservedCategoryReason(category.name)
-    if (reason !== '') throw new Error(reason)
-  }
-  const ordered = mergeBuiltins(normalize(next)).map((category, index) => ({ ...category, order: index }))
+  // 与内置目录同名的条目**直接丢掉**（老库 / 助手写坏的那种），不抛错：
+  // 抛错会让「分类表里还有一条坏数据」变成「任何分类改动都失败」——
+  // 用户连别的分类都改不了。真正要拦的是「新建 / 改名成这些名字」，
+  // 那两处在 `createCategory` 与 `updateCategory` 里当场拒绝。
+  const usable = next.filter((category) => !isReservedCategoryName(category.name))
+  const ordered = mergeBuiltins(normalize(usable)).map((category, index) => ({ ...category, order: index }))
   const root = vaultRoot()
 
   if (root) {
@@ -232,6 +248,10 @@ export async function createCategory(input: {
 export async function updateCategory(id: string, patch: Partial<Omit<Category, 'id'>>): Promise<void> {
   const current = snapshot.find((category) => category.id === id)
   if (!current) return
+  // 改名到内置目录名要当场拒绝（`saveCategories` 对老数据是「丢掉」，
+  // 静默丢掉用户刚改的名字比报错更糟）
+  const reserved = patch.name === undefined ? '' : reservedCategoryReason(patch.name)
+  if (reserved !== '') throw new Error(reserved)
   // 内置分类只允许改「在侧栏显示」和顺序；名字 / 图标 / 模板是出厂定义
   const next: Category = current.builtin
     ? {
