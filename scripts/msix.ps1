@@ -25,7 +25,8 @@ param(
   [string]$Version = '',
   [string]$CertThumbprint = '',
   [switch]$SkipBuild,
-  [switch]$NoSign
+  [switch]$NoSign,
+  [switch]$MakeCert
 )
 
 $ErrorActionPreference = 'Stop'
@@ -163,6 +164,22 @@ if ($LASTEXITCODE -ne 0) { Fail "makeappx pack 失败（exit $LASTEXITCODE）" }
 # ── 6. 签名（必须在 bundle 之前：.msixupload 里装的就是这个 .msix）────
 if (-not $NoSign) {
   Step '签名'
+  # -Publisher 换成 Partner Center 的 Identity/Publisher 以后，本机通常没有对应证书 ——
+  # 签名证书的 Subject 必须和清单里的 Publisher 一致，所以这里可以现生成一张自签的
+  if ($CertThumbprint -eq '' -and $MakeCert) {
+    $match = Get-ChildItem Cert:\CurrentUser\My -CodeSigningCert |
+      Where-Object { $_.Subject -eq $Publisher } |
+      Sort-Object NotAfter -Descending |
+      Select-Object -First 1
+    if (-not $match) {
+      Write-Host "生成自签代码签名证书：$Publisher" -ForegroundColor Gray
+      $match = New-SelfSignedCertificate -Type CodeSigningCert -Subject $Publisher `
+        -CertStoreLocation Cert:\CurrentUser\My -NotAfter (Get-Date).AddYears(3) `
+        -KeyExportPolicy Exportable `
+        -TextExtension @('2.5.29.37={text}1.3.6.1.5.5.7.3.3')
+    }
+    $CertThumbprint = $match.Thumbprint
+  }
   if ($CertThumbprint -eq '') {
     $cert = Get-ChildItem Cert:\CurrentUser\My -CodeSigningCert |
       Where-Object { $_.Subject -eq $Publisher } |
@@ -193,20 +210,22 @@ if (-not $NoSign) {
   }
 }
 
-# ── 7. bundle：Partner Center 收 .msixupload（里面装签名后的 .msix）──
-Step 'makeappx bundle（.msixupload）'
-$bundleDir = Join-Path $outDir 'bundle'
-if (Test-Path $bundleDir) { Remove-Item $bundleDir -Recurse -Force }
-New-Item -ItemType Directory -Path $bundleDir -Force | Out-Null
-Copy-Item $msix (Join-Path $bundleDir (Split-Path $msix -Leaf)) -Force
+# ── 7. .msixupload：Partner Center 要的是**只装包文件的 zip**，不是 bundle ──
+#
+# 踩过一次：先用 `makeappx bundle` 出 .msixupload，商店报
+#   「文件 AppxBundleManifest.xml 不支持 / AppxBlockMap.xml 不被支持 / [Content_Types].xml 不被支持」
+# 因为 bundle 自带的三个 footprint 文件被当成载荷内容校验了。上传件里只能有包本身。
+Step '.msixupload（zip：只装已签名的 .msix）'
 $upload = Join-Path $outDir "$PackageName`_${msixVersion}_x64.msixupload"
 if (Test-Path $upload) { Remove-Item $upload -Force }
-& $makeappx bundle /d $bundleDir /p $upload /o
-if ($LASTEXITCODE -ne 0) { Write-Host "! bundle 失败（.msix 仍然可用，Partner Center 也可以只传 .msix）" -ForegroundColor Yellow }
+# Compress-Archive 只认 .zip 后缀，先压再改名；包内的条目名就是文件名本身（不带目录）
+$zipTmp = Join-Path $outDir 'upload.zip'
+if (Test-Path $zipTmp) { Remove-Item $zipTmp -Force }
+Compress-Archive -LiteralPath $msix -DestinationPath $zipTmp -CompressionLevel Optimal -Force
+Move-Item $zipTmp $upload -Force
 
-# ── 7. 收尾 ───────────────────────────────────────────────────
+# ── 8. 收尾 ───────────────────────────────────────────────────
 Remove-Item $stage -Recurse -Force
-Remove-Item $bundleDir -Recurse -Force
 
 Step '产物'
 Get-ChildItem $outDir | Where-Object { $_.Extension -in '.msix', '.msixupload' } |
