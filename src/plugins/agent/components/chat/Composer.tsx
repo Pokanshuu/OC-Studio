@@ -20,8 +20,9 @@ import { useSettingsStore } from '@/plugins/agent/state/settings'
 import { useT } from '@/plugins/agent/i18n'
 import { knownModels } from '@/plugins/agent/core/provider'
 import { activePath } from '@/plugins/agent/core/messageTree'
+import { messageToOut } from '@/plugins/agent/core/chatRequest'
 import { orderedOutgoingMessages } from '@/plugins/agent/core/requestOrdering'
-import { estimateTokensOfAll, formatTokens } from '@/plugins/agent/core/tokenEstimate'
+import { estimateTokens, estimateTokensOfAll, formatTokens } from '@/plugins/agent/core/tokenEstimate'
 import { cmd } from '@/plugins/agent/api/bridge'
 import type { Attachment, ConversationMode, ReasoningLevel } from '@/plugins/agent/core/types'
 
@@ -64,6 +65,20 @@ function fileToDataUrl(file: File): Promise<string> {
   })
 }
 
+/**
+ * 上下文占用百分比的显示口径。
+ *
+ * 1M 窗口下 3.9k 只占 0.39% —— `Math.round` 会把它显示成 `0%`，读数看起来像坏了。
+ * 所以小比例保留一位小数，再小就给 `<0.1%`（真的接近空）。
+ */
+function formatContextPercent(ratio: number): string {
+  if (ratio <= 0) return '0%'
+  const percent = ratio * 100
+  if (percent < 0.1) return '<0.1%'
+  if (percent < 10) return `${percent.toFixed(1)}%`
+  return `${Math.round(percent)}%`
+}
+
 export function Composer() {
   const t = useT()
   const toast = useToast()
@@ -74,7 +89,18 @@ export function Composer() {
   const stop = useChatStore((s) => s.stop)
   const streaming = useChatStore((s) => s.streamingMessageId !== null)
   const messageCount = useChatStore((s) => s.allMessages.length)
+  /**
+   * 生成中消息**条数**不变，只靠 messageCount 触发重算的话读数会一直冻在回合开始那一刻。
+   * 这个选择器只返回流式正文（字符串），每来一段 token 只让 Composer 重渲染一次；
+   * 整条 message 不进依赖，避免把无关字段的变动也卷进来。
+   */
+  const streamingText = useChatStore((s) => {
+    if (!s.streamingMessageId) return ''
+    const message = s.allMessages.find((item) => item.id === s.streamingMessageId)
+    return message?.content ?? ''
+  })
   const compaction = useChatStore((s) => s.compaction)
+  const overheadTokens = useChatStore((s) => s.overheadTokens)
   const compacting = useChatStore((s) => s.compacting)
   const compact = useChatStore((s) => s.compact)
   const clearCompaction = useChatStore((s) => s.clearCompaction)
@@ -122,30 +148,44 @@ export function Composer() {
     const outgoing = orderedOutgoingMessages(path, compaction)
     const texts: string[] = []
     if (compaction) texts.push(compaction.summary)
+    // 按**真正发出去的东西**算：助手每一轮的工具调用与工具结果都会回放给模型，
+    // 只数 message.content 会漏掉 run_shell / 读取文件那种大段输出。
     for (const message of outgoing) {
-      texts.push(message.content)
+      for (const out of messageToOut(message)) {
+        if (typeof out.content === 'string') {
+          texts.push(out.content)
+        } else {
+          for (const part of out.content) {
+            if (part.type === 'text') texts.push(part.text)
+          }
+        }
+      }
+      // 图片不按 data URL 的 base64 长度算，按视觉 token 上限估
       for (const attachment of message.attachments) {
-        if (attachment.kind === 'text' && attachment.data) texts.push(attachment.data)
-        else if (attachment.kind === 'image') texts.push('x'.repeat(4096))
+        if (attachment.kind === 'image') texts.push('x'.repeat(4096))
       }
     }
     for (const attachment of attachments) {
       if (attachment.kind === 'text' && attachment.data) texts.push(attachment.data)
       else if (attachment.kind === 'image') texts.push('x'.repeat(4096))
     }
-    const used = estimateTokensOfAll(texts)
+    const base = estimateTokensOfAll(texts)
     const window =
       knownModels(settings.api.provider).find((m) => m.id === settings.api.model)?.contextWindow ??
       128_000
     return {
-      used,
+      base,
       window,
       replies: snapshot.filter((m) => m.role === 'assistant' && m.active).length,
-      ratio: window > 0 ? Math.min(1, used / window) : 0,
     }
-    // 粗粒度依赖：条数变化、流式起停、附件或模型变化才重算
+    // 粗粒度依赖：条数变化、换会话、压缩、附件或模型变化才重算
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messageCount, streaming, compaction, attachments, settings.api.provider, settings.api.model])
+  }, [messageCount, currentId, compaction, attachments, settings.api.provider, settings.api.model])
+
+  // 流式中的那一条还在 STREAMING、没进 outgoing，但它马上就是下一轮的上下文。
+  // overheadTokens 是最近一次请求的「系统提示词 + 工具 schema」，同样不算在消息里。
+  const used = metrics.base + overheadTokens + estimateTokens(streamingText)
+  const ratio = metrics.window > 0 ? Math.min(1, used / metrics.window) : 0
 
   useEffect(() => {
     const element = textarea.current
@@ -401,20 +441,20 @@ export function Composer() {
           {metrics.replies} {t('status.replies')}
         </span>
         <span>·</span>
-        <span title={`${formatTokens(metrics.used)} / ${formatTokens(metrics.window)}`}>
-          {formatTokens(metrics.used)} tok
+        <span title={`${formatTokens(used)} / ${formatTokens(metrics.window)}`}>
+          {formatTokens(used)} tok
         </span>
         <span>·</span>
         <span
           style={
-            metrics.ratio > 0.92
+            ratio > 0.92
               ? { color: 'var(--oc-error)' }
-              : metrics.ratio > 0.72
+              : ratio > 0.72
                 ? { color: 'var(--oc-warning)' }
                 : undefined
           }
         >
-          {Math.round(metrics.ratio * 100)}%
+          {formatContextPercent(ratio)}
         </span>
         {streaming && (
           <>

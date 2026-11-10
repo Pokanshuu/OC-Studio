@@ -37,11 +37,12 @@ import {
   compactSystemPrompt,
   titleSystemPrompt,
 } from '@/plugins/agent/core/agent/prompt'
-import { parseToolArgs, toolsFor, type ToolSpec } from '@/plugins/agent/core/agent/tools'
+import { parseToolArgs, toOpenAiTools, toolsFor, type ToolSpec } from '@/plugins/agent/core/agent/tools'
 import { chatCompletionsUrl, headersFor } from '@/plugins/agent/core/provider'
 import { activePath, siblingsOf } from '@/plugins/agent/core/messageTree'
 import { orderedOutgoingMessages } from '@/plugins/agent/core/requestOrdering'
 import { debounce, newId, throttle } from '@/plugins/agent/core/util'
+import { estimateTokensOfAll } from '@/plugins/agent/core/tokenEstimate'
 import { useSettingsStore } from './settings'
 import { resolveLang, tFor } from '@/plugins/agent/i18n'
 import type {
@@ -111,6 +112,14 @@ interface ChatStore {
   todos: TodoItem[]
   todosMessageId: string | null
   activity: string | null
+
+  /**
+   * 最近一次请求里「消息之外」的开销（估算）：系统提示词 + 工具 schema。
+   *
+   * 只靠消息正文去估上下文会漏掉这一大块 —— AGENT 模式的库手册和十几个工具的
+   * schema 加起来往往比几轮对话还大，漏了它百分比就永远是 0。
+   */
+  overheadTokens: number
 
   banner: Banner | null
 
@@ -313,6 +322,13 @@ export const useChatStore = create<ChatStore>((set, get) => {
     if (systemPrompt.trim()) {
       history.push({ role: 'system', content: systemPrompt })
     }
+    // 记下这次请求「消息之外」占了多少：系统提示词 + 工具 schema（上下文百分比要用）
+    set({
+      overheadTokens: estimateTokensOfAll([
+        systemPrompt,
+        tools.length > 0 ? JSON.stringify(toOpenAiTools(tools)) : '',
+      ]),
+    })
     for (const message of outgoing) history.push(...messageToOut(message))
 
     const controller = new AbortController()
@@ -586,6 +602,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
     todosMessageId: null,
     activity: null,
     banner: null,
+    overheadTokens: 0,
 
     init: async () => {
       await get().reloadConversations()
@@ -609,7 +626,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
       if (get().streamingMessageId) await get().stop()
       draftPersist.flush()
 
-      set({ currentId: id, allMessages: [], draft: '', todos: [], compactPreview: '' })
+      set({ currentId: id, allMessages: [], draft: '', todos: [], compactPreview: '', overheadTokens: 0 })
       useSettingsStore.getState().patch((current) => ({
         ...current,
         ui: { ...current.ui, lastConversationId: id },
@@ -637,7 +654,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
     newConversation: async () => {
       if (get().streamingMessageId) await get().stop()
       draftPersist.flush()
-      set({ currentId: null, allMessages: [], compaction: null, todos: [], draft: '' })
+      set({ currentId: null, allMessages: [], compaction: null, todos: [], draft: '', overheadTokens: 0 })
       const stored = await cmd.getDraft('').catch(() => null)
       set({ draft: stored?.text ?? '', pendingTitle: stored?.title ?? null })
     },
