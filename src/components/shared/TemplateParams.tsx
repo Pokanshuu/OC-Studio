@@ -169,8 +169,11 @@ function InfoGroupPicker({
         onSelect(group.id)
         openSettings('world', 'components', `group:${group.id}`)
       })
-      .catch(() => {
-        // 重名等失败由调用方 toast？这里保持静默，列表里再建
+      .catch((err: unknown) => {
+        // 静默失败 = 「点了没反应」：重名、库没就绪都得说一句
+        toast.error('新建基本信息组件失败', {
+          description: err instanceof Error ? err.message : String(err),
+        })
       })
   }
 
@@ -181,7 +184,11 @@ function InfoGroupPicker({
         onSelect(group.id)
         openSettings('world', 'components', `group:${group.id}`)
       })
-      .catch(() => {})
+      .catch((err: unknown) => {
+        toast.error('保存内联字段失败', {
+          description: err instanceof Error ? err.message : String(err),
+        })
+      })
   }
 
   return (

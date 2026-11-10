@@ -39,10 +39,12 @@ import { blankTemplateDoc, customTemplateId } from '@/lib/templates/defaults'
 import { useInfoGroups } from '@/lib/templates/info-groups'
 import { useBodyGroups } from '@/lib/templates/body-groups'
 import { bodyGroupIdOfTemplate } from '@/lib/templates/body-preset'
+import { useCategories } from '@/lib/categories/store'
 import {
+  addTemplate,
+  deleteTemplate,
   resetTemplateToBuiltin,
   saveTemplate,
-  saveTemplates,
   setTemplateComponentParams,
   useTemplates,
 } from '@/lib/templates/store'
@@ -136,6 +138,13 @@ export function TemplatesPanel({
   const { templates, loading } = useTemplates()
   const infoGroups = useInfoGroups()
   const bodyGroups = useBodyGroups()
+  const categories = useCategories()
+  /**
+   * 这套模板被哪些分类绑着（`category.template` 里可能存 id，也可能存名字 —— 老数据两种都有）。
+   * 列表上给一个数字、删除时给一句提醒：模板删了，绑它的分类会悄悄退回默认模板。
+   */
+  const categoriesUsing = (doc: TemplateDoc): number =>
+    categories.filter((category) => category.template === doc.id || category.template === doc.name).length
   const [activeId, setActiveId] = useState<string | null>(initialId ?? null)
   const [renaming, setRenaming] = useState<string | null>(null)
   const [nameDraft, setNameDraft] = useState('')
@@ -165,7 +174,11 @@ export function TemplatesPanel({
             <SettingsEntryRow
               key={doc.id}
               label={doc.name}
-              meta={`${doc.components.filter((component) => component.enabled).length} 个组件`}
+              meta={(() => {
+                const count = doc.components.filter((component) => component.enabled).length
+                const used = categoriesUsing(doc)
+                return used > 0 ? `${count} 个组件 · ${used} 个分类` : `${count} 个组件`
+              })()}
               onClick={() => {
                 setActiveId(doc.id)
                 setParamsFor(null)
@@ -178,7 +191,7 @@ export function TemplatesPanel({
           type="button"
           onClick={() => {
             const doc = blankTemplateDoc(templates.map((item) => item.name))
-            void saveTemplates([...templates, doc])
+            void addTemplate(doc)
               .then(() => setActiveId(doc.id))
               .catch((err: unknown) => toast.error('新建失败', { description: String(err) }))
           }}
@@ -356,7 +369,7 @@ export function TemplatesPanel({
               aliases: [],
               components: active.components.map((component) => ({ ...component })),
             }
-            void saveTemplates([...templates, copy])
+            void addTemplate(copy)
               .then(() => {
                 setActiveId(copy.id)
                 toast.success(`已复制为「${copy.name}」`)
@@ -415,6 +428,9 @@ export function TemplatesPanel({
             <AlertDialogTitle>删除模板「{deleting?.name}」</AlertDialogTitle>
             <AlertDialogDescription>
               笔记本身不会被修改。
+              {deleting !== null && categoriesUsing(deleting) > 0
+                ? `有 ${categoriesUsing(deleting)} 个分类绑着这套模板，删除后它们会退回默认模板。`
+                : ''}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -425,7 +441,7 @@ export function TemplatesPanel({
                 const target = deleting
                 setDeleting(null)
                 if (!target) return
-                void saveTemplates(templates.filter((doc) => doc.id !== target.id))
+                void deleteTemplate(target.id)
                   .then(() => {
                     setActiveId(null)
                     toast.success(`已删除「${target.name}」`)

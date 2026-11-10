@@ -17,10 +17,10 @@ import { setTemplateCustomFieldKeys } from '@/lib/vault/vault-field-keys'
 import { BUILTIN_TEMPLATES } from './defaults'
 import { TEMPLATE_SCHEMA_VERSION, type TemplateComponent } from './types'
 import { collectTemplateFieldKeys } from './fields'
-import { queueSpecialInfoFields } from './info-groups'
+import { flushPendingSpecialFields, queueSpecialInfoFields } from './info-groups'
 import { templateHostOf } from './support'
 import type { TemplateParamValue } from './params'
-import { parseTemplate, serializeTemplate } from './serialize'
+import { docFromRecord, parseTemplate, serializeTemplate } from './serialize'
 import { TEMPLATE_DIR, templatePath, type TemplateComponentId, type TemplateDoc } from './types'
 
 const LS_KEY = 'oc-templates-v1'
@@ -47,17 +47,36 @@ function vaultRoot(): string | null {
   return getVaultSession()?.root ?? null
 }
 
+/**
+ * 模板 id → 它在盘上的相对路径。
+ *
+ * 保存必须**写回读进来那份文件**，不能一律按 `templatePath(id)` 另开一份：
+ * 文件名和 frontmatter 的 `id:` 一旦不一致（用户复制过文件、同步盘改过名），
+ * 按 id 写就会留下一个永远清不掉的旧文件，重启后两份同 id 的模板谁生效还看目录顺序。
+ */
+const sourcePaths = new Map<string, string>()
+
 async function readFromVault(root: string): Promise<TemplateDoc[] | null> {
   const assets = await vaultFs.listAssets(root, TEMPLATE_DIR)
   const files = assets.filter((asset) => asset.name.toLowerCase().endsWith('.md'))
   if (files.length === 0) return null
   const out: TemplateDoc[] = []
+  const seen = new Set<string>()
   for (const file of files) {
     const bytes = await vaultFs.readBytes(root, file.relPath)
     const text = new TextDecoder('utf-8').decode(new Uint8Array(bytes))
     const fallbackId = file.name.replace(/\.md$/i, '')
     const parsed = parseTemplate(text, fallbackId)
-    if (parsed) out.push(parsed)
+    if (!parsed) continue
+    // 两份文件声明同一个 id：只认先读到的那份，另一份留着不动也不参与保存 ——
+    // 否则存盘时两份按同一个 relPath 互相覆盖，谁赢看目录列举顺序。
+    if (seen.has(parsed.id)) {
+      console.warn(`[templates] id 重复，忽略 ${file.relPath}（${parsed.id} 已由前面的文件提供）`)
+      continue
+    }
+    seen.add(parsed.id)
+    sourcePaths.set(parsed.id, file.relPath)
+    out.push(parsed)
   }
   return out.length > 0 ? out : null
 }
@@ -69,9 +88,14 @@ function readFromStorage(): TemplateDoc[] | null {
     if (!raw) return null
     const parsed = JSON.parse(raw) as unknown
     if (!Array.isArray(parsed)) return null
-    const docs = parsed.filter((item): item is TemplateDoc => {
-      return Boolean(item && typeof item === 'object' && 'id' in item && 'name' in item && 'components' in item)
-    })
+    // 一律过一遍归一化：旧版本 / 手改过的快照可能缺 `aliases`，进了缓存就会在
+    // `findTemplateByName` 上抛 TypeError（整个「新建条目」跟着失败）。
+    const docs: TemplateDoc[] = []
+    for (const item of parsed) {
+      if (item === null || typeof item !== 'object') continue
+      const doc = docFromRecord(item as Record<string, unknown>, '')
+      if (doc) docs.push(doc)
+    }
     return docs.length > 0 ? docs : null
   } catch {
     return null
@@ -207,17 +231,41 @@ function queueLegacyNoteSpecialFields(docs: TemplateDoc[] | null): TemplateDoc[]
  * `info-groups.json`，用户删掉那几行不会触发模板保存 —— 模板文件若仍是旧版本，
  * 下次开库又会把它们补回来。只写真正需要迁移的那几份，不动别的模板。
  */
+/**
+ * 写盘排队。
+ *
+ * 为什么要它：连点两个参数（`setTemplateComponentParams`）会在同一瞬间发两次写，
+ * 两次都写 `.ocstudio/templates/<id>.md`；Rust 侧的原子写临时文件名是固定的，
+ * 并发时可能互相覆盖 rename，结果可能是**坏文件**，也可能只是丢掉一次修改。
+ * 排队之后「读缓存 → 改 → 写盘 → 换内存」整段串行，后一次一定看得见前一次。
+ *
+ * 注意：队列里的任务**不能**再调 `enqueueWrite`（自己等自己 = 死锁）；
+ * 需要嵌套时调裸的 `writeTemplates` / `persistMigratedTemplates`。
+ */
+let writeQueue: Promise<unknown> = Promise.resolve()
+function enqueueWrite<T>(task: () => Promise<T>): Promise<T> {
+  const run = writeQueue.then(task, task)
+  writeQueue = run.then(
+    () => undefined,
+    () => undefined,
+  )
+  return run
+}
+
 async function persistMigratedTemplates(docs: TemplateDoc[]): Promise<void> {
   if (docs.length === 0) return
   const upgraded = docs.map((doc) => stripRetiredComponents(upgradeLegacyTemplate(doc)))
   const root = vaultRoot()
   try {
     if (root) {
-      const entries = upgraded.map((doc) => ({
-        relPath: templatePath(doc.id),
-        content: serializeTemplate(doc),
-      }))
-      await vaultFs.writeTexts(root, entries)
+      await enqueueWrite(async () => {
+        const entries = upgraded.map((doc) => {
+          const relPath = sourcePaths.get(doc.id) ?? templatePath(doc.id)
+          sourcePaths.set(doc.id, relPath)
+          return { relPath, content: serializeTemplate(doc) }
+        })
+        await vaultFs.writeTexts(root, entries)
+      })
       return
     }
     if (typeof window !== 'undefined') {
@@ -280,9 +328,14 @@ export async function loadTemplates(force = false): Promise<void> {
       const fromDisk = root ? await readFromVault(root) : null
       const docs = fromDisk ?? readFromStorage()
       cache = merge(docs)
-      const migrated = queueLegacyNoteSpecialFields(docs)
-      await persistMigratedTemplates(migrated)
       syncFieldKeys()
+      const migrated = queueLegacyNoteSpecialFields(docs)
+      // 顺序不能反：模板文件一旦写成 `版本: 3`，下次开库就不再排队补那几行字段。
+      // 所以先让特殊字段真正落进 info-groups.json，确认成功了才把模板升级落盘；
+      // 没落成就不动模板文件，下次开库会重来一遍。
+      const flushed = migrated.length === 0 ? true : await flushPendingSpecialFields()
+      if (flushed) await persistMigratedTemplates(migrated)
+      else console.warn('[templates] 基本信息组件还没落盘，模板升级留到下次开库')
       readFailed = false
     } catch (err) {
       error = err instanceof Error ? err.message : String(err)
@@ -298,33 +351,93 @@ export async function loadTemplates(force = false): Promise<void> {
 }
 
 /** 整体保存（编排界面改完就调）：写盘 + 更新缓存 */
-export async function saveTemplates(docs: TemplateDoc[]): Promise<void> {
+export function saveTemplates(docs: TemplateDoc[]): Promise<void> {
+  return enqueueWrite(() => writeTemplates(docs))
+}
+
+/**
+ * 真正的写入。**先写盘、成功了才换内存**。
+ *
+ * 反过来的话，写失败时界面照样显示新顺序 —— 用户看到"改好了"，重启回到旧的。
+ * 顺带把「从列表里被去掉的模板」的文件一起删掉：只改内存不删文件的话，
+ * 删掉的模板下次开库会被 `readFromVault` 原样读回来（删了又复活）。
+ *
+ * 只能在 `enqueueWrite` 里跑（或者在没有并发写的时候直接调，如迁移）。
+ */
+async function writeTemplates(docs: TemplateDoc[]): Promise<void> {
   const root = vaultRoot()
   // 桌面版但会话没就绪：宁可不写，也不能把内存里的内置默认写进笔记库
   if (root === null && isVaultSupported()) throw new Error('笔记库还没打开，稍后再试')
   if (readFailed) throw new Error('模板上次没有读成功，先刷新笔记库再改')
-  cache = docs.map((doc) => ({ ...doc }))
-  syncFieldKeys()
+  // 还没读完就写 = 拿内存里的内置默认覆盖用户盘上的模板（启动早期那一小段）
+  if (!loaded) throw new Error('模板还没读完，稍后再试')
+
+  const previous = cache
+  const next = docs.map((doc) => ({ ...doc }))
+  const keep = new Set(next.map((doc) => doc.id))
+
   if (root) {
-    const entries = docs.map((doc) => ({ relPath: templatePath(doc.id), content: serializeTemplate(doc) }))
+    const entries = next.map((doc) => ({
+      relPath: sourcePaths.get(doc.id) ?? templatePath(doc.id),
+      content: serializeTemplate(doc),
+    }))
     const results = await vaultFs.writeTexts(root, entries)
     const failed = results.filter((result) => !result.ok)
-    if (failed.length > 0) {
-      throw new Error(failed[0].error ?? '模板写入失败')
+    if (failed.length > 0) throw new Error(failed[0].error ?? '模板写入失败')
+
+    for (const doc of previous) {
+      if (keep.has(doc.id)) continue
+      const relPath = sourcePaths.get(doc.id) ?? templatePath(doc.id)
+      sourcePaths.delete(doc.id)
+      try {
+        await vaultFs.remove(root, relPath)
+      } catch {
+        // 文件可能已被外部删掉 / 正被占用：内存里已经没有这一条，不阻塞这次保存
+      }
+    }
+    for (const doc of next) {
+      if (!sourcePaths.has(doc.id)) sourcePaths.set(doc.id, templatePath(doc.id))
     }
   } else if (typeof window !== 'undefined') {
-    localStorage.setItem(LS_KEY, JSON.stringify(docs))
+    localStorage.setItem(LS_KEY, JSON.stringify(next))
   }
+
+  cache = next
+  syncFieldKeys()
   loaded = true
   loadedRoot = root
   emit()
 }
 
-/** 只改一条：读缓存 → 原位替换 → 整体写回（写回是「外科式」的，别的模板不动） */
-export async function saveTemplate(next: TemplateDoc): Promise<void> {
-  const exists = cache.some((doc) => doc.id === next.id)
-  const docs = exists ? cache.map((doc) => (doc.id === next.id ? next : doc)) : [...cache, next]
-  await saveTemplates(docs)
+/**
+ * 只改一条：读缓存 → 原位替换 → 整体写回（写回是「外科式」的，别的模板不动）。
+ *
+ * 读缓存这一步必须在**队列内部**做：两次连点各自读一次、各自写一次的话，
+ * 后一次会拿着旧快照把前一次的修改抹掉。
+ */
+export function saveTemplate(next: TemplateDoc): Promise<void> {
+  return enqueueWrite(async () => {
+    const exists = cache.some((doc) => doc.id === next.id)
+    const docs = exists ? cache.map((doc) => (doc.id === next.id ? next : doc)) : [...cache, next]
+    await writeTemplates(docs)
+  })
+}
+
+/** 追加一份模板（id 已存在就替换）；新建 / 复制都走它，别拿界面上的旧快照整体覆盖 */
+export function addTemplate(doc: TemplateDoc): Promise<void> {
+  return enqueueWrite(async () => {
+    const exists = cache.some((item) => item.id === doc.id)
+    const docs = exists ? cache.map((item) => (item.id === doc.id ? doc : item)) : [...cache, doc]
+    await writeTemplates(docs)
+  })
+}
+
+/** 删一份模板（连同它的文件）；内置模板不允许删 */
+export function deleteTemplate(id: string): Promise<void> {
+  return enqueueWrite(async () => {
+    if (!cache.some((doc) => doc.id === id)) return
+    await writeTemplates(cache.filter((doc) => doc.id !== id))
+  })
 }
 
 /**
@@ -335,23 +448,27 @@ export async function saveTemplate(next: TemplateDoc): Promise<void> {
  *
  * **从当前缓存读、不接界面传进来的快照**：连点两个参数时，后一次不会把前一次覆盖掉。
  */
-export async function setTemplateComponentParams(
+export function setTemplateComponentParams(
   templateId: string,
   componentId: TemplateComponentId,
   patch: Record<string, TemplateParamValue | null>,
 ): Promise<void> {
-  const current = cache.find((doc) => doc.id === templateId)
-  if (!current) return
-  const components = current.components.map((component) => {
-    if (component.id !== componentId) return component
-    const params = { ...(component.params ?? {}) }
-    for (const [key, value] of Object.entries(patch)) {
-      if (value === null) delete params[key]
-      else params[key] = value
-    }
-    return { ...component, params }
+  // 读缓存也放进队列：连点两个参数时，后一次必须看到前一次写进缓存的结果
+  return enqueueWrite(async () => {
+    const current = cache.find((doc) => doc.id === templateId)
+    if (!current) return
+    const components = current.components.map((component) => {
+      if (component.id !== componentId) return component
+      const params = { ...(component.params ?? {}) }
+      for (const [key, value] of Object.entries(patch)) {
+        if (value === null) delete params[key]
+        else params[key] = value
+      }
+      return { ...component, params }
+    })
+    const docs = cache.map((doc) => (doc.id === templateId ? { ...current, components } : doc))
+    await writeTemplates(docs)
   })
-  await saveTemplate({ ...current, components })
 }
 
 /**
@@ -378,9 +495,10 @@ export function resetTemplateToBuiltin(id: string): TemplateDoc | null {
 export function findTemplateByName(name: string): TemplateDoc | undefined {
   const target = name.trim()
   if (!target) return undefined
+  // `aliases` 兜一层：手改 / 旧版快照里可能没有这个键（归一化之后不会有，但别让一处脏数据崩掉调用方）
   return (
     cache.find((doc) => doc.name === target) ??
-    cache.find((doc) => doc.aliases.includes(target)) ??
+    cache.find((doc) => (doc.aliases ?? []).includes(target)) ??
     cache.find((doc) => doc.id === target)
   )
 }

@@ -398,23 +398,34 @@ export async function loadInfoGroups(force = false): Promise<void> {
       loadedRoot = readyRoot
       loading = null
     }
-    // 模板降级时登记的特殊字段，要等组件装载完才能补（见 `queueSpecialInfoFields`）
-    await applyPendingSpecialFields()
+    // 模板降级时登记的特殊字段，要等组件装载完才能补（见 `flushPendingSpecialFields`）
+    await flushPendingSpecialFields()
     emit()
   })()
   return loading
 }
 
-export async function saveInfoGroups(next: InfoGroup[]): Promise<void> {
-  const merged = merge(normalize(next))
+/**
+ * 写盘排队（理由同 `templates/store.ts`）：连点两下字段顺序 / 控件类型时，
+ * 两次保存各读一次 `snapshot`，不排队就会互相覆盖（后一次拿旧状态擦掉前一次）。
+ * 队列里的任务不能再调 `enqueueWrite`。
+ */
+let writeQueue: Promise<unknown> = Promise.resolve()
+function enqueueWrite<T>(task: () => Promise<T>): Promise<T> {
+  const run = writeQueue.then(task, task)
+  writeQueue = run.then(
+    () => undefined,
+    () => undefined,
+  )
+  return run
+}
+
+/** 写盘 + 换内存（**先写盘**：失败时界面不该显示盘上没有的表）。只能在队列里跑 */
+async function writeInfoGroups(merged: InfoGroup[]): Promise<void> {
   const root = vaultRoot()
   // 会话没就绪 / 上次没读成功：不写，免得把「只有内置组件」的空表覆盖到盘上
   if (root === null && isVaultSupported()) throw new Error('笔记库还没打开，稍后再试')
   if (readFailed) throw new Error('基本信息组件上次没有读成功，先刷新笔记库再改')
-  snapshot = merged
-  loaded = true
-  loadedRoot = root
-  emit()
 
   if (root) {
     try {
@@ -425,9 +436,18 @@ export async function saveInfoGroups(next: InfoGroup[]): Promise<void> {
     const results = await vaultFs.writeTexts(root, [{ relPath: REL_PATH, content: serialize(merged) }])
     const failed = results.find((result) => !result.ok)
     if (failed !== undefined) throw new Error(failed.error ?? '写入基本信息组件失败')
-    return
+  } else if (typeof window !== 'undefined') {
+    localStorage.setItem(LS_KEY, serialize(merged))
   }
-  if (typeof window !== 'undefined') localStorage.setItem(LS_KEY, serialize(merged))
+
+  snapshot = merged
+  loaded = true
+  loadedRoot = root
+  emit()
+}
+
+export function saveInfoGroups(next: InfoGroup[]): Promise<void> {
+  return enqueueWrite(() => writeInfoGroups(merge(normalize(next))))
 }
 
 export function getInfoGroups(): InfoGroup[] {
@@ -464,7 +484,7 @@ export function queueSpecialInfoFields(
   const bucket = pendingSpecialFields.get(id) ?? new Set<InfoFieldType>()
   for (const type of types) bucket.add(type)
   pendingSpecialFields.set(id, bucket)
-  if (loaded) void applyPendingSpecialFields()
+  if (loaded) void flushPendingSpecialFields()
 }
 
 /** 一个还不存在的位置：特殊字段的键只是行身份，撞名时加序号（列才是它的归属） */
@@ -475,40 +495,58 @@ function freeFieldKey(taken: readonly string[], base: string): string {
   return `${base}-${index}`
 }
 
-async function applyPendingSpecialFields(): Promise<void> {
-  if (pendingSpecialFields.size === 0 || !loaded) return
+/**
+ * 把排队中的特殊字段补进组件表并**落盘**，返回「是否已经落定」。
+ *
+ * 模板升级（写 `版本: 3`）必须等这个返回 true 再动手：模板一旦升到 v3，
+ * 下次开库就不会再排队补这几行，字段没补上就永久没有入口（词条里的时间 / 地点
+ * 还在列里，但写作面上再也点不到）。所以：
+ * - 组件表还没装载 → 等它读完（装箱与模板是两条独立的读盘路径）
+ * - 写盘失败 → **不清队列**，留给下一次开库重试
+ */
+export async function flushPendingSpecialFields(): Promise<boolean> {
+  if (pendingSpecialFields.size === 0) return true
+  if (!loaded) await loadInfoGroups()
+  if (!loaded) return false
+
   const pending = new Map(pendingSpecialFields)
-  pendingSpecialFields.clear()
+  return enqueueWrite(async () => {
+    let changed = false
+    const next = snapshot.map((group) => {
+      const needs = pending.get(group.id)
+      if (needs === undefined) return group
+      const fields = [...group.fields]
+      const types = { ...(group.types ?? {}) }
+      const labels = { ...(group.labels ?? {}) }
+      let touched = false
+      for (const type of needs) {
+        if (!isSpecialInfoFieldType(type)) continue
+        if (Object.values(types).includes(type)) continue
+        const key = freeFieldKey(fields, INFO_FIELD_COLUMNS[type as keyof typeof INFO_FIELD_COLUMNS])
+        fields.push(key)
+        types[key] = type
+        labels[key] = SPECIAL_FIELD_DEFAULT_LABELS[type as keyof typeof SPECIAL_FIELD_DEFAULT_LABELS]
+        touched = true
+      }
+      if (!touched) return group
+      changed = true
+      return { ...group, fields, types, labels }
+    })
 
-  let changed = false
-  const next = snapshot.map((group) => {
-    const needs = pending.get(group.id)
-    if (needs === undefined) return group
-    const fields = [...group.fields]
-    const types = { ...(group.types ?? {}) }
-    const labels = { ...(group.labels ?? {}) }
-    let touched = false
-    for (const type of needs) {
-      if (!isSpecialInfoFieldType(type)) continue
-      if (Object.values(types).includes(type)) continue
-      const key = freeFieldKey(fields, INFO_FIELD_COLUMNS[type as keyof typeof INFO_FIELD_COLUMNS])
-      fields.push(key)
-      types[key] = type
-      labels[key] = SPECIAL_FIELD_DEFAULT_LABELS[type as keyof typeof SPECIAL_FIELD_DEFAULT_LABELS]
-      touched = true
+    if (!changed) {
+      // 这几组本来就有对应字段：队列可以收了，不需要写盘
+      pendingSpecialFields.clear()
+      return true
     }
-    if (!touched) return group
-    changed = true
-    return { ...group, fields, types, labels }
+    try {
+      await writeInfoGroups(merge(normalize(next)))
+      pendingSpecialFields.clear()
+      return true
+    } catch (err) {
+      console.warn('[info-groups] 特殊字段补写失败，下次开库再试', err)
+      return false
+    }
   })
-
-  if (!changed) return
-  try {
-    await saveInfoGroups(next)
-  } catch {
-    // 落盘失败不该让开库流程中断：内存里已经补上（`saveInfoGroups` 先改内存再写盘），
-    // 下次任何一次保存会把它一起写出去
-  }
 }
 
 function subscribe(listener: () => void): () => void {
@@ -529,29 +567,48 @@ export function newInfoGroupId(): string {
   return `group-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`
 }
 
-export async function createInfoGroup(input: { name: string; fields?: string[] }): Promise<InfoGroup> {
+/**
+ * 新建 / 改名 / 改字段 / 删除 —— 都在队列里读 `snapshot` 再写，
+ * 免得两次连点各自基于旧状态、后一次把前一次抹掉。
+ */
+export function createInfoGroup(input: { name: string; fields?: string[] }): Promise<InfoGroup> {
   const name = input.name.trim()
-  if (name === '') throw new Error('基本信息组件名不能为空')
-  if (snapshot.some((group) => group.name === name)) throw new Error(`已经有叫「${name}」的基本信息组件了`)
+  if (name === '') return Promise.reject(new Error('基本信息组件名不能为空'))
   const group: InfoGroup = { id: newInfoGroupId(), name, fields: input.fields ?? [] }
-  await saveInfoGroups([...snapshot, group])
-  return group
+  return enqueueWrite(async () => {
+    if (snapshot.some((item) => item.name === name)) {
+      throw new Error(`已经有叫「${name}」的基本信息组件了`)
+    }
+    await writeInfoGroups(merge(normalize([...snapshot, group])))
+    return group
+  })
 }
 
-export async function updateInfoGroup(id: string, patch: Partial<Omit<InfoGroup, 'id' | 'builtin'>>): Promise<void> {
-  await saveInfoGroups(
-    snapshot.map((group) =>
+export function updateInfoGroup(
+  id: string,
+  patch: Partial<Omit<InfoGroup, 'id' | 'builtin'>>,
+): Promise<void> {
+  return enqueueWrite(async () => {
+    const next = snapshot.map((group) =>
       group.id === id
-        ? { ...group, ...patch, name: (patch.name ?? group.name).trim() || group.name, fields: patch.fields ?? group.fields }
+        ? {
+            ...group,
+            ...patch,
+            name: (patch.name ?? group.name).trim() || group.name,
+            fields: patch.fields ?? group.fields,
+          }
         : group,
-    ),
-  )
+    )
+    await writeInfoGroups(merge(normalize(next)))
+  })
 }
 
 /** 内置组件不删；自定义组件删掉后，引用它的模板会退回「未选择」 */
-export async function deleteInfoGroup(id: string): Promise<void> {
-  if (isBuiltinInfoGroup(id)) throw new Error('内置基本信息组件不能删除')
-  await saveInfoGroups(snapshot.filter((group) => group.id !== id))
+export function deleteInfoGroup(id: string): Promise<void> {
+  if (isBuiltinInfoGroup(id)) return Promise.reject(new Error('内置基本信息组件不能删除'))
+  return enqueueWrite(() =>
+    writeInfoGroups(merge(normalize(snapshot.filter((group) => group.id !== id)))),
+  )
 }
 
 /**

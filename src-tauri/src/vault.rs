@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::{Component, Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use futures_util::StreamExt;
@@ -454,7 +455,11 @@ fn write_atomic(path: &Path, contents: &[u8], expected_mtime_ms: Option<i64>) ->
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_else(|| "unnamed".into());
-    let tmp = path.with_file_name(format!(".{file_name}.octmp"));
+    // 临时文件名带序号：两个写并发打同一路径时（前端 store 的写队列之外，
+    // 还有导出 / 备份这类独立入口），固定名字会让两次写互相覆盖 rename —— 可能留下半截文件。
+    static TMP_SEQ: AtomicU64 = AtomicU64::new(0);
+    let seq = TMP_SEQ.fetch_add(1, Ordering::Relaxed);
+    let tmp = path.with_file_name(format!(".{file_name}.{seq}.octmp"));
 
     if let Err(err) = fs::write(&tmp, contents) {
         let _ = fs::remove_file(&tmp);
@@ -654,10 +659,31 @@ fn image_extension_ok(rel_path: &str) -> bool {
     matches!(ext.as_str(), "png" | "jpg" | "jpeg" | "webp" | "gif" | "avif")
 }
 
+/// 挡住「本机 / 内网」目标：桌面端的这条命令等于给页面一个"任意可达 HTTP 端点"的读权限，
+/// 响应体还会落到库目录里。粘一个 `http://127.0.0.1:9222/...` 不该被当成图片下载。
+///
+/// 域名挡不住 DNS rebinding（这里没有解析后就锁定 IP），那条风险单独记在文档里。
+fn is_internal_host(url: &reqwest::Url) -> bool {
+    let host = url.host_str().unwrap_or("").to_ascii_lowercase();
+    if host.is_empty() || host == "localhost" || host.ends_with(".localhost") {
+        return true;
+    }
+    match host.parse::<std::net::IpAddr>() {
+        Ok(std::net::IpAddr::V4(v4)) => {
+            v4.is_loopback() || v4.is_private() || v4.is_link_local() || v4.is_unspecified()
+        }
+        Ok(std::net::IpAddr::V6(v6)) => v6.is_loopback() || v6.is_unspecified(),
+        Err(_) => false,
+    }
+}
+
 fn parse_image_url(raw: &str) -> Result<reqwest::Url, String> {
     let url = reqwest::Url::parse(raw).map_err(|_| "图片地址不是合法 URL".to_string())?;
     if !matches!(url.scheme(), "http" | "https") {
         return Err("只允许 http(s) 图片地址".into());
+    }
+    if is_internal_host(&url) {
+        return Err("不允许下载本机 / 内网地址".into());
     }
     Ok(url)
 }
@@ -686,6 +712,16 @@ pub async fn vault_download_image(
     let client = reqwest::Client::builder()
         .connect_timeout(Duration::from_secs(15))
         .timeout(Duration::from_secs(60))
+        // 每一跳都复检：默认策略会跟随重定向，一个公网链接 302 到内网就绕过了上面的校验
+        .redirect(reqwest::redirect::Policy::custom(|attempt| {
+            if attempt.previous().len() > 3 {
+                attempt.error("重定向次数过多")
+            } else if is_internal_host(attempt.url()) {
+                attempt.error("重定向到了内网地址")
+            } else {
+                attempt.follow()
+            }
+        }))
         .user_agent("OC-Studio/0.20 (+image-import)")
         .build()
         .map_err(|err| format!("HTTP 客户端创建失败：{err}"))?;

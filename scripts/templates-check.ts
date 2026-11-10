@@ -7,9 +7,9 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { BUILTIN_TEMPLATES } from '../src/lib/templates/defaults'
-import { TEMPLATE_SCHEMA_VERSION } from '../src/lib/templates/types'
+import { TEMPLATE_SCHEMA_VERSION, templatePath } from '../src/lib/templates/types'
 import { COMPONENT_BY_ID, COMPONENT_IDS } from '../src/lib/templates/registry'
-import { parseTemplate, serializeTemplate, unknownComponentIds } from '../src/lib/templates/serialize'
+import { docFromRecord, parseTemplate, serializeTemplate, unknownComponentIds } from '../src/lib/templates/serialize'
 import { WIRED_BY_TEMPLATE, availableComponents, isComponentAvailable, isComponentWired } from '../src/lib/templates/support'
 import {
   TEMPLATE_PARAM_SCHEMA,
@@ -110,6 +110,41 @@ const broken: unknown[] = ['', '---\n名称: 无 id\n---', '---\nid: x\n---', 'n
 for (const raw of broken) {
   const parsed = parseTemplate(String(raw), 'fallback')
   check(parsed === null || typeof parsed.name === 'string', `解析异常输入时返回了非法结构：${String(raw).slice(0, 24)}`)
+}
+
+// 5b. 浏览器预览的 localStorage 快照必须过同一套归一化。
+//     只查「有 id / 有 name / 有 components」就塞进缓存的话，缺 aliases 的旧条目会让
+//     `findTemplateByName` 在 `doc.aliases.includes` 上抛 TypeError —— 新建条目整个失败。
+{
+  const legacySnapshot = docFromRecord(
+    { id: 'custom-old', name: '旧快照', components: [{ id: 'body', enabled: true }] },
+    '',
+  )
+  check(legacySnapshot !== null, '旧快照（缺 aliases）读不出来')
+  check(Array.isArray(legacySnapshot?.aliases), '旧快照读出来没有 aliases（findTemplateByName 会崩）')
+  check(
+    legacySnapshot !== null && isNoteTemplate(legacySnapshot),
+    '旧快照归一化后不是可用的笔记模板',
+  )
+  check(docFromRecord({ name: '没有 id' }, '') === null, '没有 id 的快照该被丢掉')
+  check(docFromRecord({ id: 'custom-2' }, '') === null, '没有名字的快照该被丢掉')
+  const noComponents = docFromRecord({ id: 'custom-3', name: '空', components: null }, '')
+  check(noComponents?.components.length === 0, 'components 不是数组时应退成空列表，而不是让整次装载失败')
+  const renamed = docFromRecord({ id: 'custom-4', 名称: '中文键', 别名: ['老名'], 主题: 'paper' }, '')
+  check(
+    renamed?.name === '中文键' && renamed.aliases[0] === '老名' && renamed.theme === 'paper',
+    '中文键（模板文件格式）的归一化丢了字段',
+  )
+}
+
+// 5c. id 里带 Windows 不认的字符时，文件名要洗掉 —— 否则一条坏模板会让所有模板都存不进去
+{
+  check(
+    templatePath('a/b').endsWith('/a-b.md'),
+    'id 里的斜杠没有洗掉（会写到子目录里）',
+  )
+  check(!templatePath('x:y').includes(':'), 'id 里的冒号没有洗掉（Windows 上写盘会失败）')
+  check(templatePath('..') === '.ocstudio/templates/template.md', '纯点的 id 没有兜底文件名')
 }
 
 // 6. 别名不重复并集冲突（同一旧名不能指向两个模板）

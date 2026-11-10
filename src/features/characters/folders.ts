@@ -34,6 +34,15 @@ let registryLoaded = false
 /** 上次读清单用的库根（换库要重读） */
 let registryLoadedRoot: string | null = null
 let registryLoading: Promise<void> | null = null
+/**
+ * 读盘报错（不是"文件不存在"）。
+ *
+ * 没有这个标记时：`folders.json` 一旦读坏（手改少了逗号 / 断电截断 / 被占用），
+ * `registry` 停在空表，接着用户新建一个文件夹就把"只剩这一个名字"写回去 ——
+ * **所有空文件夹从清单里消失**（有角色的还能靠角色身上的 `folder` 键带回来）。
+ * 模板 / 基本信息 / 正文三份都按这条规矩防住了，这份不能漏。
+ */
+let registryReadFailed = false
 const registryListeners = new Set<() => void>()
 
 function emitRegistry(): void {
@@ -86,8 +95,10 @@ export async function loadFolderRegistry(force = false): Promise<void> {
         const raw = localStorage.getItem(LS_KEY)
         registry = raw === null ? [] : normalizeRegistry((JSON.parse(raw) as { folders?: unknown })?.folders)
       }
+      registryReadFailed = false
     } catch {
-      // 读失败不覆盖已有清单
+      // 读失败不覆盖已有清单，但要记住这次没读成 —— 之后禁止写回
+      registryReadFailed = true
     } finally {
       registryLoaded = true
       registryLoadedRoot = readyRoot
@@ -103,6 +114,8 @@ async function saveRegistry(next: string[]): Promise<void> {
   const root = registryRoot()
   // 会话没就绪：不写，免得把空清单覆盖到盘上
   if (root === null && isVaultSupported()) throw new Error('笔记库还没打开，稍后再试')
+  // 上次没读成功：写回去等于用一份残缺清单覆盖盘上的真清单
+  if (registryReadFailed) throw new Error('文件夹清单上次没有读成功，先刷新笔记库再改')
   const previous = registry
   registry = names
   registryLoaded = true
@@ -121,6 +134,7 @@ async function saveRegistry(next: string[]): Promise<void> {
       ])
       const failed = results.find((result) => !result.ok)
       if (failed !== undefined) throw new Error(failed.error ?? '写入文件夹清单失败')
+      registryReadFailed = false
       return
     }
     if (typeof window !== 'undefined') localStorage.setItem(LS_KEY, serializeRegistry(names))

@@ -87,6 +87,40 @@ export function serializeTemplate(doc: TemplateDoc): string {
   return `---\n${yamlText}---\n\n# ${doc.name}\n\n（这一栏只是给人看的说明；读写以 frontmatter 为准。）\n`
 }
 
+/**
+ * 一份「记录」→ `TemplateDoc`（**唯一的归一化入口**）。
+ *
+ * 三条读入路径共用它：模板文件的 frontmatter、localStorage 里的旧快照（浏览器预览）、
+ * 以及以后可能的导入。三条路径各写一份字段兜底是上一版的真实教训 —— localStorage
+ * 那份只查了 `id / name / components` 存在，缺 `aliases` 的条目进了缓存以后，
+ * `findTemplateByName` 会在 `doc.aliases.includes` 上抛 TypeError，
+ * 于是「新建任何条目」整个失败（桌面版读的是文件、走 parseTemplate，所以没暴露）。
+ *
+ * 中文键（文件格式）与英文键（JSON 快照）都认；认不出来的字段一律给安全默认值。
+ */
+export function docFromRecord(record: Record<string, unknown>, fallbackId: string): TemplateDoc | null {
+  const id = typeof record.id === 'string' && record.id.trim() ? record.id.trim() : fallbackId
+  if (id === '') return null
+  const rawName = record['名称'] ?? record.name
+  const name = typeof rawName === 'string' ? rawName.trim() : ''
+  if (!name) return null
+
+  const aliasesRaw = record['别名'] ?? record.aliases
+  const aliases = Array.isArray(aliasesRaw)
+    ? aliasesRaw
+        .filter((alias): alias is string => typeof alias === 'string' && alias.trim() !== '')
+        .map((alias) => alias.trim())
+    : []
+
+  const components = normalizeComponents(record['组件'] ?? record.components)
+  const rawTheme = record['主题'] ?? record.theme
+  const theme = typeof rawTheme === 'string' && rawTheme.trim() !== '' ? rawTheme.trim() : undefined
+  const rawVersion = record['版本'] ?? record.version
+  const schema = typeof rawVersion === 'number' && Number.isFinite(rawVersion) ? rawVersion : undefined
+
+  return { id, name, aliases, components, theme, ...(schema !== undefined ? { schema } : {}) }
+}
+
 export function parseTemplate(raw: string, fallbackId: string): TemplateDoc | null {
   const match = /^---\r?\n([\s\S]*?)\r?\n---/.exec(raw)
   if (!match) return null
@@ -98,23 +132,7 @@ export function parseTemplate(raw: string, fallbackId: string): TemplateDoc | nu
     return null
   }
   if (!data || typeof data !== 'object') return null
-
-  const record = data as Record<string, unknown>
-  const id = typeof record.id === 'string' && record.id.trim() ? record.id.trim() : fallbackId
-  const name = typeof record['名称'] === 'string' ? record['名称'].trim() : ''
-  if (!name) return null
-
-  const aliasesRaw = record['别名']
-  const aliases = Array.isArray(aliasesRaw)
-    ? aliasesRaw.filter((alias): alias is string => typeof alias === 'string' && alias.trim() !== '')
-    : []
-
-  const components = normalizeComponents(record['组件'] ?? record.components)
-  const theme = typeof record['主题'] === 'string' ? record['主题'] : undefined
-  const rawVersion = record['版本'] ?? record.version
-  const schema = typeof rawVersion === 'number' && Number.isFinite(rawVersion) ? rawVersion : undefined
-
-  return { id, name, aliases, components, theme, ...(schema !== undefined ? { schema } : {}) }
+  return docFromRecord(data as Record<string, unknown>, fallbackId)
 }
 
 /** 模板里有没有「认不出的组件 id」—— 编排界面要提示，校验脚本要报 */

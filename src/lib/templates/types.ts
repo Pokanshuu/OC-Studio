@@ -80,7 +80,22 @@ export const TEMPLATE_SCHEMA_VERSION = 3
 /** 模板文件统一放在库的 `.ocstudio/templates/` 下（随库走、可分享） */
 export const TEMPLATE_DIR = '.ocstudio/templates'
 
+/**
+ * id → 安全的文件名片段。
+ *
+ * `id` 可能来自 frontmatter（用户手写 / 别的工具生成），里面出现 `:` `?` `|`
+ * 这类 Windows 不认的字符时，写盘会整批失败 —— 一条坏模板就让**所有**模板都改不了。
+ * 这里只洗文件名，id 本身不动（模板里的 `id:` 仍原样保留，读回来靠 `sourcePaths` 对齐）。
+ */
+function safeFileId(id: string): string {
+  const cleaned = id
+    .replace(/[\\/:*?"<>|\u0000-\u001f]/g, '-')
+    .replace(/^[.\s]+/, '')
+    .replace(/[.\s]+$/, '')
+  return cleaned === '' ? 'template' : cleaned
+}
+
 /** 磁盘上模板文件的相对路径 */
 export function templatePath(id: string): string {
-  return `${TEMPLATE_DIR}/${id}.md`
+  return `${TEMPLATE_DIR}/${safeFileId(id)}.md`
 }

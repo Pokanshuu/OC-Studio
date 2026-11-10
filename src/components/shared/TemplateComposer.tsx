@@ -504,7 +504,11 @@ export function TemplateComposer({
   )
 
   const persist = (next: TemplateDoc): void => {
-    void saveTemplate(next)
+    // 必须 catch：拖动 / 上下键 / 增删都走这里，写盘失败（库没就绪 / 读失败 / 冲突）
+    // 以前是静默的 unhandled rejection —— 界面已经变了，盘上没变，重启才暴露。
+    void saveTemplate(next).catch((err: unknown) => {
+      toast.error('模板保存失败', { description: err instanceof Error ? err.message : String(err) })
+    })
   }
 
   const move = (index: number, delta: number): void => {
