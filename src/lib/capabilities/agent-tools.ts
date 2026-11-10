@@ -76,8 +76,8 @@ export const WRITABLE_FIELDS = {
   character: ['race', 'element', 'occupation', 'faction', 'height', 'birthday', 'bio'],
   event: ['time', 'endTime', 'location', 'summary'],
   country: ['description', 'system', 'geography', 'culture'],
-  // 词条：一行简介 / 章节大纲；小说专属字段走 `library_set_novel`
-  world: ['summary', 'chapterOutline'],
+  // 词条：一行简介 / 基本信息的时间地点 / 章节大纲；小说专属字段走 `library_set_novel`
+  world: ['summary', 'time', 'endTime', 'location', 'chapterOutline'],
 } as const satisfies Record<EntityKind, readonly string[]>
 
 /**
@@ -93,6 +93,133 @@ export const MEDIA_SLOTS: Record<EntityKind, readonly MediaSlot[]> = {
   event: ['header'],
   country: ['flag', 'header'],
   world: ['cover', 'avatar', 'image', 'novelCover'],
+}
+
+/**
+ * 槽位 → 实体列名（写库要用）。
+ *
+ * 放在能力层而不是宿主：能力卡片与「这一列工具能不能写」的审计都从这里取，
+ * 各写一份必然漂（`avatar` 落 `avatarUrl`、国家 `flag` 落 `flagUrl`）。
+ */
+export const MEDIA_FIELD: Record<EntityKind, Partial<Record<MediaSlot, string>>> = {
+  character: { avatar: 'avatarUrl', header: 'headerUrl' },
+  event: { header: 'headerUrl' },
+  country: { flag: 'flagUrl', header: 'headerUrl' },
+  world: { cover: 'cover', avatar: 'avatar', image: 'image', novelCover: 'novelCover' },
+}
+
+/**
+ * 工具（`library_set_fields`）不写、但类型里确实存在的字段：写明由**界面或专用工具**维护。
+ *
+ * 「广告即承诺」：字段表里出现的每一列，要么有工具读写，要么在这里交代去处。
+ * `gen-library-guide` 会拿它做覆盖检查 —— 新加一个类型字段却没说清归属，CI 直接失败。
+ */
+export const UI_ONLY_FIELDS: Record<EntityKind, Record<string, string>> = {
+  character: {
+    animationUrl: '界面（动画上传）',
+    folder: '界面（角色文件夹拖拽）',
+    relatedNotes: '界面（相关笔记）',
+    gallery: '界面（图集）',
+    avatars: '界面（形象立绘）',
+    isMajor: '界面（主要角色标记）',
+  },
+  event: {
+    parentEventId: '死列：事件没有层级，任何界面都不建它，不要写',
+    relations: '界面（事件关系图）',
+    images: '界面（图集）',
+    isMajor: '界面（关键事件标记）',
+  },
+  country: {
+    parentId: '界面（表格页「新增子项」才有），工具不读也不写',
+    gallery: '界面（图集）',
+  },
+  world: {
+    gallery: '界面（图集）',
+    category: 'library_set_placement',
+    template: 'library_set_placement',
+    parentId: 'library_set_placement',
+    relations: '界面（关系图）；工具只读',
+    references: '正文里的引用，跟随正文自动维护',
+    mapImage: '界面（地图编辑器）',
+    mapWidth: '界面（地图编辑器）',
+    mapHeight: '界面（地图编辑器）',
+    mapSeed: '界面（地图编辑器）',
+    mapParams: '界面（地图编辑器）',
+    mapMode: '界面（地图编辑器）',
+    mapAnnotations: '界面（地图编辑器）',
+  },
+}
+
+/** 小说根的作品信息：走 library_set_novel，不是普通字段 */
+export const NOVEL_FIELDS = [
+  'novelAuthor',
+  'novelSynopsis',
+  'novelTargetWords',
+  'novelNotes',
+  'novelCover',
+] as const
+
+/** 内部簿记 / 旧字段 / 派生值：不进能力卡片，也不该被模型碰 */
+export const INTERNAL_FIELDS = new Set([
+  'id',
+  'createdAt',
+  'updatedAt',
+  'deleted',
+  '_syncStatus',
+  '_lastModified',
+  'order',
+  'isConcept',
+  'graphPosition',
+  'mapPosition',
+  'mapId',
+  'factionId',
+  'nationalityLegacy',
+  'lifeStory',
+  'legacyKind',
+  'content',
+])
+
+/** 改名 / 别名：走 library_rename（会同步 `[[链接]]` 文字） */
+export const RENAME_FIELDS = ['name', 'title', 'aliases'] as const
+
+/** 正文：走 library_set_body */
+export const BODY_FIELDS = ['document'] as const
+
+/** 关系边：走 library_link（只写发起方）或只读 */
+export const LINK_FIELDS = [
+  'relatedCharacters',
+  'countryId',
+  'characters',
+  'countries',
+] as const
+
+/** 自建字段：library_set_fields + create_new / 已有键 */
+export const CUSTOM_FIELD = 'custom'
+
+/**
+ * 某一类的「可写脚注」：读工具在结果末尾带一行，模型不用再猜哪些键能写。
+ * 控制在 ~60 字，比一次试错便宜两个数量级。
+ */
+export function capabilityFootnote(kind: EntityKind): string {
+  const writable = WRITABLE_FIELDS[kind]
+  const media = MEDIA_FIELD[kind]
+  const mediaText = Object.entries(media)
+    .map(([slot]) => slot)
+    .join('/')
+  const bits = [
+    writable.length > 0 ? `可写 ${writable.join('/')}` : '',
+    mediaText ? `图 ${mediaText}` : '',
+    FOOTNOTE_EXTRA[kind] ?? '',
+    '其余界面维护，工具不写',
+  ].filter(Boolean)
+  return `可写脚注：${bits.join('；')}。`
+}
+
+/** 每类最容易写错的那一件事，直接写在读脚注里（国家层级事故的修复点） */
+const FOOTNOTE_EXTRA: Partial<Record<EntityKind, string>> = {
+  event: 'parentEventId 不要写',
+  country: '层级 parentId 只在表格页「新增子项」建，工具不写',
+  world: '归类 / 模板 / 父级用 library_set_placement',
 }
 
 /**
@@ -133,6 +260,23 @@ export const LINKABLE: readonly string[] = [
 function linkKeyOf(from: { kind: EntityKind; id: number }, to: { kind: EntityKind; id: number }): string | null {
   const pair = `${from.kind}→${to.kind}`
   return LINKABLE.some((item) => item.startsWith(pair)) ? pair : null
+}
+
+/**
+ * 写回执：落盘路径 + 实际改动的键 + 这一版的 hash。
+ *
+ * 有它就**不需要再读一遍文件**验证写入 —— 回执就是读。这是省步数（也就是省
+ * token）最直接的一处；拿不到（没有笔记库 / 测试环境）时回 `null`，消息照旧。
+ */
+export interface WriteReceipt {
+  /** 库内相对路径，例如 `国家/灰烬自治领.md` */
+  path: string
+  /** 实际写进 frontmatter 的键；正文记作 `body` */
+  keys: string[]
+  /** 写完这一版的 sha256（或降级哈希） */
+  hash: string
+  /** 上一版；新建时为空串 */
+  prevHash: string
 }
 
 /** 写库动作：注入进来，执行器本身不碰 Dexie（脚本里也能跑） */
@@ -210,6 +354,11 @@ export interface LibraryWriter {
       cover?: string
     },
   ): Promise<void>
+  /**
+   * 可选：拿这次写入的回执。没有笔记库（脚本 / 浏览器直跑）时返回 `null`。
+   * `changedKeys` 是执行器实际提交的键，宿主可用来对照盘上真正落下的键。
+   */
+  receipt?(kind: EntityKind, id: number, changedKeys: string[]): Promise<WriteReceipt | null>
 }
 
 /**
@@ -290,6 +439,75 @@ function summaryLine(row: {
   const hit = row.matchedIn === 'body' ? '正文命中' : ''
   const tail = [extras, hit].filter(Boolean).join(' · ')
   return `- [${KIND_LABEL[row.kind]} #${row.id}] ${row.title}${tail ? `（${tail}）` : ''}`
+}
+
+/** 读正文默认只给这么多 —— 4k 之后的部分会在循环里被反复回放，不划算 */
+const BODY_PREVIEW = 4000
+
+function shortHash(value: string): string {
+  return value === '' ? '—' : value.slice(0, 7)
+}
+
+/**
+ * 回执三行：路径 / 改动键 / 版本。
+ * 模型看到它就不用再读一遍文件、更不用翻 journal —— 这是省步数的关键。
+ */
+function receiptBlock(receipt: WriteReceipt | null): string {
+  if (!receipt) return ''
+  const keys = receipt.keys.length > 0 ? receipt.keys.join('、') : '（无字段变化）'
+  return `\n已写入 ${receipt.path}\n改动：${keys}\n版本：${shortHash(receipt.hash)}（上一版 ${shortHash(receipt.prevHash)}）`
+}
+
+async function receiptOf(
+  writer: LibraryWriter | undefined,
+  kind: EntityKind,
+  id: number,
+  changedKeys: string[],
+): Promise<WriteReceipt | null> {
+  if (!writer?.receipt) return null
+  try {
+    return await writer.receipt(kind, id, changedKeys)
+  } catch {
+    return null
+  }
+}
+
+/** 被拒键的三分类：实体没这个字段 / 字段由界面维护 / 自建字段还没建 */
+type RejectedCode = 'unknown-field' | 'ui-only' | 'new-field'
+
+interface RejectedKey {
+  key: string
+  code: RejectedCode
+  note: string
+}
+
+function classifyRejectedKey(
+  kind: EntityKind,
+  key: string,
+  allowNew: boolean,
+): RejectedKey {
+  const uiNote = UI_ONLY_FIELDS[kind][key]
+  if (uiNote) return { key, code: 'ui-only', note: uiNote }
+  if ((RENAME_FIELDS as readonly string[]).includes(key)) {
+    return { key, code: 'ui-only', note: '改名 / 别名走 library_rename' }
+  }
+  const other = KINDS.find(
+    (candidate) => candidate !== kind && (WRITABLE_FIELDS[candidate] as readonly string[]).includes(key),
+  )
+  if (other) {
+    return {
+      key,
+      code: 'unknown-field',
+      note: `${KIND_LABEL[kind]}没有这个字段；${key} 是${KIND_LABEL[other]}的`,
+    }
+  }
+  return {
+    key,
+    code: 'new-field',
+    note: allowNew
+      ? '自建字段名不能为空'
+      : '这是自建字段，但这条还没有这个键：确实要新建就加 create_new: true',
+  }
 }
 
 /**
@@ -402,7 +620,12 @@ export function createLibraryToolExecutor(
         const id = numberOf(args.id, -1, 0, Number.MAX_SAFE_INTEGER)
         if (id < 0) return finish(fail('需要实体 id。先用 library_list 或 library_search 拿到它。'))
         const entry = await capabilities.getEntity(AGENT_CALLER, kind, id)
-        return finish(ok(capabilities.buildCodexSlice(entry), entry))
+        // 正文默认截 4k：整篇回放给模型的成本是复利，要全文得显式要
+        const slice = args.include_body === true
+          ? capabilities.buildCodexSlice(entry)
+          : capabilities.buildCodexSlice(entry, { bodyLimit: BODY_PREVIEW })
+        // 读脚注：这一条现在能写什么、哪些界面维护 —— 省掉「试写 → 被拒 → 再猜」
+        return finish(ok(`${slice}\n\n${capabilityFootnote(kind)}`, entry))
       }
 
       if (name === 'library_search') {
@@ -434,6 +657,19 @@ export function createLibraryToolExecutor(
         if (!createKind) return finish(fail('kind 必须是 character / event / country / world 之一。'))
         const title = textOf(args.title).slice(0, TITLE_MAX_LENGTH)
         if (title === '') return finish(fail('title 不能为空。'))
+        // 幂等：同名条目已存在就返回它，不建第二条。重复条目是作者最难清理的脏数据。
+        const existing = (await capabilities.search(AGENT_CALLER, title, 10, { body: false })).find(
+          (row) => row.kind === createKind && row.title.trim() === title,
+        )
+        if (existing) {
+          return finish(
+            ok(
+              `库里已有${KIND_LABEL[createKind]}「${existing.title}」（#${existing.id}），没有再建。` +
+                '要改它就用 library_set_fields / library_set_body / library_link。',
+              { id: existing.id, existing: true },
+            ),
+          )
+        }
         const writable: readonly string[] = WRITABLE_FIELDS[createKind]
         const fields: Record<string, string> = {}
         if (args.fields !== undefined && args.fields !== null) {
@@ -464,9 +700,10 @@ export function createLibraryToolExecutor(
           parentId,
         })
         const created = await capabilities.getEntity(AGENT_CALLER, createKind, newId)
+        const receipt = await receiptOf(writer, createKind, newId, Object.keys(fields))
         return finish(
           ok(
-            `已新建${KIND_LABEL[createKind]}「${created.title}」（#${newId}）。\n\n${capabilities.buildCodexSlice(created)}`,
+            `已新建${KIND_LABEL[createKind]}「${created.title}」（#${newId}）。${receiptBlock(receipt)}\n\n${capabilities.buildCodexSlice(created)}`,
             { id: newId, kind: createKind },
           ),
         )
@@ -612,11 +849,12 @@ export function createLibraryToolExecutor(
           }
         }
         await writer.rename(renameKind, renameId, title, aliases)
+        const receipt = await receiptOf(writer, renameKind, renameId, aliases ? ['title', 'aliases'] : ['title'])
         return finish(
           ok(
             `已把${KIND_LABEL[renameKind]} #${renameId} 改名为「${title}」${
               aliases ? `，别名 ${aliases.length} 个` : ''
-            }。`,
+            }。${receiptBlock(receipt)}`,
           ),
         )
       }
@@ -649,7 +887,8 @@ export function createLibraryToolExecutor(
           }
         }
         await writer.setPlacement(placeId, placement)
-        return finish(ok(`已更新词条 #${placeId} 的归类。`, placement))
+        const receipt = await receiptOf(writer, 'world', placeId, Object.keys(placement))
+        return finish(ok(`已更新词条 #${placeId} 的归类。${receiptBlock(receipt)}`, placement))
       }
 
       // library_create_category：新建自定义分类（可选一键带字段组 + 模板）
@@ -779,7 +1018,7 @@ export function createLibraryToolExecutor(
         const allowNew = args.create_new === true
         const columns: Record<string, string> = {}
         const customPatch: Record<string, string> = {}
-        const rejected: string[] = []
+        const rejected: RejectedKey[] = []
         for (const [rawKey, value] of Object.entries(raw as Record<string, unknown>)) {
           const key = rawKey.trim().slice(0, 60)
           if (key === '') continue
@@ -789,21 +1028,21 @@ export function createLibraryToolExecutor(
           } else if (knownCustom.has(key) || allowNew) {
             customPatch[key] = text
           } else {
-            rejected.push(key)
+            rejected.push(classifyRejectedKey(kind, key, allowNew))
           }
           if (Object.keys(columns).length + Object.keys(customPatch).length >= 60) break
         }
         const columnKeys = Object.keys(columns)
         const customKeys = Object.keys(customPatch)
         if (columnKeys.length === 0 && customKeys.length === 0) {
-          const existing = knownCustom.size > 0 ? `这条现有的自建字段：${[...knownCustom].join('、')}。` : ''
+          if (rejected.length === 0) return finish(fail('fields 是空的。'))
+          const existing = knownCustom.size > 0 ? `\n这条现有的自建字段：${[...knownCustom].join('、')}。` : ''
+          const lines = rejected.map((item) => `- [${item.code}] ${item.key}：${item.note}`)
           return finish(
             fail(
-              rejected.length > 0
-                ? `这些键既不是${KIND_LABEL[kind]}内置字段，也不在这条的自建字段里：${rejected.join('、')}。` +
-                    `内置可写：${writable.join(' / ') || '无'}。${existing}` +
-                    `确实要新建自建字段，再加 create_new: true。`
-                : 'fields 是空的。',
+              `这些键没有写：\n${lines.join('\n')}\n` +
+                `内置可写：${writable.join(' / ') || '无'}。${existing}` +
+                '要新建自建字段才加 create_new: true。',
             ),
           )
         }
@@ -812,20 +1051,28 @@ export function createLibraryToolExecutor(
           // 空串 = 删掉这个自建字段键（与 setFields 的语义一致）
           await writer.setCustom(kind, id, customPatch)
         }
-        // 写完读回来给模型看：它得知道盘上现在是什么，而不是自己以为写了什么
+        const receipt = await receiptOf(writer, kind, id, [...columnKeys, ...customKeys])
+        // 写完读回来给模型看：它得知道盘上现在是什么，而不是自己以为写了什么。
+        // 正文不重复回放（那是回执与 set_body 的事），省下的正是复利开销。
         const after = await capabilities.getEntity(AGENT_CALLER, kind, id)
         const parts = [
           columnKeys.length > 0 ? `内置字段 ${columnKeys.join('、')}` : '',
           customKeys.length > 0 ? `自建字段 ${customKeys.join('、')}` : '',
         ].filter(Boolean)
-        const rejectedNote = rejected.length > 0 ? `\n没写（不认识的键）：${rejected.join('、')}` : ''
+        const rejectedNote =
+          rejected.length > 0
+            ? `\n没写：\n${rejected.map((item) => `- [${item.code}] ${item.key}：${item.note}`).join('\n')}`
+            : ''
         return finish(
-          ok(`已写入 ${parts.join(' / ')}。现在这条是：\n\n${capabilities.buildCodexSlice(after)}${rejectedNote}`, {
-            written: [...columnKeys, ...customKeys],
-            columns: columnKeys,
-            custom: customKeys,
-            rejected,
-          }),
+          ok(
+            `已写入 ${parts.join(' / ')}。${receiptBlock(receipt)}\n\n现在这条是：\n\n${capabilities.buildCodexSlice(after, { omitBody: true })}${rejectedNote}`,
+            {
+              written: [...columnKeys, ...customKeys],
+              columns: columnKeys,
+              custom: customKeys,
+              rejected,
+            },
+          ),
         )
       }
 
@@ -839,12 +1086,14 @@ export function createLibraryToolExecutor(
         if (markdown.length > BODY_MAX_LENGTH) {
           return finish(fail(`正文太长（${markdown.length} 字，上限 ${BODY_MAX_LENGTH}）。`))
         }
+        // 先确认这条存在：Dexie 的 update 对不存在的 id 是静默成功，
+        // 不挡就会回一句「已写入」而盘上什么都没变。
+        const target = await capabilities.getEntity(AGENT_CALLER, kind, id)
         await writer.setBody(kind, id, markdown)
-        const after = await capabilities.getEntity(AGENT_CALLER, kind, id)
-        const body = after.body.trim()
+        const receipt = await receiptOf(writer, kind, id, ['body'])
         return finish(
           ok(
-            `已替换正文（${markdown.length} 字）。读回来是：\n\n${body.length > 0 ? body : '（空）'}`,
+            `已替换《${target.title}》的正文（${markdown.length} 字，整篇覆盖）。${receiptBlock(receipt)}`,
             { length: markdown.length },
           ),
         )

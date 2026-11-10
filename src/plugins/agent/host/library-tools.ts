@@ -11,11 +11,14 @@
 import {
   createLibraryToolExecutor,
   LIBRARY_TOOL_NAMES,
+  MEDIA_FIELD,
   type LibraryCatalog,
   type LibraryWriter,
   type MediaSlot,
+  type WriteReceipt,
 } from '@/lib/capabilities/agent-tools'
 import type { EntityKind } from '@/lib/capabilities/types'
+import type { VaultTableName } from '@/lib/vault/vault-session'
 import type { Category } from '@/lib/categories/types'
 import type { TemplateDoc } from '@/lib/templates/types'
 import { TOOL_NAMES } from '@/plugins/agent/core/agent/tools'
@@ -66,20 +69,14 @@ export function addNewLibraryTools(enabled: string[]): string[] {
   return previous.every((name) => enabled.includes(name)) ? [...enabled, ...missing] : enabled
 }
 
-const TABLE_BY_KIND: Record<EntityKind, string> = {
+const TABLE_BY_KIND: Record<EntityKind, VaultTableName> = {
   character: 'characters',
   event: 'events',
   country: 'countries',
   world: 'worldEntries',
 }
 
-/** 图片槽位 → 落库列名（世界词条的 cover/avatar/image 就是同名列） */
-const MEDIA_COLUMN: Record<EntityKind, Partial<Record<MediaSlot, string>>> = {
-  character: { avatar: 'avatarUrl', header: 'headerUrl' },
-  event: { header: 'headerUrl' },
-  country: { flag: 'flagUrl', header: 'headerUrl' },
-  world: { cover: 'cover', avatar: 'avatar', image: 'image', novelCover: 'novelCover' },
-}
+/** 图片槽位 → 落库列名：能力层的那份映射（`MEDIA_FIELD`），不在这里再抄一遍 */
 
 /** 库内相对路径校验：不能绝对、不能 `..`，文件必须真的在库里 */
 async function normalizeVaultPath(path: string): Promise<string> {
@@ -100,7 +97,7 @@ async function normalizeVaultPath(path: string): Promise<string> {
 
 /** 把图片路径写进实体的槽位列（setMedia / importImage 共用） */
 async function writeMedia(kind: EntityKind, id: number, slot: MediaSlot, path: string): Promise<void> {
-  const column = MEDIA_COLUMN[kind][slot]
+  const column = MEDIA_FIELD[kind][slot]
   if (!column) throw new Error(`这个类型没有 ${slot} 槽位`)
   const normalized = await normalizeVaultPath(path)
   const { db, runAsActorAsync } = await loadWriteDeps()
@@ -187,6 +184,41 @@ const writer: LibraryWriter = {
     await runAsActorAsync('agent:assistant', async () => {
       await db.table(TABLE_BY_KIND[kind]).update(id, { ...patch, updatedAt: Date.now() })
     })
+  },
+  /**
+   * 写回执：**先刷盘，再读时间线的尾巴**。
+   *
+   * 不重新读实体、也不重新拼 frontmatter —— 时间线记的就是「实际落下的键 + 这一版
+   * 的 hash」，它比再序列化一遍更接近盘上的真相。没有笔记库（浏览器开发模式 /
+   * 脚本）时返回 null，调用方只少那三行，不影响写入。
+   */
+  async receipt(kind, id, changedKeys): Promise<WriteReceipt | null> {
+    const startedAt = Date.now()
+    try {
+      const [{ flushVaultWrites }, { getVaultSession, entityKey }, { readJournal }] = await Promise.all([
+        import('@/lib/vault/vault-persist'),
+        import('@/lib/vault/vault-session'),
+        import('@/lib/vault/journal'),
+      ])
+      await flushVaultWrites()
+      const session = getVaultSession()
+      if (!session) return null
+      const relPath = session.entries.get(entityKey(TABLE_BY_KIND[kind], id))?.relPath ?? ''
+      if (relPath === '') return null
+      const entries = await readJournal(20)
+      const last = entries.find((entry) => entry.relPath === relPath)
+      // 只认这次写入之后的行：正在 flush 时本条可能还在队列里，
+      // 返回上一条的 hash 比不给回执更糟（模型会以为盘上已经是它写的那版）。
+      if (!last || last.ts < startedAt) return null
+      return {
+        path: relPath,
+        keys: last.keys.length > 0 ? last.keys : changedKeys,
+        hash: last.hash,
+        prevHash: last.prevHash,
+      }
+    } catch {
+      return null
+    }
   },
   async create(kind, input) {
     const { runAsActorAsync } = await loadWriteDeps()
@@ -285,7 +317,7 @@ const writer: LibraryWriter = {
     await writeMedia(kind, id, slot, path)
   },
   async importImage(kind, id, slot, url, filename) {
-    if (!MEDIA_COLUMN[kind][slot]) throw new Error(`这个类型没有 ${slot} 槽位`)
+    if (!MEDIA_FIELD[kind][slot]) throw new Error(`这个类型没有 ${slot} 槽位`)
     const [{ getVaultSession }, { vaultFs }] = await Promise.all([
       import('@/lib/vault/vault-session'),
       import('@/lib/vault/vault-fs'),

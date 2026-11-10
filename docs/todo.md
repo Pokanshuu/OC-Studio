@@ -62,24 +62,22 @@
 
 起因是同一天两次事故：新建条目全落到 `.ocstudio/`、凭空给国家编出父子层级。根因不是模型不知道，是**工具面没给看得见的证据**。
 
-- [ ] **P0 能力卡片替代字段表**：`gen-library-guide` 改从**能力层**（工具能读写的字段）生成，而不是从 `src/types/index.ts` 的类型转储；每类一段约 40 tokens，含「工具不写」的清单
-- [ ] **P0 `audit:library-guide` 加「广告即承诺」校验**：类型里的每一列，要么有工具覆盖，要么在豁免表里写明「界面维护」，否则 CI 失败
-- [ ] **P0 写回执**：`library_update` 返回「落盘路径 + 实际改动的键 + 版本 hash」—— 有回执就不用再读一遍文件、更不用翻 journal
-- [ ] **P0 错误三分类**：`unknown-field` / `ui-only` / `new-field`（外加 `duplicate` / `conflict`）。现在那句「要新建就 `create_new: true`」是在教模型写脏字段
-- [ ] **P0 `library_read` 暴露父级、图片槽位与可写脚注**：国家层级是真的（表格页「新增子项」能建），但三条验证路径全瞎
-- [ ] **P0 `journal` 的 `keys` 过滤 `undefined`**：清理不是改动，现在会把「删掉一个不存在的键」记成改过
-- [ ] **P1 工具收敛到 10–12 个动词**：合并 `set_fields` / `set_tags` / `set_placement`；`library_search / read / catalog / history / create / update / body / link / media / delete`
+**2026-11-10 已落地**：能力卡片（−61% 字符）、写回执、错误三分类、`library_read` 暴露上级 / 图片槽位 / 可写脚注、journal 过滤 `undefined`、同名创建幂等、工具结果预算、循环守卫、`audit:agent-budget`。
+
+- [ ] **P1 工具收敛到 10–12 个动词**：合并 `set_fields` / `set_tags` / `rename` / `set_placement` 为 `library_update`；`library_search / read / catalog / history / create / update / body / link / media / delete`
 - [ ] **P1 笔记库模式下线 `run_shell`**，并拦截实体文件直写（`write_file` / `edit_file` 命中实体 `.md` 时转成 `library_update`）
-- [ ] **P1 工具结果预算**：`read_file` 8k + `offset` 续读、`grep` 30 命中、`library_read` 正文 4k、`library_search` 20 条
+- [ ] **P1 `library_history`**：某条最近的改动（actor / keys / 时间），替代 grep `journal.jsonl`
 - [ ] **P2 人格与模式解耦**：笔记库用的是「资料员」，不是 coding agent
-- [ ] **P2 golden tasks + 埋点**：20 条标准任务，断言「DB 状态对 / 步数不超 / token 不超 / 没有脏字段」；顺手把上下文百分比彻底修对（`stream_options.include_usage`）
+- [ ] **P2 磁盘冲突（`conflict`）**：写之前发现文件被外部改过时，给「用磁盘版本 / 覆盖」两个选项，而不是静默覆盖或静默跳过
+- [ ] **P2 缓存分层与 thinking 分档**：静态 / 半静态 / 动态三段定序，简单 CRUD 走 `off` / `low`
+- [ ] **P2 golden tasks + 埋点**：20 条标准任务，断言「DB 状态对 / 步数不超 / token 不超 / 没有脏字段」；接 `stream_options.include_usage` 把上下文百分比修对
 
 ### 5.2 助手与能力的其它欠账
 
 - [ ] **P1 助手 · 存储边界**：会话在插件自己的 SQLite 里，**`.ocbak` 备份带不上**。要么备份时连插件库一起收，要么在备份界面明说不含助手会话 —— 二选一，别让用户以为备份等于全部。（2026-11-06：数据页那行「不含助手会话」按作者要求去掉了，这件事仍未解决）
 - [ ] **P1 助手 · 端到端验收**：真机上走一遍「读条目 → 改字段 → 改正文 → 看时间线里有 `助手` 这一条 → 看 md 文件确实变了」。现在整条链路（Dexie update → 中间件 → 序列化 → 原子写 → journal）只有各段自检，没串起来跑过
 - [ ] **P2 能力层读权限的闸在错的地方**：`READ_PERMISSION = 0` 是**地板**，所以 `requireRead()` 只拦得住「actor 不是 human / agent: / plugin:」，任何合法 actor 都读得到全库。真正的闸在**造 `Caller` 的那一处**（现在是 `agent-tools.ts` 里写死）。对外开放插件 / MCP 之前要把权限位改成真正的分级
-- [ ] **P2 助手 · skill 与模型可换**：对话壳已在 `src/plugins/agent/`（51 个文件），缺的是官方 skill（角色讨论 / 设定补全 / 小说续写 / 一致性检查）与「换模型」的设置面
+- [ ] **P2 助手 · skill 与模型可换**：写作手法已内置（场景 / 对白 / 节奏 / 一致性，设置里可关）；仍缺「角色讨论 / 设定补全 / 小说续写」这类任务型官方 skill，以及「换模型」的设置面
 - [ ] **P2 `actor` 留痕 + 受限写入**：journal 每条加 `actor`（**格式已落，写入侧未接**）；权限四级（只读 / 写正文 / 改结构 / 删除），默认只读，写入必须走落盘链路
 - [ ] **P2 主题插件对外开放**：把 `lib/theme/presets.ts` 的令牌升级成可导入的主题包 manifest（现在只是内置几套登记成插件，还没有「装一个主题」的入口）
 - [ ] **P3 Skill 系统**：内置官方 skill；用户可安装 skill（只含提示词与工具声明，不含可执行代码，比插件更容易开放）

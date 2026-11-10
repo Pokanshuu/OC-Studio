@@ -9,12 +9,13 @@
  *
  * 用内存 store，不碰 Dexie / 文件系统。
  */
-import { createCapabilities } from '../src/lib/capabilities'
+import { buildCodexSlice, createCapabilities } from '../src/lib/capabilities'
 import {
   ADVERTISED_LIBRARY_TOOLS,
   AGENT_CALLER,
   LIBRARY_TOOL_NAMES,
   MERGED_LIBRARY_TOOLS,
+  capabilityFootnote,
   createLibraryToolExecutor,
   type LibraryCatalog,
 } from '../src/lib/capabilities/agent-tools'
@@ -24,6 +25,10 @@ import { hasPermission, isPluginActive } from '../src/lib/plugins/store'
 import { agentContextOpener, agentContextTitle } from '../src/lib/plugins/agent-bridge'
 import { emptyAgentSessionContext, hasAgentSessionContext } from '../src/lib/plugins/agent-session'
 import { ALL_TOOLS, toOpenAiTools, toolByName, toolSummary } from '../src/plugins/agent/core/agent/tools'
+import { clipToolResult } from '../src/plugins/agent/core/agent/budget'
+import { runAgentLoop } from '../src/plugins/agent/core/agent/loop'
+import { DEFAULT_WRITING_SKILLS, writingSkillsPrompt } from '../src/plugins/agent/core/agent/writing'
+import { buildSystemPrompt, editablePrompt } from '../src/plugins/agent/core/agent/prompt'
 import { parseSseLine } from '../src/plugins/agent/core/sseParser'
 import { bodyDocFromMarkdown } from '../src/lib/vault/write-body'
 import { createVaultSession, setVaultSession } from '../src/lib/vault/vault-session'
@@ -45,6 +50,14 @@ function character(input: Partial<Character> & Pick<Character, 'id' | 'name'>): 
     height: '', birthday: '', avatarUrl: '', bio: '', lifeStory: '', relatedCharacters: [],
     gallery: [], avatars: [], tags: [], createdAt: 0, updatedAt: 0, deleted: false,
     _syncStatus: 'synced', _lastModified: 0, ...input,
+  }
+}
+
+function country(input: Partial<Country> & Pick<Country, 'id' | 'name'>): Country {
+  return {
+    aliases: [], parentId: null, description: '', system: '', geography: '', culture: '',
+    tags: [], createdAt: 0, updatedAt: 0, deleted: false, _syncStatus: 'synced',
+    _lastModified: 0, ...input,
   }
 }
 
@@ -166,6 +179,75 @@ async function main(): Promise<void> {
   check('读到正文装配成 markdown', read?.content.startsWith('# 林知遥（角色）') === true, read?.content.slice(0, 40))
   check('字段进了切片', read?.content.includes('测绘师') === true)
   check('关系进了切片', read?.content.includes('沈砚（同门）') === true)
+  check(
+    '读结果末尾带可写脚注',
+    read?.content.includes('可写脚注：可写 race') === true &&
+      read?.content.includes('其余界面维护') === true,
+    read?.content.slice(-80),
+  )
+
+  const longEntry = {
+    kind: 'character' as const,
+    id: 1,
+    title: '长文',
+    aliases: [],
+    fields: [],
+    custom: {},
+    relations: [],
+    events: [],
+    tags: [],
+    body: '字'.repeat(5000),
+  }
+  const clipped = buildCodexSlice(longEntry, { bodyLimit: 4000 })
+  check(
+    '正文默认截 4k 并告诉模型怎么取全文',
+    clipped.includes('正文已截断') === true && clipped.length < 4300,
+    String(clipped.length),
+  )
+  const omitted = buildCodexSlice(longEntry, { omitBody: true })
+  check('写回执时不再带正文', omitted.includes('正文：') === false && omitted.length < 200)
+
+  const withRefs = buildCodexSlice({
+    ...longEntry,
+    body: '',
+    parent: { id: 9, title: '灰烬联邦' },
+    media: { flag: '附件/旗.png' },
+  })
+  check(
+    '上级与已设置的图片槽位进了切片',
+    withRefs.includes('上级：灰烬联邦（#9）') === true && withRefs.includes('flag=附件/旗.png') === true,
+    withRefs,
+  )
+
+  check(
+    '国家的读脚注点明 parentId 由表格页维护',
+    capabilityFootnote('country').includes('新增子项') === true &&
+      capabilityFootnote('country').includes('工具不写') === true,
+    capabilityFootnote('country'),
+  )
+
+  // P0 验收：国家层级是真的（表格页「新增子项」能建），读路径必须看得见
+  const countryRows = [
+    country({ id: 1, name: '灰烬联邦' }),
+    country({ id: 2, name: '灰烬自治领', parentId: 1 }),
+  ]
+  const countryCaps = createCapabilities({
+    async list(kind: EntityKind) {
+      return kind === 'country' ? countryRows : []
+    },
+    async get(kind: EntityKind, id: number) {
+      return kind === 'country' ? (countryRows.find((row) => row.id === id) ?? null) : null
+    },
+    async tags() {
+      return []
+    },
+  } as unknown as CapabilityStore)
+  const childCountry = await countryCaps.getEntity(AGENT_CALLER, 'country', 2)
+  check(
+    '建子国家能读回父级',
+    countryCaps.buildCodexSlice(childCountry).includes('上级：灰烬联邦（#1）') === true,
+    countryCaps.buildCodexSlice(childCountry),
+  )
 
   const badKind = await resolve('library_read', { kind: 'pet', id: 7 })
   check('非法 kind 报错不抛异常', badKind?.isError === true && badKind?.content.includes('kind') === true)
@@ -248,6 +330,8 @@ async function main(): Promise<void> {
     url: string
     filename?: string
   }> = []
+  /** 回执用例：写完后宿主能读到路径 / 改动键 / 版本 */
+  const receipts: Array<{ kind: string; id: number; keys: string[] }> = []
   const writer = {
     async setFields(kind: EntityKind, id: number, patch: Record<string, string>) {
       writes.push({ kind, id, patch })
@@ -258,6 +342,16 @@ async function main(): Promise<void> {
       bodies.push({ kind, id, markdown })
       const row = characters.find((item) => item.id === id)
       if (row) Object.assign(row, { bio: markdown })
+    },
+    async receipt(kind: EntityKind, id: number, keys: string[]) {
+      receipts.push({ kind, id, keys })
+      const row = characters.find((item) => item.id === id)
+      return {
+        path: kind === 'character' ? `角色/${row?.name ?? id}.md` : `${kind}/${id}.md`,
+        keys,
+        hash: 'abcdef123456',
+        prevHash: '0123456789ab',
+      }
     },
     async link(
       from: { kind: EntityKind; id: number },
@@ -367,6 +461,15 @@ async function main(): Promise<void> {
   check('写入落到 writer 上', writes.length === 1 && writes[0]?.kind === 'character' && writes[0]?.id === 7)
   check('只带白名单字段', Object.keys(writes[0]?.patch ?? {}).join('、') === 'race、occupation')
   check('写完读回来给模型看', wrote?.content.includes('精灵') === true && wrote?.content.includes('观星人') === true)
+  check(
+    '写入带三行回执（路径 / 改动键 / 版本）',
+    wrote?.content.includes('已写入 角色/林知遥.md') === true &&
+      wrote?.content.includes('改动：race、occupation') === true &&
+      wrote?.content.includes('版本：abcdef1') === true,
+    wrote?.content,
+  )
+  check('回执查询带上本次改动键', receipts[0]?.keys.join('、') === 'race、occupation')
+  check('回执之后不再重复回放正文', wrote?.content.includes('正文：') === false)
 
   const mixed = await resolveW('library_set_fields', {
     kind: 'character',
@@ -375,6 +478,27 @@ async function main(): Promise<void> {
   })
   check('不认识的键被挡下但仍写其余', mixed?.isError === false && mixed?.content.includes('内置字段 bio') === true, mixed?.content.slice(0, 50))
   check('被挡的键要点出来', JSON.stringify(mixed?.data).includes('name') === true)
+  check(
+    '界面维护字段按 ui-only 拒绝并给去处',
+    mixed?.content.includes('[ui-only] name') === true && mixed?.content.includes('library_rename') === true,
+    mixed?.content,
+  )
+
+  const uiOnly = await resolveW('library_set_fields', { kind: 'world', id: 3, fields: { parentId: '2' } })
+  check(
+    'parentId 这类字段给出 ui-only 与维护入口',
+    uiOnly?.isError === true && uiOnly?.content.includes('[ui-only] parentId') === true,
+    uiOnly?.content,
+  )
+
+  const unknownField = await resolveW('library_set_fields', { kind: 'world', id: 3, fields: { race: '人类' } })
+  check(
+    '别的类型的字段按 unknown-field 拒绝',
+    unknownField?.isError === true &&
+      unknownField?.content.includes('[unknown-field] race') === true &&
+      unknownField?.content.includes('角色的') === true,
+    unknownField?.content,
+  )
 
   const onlyRejected = await resolveW('library_set_fields', {
     kind: 'character',
@@ -438,7 +562,13 @@ async function main(): Promise<void> {
   const bodyOk = await resolveW('library_set_body', { kind: 'character', id: 7, body: '# 新的一节\n\n正文。' })
   check('正文写入成功', bodyOk?.isError === false, bodyOk?.content.slice(0, 50))
   check('正文落到 writer 上', bodies.length === 1 && bodies[0]?.markdown === '# 新的一节\n\n正文。')
-  check('写完把正文读回来', bodyOk?.content.includes('正文。') === true)
+  check(
+    '正文写入带回执（不再整篇回放）',
+    bodyOk?.content.includes('已替换《林知遥》的正文') === true &&
+      bodyOk?.content.includes('改动：body') === true &&
+      bodyOk?.content.includes('正文。') === false,
+    bodyOk?.content,
+  )
 
   const bodyEmpty = await resolveW('library_set_body', { kind: 'character', id: 7, body: '   ' })
   check('空正文被拒（要清正文得走别的路）', bodyEmpty?.isError === true && bodies.length === 1)
@@ -538,6 +668,16 @@ async function main(): Promise<void> {
   check('新建落到 writer 上', creates.length === 1 && creates[0]?.title === '沈砚的师父')
   check('新建只带白名单字段', Object.keys(creates[0]?.fields ?? {}).join('、') === 'race、occupation')
   check('回执里有新 id', created?.content.includes('#100') === true, created?.content.slice(0, 40))
+
+  const duplicate = await resolveW('library_create', { kind: 'character', title: '林知遥' })
+  check(
+    '同名创建返回既有 id，不建重复',
+    duplicate?.isError === false &&
+      duplicate?.content.includes('#7') === true &&
+      duplicate?.content.includes('没有再建') === true &&
+      creates.length === 1,
+    duplicate?.content,
+  )
 
   const emptyTitle = await resolveW('library_create', { kind: 'character', title: '   ' })
   check('空标题被拒', emptyTitle?.isError === true && creates.length === 1)
@@ -915,6 +1055,141 @@ async function main(): Promise<void> {
   check(
     'delta.text（另一类网关）',
     textEvents('data: {"choices":[{"delta":{"text":"你好"}}]}') === '你好',
+  )
+
+  // ── 工具结果预算：回放的是裁剪版，UI 保留全文 ─────────────────────────
+  const hugeShell = `${'a'.repeat(3000)}${'b'.repeat(3000)}`
+  const clippedShell = clipToolResult('run_shell', hugeShell)
+  check(
+    'run_shell 保留头尾并给出截断说明',
+    clippedShell.startsWith('a') &&
+      clippedShell.endsWith('b') &&
+      clippedShell.includes('已截断') &&
+      clippedShell.length < hugeShell.length,
+  )
+  check('预算内原样返回', clipToolResult('read_file', 'x'.repeat(100)) === 'x'.repeat(100))
+  check(
+    'read_file 截断后提示用 offset',
+    clipToolResult('read_file', 'x'.repeat(9000)).includes('offset') === true,
+  )
+
+  // ── 循环守卫：只读空转 / 同一调用反复失败 ─────────────────────────────
+  const readTool = toolByName('library_read')
+  const writeTool = toolByName('library_set_fields')
+  if (readTool && writeTool) {
+    const bodies: Array<{ messages: Array<{ role: string; content: string }> }> = []
+    const turns: string[][] = [['library_read'], ['library_read'], ['library_read']]
+    let turn = 0
+    const loop = await runAgentLoop({
+      history: [{ role: 'system', content: 'x' }],
+      tools: [readTool, writeTool],
+      maxSteps: 6,
+      signal: new AbortController().signal,
+      buildBody: (messages) => {
+        bodies.push({ messages: messages as Array<{ role: string; content: string }> })
+        return { messages } as never
+      },
+      stream: async (_body, _signal, onEvent) => {
+        const names = turns[turn++]
+        if (!names) {
+          onEvent({ type: 'content', text: '完成' })
+          return
+        }
+        onEvent({
+          type: 'toolCalls',
+          deltas: names.map((name, index) => ({
+            index,
+            id: `c${turn}-${index}`,
+            name,
+            argumentsDelta: '{}',
+          })),
+        })
+      },
+      approve: async () => 'allow',
+      execute: async () => ({ content: 'ok', isError: false, durationMs: 0 }),
+      onStepStart: () => undefined,
+      onDelta: () => undefined,
+      onToolUpdate: () => undefined,
+    })
+    check('只读 3 轮后停下', loop.steps.length === 4 && loop.exhausted === false)
+    check(
+      '第 4 次请求里带「信息够了」的提醒',
+      JSON.stringify(bodies[3]?.messages ?? []).includes('信息够了') === true,
+    )
+
+    const retryBodies: Array<{ messages: Array<{ role: string; content: string }> }> = []
+    const retryTurns: string[][] = [['library_set_fields'], ['library_set_fields']]
+    let retryTurn = 0
+    const retry = await runAgentLoop({
+      history: [{ role: 'system', content: 'x' }],
+      tools: [readTool, writeTool],
+      maxSteps: 5,
+      signal: new AbortController().signal,
+      buildBody: (messages) => {
+        retryBodies.push({ messages: messages as Array<{ role: string; content: string }> })
+        return { messages } as never
+      },
+      stream: async (_body, _signal, onEvent) => {
+        const names = retryTurns[retryTurn++]
+        if (!names) {
+          onEvent({ type: 'content', text: '完成' })
+          return
+        }
+        onEvent({
+          type: 'toolCalls',
+          deltas: names.map((name, index) => ({
+            index,
+            id: `r${retryTurn}-${index}`,
+            name,
+            argumentsDelta: '{"kind":"character","id":1,"fields":{}}',
+          })),
+        })
+      },
+      approve: async () => 'allow',
+      execute: async () => ({ content: '同样的错误', isError: true, durationMs: 0 }),
+      onStepStart: () => undefined,
+      onDelta: () => undefined,
+      onToolUpdate: () => undefined,
+    })
+    check('同一失败调用重复两次后给出提醒', retry.steps.length === 3)
+    check(
+      '第 3 次请求里带「失败两次」的提醒',
+      JSON.stringify(retryBodies[2]?.messages ?? []).includes('失败两次') === true,
+    )
+  }
+
+  // ── 写作手法：只在创作 / 扮演追加，且可逐项关闭 ───────────────────────
+  const allSkills = [...DEFAULT_WRITING_SKILLS]
+  const creativeSkills = writingSkillsPrompt('CREATIVE', allSkills, 'zh')
+  check(
+    '创作模式注入四段写作手法',
+    creativeSkills.includes('场景') &&
+      creativeSkills.includes('对白') &&
+      creativeSkills.includes('节奏') &&
+      creativeSkills.includes('一致性'),
+    creativeSkills.slice(0, 60),
+  )
+  check(
+    '扮演模式不注入「一致性」（会跳出角色）',
+    writingSkillsPrompt('ROLEPLAY', allSkills, 'zh').includes('一致性检查') === false,
+  )
+  check('AGENT 模式不注入写作手法', writingSkillsPrompt('AGENT', allSkills, 'zh') === '')
+  check('只开一项时只注入一项', writingSkillsPrompt('CREATIVE', ['dialogue'], 'zh').includes('场景推进') === false)
+  const promptCtx = {
+    language: 'zh' as const,
+    workspacePath: null,
+    workspaceName: null,
+    toolNames: [],
+    platform: 'Windows',
+    date: '2026-11-10',
+  }
+  check(
+    'buildSystemPrompt 把人设与写作手法拼在一起',
+    buildSystemPrompt('CREATIVE', { ...promptCtx, writingSkills: ['scene'] }).includes('# 写作手法') === true,
+  )
+  check(
+    '设置页的人格预览不带写作手法（避免编辑时重复）',
+    editablePrompt('CREATIVE', promptCtx).includes('# 写作手法') === false,
   )
 
   console.log(`助手插件自检：${passed} 项断言通过`)

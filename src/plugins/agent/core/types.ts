@@ -218,6 +218,8 @@ export interface Settings {
   /** 各模式的系统提示词覆盖；空串 = 用内置默认。 */
   systemPrompts: Record<ConversationMode, string>
   enabledPresets: string[]
+  /** 创作 / 扮演追加的写作手法 id（见 `core/agent/writing.ts`）；空数组 = 不追加 */
+  writingSkills: string[]
   autoTitle: boolean
   compactKeepRecent: number
 }

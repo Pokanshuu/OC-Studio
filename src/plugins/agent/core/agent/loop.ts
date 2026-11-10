@@ -24,6 +24,7 @@
 import { ToolCallAccumulator, type StreamEvent } from '../sseParser'
 import type { ChatRequestBody, OutMessage } from '../chatRequest'
 import type { AgentStep, ToolCall, ToolResult, Usage } from '../types'
+import { clipToolResult } from './budget'
 import { answerStepIndex } from './trace'
 import type { ToolSpec } from './tools'
 
@@ -80,6 +81,15 @@ export async function runAgentLoop(deps: AgentLoopDeps): Promise<AgentLoopResult
   // 界面上就只剩一片空白。到这一步不再给工具，逼它用文字回答。
   const FORCE_ANSWER_AFTER = 20
   let forcedRetry = false
+  /**
+   * 只读空转守卫：连续 3 轮全是只读调用 → 注入一句「信息够了，动手」。
+   * 这是「雷霆大思考」的主要形态（查了 8 遍库，最后什么都没改），
+   * 每一步都在重放整个上下文，比多写一行提示词贵得多。
+   */
+  let readOnlyStreak = 0
+  let nudged = false
+  /** 同一个失败调用重复 2 次 → 明说别再试（错误原文仍然留在工具结果里） */
+  const failureCounts = new Map<string, number>()
 
   for (let index = 0; index < deps.maxSteps; index++) {
     if (deps.signal.aborted) return { steps, error: null, stopped: true, exhausted: false }
@@ -213,7 +223,34 @@ export async function runAgentLoop(deps: AgentLoopDeps): Promise<AgentLoopResult
       working.push({
         role: 'tool',
         tool_call_id: call.id,
-        content: call.result.content,
+        // 完整输出留在 UI（`call.result`），回放给模型的这份按预算裁：
+        // 工具结果会在后面每一步重放，裁一次省的是复利（agent/budget.ts）。
+        content: clipToolResult(call.name, call.result.content),
+      })
+
+      if (call.result.isError) {
+        const key = `${call.name}:${call.args}`
+        const count = (failureCounts.get(key) ?? 0) + 1
+        failureCounts.set(key, count)
+        if (count === 2) {
+          working.push({
+            role: 'user',
+            content: '（系统）同一个调用已经失败两次：不要再用同样参数重试，换个办法或直接说明卡在哪。',
+          })
+        }
+      }
+    }
+
+    // 只读空转守卫：全部调用都是只读才算「空转」，写操作会把计数清零。
+    const allReadOnly =
+      step.toolCalls.length > 0 &&
+      step.toolCalls.every((call) => deps.tools.find((tool) => tool.name === call.name)?.category === 'read')
+    readOnlyStreak = allReadOnly ? readOnlyStreak + 1 : 0
+    if (readOnlyStreak >= 3 && !nudged) {
+      nudged = true
+      working.push({
+        role: 'user',
+        content: '（系统）只读调用已经连续 3 轮：信息够了，现在动手改，或直接给出结论。',
       })
     }
   }

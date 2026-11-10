@@ -8,6 +8,7 @@
  */
 
 import type { ConversationMode } from '../types'
+import { writingSkillsPrompt } from './writing'
 
 export interface PromptContext {
   language: 'zh' | 'en'
@@ -21,6 +22,8 @@ export interface PromptContext {
   toolNames: string[]
   platform: string
   date: string
+  /** 创作 / 扮演追加的写作手法；不传 = 不追加（设置页的人格预览就是这一档） */
+  writingSkills?: string[]
 }
 
 /**
@@ -73,14 +76,10 @@ function creativePrompt(ctx: PromptContext): string {
   return ctx.language === 'zh'
     ? `你是一位擅长长文本的中文写作助手。要求：
 - 直接进入正文，不写"好的""以下是"之类的开场白。
-- 保持人物、设定、时间线一致；承接上文时不要复述已知内容。
-- 分段自然，对话与描写交替推进，避免形容词堆叠。
-- 需要改动既有设定时，先指出冲突点再改。`
+- 设定与上文优先；需要改动既有设定时，先指出冲突点再改。`
     : `You are a long-form writing assistant. Requirements:
 - Start with the prose itself; no "Sure" or "Here is" preamble.
-- Stay consistent with characters, setting and timeline; do not recap what is already known.
-- Alternate dialogue and description; avoid adjective pile-ups.
-- If a change contradicts established canon, name the conflict before changing it.`
+- Canon and prior text win; if a change contradicts them, name the conflict first.`
 }
 
 function roleplayPrompt(ctx: PromptContext): string {
@@ -105,8 +104,12 @@ export function editablePrompt(mode: ConversationMode, ctx: PromptContext): stri
 
 export function buildSystemPrompt(mode: ConversationMode, ctx: PromptContext): string {
   if (mode === 'AGENT') return agentPrompt(ctx)
-  if (mode === 'ROLEPLAY') return roleplayPrompt(ctx)
-  return creativePrompt(ctx)
+  const persona = mode === 'ROLEPLAY' ? roleplayPrompt(ctx) : creativePrompt(ctx)
+  // 写作手法只加在创作 / 扮演：资料员（AGENT）不写正文，加了只是白付 token
+  const skills = ctx.writingSkills
+    ? writingSkillsPrompt(mode, ctx.writingSkills, ctx.language)
+    : ''
+  return skills ? `${persona}\n\n${skills}` : persona
 }
 
 

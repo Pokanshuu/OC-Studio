@@ -191,6 +191,8 @@ function systemPromptFor(
     toolNames: toolsFor(settings.agent.enabledTools).map((tool) => tool.name),
     platform: navigator.userAgent.includes('Windows') ? 'Windows' : navigator.platform,
     date: new Date().toISOString().slice(0, 10),
+    // 创作 / 扮演才用得上；AGENT 的 buildSystemPrompt 会忽略它
+    writingSkills: settings.writingSkills,
   } as const
 
   // A user-written prompt replaces the persona, but the agent still needs to be

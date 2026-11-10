@@ -193,20 +193,20 @@
 
 ### P0（先做，改动集中、风险低）
 
-- [ ] 能力卡片替代字段表：`gen-library-guide` 改从**能力层**（工具能读写的字段）生成，而不是从 `src/types/index.ts` 的类型转储；
-- [ ] `audit:library-guide` 增加「广告即承诺」校验：类型里的每一列，要么有工具覆盖，要么在上面的豁免表里写明「界面维护」，否则 CI 失败；
-- [ ] 写回执（路径 + 改动键 + hash）；
-- [ ] 错误三分类；
-- [ ] `library_read` 暴露父级、图片槽位与可写脚注；
-- [ ] `journal` 的 `keys` 过滤 `undefined`（清理不是改动）。
+- [x] 能力卡片替代字段表：`gen-library-guide` 改从**能力层**（工具能读写的字段）生成，而不是从 `src/types/index.ts` 的类型转储；
+- [x] `audit:library-guide` 增加「广告即承诺」校验：类型里的每一列，要么有工具覆盖，要么在 `UI_ONLY_FIELDS` 里写明「界面维护」，否则失败；
+- [x] 写回执（路径 + 改动键 + hash）；
+- [x] 错误三分类（`unknown-field` / `ui-only` / `new-field`）+ 同名创建返回既有 id；
+- [x] `library_read` 暴露父级、图片槽位与可写脚注（正文默认 4k，`include_body` 取全文）；
+- [x] `journal` 的 `keys` 过滤 `undefined`（清理不是改动）。
 
 **验收**：golden task「要求写一个界面维护字段」必须被 `ui-only` 拒绝；「建子国家」能读回父级。
 
 ### P1
 
-- [ ] 工具收敛到 10–12 个（合并 `set_fields` / `set_tags` / `set_placement`）；
+- [ ] 工具收敛到 10–12 个（合并 `set_fields` / `set_tags` / `rename` / `set_placement` 为 `library_update`）；
 - [ ] 笔记库模式下线 `run_shell`，拦截实体文件直写；
-- [ ] 工具结果预算；
+- [x] 工具结果预算（`core/agent/budget.ts`，UI 仍保留全文）；
 - [ ] `library_history`。
 
 ### P2
@@ -215,6 +215,24 @@
 - [ ] 示例注入；
 - [ ] 缓存分层与 thinking 分档；
 - [ ] golden tasks 进 CI。
+
+### 落地记录（2026-11-10 第一轮）
+
+| 项 | 之前 | 之后 |
+|---|---|---|
+| 工具 schema | 18,970 字符 / ≈4,758 tokens | 14,763 / ≈3,697 |
+| 库手册 | 3,527 字符 / ≈1,188 tokens | 1,039 / ≈379（能力卡片） |
+| 人格 | 1,174 字符 / ≈295 tokens | 不变 |
+| **固定前缀合计** | **23,671 字符 / ≈6,241 tokens** | **16,976 / ≈4,371（tokens −30%）** |
+
+另外三处不体现在固定前缀里、但影响每任务总成本：
+
+- **工具结果预算**（`budget.ts`）：`read_file` 8k、`grep` 5k、`run_shell` 2k+2k、`library_read` 4k；被裁的是**回放给模型**的那份，UI 仍显示全文。
+- **循环守卫**：连续 3 轮只读 → 注入「信息够了」；同一调用失败两次 → 不再重试；默认步数 64 → 12。
+- **回执 / 幂等**：写完不用再读一遍，同名创建不建重复 —— 省的是「验证步」，而每一步都要重放整个前缀。
+
+写作能力（本轮新增，设计稿里原本只在 §5.3 提了一句）：四段内置手法（场景 / 对白 / 节奏 / 一致性）只在创作 / 扮演注入，逐项可关；见 `src/plugins/agent/core/agent/writing.ts`。
+
 
 ---
 

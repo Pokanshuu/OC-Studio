@@ -27,6 +27,7 @@ import { useChatStore } from '@/plugins/agent/state/chat'
 import { useLang, useT } from '@/plugins/agent/i18n'
 import { ALL_TOOLS, toolsFor } from '@/plugins/agent/core/agent/tools'
 import { editablePrompt } from '@/plugins/agent/core/agent/prompt'
+import { WRITING_SKILLS } from '@/plugins/agent/core/agent/writing'
 import { chatCompletionsUrl, modelsUrl, PROVIDERS, knownModels, type ProviderKind } from '@/plugins/agent/core/provider'
 import { fetchRemoteModels } from '@/plugins/agent/api/chat'
 import { cmd } from '@/plugins/agent/api/bridge'
@@ -411,6 +412,38 @@ function PromptsSection() {
         >
           {t('settings.promptReset')}
         </button>
+      )}
+
+      {mode !== 'AGENT' && (
+        <>
+          <div className="section-title" style={{ marginTop: 8 }}>
+            {t('settings.writingSkills')}
+          </div>
+          {WRITING_SKILLS.filter((skill) => mode === 'CREATIVE' || skill.id !== 'continuity').map(
+            (skill) => {
+              const enabled = settings.writingSkills.includes(skill.id)
+              return (
+                <FieldRow
+                  key={skill.id}
+                  label={lang === 'zh' ? skill.label.zh : skill.label.en}
+                  hint={lang === 'zh' ? skill.hint.zh : skill.hint.en}
+                >
+                  <Switch
+                    checked={enabled}
+                    onChange={(next) =>
+                      patch((current) => ({
+                        ...current,
+                        writingSkills: next
+                          ? [...current.writingSkills, skill.id]
+                          : current.writingSkills.filter((id) => id !== skill.id),
+                      }))
+                    }
+                  />
+                </FieldRow>
+              )
+            },
+          )}
+        </>
       )}
 
       <div className="section-title" style={{ marginTop: 8 }}>

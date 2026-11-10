@@ -208,6 +208,7 @@ npm run audit:site   # 静态站导出逻辑（角色路由 / 时间标签 / 本
 npm run audit:export  # 海报契约（六套版式 / 元数据 / 画布 / 选项兜底 / 正文顺序 / 封面取景）
 npm run audit:document  # 文档导出（Markdown 无 HTML 噪声 / TXT / Word XML / 预览模型 / 分区裁剪）
 npm run audit:capabilities  # 只读能力层（权限入口 / 列表 / 读取 / 搜索 / 切片）
+npm run audit:agent   # 助手接缝 + 能力卡片漂移 + 固定前缀预算
 npm run audit:search  # 全局搜索匹配（分词 / 打分 / 摘要 / 高亮）
 npm run audit:tree    # 表格（树形表格）行模型（层级 / 分组 / 搜索保留祖先）
 npm run audit:map    # 地图锚点 + 国界填充色
@@ -272,7 +273,7 @@ npx tauri build   # Tauri 打包 (.exe/.msi)
   - `docs/插件.md` — 社区插件（沙箱 + 白名单 RPC）、两个官方插件、skill
   - `docs/主题.md` — 自定义令牌与主题包（三层 + 两级作用域）
   - `docs/Agent接入.md` — 库 API + MCP/插件适配器、权限分级、`actor` 留痕
-  - `docs/Agent设计-下一版.md` — 助手下一版的工具面 / 上下文 / 评估（**设计稿，未实施**）
+  - `docs/Agent设计-下一版.md` — 助手下一版的工具面 / 上下文 / 评估（P0 已落地，P1 工具收敛未做）
   - `docs/小说.md` — 章节 = 笔记、大纲用 `parentId`、导出器
   - `docs/地图.md` — 地图是视图不是实体；锚点归一化存在实体上
   - `docs/导出器.md` — 全局导出中心（海报六套版式 / 静态站三套版式 / 文档 / 备份；预览、参数、预设）

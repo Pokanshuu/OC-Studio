@@ -499,7 +499,12 @@ async function planTextWrite(
     expectedMtimeMs: state !== undefined && state.mtimeMs > 0 ? state.mtimeMs : undefined,
     nextState,
     title,
-    changedKeys: [...Object.keys(updates), ...(bodyChanged ? ['body'] : [])],
+    // `undefined` 在 frontmatter 里表示「删掉这个键」，不是一次改动：
+    // 新建时的空 `parent` 以前会混进 keys，读时间线的人会以为改过层级。
+    changedKeys: [
+      ...Object.keys(updates).filter((key) => updates[key] !== undefined),
+      ...(bodyChanged ? ['body'] : []),
+    ],
     prevContent: baseContent,
     isNew,
     actor,

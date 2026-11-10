@@ -2,9 +2,15 @@
  * The agent's tool belt.
  *
  * The **schemas live here** (they are part of the prompt: the model reads them),
- * the **execution lives in Rust** (`src-tauri/src/tools.rs`), and the SDK-style
- * ergonomics live in `agent/loop.ts`. Keeping the three apart means a tool can be
- * renamed or re-described without touching filesystem code.
+ * the **execution lives in Rust** (`src-tauri/src/tools.rs`) or the host
+ * (`src/lib/capabilities/agent-tools.ts`), and the SDK-style ergonomics live in
+ * `agent/loop.ts`.
+ *
+ * ⚠️ **Every character here is charged on every request.** Descriptions are one
+ * or two sentences: trigger ("when to use this"), the one non-obvious rule, and
+ * nothing that the capability cards already say. The previous version repeated
+ * the whole field table / slot list in three places and cost ~19k characters
+ * (≈4.8k tokens) per turn — see `scripts/agent-budget-check.ts`.
  *
  * Descriptions are in English because tool-calling quality is measurably better
  * with the schemas most models were trained on; the UI labels are localised.
@@ -30,23 +36,31 @@ export interface ToolSpec {
 
 const pathProp = {
   type: 'string',
-  description: 'Path relative to the workspace root. Absolute paths must stay inside it.',
+  description: 'Path relative to the workspace root.',
 }
+
+const entityKindProp = {
+  type: 'string',
+  enum: ['character', 'event', 'country', 'world'],
+  description: 'Entity kind.',
+}
+
+const entityIdProp = { type: 'integer', description: 'Entity id.' }
+
+const okRead = { requiresApproval: false, category: 'read' as const }
+const okWrite = { requiresApproval: true, category: 'write' as const }
 
 export const ALL_TOOLS: ToolSpec[] = [
   {
     name: 'read_file',
-    category: 'read',
-    requiresApproval: false,
-    description:
-      'Read a UTF-8 text file from the workspace. Returns the content with line numbers, ' +
-      'so you can quote exact line references. Use `offset`/`limit` to page through big files.',
+    ...okRead,
+    description: 'Read a UTF-8 file with line numbers. Use offset/limit to page through big files.',
     parameters: {
       type: 'object',
       properties: {
         path: pathProp,
-        offset: { type: 'integer', description: 'Zero-based line to start at.' },
-        limit: { type: 'integer', description: 'Max lines to return (default 600, max 2000).' },
+        offset: { type: 'integer', description: 'Zero-based first line.' },
+        limit: { type: 'integer', description: 'Max lines (default 600, max 2000).' },
       },
       required: ['path'],
       additionalProperties: false,
@@ -54,11 +68,8 @@ export const ALL_TOOLS: ToolSpec[] = [
   },
   {
     name: 'write_file',
-    category: 'write',
-    requiresApproval: true,
-    description:
-      'Create a file or overwrite an existing one with the given content. Always prefer ' +
-      '`edit_file` for small changes to existing files.',
+    ...okWrite,
+    description: 'Create or overwrite a file. Prefer edit_file for existing files.',
     parameters: {
       type: 'object',
       properties: {
@@ -71,11 +82,8 @@ export const ALL_TOOLS: ToolSpec[] = [
   },
   {
     name: 'edit_file',
-    category: 'write',
-    requiresApproval: true,
-    description:
-      'Replace an exact string in a file. `old_string` must match the file byte for byte, ' +
-      'including indentation, and must be unique unless `replace_all` is true.',
+    ...okWrite,
+    description: 'Replace an exact, unique string in an existing file.',
     parameters: {
       type: 'object',
       properties: {
@@ -90,30 +98,26 @@ export const ALL_TOOLS: ToolSpec[] = [
   },
   {
     name: 'list_dir',
-    category: 'read',
-    requiresApproval: false,
-    description: 'List the contents of a directory, recursively up to `depth` levels.',
+    ...okRead,
+    description: 'List a directory tree, `depth` levels deep.',
     parameters: {
       type: 'object',
       properties: {
         path: pathProp,
-        depth: { type: 'integer', description: 'Recursion depth, default 2 (max 4).' },
+        depth: { type: 'integer', description: 'Recursion depth (default 2, max 4).' },
       },
       additionalProperties: false,
     },
   },
   {
     name: 'glob',
-    category: 'read',
-    requiresApproval: false,
-    description:
-      'Find files by glob pattern, e.g. `**/*.ts` or `src/**/*.{json,yml}`. ' +
-      'Returns workspace-relative paths.',
+    ...okRead,
+    description: 'Find files by glob pattern, e.g. `**/*.ts`.',
     parameters: {
       type: 'object',
       properties: {
         pattern: { type: 'string', description: 'Glob pattern; `**` crosses directories.' },
-        path: { type: 'string', description: 'Directory to search from (default: workspace root).' },
+        path: { type: 'string', description: 'Directory to search from (default: root).' },
       },
       required: ['pattern'],
       additionalProperties: false,
@@ -121,19 +125,16 @@ export const ALL_TOOLS: ToolSpec[] = [
   },
   {
     name: 'grep',
-    category: 'read',
-    requiresApproval: false,
-    description:
-      'Search file contents with a regular expression. Returns `path:line: text` hits. ' +
-      'Use it to locate code before reading it.',
+    ...okRead,
+    description: 'Search file contents with a regex; returns `path:line: text` hits.',
     parameters: {
       type: 'object',
       properties: {
         pattern: { type: 'string', description: 'Rust regex syntax.' },
-        path: { type: 'string', description: 'Directory to search from (default: workspace root).' },
-        include: { type: 'string', description: 'Only search files matching this glob.' },
+        path: { type: 'string', description: 'Directory to search from (default: root).' },
+        include: { type: 'string', description: 'Only files matching this glob.' },
         case_sensitive: { type: 'boolean', description: 'Default false.' },
-        max_results: { type: 'integer', description: 'Default 80, max 400.' },
+        max_results: { type: 'integer', description: 'Default 30, max 200.' },
       },
       required: ['pattern'],
       additionalProperties: false,
@@ -143,10 +144,7 @@ export const ALL_TOOLS: ToolSpec[] = [
     name: 'run_shell',
     category: 'exec',
     requiresApproval: true,
-    description:
-      'Run a shell command in the workspace (cmd /c on Windows, sh -lc elsewhere). ' +
-      'Returns combined stdout/stderr and the exit code. Prefer reading files over ' +
-      'using shell commands for inspection.',
+    description: 'Run a shell command in the workspace (cmd / sh). Use file tools for inspection.',
     parameters: {
       type: 'object',
       properties: {
@@ -162,7 +160,7 @@ export const ALL_TOOLS: ToolSpec[] = [
     name: 'fetch_url',
     category: 'net',
     requiresApproval: true,
-    description: 'Fetch an http(s) URL and return it as plain text (HTML is stripped).',
+    description: 'Fetch an http(s) URL as plain text (HTML stripped).',
     parameters: {
       type: 'object',
       properties: { url: { type: 'string', description: 'Absolute http(s) URL.' } },
@@ -174,9 +172,7 @@ export const ALL_TOOLS: ToolSpec[] = [
     name: 'todo_write',
     category: 'meta',
     requiresApproval: false,
-    description:
-      'Record the task list for a multi-step job. Use it to keep the plan visible and ' +
-      'to mark progress. Sending an empty list clears it.',
+    description: 'Track a multi-step job. Send the full list; `[]` clears it.',
     parameters: {
       type: 'object',
       properties: {
@@ -197,53 +193,38 @@ export const ALL_TOOLS: ToolSpec[] = [
       additionalProperties: false,
     },
   },
-  // ── OC Studio 宿主注入：设定库只读接口 ────────────────────────────────
-  // 这四个由宿主执行（`src/lib/capabilities/agent-tools.ts`），不走 Rust 文件层。
-  // 它们回答的是「这套设定里有什么」，比翻文件夹更接近作者真正想问的事。
+  // ── OC Studio 宿主注入：设定库接口 ─────────────────────────────────────
+  // 这些由宿主执行（`src/lib/capabilities/agent-tools.ts`），不走 Rust 文件层。
   {
     name: 'library_list',
-    category: 'read',
-    requiresApproval: false,
+    ...okRead,
     description:
-      "List entries in the author's worldbuilding library (characters, events, countries, " +
-      'lore entries). Omit `kind` for an overview with counts. Newest edits first. ' +
-      'Filter with `category` (lore notes only, e.g. 宠物 / 小说), `tag` (exact tag name) or ' +
-      '`isMajor` (characters only) instead of listing everything and counting yourself.',
+      'List library entries (characters, events, countries, lore). Omit `kind` for counts. ' +
+      'Filters: `category`, `tag`, `isMajor`.',
     parameters: {
       type: 'object',
       properties: {
-        kind: {
-          type: 'string',
-          enum: ['character', 'event', 'country', 'world'],
-          description: 'Entity kind to list. Omit for an overview of all four.',
-        },
+        kind: { ...entityKindProp, description: 'Entity kind; omit for an overview.' },
         limit: { type: 'integer', description: 'Max rows per kind (default 40, max 200).' },
-        category: {
-          type: 'string',
-          description: 'world only: exact category name. Filters before the limit is applied.',
-        },
-        tag: { type: 'string', description: 'Exact tag name, e.g. 主角.' },
-        isMajor: { type: 'boolean', description: 'character only: only entries marked as major.' },
+        category: { type: 'string', description: 'world: exact category name.' },
+        tag: { type: 'string', description: 'Exact tag name.' },
+        isMajor: { type: 'boolean', description: 'character: only major entries.' },
       },
       additionalProperties: false,
     },
   },
   {
     name: 'library_read',
-    category: 'read',
-    requiresApproval: false,
+    ...okRead,
     description:
-      'Read one library entry in full: fields, relations, related events in time order, ' +
-      'tags and body text, rendered as Markdown. Get the id from library_list or library_search.',
+      'Read one entry: fields, relations, events, tags and body. Body is clipped to 4k chars ' +
+      'unless `include_body`. Ends with a note of which fields are writable.',
     parameters: {
       type: 'object',
       properties: {
-        kind: {
-          type: 'string',
-          enum: ['character', 'event', 'country', 'world'],
-          description: 'Entity kind.',
-        },
-        id: { type: 'integer', description: 'Entity id, as shown in library_list.' },
+        kind: entityKindProp,
+        id: entityIdProp,
+        include_body: { type: 'boolean', description: 'Return the full body (default false).' },
       },
       required: ['kind', 'id'],
       additionalProperties: false,
@@ -251,21 +232,15 @@ export const ALL_TOOLS: ToolSpec[] = [
   },
   {
     name: 'library_search',
-    category: 'read',
-    requiresApproval: false,
+    ...okRead,
     description:
-      'Search the library by title, alias, tag name **and body text** — use this to check ' +
-      '"did I already write this setting somewhere". Hits found only in the body are marked. ' +
-      'Pass include_body: false to match titles / aliases / tags only.',
+      'Search titles, aliases, tags and body — use it to check for duplicates or established canon.',
     parameters: {
       type: 'object',
       properties: {
         query: { type: 'string', description: 'Title, alias, tag or body fragment.' },
         limit: { type: 'integer', description: 'Max hits (default 20, max 50).' },
-        include_body: {
-          type: 'boolean',
-          description: 'Scan body text too (default true). Set false for name-only search.',
-        },
+        include_body: { type: 'boolean', description: 'Scan body too (default true).' },
       },
       required: ['query'],
       additionalProperties: false,
@@ -273,21 +248,14 @@ export const ALL_TOOLS: ToolSpec[] = [
   },
   {
     name: 'library_graph',
-    category: 'read',
-    requiresApproval: false,
-    description:
-      'Walk the relationship graph around one entry for one or two hops. Related events count ' +
-      'as a hop, so this is the best way to ask "what happened to this character".',
+    ...okRead,
+    description: 'Walk the relation graph around one entry (1–2 hops), including related events.',
     parameters: {
       type: 'object',
       properties: {
-        kind: {
-          type: 'string',
-          enum: ['character', 'event', 'country', 'world'],
-          description: 'Entity kind.',
-        },
-        id: { type: 'integer', description: 'Entity id.' },
-        hops: { type: 'integer', description: 'How many hops (1 or 2, default 1).' },
+        kind: entityKindProp,
+        id: entityIdProp,
+        hops: { type: 'integer', description: '1 or 2 (default 1).' },
       },
       required: ['kind', 'id'],
       additionalProperties: false,
@@ -295,48 +263,31 @@ export const ALL_TOOLS: ToolSpec[] = [
   },
   {
     name: 'library_templates',
-    category: 'read',
-    requiresApproval: false,
+    ...okRead,
     description:
-      'Describe the library catalogue: every template with its enabled components and the info-group ' +
-      'fields it uses (key + display name), plus which template each category is bound to. Read this ' +
-      'before writing custom fields — the keys you need are listed here.',
+      'List templates, categories and info-group fields (key + label). Read before writing custom fields.',
     parameters: { type: 'object', properties: {}, additionalProperties: false },
   },
   {
     name: 'library_set_fields',
-    category: 'write',
-    requiresApproval: true,
+    ...okWrite,
     description:
-      "Update text fields of one library entry. Built-in columns (a character's race / occupation / " +
-      'faction, an event\'s location, …) and the entry\'s own custom fields are both handled here — ' +
-      'you do not need a second tool and you do not need to know which is which: a key that matches a ' +
-      'built-in column is written there (that always wins), any other known custom key goes to the ' +
-      'custom field map. Read the entry first (library_read) to see its custom keys. Unknown keys are ' +
-      'rejected unless you pass create_new: true. Does not touch body text and does not rename.',
+      'Write scalar fields of one entry (built-in columns and existing custom keys alike). ' +
+      'Unknown keys are rejected unless `create_new`; an empty string clears a field.',
     parameters: {
       type: 'object',
       properties: {
-        kind: {
-          type: 'string',
-          enum: ['character', 'event', 'country', 'world'],
-          description: 'Entity kind.',
-        },
-        id: { type: 'integer', description: 'Entity id.' },
+        kind: entityKindProp,
+        id: entityIdProp,
         fields: {
           type: 'object',
           description:
-            'Key → new text. Built-in keys: characters race / element / occupation / faction / ' +
-            'height / birthday / bio; events time / endTime / location / summary; countries ' +
-            'description / system / geography / culture; lore summary / chapterOutline. ' +
-            'Any other key must already exist on the entry (see library_read), or pass create_new. ' +
-            'An empty string clears the field.',
+            'Key → text. Built-in: character race/element/occupation/faction/height/birthday/bio; ' +
+            'event time/endTime/location/summary; country description/system/geography/culture; ' +
+            'world summary/time/endTime/location/chapterOutline. Any other key must exist on the entry.',
           additionalProperties: { type: 'string' },
         },
-        create_new: {
-          type: 'boolean',
-          description: 'Allow writing custom keys that do not exist yet (default false).',
-        },
+        create_new: { type: 'boolean', description: 'Allow new custom keys (default false).' },
       },
       required: ['kind', 'id', 'fields'],
       additionalProperties: false,
@@ -344,22 +295,15 @@ export const ALL_TOOLS: ToolSpec[] = [
   },
   {
     name: 'library_set_body',
-    category: 'write',
-    requiresApproval: true,
+    ...okWrite,
     description:
-      'Replace the body text of one library entry with the given Markdown. This overwrites ' +
-      'whatever is there now, so read the entry first and keep what still holds. ' +
-      'Wiki links written as [[Title]] are resolved against the library.',
+      "Replace an entry's body with Markdown (whole document; read it first). `[[Title]]` links resolve.",
     parameters: {
       type: 'object',
       properties: {
-        kind: {
-          type: 'string',
-          enum: ['character', 'event', 'country', 'world'],
-          description: 'Entity kind.',
-        },
-        id: { type: 'integer', description: 'Entity id.' },
-        body: { type: 'string', description: 'Full body as Markdown. Must not be empty.' },
+        kind: entityKindProp,
+        id: entityIdProp,
+        body: { type: 'string', description: 'Full body as Markdown.' },
       },
       required: ['kind', 'id', 'body'],
       additionalProperties: false,
@@ -367,30 +311,18 @@ export const ALL_TOOLS: ToolSpec[] = [
   },
   {
     name: 'library_link',
-    category: 'write',
-    requiresApproval: true,
-    description:
-      'Record a relationship between two existing entries: character→character, character→country ' +
-      '(nationality), event→character (participant) or event→country. The link is stored on the ' +
-      'from side only. Idempotent: linking the same pair twice is a no-op.',
+    ...okWrite,
+    description: 'Link two entries; the from side owns the edge. Idempotent.',
     parameters: {
       type: 'object',
       properties: {
-        from: {
-          type: 'string',
-          enum: ['character', 'event', 'country', 'world'],
-          description: 'Kind of the entry that owns the link (the "from" side).',
-        },
-        fromId: { type: 'integer', description: 'From entity id.' },
-        to: {
-          type: 'string',
-          enum: ['character', 'event', 'country', 'world'],
-          description: 'Kind of the entry being pointed at.',
-        },
-        toId: { type: 'integer', description: 'To entity id.' },
+        from: { ...entityKindProp, description: 'Kind of the entry owning the link.' },
+        fromId: entityIdProp,
+        to: { ...entityKindProp, description: 'Kind of the entry pointed at.' },
+        toId: entityIdProp,
         relation: {
           type: 'string',
-          description: 'Short label, e.g. 同门 / 宿敌 / 师承. Ignored for nationality links.',
+          description: 'Short label, e.g. 同门 / 宿敌. Ignored for nationality.',
         },
       },
       required: ['from', 'fromId', 'to', 'toId', 'relation'],
@@ -399,41 +331,26 @@ export const ALL_TOOLS: ToolSpec[] = [
   },
   {
     name: 'library_create',
-    category: 'write',
-    requiresApproval: true,
+    ...okWrite,
     description:
-      'Create a new library entry of the given kind and return it. Only the title and the whitelisted ' +
-      'scalar fields can be set here; add the body afterwards with library_set_body and connections ' +
-      'with library_link. For world entries (lore notes) you may also pass category / template / ' +
-      'parentId to place it in a custom category, a novel (category=小说) or under a parent note.',
+      'Create an entry and return its id. An existing same-title entry is returned instead. ' +
+      'Add body and links with the dedicated tools.',
     parameters: {
       type: 'object',
       properties: {
-        kind: {
-          type: 'string',
-          enum: ['character', 'event', 'country', 'world'],
-          description: 'Entity kind to create.',
-        },
+        kind: entityKindProp,
         title: { type: 'string', description: 'Title (or name, for characters and countries).' },
         fields: {
           type: 'object',
-          description: 'Optional scalar fields, same whitelist as library_set_fields.',
+          description: 'Optional scalar fields (same whitelist as library_set_fields).',
           additionalProperties: { type: 'string' },
         },
         category: {
           type: 'string',
-          description:
-            'world only: category name from the library catalog (e.g. 宠物, or 小说 for a novel root). ' +
-            'Omit for a plain lore entry.',
+          description: 'world: category name (e.g. 宠物, 小说).',
         },
-        template: {
-          type: 'string',
-          description: 'world only: template name; normally follows the category.',
-        },
-        parentId: {
-          type: 'integer',
-          description: 'world only: parent entry id (e.g. a novel chapter points at its novel root).',
-        },
+        template: { type: 'string', description: 'world: template name; normally follows category.' },
+        parentId: { type: 'integer', description: 'world: parent entry id.' },
       },
       required: ['kind', 'title'],
       additionalProperties: false,
@@ -441,53 +358,28 @@ export const ALL_TOOLS: ToolSpec[] = [
   },
   {
     name: 'library_delete',
-    category: 'write',
-    requiresApproval: true,
+    ...okWrite,
     description:
-      'Move one library entry to the trash (soft delete, recoverable). Use this instead of deleting ' +
-      'files or running rm / del / Remove-Item. Only remove entries the user asked to remove, or an ' +
-      'entry you just created by mistake.',
+      'Move one entry to the trash (soft delete, recoverable). Never delete files or run rm / del.',
     parameters: {
       type: 'object',
-      properties: {
-        kind: {
-          type: 'string',
-          enum: ['character', 'event', 'country', 'world'],
-          description: 'Entity kind.',
-        },
-        id: { type: 'integer', description: 'Entity id.' },
-      },
+      properties: { kind: entityKindProp, id: entityIdProp },
       required: ['kind', 'id'],
       additionalProperties: false,
     },
   },
   {
     name: 'library_set_tags',
-    category: 'write',
-    requiresApproval: true,
+    ...okWrite,
     description:
-      'Replace the tags of library entries with the given names. Pass `id` for one entry or `ids` ' +
-      'to tag many at once (max 50) — bulk tagging takes one call, not one call per entry. Names are ' +
-      'matched exactly; names that do not exist yet are created. An empty array clears every tag.',
+      'Replace tags by name (missing names are created; an empty array clears). Use `ids` to tag up to 50 at once.',
     parameters: {
       type: 'object',
       properties: {
-        kind: {
-          type: 'string',
-          enum: ['character', 'event', 'country', 'world'],
-          description: 'Entity kind.',
-        },
+        kind: entityKindProp,
         id: { type: 'integer', description: 'Single entity id.' },
-        ids: {
-          type: 'array',
-          items: { type: 'integer' },
-          description: 'Batch: entity ids (max 50). Use instead of id.',
-        },
-        tags: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'Tag names (max 20). Empty array clears the tags.',
-        },
+        ids: { type: 'array', items: { type: 'integer' }, description: 'Batch ids (max 50).' },
+        tags: { type: 'array', items: { type: 'string' }, description: 'Tag names (max 20).' },
       },
       required: ['kind', 'tags'],
       additionalProperties: false,
@@ -495,36 +387,23 @@ export const ALL_TOOLS: ToolSpec[] = [
   },
   {
     name: 'library_set_media',
-    category: 'write',
-    requiresApproval: true,
+    ...okWrite,
     description:
-      'Set an image slot of one entry. Give `url` and the host downloads it into the library folder ' +
-      '(附件/, done in Rust, no CORS, max 20 MB, png/jpg/jpeg/webp/gif/avif, never overwrites). Give ' +
-      '`path` instead when the file is already inside the library (vault-relative, e.g. 附件/forest.png). ' +
-      'Slots: character avatar/header, event header, country flag/header, world cover/avatar/image/novelCover.',
+      'Set an image slot from `url` (downloaded into 附件/) or a library-relative `path`. ' +
+      'Slots: character avatar/header; event header; country flag/header; world cover/avatar/image/novelCover.',
     parameters: {
       type: 'object',
       properties: {
-        kind: {
-          type: 'string',
-          enum: ['character', 'event', 'country', 'world'],
-          description: 'Entity kind.',
-        },
-        id: { type: 'integer', description: 'Entity id.' },
+        kind: entityKindProp,
+        id: entityIdProp,
         slot: {
           type: 'string',
           enum: ['avatar', 'header', 'flag', 'cover', 'image', 'novelCover'],
-          description: 'Image slot. Not every slot exists on every kind; see the description.',
+          description: 'Slot; not every kind has every slot.',
         },
-        url: { type: 'string', description: 'Absolute http(s) image URL to download.' },
-        path: {
-          type: 'string',
-          description: 'Vault-relative path of an existing file, e.g. 附件/forest.png.',
-        },
-        filename: {
-          type: 'string',
-          description: 'With url: optional target file name (allowed image extension).',
-        },
+        url: { type: 'string', description: 'http(s) image URL to download.' },
+        path: { type: 'string', description: 'Existing library path, e.g. 附件/forest.png.' },
+        filename: { type: 'string', description: 'Optional file name when downloading.' },
       },
       required: ['kind', 'id', 'slot'],
       additionalProperties: false,
@@ -532,25 +411,19 @@ export const ALL_TOOLS: ToolSpec[] = [
   },
   {
     name: 'library_rename',
-    category: 'write',
-    requiresApproval: true,
+    ...okWrite,
     description:
-      'Rename one entry. The title change goes through the normal rename path, so wiki-link labels ' +
-      'pointing at it are updated. Optionally replace its aliases in the same call (pass [] to clear).',
+      'Rename an entry; wiki-link labels are updated. Optionally replace its aliases ([] clears).',
     parameters: {
       type: 'object',
       properties: {
-        kind: {
-          type: 'string',
-          enum: ['character', 'event', 'country', 'world'],
-          description: 'Entity kind.',
-        },
-        id: { type: 'integer', description: 'Entity id.' },
-        title: { type: 'string', description: 'New title (or name, for characters and countries).' },
+        kind: entityKindProp,
+        id: entityIdProp,
+        title: { type: 'string', description: 'New title (or name for characters / countries).' },
         aliases: {
           type: 'array',
           items: { type: 'string' },
-          description: 'Optional full alias list (max 20). Empty array clears aliases.',
+          description: 'Full alias list (max 20); [] clears.',
         },
       },
       required: ['kind', 'id', 'title'],
@@ -559,34 +432,18 @@ export const ALL_TOOLS: ToolSpec[] = [
   },
   {
     name: 'library_set_placement',
-    category: 'write',
-    requiresApproval: true,
+    ...okWrite,
     description:
-      'world only: move a note into a category, switch its template, or change its parent. Use names ' +
-      'from the library catalog (小说 for a novel, 地图 for a map). Empty string clears category / ' +
-      'template; parentId: null makes it a root. Does not create categories/templates — those are ' +
-      'defined by the author in the UI.',
+      'world only: move to a category, switch template, or change parent. Empty string clears; ' +
+      'parentId null = root. Categories / templates are created by the author in the UI.',
     parameters: {
       type: 'object',
       properties: {
-        kind: {
-          type: 'string',
-          enum: ['character', 'event', 'country', 'world'],
-          description: 'Must be world.',
-        },
-        id: { type: 'integer', description: 'Entity id.' },
-        category: {
-          type: 'string',
-          description: 'Category name, or "" to clear (plain lore entry).',
-        },
-        template: {
-          type: 'string',
-          description: 'Template name, or "" to follow the category.',
-        },
-        parentId: {
-          type: ['integer', 'null'],
-          description: 'Parent note id, or null for a root entry.',
-        },
+        kind: { ...entityKindProp, description: 'Must be world.' },
+        id: entityIdProp,
+        category: { type: 'string', description: 'Category name, or "" to clear.' },
+        template: { type: 'string', description: 'Template name, or "" to follow the category.' },
+        parentId: { type: ['integer', 'null'], description: 'Parent note id, or null for root.' },
       },
       required: ['kind', 'id'],
       additionalProperties: false,
@@ -594,33 +451,23 @@ export const ALL_TOOLS: ToolSpec[] = [
   },
   {
     name: 'library_create_category',
-    category: 'write',
-    requiresApproval: true,
+    ...okWrite,
     description:
-      'Create a custom category (a sidebar section backed by a note template). Pass `fields` to also ' +
-      'create an info group and a note template in one call (recommended for a brand-new category). ' +
-      'Without `fields`, bind an existing template (default: 词条). Deleting/editing categories is ' +
-      'still done by the author in the UI.',
+      'Create a category; with `fields` it also creates the info group and note template in one call.',
     parameters: {
       type: 'object',
       properties: {
         name: { type: 'string', description: 'Category name (also the note `category` value).' },
-        template: {
-          type: 'string',
-          description: 'Existing template name to bind (e.g. 词条). Omit when passing fields.',
-        },
-        icon: {
-          type: 'string',
-          description: 'Icon name from the category icon set (e.g. sparkles, leaf, flaskConical).',
-        },
+        template: { type: 'string', description: 'Existing template to bind (e.g. 词条).' },
+        icon: { type: 'string', description: 'Icon name, e.g. sparkles / leaf / flaskConical.' },
         fields: {
           type: 'array',
           items: { type: 'string' },
-          description: 'Optional field keys (max 30). Creates an info group + note template for this category.',
+          description: 'Field keys (max 30); creates an info group + template.',
         },
         labels: {
           type: 'object',
-          description: 'Optional field key → display name.',
+          description: 'Field key → display name.',
           additionalProperties: { type: 'string' },
         },
       },
@@ -630,12 +477,10 @@ export const ALL_TOOLS: ToolSpec[] = [
   },
   {
     name: 'library_set_novel',
-    category: 'write',
-    requiresApproval: true,
+    ...okWrite,
     description:
-      'Set the work info of a novel root note (category 小说): author, synopsis, target word count, ' +
-      'notes and cover path. Create the novel root first with library_create (world, category=小说). ' +
-      'Chapters are notes with parentId set to the root.',
+      'Set the work info of a novel root (a world entry with category 小说): author, synopsis, ' +
+      'target word count, notes and cover path. Chapters are notes with parentId = root.',
     parameters: {
       type: 'object',
       properties: {
@@ -652,22 +497,17 @@ export const ALL_TOOLS: ToolSpec[] = [
   },
   {
     name: 'novel_write_chapter',
-    category: 'write',
-    requiresApproval: true,
+    ...okWrite,
     description:
-      'Write the body of a chapter in the novel selected for this creative-writing conversation. ' +
-      'Without `chapterId` it creates a NEW chapter (never overwrites an existing one); pass ' +
-      '`chapterId` to rewrite that chapter — use it to fix a chapter you just wrote. Only available ' +
-      'when the author turned on write-back for this conversation.',
+      'Write a chapter in the novel selected for this creative conversation. Without `chapterId` ' +
+      'it creates a NEW chapter; pass `chapterId` to rewrite that chapter. Only when the author ' +
+      'enabled write-back.',
     parameters: {
       type: 'object',
       properties: {
         title: { type: 'string', description: 'Chapter title (ignored when rewriting).' },
         markdown: { type: 'string', description: 'Chapter body in Markdown.' },
-        chapterId: {
-          type: 'integer',
-          description: 'Existing chapter id to rewrite instead of creating a new chapter.',
-        },
+        chapterId: { type: 'integer', description: 'Existing chapter id to rewrite.' },
       },
       required: ['markdown'],
       additionalProperties: false,

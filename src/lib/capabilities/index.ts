@@ -1,5 +1,6 @@
 import { entityBodyText } from '@/lib/entity-text'
 import type { Character, Country, Event, Tag, WorldEntry } from '@/types'
+import { MEDIA_FIELD } from './agent-tools'
 import {
   CapabilityError,
   READ_PERMISSION,
@@ -121,7 +122,9 @@ function fieldsOf(kind: EntityKind, entity: Character | Event | Country | WorldE
     push('文化', country.culture)
   } else {
     const world = entity as WorldEntry
-    push('上级', world.parentId !== null ? context.worldById.get(world.parentId)?.title : '')
+    push('简介', world.summary)
+    push('时间', [world.time, world.endTime].filter(Boolean).join(' ~ '))
+    push('地点', world.location)
   }
   return fields
 }
@@ -200,11 +203,45 @@ function eventsOf(kind: EntityKind, entity: Character | Event | Country | WorldE
     .sort((a, b) => a.time.localeCompare(b.time, undefined, { numeric: true }))
 }
 
+function parentOf(
+  kind: EntityKind,
+  entity: Character | Event | Country | WorldEntry,
+  context: Context,
+): { id: number; title: string } | undefined {
+  if (kind === 'country') {
+    const parentId = (entity as Country).parentId
+    if (parentId === null || parentId === undefined) return undefined
+    return { id: parentId, title: context.countriesById.get(parentId)?.name ?? '（已删除）' }
+  }
+  if (kind === 'world') {
+    const parentId = (entity as WorldEntry).parentId
+    if (parentId === null || parentId === undefined) return undefined
+    return { id: parentId, title: context.worldById.get(parentId)?.title ?? '（已删除）' }
+  }
+  // 事件没有层级（`parentEventId` 是死列），不要在这里假装有
+  return undefined
+}
+
+/** 已设置的图片槽位。槽位名 → 路径，空的槽位不列（免得模型以为该去清空） */
+function mediaOf(
+  kind: EntityKind,
+  entity: Character | Event | Country | WorldEntry,
+): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const [slot, field] of Object.entries(MEDIA_FIELD[kind])) {
+    const value = (entity as unknown as Record<string, unknown>)[field]
+    if (typeof value === 'string' && value.trim() !== '') out[slot] = value.trim()
+  }
+  return out
+}
+
 function entryOf(
   kind: EntityKind,
   entity: Character | Event | Country | WorldEntry,
   context: Context,
 ): CodexEntry {
+  const parent = parentOf(kind, entity, context)
+  const media = mediaOf(kind, entity)
   return {
     kind,
     id: entity.id,
@@ -216,6 +253,8 @@ function entryOf(
     events: eventsOf(kind, entity, context),
     tags: tagNamesOf(entity.tags, context),
     body: bodyOf(kind, entity),
+    ...(parent ? { parent } : {}),
+    ...(Object.keys(media).length > 0 ? { media } : {}),
   }
 }
 
@@ -400,16 +439,20 @@ export function createCapabilities(store: CapabilityStore) {
     },
 
     /** 工具 `codex_slice`：把一条 `CodexEntry` 装配成 markdown（A2 的落点） */
-    buildCodexSlice(entry: CodexEntry): string {
-      return buildCodexSlice(entry)
+    buildCodexSlice(entry: CodexEntry, options?: { bodyLimit?: number; omitBody?: boolean }): string {
+      return buildCodexSlice(entry, options)
     },
   }
 }
 
 /** 纯装配：一条实体 → 一份给 agent 读的 markdown。 */
-export function buildCodexSlice(entry: CodexEntry): string {
+export function buildCodexSlice(
+  entry: CodexEntry,
+  options: { bodyLimit?: number; omitBody?: boolean } = {},
+): string {
   const lines: string[] = [`# ${entry.title}（${KIND_LABEL[entry.kind]}）`]
   if (entry.aliases.length > 0) lines.push(`别名：${entry.aliases.join('、')}`)
+  if (entry.parent) lines.push(`上级：${entry.parent.title}（#${entry.parent.id}）`)
   if (entry.fields.length > 0) lines.push(`字段：${entry.fields.map((field) => `${field.key} ${field.value}`).join(' · ')}`)
   // 自建字段带**原始键名**：写回用的就是它，只给显示名会让模型去猜键
   const customKeys = Object.entries(entry.custom ?? {}).filter(([, value]) => value.trim() !== '')
@@ -427,8 +470,17 @@ export function buildCodexSlice(entry: CodexEntry): string {
     )
   }
   if (entry.tags.length > 0) lines.push(`标签：${entry.tags.join('、')}`)
-  if (entry.body.trim() !== '') {
-    lines.push('', '正文：', '', entry.body.trim())
+  if (entry.media && Object.keys(entry.media).length > 0) {
+    lines.push(`图片：${Object.entries(entry.media).map(([slot, path]) => `${slot}=${path}`).join(' · ')}`)
+  }
+  const body = entry.body.trim()
+  if (body !== '' && options.omitBody !== true) {
+    const limit = options.bodyLimit
+    if (limit !== undefined && body.length > limit) {
+      lines.push('', '正文：', '', body.slice(0, limit), '', `（正文已截断：共 ${body.length} 字；要看全文用 include_body: true。）`)
+    } else {
+      lines.push('', '正文：', '', body)
+    }
   }
   return lines.join('\n')
 }

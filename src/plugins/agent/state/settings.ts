@@ -13,6 +13,7 @@ import { create } from 'zustand'
 import { cmd } from '@/plugins/agent/api/bridge'
 import { PROVIDERS } from '@/plugins/agent/core/provider'
 import { TOOL_NAMES } from '@/plugins/agent/core/agent/tools'
+import { DEFAULT_WRITING_SKILLS } from '@/plugins/agent/core/agent/writing'
 import { debounce } from '@/plugins/agent/core/util'
 import type { Preset, Settings } from '@/plugins/agent/core/types'
 
@@ -28,7 +29,8 @@ export const DEFAULT_SETTINGS: Settings = {
   },
   agent: {
     workspace: null,
-    maxSteps: 64,
+    // 默认 12 步：现代模型正常任务 3–8 步；给 64 只会放大空转的成本
+    maxSteps: 12,
     approval: 'ask',
     enabledTools: [...TOOL_NAMES],
     autoContinue: true,
@@ -46,6 +48,7 @@ export const DEFAULT_SETTINGS: Settings = {
   systemPrompt: '',
   systemPrompts: { CREATIVE: '', ROLEPLAY: '', AGENT: '' },
   enabledPresets: [],
+  writingSkills: [...DEFAULT_WRITING_SKILLS],
   autoTitle: true,
   compactKeepRecent: 6,
 }

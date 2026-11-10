@@ -77,6 +77,14 @@ export interface CodexEntry {
   tags: string[]
   /** 正文纯文本（v1 不跑 markdown 桥；落盘原文仍以 vault 为准） */
   body: string
+  /**
+   * 上级（国家 / 词条才有层级；事件没有）。
+   * 单独给出而不是塞进 `fields`：层级是结构，不是可写标量 —— 模型要能**看见**它，
+   * 但 `library_set_fields` 不该收它（国家的 `parentId` 由表格页维护）。
+   */
+  parent?: { id: number; title: string }
+  /** 已设置的图片槽位：槽位名 → 库内路径（空的槽位不列） */
+  media?: Record<string, string>
 }
 
 export interface EntityRecordMap {
