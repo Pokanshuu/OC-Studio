@@ -19,7 +19,9 @@ import type { RelationTargetKind } from '@/components/shared/relations/types'
 import { TemplateRenderer } from '@/components/shared/TemplateRenderer'
 import { WorldCoverField } from '@/features/world/components/WorldCoverField'
 import { WorldCustomFields } from '@/features/world/components/WorldCustomFields'
-import { WorldMetaFields, WorldTitleField } from '@/features/world/components/WorldFrontmatter'
+import { WorldTitleField } from '@/features/world/components/WorldFrontmatter'
+import { TagsSection } from '@/components/shared/TagsSection'
+import { FIELD_LABEL, FIELD_ROW_TOP } from '@/lib/ui-tokens'
 import {
   NoteAvatarBlock,
   NoteGalleryBlock,
@@ -131,14 +133,29 @@ export function NoteTemplateContent({
                 />
               )
             case 'tags':
-              // 组件开着就一定有标签（没标签也留输入口）；「被引用」只在没有关系块时兜底
+              // 组件开着就一定有标签（没标签也留输入口）；「被引用」只在没有关系块时兜底。
+              // 标题由 `TagsSection` 自己画 —— 与角色 / 事件 / 国家同一套（以前笔记这里是
+              // 一行 `标签 xxx` 的字段行，四类宿主的标签长得不一样，`docs/现状问题.md` #2）
               return (
-                <WorldMetaFields
-                  tags={tags}
-                  onTagsChange={onTagsChange}
-                  backlinks={backlinksForTags}
-                  onSelectBacklink={onNavigateNote}
-                />
+                <div className="flex flex-col gap-4">
+                  <TagsSection selectedIds={tags} onChange={onTagsChange} />
+                  {backlinksForTags.length > 0 ? (
+                    <div className={`${FIELD_ROW_TOP} last:border-b-0`}>
+                      <span className={FIELD_LABEL}>被引用</span>
+                      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-1.5">
+                        {backlinksForTags.map((item) => (
+                          <button
+                            key={item.id}
+                            onClick={() => onNavigateNote(item.id)}
+                            className="text-[13px] text-ink-muted underline-offset-2 transition-colors hover:text-ink hover:underline"
+                          >
+                            {item.title}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
               )
             case 'image':
               return <NoteImageBlock key={entry.id} entry={entry} component={component} />
