@@ -218,7 +218,7 @@ export const ALL_TOOLS: ToolSpec[] = [
     ...okRead,
     description:
       'Read one entry: fields, relations, events, tags and body. Body is clipped to 4k chars ' +
-      'unless `include_body`. Ends with a note of which fields are writable.',
+      'unless `include_body`. Ends with writable fields and template-declared keys.',
     parameters: {
       type: 'object',
       properties: {
@@ -284,7 +284,8 @@ export const ALL_TOOLS: ToolSpec[] = [
           description:
             'Key → text. Built-in: character race/element/occupation/faction/height/birthday/bio; ' +
             'event time/endTime/location/summary; country description/system/geography/culture; ' +
-            'world summary/time/endTime/location/chapterOutline. Any other key must exist on the entry.',
+            'world summary/time/endTime/location/chapterOutline. Any other key must exist on the ' +
+            'entry or be declared by its template / field config.',
           additionalProperties: { type: 'string' },
         },
         create_new: { type: 'boolean', description: 'Allow new custom keys (default false).' },

@@ -18,6 +18,7 @@ import { create } from 'zustand'
 import { cmd, patchMessage, rowToMessage } from '@/plugins/agent/api/bridge'
 import { streamCompletion } from '@/plugins/agent/api/chat'
 import { isLibraryTool, libraryAccessGranted, resolveLibraryTool } from '@/plugins/agent/host/library-tools'
+import { MERGED_LIBRARY_TOOLS } from '@/lib/capabilities/agent-tools'
 import { buildAgentSessionContextBlock, writeNovelChapter } from '@/plugins/agent/host/session-context'
 import { bindPendingAgentSessionContext, getAgentSessionContext } from '@/lib/plugins/agent-session'
 import {
@@ -372,6 +373,11 @@ export const useChatStore = create<ChatStore>((set, get) => {
     const result = await runAgentLoop({
       history,
       tools,
+      // 旧工具名要继承合并后工具的审批属性，否则会绕过审批直接执行
+      resolveTool: (name) => {
+        const canonical = (MERGED_LIBRARY_TOOLS as Record<string, string>)[name] ?? name
+        return tools.find((tool) => tool.name === canonical)
+      },
       // 0 = 不限步数：现代模型基本不会无意义地空转，真正的刹车是用户按停止。
       maxSteps: toolsAllowed && workspace ? (settings.agent.maxSteps > 0 ? settings.agent.maxSteps : Number.POSITIVE_INFINITY) : 1,
       signal: controller.signal,
@@ -411,13 +417,17 @@ export const useChatStore = create<ChatStore>((set, get) => {
         })
       },
       execute: async (call) => {
-        const spec = tools.find((tool) => tool.name === call.name)
+        // 合并掉的旧工具名不在 `tools` 里（提示词只发新名），但历史记录 / 模型
+        // 记忆里可能还留着旧名。先映射到接手的工具再找 spec：
+        // 否则会先被判成 Unknown tool，连审批与执行都走不到（`library_import_image` 就这样）。
+        const canonicalName = (MERGED_LIBRARY_TOOLS as Record<string, string>)[call.name] ?? call.name
+        const spec = tools.find((tool) => tool.name === canonicalName)
         if (!spec) {
           return {
             content: `Unknown tool: ${call.name}`,
             isError: true,
             durationMs: 0,
-          }
+          } satisfies ToolResult
         }
         set({ activity: call.name })
         const args = parseToolArgs(call.args)

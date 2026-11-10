@@ -53,6 +53,12 @@ export interface AgentLoopDeps {
   /** Ask the user. `always` means "stop asking for this tool this session". */
   approve: (call: ToolCall) => Promise<ApprovalDecision>
   execute: (call: ToolCall) => Promise<ToolResult>
+  /**
+   * Resolve the spec for approval. Needed when a legacy tool name is still in
+   * the model's memory but only the merged name is advertised (the alias must
+   * inherit the target's `requiresApproval`, not slip through unapproved).
+   */
+  resolveTool?: (name: string) => ToolSpec | undefined
   onStepStart: (step: AgentStep) => void
   onDelta: (delta: AgentDelta) => void
   onToolUpdate: (stepIndex: number, call: ToolCall) => void
@@ -191,7 +197,9 @@ export async function runAgentLoop(deps: AgentLoopDeps): Promise<AgentLoopResult
         continue
       }
 
-      const spec = deps.tools.find((t) => t.name === call.name)
+      const spec = deps.resolveTool
+        ? deps.resolveTool(call.name)
+        : deps.tools.find((t) => t.name === call.name)
       let decision: ApprovalDecision = 'allow'
       if (spec?.requiresApproval) {
         decision = await deps.approve(call)

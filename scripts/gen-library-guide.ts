@@ -153,9 +153,11 @@ function buildMarkdown(): string {
   for (const kind of KINDS) sections.push(...cardFor(kind), '')
 
   sections.push('## 通用规则')
-  sections.push('- 自建字段只写这条**已有**的键（`library_read` 的「自建字段」一段）；新键必须 `create_new: true`')
+  sections.push('- 自建字段只写这条**已有**的键或模板声明过的键（`library_read` 会列出）；真·新键才要 `create_new: true`')
   sections.push('- 正文 = `library_set_body`（整篇覆盖，先读再写）；改名 / 别名 = `library_rename`；标签 = `library_set_tags`')
   sections.push('- 新建前先 `library_search` 查重：同名条目会直接返回既有 id，不会再建一条')
+  sections.push('- **id 只在当前库里有效**：每次先 `library_search` / `library_list` 取当前 id，不要复用上一轮的 id')
+  sections.push('- 在线图片只认**图片直链**（搜索页常被 403 挡）；库里已有的图用 `path`')
   sections.push('- 写完看**回执**（路径 / 改动键 / 版本），不需要再读一遍文件或翻 journal')
   sections.push('- 不要手写 frontmatter 或直接改 `.md`：落盘键名与工具字段名不是一套，手改必错')
   sections.push('')

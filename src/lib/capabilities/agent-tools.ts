@@ -383,6 +383,14 @@ export interface LibraryCatalogView {
 
 export interface LibraryCatalog {
   describe(): Promise<LibraryCatalogView>
+  /**
+   * 这条条目所属模板 / 字段表声明了哪些自建键。
+   *
+   * 模板里写着的字段，条目上可能还没落键（值从没写过）。它们不是「未知键」，
+   * 写库时不该再要求模型先 `create_new` 试一次 —— 那一步既费 token 又容易
+   * 把模型的注意力带到「工具不信任我」上。
+   */
+  declaredFields?(kind: EntityKind, id: number): Promise<string[]>
 }
 
 export const KINDS: readonly EntityKind[] = ['character', 'event', 'country', 'world']
@@ -469,6 +477,20 @@ async function receiptOf(
     return await writer.receipt(kind, id, changedKeys)
   } catch {
     return null
+  }
+}
+
+/** 模板 / 字段表声明的键；宿主没提供目录或读失败时当作「没有声明」 */
+async function declaredFieldsOf(
+  catalog: LibraryCatalog | undefined,
+  kind: EntityKind,
+  id: number,
+): Promise<string[]> {
+  if (!catalog?.declaredFields) return []
+  try {
+    return await catalog.declaredFields(kind, id)
+  } catch {
+    return []
   }
 }
 
@@ -624,8 +646,17 @@ export function createLibraryToolExecutor(
         const slice = args.include_body === true
           ? capabilities.buildCodexSlice(entry)
           : capabilities.buildCodexSlice(entry, { bodyLimit: BODY_PREVIEW })
+        // 模板 / 字段表声明的键：条目上可能还没值，但写库时可以直接用。
+        // 不列出来，模型只能先试一次 create_new（`学名` 那次就是这么被拒的）。
+        const declared = await declaredFieldsOf(catalog, kind, id)
+        const unset = declared.filter((key) => !(entry.custom[key] ?? '').trim())
+        const declaredNote =
+          declared.length > 0
+            ? `模板字段（可直接写）：${declared.join(' / ')}${unset.length > 0 ? `；未写：${unset.join(' / ')}` : ''}`
+            : ''
         // 读脚注：这一条现在能写什么、哪些界面维护 —— 省掉「试写 → 被拒 → 再猜」
-        return finish(ok(`${slice}\n\n${capabilityFootnote(kind)}`, entry))
+        const notes = [declaredNote, capabilityFootnote(kind)].filter(Boolean).join('\n')
+        return finish(ok(`${slice}\n\n${notes}`, entry))
       }
 
       if (name === 'library_search') {
@@ -798,6 +829,14 @@ export function createLibraryToolExecutor(
             fail('给 url（从网上抓一张存进库）或 path（引用库里已有的图）。'),
           )
         }
+        // 换图时把旧路径带回去：同名文件会被 Rust 存成 `-2`，旧的就成了孤儿；
+        // 不给提示，调用方永远不知道盘上多了一张没人引用的图。
+        const before = await capabilities.getEntity(AGENT_CALLER, mediaKind, mediaId)
+        const previous = before.media?.[slot] ?? ''
+        const previousNote = (next: string): string =>
+          previous !== '' && previous !== next
+            ? `\n旧图：${previous}（这条已不再引用，文件仍在库里）`
+            : ''
         if (url !== '') {
           if (!/^https?:\/\//i.test(url)) return finish(fail('url 必须是 http(s) 地址。'))
           const filename = textOf(args.filename).slice(0, 80)
@@ -809,7 +848,10 @@ export function createLibraryToolExecutor(
             filename === '' ? undefined : filename,
           )
           return finish(
-            ok(`已把图片下载到「${saved.path}」并设为${KIND_LABEL[mediaKind]} #${mediaId} 的 ${slot}。`, saved),
+            ok(
+              `已把图片下载到「${saved.path}」并设为${KIND_LABEL[mediaKind]} #${mediaId} 的 ${slot}。${previousNote(saved.path)}`,
+              saved,
+            ),
           )
         }
         if (/^[a-zA-Z]:|^\//.test(path) || path.split('/').includes('..')) {
@@ -825,7 +867,12 @@ export function createLibraryToolExecutor(
             fail(`${message}。要是这张图还在网上，改给 url 让宿主下载；否则先用 glob / list_dir 确认路径。`),
           )
         }
-        return finish(ok(`已设置${KIND_LABEL[mediaKind]} #${mediaId} 的 ${slot}：${path}`, { slot, path }))
+        return finish(
+          ok(
+            `已设置${KIND_LABEL[mediaKind]} #${mediaId} 的 ${slot}：${path}${previousNote(path)}`,
+            { slot, path },
+          ),
+        )
       }
 
       // library_rename：改名（feature 的 update* 会同步 [[链接]] 文字）
@@ -1016,6 +1063,8 @@ export function createLibraryToolExecutor(
         const before = await capabilities.getEntity(AGENT_CALLER, kind, id)
         const knownCustom = new Set(Object.keys(before.custom ?? {}))
         const allowNew = args.create_new === true
+        // 模板 / 字段表声明过的键：条目上还没值也算「认识的键」，不需要 create_new
+        const declared = new Set(await declaredFieldsOf(catalog, kind, id))
         const columns: Record<string, string> = {}
         const customPatch: Record<string, string> = {}
         const rejected: RejectedKey[] = []
@@ -1025,7 +1074,7 @@ export function createLibraryToolExecutor(
           const text = textOf(value).slice(0, FIELD_MAX_LENGTH)
           if (writable.includes(key)) {
             columns[key] = text
-          } else if (knownCustom.has(key) || allowNew) {
+          } else if (knownCustom.has(key) || allowNew || declared.has(key)) {
             customPatch[key] = text
           } else {
             rejected.push(classifyRejectedKey(kind, key, allowNew))
@@ -1034,6 +1083,8 @@ export function createLibraryToolExecutor(
         }
         const columnKeys = Object.keys(columns)
         const customKeys = Object.keys(customPatch)
+        const declaredNote =
+          declared.size > 0 ? `\n模板 / 字段表声明的键（可直接写）：${[...declared].join('、')}。` : ''
         if (columnKeys.length === 0 && customKeys.length === 0) {
           if (rejected.length === 0) return finish(fail('fields 是空的。'))
           const existing = knownCustom.size > 0 ? `\n这条现有的自建字段：${[...knownCustom].join('、')}。` : ''
@@ -1041,7 +1092,7 @@ export function createLibraryToolExecutor(
           return finish(
             fail(
               `这些键没有写：\n${lines.join('\n')}\n` +
-                `内置可写：${writable.join(' / ') || '无'}。${existing}` +
+                `内置可写：${writable.join(' / ') || '无'}。${existing}${declaredNote}` +
                 '要新建自建字段才加 create_new: true。',
             ),
           )
@@ -1061,7 +1112,7 @@ export function createLibraryToolExecutor(
         ].filter(Boolean)
         const rejectedNote =
           rejected.length > 0
-            ? `\n没写：\n${rejected.map((item) => `- [${item.code}] ${item.key}：${item.note}`).join('\n')}`
+            ? `\n没写：\n${rejected.map((item) => `- [${item.code}] ${item.key}：${item.note}`).join('\n')}${declaredNote}`
             : ''
         return finish(
           ok(

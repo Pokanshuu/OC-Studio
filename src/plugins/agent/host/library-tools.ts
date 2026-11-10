@@ -565,8 +565,7 @@ const writer: LibraryWriter = {
  * 只看到模板名「宠物」时，它不知道那个模板用了哪份基本信息组件。猜错就是往不存在的键里写值。
  */
 const catalog: LibraryCatalog = {
-  async describe() {
-    const [{ getTemplates, loadTemplates }, info, { getCategories, loadCategories }] = await Promise.all([
+  async describe() {    const [{ getTemplates, loadTemplates }, info, { getCategories, loadCategories }] = await Promise.all([
       import('@/lib/templates/store'),
       import('@/lib/templates/info-groups'),
       import('@/lib/categories/store'),
@@ -611,6 +610,41 @@ const catalog: LibraryCatalog = {
         enabled: category.enabled !== false,
       })),
     }
+  },
+
+  /**
+   * 模板 / 字段表为这一条声明了哪些自建键。
+   *
+   * 武器的「材质 / 攻击力」、宠物的「物种」这类字段，模板里写着但条目上可能
+   * 一次都没写过 —— 它们不是未知键，写库时不该再要求 `create_new` 试一次。
+   */
+  async declaredFields(kind, id) {
+    const keys = new Set<string>()
+    const [{ loadFieldConfig, getFieldConfig }, { db }] = await Promise.all([
+      import('@/lib/fields/store'),
+      import('@/lib/db'),
+    ])
+    await loadFieldConfig()
+    // 角色 / 事件 / 国家的自建字段来自全局字段表；词条还有「词条信息」这一份
+    const fieldKind = kind === 'world' ? 'worldEntry' : kind
+    for (const field of getFieldConfig()[fieldKind] ?? []) {
+      if (field.id.startsWith('f_') && field.key) keys.add(field.key)
+    }
+    if (kind === 'world') {
+      const row = await db.worldEntries.get(id)
+      if (row) {
+        const view = await this.describe()
+        const templateName =
+          row.template ||
+          view.categories.find((category) => category.name === row.category)?.template ||
+          ''
+        const template = view.templates.find(
+          (item) => item.name === templateName || item.id === templateName,
+        )
+        for (const field of template?.fields ?? []) keys.add(field.key)
+      }
+    }
+    return [...keys]
   },
 }
 

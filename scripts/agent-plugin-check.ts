@@ -780,6 +780,19 @@ async function main(): Promise<void> {
       mediaWrites[0]?.slot === 'avatar' &&
       mediaWrites[0]?.path === '附件/avatar.png',
   )
+  characters[0].avatarUrl = '附件/avatar.png'
+  const replaced = await resolveW('library_set_media', {
+    kind: 'character',
+    id: 7,
+    slot: 'avatar',
+    path: '附件/avatar-new.png',
+  })
+  check(
+    '换图时指出旧图已不再引用',
+    replaced?.isError === false && replaced?.content.includes('旧图：附件/avatar.png') === true,
+    replaced?.content,
+  )
+  characters[0].avatarUrl = ''
   const badSlot = await resolveW('library_set_media', {
     kind: 'event',
     id: 1,
@@ -940,6 +953,10 @@ async function main(): Promise<void> {
         categories: [{ name: '宠物', template: 'pet', enabled: true }],
       }
     },
+    // 模板声明的键：武器 / 宠物条目上可能一次都没写过值
+    async declaredFields(kind: EntityKind) {
+      return kind === 'world' ? ['学名'] : []
+    },
   }
   const resolveC = createLibraryToolExecutor(createCapabilities(store), writer, catalog)
   const templates = await resolveC('library_templates', {})
@@ -954,6 +971,33 @@ async function main(): Promise<void> {
     templates?.content.includes('宠物') === true && templates?.content.includes('pet') === true,
   )
   check('没有注入目录时给可读错误', (await resolve('library_templates', {}))?.isError === true)
+
+  // 模板声明过的键：不需要 create_new 试错，读结果里也要列出来
+  const declared = await resolveC('library_set_fields', { kind: 'world', id: 3, fields: { 学名: '灰烬藤' } })
+  check(
+    '模板声明的键不用 create_new 就能写',
+    declared?.isError === false && declared?.content.includes('自建字段 学名') === true,
+    declared?.content,
+  )
+  const worldRead = await resolveC('library_read', { kind: 'world', id: 3 })
+  check(
+    '读结果列出模板字段与未写项',
+    worldRead?.content.includes('模板字段（可直接写）：学名') === true &&
+      worldRead?.content.includes('未写：学名') === true,
+    worldRead?.content,
+  )
+  const undeclared = await resolveC('library_set_fields', {
+    kind: 'world',
+    id: 3,
+    fields: { 没声明的键: 'x' },
+  })
+  check(
+    '未声明的键仍被拒，并给出模板字段清单',
+    undeclared?.isError === true &&
+      undeclared?.content.includes('[new-field] 没声明的键') === true &&
+      undeclared?.content.includes('模板 / 字段表声明的键') === true,
+    undeclared?.content,
+  )
 
   check(
     'toolSummary 认 library_set_tags',
@@ -1155,6 +1199,40 @@ async function main(): Promise<void> {
     check(
       '第 3 次请求里带「失败两次」的提醒',
       JSON.stringify(retryBodies[2]?.messages ?? []).includes('失败两次') === true,
+    )
+
+    // 旧工具名（只存在于历史里）也要继承合并后工具的审批属性
+    let aliasApproved = 0
+    let aliasExecuted = false
+    const aliasLoop = await runAgentLoop({
+      history: [{ role: 'user', content: '换一张头像' }],
+      tools: [writeTool],
+      resolveTool: (name) => (name === 'library_import_image' ? writeTool : undefined),
+      maxSteps: 1,
+      signal: new AbortController().signal,
+      buildBody: (messages) => ({ messages }) as never,
+      stream: async (_body, _signal, onEvent) => {
+        onEvent({
+          type: 'toolCalls',
+          deltas: [{ index: 0, id: 'alias-1', name: 'library_import_image', argumentsDelta: '{}' }],
+        })
+      },
+      approve: async () => {
+        aliasApproved += 1
+        return 'deny'
+      },
+      execute: async () => {
+        aliasExecuted = true
+        return { content: 'ok', isError: false, durationMs: 0 }
+      },
+      onStepStart: () => undefined,
+      onDelta: () => undefined,
+      onToolUpdate: () => undefined,
+    })
+    check(
+      '旧工具名也走审批，不会绕过',
+      aliasLoop.steps.length === 1 && aliasApproved === 1 && aliasExecuted === false,
+      `approved=${aliasApproved} executed=${aliasExecuted}`,
     )
   }
 

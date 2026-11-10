@@ -69,7 +69,12 @@
 - [ ] **P1 `library_history`**：某条最近的改动（actor / keys / 时间），替代 grep `journal.jsonl`
 - [ ] **P2 人格与模式解耦**：笔记库用的是「资料员」，不是 coding agent
 - [ ] **P2 磁盘冲突（`conflict`）**：写之前发现文件被外部改过时，给「用磁盘版本 / 覆盖」两个选项，而不是静默覆盖或静默跳过
+- [ ] **P2 自建字段批量写**：`library_set_fields` 只能单条，6 个角色 / 2 件武器就要 8 次调用；补 `entries: [{ id, fields }]`（一条调用写多条），或并入 `library_update`
 - [ ] **P2 缓存分层与 thinking 分档**：静态 / 半静态 / 动态三段定序，简单 CRUD 走 `off` / `low`
+- [ ] **P2 条目 id 稳定性**：库重建 / 重新导入后 id 会重排（这次从 #162–#167 变成 #2–#7），跨会话记住的 id 必然失效；要么换稳定 id（路径 / uuid），要么在导入后给一份 id 映射报告
+- [ ] **P3 附件孤儿清理**：列出 `附件/` 下没有被任何条目引用的文件，确认后删除（本次留下了旧 picsum 图与 30 余张占位 PNG）
+- [ ] **P2 图片素材源**：Pexels / Unsplash 的搜索页 403，只有图片 CDN 可直连；要么接一个可用的图源，要么支持从本地目录挑选（`path` 已能引用库内文件）
+- [ ] **P3 合并别名的工具摘要**：`toolSummary` 对 `library_import_image` / `library_set_custom` 仍返回空串（执行已正常，只是执行过程卡片没摘要）
 - [ ] **P2 golden tasks + 埋点**：20 条标准任务，断言「DB 状态对 / 步数不超 / token 不超 / 没有脏字段」；接 `stream_options.include_usage` 把上下文百分比修对
 
 ### 5.2 助手与能力的其它欠账
