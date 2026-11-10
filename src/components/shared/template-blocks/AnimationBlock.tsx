@@ -8,14 +8,14 @@
  *
  * 上传 / 预览 / 保存到… / 移除与图片槽位同一套交互（单击或按钮起手，不做假占位）。
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Download, Maximize2, Trash2, X } from 'lucide-react'
+import { Download, Maximize2, Plus, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { resolveImageUrl } from '@/lib/image-service'
 import { useMediaDownload } from '@/lib/use-media-download'
 import { uploadAnimation } from '@/lib/video-upload'
-import { BTN_QUIET, ICON_BTN } from '@/lib/ui-tokens'
+import { ADD_ACTION, ICON_BTN } from '@/lib/ui-tokens'
 import { ComponentSection } from '../ComponentSection'
 
 /** 桌面看整段动画：深色遮罩里放 `<video controls>`（FullscreenViewer 只收图片） */
@@ -67,6 +67,7 @@ export function AnimationBlock({
   /** 浏览器预览的 blob：只在这里播，**不写库**（刷新即死链） */
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [fullscreen, setFullscreen] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
   const { save, saving } = useMediaDownload()
 
   const storedUrl = value ? resolveImageUrl(value, 'animation') : null
@@ -94,64 +95,69 @@ export function AnimationBlock({
   }
 
   return (
-    <ComponentSection divider={false} title={showTitle ? title : undefined}>
-      <div className="flex min-w-0 flex-wrap items-center gap-2">
-        {playableUrl ? (
-          <>
-            <video
-              src={playableUrl}
-              controls
-              preload="metadata"
-              playsInline
-              className="aspect-video w-40 shrink-0 rounded-item border border-line bg-paper-card object-cover"
-            />
-            <button
-              type="button"
-              onClick={() => setFullscreen(true)}
-              className={`${ICON_BTN} max-md:hidden`}
-              aria-label="全屏播放"
-              title="全屏播放"
-            >
-              <Maximize2 size={15} strokeWidth={2} />
-            </button>
-            <button
-              type="button"
-              onClick={() => void save(playableUrl, '动画.mp4')}
-              disabled={saving}
-              className={`${ICON_BTN} ${saving ? 'pointer-events-none opacity-50' : ''}`}
-              aria-label="保存到…"
-              title="保存到…"
-            >
-              <Download size={15} strokeWidth={2} />
-            </button>
-            <button
-              type="button"
-              onClick={onRemove}
-              className={ICON_BTN}
-              aria-label="移除动画"
-              title="移除动画"
-            >
-              <Trash2 size={15} strokeWidth={2} />
-            </button>
-          </>
-        ) : (
-          <label className={`${BTN_QUIET} ${uploading ? 'pointer-events-none opacity-50' : 'cursor-pointer'}`}>
-            {uploading ? '上传中…' : '选择动画'}
-            <input
-              type="file"
-              accept="video/*"
-              className="hidden"
-              disabled={uploading}
-              onChange={(event) => {
-                const file = event.target.files?.[0]
-                // 清掉 input 的值：同一个文件重选也要触发 change
-                event.target.value = ''
-                void handlePick(file)
-              }}
-            />
-          </label>
-        )}
-      </div>
+    <ComponentSection
+      divider={false}
+      title={showTitle ? title : undefined}
+      action={
+        <>
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+            className={`${ADD_ACTION} ${uploading ? 'pointer-events-none opacity-50' : ''}`}
+          >
+            <Plus size={12} strokeWidth={2} />
+            <span>{uploading ? '上传中' : '添加'}</span>
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="video/*"
+            className="hidden"
+            disabled={uploading}
+            onChange={(event) => {
+              const file = event.target.files?.[0]
+              // 清掉 input 的值：同一个文件重选也要触发 change
+              event.target.value = ''
+              void handlePick(file)
+            }}
+          />
+        </>
+      }
+    >
+      {playableUrl ? (
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <video
+            src={playableUrl}
+            controls
+            preload="metadata"
+            playsInline
+            className="aspect-video w-40 shrink-0 rounded-item border border-line bg-paper-card object-cover"
+          />
+          <button
+            type="button"
+            onClick={() => setFullscreen(true)}
+            className={`${ICON_BTN} max-md:hidden`}
+            aria-label="全屏播放"
+            title="全屏播放"
+          >
+            <Maximize2 size={15} strokeWidth={2} />
+          </button>
+          <button
+            type="button"
+            onClick={() => void save(playableUrl, '动画.mp4')}
+            disabled={saving}
+            className={`${ICON_BTN} ${saving ? 'pointer-events-none opacity-50' : ''}`}
+            aria-label="保存到…"
+            title="保存到…"
+          >
+            <Download size={15} strokeWidth={2} />
+          </button>
+          <button type="button" onClick={onRemove} className={ICON_BTN} aria-label="移除动画" title="移除动画">
+            <Trash2 size={15} strokeWidth={2} />
+          </button>
+        </div>
+      ) : null}
       {fullscreen && playableUrl ? (
         <AnimationLightbox src={playableUrl} onClose={() => setFullscreen(false)} />
       ) : null}
