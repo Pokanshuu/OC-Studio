@@ -14,6 +14,7 @@
     "audit:theme": "tsx scripts/theme-tokens-check.ts",
     "audit:palettes": "tsx scripts/theme-presets-check.ts",
     "audit:templates": "tsx scripts/templates-check.ts",
+    "audit:stores": "tsx scripts/vault-stores-check.ts",
     "audit:site": "tsx scripts/site-export-check.ts",
     "audit:export": "tsx scripts/export-check.ts",
     "audit:document": "tsx scripts/document-check.ts",

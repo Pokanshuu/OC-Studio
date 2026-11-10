@@ -201,37 +201,49 @@ export async function loadBodyGroups(force = false): Promise<void> {
   return loading
 }
 
-export async function saveBodyGroups(next: BodyGroup[]): Promise<void> {
-  const merged = merge(normalize(next))
+/**
+ * 写盘排队（理由同 `templates/store.ts` 与 `info-groups.ts`）：连点两下时
+ * 两次保存各读一次 `snapshot`，不排队就会互相覆盖。
+ * 队列里的任务不能再调 `enqueueWrite`。
+ */
+let writeQueue: Promise<unknown> = Promise.resolve()
+function enqueueWrite<T>(task: () => Promise<T>): Promise<T> {
+  const run = writeQueue.then(task, task)
+  writeQueue = run.then(
+    () => undefined,
+    () => undefined,
+  )
+  return run
+}
+
+/** 写盘 + 换内存（**先写盘**：失败时界面不该显示盘上没有的骨架）。只能在队列里跑 */
+async function writeBodyGroups(merged: BodyGroup[]): Promise<void> {
   const root = vaultRoot()
   // 会话没就绪 / 上次没读成功：不写，免得把一份空表覆盖到盘上
   if (root === null && isVaultSupported()) throw new Error('笔记库还没打开，稍后再试')
   if (readFailed) throw new Error('正文组件上次没有读成功，先刷新笔记库再改')
-  const previous = snapshot
+
+  if (root) {
+    try {
+      await vaultFs.mkdir(root, '.ocstudio')
+    } catch {
+      // 目录已存在时可能抛错，忽略
+    }
+    const results = await vaultFs.writeTexts(root, [{ relPath: REL_PATH, content: serialize(merged) }])
+    const failed = results.find((result) => !result.ok)
+    if (failed !== undefined) throw new Error(failed.error ?? '写入正文组件失败')
+  } else if (typeof window !== 'undefined') {
+    localStorage.setItem(LS_KEY, serialize(merged))
+  }
+
   snapshot = merged
   loaded = true
   loadedRoot = root
   emit()
+}
 
-  try {
-    if (root) {
-      try {
-        await vaultFs.mkdir(root, '.ocstudio')
-      } catch {
-        // 目录已存在时可能抛错，忽略
-      }
-      const results = await vaultFs.writeTexts(root, [{ relPath: REL_PATH, content: serialize(merged) }])
-      const failed = results.find((result) => !result.ok)
-      if (failed !== undefined) throw new Error(failed.error ?? '写入正文组件失败')
-      return
-    }
-    if (typeof window !== 'undefined') localStorage.setItem(LS_KEY, serialize(merged))
-  } catch (err) {
-    // 写盘失败就退回旧表：别让人以为已经留住了
-    snapshot = previous
-    emit()
-    throw err
-  }
+export function saveBodyGroups(next: BodyGroup[]): Promise<void> {
+  return enqueueWrite(() => writeBodyGroups(merge(normalize(next))))
 }
 
 export function getBodyGroups(): BodyGroup[] {
@@ -260,21 +272,26 @@ export function newBodyGroupId(): string {
   return `body-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`
 }
 
-export async function createBodyGroup(input: { name: string; markdown?: string }): Promise<BodyGroup> {
+/** 新建 / 改名 / 改骨架 / 删除 —— 都在队列里读 `snapshot` 再写 */
+export function createBodyGroup(input: { name: string; markdown?: string }): Promise<BodyGroup> {
   const name = input.name.trim()
-  if (name === '') throw new Error('正文组件名不能为空')
-  if (snapshot.some((group) => group.name === name)) throw new Error(`已经有叫「${name}」的正文组件了`)
+  if (name === '') return Promise.reject(new Error('正文组件名不能为空'))
   const group: BodyGroup = { id: newBodyGroupId(), name, markdown: input.markdown ?? '' }
-  await saveBodyGroups([...snapshot, group])
-  return group
+  return enqueueWrite(async () => {
+    if (snapshot.some((item) => item.name === name)) {
+      throw new Error(`已经有叫「${name}」的正文组件了`)
+    }
+    await writeBodyGroups(merge(normalize([...snapshot, group])))
+    return group
+  })
 }
 
-export async function updateBodyGroup(
+export function updateBodyGroup(
   id: string,
   patch: Partial<Omit<BodyGroup, 'id' | 'builtin'>>,
 ): Promise<void> {
-  await saveBodyGroups(
-    snapshot.map((group) =>
+  return enqueueWrite(async () => {
+    const next = snapshot.map((group) =>
       group.id === id
         ? {
             ...group,
@@ -283,12 +300,15 @@ export async function updateBodyGroup(
             markdown: patch.markdown ?? group.markdown,
           }
         : group,
-    ),
-  )
+    )
+    await writeBodyGroups(merge(normalize(next)))
+  })
 }
 
 /** 内置组件不删；自定义组件删掉后，引用它的模板会退回默认（`defaultBodyGroupIdOfTemplate`） */
-export async function deleteBodyGroup(id: string): Promise<void> {
-  if (isBuiltinBodyGroup(id)) throw new Error('内置正文组件不能删除')
-  await saveBodyGroups(snapshot.filter((group) => group.id !== id))
+export function deleteBodyGroup(id: string): Promise<void> {
+  if (isBuiltinBodyGroup(id)) return Promise.reject(new Error('内置正文组件不能删除'))
+  return enqueueWrite(() =>
+    writeBodyGroups(merge(normalize(snapshot.filter((group) => group.id !== id)))),
+  )
 }

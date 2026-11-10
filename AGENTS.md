@@ -196,6 +196,7 @@ npm run audit:design  # 设计令牌体检（0 违规才算过）
 npm run audit:theme   # 主题令牌归属（shell / page / both）
 npm run audit:palettes  # 官方主题亮暗对比度
 npm run audit:templates  # 模板与实现漂移（组件登记 / 往返 / 别名）
+npm run audit:stores   # 模板 / 组件四份配置的写路径（装载前禁写 / 删除清文件 / 并发 / 迁移顺序）
 npm run audit:site   # 静态站导出逻辑（角色路由 / 时间标签 / 本地日期 / 未知引用 / 分区 / 标题纸色 / 三套版式）
 npm run audit:export  # 海报契约（六套版式 / 元数据 / 画布 / 选项兜底 / 正文顺序 / 封面取景）
 npm run audit:document  # 文档导出（Markdown 无 HTML 噪声 / TXT / Word XML / 预览模型 / 分区裁剪）
