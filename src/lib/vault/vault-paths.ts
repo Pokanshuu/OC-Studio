@@ -29,6 +29,47 @@ export function normalizeRelPath(path: string): string {
   return path.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '')
 }
 
+/**
+ * 是不是应用自己的元数据目录（`.ocstudio` / `.trash` 这类顶层点目录）。
+ *
+ * 这类目录**永远不参与条目落点推断**：它不是作者整理出来的分类目录，
+ * 跟着它走会把新条目写进 `.ocstudio/`（界面上看起来就是「文件凭空消失」）。
+ */
+function isInternalFolder(folder: string): boolean {
+  const top = normalizeRelPath(folder).split('/')[0]
+  return top.startsWith('.')
+}
+
+/**
+ * 某类型「活着的」笔记所在目录 —— 给新文件挑落点用。
+ *
+ * 直接遍历会话索引会踩两个坑，两个都真的发生过：
+ *  1. **回收站条目还在索引里**，`relPath` 已经变成 `.ocstudio/trash/<批次>/国家/x.md`。
+ *     一个国家都不剩、只剩回收站里的国家时，顶层投票会投给 `.ocstudio` ——
+ *     新建的国家于是落到 `.ocstudio/` 根下，`国家/` 却是空的。
+ *  2. 一旦有文件被写到 `.ocstudio/`（上一条的后果，或手工挪错），它会**继续投票**，
+ *     把后面每一条新建都拖进同一个错误目录（自我延续）。
+ *
+ * 所以判据是「活着的 + 不在内部目录里」，而不是「索引里有没有这条路」。
+ */
+export function foldersOfKind(
+  entries: Iterable<{ kind: string; relPath: string; trashed: boolean }>,
+  kind: string,
+): string[] {
+  const folders: string[] = []
+  for (const entry of entries) {
+    if (entry.kind !== kind || entry.trashed) continue
+    const relPath = normalizeRelPath(entry.relPath)
+    if (relPath === '') continue
+    const slash = relPath.lastIndexOf('/')
+    if (slash <= 0) continue
+    const folder = relPath.slice(0, slash)
+    if (isInternalFolder(folder)) continue
+    folders.push(folder)
+  }
+  return folders
+}
+
 /** 展示名 → 合法文件名（去扩展名）。Windows 与 Obsidian 的限制都照顾到 */
 export function sanitizeFileName(title: string): string {
   let name = title
@@ -58,9 +99,10 @@ export function pickPreferredFolder(
   existingFolders: string[],
   hint?: string,
 ): string {
+  // 内部目录（`.ocstudio/…`）在这里再挡一道：调用方可能直接把索引里的路径递进来
   const folders = existingFolders
     .map(normalizeRelPath)
-    .filter((folder) => folder !== '')
+    .filter((folder) => folder !== '' && !isInternalFolder(folder))
 
   if (folders.length === 0) return DEFAULT_FOLDER[kind]
 

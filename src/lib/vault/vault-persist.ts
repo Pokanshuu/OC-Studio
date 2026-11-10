@@ -5,7 +5,7 @@ import { setBody, setFrontmatterKeys } from './frontmatter'
 import { appendJournal, type JournalActor, type JournalDraft } from './journal'
 import { currentActor } from './actor'
 import { serializeEntity, type FrontmatterUpdates, type SerializeContext } from './serialize'
-import { allocateRelPath, novelChapterFileTitle, normalizeRelPath, originalRelPathFromTrash, pickPreferredFolder, trashRelPath } from './vault-paths'
+import { allocateRelPath, foldersOfKind, novelChapterFileTitle, normalizeRelPath, originalRelPathFromTrash, pickPreferredFolder, trashRelPath } from './vault-paths'
 import {
   entityKey,
   getVaultSession,
@@ -369,17 +369,6 @@ function titleOfRow(table: VaultTableName, entity: unknown): string {
   return ''
 }
 
-/** 某类型既有笔记所在目录（用于给新文件挑目录） */function foldersOfKind(session: NonNullable<ReturnType<typeof getVaultSession>>, kind: string): string[] {
-  const folders: string[] = []
-  for (const state of session.entries.values()) {
-    if (state.kind !== kind) continue
-    if (state.relPath === '') continue
-    const slash = state.relPath.lastIndexOf('/')
-    if (slash > 0) folders.push(state.relPath.slice(0, slash))
-  }
-  return folders
-}
-
 interface PlannedWrite {
   key: string
   table: VaultTableName
@@ -446,7 +435,7 @@ async function planTextWrite(
         kind === 'character' && typeof row.countryId === 'number'
           ? ctx.nameOf('country', row.countryId)
           : undefined
-      folder = pickPreferredFolder(kind, foldersOfKind(session, kind), hint)
+      folder = pickPreferredFolder(kind, foldersOfKind(session.entries.values(), kind), hint)
     }
     relPath = allocateRelPath(kind, title, session.occupied, folder, fileName)
   }
