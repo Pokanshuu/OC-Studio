@@ -183,6 +183,7 @@ cargo test --manifest-path src-tauri/Cargo.toml --lib         # 含 IPC 线格�
 - `.opencode/skills/` — 6 个技能文件（guide, coding, design, codebase, prd, sync）
 - `package.json` — 依赖和脚本
 - `src-tauri/tauri.conf.json` — 打包目标 `nsis` + `msi`；`bundle.windows.wix.version` 必须是纯数字（Windows Installer 不接受 `-beta` 后缀），发版改版本号时这里一起改（当前 `0.20.3`，应用内版本由 `package.json` 的 `0.20.3-beta` 决定）
+- `scripts/msix.ps1`（`npm run tauri:build:msix`）— **微软商店包**。Tauri 只出 msi / nsis，商店收 MSIX，所以这里手工组包：`tauri build --no-bundle` 出 `app.exe` → 生成 `AppxManifest.xml` + 图标 + `resources.pri`（`makepri`）→ `makeappx pack` → `signtool` 签名 → `makeappx bundle` 出 `.msixupload`（签名必须在 bundle 之前）。产物在 `src-tauri/target/release/msix/`。提交商店前必须把 `-PackageName` / `-Publisher` 换成 Partner Center 里的 `Identity/Name` / `Identity/Publisher`，否则认证会被判身份不符
 - `next.config.ts` — Next.js 配置
 - `tsconfig.json` — TypeScript 配置
 - `eslint.config.mjs` — ESLint 配置

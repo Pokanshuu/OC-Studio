@@ -1,0 +1,222 @@
+# 打微软商店（MSIX）包。
+#
+# Tauri 只出 msi / nsis，微软商店收的是 MSIX，所以这里手工组包：
+#   1. `tauri build --no-bundle` 出 `target/release/app.exe`（前端已嵌进二进制）
+#   2. 摆一份 AppxManifest.xml + 图标 + resources.pri
+#   3. MakeAppx 打成 .msix（再 bundle 成 .msixupload，Partner Center 收这个）
+#   4. signtool 签名
+#
+# 用法：
+#   powershell -NoProfile -ExecutionPolicy Bypass -File scripts/msix.ps1
+#   ... -Publisher "CN=<Partner Center 里的 Publisher>" -PackageName "12345Pokanshuu.OCStudio"
+#   ... -SkipBuild      # 已经构建过，只重新组包
+#   ... -NoSign         # 只出包不签名（自己给 partner center 传未签名件时用）
+#
+# ⚠️ 提交商店前必须改的两个值（在 Partner Center › 产品身份 里能看到）：
+#   -Publisher     Identity/Publisher，形如 CN=A1B2C3D4-0000-0000-0000-000000000000
+#   -PackageName   Identity/Name，形如 12345Pokanshuu.OCStudio
+# 默认值只适合本地侧载测试。
+
+param(
+  [string]$Publisher = 'CN=Pokanshuu',
+  [string]$PackageName = 'Pokanshuu.OCStudio',
+  [string]$DisplayName = 'OC Studio',
+  [string]$PublisherDisplayName = 'Pokanshuu',
+  [string]$Version = '',
+  [string]$CertThumbprint = '',
+  [switch]$SkipBuild,
+  [switch]$NoSign
+)
+
+$ErrorActionPreference = 'Stop'
+$root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
+Set-Location $root
+
+function Step($text) { Write-Host "`n== $text" -ForegroundColor Cyan }
+function Fail($text) { Write-Host "✗ $text" -ForegroundColor Red; exit 1 }
+
+# ── 1. 版本号：MSIX 要四段纯数字（0.20.3-beta → 0.20.3.0）───────────
+if ($Version -eq '') {
+  $pkg = Get-Content package.json -Raw | ConvertFrom-Json
+  $Version = ($pkg.version -split '-')[0]
+}
+$parts = @($Version -split '\.')
+if ($parts.Count -lt 2 -or $parts.Count -gt 4) { Fail "版本号认不出来：$Version" }
+while ($parts.Count -lt 4) { $parts += '0' }
+$msixVersion = $parts -join '.'
+if ($msixVersion -notmatch '^\d+\.\d+\.\d+\.\d+$') { Fail "MSIX 版本号必须是四段纯数字：$msixVersion" }
+
+# ── 2. 找 Windows SDK 里的 MakeAppx / signtool ────────────────────
+$sdkRoot = 'C:\Program Files (x86)\Windows Kits\10\bin'
+$sdk = Get-ChildItem $sdkRoot -Directory -ErrorAction SilentlyContinue |
+  Where-Object { $_.Name -match '^10\.' } |
+  Sort-Object { [version]$_.Name } -Descending |
+  ForEach-Object { Join-Path $_.FullName 'x64' } |
+  Where-Object { Test-Path (Join-Path $_ 'makeappx.exe') } |
+  Select-Object -First 1
+if (-not $sdk) { Fail "没找到 makeappx.exe（需要 Windows SDK 10 的 x64 工具）" }
+$makeappx = Join-Path $sdk 'makeappx.exe'
+$signtool = Join-Path $sdk 'signtool.exe'
+$makepri = Join-Path $sdk 'makepri.exe'
+Write-Host "SDK: $sdk"
+
+# ── 3. 构建（--no-bundle：不出 msi / nsis）────────────────────────
+if (-not $SkipBuild) {
+  Step 'tauri build --no-bundle'
+  npx tauri build --no-bundle
+  if ($LASTEXITCODE -ne 0) { Fail "构建失败（exit $LASTEXITCODE）" }
+}
+$exe = 'src-tauri/target/release/app.exe'
+if (-not (Test-Path $exe)) { Fail "没有 $exe，先跑一次构建" }
+
+# ── 4. 摆包 ───────────────────────────────────────────────────
+$outDir = 'src-tauri/target/release/msix'
+$stage = Join-Path $outDir "staging/$PackageName`_${msixVersion}_x64"
+if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
+New-Item -ItemType Directory -Path (Join-Path $stage 'Assets') -Force | Out-Null
+
+Step '摆包'
+Copy-Item $exe (Join-Path $stage 'app.exe') -Force
+foreach ($icon in 'StoreLogo.png', 'Square44x44Logo.png', 'Square150x150Logo.png', 'Square71x71Logo.png', 'Square310x310Logo.png') {
+  Copy-Item "src-tauri/icons/$icon" (Join-Path $stage "Assets/$icon") -Force
+}
+Copy-Item 'src-tauri/icons/icon.ico' (Join-Path $stage 'Assets/icon.ico') -Force
+
+# 宽幅磁贴（310×150）：清单里只要带了 Square310x310Logo，就必须同时给 Wide310x150Logo。
+# 仓库里没有这张图，按 icon.png 等比居中生成一张透明底版本。
+Add-Type -AssemblyName System.Drawing
+$widePng = Join-Path $stage 'Assets/Wide310x150Logo.png'
+$srcImage = [System.Drawing.Image]::FromFile((Resolve-Path 'src-tauri/icons/icon.png'))
+$canvas = New-Object System.Drawing.Bitmap(310, 150)
+$graphics = [System.Drawing.Graphics]::FromImage($canvas)
+$graphics.Clear([System.Drawing.Color]::Transparent)
+$graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+$drawHeight = 120
+$drawWidth = [int]($srcImage.Width * ($drawHeight / $srcImage.Height))
+$graphics.DrawImage($srcImage, [int]((310 - $drawWidth) / 2), [int]((150 - $drawHeight) / 2), $drawWidth, $drawHeight)
+$graphics.Dispose()
+$canvas.Save($widePng, [System.Drawing.Imaging.ImageFormat]::Png)
+$canvas.Dispose()
+$srcImage.Dispose()
+
+$manifest = @"
+<?xml version="1.0" encoding="utf-8"?>
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap rescap">
+  <Identity
+    Name="$PackageName"
+    Publisher="$Publisher"
+    Version="$msixVersion"
+    ProcessorArchitecture="x64" />
+  <Properties>
+    <DisplayName>$DisplayName</DisplayName>
+    <PublisherDisplayName>$PublisherDisplayName</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+    <Description>本地优先的原创角色（OC）与世界观创作工作台</Description>
+  </Properties>
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.22621.0" />
+  </Dependencies>
+  <Resources>
+    <Resource Language="zh-CN" />
+  </Resources>
+  <Applications>
+    <Application Id="OCStudio" Executable="app.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="$DisplayName"
+        Description="本地优先的原创角色（OC）与世界观创作工作台"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile
+          Wide310x150Logo="Assets\Wide310x150Logo.png"
+          Square71x71Logo="Assets\Square71x71Logo.png"
+          Square310x310Logo="Assets\Square310x310Logo.png" />
+      </uap:VisualElements>
+    </Application>
+  </Applications>
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>
+"@
+$manifest | Out-File -FilePath (Join-Path $stage 'AppxManifest.xml') -Encoding utf8
+
+# 语言资源索引（商店提交要求包里至少一种语言）
+if (Test-Path $makepri) {
+  $priconfig = Join-Path $stage 'priconfig.xml'
+  & $makepri createconfig /cf $priconfig /dq zh-CN /o | Out-Null
+  & $makepri new /pr $stage /cf $priconfig /of (Join-Path $stage 'resources.pri') /in $PackageName /o | Out-Null
+  Remove-Item $priconfig -Force
+}
+
+# ── 5. 打包 ───────────────────────────────────────────────────
+Step 'makeappx pack'
+$msix = Join-Path $outDir "$PackageName`_${msixVersion}_x64.msix"
+if (Test-Path $msix) { Remove-Item $msix -Force }
+& $makeappx pack /d $stage /p $msix /o
+if ($LASTEXITCODE -ne 0) { Fail "makeappx pack 失败（exit $LASTEXITCODE）" }
+
+# ── 6. 签名（必须在 bundle 之前：.msixupload 里装的就是这个 .msix）────
+if (-not $NoSign) {
+  Step '签名'
+  if ($CertThumbprint -eq '') {
+    $cert = Get-ChildItem Cert:\CurrentUser\My -CodeSigningCert |
+      Where-Object { $_.Subject -eq $Publisher } |
+      Sort-Object NotAfter -Descending |
+      Select-Object -First 1
+    if (-not $cert) {
+      $cert = Get-ChildItem Cert:\CurrentUser\My -CodeSigningCert |
+        Sort-Object NotAfter -Descending |
+        Select-Object -First 1
+    }
+    if ($cert) { $CertThumbprint = $cert.Thumbprint }
+  }
+  if ($CertThumbprint -eq '') {
+    Write-Host "! 没有代码签名证书，跳过签名（包留着未签名状态）" -ForegroundColor Yellow
+  } else {
+    & $signtool sign /fd SHA256 /sha1 $CertThumbprint /s My $msix
+    if ($LASTEXITCODE -ne 0) { Write-Host "! 签名失败（包本身是好的）" -ForegroundColor Yellow }
+    else {
+      # 自签证书本机不信任，verify 一定会往 stderr 写一行 —— 别让它把脚本打断
+      $previousEap = $ErrorActionPreference
+      $ErrorActionPreference = 'SilentlyContinue'
+      & $signtool verify /pa $msix *> $null
+      $verifyCode = $LASTEXITCODE
+      $ErrorActionPreference = $previousEap
+      if ($verifyCode -eq 0) { Write-Host "✓ 签名并验证通过" -ForegroundColor Green }
+      else { Write-Host "! 已签名，但本机不信任这张自签证书（侧载前要把它装进「受信任人」）" -ForegroundColor Yellow }
+    }
+  }
+}
+
+# ── 7. bundle：Partner Center 收 .msixupload（里面装签名后的 .msix）──
+Step 'makeappx bundle（.msixupload）'
+$bundleDir = Join-Path $outDir 'bundle'
+if (Test-Path $bundleDir) { Remove-Item $bundleDir -Recurse -Force }
+New-Item -ItemType Directory -Path $bundleDir -Force | Out-Null
+Copy-Item $msix (Join-Path $bundleDir (Split-Path $msix -Leaf)) -Force
+$upload = Join-Path $outDir "$PackageName`_${msixVersion}_x64.msixupload"
+if (Test-Path $upload) { Remove-Item $upload -Force }
+& $makeappx bundle /d $bundleDir /p $upload /o
+if ($LASTEXITCODE -ne 0) { Write-Host "! bundle 失败（.msix 仍然可用，Partner Center 也可以只传 .msix）" -ForegroundColor Yellow }
+
+# ── 7. 收尾 ───────────────────────────────────────────────────
+Remove-Item $stage -Recurse -Force
+Remove-Item $bundleDir -Recurse -Force
+
+Step '产物'
+Get-ChildItem $outDir | Where-Object { $_.Extension -in '.msix', '.msixupload' } |
+  Select-Object Name, @{n = 'MB'; e = { [math]::Round($_.Length / 1MB, 2) } } |
+  Format-Table -AutoSize | Out-String -Width 100 | Write-Host
+
+Write-Host @"
+提交商店前核对两处（Partner Center › 产品管理 › 产品标识）：
+  Identity/Name      = $PackageName
+  Identity/Publisher = $Publisher
+不一致就重新打：-PackageName "..." -Publisher "CN=..."
+侧载测试：先把证书装进「受信任人」，再双击 .msix 或在 PowerShell 里 Add-AppxPackage。
+"@ -ForegroundColor Gray
