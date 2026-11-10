@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react'
 import { ImageIcon } from 'lucide-react'
 import { toast } from 'sonner'
-import { resolveImageUrl, saveBlobToDisk } from '@/lib/image-service'
+import { resolveImageUrl, saveBlobToDiskOrToast } from '@/lib/image-service'
 import { convertHeifToJpeg } from '@/lib/image-heif'
 import { useMediaDownload } from '@/lib/use-media-download'
 import { useMediaMenu } from '@/lib/use-media-menu'
@@ -140,7 +140,9 @@ export function ProfileBannerEditor({
   }
 
   async function handleHeaderCropComplete(blob: Blob) {
-    const url = await saveBlobToDisk(blob, 'header')
+    // 失败要明说：以前这里连 try 都没有，写盘一抛就只剩「裁剪器关不掉」的观感
+    const url = await saveBlobToDiskOrToast(blob, 'header', '横图')
+    if (url === null) return
     onHeaderChange?.(url)
     setHeaderCropperOpen(false)
     if (headerRawFileUrl) {
@@ -178,7 +180,8 @@ export function ProfileBannerEditor({
   }
 
   async function handleAvatarCropComplete(blob: Blob) {
-    const url = await saveBlobToDisk(blob, 'avatar')
+    const url = await saveBlobToDiskOrToast(blob, 'avatar', '头像')
+    if (url === null) return
     onAvatarChange?.(url)
     setAvatarCropperOpen(false)
     if (avatarRawFileUrl) {
@@ -316,3 +319,4 @@ export function ProfileBannerEditor({
     </div>
   )
 }
+

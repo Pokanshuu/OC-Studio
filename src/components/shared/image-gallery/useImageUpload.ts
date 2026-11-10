@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { resolveImageUrl, saveBlobToDisk } from '@/lib/image-service'
+import { resolveImageUrl, saveBlobToDiskOrToast } from '@/lib/image-service'
 import { convertHeifToJpeg } from '@/lib/image-heif'
 
 /**
@@ -72,8 +72,8 @@ export function useImageUpload({
       } else {
         setUploading(true)
         try {
-          const url = await saveBlobToDisk(file, 'gallery')
-          finish(url)
+          const url = await saveBlobToDiskOrToast(file, 'gallery')
+          if (url !== null) finish(url)
         } finally {
           setUploading(false)
         }
@@ -102,7 +102,8 @@ export function useImageUpload({
   async function handleCropComplete(blob: Blob) {
     setUploading(true)
     try {
-      const url = await saveBlobToDisk(blob, 'portrait')
+      const url = await saveBlobToDiskOrToast(blob, 'portrait')
+      if (url === null) return
       finish(url)
       setCropperOpen(false)
       if (rawFileUrl) {

@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react'
 import { ImageIcon, MoreHorizontal, Loader2 } from 'lucide-react'
-import { resolveImageUrl, saveBlobToDisk } from '@/lib/image-service'
+import { resolveImageUrl, saveBlobToDiskOrToast } from '@/lib/image-service'
 import { convertHeifToJpeg } from '@/lib/image-heif'
 import { useMediaDownload } from '@/lib/use-media-download'
 import { useMediaMenu } from '@/lib/use-media-menu'
@@ -122,8 +122,8 @@ export function ImageUploader({
     } else {
       setUploading(true)
       try {
-        const url = await saveBlobToDisk(file, 'qavatar')
-        onChange(url)
+        const url = await saveBlobToDiskOrToast(file, 'qavatar')
+        if (url !== null) onChange(url)
       } finally {
         setUploading(false)
       }
@@ -133,7 +133,8 @@ export function ImageUploader({
   async function handleCropComplete(blob: Blob) {
     setUploading(true)
     try {
-      const url = await saveBlobToDisk(blob, 'qavatar')
+      const url = await saveBlobToDiskOrToast(blob, 'qavatar')
+      if (url === null) return
       onChange(url)
       setCropperOpen(false)
       if (rawFileUrl) {
@@ -243,3 +244,4 @@ export function ImageUploader({
     </>
   )
 }
+

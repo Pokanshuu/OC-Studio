@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/core'
 import { compressImageFile } from '@/lib/image-compress'
-import { saveBlobToDisk } from '@/lib/image-service'
+import { saveBlobToDiskOrToast } from '@/lib/image-service'
 
 function transferOf(event: Event): DataTransfer | null {
   const carrier = event as Event & { dataTransfer?: DataTransfer; clipboardData?: DataTransfer }
@@ -52,19 +52,16 @@ export function useImagePasteDrop(editor: Editor | null): { dragging: boolean } 
 
         // 同一批图片倒序插在同一位置，最终顺序仍是原顺序。
         for (const file of [...files].reverse()) {
-          try {
-            const prepared = await compressImageFile(file)
-            const path = await saveBlobToDisk(prepared.blob, 'image')
-            if (!path) continue
-            editor
-              .chain()
-              .focus()
-              .setTextSelection(start)
-              .insertContent({ type: 'imageBlock', attrs: { src: path, width: null } })
-              .run()
-          } catch (error) {
-            console.error('[image] 粘贴/拖拽插入失败:', error)
-          }
+          const prepared = await compressImageFile(file)
+          // 写盘失败会在 `saveBlobToDiskOrToast` 里弹 toast；这里只需要跳过这一张
+          const path = await saveBlobToDiskOrToast(prepared.blob, 'image')
+          if (path === null || path === '') continue
+          editor
+            .chain()
+            .focus()
+            .setTextSelection(start)
+            .insertContent({ type: 'imageBlock', attrs: { src: path, width: null } })
+            .run()
         }
       } finally {
         busyRef.current = false
@@ -131,3 +128,4 @@ export function useImagePasteDrop(editor: Editor | null): { dragging: boolean } 
 
   return { dragging }
 }
+

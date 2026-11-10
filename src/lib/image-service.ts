@@ -3,6 +3,7 @@ import type { LocalAdapter } from './adapters/local-adapter'
 import { convertHeifToJpeg } from './image-heif'
 import { isTauri, isNativePlatform } from './env'
 import { vaultFs } from './vault/vault-fs'
+import { toast } from 'sonner'
 
 let adapter: BrowserAdapter | LocalAdapter = new BrowserAdapter()
 let tauriAppDataDir = ''
@@ -179,6 +180,32 @@ function imageExtension(mime: string): string {
   if (mime === 'image/gif') return 'gif'
   if (mime === 'image/svg+xml') return 'svg'
   return 'png'
+}
+
+/**
+ * 存图，失败时**让用户看见**。
+ *
+ * `saveBlobToDisk` 抛的是「写盘失败 / 磁盘满 / 没权限」这类真实错误；以前每个调用点
+ * 只写了 `try { await save } finally { setUploading(false) }` —— 没有 catch，
+ * 于是图没出现、又没有任何提示（只留一条 unhandled rejection）。
+ * 上传这张图的是用户，失败必须落到 toast 上。
+ *
+ * 返回 `null` 表示失败（调用方据此中止后续插入 / 替换）。
+ */
+export async function saveBlobToDiskOrToast(
+  blob: Blob,
+  type: string,
+  what = '图片',
+): Promise<string | null> {
+  try {
+    return await saveBlobToDisk(blob, type)
+  } catch (err) {
+    console.error('[image] 保存失败', err)
+    toast.error(`${what}保存失败`, {
+      description: err instanceof Error ? err.message : String(err),
+    })
+    return null
+  }
 }
 
 export async function saveBlobToDisk(blob: Blob, type: string): Promise<string> {
