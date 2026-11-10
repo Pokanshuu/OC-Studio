@@ -61,19 +61,68 @@ fn tail_impl(root: &str, rel: &str, max_lines: usize) -> Result<Vec<String>, Str
     if !target.is_file() {
         return Ok(Vec::new());
     }
-    let content = fs::read_to_string(&target)
-        .map_err(|err| format!("读取日志失败 {}: {err}", target.display()))?;
-
     let limit = max_lines.clamp(1, MAX_TAIL_LINES);
+    let tail_bytes = read_tail_bytes(&target, limit)?;
+    let content = String::from_utf8_lossy(&tail_bytes);
     let mut out: Vec<String> = content
         .lines()
         .filter(|line| !line.trim().is_empty())
         .map(|line| line.to_string())
         .collect();
+    // 从中间开始读时，第一行可能是半条：丢掉它（除非正好是文件开头）
     if out.len() > limit {
         out = out.split_off(out.len() - limit);
     }
     Ok(out)
+}
+
+/// 一次从文件尾部往回读的块大小
+const TAIL_CHUNK_BYTES: u64 = 64 * 1024;
+
+/**
+ * 只把文件**末尾**读进内存，读够 `want_lines` 行就停。
+ *
+ * 以前是 `read_to_string` 整个文件再取最后 N 行：日志只追加、不轮转，
+ * 一个用了两年的库可能有几十 MB —— 打开一次「创作时间线」就把整份读进内存再切分。
+ * 现在从尾部按 64KB 回读，最多读到够用的位置。
+ */
+fn read_tail_bytes(path: &PathBuf, want_lines: usize) -> Result<Vec<u8>, String> {
+    use std::io::{Read, Seek, SeekFrom};
+
+    let mut file =
+        fs::File::open(path).map_err(|err| format!("读取日志失败 {}: {err}", path.display()))?;
+    let len = file
+        .metadata()
+        .map_err(|err| format!("读取日志失败 {}: {err}", path.display()))?
+        .len();
+    if len == 0 {
+        return Ok(Vec::new());
+    }
+
+    let mut start = len;
+    let mut collected: Vec<u8> = Vec::new();
+    loop {
+        let chunk = TAIL_CHUNK_BYTES.min(start);
+        if chunk == 0 {
+            break;
+        }
+        start -= chunk;
+        file.seek(SeekFrom::Start(start))
+            .map_err(|err| format!("读取日志失败: {err}"))?;
+        let mut buffer = vec![0u8; chunk as usize];
+        file.read_exact(&mut buffer)
+            .map_err(|err| format!("读取日志失败: {err}"))?;
+        buffer.extend_from_slice(&collected);
+        collected = buffer;
+
+        // 数一下已有的行：从尾部读到的块里，最后一个换行之后的内容可能还没读到
+        let newlines = collected.iter().filter(|byte| **byte == b'\n').count();
+        // 目标行数 +1：文件末尾那个换行会占一个，多读一行保证第一条完整
+        if newlines > want_lines || start == 0 {
+            break;
+        }
+    }
+    Ok(collected)
 }
 
 /// 追加若干行到日志。每行由前端序列化成 JSON（这里不解释内容）。
@@ -153,6 +202,33 @@ mod tests {
         let root = temp_root("missing");
         let tail = tail_impl(root.to_str().unwrap(), "nope.jsonl", 10).expect("tail");
         assert!(tail.is_empty());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn tail_reads_from_the_end_of_a_large_file() {
+        let root = temp_root("large");
+        let target = root.join("j.jsonl");
+        // 直接写文件：两千行、每行 100 字节 ≈ 200KB，跨多个 64KB 回读块
+        let mut body = String::new();
+        for index in 1..=2_000 {
+            body.push_str(&format!("{{\"n\":{index},\"pad\":\"{}\"}}\n", "x".repeat(70)));
+        }
+        fs::write(&target, body).expect("写日志");
+
+        let tail = tail_impl(root.to_str().unwrap(), "j.jsonl", 3).expect("tail");
+        assert_eq!(tail.len(), 3);
+        assert!(tail[0].contains("\"n\":1998"), "{}", tail[0]);
+        assert!(tail[2].contains("\"n\":2000"), "{}", tail[2]);
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn tail_handles_file_without_trailing_newline() {
+        let root = temp_root("nonewline");
+        fs::write(root.join("j.jsonl"), "{\"n\":1}\n{\"n\":2}").expect("写日志");
+        let tail = tail_impl(root.to_str().unwrap(), "j.jsonl", 5).expect("tail");
+        assert_eq!(tail, vec!["{\"n\":1}", "{\"n\":2}"]);
         let _ = fs::remove_dir_all(&root);
     }
 

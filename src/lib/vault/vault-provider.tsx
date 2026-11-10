@@ -281,8 +281,30 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     const result = await drainVaultWrites()
     if (result.errors.length > 0) {
       toast.error('保存失败', { description: result.errors[0].message })
-    } else if (result.conflicts.length > 0) {
-      toast.warning(`${result.conflicts.length} 个文件在磁盘上被外部修改，已跳过未覆盖`)
+    }
+    if (result.conflicts.length > 0) {
+      /**
+       * 冲突要给一条**能走的路**，不能只说「已跳过」。
+       *
+       * 自动保存永远不覆盖外部修改（那可能是用户在编辑器外写下的东西）；
+       * 但用户明确点「覆盖磁盘」时，就把基准 mtime 换成磁盘上的、按编辑器里的内容重写。
+       * 想反过来采纳磁盘版本，用「文件 › 刷新」重读即可。
+       */
+      toast.warning(`${result.conflicts.length} 个文件在磁盘上被外部修改过`, {
+        description: `${result.conflicts[0]} 已跳过、没有覆盖。要采纳磁盘版本就刷新；要用编辑器里的版本覆盖，点右边。`,
+        duration: 15000,
+        action: {
+          label: '覆盖磁盘',
+          onClick: () => {
+            void (async () => {
+              const retried = await drainVaultWrites({ overwriteConflicts: true })
+              if (retried.conflicts.length === 0 && retried.errors.length === 0) {
+                toast.success('已按编辑器里的版本覆盖磁盘')
+              }
+            })()
+          },
+        },
+      })
     }
   }, [])
 

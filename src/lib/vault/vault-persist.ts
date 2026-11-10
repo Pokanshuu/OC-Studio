@@ -72,6 +72,14 @@ let flushing = false
 /** 本轮 flush 的开始时间（看门狗用） */
 let flushingSince = 0
 let flushTimer: ReturnType<typeof setTimeout> | null = null
+/**
+ * 因为「磁盘上被外部改过」而停在队列里的条目。
+ *
+ * 它们**不自动重试**：基准 mtime 没变，每 350ms 撞一次必然还是同一个冲突，
+ * 白烧 CPU、状态栏永远转圈，而用户得到的提示只有一句「已跳过未覆盖」。
+ * 用户再改一次（`enqueue`）或明确选择「覆盖磁盘」（`overwriteConflicts`）时才重新排队。
+ */
+const conflictedKeys = new Set<string>()
 let watchdog: ReturnType<typeof setInterval> | null = null
 let lastError: string | null = null
 let lastFlushedAt: number | null = null
@@ -158,7 +166,10 @@ function withTimeout<T>(task: Promise<T>, label: string): Promise<T> {
 function enqueue(table: VaultTableName, id: number): void {
   // 同一个 (表, id) 在 flush 之前被改了两次：**后写的身份说了算**。
   // 用户改完助手又改，时间线上就该记助手 —— 那才是盘上这一版的来处。
-  pending.set(entityKey(table, id), { table, id, actor: currentActor() })
+  const key = entityKey(table, id)
+  pending.set(key, { table, id, actor: currentActor() })
+  // 又改了：说明用户还想保存，重新给它自动重试的机会（见 conflictedKeys）
+  conflictedKeys.delete(key)
   notify()
   scheduleFlush()
 }
@@ -609,7 +620,7 @@ async function flushTagMeta(report: VaultFlushReport): Promise<void> {
  * 把队列里的脏实体写回磁盘。
  * 串行执行（flushing 门闩）：同一时刻只允许一轮，避免两次 flush 交叉写同一文件。
  */
-export async function flushVaultWrites(): Promise<VaultFlushReport> {
+export async function flushVaultWrites(options?: { overwriteConflicts?: boolean }): Promise<VaultFlushReport> {
   const report: VaultFlushReport = {
     written: 0,
     movedToTrash: 0,
@@ -885,10 +896,18 @@ export async function flushVaultWrites(): Promise<VaultFlushReport> {
           return
         }
         if (result.conflict) {
-          // 磁盘上被外部改过：**不覆盖**，把这一项重新排进队列，
-          // 让 UI 有机会提示「用磁盘版本 / 覆盖磁盘」
+          // 磁盘上被外部改过：**默认不覆盖**（用户的文件可能正是他想留下的那版）。
+          // 条目留在队列里等用户决定：再改一次、或明确选「覆盖磁盘」。
           report.conflicts.push(result.relPath)
           pending.set(write.key, { table: write.table, id: write.id, actor: write.actor })
+          if (options?.overwriteConflicts === true) {
+            // 用户已经点头：把基准换成磁盘上的 mtime，下一次 flush 就按编辑器里的内容覆盖
+            const current = session.entries.get(write.key)
+            if (current !== undefined) current.mtimeMs = result.mtimeMs ?? 0
+            conflictedKeys.delete(write.key)
+          } else {
+            conflictedKeys.add(write.key)
+          }
           return
         }
         report.errors.push({ relPath: result.relPath, message: result.error ?? '写入失败' })
@@ -919,20 +938,22 @@ export async function flushVaultWrites(): Promise<VaultFlushReport> {
     flushingSince = 0
     notify()
     // 本轮产生的后续工作（标签改名带来的引用改写、冲突重排）不能就此搁置。
-    // 但已经确定「写不了」的行不自动重试 —— 否则每 350ms 撞一次同一个错。
-    if (pending.size > 0 && flushTimer === null && itemErrors === 0) scheduleFlush()
+    // 但已经确定「写不了」的行不自动重试 —— 否则每 350ms 撞一次同一个错；
+    // 因冲突停住的行也不再自动重试（基准没变，必然再冲突，见 conflictedKeys）。
+    const retryable = [...pending.keys()].some((retryKey) => !conflictedKeys.has(retryKey))
+    if (retryable && flushTimer === null && itemErrors === 0) scheduleFlush()
   }
 
   return report
 }
 
 /** 切 vault / 关窗之前调用：把队列排干 */
-export async function drainVaultWrites(): Promise<VaultFlushReport> {
+export async function drainVaultWrites(options?: { overwriteConflicts?: boolean }): Promise<VaultFlushReport> {
   if (flushTimer !== null) {
     clearTimeout(flushTimer)
     flushTimer = null
   }
-  return flushVaultWrites()
+  return flushVaultWrites(options)
 }
 
 /** 会话结束时清空队列状态 */
