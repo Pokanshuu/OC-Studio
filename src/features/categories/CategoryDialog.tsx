@@ -36,6 +36,7 @@ import {
   type CategoryIcon,
 } from '@/lib/categories/icons'
 import type { Category } from '@/lib/categories/types'
+import { reservedCategoryReason } from '@/lib/categories/types'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -242,6 +243,12 @@ function CategoryDialogBody({ category, onClose, onCreated, onDeleted }: Omit<Ca
     // 编辑时也要查重：updateCategory 不做唯一性校验，重名会在下次读盘时被 normalize 吞掉一条
     if (categories.some((item) => item.name === next && item.id !== category?.id)) {
       setError(`已经有叫「${next}」的分类了`)
+      return
+    }
+    // 内置目录名不是分类：小说 / 地图那批笔记已经由内置页面管了
+    const reserved = reservedCategoryReason(next)
+    if (reserved !== '') {
+      setError(reserved)
       return
     }
     setBusy(true)

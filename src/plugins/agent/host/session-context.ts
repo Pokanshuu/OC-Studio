@@ -443,7 +443,14 @@ export async function writeNovelChapter(
   }
   const context = getAgentSessionContext(conversationId)
   if (!context?.novelRootId || !context.novelWritable) {
-    return { content: '这场对话没有打开「写回小说」。', isError: true, durationMs: Date.now() - started }
+    return {
+      content:
+        '这场对话没有打开「写回小说」——写回要作者自己授权，助手打不开。' +
+        '请让作者：把助手切到「创作」模式 → 在输入框上方的「上下文」里选中这部小说 → 打开「允许写回」，然后重试。' +
+        '在授权之前，正文只能作为回复贴给作者，不要直接写库。',
+      isError: true,
+      durationMs: Date.now() - started,
+    }
   }
 
   const [{ db }, { runAsActorAsync }, novelServices, { bodyDocFromMarkdown }, { worldBodyPatch }] =

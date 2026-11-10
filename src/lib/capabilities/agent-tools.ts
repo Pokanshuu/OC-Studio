@@ -13,6 +13,7 @@
  *   不抛异常（异常会打断整个工具的回合）
  */
 import { READ_PERMISSION, type EntityKind } from './types'
+import { reservedCategoryReason } from '@/lib/categories/types'
 import type { createCapabilities } from './index'
 
 type Capabilities = ReturnType<typeof createCapabilities>
@@ -995,6 +996,18 @@ export function createLibraryToolExecutor(
         if (categoryName === '') return finish(fail('分类名不能为空。'))
         const template = textOf(args.template).slice(0, 60)
         const icon = textOf(args.icon).slice(0, 40)
+        // 内置目录名不是分类：小说根与章节已经写着 `category: '小说'`，
+        // 再建一个同名分类等于给同一批笔记开第二个入口（侧栏会多出一个「假的小说页」）。
+        // 直接挡掉并告诉模型该走哪条路，别让它下一步自己猜。
+        const reserved = reservedCategoryReason(categoryName)
+        if (reserved !== '') {
+          return finish(
+            fail(
+              `${reserved}小说请用 \`library_set_novel\` 设作品信息、\`novel_write_chapter\`（创作模式 + 作者打开写回）写章节；` +
+                '地图用地图页新建。',
+            ),
+          )
+        }
         const fields: string[] = []
         if (args.fields !== undefined && args.fields !== null) {
           if (!Array.isArray(args.fields)) return finish(fail('fields 必须是字符串数组。'))

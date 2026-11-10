@@ -32,6 +32,30 @@ export interface Category {
 
 export const CATEGORIES_REL_PATH = '.ocstudio/categories.json'
 
+/**
+ * 内置目录名 —— **不能拿来当自定义分类的名字**。
+ *
+ * 分类的显示名同时就是笔记 `category` 键的值（见文件头），而小说 / 地图这些内置目录
+ * 用的是同一个键：小说根与章节都写着 `category: '小说'`。所以建一个叫「小说」的
+ * 自定义分类，等于给同一批数据再开一个入口 —— 侧栏多出一项，点进去是一张平铺的
+ * 列表，看起来像小说页却又不是（2026-11-11 助手就是这么把库弄乱的）。
+ *
+ * 这里只拦「名字完全等于内置目录」的情况；「小说草稿」「我的地图」这些不冲突。
+ */
+export const RESERVED_CATEGORY_NAMES = ['小说', '地图', '角色', '事件', '国家', '词条', '世界观'] as const
+
+export function isReservedCategoryName(name: string): boolean {
+  const trimmed = name.trim()
+  return (RESERVED_CATEGORY_NAMES as readonly string[]).includes(trimmed)
+}
+
+/** 不能用这个名字的理由；空串 = 可以用 */
+export function reservedCategoryReason(name: string): string {
+  const trimmed = name.trim()
+  if (!isReservedCategoryName(trimmed)) return ''
+  return `「${trimmed}」是内置目录的名字，不能用作自定义分类（那批笔记已经由内置页面管了）。换个名字，比如「${trimmed}草稿」。`
+}
+
 export function newCategoryId(): string {
   return `cat-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`
 }

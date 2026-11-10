@@ -12,7 +12,7 @@
 import { useSyncExternalStore } from 'react'
 import { isVaultSupported, vaultFs } from '@/lib/vault/vault-fs'
 import { getVaultSession } from '@/lib/vault/vault-session'
-import { CATEGORIES_REL_PATH, newCategoryId, type Category } from './types'
+import { CATEGORIES_REL_PATH, isReservedCategoryName, newCategoryId, reservedCategoryReason, type Category } from './types'
 import { DEFAULT_CATEGORY_ICON, normalizeCategoryIcon } from './icons'
 import { BUILTIN_CATEGORIES, BUILTIN_CATEGORY_ID_SET } from './builtins'
 
@@ -41,6 +41,12 @@ function normalize(raw: unknown): Category[] {
     const record = item as Record<string, unknown>
     const name = typeof record.name === 'string' ? record.name.trim() : ''
     if (name === '' || seen.has(name)) continue
+    // 内置目录名（小说 / 地图…）不是分类：盘上已经有的直接丢掉，
+    // 否则侧栏会多出一个「假的小说页」（同一批笔记、另一套编辑器）。笔记本身不动。
+    if (isReservedCategoryName(name)) {
+      console.warn(`[categories] 丢掉与内置目录同名的分类「${name}」：那批笔记由内置页面管，不需要分类入口`)
+      continue
+    }
     seen.add(name)
     const id = typeof record.id === 'string' && record.id.trim() !== '' ? record.id.trim() : newCategoryId()
     out.push({
@@ -148,6 +154,12 @@ export async function loadCategories(force = false): Promise<void> {
  */
 export async function saveCategories(next: Category[]): Promise<void> {
   if (readFailed) throw new Error('分类表上次没有读成功，先刷新笔记库再改')
+  // 内置目录名一律挡在写盘之前：`normalize` 会把它们丢掉，但那太晚了 ——
+  // 用户会看到「创建成功」而侧栏什么都没有。改名到这些名字也一样拒绝。
+  for (const category of next) {
+    const reason = reservedCategoryReason(category.name)
+    if (reason !== '') throw new Error(reason)
+  }
   const ordered = mergeBuiltins(normalize(next)).map((category, index) => ({ ...category, order: index }))
   const root = vaultRoot()
 
@@ -200,6 +212,8 @@ export async function createCategory(input: {
 }): Promise<Category> {
   const name = input.name.trim()
   if (name === '') throw new Error('分类名不能为空')
+  const reserved = reservedCategoryReason(name)
+  if (reserved !== '') throw new Error(reserved)
   if (snapshot.some((category) => category.name === name)) throw new Error(`已经有叫「${name}」的分类了`)
   // 排在最后：内置分类出厂 order 是 1000 / 1001，直接用 length 会让新分类跑到最前面
   const maxOrder = snapshot.reduce((max, category) => Math.max(max, category.order), -1)

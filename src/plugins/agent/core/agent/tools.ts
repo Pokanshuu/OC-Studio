@@ -454,7 +454,8 @@ export const ALL_TOOLS: ToolSpec[] = [
     name: 'library_create_category',
     ...okWrite,
     description:
-      'Create a category; with `fields` it also creates the info group and note template in one call.',
+      'Create a category (optionally with info group + note template). Never use a built-in directory ' +
+      'name (小说/地图/角色/事件/国家/词条/世界观): those notes already have their own page.',
     parameters: {
       type: 'object',
       properties: {
