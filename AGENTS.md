@@ -183,7 +183,11 @@ cargo test --manifest-path src-tauri/Cargo.toml --lib         # 含 IPC 线格�
 - `.opencode/skills/` — 6 个技能文件（guide, coding, design, codebase, prd, sync）
 - `package.json` — 依赖和脚本
 - `src-tauri/tauri.conf.json` — 打包目标 `nsis` + `msi`；`bundle.windows.wix.version` 必须是纯数字（Windows Installer 不接受 `-beta` 后缀），发版改版本号时这里一起改（当前 `0.20.3`，应用内版本由 `package.json` 的 `0.20.3-beta` 决定）
-- `scripts/msix.ps1`（`npm run tauri:build:msix`）— **微软商店包**。Tauri 只出 msi / nsis，商店收 MSIX，所以这里手工组包：`tauri build --no-bundle` 出 `app.exe` → 生成 `AppxManifest.xml` + 图标 + `resources.pri`（`makepri`）→ `makeappx pack` → `signtool` 签名 → `makeappx bundle` 出 `.msixupload`（签名必须在 bundle 之前）。产物在 `src-tauri/target/release/msix/`。提交商店前必须把 `-PackageName` / `-Publisher` 换成 Partner Center 里的 `Identity/Name` / `Identity/Publisher`，否则认证会被判身份不符
+- `scripts/msix.ps1`（`npm run tauri:build:msix`）— **微软商店包**。Tauri 只出 msi / nsis，商店收 MSIX，所以这里手工组包：`tauri build --no-bundle` 出 `app.exe` → 生成 `AppxManifest.xml` + 图标 + `resources.pri`（`makepri`）→ `makeappx pack` → `signtool` 签名 → **把已签名的 .msix 压成 zip、改名 `.msixupload`**。产物在 `src-tauri/target/release/msix/`。
+  - 商店身份（Partner Center › 产品标识，已固定）：`Identity/Name = Pokanshuu.OCStudio`，`Identity/Publisher = CN=C585EFD6-1C30-48E8-A8B0-2F1DD03460DB`，包系列名 `Pokanshuu.OCStudio_bhwwq0v85wsey`。发包用：
+    `npm run tauri:build:msix -- -Publisher "CN=C585EFD6-1C30-48E8-A8B0-2F1DD03460DB" -MakeCert`
+    （`-MakeCert` 会为这个 Publisher 现生成一张自签代码签名证书 —— **签名证书 Subject 必须等于清单里的 Publisher**，否则包不合法）
+  - 两个踩过的坑：**① `.msixupload` 不能是 `makeappx bundle` 的产物**（bundle 自带的 `AppxBundleManifest.xml` / `AppxBlockMap.xml` / `[Content_Types].xml` 会被商店判为"不支持的文件"），必须是只装包文件的 zip；**② 身份不符**报的是包系列名（PFN）对不上，PFN 由 `Name + 发布者哈希` 算出，换 Publisher 就等于换 PFN
 - `next.config.ts` — Next.js 配置
 - `tsconfig.json` — TypeScript 配置
 - `eslint.config.mjs` — ESLint 配置
