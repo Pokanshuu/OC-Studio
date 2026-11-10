@@ -209,6 +209,7 @@ npm run audit:export  # 海报契约（六套版式 / 元数据 / 画布 / 选�
 npm run audit:document  # 文档导出（Markdown 无 HTML 噪声 / TXT / Word XML / 预览模型 / 分区裁剪）
 npm run audit:capabilities  # 只读能力层（权限入口 / 列表 / 读取 / 搜索 / 切片）
 npm run audit:agent   # 助手接缝 + 能力卡片漂移 + 固定前缀预算
+npm run measure:agent-tokens  # 助手每任务 token 对照（改前基线 + 真实循环交叉验证）
 npm run audit:search  # 全局搜索匹配（分词 / 打分 / 摘要 / 高亮）
 npm run audit:tree    # 表格（树形表格）行模型（层级 / 分组 / 搜索保留祖先）
 npm run audit:map    # 地图锚点 + 国界填充色

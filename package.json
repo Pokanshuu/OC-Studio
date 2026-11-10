@@ -24,6 +24,7 @@
     "audit:capabilities": "tsx scripts/capabilities-check.ts",
     "audit:agent": "tsx scripts/agent-plugin-check.ts && tsx scripts/gen-library-guide.ts --check && tsx scripts/agent-budget-check.ts",
     "audit:agent-budget": "tsx scripts/agent-budget-check.ts",
+    "measure:agent-tokens": "tsx scripts/agent-token-sim.ts",
     "gen:library-guide": "tsx scripts/gen-library-guide.ts",
     "audit:library-guide": "tsx scripts/gen-library-guide.ts --check",
     "audit:map": "tsx scripts/map-anchor-check.ts",
