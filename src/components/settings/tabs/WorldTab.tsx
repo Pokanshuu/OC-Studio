@@ -50,6 +50,16 @@ export function WorldTab({
   const taglineRef = useInputContextMenu()
   /** 二级界面：组件 / 模板 / 分类 / 标签（都太长，不铺在一级页面上） */
   const [panel, setPanel] = useState<Panel>(section ?? 'root')
+  /**
+   * 从模板里点「编辑这个组件」跳过来时的落点（`group:<id>` / `body:<id>`）。
+   *
+   * 走本地 state 而不是再调一次 `openSettings`：那一套要经过 AppShell 改 section、
+   * 再由 SettingsDialog 的 key 触发整棵 WorldTab 重挂 —— 在同一棵树里点一下，
+   * 最稳的是直接把 panel 换掉。
+   */
+  const [componentTarget, setComponentTarget] = useState<string | undefined>(undefined)
+  /** 跳过来之后「返回」回哪儿：从模板跳的就回模板，别把用户扔回组件列表 */
+  const [backTo, setBackTo] = useState<Panel>('root')
 
   const [worldName, setWorldName] = useState('')
   const [tagline, setTagline] = useState('')
@@ -77,8 +87,15 @@ export function WorldTab({
 
   if (panel === 'components') {
     return (
-      <SettingsSubPage title="组件" onBack={() => setPanel('root')}>
-        <ComponentsPanel target={target} />
+      <SettingsSubPage
+        title="组件"
+        onBack={() => {
+          setPanel(backTo)
+          setBackTo('root')
+          setComponentTarget(undefined)
+        }}
+      >
+        <ComponentsPanel key={componentTarget ?? target ?? 'root'} target={componentTarget ?? target} />
       </SettingsSubPage>
     )
   }
@@ -94,7 +111,15 @@ export function WorldTab({
   if (panel === 'templates') {
     return (
       <SettingsSubPage title="模板" onBack={() => setPanel('root')}>
-        <TemplatesPanel initialId={target} />
+        <TemplatesPanel
+          initialId={target}
+          onEditComponent={(next) => {
+            // 模板里那一行的设置键：直接换到组件页并带上落点，返回时回到模板
+            setComponentTarget(next)
+            setBackTo('templates')
+            setPanel('components')
+          }}
+        />
       </SettingsSubPage>
     )
   }

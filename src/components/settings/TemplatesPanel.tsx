@@ -35,7 +35,6 @@ import { BUILTIN_TEMPLATES } from '@/lib/templates/defaults'
 import { isComponentAvailable, isComponentWired } from '@/lib/templates/support'
 import { templateParamsFor, type TemplateParamValue } from '@/lib/templates/params'
 import { componentEditTarget } from '@/lib/templates/edit-target'
-import { useSettingsTrigger } from '@/components/layout/SettingsTriggerContext'
 import { blankTemplateDoc, customTemplateId } from '@/lib/templates/defaults'
 import { useInfoGroups } from '@/lib/templates/info-groups'
 import { useBodyGroups } from '@/lib/templates/body-groups'
@@ -126,9 +125,15 @@ function ComponentRow({
   )
 }
 
-export function TemplatesPanel({ initialId }: { initialId?: string }) {
+export function TemplatesPanel({
+  initialId,
+  onEditComponent,
+}: {
+  initialId?: string
+  /** 行上那枚设置键：父级（WorldTab）自己换页，不走 `openSettings` 重挂整棵树 */
+  onEditComponent?: (target: string) => void
+}) {
   const { templates, loading } = useTemplates()
-  const { openSettings } = useSettingsTrigger()
   const infoGroups = useInfoGroups()
   const bodyGroups = useBodyGroups()
   const [activeId, setActiveId] = useState<string | null>(initialId ?? null)
@@ -303,7 +308,7 @@ export function TemplatesPanel({ initialId }: { initialId?: string }) {
                   // 但那一行仍然需要一个入口 —— 不然从模板里根本跳不到字段表
                   const target = componentEditTarget(active.id, component.id)
                   if (!target) return undefined
-                  return () => openSettings('world', 'components', target.target)
+                  return () => onEditComponent?.(target.target)
                 })()}
                 onRemove={() => remove(component)}
               >
