@@ -2,12 +2,14 @@
 
 本地优先的原创角色（OC）与世界观创作工作台。
 
-当前版本：**v0.20.2-beta**
+当前版本：**v0.20.3-beta**（发布在 `latest`）
 
-> ⚠️ **这是测试版**：只用于预览新功能，**不保证对旧版本（v0.19.2 及更早）的备份与笔记库、以及 OC-editor 的兼容性**。试之前请先复制一份笔记库。
+> ✅ **这一版按正式版发布**：模板 / 组件这条线已经补完 —— 改的模板、组件、空文件夹重启后都在。版本号仍带 `beta`，但下载入口在 Latest，可以当正式版用。
 >
-> - 本版：[Pokanshuu/OC-Studio v0.20.2-beta](https://github.com/Pokanshuu/OC-Studio/releases/tag/v0.20.2-beta)（`.app` / `.dmg`）
-> - 上一版：[Pokanshuu/OC-Studio v0.20.1-beta](https://github.com/Pokanshuu/OC-Studio/releases/tag/v0.20.1-beta)
+> 仍然**不保证对旧版本（v0.19.2 及更早）的备份与笔记库、以及 OC-editor 的兼容性**。升级前请先复制一份笔记库。
+>
+> - 本版：[Pokanshuu/OC-Studio v0.20.3-beta](https://github.com/Pokanshuu/OC-Studio/releases/tag/v0.20.3-beta)
+> - 上一版：[Pokanshuu/OC-Studio v0.20.2-beta](https://github.com/Pokanshuu/OC-Studio/releases/tag/v0.20.2-beta)（`.app` / `.dmg`）
 > - 旧架构：[nekibud/OC-editor v0.19.1](https://github.com/nekibud/OC-editor/releases/tag/v0.19.1)
 >
 
