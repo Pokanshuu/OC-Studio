@@ -14,7 +14,7 @@ import { useCodexEntryList } from '@/features/world/hooks/useWorldEntries'
 import { useSaveStatus } from '@/components/layout/SaveStatusContext'
 import { toast } from 'sonner'
 import { useEditorDirty } from '@/components/layout/useEditorDirty'
-import { describeDocDiff, sameDocIgnoringTrailingSpacer, snapshotKey, useDirtySnapshot } from '@/lib/dirty'
+import { describeDocDiff, sameDocNodeIgnoringTrailingSpacer, snapshotKey, useDirtySnapshot } from '@/lib/dirty'
 import { parseTime, assembleTime } from '@/features/events/utils'
 
 /** 存量数据里 aliases 可能是字符串（历史格式），统一成可编辑文本 */
@@ -470,7 +470,7 @@ export function useCharacterForm(
     if (!editor || !baseline) return
     let next = !editor.state.doc.eq(baseline)
     // TipTap 的 TrailingNode 会给「以分割线/图片/表格结尾」的正文补一个空段落 —— 那不是改动
-    if (next) next = !sameDocIgnoringTrailingSpacer(editor.getJSON(), baseline.toJSON())
+    if (next) next = !sameDocNodeIgnoringTrailingSpacer(editor.state.doc, baseline)
     if (next && !docDiffLoggedRef.current) {
       docDiffLoggedRef.current = true
       if (process.env.NODE_ENV !== 'production') {

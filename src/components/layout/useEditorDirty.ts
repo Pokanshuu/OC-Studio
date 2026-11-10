@@ -22,9 +22,20 @@ export function useEditorDirty(
   detail?: string,
 ): void {
   const { entityType, entityId } = useEditor()
-  const { reportDirty } = useSaveStatus()
+  const { reportDirty, resetStatus } = useSaveStatus()
   const active = entityId === null || (entityType === type && entityId === id)
   const wasDirtyRef = useRef(false)
+
+  /**
+   * 卸载（切分区 / 关编辑器）时把全局状态收回 idle。
+   *
+   * 实体编辑器只是被 CSS 隐藏、或直接卸载时，`reportDirty(true)` 留下的「未保存」
+   * 会挂到**下一个页面**上：切到世界观看笔记，状态栏却写着未保存，离开时还会弹
+   * 「有未保存的更改吗」—— 而那个页面什么都没改。
+   */
+  useEffect(() => {
+    return () => resetStatus()
+  }, [resetStatus])
 
   useEffect(() => {
     if (!active || saving) return

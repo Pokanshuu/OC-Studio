@@ -106,14 +106,25 @@ export function useEntityWorkspace() {  const { activeItem: desktopActiveItem, s
 
   const { setActiveEntity, status: saveStatus, resetStatus } = useSaveStatus()
   useEffect(() => {
-    setActiveEntity(
+    const nextType =
       activeItem === '事件' ? 'event'
       : activeItem === '角色' ? 'character'
       : activeItem === '国家' ? 'country'
       : activeItem === '世界观' ? 'world'
-      : null,
-    )
-  }, [activeItem, setActiveEntity])
+      : null
+    setActiveEntity(nextType)
+    /**
+     * 切到**另一个**分区时，把上一个编辑器的上下文收掉。
+     *
+     * 角色 / 事件 / 国家的编辑器切换分区后只是被 CSS 隐藏、仍挂在树上，`entityType`
+     * 还停在它身上 —— 于是它的「未保存」会挂到新页面上（状态栏写未保存、离开时弹
+     * 「有未保存的更改吗」），而那个页面什么都没改。只有切到同一类型分区才保留。
+     */
+    if (entityType !== null && nextType !== entityType) {
+      clearEditing()
+      resetStatus()
+    }
+  }, [activeItem, entityType, setActiveEntity, clearEditing, resetStatus])
 
   // 编辑器实体切换（进入/离开/跨实体跳转）时重置全局保存状态，
   // 防止上一个编辑器的 dirty 残留导致新编辑器出现「未保存」误报。

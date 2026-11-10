@@ -94,28 +94,44 @@ function brief(value: unknown): string {
 }
 
 /**
- * 文档等价比较：**忽略末尾的空段落**。
+ * 文档等价比较的**节点版**：直接比 ProseMirror 节点，不序列化。
  *
- * TipTap 的 `TrailingNode`（StarterKit 默认开启）会在挂载后给「以分割线 / 图片 / 表格 /
- * 代码块结尾」的正文补一个可输入的段落 —— 那是编辑器自己的规范化，不是用户改的。
- * 文档末尾的空段落不承载内容，不该被算成「未保存的更改」。
+ * 每次输入都会走这里（`handleDocChange`）：长文档里 `getJSON()` + `toJSON()` +
+ * 两次 `JSON.stringify` 是实打实的键入延迟。节点比较只在真有差异时才走到
+ * 「去掉末尾空段落再比一次」，而且 `copy()` 只换父节点、不重建子节点。
  */
-export function sameDocIgnoringTrailingSpacer(a: unknown, b: unknown): boolean {
-  return snapshotKey(dropTrailingEmptyParagraphs(a)) === snapshotKey(dropTrailingEmptyParagraphs(b))
+export interface DocNodeLike {
+  eq(other: DocNodeLike): boolean
+  readonly childCount: number
+  readonly lastChild: DocNodeLike | null
+  readonly type: { name: string }
+  readonly content: { size: number }
+  forEach(fn: (node: DocNodeLike) => void): void
+  copy(content: readonly DocNodeLike[]): DocNodeLike
 }
 
-function dropTrailingEmptyParagraphs(doc: unknown): unknown {
-  if (!doc || typeof doc !== 'object') return doc
-  const source = doc as { content?: unknown }
-  if (!Array.isArray(source.content)) return doc
-  const content = [...source.content]
-  while (content.length > 0) {
-    const last = content[content.length - 1] as { type?: string; content?: unknown[] } | undefined
-    const empty = last?.type === 'paragraph' && (!Array.isArray(last.content) || last.content.length === 0)
-    if (!empty) break
-    content.pop()
+export function sameDocNodeIgnoringTrailingSpacer<T>(a: T, b: T): boolean {
+  // 泛型 + 一次结构投射：ProseMirror 的 `eq(other: Node)` 在类型上是不变式，
+  // 直接声明成 `DocNodeLike` 会因参数逆变被 TS 拒绝（运行时本来就是同一个对象）。
+  const left = a as unknown as DocNodeLike
+  const right = b as unknown as DocNodeLike
+  if (left.eq(right)) return true
+  return trimTrailingEmptyParagraphs(left).eq(trimTrailingEmptyParagraphs(right))
+}
+
+function trimTrailingEmptyParagraphs(node: DocNodeLike): DocNodeLike {
+  let current = node
+  while (true) {
+    const last = current.lastChild
+    if (last === null) break
+    const emptyParagraph = last.type.name === 'paragraph' && last.content.size === 0
+    if (!emptyParagraph) break
+    const children: DocNodeLike[] = []
+    current.forEach((child) => children.push(child))
+    children.pop()
+    current = current.copy(children)
   }
-  return { ...(doc as Record<string, unknown>), content }
+  return current
 }
 
 /**
