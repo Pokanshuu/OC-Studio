@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Plus, RotateCcw } from 'lucide-react'
+import { toast } from 'sonner'
 import {
   FIELD_KIND_LABELS,
   FIELD_KIND_SUPPORTS_CUSTOM,
@@ -29,7 +30,19 @@ function FieldGroup({ kind, showTitle = true }: { kind: FieldKind; showTitle?: b
   /** 删掉的内置字段：给一条找回的路（自建字段不会被加回，它们是用户自己加的） */
   const missing = missingBuiltinFields(kind, fields)
 
-  const commit = (next: FieldDef[]) => { void replaceFields(kind, next) }
+  /**
+   * 保存字段表（改名 / 增删 / 排序 / 恢复默认全走这里）。
+   *
+   * 以前是裸 `void replaceFields(...)`：写盘失败（或读失败被拒绝写回）只留一条
+   * unhandled rejection，界面照旧显示新字段表 —— 用户以为改好了，刷新就回去了。
+   */
+  const commit = (next: FieldDef[]) => {
+    void replaceFields(kind, next).catch((error: unknown) => {
+      toast.error('字段表保存失败', {
+        description: error instanceof Error ? error.message : String(error),
+      })
+    })
+  }
 
   // 拖拽排序：只换位置，不碰字段定义
   const reorder = (activeId: number | string, overId: number | string) => {
@@ -181,7 +194,11 @@ export function FieldKindSettings({ kind }: { kind: FieldKind }) {
             type="button"
             onClick={() => {
               const kept = config[kind].filter(isCustomField)
-              void replaceFields(kind, [...defaultFields(kind), ...kept])
+              void replaceFields(kind, [...defaultFields(kind), ...kept]).catch((error: unknown) => {
+                toast.error('恢复默认字段失败', {
+                  description: error instanceof Error ? error.message : String(error),
+                })
+              })
               setConfirmReset(false)
             }}
             className="text-ink transition-colors hover:text-error"

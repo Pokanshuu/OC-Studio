@@ -602,15 +602,22 @@ async function flushTagMeta(report: VaultFlushReport): Promise<void> {
     // 目录已存在
   }
 
-  const results = await withTimeout(
-    vaultFs.writeTexts(session.root, [{ relPath: session.tagMeta.relPath, content }]),
-    '写入 tags.json',
-  )
-  const result = results[0]
-  if (result !== undefined && !result.ok) {
-    report.errors.push({ relPath: session.tagMeta.relPath, message: result.error ?? '写入失败' })
+  try {
+    const results = await withTimeout(
+      vaultFs.writeTexts(session.root, [{ relPath: session.tagMeta.relPath, content }]),
+      '写入 tags.json',
+    )
+    const result = results[0]
+    if (result !== undefined && !result.ok) {
+      report.errors.push({ relPath: session.tagMeta.relPath, message: result.error ?? '写入失败' })
+      // 写失败要把 dirty 放回去，否则这批标签改动就再也不会被写
+      session.tagMeta.dirty = true
+      return
+    }
+  } catch (err) {
+    // IPC 超时 / 抛错同样要放回 dirty：以前这里漏了，tag 改动会静默丢掉
     session.tagMeta.dirty = true
-    return
+    throw err
   }
   session.tagMeta.content = content
   report.written += 1

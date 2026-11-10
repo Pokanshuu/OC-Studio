@@ -30,6 +30,13 @@ export const FIELDS_REL_PATH = '.ocstudio/fields.json'
 const FIELDS_VERSION = 2
 
 let snapshot: FieldConfig = defaultFieldConfig()
+/**
+ * 上一次读盘没成功（文件坏了 / IO 抖动）。
+ *
+ * 这种情况**不许写回**：`loadFieldConfig` 会回落默认配置，此时界面看着「所有字段都回来了」，
+ * 一旦用户随手改一下并保存，盘上那份真的配置就被默认值覆盖了 —— 和分类表那个坑同一类。
+ */
+let readFailed = false
 const listeners = new Set<() => void>()
 
 function emit(): void {
@@ -182,8 +189,11 @@ export async function loadFieldConfig(): Promise<void> {
         snapshot = upgradeFieldConfig(config, version)
       }
     }
+    readFailed = false
   } catch {
     snapshot = defaultFieldConfig()
+    // 读失败：记下来，之后禁止写回（否则默认值会盖掉盘上那份真配置）
+    readFailed = true
   }
   syncCustomFieldKeys(snapshot)
   emit()
@@ -210,6 +220,7 @@ export async function readFieldConfigFromRoot(root: string): Promise<FieldConfig
 
 /** 写配置：先更新内存（界面立刻生效），再落盘；落盘失败抛出给调用方提示 */
 export async function saveFieldConfig(next: FieldConfig): Promise<void> {
+  if (readFailed) throw new Error('字段表上次没有读成功，先刷新笔记库再改')
   snapshot = next
   syncCustomFieldKeys(next)
   emit()
@@ -226,6 +237,7 @@ export async function saveFieldConfig(next: FieldConfig): Promise<void> {
     ])
     const failed = results.find((result) => !result.ok)
     if (failed !== undefined) throw new Error(failed.error ?? '写入字段配置失败')
+    readFailed = false
     return
   }
 
