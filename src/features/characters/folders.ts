@@ -31,6 +31,8 @@ const REGISTRY_VERSION = 1
 
 let registry: string[] = []
 let registryLoaded = false
+/** 上次读清单用的库根（换库要重读） */
+let registryLoadedRoot: string | null = null
 let registryLoading: Promise<void> | null = null
 const registryListeners = new Set<() => void>()
 
@@ -58,13 +60,20 @@ function registryRoot(): string | null {
   return getVaultSession()?.root ?? null
 }
 
-/** 读清单：库优先，浏览器预览退化成 localStorage。重复调用只读一次 */
+/**
+ * 读清单：库优先，浏览器预览退化成 localStorage。重复调用只读一次。
+ *
+ * 桌面版但会话还没建好时**直接返回**：以前会读成一份空清单并标记完成，
+ * 之后再也读不到盘上的文件夹，接着一改名就把空清单写回去了。
+ */
 export async function loadFolderRegistry(force = false): Promise<void> {
   if (registryLoading) return registryLoading
-  if (registryLoaded && !force) return
+  const readyRoot = registryRoot()
+  if (readyRoot === null && isVaultSupported()) return
+  if (!force && registryLoaded && registryLoadedRoot === readyRoot) return
   registryLoading = (async () => {
     try {
-      const root = registryRoot()
+      const root = readyRoot
       if (root) {
         if (await vaultFs.exists(root, FOLDERS_REL_PATH)) {
           const bytes = await vaultFs.readBytes(root, FOLDERS_REL_PATH)
@@ -78,9 +87,10 @@ export async function loadFolderRegistry(force = false): Promise<void> {
         registry = raw === null ? [] : normalizeRegistry((JSON.parse(raw) as { folders?: unknown })?.folders)
       }
     } catch {
-      registry = []
+      // 读失败不覆盖已有清单
     } finally {
       registryLoaded = true
+      registryLoadedRoot = readyRoot
       registryLoading = null
       emitRegistry()
     }
@@ -90,13 +100,16 @@ export async function loadFolderRegistry(force = false): Promise<void> {
 
 async function saveRegistry(next: string[]): Promise<void> {
   const names = normalizeRegistry(next)
+  const root = registryRoot()
+  // 会话没就绪：不写，免得把空清单覆盖到盘上
+  if (root === null && isVaultSupported()) throw new Error('笔记库还没打开，稍后再试')
   const previous = registry
   registry = names
   registryLoaded = true
+  registryLoadedRoot = root
   emitRegistry()
 
   try {
-    const root = registryRoot()
     if (root) {
       try {
         await vaultFs.mkdir(root, '.ocstudio')

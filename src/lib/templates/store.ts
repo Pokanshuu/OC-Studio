@@ -27,6 +27,9 @@ const LS_KEY = 'oc-templates-v1'
 
 let cache: TemplateDoc[] = BUILTIN_TEMPLATES.map((doc) => JSON.parse(JSON.stringify(doc)) as TemplateDoc)
 let loaded = false
+/** 上次装载用的是哪个库根；根一变就重读（启动早期会话还没建的坑见 `loadTemplates`） */
+let loadedRoot: string | null = null
+let readFailed = false
 let loading: Promise<void> | null = null
 let error: string | null = null
 const listeners = new Set<() => void>()
@@ -45,22 +48,18 @@ function vaultRoot(): string | null {
 }
 
 async function readFromVault(root: string): Promise<TemplateDoc[] | null> {
-  try {
-    const assets = await vaultFs.listAssets(root, TEMPLATE_DIR)
-    const files = assets.filter((asset) => asset.name.toLowerCase().endsWith('.md'))
-    if (files.length === 0) return null
-    const out: TemplateDoc[] = []
-    for (const file of files) {
-      const bytes = await vaultFs.readBytes(root, file.relPath)
-      const text = new TextDecoder('utf-8').decode(new Uint8Array(bytes))
-      const fallbackId = file.name.replace(/\.md$/i, '')
-      const parsed = parseTemplate(text, fallbackId)
-      if (parsed) out.push(parsed)
-    }
-    return out.length > 0 ? out : null
-  } catch {
-    return null
+  const assets = await vaultFs.listAssets(root, TEMPLATE_DIR)
+  const files = assets.filter((asset) => asset.name.toLowerCase().endsWith('.md'))
+  if (files.length === 0) return null
+  const out: TemplateDoc[] = []
+  for (const file of files) {
+    const bytes = await vaultFs.readBytes(root, file.relPath)
+    const text = new TextDecoder('utf-8').decode(new Uint8Array(bytes))
+    const fallbackId = file.name.replace(/\.md$/i, '')
+    const parsed = parseTemplate(text, fallbackId)
+    if (parsed) out.push(parsed)
   }
+  return out.length > 0 ? out : null
 }
 
 function readFromStorage(): TemplateDoc[] | null {
@@ -256,23 +255,41 @@ export function subscribeTemplates(listener: () => void): () => void {
   return () => listeners.delete(listener)
 }
 
+/**
+ * 装载模板。
+ *
+ * **会话没就绪时绝不能当成「库里没有模板」**：以前这里会直接退到 localStorage、
+ * 然后把 `loaded` 置真 —— 启动早期 `getVaultSession()` 还是 null，于是内存里
+ * 全是内置默认、之后再也不重读。表现就是「一重启模板就回到默认」，而且用户接着
+ * 改一下，内置默认还会被写回盘上，把真模板覆盖掉。
+ *
+ * 现在按 `categories/store.ts` 同一套规矩：
+ * - 桌面版但会话还没建好 → 直接返回，不读、不标记完成（`AppShell` 的
+ *   `VaultConfigSync` 会在库根出现时再喊一次）
+ * - 记住上次装载用的根，根一变就重读
+ * - 读盘失败只记 `readFailed`，**不拿内置默认覆盖缓存**，保存时直接报错
+ */
 export async function loadTemplates(force = false): Promise<void> {
   if (loading) return loading
-  if (loaded && !force) return
+  const root = vaultRoot()
+  if (root === null && isVaultSupported()) return
+  if (!force && loaded && loadedRoot === root) return
   loading = (async () => {
     error = null
     try {
-      const root = vaultRoot()
       const fromDisk = root ? await readFromVault(root) : null
       const docs = fromDisk ?? readFromStorage()
       cache = merge(docs)
       const migrated = queueLegacyNoteSpecialFields(docs)
       await persistMigratedTemplates(migrated)
       syncFieldKeys()
-      loaded = true
+      readFailed = false
     } catch (err) {
       error = err instanceof Error ? err.message : String(err)
+      readFailed = true
     } finally {
+      loaded = true
+      loadedRoot = root
       loading = null
       emit()
     }
@@ -282,9 +299,12 @@ export async function loadTemplates(force = false): Promise<void> {
 
 /** 整体保存（编排界面改完就调）：写盘 + 更新缓存 */
 export async function saveTemplates(docs: TemplateDoc[]): Promise<void> {
+  const root = vaultRoot()
+  // 桌面版但会话没就绪：宁可不写，也不能把内存里的内置默认写进笔记库
+  if (root === null && isVaultSupported()) throw new Error('笔记库还没打开，稍后再试')
+  if (readFailed) throw new Error('模板上次没有读成功，先刷新笔记库再改')
   cache = docs.map((doc) => ({ ...doc }))
   syncFieldKeys()
-  const root = vaultRoot()
   if (root) {
     const entries = docs.map((doc) => ({ relPath: templatePath(doc.id), content: serializeTemplate(doc) }))
     const results = await vaultFs.writeTexts(root, entries)
@@ -296,6 +316,7 @@ export async function saveTemplates(docs: TemplateDoc[]): Promise<void> {
     localStorage.setItem(LS_KEY, JSON.stringify(docs))
   }
   loaded = true
+  loadedRoot = root
   emit()
 }
 

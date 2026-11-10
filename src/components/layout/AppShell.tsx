@@ -21,6 +21,10 @@ import { TrashView } from "@/features/trash/components/TrashView"
 import { loadInspirations, resetInspirations } from "@/features/inspirations/store"
 import { loadFieldConfig } from "@/lib/fields"
 import { loadCategories } from "@/lib/categories/store"
+import { loadTemplates } from "@/lib/templates/store"
+import { loadInfoGroups } from "@/lib/templates/info-groups"
+import { loadBodyGroups } from "@/lib/templates/body-groups"
+import { loadFolderRegistry } from "@/features/characters/folders"
 import { VaultSurfaces, VaultWriteBanner } from "@/features/vault"
 import { useVault } from "@/lib/vault/vault-provider"
 import { useSettings } from "@/lib/settings"
@@ -37,10 +41,16 @@ import { getChromiumVersion, isBelowTargetVersion, isHarmonyOS, getHarmonyOSVers
  * 依赖 root 也是必需的：启动那一下可能早于会话就绪（root 还是 null），
  * 少了这一条就会出现「刷新后侧栏的分类没了」。
  */
-function VaultCategoriesSync() {
+function VaultConfigSync() {
   const { root } = useVault()
   useEffect(() => {
+    // 这四份都随库走、都存在 `.ocstudio/` 下。启动那一下可能早于会话就绪
+    // （root 还是 null），少了这一条就会出现「重启后模板 / 分类 / 字段组回到默认」。
     void loadCategories()
+    void loadTemplates()
+    void loadInfoGroups()
+    void loadBodyGroups()
+    void loadFolderRegistry()
   }, [root])
   return null
 }
@@ -244,7 +254,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </AppShellChrome>
                   <TrashOverlayRenderer />
                   <VaultSurfaces />
-                  <VaultCategoriesSync />
+                  <VaultConfigSync />
                   <VaultInspirationsSync />
                   <DevMockBadge />
                 </MobilePageHeaderProvider>

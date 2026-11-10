@@ -149,6 +149,9 @@ function serialize(groups: BodyGroup[]): string {
 
 let snapshot: BodyGroup[] = merge([])
 let loaded = false
+/** 上次装载用的库根（根一变重读；启动早期会话没就绪时不装载，见 `loadBodyGroups`） */
+let loadedRoot: string | null = null
+let readFailed = false
 let loading: Promise<void> | null = null
 const listeners = new Set<() => void>()
 
@@ -161,12 +164,18 @@ function vaultRoot(): string | null {
   return getVaultSession()?.root ?? null
 }
 
+/**
+ * 装载正文组件。规矩同 `info-groups` / `templates`：会话没就绪时不读、不标记完成，
+ * 读失败不覆盖缓存，保存时拒绝写入 —— 否则启动早期会读成一份空表，再被写回盘上。
+ */
 export async function loadBodyGroups(force = false): Promise<void> {
   if (loading) return loading
-  if (loaded && !force) return
+  const readyRoot = vaultRoot()
+  if (readyRoot === null && isVaultSupported()) return
+  if (!force && loaded && loadedRoot === readyRoot) return
   loading = (async () => {
     try {
-      const root = vaultRoot()
+      const root = readyRoot
       if (root) {
         if (await vaultFs.exists(root, REL_PATH)) {
           const bytes = await vaultFs.readBytes(root, REL_PATH)
@@ -179,10 +188,12 @@ export async function loadBodyGroups(force = false): Promise<void> {
         const raw = localStorage.getItem(LS_KEY)
         snapshot = merge(raw === null ? [] : normalize((JSON.parse(raw) as { groups?: unknown })?.groups))
       }
+      readFailed = false
     } catch {
-      snapshot = merge([])
+      readFailed = true
     } finally {
       loaded = true
+      loadedRoot = readyRoot
       loading = null
       emit()
     }
@@ -192,12 +203,16 @@ export async function loadBodyGroups(force = false): Promise<void> {
 
 export async function saveBodyGroups(next: BodyGroup[]): Promise<void> {
   const merged = merge(normalize(next))
+  const root = vaultRoot()
+  // 会话没就绪 / 上次没读成功：不写，免得把一份空表覆盖到盘上
+  if (root === null && isVaultSupported()) throw new Error('笔记库还没打开，稍后再试')
+  if (readFailed) throw new Error('正文组件上次没有读成功，先刷新笔记库再改')
   const previous = snapshot
   snapshot = merged
   loaded = true
+  loadedRoot = root
   emit()
 
-  const root = vaultRoot()
   try {
     if (root) {
       try {

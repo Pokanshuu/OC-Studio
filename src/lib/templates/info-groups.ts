@@ -346,6 +346,9 @@ function serialize(groups: InfoGroup[]): string {
 
 let snapshot: InfoGroup[] = merge([])
 let loaded = false
+/** 上次装载用的库根（根一变重读；启动早期会话没就绪时不装载，见 `loadInfoGroups`） */
+let loadedRoot: string | null = null
+let readFailed = false
 let loading: Promise<void> | null = null
 const listeners = new Set<() => void>()
 
@@ -358,12 +361,22 @@ function vaultRoot(): string | null {
   return getVaultSession()?.root ?? null
 }
 
+/**
+ * 装载基本信息组件。
+ *
+ * 与会话就绪的关系和 `templates/store.ts` 同一条规矩：桌面版但会话还没建好时
+ * **直接返回**，不要退到 localStorage、也不要把 `loaded` 置真 —— 否则启动早期
+ * 读成一份「只有内置组件」的空表，之后再也不重读，用户新建的字段组就看不见了；
+ * 接着再改一下，还会把这份空表写回盘上。
+ */
 export async function loadInfoGroups(force = false): Promise<void> {
   if (loading) return loading
-  if (loaded && !force) return
+  const readyRoot = vaultRoot()
+  if (readyRoot === null && isVaultSupported()) return
+  if (!force && loaded && loadedRoot === readyRoot) return
   loading = (async () => {
     try {
-      const root = vaultRoot()
+      const root = readyRoot
       if (root) {
         if (await vaultFs.exists(root, REL_PATH)) {
           const bytes = await vaultFs.readBytes(root, REL_PATH)
@@ -376,10 +389,13 @@ export async function loadInfoGroups(force = false): Promise<void> {
         const raw = localStorage.getItem(LS_KEY)
         snapshot = merge(raw === null ? [] : normalize((JSON.parse(raw) as { groups?: unknown })?.groups))
       }
+      readFailed = false
     } catch {
-      snapshot = merge([])
+      // 读失败**不覆盖**已有表：一次 I/O 抖动不该让字段组消失，更不该让下次保存写回空表
+      readFailed = true
     } finally {
       loaded = true
+      loadedRoot = readyRoot
       loading = null
     }
     // 模板降级时登记的特殊字段，要等组件装载完才能补（见 `queueSpecialInfoFields`）
@@ -391,11 +407,15 @@ export async function loadInfoGroups(force = false): Promise<void> {
 
 export async function saveInfoGroups(next: InfoGroup[]): Promise<void> {
   const merged = merge(normalize(next))
+  const root = vaultRoot()
+  // 会话没就绪 / 上次没读成功：不写，免得把「只有内置组件」的空表覆盖到盘上
+  if (root === null && isVaultSupported()) throw new Error('笔记库还没打开，稍后再试')
+  if (readFailed) throw new Error('基本信息组件上次没有读成功，先刷新笔记库再改')
   snapshot = merged
   loaded = true
+  loadedRoot = root
   emit()
 
-  const root = vaultRoot()
   if (root) {
     try {
       await vaultFs.mkdir(root, '.ocstudio')
