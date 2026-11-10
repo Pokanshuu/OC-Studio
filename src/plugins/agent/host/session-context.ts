@@ -572,8 +572,14 @@ async function buildSessionDataBlock(
 }
 
 /**
- * 创作模式写回：在选定小说下新建一章，**或者改写已有的一章**。
+ * 写小说章节：在目标小说下新建一章，**或者改写已有的一章**。
  * 走 `createNovelChapter`（写操作日志）→ `worldBodyPatch`（Tiptap 文档，唯一正文口径）。
+ *
+ * 目标小说怎么定：
+ * - **创作模式**：用这场对话选中的那部（并且作者必须打开「写回」）；
+ * - **Agent 模式**：模型显式传 `novelId`（它能读库，自己查得到小说根）。
+ *   这条不额外要授权 —— Agent 模式本来就能用 `library_create` + `library_set_body`
+ *   写任何条目，而且这个工具带审批（`okWrite`）。给它的是一条**不会写错结构**的路。
  *
  * 给 `chapterId` 就走改写：模型刚写完一章、发现写错了，不该逼它新建一章再让作者删。
  * 只允许改**这部小说底下**的章节 —— 拿到别处的 id 一律拒绝，免得把设定条目覆盖掉。
@@ -586,6 +592,7 @@ export async function writeNovelChapter(
   const title = typeof args.title === 'string' ? args.title.trim().slice(0, 80) : ''
   const markdown = typeof args.markdown === 'string' ? args.markdown.trim() : ''
   const chapterId = typeof args.chapterId === 'number' ? Math.trunc(args.chapterId) : 0
+  const askedNovelId = typeof args.novelId === 'number' ? Math.trunc(args.novelId) : 0
   if (!markdown) {
     return { content: '正文不能为空。', isError: true, durationMs: Date.now() - started }
   }
@@ -599,33 +606,34 @@ export async function writeNovelChapter(
   // 先校准：id 是位置号，重排后可能指向别的条目。校准把它换成现在这条的 id，
   // 找不到就说明那部小说真的没了 —— 宁可拒绝，也不能把章节挂到别人底下。
   const context = stored ? (await resolveAgentSessionContext(stored)).context : null
-  if (!context?.novelRootId || !context.novelWritable) {
+  const sessionNovel = context?.novelRootId != null && context.novelWritable ? context.novelRootId : null
+  if (sessionNovel === null && askedNovelId <= 0) {
     return {
       content:
-        '这场对话没有打开「写回小说」——写回要作者自己授权，助手打不开。' +
-        '请让作者：把助手切到「创作」模式 → 在输入框上方的「上下文」里选中这部小说 → 打开「允许写回」，然后重试。' +
-        '（如果之前选过、现在 tag 空了，说明笔记库重排过，那本书已经不在了，需要重选一次。）' +
-        '在授权之前，正文只能作为回复贴给作者，不要直接写库。',
+        '没说要写进哪部小说：Agent 模式请传 `novelId`（先 `library_list` kind=world category=小说 找到小说根），' +
+        '创作模式请在输入框上方的「上下文」里选中作品并打开「允许写回」。',
       isError: true,
       durationMs: Date.now() - started,
     }
   }
 
-  const [{ db }, { runAsActorAsync }, novelServices, { bodyDocFromMarkdown }, { worldBodyPatch }] =
+  const [{ db }, { runAsActorAsync }, novelServices, { bodyDocFromMarkdown }, { worldBodyPatch }, { NOVEL_CATEGORY }] =
     await Promise.all([
       import('@/lib/db'),
       import('@/lib/vault/actor'),
       import('@/features/novel/services'),
       import('@/lib/vault/write-body'),
       import('@/lib/world-body'),
+      import('@/lib/novel'),
     ])
 
-  // 再确认一次目标真的是「小说根」：上面的校准按 id + 名字对，这里按字段对，
-  // 万一有别的路径把 novelRootId 塞成一篇普通词条，也不会在它下面挂章节。
-  const novelRoot = await db.worldEntries.get(context.novelRootId)
-  if (novelRoot === undefined || novelRoot.parentId !== null) {
+  const targetRootId = sessionNovel ?? askedNovelId
+  // 确认目标真的是「小说根」：上面的校准按 id + 名字对，这里按字段对，
+  // 万一有别的路径塞进来一个普通词条 id，也不会在它下面挂章节。
+  const novelRoot = await db.worldEntries.get(targetRootId)
+  if (novelRoot === undefined || novelRoot.parentId !== null || novelRoot.category !== NOVEL_CATEGORY) {
     return {
-      content: '选中的小说已经不在了（笔记库可能重排过），请让作者重新选择作品。',
+      content: `#${targetRootId} 不是小说根（要 category=${NOVEL_CATEGORY} 且没有上级）。先 \`library_list\` kind=world category=小说 找一下。`,
       isError: true,
       durationMs: Date.now() - started,
     }
@@ -641,7 +649,7 @@ export async function writeNovelChapter(
     let belongs = false
     const seen = new Set<number>()
     while (cursor !== null && !seen.has(cursor)) {
-      if (cursor === context.novelRootId) {
+      if (cursor === targetRootId) {
         belongs = true
         break
       }
@@ -669,7 +677,7 @@ export async function writeNovelChapter(
   }
 
   const createdId = await runAsActorAsync('agent:assistant', async () => {
-    const id = await novelServices.createNovelChapter(context.novelRootId, title)
+    const id = await novelServices.createNovelChapter(targetRootId, title)
     const patch = worldBodyPatch(bodyDocFromMarkdown(markdown))
     await db.worldEntries.update(id, { ...patch, updatedAt: Date.now() })
     return id

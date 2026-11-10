@@ -1122,6 +1122,13 @@ async function main(): Promise<void> {
   check('只选小说也算有资料', hasAgentSessionContext({ ...emptyContext, novelRootId: 3 }) === true)
   const novelTool = toolByName('novel_write_chapter')
   check('创作写回工具存在且要审批', novelTool?.category === 'write' && novelTool?.requiresApproval === true)
+  // Agent 模式没有「会话选中的小说」，必须能显式指定目标；参数没了，这条路又会变成
+  // 「广告了却调不动」（2026-11-11 的「小说写不了」就是它）
+  check(
+    '写章节能显式带 novelId（Agent 模式）',
+    novelTool !== undefined &&
+      (novelTool.parameters.properties as Record<string, unknown> | undefined)?.novelId !== undefined,
+  )
   check(
     'toolSummary 认 novel_write_chapter',
     toolSummary({ id: 'n1', name: 'novel_write_chapter', args: '{"title":"第一章"}' } as never) === '第一章',

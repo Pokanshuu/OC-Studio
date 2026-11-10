@@ -501,15 +501,15 @@ export const ALL_TOOLS: ToolSpec[] = [
     name: 'novel_write_chapter',
     ...okWrite,
     description:
-      'Write a chapter in the novel selected for this creative conversation. Without `chapterId` ' +
-      'it creates a NEW chapter; pass `chapterId` to rewrite that chapter. Only when the author ' +
-      'enabled write-back.',
+      'Write a novel chapter. Creative mode uses the selected novel; agent mode needs `novelId`. ' +
+      'No `chapterId` = new chapter.',
     parameters: {
       type: 'object',
       properties: {
-        title: { type: 'string', description: 'Chapter title (ignored when rewriting).' },
-        markdown: { type: 'string', description: 'Chapter body in Markdown.' },
-        chapterId: { type: 'integer', description: 'Existing chapter id to rewrite.' },
+        novelId: { type: 'integer', description: 'Novel root id (agent mode).' },
+        title: { type: 'string', description: 'Chapter title.' },
+        markdown: { type: 'string', description: 'Chapter body (Markdown).' },
+        chapterId: { type: 'integer', description: 'Chapter id to rewrite.' },
       },
       required: ['markdown'],
       additionalProperties: false,

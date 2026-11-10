@@ -330,6 +330,10 @@ export const useChatStore = create<ChatStore>((set, get) => {
     const tools: ToolSpec[] = toolsAllowed && workspace
       ? toolsFor(settings.agent.enabledTools).filter((tool) => {
           if (conversation.mode === 'CREATIVE') return tool.name === 'novel_write_chapter'
+          // 写小说章节也是写库：没拿到库授权时同样不要广告它。
+          // （它不在 `LIBRARY_TOOL_NAMES` 里，因为执行落在宿主自己的小说服务上，
+          //   `isLibraryTool` 认不出来 —— 这里必须点名，否则「没授权也能看见」，模型会去调。）
+          if (tool.name === 'novel_write_chapter') return libraryAllowed
           return libraryAllowed || !isLibraryTool(tool.name)
         })
       : []
