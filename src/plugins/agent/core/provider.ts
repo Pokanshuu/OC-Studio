@@ -48,6 +48,16 @@ export const PROVIDERS: Record<ProviderKind, ProviderMeta> = {
     modelListNeedsAuth: false,
     hint: 'opencode.ai/zen/go/v1',
   },
+  GEMINI: {
+    id: 'GEMINI',
+    label: 'Gemini',
+    // Google 的 OpenAI 兼容层；鉴权仍是 `Authorization: Bearer <key>`，
+    // 与自定义端点同一条链路，不需要单独适配。
+    defaultBaseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    defaultModel: 'gemini-3.7-flash',
+    modelListNeedsAuth: true,
+    hint: 'generativelanguage.googleapis.com/v1beta/openai',
+  },
   CUSTOM: {
     id: 'CUSTOM',
     label: '自定义',
@@ -112,18 +122,44 @@ const OPENCODE_MODELS: ModelInfo[] = [
   model('longcat-2.0', 'LongCat 2.0', 262_144),
 ]
 
+const GEMINI_MODELS: ModelInfo[] = [
+  model('gemini-3.7-flash', 'Gemini 3.7 Flash', 1_000_000, true),
+  model('gemini-3.8-flash', 'Gemini 3.8 Flash', 1_000_000, true),
+  model('gemini-3.6-flash', 'Gemini 3.6 Flash', 1_000_000, true),
+  model('gemini-3.5-flash', 'Gemini 3.5 Flash', 1_000_000, true),
+  model('gemini-3.5-flash-lite', 'Gemini 3.5 Flash Lite', 1_000_000, true),
+  model('gemini-3.1-flash-lite', 'Gemini 3.1 Flash Lite', 1_000_000, true),
+  model('gemini-3.1-pro-preview', 'Gemini 3.1 Pro (preview)', 1_000_000, true),
+  model('gemini-flash-latest', 'Gemini Flash (latest)', 1_000_000, true),
+  model('gemini-pro-latest', 'Gemini Pro (latest)', 1_000_000, true),
+]
+
 export function knownModels(kind: ProviderKind): ModelInfo[] {
   if (kind === 'DEEPSEEK') return DEEPSEEK_MODELS
   if (kind === 'OPENCODE_GO') return OPENCODE_MODELS
+  if (kind === 'GEMINI') return GEMINI_MODELS
   return []
 }
 
+/**
+ * Gemini's `/models` returns `models/gemini-…`; the chat endpoint accepts both,
+ * but the settings list should read like model names, and stored ids should be
+ * stable against the prefix. Only Gemini is touched.
+ */
+export function normalizeModelId(kind: ProviderKind, id: string): string {
+  const trimmed = id.trim()
+  return kind === 'GEMINI' && trimmed.startsWith('models/')
+    ? trimmed.slice('models/'.length)
+    : trimmed
+}
+
 export function findModel(kind: ProviderKind, modelId: string): ModelInfo {
-  const known = knownModels(kind).find((m) => m.id === modelId)
+  const normalized = normalizeModelId(kind, modelId)
+  const known = knownModels(kind).find((m) => m.id === normalized)
   if (known) return known
   return {
-    id: modelId,
-    displayName: modelId,
+    id: normalized,
+    displayName: normalized,
     supportsVision: false,
     supportsThinking: false,
     contextWindow: DEFAULT_CONTEXT_WINDOW,
@@ -134,16 +170,18 @@ export function findModel(kind: ProviderKind, modelId: string): ModelInfo {
 export function mergeModels(kind: ProviderKind, remoteIds: string[]): ModelInfo[] {
   if (remoteIds.length === 0) return knownModels(kind)
   const known = new Map(knownModels(kind).map((m) => [m.id, m]))
-  return remoteIds.map(
-    (id) =>
+  return remoteIds.map((rawId) => {
+    const id = normalizeModelId(kind, rawId)
+    return (
       known.get(id) ?? {
         id,
         displayName: id,
         supportsVision: false,
         supportsThinking: false,
         contextWindow: DEFAULT_CONTEXT_WINDOW,
-      },
-  )
+      }
+    )
+  })
 }
 
 /**

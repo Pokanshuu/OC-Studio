@@ -28,7 +28,7 @@ import { useLang, useT } from '@/plugins/agent/i18n'
 import { ALL_TOOLS, toolsFor } from '@/plugins/agent/core/agent/tools'
 import { editablePrompt } from '@/plugins/agent/core/agent/prompt'
 import { WRITING_SKILLS } from '@/plugins/agent/core/agent/writing'
-import { chatCompletionsUrl, modelsUrl, PROVIDERS, knownModels, type ProviderKind } from '@/plugins/agent/core/provider'
+import { chatCompletionsUrl, modelsUrl, PROVIDERS, knownModels, normalizeModelId, type ProviderKind } from '@/plugins/agent/core/provider'
 import { fetchRemoteModels } from '@/plugins/agent/api/chat'
 import { cmd } from '@/plugins/agent/api/bridge'
 import {
@@ -127,8 +127,11 @@ function ApiTab() {
   const provider = PROVIDERS[settings.api.provider]
   const modelOptions = useMemo(() => {
     const known = knownModels(settings.api.provider).map((m) => m.id)
-    const merged = new Set([...known, ...remoteModels])
-    if (settings.api.model) merged.add(settings.api.model)
+    const merged = new Set([
+      ...known,
+      ...remoteModels.map((id) => normalizeModelId(settings.api.provider, id)),
+    ])
+    if (settings.api.model) merged.add(normalizeModelId(settings.api.provider, settings.api.model))
     return [...merged]
   }, [settings.api.provider, settings.api.model, remoteModels])
 
@@ -190,6 +193,7 @@ function ApiTab() {
             options={[
               { value: 'DEEPSEEK', label: PROVIDERS.DEEPSEEK.label },
               { value: 'OPENCODE_GO', label: PROVIDERS.OPENCODE_GO.label },
+              { value: 'GEMINI', label: PROVIDERS.GEMINI.label },
               { value: 'CUSTOM', label: PROVIDERS.CUSTOM.label },
             ]}
             onChange={(value) => changeProvider(value as ProviderKind)}

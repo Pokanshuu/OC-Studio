@@ -29,10 +29,18 @@ import { clipToolResult } from '../src/plugins/agent/core/agent/budget'
 import { runAgentLoop } from '../src/plugins/agent/core/agent/loop'
 import { DEFAULT_WRITING_SKILLS, writingSkillsPrompt } from '../src/plugins/agent/core/agent/writing'
 import { buildSystemPrompt, editablePrompt } from '../src/plugins/agent/core/agent/prompt'
-import { parseSseLine } from '../src/plugins/agent/core/sseParser'
+import { parseSseLine, ToolCallAccumulator } from '../src/plugins/agent/core/sseParser'
+import { buildChatRequest, messageToOut } from '../src/plugins/agent/core/chatRequest'
+import {
+  PROVIDERS,
+  chatCompletionsUrl,
+  modelsUrl,
+  normalizeModelId,
+} from '../src/plugins/agent/core/provider'
 import { bodyDocFromMarkdown } from '../src/lib/vault/write-body'
 import { createVaultSession, setVaultSession } from '../src/lib/vault/vault-session'
 import type { Character, Country, Event, Tag, WorldEntry } from '../src/types'
+import type { Message } from '../src/plugins/agent/core/types'
 
 let passed = 0
 function check(name: string, ok: boolean, detail?: string): void {
@@ -1306,6 +1314,159 @@ async function main(): Promise<void> {
     '设置页的人格预览不带写作手法（避免编辑时重复）',
     editablePrompt('CREATIVE', promptCtx).includes('# 写作手法') === false,
   )
+
+  // ── Gemini：OpenAI 兼容端点 + thought_signature 回放 ───────────────────
+  check('Gemini 默认模型是 3.7 Flash', PROVIDERS.GEMINI.defaultModel === 'gemini-3.7-flash')
+  check(
+    'Gemini 端点拼装正确',
+    chatCompletionsUrl(PROVIDERS.GEMINI.defaultBaseUrl) ===
+      'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions' &&
+      modelsUrl(PROVIDERS.GEMINI.defaultBaseUrl) ===
+        'https://generativelanguage.googleapis.com/v1beta/openai/models',
+  )
+  check(
+    'Gemini 的 models/ 前缀会被归一',
+    normalizeModelId('GEMINI', 'models/gemini-3.7-flash') === 'gemini-3.7-flash' &&
+      normalizeModelId('DEEPSEEK', 'deepseek-flash') === 'deepseek-flash',
+  )
+  const geminiBody = buildChatRequest({
+    provider: 'GEMINI',
+    modelId: 'models/gemini-3.7-flash',
+    messages: [{ role: 'user', content: 'x' }],
+    reasoning: 'high',
+    temperature: 1,
+    topP: 1,
+    maxTokens: null,
+  })
+  check(
+    'Gemini 请求不带 thinking / reasoning_effort',
+    geminiBody.model === 'gemini-3.7-flash' &&
+      !('thinking' in geminiBody) &&
+      !('reasoning_effort' in geminiBody),
+    JSON.stringify(geminiBody),
+  )
+
+  const geminiLine =
+    'data: ' +
+    JSON.stringify({
+      choices: [
+        {
+          delta: {
+            tool_calls: [
+              {
+                index: 0,
+                id: 'call_g',
+                type: 'function',
+                function: { name: 'ping', arguments: '{"x":1}' },
+                extra_content: { google: { thought_signature: 'sig-abc' } },
+              },
+            ],
+          },
+        },
+      ],
+    })
+  const geminiEvents = parseSseLine(geminiLine)
+  const geminiTool = geminiEvents.find((event) => event.type === 'toolCalls')
+  check(
+    'SSE 解析保留 Gemini thought_signature',
+    geminiTool?.type === 'toolCalls' &&
+      JSON.stringify(geminiTool.deltas[0]?.extra ?? {}).includes('sig-abc'),
+    JSON.stringify(geminiTool),
+  )
+  const geminiAcc = new ToolCallAccumulator()
+  if (geminiTool?.type === 'toolCalls') geminiAcc.apply(geminiTool.deltas)
+  check(
+    'ToolCallAccumulator 保留 thought_signature',
+    JSON.stringify(geminiAcc.list()).includes('sig-abc') === true,
+  )
+
+  if (writeTool) {
+    const extraBodies: Array<{ messages: unknown[] }> = []
+    let extraTurn = 0
+    await runAgentLoop({      history: [
+        { role: 'system', content: 's' },
+        { role: 'user', content: 'x' },
+      ],
+      tools: [writeTool],
+      maxSteps: 2,
+      signal: new AbortController().signal,
+      buildBody: (messages) => {
+        extraBodies.push({ messages: JSON.parse(JSON.stringify(messages)) as unknown[] })
+        return { messages } as never
+      },
+      stream: async (_body, _signal, onEvent) => {
+        if (extraTurn++ === 0) {
+          onEvent({
+            type: 'toolCalls',
+            deltas: [
+              {
+                index: 0,
+                id: 'gem-1',
+                name: 'library_set_fields',
+                argumentsDelta: '{}',
+                extra: { google: { thought_signature: 'sig-loop' } },
+              },
+            ],
+          })
+        } else {
+          onEvent({ type: 'content', text: '完成' })
+        }
+      },
+      approve: async () => 'allow',
+      execute: async () => ({ content: 'ok', isError: false, durationMs: 0 }),
+      onStepStart: () => undefined,
+      onDelta: () => undefined,
+      onToolUpdate: () => undefined,
+    })
+    check(
+      '回放 assistant tool_calls 带 extra_content',
+      JSON.stringify(extraBodies[1]?.messages ?? []).includes('thought_signature') === true,
+      JSON.stringify(extraBodies[1]?.messages ?? []),
+    )
+
+    // 跨轮 / 重启后的历史回放走 messageToOut，这条路径也必须保留签名
+    const storedGemini = {
+      id: 'm1',
+      conversationId: 'c1',
+      parentId: '',
+      variantIndex: 1,
+      active: true,
+      role: 'assistant',
+      content: '',
+      attachments: [],
+      reasoning: null,
+      steps: [
+        {
+          index: 0,
+          content: '',
+          reasoning: '',
+          toolCalls: [
+            {
+              id: 'call_stored',
+              name: 'ping',
+              args: '{"x":1}',
+              status: 'done',
+              result: { content: 'pong', isError: false, durationMs: 0 },
+              extra: { google: { thought_signature: 'sig-stored' } },
+            },
+          ],
+        },
+      ],
+      status: 'DONE',
+      errorMessage: null,
+      model: 'gemini-3.7-flash',
+      thinkingMs: null,
+      ttftMs: null,
+      tps: null,
+      tokensIn: null,
+      tokensOut: null,
+      createdAt: 0,
+    } as Message
+    check(
+      '历史消息回放保留 thought_signature',
+      JSON.stringify(messageToOut(storedGemini)).includes('sig-stored') === true,
+    )
+  }
 
   console.log(`助手插件自检：${passed} 项断言通过`)
 }

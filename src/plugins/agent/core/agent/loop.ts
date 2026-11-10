@@ -173,6 +173,7 @@ export async function runAgentLoop(deps: AgentLoopDeps): Promise<AgentLoopResult
       name: call.name,
       args: call.args,
       status: 'pending' as const,
+      ...(call.extra ? { extra: call.extra } : {}),
     }))
     deps.onDelta({ stepIndex: index, toolCalls: step.toolCalls })
 
@@ -185,6 +186,8 @@ export async function runAgentLoop(deps: AgentLoopDeps): Promise<AgentLoopResult
         id: call.id,
         type: 'function' as const,
         function: { name: call.name, arguments: call.args || '{}' },
+        // Gemini 3.x: the signature must travel back with the call.
+        ...(call.extra ? { extra_content: call.extra } : {}),
       })),
     })
 
@@ -272,6 +275,7 @@ function toToolCalls(accumulator: ToolCallAccumulator): ToolCall[] {
     name: call.name,
     args: call.args,
     status: 'pending' as const,
+    ...(call.extra ? { extra: call.extra } : {}),
   }))
 }
 

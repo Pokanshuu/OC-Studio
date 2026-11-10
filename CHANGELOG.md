@@ -28,6 +28,12 @@
 - 只在**创作 / 扮演**模式追加，AGENT（资料员）不加；默认全开，设置 › 系统提示词 › 写作手法里逐项可关。
 - 写作手法是提示词片段，不含工具、不改数据。
 
+### Gemini
+
+- **新增 Gemini 提供方**：走 Google 的 OpenAI 兼容端点（`generativelanguage.googleapis.com/v1beta/openai`），鉴权仍是 `Authorization: Bearer <key>`；默认模型 `gemini-3.7-flash`，设置里可一键切，模型列表从 `/models` 拉取并去掉 `models/` 前缀。
+- **工具调用能用了**：Gemini 3.x 要求每条 `functionCall` 回传 `extra_content.google.thought_signature`，否则第二轮直接 400。现在流式解析会保留它，循环内与历史消息回放都会带回去。
+- 验证：26 个工具 schema 全量请求通过（3,831 prompt tokens）；单轮工具调用、签名回放、多轮工具结果均实测通过。
+
 ### 修复
 
 - **任务清单挡住正文**：清单展开时，正文底部留白按输入区栈的实际高度自动增加，最后一段可以完整滚上来；清单标题可点击折叠 / 展开，折叠偏好会记住，折叠后只留一行进度。

@@ -3,7 +3,7 @@
 export type MessageRole = 'user' | 'assistant' | 'tool'
 export type MessageStatus = 'DONE' | 'STREAMING' | 'STOPPED' | 'ERROR'
 export type ConversationMode = 'CREATIVE' | 'ROLEPLAY' | 'AGENT'
-export type ProviderKind = 'DEEPSEEK' | 'OPENCODE_GO' | 'CUSTOM'
+export type ProviderKind = 'DEEPSEEK' | 'OPENCODE_GO' | 'GEMINI' | 'CUSTOM'
 
 export interface Conversation {
   id: string
@@ -49,6 +49,15 @@ export interface ToolCall {
   result?: ToolResult
   /** Human-readable one-liner for the collapsed card. */
   summary?: string
+  /**
+   * Provider metadata that must be replayed with the call.
+   *
+   * Gemini 3.x requires `extra_content.google.thought_signature` on every
+   * `functionCall` part sent back; dropping it makes the next request 400
+   * ("Function call is missing a thought_signature"). Other providers leave
+   * this empty and it serializes to `extra_content` only when present.
+   */
+  extra?: Record<string, unknown>
 }
 
 /** One model turn inside an assistant message. */

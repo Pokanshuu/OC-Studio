@@ -30,6 +30,8 @@ export interface OutMessage {
     id: string
     type: 'function'
     function: { name: string; arguments: string }
+    /** Gemini 3.x: `{ google: { thought_signature } }`, echoed back verbatim. */
+    extra_content?: Record<string, unknown>
   }>
   tool_call_id?: string
 }
@@ -126,6 +128,8 @@ export function messageToOut(message: Message): OutMessage[] {
         id: call.id,
         type: 'function' as const,
         function: { name: call.name, arguments: call.args || '{}' },
+        // Gemini 3.x rejects a replayed functionCall without its signature.
+        ...(call.extra ? { extra_content: call.extra } : {}),
       })),
     })
     for (const call of calls) {
@@ -140,7 +144,7 @@ export function messageToOut(message: Message): OutMessage[] {
 }
 
 export interface ChatRequestOptions {
-  provider: 'DEEPSEEK' | 'OPENCODE_GO' | 'CUSTOM'
+  provider: 'DEEPSEEK' | 'OPENCODE_GO' | 'GEMINI' | 'CUSTOM'
   modelId: string
   messages: OutMessage[]
   /** Slider position; `off` turns thinking off. */

@@ -16,6 +16,8 @@ export interface ToolCallDelta {
   id?: string
   name?: string
   argumentsDelta?: string
+  /** Gemini 3.x: `extra_content.google.thought_signature` must be replayed. */
+  extra?: Record<string, unknown>
 }
 
 export type StreamEvent =
@@ -67,6 +69,8 @@ interface ChunkDelta {
     id?: string
     type?: string
     function?: { name?: string; arguments?: string }
+    /** Gemini 3.x attaches the thought signature here. */
+    extra_content?: unknown
   }>
 }
 
@@ -145,11 +149,16 @@ export function parseSseLine(line: string): StreamEvent[] {
     if (Array.isArray(delta.tool_calls) && delta.tool_calls.length > 0) {
       const deltas: ToolCallDelta[] = []
       for (const call of delta.tool_calls) {
+        const extra =
+          call.extra_content !== null && typeof call.extra_content === 'object'
+            ? (call.extra_content as Record<string, unknown>)
+            : undefined
         deltas.push({
           index: typeof call.index === 'number' ? call.index : 0,
           id: call.id,
           name: call.function?.name,
           argumentsDelta: call.function?.arguments,
+          extra,
         })
       }
       events.push({ type: 'toolCalls', deltas })
@@ -196,7 +205,10 @@ export function parseErrorMessage(raw: string | null | undefined): string | null
  * Fragments are keyed by `index`, not by id (the id only shows up once).
  */
 export class ToolCallAccumulator {
-  private calls = new Map<number, { id: string; name: string; args: string }>()
+  private calls = new Map<
+    number,
+    { id: string; name: string; args: string; extra?: Record<string, unknown> }
+  >()
 
   apply(deltas: ToolCallDelta[]): void {
     for (const delta of deltas) {
@@ -205,18 +217,20 @@ export class ToolCallAccumulator {
       if (delta.id) existing.id = delta.id
       if (delta.name) existing.name += delta.name
       if (delta.argumentsDelta) existing.args += delta.argumentsDelta
+      if (delta.extra) existing.extra = delta.extra
       this.calls.set(index, existing)
     }
   }
 
   /** Finished calls in index order. Ids are synthesised when the server omits them. */
-  list(): Array<{ id: string; name: string; args: string }> {
+  list(): Array<{ id: string; name: string; args: string; extra?: Record<string, unknown> }> {
     return [...this.calls.entries()]
       .sort((a, b) => a[0] - b[0])
       .map(([index, call]) => ({
         id: call.id || `call_${index}`,
         name: call.name,
         args: call.args || '{}',
+        ...(call.extra ? { extra: call.extra } : {}),
       }))
       .filter((call) => call.name.length > 0)
   }
