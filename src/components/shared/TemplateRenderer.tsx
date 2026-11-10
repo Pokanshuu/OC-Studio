@@ -41,9 +41,20 @@ export function TemplateRenderer({ template, render, className = 'flex flex-col 
   const content = (
     <div className={className}>
       {blocks.map((block, index) => {
-        // 封面与下方内容之间不画线（`docs/模板.md §6.1`）；第一个区块也不画
+        // 封面与下方内容之间不画线（`docs/模板.md §6.1`）；第一个区块也不画。
+        // 头像同理：它要么叠在封面上，要么自己就是最上面那张脸 —— 名字上方再来一条线
+        // 等于把「脸」和「这个人叫什么」切成两段（2026-11-10 去掉了）。
         const previous = blocks[index - 1]?.id
-        const divider = index > 0 && previous !== 'cover'
+        const divider = index > 0 && previous !== 'cover' && previous !== 'avatar'
+        /**
+         * 紧跟头像的那一块往上收 24px。
+         *
+         * 头像靠 `-top-16` 往上叠进封面，视觉上它比自己的布局框高 64px，
+         * 于是下面那块虽然只隔了 `gap-8`，看着却像空了小一百 —— 脸和名字之间
+         * 不该有这么大一段白（2026-11-10 收紧）。
+         * 只收 24：头像是个圆，圆底到方框底之间本来就是空的，收多了会**看着贴上去**。
+         */
+        const snuggleAfterAvatar = previous === 'avatar'
         /**
          * 头像紧跟封面时**叠在封面上**（用户拍板：这是完全可接受的版式）。
          *
@@ -61,7 +72,13 @@ export function TemplateRenderer({ template, render, className = 'flex flex-col 
             key={block.id}
             // 标题由各渲染器自己画（它们知道自己的动作按钮），壳这里不重复
             divider={divider}
-            className={overlapCover ? 'relative z-10 -top-16 -mb-16 ml-4' : ''}
+            className={
+              overlapCover
+                ? 'relative z-10 -top-16 -mb-16 ml-4'
+                : snuggleAfterAvatar
+                  ? '-mt-6'
+                  : ''
+            }
             componentId={block.id}
             componentLabel={COMPONENT_BY_ID[block.id as keyof typeof COMPONENT_BY_ID]?.label}
             onEdit={edit ? () => openSettings('world', 'components', edit.target) : undefined}
