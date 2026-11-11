@@ -289,6 +289,100 @@ a:hover {
   color: var(--oc-ink-faint);
 }
 
+/* ── 工作区分组 ─────────────────────────────────────────────────────────── */
+
+.workspace-group {
+  padding-bottom: 2px;
+}
+
+.workspace-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 12px;
+  border: none;
+  background: none;
+  border-radius: var(--r-item);
+  color: var(--oc-ink-faint);
+  font-size: calc(11px * var(--font-scale));
+  text-align: left;
+  cursor: pointer;
+}
+
+.workspace-head:hover {
+  background: var(--oc-hover);
+  color: var(--oc-ink-muted);
+}
+
+.workspace-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-current {
+  flex: 0 0 auto;
+  padding: 0 4px;
+  border: 1px solid var(--oc-line);
+  border-radius: var(--r-item);
+  font-size: calc(10px * var(--font-scale));
+  line-height: 1.5;
+}
+
+.workspace-count {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.conv-item.nested {
+  padding-left: 30px;
+}
+
+.workspace-empty {
+  padding: 4px 12px 8px 30px;
+  font-size: calc(11px * var(--font-scale));
+  color: var(--oc-ink-faint);
+}
+
+/* 其他工作区的会话：只读说明 + 分支入口 */
+.readonly-dock {
+  max-width: var(--chat-width);
+  width: 100%;
+  margin: 0 auto 8px;
+}
+
+.readonly-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--oc-paper) 85%, transparent);
+  border: 1px solid var(--oc-line);
+  border-radius: var(--r-control);
+  box-shadow: var(--float-shadow);
+}
+
+.readonly-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.readonly-title {
+  font-size: calc(12px * var(--font-scale));
+  color: var(--oc-ink);
+}
+
+.readonly-hint {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: calc(11px * var(--font-scale));
+  color: var(--oc-ink-faint);
+}
+
 .sidebar-footer {
   padding: 4px 0 8px;
   border-top: 1px solid var(--oc-line);

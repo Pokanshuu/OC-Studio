@@ -12,6 +12,9 @@ export const zh = {
   'nav.expand': '展开边栏',
 
   'conv.empty': '还没有会话',
+  'conv.noWorkspace': '未绑定工作区',
+  'conv.workspaceEmpty': '这个工作区还没有会话',
+  'workspace.current': '当前',
   'conv.untitled': '未命名对话',
   'conv.today': '今天',
   'conv.yesterday': '昨天',
@@ -101,6 +104,10 @@ export const zh = {
   'msg.assistant': '助手',
 
   'chat.replies': '条回复',
+  'chat.readOnlyTitle': '只读：其他工作区的会话',
+  'chat.readOnlyHint': '属于《{name}》，当前是《{current}》；分支会建在当前工作区。',
+  'chat.branchHere': '在当前工作区创建分支',
+  'chat.readOnlySend': '这个会话属于别的工作区，不能在这里继续；用「在当前工作区创建分支」。',
   'chat.scrollBottom': '回到底部',
 
   'thinking.done': '已深度思考 · {s} 秒',
@@ -277,6 +284,9 @@ export const en: Record<TextKey, string> = {
   'nav.expand': 'Expand sidebar',
 
   'conv.empty': 'No conversations yet',
+  'conv.noWorkspace': 'No workspace',
+  'conv.workspaceEmpty': 'No conversations in this workspace',
+  'workspace.current': 'Current',
   'conv.untitled': 'Untitled',
   'conv.today': 'Today',
   'conv.yesterday': 'Yesterday',
@@ -366,6 +376,10 @@ export const en: Record<TextKey, string> = {
   'msg.assistant': 'Assistant',
 
   'chat.replies': 'replies',
+  'chat.readOnlyTitle': 'Read-only: another workspace',
+  'chat.readOnlyHint': 'From "{name}", current is "{current}"; branching creates it in this workspace.',
+  'chat.branchHere': 'Branch into this workspace',
+  'chat.readOnlySend': 'This conversation belongs to another workspace. Branch it into this one first.',
   'chat.scrollBottom': 'Scroll to bottom',
 
   'thinking.done': 'Thought for {s}s',

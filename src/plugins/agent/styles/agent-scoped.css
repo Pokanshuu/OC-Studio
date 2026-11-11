@@ -14,6 +14,7 @@
   --statusbar-h: 24px;
   --row-h: 32px;
 
+
   --chat-width: 720px;
 
   --float-shadow: var(--oc-shadow-float);
@@ -116,6 +117,7 @@ flex: 0 0 var(--oc-sidebar-w, 232px);
   overflow: hidden;
   position: relative;
 
+
   background: var(--oc-paper-alt);
   border-right: 1px solid var(--oc-line);
 }
@@ -188,7 +190,7 @@ background: var(--oc-hover);
 display: flex;
   align-items: center;
   gap: 6px;
-
+  
   flex: 0 0 48px;
   height: 48px;
   padding: 0 12px;
@@ -199,13 +201,91 @@ flex: 1;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-
+  
   padding: 4px 0 8px;
 }
 .oc-agent-root .sidebar-section{
 padding: 8px 12px 4px;
   font-size: calc(11px * var(--font-scale));
   font-weight: 400;
+  color: var(--oc-ink-faint);
+}
+.oc-agent-root .workspace-group{
+padding-bottom: 2px;
+}
+.oc-agent-root .workspace-head{
+display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 12px;
+  border: none;
+  background: none;
+  border-radius: var(--r-item);
+  color: var(--oc-ink-faint);
+  font-size: calc(11px * var(--font-scale));
+  text-align: left;
+  cursor: pointer;
+}
+.oc-agent-root .workspace-head:hover{
+background: var(--oc-hover);
+  color: var(--oc-ink-muted);
+}
+.oc-agent-root .workspace-name{
+flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.oc-agent-root .workspace-current{
+flex: 0 0 auto;
+  padding: 0 4px;
+  border: 1px solid var(--oc-line);
+  border-radius: var(--r-item);
+  font-size: calc(10px * var(--font-scale));
+  line-height: 1.5;
+}
+.oc-agent-root .workspace-count{
+flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+}
+.oc-agent-root .conv-item.nested{
+padding-left: 30px;
+}
+.oc-agent-root .workspace-empty{
+padding: 4px 12px 8px 30px;
+  font-size: calc(11px * var(--font-scale));
+  color: var(--oc-ink-faint);
+}
+.oc-agent-root .readonly-dock{
+max-width: var(--chat-width);
+  width: 100%;
+  margin: 0 auto 8px;
+}
+.oc-agent-root .readonly-bar{
+display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--oc-paper) 85%, transparent);
+  border: 1px solid var(--oc-line);
+  border-radius: var(--r-control);
+  box-shadow: var(--float-shadow);
+}
+.oc-agent-root .readonly-text{
+flex: 1;
+  min-width: 0;
+}
+.oc-agent-root .readonly-title{
+font-size: calc(12px * var(--font-scale));
+  color: var(--oc-ink);
+}
+.oc-agent-root .readonly-hint{
+overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: calc(11px * var(--font-scale));
   color: var(--oc-ink-faint);
 }
 .oc-agent-root .sidebar-footer{
@@ -220,7 +300,7 @@ display: flex;
   align-items: center;
   gap: 8px;
   padding: 6px 12px;
-
+  
   border-radius: var(--r-item);
   cursor: pointer;
   color: var(--oc-ink-muted);
@@ -467,6 +547,8 @@ padding-left: 22px;
   height: 28px;
   font-size: calc(12px * var(--font-scale));
   border-bottom-color: transparent;
+
+
   border-radius: 0;
 }
 .oc-agent-root .search-input-wrap .input:focus{
@@ -796,20 +878,20 @@ flex: 1 1 0;
   min-width: 0;
   overflow-y: auto;
   overflow-x: hidden;
-
+  
   display: flex;
   flex-direction: column;
 }
 .oc-agent-root .chat-inner{
 width: 100%;
 
+
   min-width: 0;
   max-width: calc(var(--chat-width) + 48px);
   margin: 0 auto;
 
+
   padding: 20px 24px 200px;
-  /* 底部留白跟着输入区栈实际高度走：任务清单展开时正文也能整个滚上来 */
-  padding-bottom: max(200px, calc(var(--composer-height, 0px) + 24px));
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -1175,7 +1257,7 @@ display: inline-flex;
   color: var(--oc-ink-muted);
   font-size: calc(12px * var(--font-scale));
   font-weight: 400;
-
+  
   line-height: 1;
   cursor: pointer;
   user-select: none;
@@ -1349,30 +1431,9 @@ background: var(--oc-paper-card);
 display: flex;
   align-items: center;
   gap: 6px;
-  width: 100%;
-  margin: 0 0 4px;
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
   font-size: calc(11px * var(--font-scale));
   color: var(--oc-ink-faint);
-  text-align: left;
-  cursor: pointer;
-}
-.oc-agent-root .todos-head:hover{
-color: var(--oc-ink-muted);
-}
-.oc-agent-root .todos-toggle{
-margin-left: auto;
-  display: inline-grid;
-  place-items: center;
-}
-.oc-agent-root .todos.collapsed{
-padding-bottom: 7px;
-}
-.oc-agent-root .todos.collapsed .todos-head{
-margin-bottom: 0;
+  margin-bottom: 4px;
 }
 .oc-agent-root .todo-item{
 display: flex;

@@ -12,6 +12,7 @@ import { Dialog, IconButton, Menu, MenuItem, MenuSeparator, type MenuAnchor } fr
 import { activePath, siblingCounts, siblingsOf } from '@/plugins/agent/core/messageTree'
 import { useChatStore } from '@/plugins/agent/state/chat'
 import { useT } from '@/plugins/agent/i18n'
+import { useVault } from '@/lib/vault/vault-provider'
 import { MessageItem } from './MessageItem'
 import { TodoPanel } from './StepTimeline'
 import { Composer } from './Composer'
@@ -62,6 +63,21 @@ export function ChatView({
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   const conversation = conversations.find((c) => c.id === currentId) ?? null
+  const { root: vaultRoot } = useVault()
+  const forkFrom = useChatStore((s) => s.forkFrom)
+  /**
+   * 别的库的会话只读：消息可以看，工具与输入必须关。
+   * 分支会落在**当前库**（`forkFrom` 会改 workspace），这样查看旧库
+   * 与在新库继续是两件事，历史不会被悄悄挪库。
+   */
+  const readOnly = Boolean(conversation?.workspace && conversation.workspace !== vaultRoot)
+  const foreignWorkspace = readOnly && conversation?.workspace
+    ? (conversation.workspace.split(/[\\/]/).filter(Boolean).pop() ?? conversation.workspace)
+    : ''
+  const currentWorkspace = vaultRoot
+    ? (vaultRoot.split(/[\\/]/).filter(Boolean).pop() ?? vaultRoot)
+    : ''
+  const lastMessage = path[path.length - 1] ?? null
 
   /**
    * 输入区栈（任务清单 + Composer）是浮层，正文会在它背后滚。
@@ -201,7 +217,7 @@ export function ChatView({
                   variantIndex={Math.max(1, index)}
                   variantTotal={counts.get(message.parentId) ?? 1}
                   streaming={streamingId === message.id}
-                  canRewrite={conversation?.mode !== 'AGENT'}
+                  canRewrite={conversation?.mode !== 'AGENT' && !readOnly}
                 />
               )
             })}
@@ -237,7 +253,31 @@ export function ChatView({
           </div>
         )}
 
-        <Composer />
+        {readOnly ? (
+          <div className="readonly-dock">
+            <div className="readonly-bar">
+              <Icon name="info" size={14} />
+              <div className="readonly-text">
+                <div className="readonly-title">{t('chat.readOnlyTitle')}</div>
+                <div className="readonly-hint">
+                  {t('chat.readOnlyHint', { name: foreignWorkspace, current: currentWorkspace })}
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn sm"
+                disabled={!lastMessage}
+                onClick={() => {
+                  if (lastMessage) void forkFrom(lastMessage.id)
+                }}
+              >
+                {t('chat.branchHere')}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <Composer />
+        )}
       </div>
       <ApprovalDialog />
 

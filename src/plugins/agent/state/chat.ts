@@ -982,6 +982,11 @@ export const useChatStore = create<ChatStore>((set, get) => {
       if (!conversationId) return
       const created = await cmd.forkConversation(conversationId, messageId)
       if (!created) return
+      // 分支落在**当前工作区**：从别的库的只读会话分支时，不能把新会话留在旧库
+      const currentWorkspace = useSettingsStore.getState().settings.agent.workspace
+      if (currentWorkspace && created.workspace !== currentWorkspace) {
+        await cmd.updateConversation(created.id, { workspace: currentWorkspace })
+      }
       await get().reloadConversations()
       await get().selectConversation(created.id)
     },

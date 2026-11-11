@@ -23,40 +23,23 @@ import { useVault } from '@/lib/vault/vault-provider'
 import { cmd } from '@/plugins/agent/api/bridge'
 import type { Conversation, SearchHit } from '@/plugins/agent/core/types'
 
-interface Group {
+interface WorkspaceGroup {
+  key: string
   label: string
+  /** 完整路径，只用来做 title / 判断当前库；不显示 */
+  path: string | null
+  current: boolean
   items: Conversation[]
 }
 
-function groupConversations(
-  conversations: Conversation[],
-  labels: { pinned: string; today: string; yesterday: string; earlier: string },
-): Group[] {
-  const pinned: Conversation[] = []
-  const today: Conversation[] = []
-  const yesterday: Conversation[] = []
-  const earlier: Conversation[] = []
+/** 只取文件夹名：完整路径又长又暴露用户名，标题栏里用不到 */
+function workspaceLabel(path: string | null): string {
+  if (!path) return ''
+  return path.split(/[\\/]/).filter(Boolean).pop() ?? path
+}
 
-  const now = new Date()
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-  const startOfYesterday = startOfToday - 86_400_000
-
-  for (const conversation of conversations) {
-    if (conversation.pinned) {
-      pinned.push(conversation)
-      continue
-    }
-    if (conversation.updatedAt >= startOfToday) today.push(conversation)
-    else if (conversation.updatedAt >= startOfYesterday) yesterday.push(conversation)
-    else earlier.push(conversation)
-  }
-
-  return [
-    { label: labels.pinned, items: pinned },
-    { label: labels.today, items: today },
-    { label: labels.yesterday, items: yesterday },
-    { label: labels.earlier, items: earlier },
-  ].filter((group) => group.items.length > 0)
+function latestUpdated(group: WorkspaceGroup): number {
+  return group.items.reduce((max, item) => Math.max(max, item.updatedAt), 0)
 }
 
 function highlight(snippet: string, start: number, length: number) {
@@ -92,19 +75,66 @@ export function Sidebar({
   const { root: vaultRoot } = useVault()
   // 会话按笔记库隔离：`workspace` 是建会话时的库根。别的库的会话不列出来，
   // 免得在一个世界里点开另一个世界的聊天。没有 workspace 的老会话照常显示。
-  const visibleConversations = useMemo(
-    () => conversations.filter((conversation) => !conversation.workspace || conversation.workspace === vaultRoot),
-    [conversations, vaultRoot],
-  )
-  const visibleIds = useMemo(
-    () => new Set(visibleConversations.map((conversation) => conversation.id)),
-    [visibleConversations],
-  )
   const selectConversation = useChatStore((s) => s.selectConversation)
   const newConversation = useChatStore((s) => s.newConversation)
   const renameConversation = useChatStore((s) => s.renameConversation)
   const togglePin = useChatStore((s) => s.togglePin)
   const deleteConversation = useChatStore((s) => s.deleteConversation)
+
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set())
+  const toggleGroup = (key: string) => {
+    setCollapsedGroups((previous) => {
+      const next = new Set(previous)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  /**
+   * 按工作区分组：当前库**永远置顶**，其余按最近活动排序。
+   * 会话是全局存的，之前按当前库过滤等于把别的库的会话藏起来；现在全列出来，
+   * 但打开别的库的会话只读（`ChatView` 判断 workspace），不会串库执行。
+   */
+  const workspaceGroups = useMemo(() => {
+    const map = new Map<string, WorkspaceGroup>()
+    for (const conversation of conversations) {
+      const key = conversation.workspace ?? ''
+      let group = map.get(key)
+      if (!group) {
+        group = {
+          key,
+          label: conversation.workspace ? workspaceLabel(conversation.workspace) : t('conv.noWorkspace'),
+          path: conversation.workspace ?? null,
+          current: Boolean(conversation.workspace && conversation.workspace === vaultRoot),
+          items: [],
+        }
+        map.set(key, group)
+      }
+      group.items.push(conversation)
+    }
+    // 当前库即使还没有会话也留一个组，空态里能看到「这是哪个库」
+    if (vaultRoot && !map.has(vaultRoot)) {
+      map.set(vaultRoot, {
+        key: vaultRoot,
+        label: workspaceLabel(vaultRoot),
+        path: vaultRoot,
+        current: true,
+        items: [],
+      })
+    }
+    for (const group of map.values()) {
+      group.items.sort((a, b) => {
+        if (a.pinned !== b.pinned) return a.pinned ? -1 : 1
+        if (a.pinned && b.pinned) return (b.pinnedAt ?? 0) - (a.pinnedAt ?? 0)
+        return b.updatedAt - a.updatedAt
+      })
+    }
+    return [...map.values()].sort((a, b) => {
+      if (a.current !== b.current) return a.current ? -1 : 1
+      return latestUpdated(b) - latestUpdated(a)
+    })
+  }, [conversations, vaultRoot, t])
 
   const [menu, setMenu] = useState<{ conversation: Conversation; anchor: MenuAnchor } | null>(null)
   const [renaming, setRenaming] = useState<Conversation | null>(null)
@@ -115,23 +145,6 @@ export function Sidebar({
   const [hits, setHits] = useState<SearchHit[]>([])
   const [searching, setSearching] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
-
-  // 搜索结果也只留当前笔记库的会话（命中行里没有 workspace，用 id 查）
-  const visibleHits = useMemo(
-    () => hits.filter((hit) => visibleIds.has(hit.conversationId)),
-    [hits, visibleIds],
-  )
-
-  const groups = useMemo(
-    () =>
-      groupConversations(visibleConversations, {
-        pinned: t('conv.pinned'),
-        today: t('conv.today'),
-        yesterday: t('conv.yesterday'),
-        earlier: t('conv.earlier'),
-      }),
-    [visibleConversations, t],
-  )
 
   const runSearch = useCallback(async (text: string) => {
     const term = text.trim()
@@ -158,7 +171,8 @@ export function Sidebar({
   const renderItem = (conversation: Conversation) => (
     <div
       key={conversation.id}
-      className={`conv-item${conversation.id === currentId ? ' active' : ''}`}
+      className={`conv-item nested${conversation.id === currentId ? ' active' : ''}`}
+      title={conversation.workspace ?? undefined}
       onClick={() => void selectConversation(conversation.id)}
       onContextMenu={(event) => {
         event.preventDefault()
@@ -231,35 +245,58 @@ export function Sidebar({
         {query.trim().length > 0 ? (
           <>
             {searching && <div className="sidebar-section">{t('common.loading')}</div>}
-            {!searching && visibleHits.length === 0 && (
+            {!searching && hits.length === 0 && (
               <div className="sidebar-section">{t('search.empty')}</div>
             )}
-            {visibleHits.map((hit) => (
-              <div
-                key={hit.conversationId}
-                className={`conv-item${hit.conversationId === currentId ? ' active' : ''}`}
-                onClick={() => void selectConversation(hit.conversationId)}
-              >
-                <div className="conv-main">
-                  <div className="conv-title">{hit.title}</div>
-                  {hit.snippet && (
+            {hits.map((hit) => {
+              const conversation = conversations.find((item) => item.id === hit.conversationId)
+              const workspace = conversation?.workspace ?? null
+              return (
+                <div
+                  key={hit.conversationId}
+                  className={`conv-item${hit.conversationId === currentId ? ' active' : ''}`}
+                  onClick={() => void selectConversation(hit.conversationId)}
+                >
+                  <div className="conv-main">
+                    <div className="conv-title">{hit.title}</div>
                     <div className="conv-sub" style={{ whiteSpace: 'normal', lineHeight: 1.45 }}>
-                      {highlight(hit.snippet, hit.matchStart, hit.matchLen)}
+                      {workspace && workspace !== vaultRoot ? `${workspaceLabel(workspace)} · ` : ''}
+                      {hit.snippet ? highlight(hit.snippet, hit.matchStart, hit.matchLen) : ''}
                     </div>
-                  )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </>
         ) : (
           <>
-            {groups.length === 0 && <div className="sidebar-section">{t('conv.empty')}</div>}
-            {groups.map((group) => (
-              <div key={group.label}>
-                <div className="sidebar-section">{group.label}</div>
-                {group.items.map(renderItem)}
-              </div>
-            ))}
+            {workspaceGroups.length === 0 && <div className="sidebar-section">{t('conv.empty')}</div>}
+            {workspaceGroups.map((group) => {
+              const collapsed = collapsedGroups.has(group.key)
+              return (
+                <div key={group.key} className="workspace-group">
+                  <button
+                    type="button"
+                    className="workspace-head"
+                    title={group.path ?? undefined}
+                    aria-expanded={!collapsed}
+                    onClick={() => toggleGroup(group.key)}
+                  >
+                    <Icon name={collapsed ? 'chevron-right' : 'chevron-down'} size={12} />
+                    <Icon name="folder" size={13} />
+                    <span className="workspace-name">{group.label}</span>
+                    {group.current && <span className="workspace-current">{t('workspace.current')}</span>}
+                    <span className="workspace-count">{group.items.length}</span>
+                  </button>
+                  {!collapsed &&
+                    (group.items.length > 0 ? (
+                      group.items.map(renderItem)
+                    ) : (
+                      <div className="workspace-empty">{t('conv.workspaceEmpty')}</div>
+                    ))}
+                </div>
+              )
+            })}
           </>
         )}
       </div>

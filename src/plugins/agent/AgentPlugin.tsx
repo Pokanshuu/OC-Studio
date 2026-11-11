@@ -66,8 +66,6 @@ export function AgentPlugin() {
   const loaded = useSettingsStore((s) => s.loaded)
   const loadSettings = useSettingsStore((s) => s.load)
   const initChat = useChatStore((s) => s.init)
-  const conversations = useChatStore((s) => s.conversations)
-  const currentId = useChatStore((s) => s.currentId)
   const workspace = useSettingsStore((s) => s.settings.agent.workspace)
   // 工作目录固定为当前笔记库：不做选择、不落用户偏好。
   const { root: vaultRoot } = useVault()
@@ -134,17 +132,19 @@ export function AgentPlugin() {
     }))
   }, [loaded])
 
+  // 切换笔记库：会话是**按库绑定**的（conversation.workspace 就是建会话时的库根）。
+  // 只在「库根变了」时重置；用户主动点开别的库的会话（只读查看）不能被重置。
+  const previousVault = useRef<string | null>(vaultRoot)
   useEffect(() => {
-    // 切换笔记库：会话是**按库绑定**的（conversation.workspace 就是建会话时的库根）。
-    // 当前会话属于旧库时，先回到「新会话」；旧会话仍留在它自己的库下，
-    // 列表里由 Sidebar 按库过滤，不会串到另一个世界。
-    if (!vaultRoot || !currentId) return
-    const current = conversations.find((conversation) => conversation.id === currentId)
-    // 找不到也算不属于当前库：列表还没刷新时的旧 id 不能继续显示正文
+    if (previousVault.current === vaultRoot) return
+    previousVault.current = vaultRoot
+    if (!vaultRoot) return
+    const state = useChatStore.getState()
+    const current = state.conversations.find((conversation) => conversation.id === state.currentId)
     if (current && (!current.workspace || current.workspace === vaultRoot)) return
     clearPendingAgentSessionContext()
-    void useChatStore.getState().newConversation()
-  }, [vaultRoot, currentId, conversations])
+    void state.newConversation()
+  }, [vaultRoot])
 
   useEffect(() => {
     if (native !== true) return
