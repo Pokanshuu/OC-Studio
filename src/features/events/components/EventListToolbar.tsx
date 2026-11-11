@@ -1,12 +1,13 @@
 'use client'
 
-import { Search, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { SortViewControls, SortSelect } from '@/components/shared/SortViewControls'
 import type { ViewMode } from '@/components/shared/SortViewControls'
-import { BTN_PRIMARY, MOBILE_FILTER_BTN, PAGE_TITLE, SEARCH_ICON, SEARCH_INPUT, TOOLBAR } from '@/lib/ui-tokens'
+import { BTN_PRIMARY, MOBILE_FILTER_BTN, PAGE_TITLE, TOOLBAR } from '@/lib/ui-tokens'
 import { MobileFilterBar } from '@/components/layout/MobileFilterBar'
 import { SORT_OPTIONS } from './event-list-utils'
 import type { SortKey } from './event-list-utils'
+import { DebouncedSearchInput } from '@/components/shared/DebouncedSearchInput'
 
 interface EventListToolbarProps {
   search: string
@@ -33,18 +34,11 @@ export function EventListToolbar({
       <div className={TOOLBAR}>
         <div className="flex items-center gap-4">
           <h2 className={PAGE_TITLE}>事件</h2>
-          <div className="relative max-md:hidden md:block">
-            <Search
-              size={16}
-              strokeWidth={2}
-              className={SEARCH_ICON}
-            />
-            <input
-              type="text"
+          <div className="max-md:hidden md:block">
+            <DebouncedSearchInput
               value={search}
-              onChange={(e) => onSearchChange(e.target.value)}
+              onChange={onSearchChange}
               placeholder="搜索事件..."
-              className={SEARCH_INPUT}
             />
           </div>
           <SortViewControls

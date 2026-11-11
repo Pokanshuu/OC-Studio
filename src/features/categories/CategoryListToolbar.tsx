@@ -7,15 +7,14 @@
  * 排序、视图切换、新建全部复用共享件（`SortViewControls` / `ViewToggle`），
  * 不再单独维护一份分类专用的图标组。
  */
-import { Plus, Search } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { SortSelect, SortViewControls, ViewToggle } from '@/components/shared/SortViewControls'
+import { DebouncedSearchInput } from '@/components/shared/DebouncedSearchInput'
 import { MobileFilterBar } from '@/components/layout/MobileFilterBar'
 import {
   BTN_PRIMARY,
   MOBILE_FILTER_BTN,
   PAGE_TITLE,
-  SEARCH_ICON,
-  SEARCH_INPUT,
   TOOLBAR,
 } from '@/lib/ui-tokens'
 import {
@@ -50,14 +49,11 @@ export function CategoryListToolbar({
       <div className={TOOLBAR}>
         <div className="flex items-center gap-4">
           <h2 className={PAGE_TITLE}>{title}</h2>
-          <div className="relative max-md:hidden md:block">
-            <Search size={16} strokeWidth={2} className={SEARCH_ICON} />
-            <input
-              type="text"
+          <div className="max-md:hidden md:block">
+            <DebouncedSearchInput
               value={search}
-              onChange={(event) => onSearchChange(event.target.value)}
+              onChange={onSearchChange}
               placeholder={`搜索${title}...`}
-              className={SEARCH_INPUT}
             />
           </div>
           <SortViewControls

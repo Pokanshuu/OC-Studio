@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback, useEffect, useLayoutEffect, useRef } from 'react'
+import { useState, useMemo, useCallback, useEffect, useLayoutEffect, useRef, useDeferredValue } from 'react'
 import { withTouchFeedback } from '@/lib/animation'
 import { ArrowLeft, FolderOpen, Pencil, SearchX, Trash2, Users } from 'lucide-react'
 import type { Character } from '@/types'
@@ -71,6 +71,12 @@ export function CharacterList({
   const [folderFilter, setFolderFilter] = useState<FolderFilter>('all')
   const [viewMode, setViewMode] = useState<ViewMode>(readViewPreference)
   const [search, setSearch] = useState('')
+  /**
+   * 搜索框的值立刻更新，**筛选与重排走延迟值**：卡片多的时候（几百条）一次筛选会重建
+   * 几百个封面卡，实测单键 300ms–1.2s，打字会明显卡顿。`useDeferredValue` 让紧急的
+   * 输入先渲染，列表在空闲时用最新值追上来（连续按键会被合并成一次重排）。
+   */
+  const deferredSearch = useDeferredValue(search)
   const [countryFilter, setCountryFilter] = useState<number | 'all'>('all')
   const { countries } = useCountryList()
   const [actionSheet, setActionSheet] = useState<{ open: boolean; title: string; actions: ActionItem[] }>({
@@ -274,8 +280,8 @@ export function CharacterList({
       // 与卡片显示同一口径：旧数据只有 `国籍:` 文本时也认（否则「卡上写着晨曦共和国、按它筛却没有」）
       result = result.filter((c) => resolveCharacterCountryId(c, countries) === countryFilter)
     }
-    if (search.trim()) {
-      const q = search.trim().toLowerCase()
+    if (deferredSearch.trim()) {
+      const q = deferredSearch.trim().toLowerCase()
       result = result.filter(
         (c) =>
           c.name.toLowerCase().includes(q) ||
@@ -285,7 +291,7 @@ export function CharacterList({
       )
     }
     return sortCharacters(result, sortKey)
-  }, [characters, sortKey, search, countryFilter, folderFilter, countries])
+  }, [characters, sortKey, deferredSearch, countryFilter, folderFilter, countries])
 
   const handleViewChange = (mode: ViewMode) => {
     setViewMode(mode)
