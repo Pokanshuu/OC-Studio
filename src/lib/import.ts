@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import type { QueryClient } from '@tanstack/react-query'
 import type { Table, EntityTable } from 'dexie'
 import { restoreBackupConfig, type BackupConfig } from './export/backup-config'
+import { remapRowRefs } from './import-remap'
 
 interface ImportPayload {
   version: 1
@@ -182,14 +183,17 @@ async function processTableMerge(
   added: number
   skipped: number
   overwritten: number
-  /** 备份里的 id → 落库后的 id（新增与覆盖都记；用来重映射 `parentId`） */
+  /** 备份里的 id → 落库后的 id（含「同名跳过 → 已有那条」，用来解析引用） */
   idMap: Map<number, number>
+  /** 只含**这次真正写进库里**的行（新增 / 覆盖）；引用重映射只碰它们 */
+  ownedIdMap: Map<number, number>
 }> {
   if (records.length === 0) {
-    return { added: 0, skipped: 0, overwritten: 0, idMap: new Map() }
+    return { added: 0, skipped: 0, overwritten: 0, idMap: new Map(), ownedIdMap: new Map() }
   }
 
   const idMap = new Map<number, number>()
+  const ownedIdMap = new Map<number, number>()
 
   if (strategy === 'keep-both') {
     const toAdd = records.map((r) => {
@@ -202,10 +206,13 @@ async function processTableMerge(
       const firstKey = lastKey - toAdd.length + 1
       records.forEach((row, index) => {
         const backupId = Number(row.id)
-        if (Number.isFinite(backupId)) idMap.set(backupId, firstKey + index)
+        if (Number.isFinite(backupId)) {
+          idMap.set(backupId, firstKey + index)
+          ownedIdMap.set(backupId, firstKey + index)
+        }
       })
     }
-    return { added: toAdd.length, skipped: 0, overwritten: 0, idMap }
+    return { added: toAdd.length, skipped: 0, overwritten: 0, idMap, ownedIdMap }
   }
 
   const existingRecords = await table.toArray()
@@ -243,9 +250,15 @@ async function processTableMerge(
         void _importId
         await table.put({ ...importData, id: existing.id } as Record<string, unknown>)
         const backupId = Number(rec.id)
-        if (Number.isFinite(backupId) && typeof existing.id === 'number') idMap.set(backupId, existing.id)
+        if (Number.isFinite(backupId) && typeof existing.id === 'number') {
+          idMap.set(backupId, existing.id)
+          ownedIdMap.set(backupId, existing.id)
+        }
         overwritten++
       } else {
+        // 同名跳过：关系仍然应该指到「已有那一条」，所以也记进映射
+        const backupId = Number(rec.id)
+        if (Number.isFinite(backupId) && typeof existing.id === 'number') idMap.set(backupId, existing.id)
         skipped++
       }
     } else {
@@ -265,7 +278,10 @@ async function processTableMerge(
       for (const rec of records) {
         if (typeof rec[nameField] !== 'string') {
           const backupId = Number(rec.id)
-          if (Number.isFinite(backupId)) idMap.set(backupId, firstKey + offset)
+          if (Number.isFinite(backupId)) {
+            idMap.set(backupId, firstKey + offset)
+            ownedIdMap.set(backupId, firstKey + offset)
+          }
           offset += 1
           continue
         }
@@ -273,13 +289,16 @@ async function processTableMerge(
         const existing = key === '' ? undefined : existingByName.get(key)
         if (existing !== undefined) continue
         const backupId = Number(rec.id)
-        if (Number.isFinite(backupId)) idMap.set(backupId, firstKey + offset)
+        if (Number.isFinite(backupId)) {
+          idMap.set(backupId, firstKey + offset)
+          ownedIdMap.set(backupId, firstKey + offset)
+        }
         offset += 1
       }
     }
   }
 
-  return { added, skipped, overwritten, idMap }
+  return { added, skipped, overwritten, idMap, ownedIdMap }
 }
 
 export async function importData(
@@ -352,6 +371,35 @@ export async function importData(
 
       /** 备份里的笔记 id → 落库后的 id（父级重映射用） */
       const noteIdMap = new Map<number, number>()
+      /** 五张表各自的「备份 id → 落库 id」 */
+      const idMaps: Record<'characters' | 'countries' | 'events' | 'worldEntries' | 'tags', Map<number, number>> = {
+        characters: new Map(),
+        countries: new Map(),
+        events: new Map(),
+        worldEntries: new Map(),
+        tags: new Map(),
+      }
+      const ownedMaps: Record<'characters' | 'countries' | 'events' | 'worldEntries' | 'tags', Map<number, number>> = {
+        characters: new Map(),
+        countries: new Map(),
+        events: new Map(),
+        worldEntries: new Map(),
+        tags: new Map(),
+      }
+      const OWNED_BY_KEY = new Map<string, Map<number, number>>([
+        ['characters', ownedMaps.characters],
+        ['countries', ownedMaps.countries],
+        ['events', ownedMaps.events],
+        ['worldEntries', ownedMaps.worldEntries],
+        ['tags', ownedMaps.tags],
+      ])
+      const ID_MAP_BY_KEY = new Map<string, Map<number, number>>([
+        ['characters', idMaps.characters],
+        ['countries', idMaps.countries],
+        ['events', idMaps.events],
+        ['worldEntries', idMaps.worldEntries],
+        ['tags', idMaps.tags],
+      ])
 
       for (const config of TABLE_CONFIG) {
         const items = records[config.key] ?? []
@@ -373,6 +421,14 @@ export async function importData(
         if (config.key === 'worldEntries') {
           for (const [from, to] of result.idMap) noteIdMap.set(from, to)
         }
+        const targetMap = ID_MAP_BY_KEY.get(config.key)
+        if (targetMap !== undefined) {
+          for (const [from, to] of result.idMap) targetMap.set(from, to)
+        }
+        const ownedMap = OWNED_BY_KEY.get(config.key)
+        if (ownedMap !== undefined) {
+          for (const [from, to] of result.ownedIdMap) ownedMap.set(from, to)
+        }
       }
 
       /**
@@ -382,6 +438,41 @@ export async function importData(
        * （小说章节最明显：章挂在别人的书上）。这里按「备份 id → 新 id」把父级换成本库的 id；
        * 父级没能导进来的（被跳过 / 不在备份里）就置空 —— 至少不会挂到别人下面。
        */
+      /**
+       * 引用重映射：国籍 / 相关国家 / 参与者 / 命名关系 / 标签 / 父级。
+       *
+       * 只处理 `ownedMaps` 里的行（这次真正新增或覆盖的），被「同名跳过」的已有行不动。
+       * 映射里查不到的引用一律清空 —— 目标没导进来时，宁可断开也不要指向同号的另一条。
+       */
+      const remapMaps = {
+        characters: idMaps.characters,
+        countries: idMaps.countries,
+        events: idMaps.events,
+        worldEntries: idMaps.worldEntries,
+        tags: idMaps.tags,
+      }
+      const remapTable = async (
+        kind: 'character' | 'event' | 'country' | 'worldEntry',
+        table: LooseTable,
+        rows: Record<string, unknown>[],
+        owned: Map<number, number>,
+      ): Promise<void> => {
+        if (owned.size === 0) return
+        for (const row of rows) {
+          const newId = owned.get(Number(row.id))
+          if (newId === undefined) continue
+          const current = (await table.get(newId)) as Record<string, unknown> | undefined
+          if (current === undefined) continue
+          const patch = remapRowRefs(kind, current, remapMaps)
+          if (patch !== null) await table.update(newId, patch)
+        }
+      }
+
+      await remapTable('character', looseTable(db.characters), records.characters, ownedMaps.characters)
+      await remapTable('country', looseTable(db.countries), records.countries, ownedMaps.countries)
+      await remapTable('event', looseTable(db.events), records.events, ownedMaps.events)
+      await remapTable('worldEntry', looseTable(db.worldEntries), records.worldEntries, ownedMaps.worldEntries)
+
       if (noteIdMap.size > 0) {
         for (const row of records.worldEntries) {
           const newId = noteIdMap.get(Number(row.id))

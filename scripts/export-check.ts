@@ -27,6 +27,7 @@ import { moveBlock, normalizePosterOptions, optionsForTemplate, posterTemplateDe
 import type { TemplateDoc } from '../src/lib/templates/types'
 import { clampCoverPosition, clampCoverZoom, coverOverflow, panCover, zoomCover } from '../src/lib/export/poster/cover-frame'
 import { localDateStamp, localDateTimeStamp } from '../src/lib/date-stamp'
+import { remapRowRefs } from '../src/lib/import-remap'
 
 let passed = 0
 const failures: string[] = []
@@ -235,6 +236,60 @@ check('同版式不动', optionsForTemplate(toNoir, 'noir') === toNoir)
     '精确到秒的戳同样是本地时间',
     localDateTimeStamp(new Date(2026, 10, 12, 0, 30, 7)) === '20261112-003007',
     localDateTimeStamp(new Date(2026, 10, 12, 0, 30, 7)),
+  )
+}
+
+// ── 导入的引用重映射（备份 id → 落库 id / 悬空即清空）───────────────────
+{
+  const maps = {
+    characters: new Map([[1, 11]]),
+    countries: new Map([[5, 55]]),
+    events: new Map([[2, 22]]),
+    worldEntries: new Map([[3, 33]]),
+    tags: new Map([[9, 99]]),
+  }
+
+  const characterPatch = remapRowRefs(
+    'character',
+    {
+      countryId: 5,
+      tags: [9, 8],
+      relatedCharacters: [{ characterId: 1, name: '甲', relation: '师徒' }, { characterId: 7, name: '孤儿', relation: '' }],
+      relatedNotes: [{ targetId: 3, name: '笔记', relation: '主角' }, { targetId: 4, name: '悬空', relation: '' }],
+    },
+    maps,
+  )
+  check('重映射 · 国籍跟着换成本库 id', characterPatch?.countryId === 55, JSON.stringify(characterPatch?.countryId))
+  check('重映射 · 标签只留能解析的', JSON.stringify(characterPatch?.tags) === '[99]', JSON.stringify(characterPatch?.tags))
+  check(
+    '重映射 · 角色关系换 id、悬空的摘掉',
+    JSON.stringify(characterPatch?.relatedCharacters) === JSON.stringify([{ characterId: 11, name: '甲', relation: '师徒' }]),
+    JSON.stringify(characterPatch?.relatedCharacters),
+  )
+  check(
+    '重映射 · 相关笔记同理',
+    JSON.stringify(characterPatch?.relatedNotes) === JSON.stringify([{ targetId: 33, name: '笔记', relation: '主角' }]),
+    JSON.stringify(characterPatch?.relatedNotes),
+  )
+
+  const eventPatch = remapRowRefs(
+    'event',
+    { countries: [5], characters: [1, 6], relations: [{ targetId: 2, relation: '前因' }, { targetId: 8, relation: '' }] },
+    maps,
+  )
+  check('重映射 · 相关国家 / 参与者', JSON.stringify(eventPatch?.countries) === '[55]' && JSON.stringify(eventPatch?.characters) === '[11]')
+  check(
+    '重映射 · 事件关系（悬空摘掉）',
+    JSON.stringify(eventPatch?.relations) === JSON.stringify([{ targetId: 22, relation: '前因' }]),
+    JSON.stringify(eventPatch?.relations),
+  )
+
+  const notePatch = remapRowRefs('worldEntry', { relations: [{ targetId: 3, name: 'B', relation: '相关' }] }, maps)
+  check('重映射 · 笔记关系', JSON.stringify(notePatch?.relations) === JSON.stringify([{ targetId: 33, name: 'B', relation: '相关' }]))
+
+  check(
+    '重映射 · 没有引用变化时返回 null',
+    remapRowRefs('character', { countryId: null, tags: [], relatedCharacters: [], relatedNotes: [] }, maps) === null,
   )
 }
 
