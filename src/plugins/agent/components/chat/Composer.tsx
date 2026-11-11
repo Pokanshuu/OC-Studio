@@ -18,7 +18,7 @@ import { getAgentSessionContext, setAgentSessionContext } from '@/lib/plugins/ag
 import { useChatStore } from '@/plugins/agent/state/chat'
 import { useSettingsStore } from '@/plugins/agent/state/settings'
 import { useT } from '@/plugins/agent/i18n'
-import { knownModels } from '@/plugins/agent/core/provider'
+import { findModel, knownModels } from '@/plugins/agent/core/provider'
 import { activePath } from '@/plugins/agent/core/messageTree'
 import { messageToOut } from '@/plugins/agent/core/chatRequest'
 import { orderedOutgoingMessages } from '@/plugins/agent/core/requestOrdering'
@@ -170,9 +170,7 @@ export function Composer() {
       else if (attachment.kind === 'image') texts.push('x'.repeat(4096))
     }
     const base = estimateTokensOfAll(texts)
-    const window =
-      knownModels(settings.api.provider).find((m) => m.id === settings.api.model)?.contextWindow ??
-      128_000
+    const window = findModel(settings.api.provider, settings.api.model).contextWindow
     return {
       base,
       window,
