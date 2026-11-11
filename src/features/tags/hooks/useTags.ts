@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import type { Tag } from '@/types'
 import * as tagService from '../services'
+import { DATA_UPDATED_EVENT } from '@/lib/data-events'
 
 export function useTags(): {
   tags: Tag[]
@@ -43,6 +44,17 @@ export function useTags(): {
     load()
     return () => { cancelled = true }
   }, [refreshKey])
+
+  /**
+   * 别处改了标签（设置里改名 / 合并、导入、助手写入）之后，这里也要重新读 ——
+   * 标签列表是「打标签」下拉的数据源，不刷新就会一直显示旧名字、旧颜色。
+   * 与角色 / 事件 / 国家 / 时期 / 时间线那几个列表同一套约定（`data-updated`）。
+   */
+  useEffect(() => {
+    const handler = () => setRefreshKey((key) => key + 1)
+    window.addEventListener(DATA_UPDATED_EVENT, handler)
+    return () => window.removeEventListener(DATA_UPDATED_EVENT, handler)
+  }, [])
 
   return { tags, loading, error, refresh, optimisticAdd }
 }

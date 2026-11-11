@@ -784,6 +784,17 @@ export const useChatStore = create<ChatStore>((set, get) => {
 
       const conversation = await ensureConversation()
       const settings = useSettingsStore.getState().settings
+      // 只读会话（属于别的工作区）不能接着写：工具会落在当前库，历史却属于旧库
+      const currentWorkspace = settings.agent.workspace
+      if (
+        conversation.workspace &&
+        currentWorkspace &&
+        conversation.workspace !== currentWorkspace
+      ) {
+        const language = resolveLang(settings.ui.language)
+        set({ banner: { kind: 'info', text: tFor(language)('chat.readOnlySend') } })
+        return
+      }
       const path = pathOf(get().allMessages)
       const parentId = path.length > 0 ? path[path.length - 1].id : ''
 
