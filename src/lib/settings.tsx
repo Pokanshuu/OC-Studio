@@ -53,8 +53,6 @@ export interface Settings {
   defaultImagePresetId: string
   /** 默认网站预设 id（`.ocstudio/exports.json` 的 site 段） */
   defaultSitePresetId: string
-  /** 默认导出中心海报预设 id（`.ocstudio/exports.json` 的 poster 段） */
-  defaultPosterPresetId: string
   /**
    * 回收站自动清理周期（天）：`7` / `30` / `0`（从不）。
    *
@@ -83,7 +81,6 @@ const DEFAULT_SETTINGS: Settings = {
   coverTintMode: "auto",
   defaultImagePresetId: "",
   defaultSitePresetId: "",
-  defaultPosterPresetId: "",
   // 默认 30 天：跟以前界面上写的「可在 30 天内恢复」对上，只是现在真的会清
   trashRetentionDays: 30,
 }
@@ -112,8 +109,6 @@ function loadSettings(): Settings {
         backgroundScrim: normalizeBackgroundScrim(merged.backgroundScrim),
         defaultImagePresetId: typeof merged.defaultImagePresetId === 'string' ? merged.defaultImagePresetId : '',
         defaultSitePresetId: typeof merged.defaultSitePresetId === 'string' ? merged.defaultSitePresetId : '',
-        defaultPosterPresetId:
-          typeof merged.defaultPosterPresetId === 'string' ? merged.defaultPosterPresetId : '',
         // 只认 7 / 30 / 0（从不）；坏值回落 30
         trashRetentionDays: [7, 30, 0].includes(merged.trashRetentionDays) ? merged.trashRetentionDays : 30,
       }
