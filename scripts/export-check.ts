@@ -26,6 +26,7 @@ import { POSTER_TEMPLATE_INFO } from '../src/lib/export/poster/catalog'
 import { moveBlock, normalizePosterOptions, optionsForTemplate, posterTemplateDefaults } from '../src/lib/export/poster/options'
 import type { TemplateDoc } from '../src/lib/templates/types'
 import { clampCoverPosition, clampCoverZoom, coverOverflow, panCover, zoomCover } from '../src/lib/export/poster/cover-frame'
+import { localDateStamp, localDateTimeStamp } from '../src/lib/date-stamp'
 
 let passed = 0
 const failures: string[] = []
@@ -223,12 +224,25 @@ check('同版式不动', optionsForTemplate(toNoir, 'noir') === toNoir)
   check('没有模板时不给默认覆盖', Object.keys(posterTemplateDefaults('event', undefined)).length === 0)
 }
 
+// ── 导出文件名的日期戳：本地时区，不是 UTC ──────────────────────────────
+// 事故形状：UTC+8 的凌晨（本地 00:00–08:00）用 toISOString() 取日期，会写成「昨天」，
+// 于是同一份备份在导出中心叫 11-12、在设置页叫 11-11。
+{
+  const earlyMorning = new Date(2026, 10, 12, 0, 30) // 本地 2026-11-12 00:30
+  check('导出日期戳用本地日期', localDateStamp(earlyMorning) === '2026-11-12', localDateStamp(earlyMorning))
+  check('日期戳补零', localDateStamp(new Date(2026, 0, 5, 9, 0)) === '2026-01-05')
+  check(
+    '精确到秒的戳同样是本地时间',
+    localDateTimeStamp(new Date(2026, 10, 12, 0, 30, 7)) === '20261112-003007',
+    localDateTimeStamp(new Date(2026, 10, 12, 0, 30, 7)),
+  )
+}
+
 if (failures.length > 0) {
   console.error('导出契约自检失败：')
   for (const failure of failures) console.error(`  - ${failure}`)
   process.exit(1)
 }
-
 console.log(
   `导出契约自检通过：${passed} 项断言（六套版式 / 元数据 / 画布 / 选项兜底 / 正文顺序 / 封面取景 / 版式切换）`,
 )

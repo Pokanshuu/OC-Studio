@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { downloadJson } from '@/lib/export'
+import { localDateStamp } from '@/lib/date-stamp'
 import { BTN_PRIMARY, BTN_QUIET, ICON_BTN_MD, PAGE_TITLE } from '@/lib/ui-tokens'
 import { getVaultSession, entityKey, type VaultTableName } from '@/lib/vault/vault-session'
 import {
@@ -70,7 +71,7 @@ export function EntityHistoryButton({ table, id, name }: EntityHistoryButtonProp
   const handleExport = useCallback(async () => {
     try {
       const payload = buildJournalExport(entries, { relPath: relPath ?? '', title })
-      const stamp = new Date().toISOString().slice(0, 10)
+      const stamp = localDateStamp()
       const saved = await downloadJson(payload, `时间线-${title}-${stamp}.json`)
       toast.success(`已导出：${saved}`)
     } catch (error) {

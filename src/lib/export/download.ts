@@ -3,6 +3,7 @@ import { save as saveFileDialog } from '@tauri-apps/plugin-dialog'
 
 import { isNativePlatform, isTauri } from '../env'
 import { exportToMarkdown, exportToTxt } from './markdown'
+import { localDateStamp } from '../date-stamp'
 
 /**
  * 桌面版走「系统保存对话框 + Rust 落盘」。
@@ -28,7 +29,7 @@ function extensionOf(filename: string): string[] {
 
 export async function downloadJson(data: unknown, filename?: string): Promise<string> {
   const json = JSON.stringify(data, null, 2)
-  const date = new Date().toISOString().slice(0, 10)
+  const date = localDateStamp()
   const name = filename ?? `oc-backup-${date}.ocbak`
 
   if (isNativePlatform()) {
@@ -129,13 +130,13 @@ async function downloadTextCapacitor(content: string, filename: string): Promise
 
 export async function downloadMarkdown(): Promise<void> {
   const md = await exportToMarkdown()
-  const date = new Date().toISOString().slice(0, 10)
+  const date = localDateStamp()
   await downloadText(md, `oc-export-${date}.md`, 'text/markdown')
 }
 
 export async function downloadTxt(): Promise<void> {
   const txt = await exportToTxt()
-  const date = new Date().toISOString().slice(0, 10)
+  const date = localDateStamp()
   await downloadText(txt, `oc-export-${date}.txt`, 'text/plain')
 }
 

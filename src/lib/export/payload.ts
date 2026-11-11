@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import type { Character, Country, Event, WorldEntry } from '@/types'
 import { downloadJson } from './download'
 import { resolveImageUrl } from '../image-service'
+import { localDateStamp } from '../date-stamp'
 import {
   collectBodyImageRefs,
   collectDatasetImageRefs,
@@ -178,7 +179,7 @@ function inlineBodies(records: unknown[], map: Map<string, string>): void {
 
 export async function downloadFullBackup(): Promise<string> {
   const payload = await exportFullBackup()
-  const date = new Date().toISOString().slice(0, 10)
+  const date = localDateStamp()
   return downloadJson(payload, `oc-full-backup-${date}.ocbak`)
 }
 
