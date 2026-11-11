@@ -267,6 +267,58 @@ for (const file of walk(SRC)) {
 }
 
 /**
+ * 新建 / 删除必须广播。
+ *
+ * 事故形状（2026-11-12，连撞两次）：地图 / 相册这类**不走 react-query** 的视图只订阅
+ * `DATA_UPDATED_EVENT`；而 mutation 只 `invalidateQueries` 的话它们收不到 ——
+ * 删掉带锚点的国家后地图上还挂着「1 个锚点」，改完名字地图标签还是旧的。
+ *
+ * 规则：`src/features/.../hooks/use*.ts` 里凡是 `useCreate*` / `useDelete*`，
+ * 函数体里必须出现 `notifyDataUpdated`。确实不该广播的写进下面的白名单并说明原因。
+ */
+const BROADCAST_EXEMPT = new Set<string>([
+  // 标签 / 分类 / 时期 / 小说 / 地图的写入口不在这些 hook 里，各自模块里已经播过
+])
+
+{
+  const hookFiles: string[] = []
+  const walkHooks = (dir: string): void => {
+    for (const name of readdirSync(dir)) {
+      const full = join(dir, name)
+      if (statSync(full).isDirectory()) {
+        walkHooks(full)
+        continue
+      }
+      if (!/^use.*\.ts$/.test(name) || !full.includes('hooks')) continue
+      hookFiles.push(full)
+    }
+  }
+  walkHooks(join(process.cwd(), 'src/features'))
+
+  for (const full of hookFiles) {
+    const text = readFileSync(full, 'utf8')
+    const rel = full.replace(/\\/g, '/').replace(process.cwd().replace(/\\/g, '/') + '/', '')
+    const matches = [...text.matchAll(/export function (use(?:Create|Delete)\w+)\(/g)]
+    for (const match of matches) {
+      const name = match[1]
+      if (BROADCAST_EXEMPT.has(name)) continue
+      const start = match.index ?? 0
+      const nextExport = text.indexOf('\nexport ', start + 1)
+      const body = text.slice(start, nextExport === -1 ? text.length : nextExport)
+      if (body.includes('notifyDataUpdated')) continue
+      const violation = {
+        rule: 'mutation-broadcast',
+        file: rel,
+        line: text.slice(0, start).split('\n').length,
+        text: `${name} 的 onSuccess 没有 notifyDataUpdated（新建 / 删除必须广播）`,
+      }
+      violations.push(violation)
+      byRule.set('mutation-broadcast', [...(byRule.get('mutation-broadcast') ?? []), violation])
+    }
+  }
+}
+
+/**
  * 没有读者的设置项 = 骗人的开关。
  *
  * 事故形状：开机自启动的开关以前只写 localStorage、没人调系统接口，拨了没反应
@@ -437,6 +489,7 @@ const EXTRA_WHY: Record<string, string> = {
   'markdown-star': '界面文案里不写 Markdown 星号（`**`），用户看到的是乱码',
   'dead-setting': '设置项必须在设置页之外有读者，否则就是个拨了没反应的开关',
   'dead-editor-event': '移动端下发的编辑器事件必须有接收方，否则点了没反应',
+  'mutation-broadcast': '新建 / 删除要广播 DATA_UPDATED_EVENT，否则地图、相册这类视图不刷新',
 }
 
 console.log(`设计令牌体检：${violations.length} 处违规\n`)
