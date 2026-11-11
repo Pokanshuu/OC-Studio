@@ -15,6 +15,7 @@ import { open as openFolderDialog } from '@tauri-apps/plugin-dialog'
 import { toast } from 'sonner'
 
 import { notifyDataUpdated } from '@/lib/data-events'
+import { isTauri } from '@/lib/env'
 import type { MergeStrategy } from '@/lib/import'
 import { setVaultImageContext } from '@/lib/image-service'
 import { exportLegacyToFolder } from './export-dir'
@@ -22,6 +23,7 @@ import { backupLegacyData } from './legacy-backup'
 import { pickAssetsDir } from './vault-paths'
 import { loadVault, type VaultLoadResult } from './vault-load'
 import { isVaultSupported, vaultFs } from './vault-fs'
+import { getVaultSession } from './vault-session'
 import {
   currentStatus,
   drainVaultWrites,
@@ -169,6 +171,22 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           }
         }
 
+        /**
+         * 换库之前先把**当前库**的待写队列排干。
+         *
+         * `loadVault` 会整库替换 Dexie 并清空队列，那些还在防抖窗口里的编辑
+         * （最后一次输入后的 350ms–2s）会被静默丢掉 —— 用户看到的就是
+         * 「刚打的字，换个文件夹就没了」。写失败也要说一声再走，不能默默吞掉。
+         */
+        if (getVaultSession() !== null) {
+          const drained = await drainVaultWrites()
+          if (drained.errors.length > 0) {
+            toast.warning('切换前有内容没能写进原来的笔记库', {
+              description: `${drained.errors[0].relPath || '写入'}：${drained.errors[0].message}`,
+            })
+          }
+        }
+
         const result = await loadVault(path)
         const loadedRoot = result.session.root
 
@@ -277,11 +295,45 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     }
   }, [root, refreshLists])
 
+  /**
+   * 关窗口前把待写队列排干。
+   *
+   * 保存是防抖的（编辑器 700ms–2s + 落盘队列 350ms），点关闭时最后几秒的输入可能
+   * 还在队列里；Tauri 没有窗口关闭钩子的话，进程一退它们就没了。
+   * 这里拦一次 CloseRequested：有待写就先 flush 再关（flush 内部有 5 秒看门狗，
+   * 卡住也不会把窗口锁死）。
+   */
+  useEffect(() => {
+    if (!isTauri()) return
+    let unlisten: (() => void) | null = null
+    let allowClose = false
+    void (async () => {
+      try {
+        const { getCurrentWindow } = await import('@tauri-apps/api/window')
+        const win = getCurrentWindow()
+        unlisten = await win.onCloseRequested(async (event) => {
+          if (allowClose) return
+          if (currentStatus().pending === 0) return
+          event.preventDefault()
+          await drainVaultWrites()
+          allowClose = true
+          await win.close()
+        })
+      } catch {
+        // 取窗口失败（浏览器预览 / 旧版 API）：交给浏览器的 beforeunload 兜底
+      }
+    })()
+    return () => {
+      unlisten?.()
+    }
+  }, [])
+
   const flush = useCallback(async () => {
     const result = await drainVaultWrites()
     if (result.errors.length > 0) {
       toast.error('保存失败', { description: result.errors[0].message })
     }
+
     if (result.conflicts.length > 0) {
       /**
        * 冲突要给一条**能走的路**，不能只说「已跳过」。
