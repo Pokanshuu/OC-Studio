@@ -395,19 +395,25 @@ export async function deleteMap(id: number, fallbackName?: string): Promise<void
   await db.transaction('rw', db.worldEntries, db.countries, db.events, async () => {
     await db.worldEntries.update(targetId, { deleted: true, updatedAt: now, ...stamp })
 
+    /*
+     * 连 `mapPosition` 一起清，不只是 `mapId`。
+     *
+     * 锚点按 `mapId || 主地图` 分组：只清 mapId 的话，这些实体会**带着旧坐标掉进主地图**，
+     * 而删除时的提示是「和它的锚点一起移到回收站」—— 用户没让它换张图出现。
+     */
     const countries = await db.countries.filter((item) => item.mapId === mapName).toArray()
     for (const item of countries) {
-      await db.countries.update(item.id, { mapId: undefined, updatedAt: now, ...stamp })
+      await db.countries.update(item.id, { mapId: undefined, mapPosition: undefined, updatedAt: now, ...stamp })
     }
 
     const events = await db.events.filter((item) => item.mapId === mapName).toArray()
     for (const item of events) {
-      await db.events.update(item.id, { mapId: undefined, updatedAt: now, ...stamp })
+      await db.events.update(item.id, { mapId: undefined, mapPosition: undefined, updatedAt: now, ...stamp })
     }
 
     const entries = await db.worldEntries.filter((item) => item.id !== targetId && item.mapId === mapName).toArray()
     for (const item of entries) {
-      await db.worldEntries.update(item.id, { mapId: undefined, updatedAt: now, ...stamp })
+      await db.worldEntries.update(item.id, { mapId: undefined, mapPosition: undefined, updatedAt: now, ...stamp })
     }
   })
 
