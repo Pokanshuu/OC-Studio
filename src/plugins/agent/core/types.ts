@@ -202,6 +202,11 @@ export interface ApiSettings {
   temperature: number
   topP: number
   maxTokens: number | null
+  /**
+   * 手动指定上下文窗口；`null` = 按内置模型表，未知模型回 128k。
+   * 自定义网关常用别名（`gemini-3.8-flash-medium`），内置表认不出来。
+   */
+  contextWindow: number | null
 }
 
 export interface ReasoningLevelInfo {

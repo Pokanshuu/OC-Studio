@@ -36,6 +36,7 @@
 
 ### 修复
 
+- **Gemini 走自定义网关时上下文按 128k 算**：内置模型表只按「提供方 + 精确模型名」匹配，`CUSTOM` 下的 `gemini-3.8-flash-medium` 这类别名落到默认 128k，百分比差 8 倍。现在 `CUSTOM` 下以 `gemini-` 开头的模型按 1M 处理，并新增「上下文长度」设置项可手动覆盖（留空按内置表）。
 - **空文档比较崩溃**：`sameDocNodeIgnoringTrailingSpacer` 读 `lastChild.type`（空文档时是 `undefined`），并且在去除末尾空段落时给 ProseMirror 的 `copy()` 传了数组——`copy` 要的是 `Fragment`，会把 `content` 变成数组，下一次 `.eq()` 报 `content.eq is not a function`。现在只收集 / 比较顶层子节点，不再复制节点，也不再读 `lastChild`。
 - **中文引号旁的加粗不生效**：`会有**"反相位干涉"**（…` 这类写法不符合 CommonMark 的强调规则（`**` 后面紧跟引号、前面又是汉字），会原样显示星号。现在接入 CJK-friendly 的 remark 扩展，中文标点紧邻的 `**` / `*` 能正常解析。
 - **`$...$` 数学原样显示**：助手常写 `$\rightarrow$` 表示箭头、也偶尔写公式。现在接入 `remark-math` + KaTeX：行内与块级公式都渲染；流式逐字动画会跳过 KaTeX 子树，不会把公式拆散。

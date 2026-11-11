@@ -26,6 +26,7 @@ export const DEFAULT_SETTINGS: Settings = {
     temperature: 1,
     topP: 1,
     maxTokens: null,
+    contextWindow: null,
   },
   agent: {
     workspace: null,

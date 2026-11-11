@@ -156,6 +156,17 @@ export function findModel(kind: ProviderKind, modelId: string): ModelInfo {
   const normalized = normalizeModelId(kind, modelId)
   const known = knownModels(kind).find((m) => m.id === normalized)
   if (known) return known
+  // 自定义网关常用别名（`gemini-3.8-flash-medium`）：按家族给一个合理窗口，
+  // 否则 Gemini 的 1M 会被当成未知模型的 128k，百分比直接差 8 倍。
+  if (kind === 'CUSTOM' && /^gemini[-.]/i.test(normalized)) {
+    return {
+      id: normalized,
+      displayName: normalized,
+      supportsVision: true,
+      supportsThinking: false,
+      contextWindow: 1_000_000,
+    }
+  }
   return {
     id: normalized,
     displayName: normalized,

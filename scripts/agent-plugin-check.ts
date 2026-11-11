@@ -34,6 +34,7 @@ import { buildChatRequest, messageToOut } from '../src/plugins/agent/core/chatRe
 import {
   PROVIDERS,
   chatCompletionsUrl,
+  findModel,
   modelsUrl,
   normalizeModelId,
 } from '../src/plugins/agent/core/provider'
@@ -1335,6 +1336,11 @@ async function main(): Promise<void> {
     'Gemini 的 models/ 前缀会被归一',
     normalizeModelId('GEMINI', 'models/gemini-3.8-flash') === 'gemini-3.8-flash' &&
       normalizeModelId('DEEPSEEK', 'deepseek-flash') === 'deepseek-flash',
+  )
+  check(
+    '自定义网关的 Gemini 别名按 1M 上下文',
+    findModel('CUSTOM', 'gemini-3.8-flash-medium').contextWindow === 1_000_000 &&
+      findModel('CUSTOM', 'some-proxy-model').contextWindow === 128_000,
   )
   const geminiBody = buildChatRequest({
     provider: 'GEMINI',

@@ -266,6 +266,31 @@ function ApiTab() {
           </Menu>
         </Field>
 
+        <FieldRow
+          label={t('settings.contextWindow')}
+          hint={t('settings.contextWindowHint')}
+        >
+          <input
+            className="input"
+            style={{ width: 120, textAlign: 'right' }}
+            inputMode="numeric"
+            placeholder="128000"
+            value={settings.api.contextWindow ?? ''}
+            onChange={(event) => {
+              const raw = event.target.value.trim()
+              const parsed = raw === '' ? null : Number.parseInt(raw, 10)
+              patch((current) => ({
+                ...current,
+                api: {
+                  ...current.api,
+                  contextWindow:
+                    parsed !== null && Number.isFinite(parsed) && parsed > 0 ? parsed : null,
+                },
+              }))
+            }}
+          />
+        </FieldRow>
+
         <Field
           label={t('settings.apiKey')}
           hint={hasKey ? `${t('settings.apiKeySaved')} · ${keyHint}` : t('settings.apiKeyPlaceholder')}

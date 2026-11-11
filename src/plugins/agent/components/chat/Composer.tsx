@@ -170,7 +170,11 @@ export function Composer() {
       else if (attachment.kind === 'image') texts.push('x'.repeat(4096))
     }
     const base = estimateTokensOfAll(texts)
-    const window = findModel(settings.api.provider, settings.api.model).contextWindow
+    const override = settings.api.contextWindow
+    const window =
+      override !== null && override > 0
+        ? override
+        : findModel(settings.api.provider, settings.api.model).contextWindow
     return {
       base,
       window,
@@ -178,7 +182,7 @@ export function Composer() {
     }
     // 粗粒度依赖：条数变化、换会话、压缩、附件或模型变化才重算
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messageCount, currentId, compaction, attachments, settings.api.provider, settings.api.model])
+  }, [messageCount, currentId, compaction, attachments, settings.api.provider, settings.api.model, settings.api.contextWindow])
 
   // 流式中的那一条还在 STREAMING、没进 outgoing，但它马上就是下一轮的上下文。
   // overheadTokens 是最近一次请求的「系统提示词 + 工具 schema」，同样不算在消息里。
