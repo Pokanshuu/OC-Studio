@@ -69,8 +69,9 @@ function looseTable<T extends { id: number }>(table: EntityTable<T, 'id'>): Loos
   return table as unknown as LooseTable
 }
 
-async function bulkAddRows(table: LooseTable, rows: Record<string, unknown>[]): Promise<void> {
-  await table.bulkAdd(rows)
+async function bulkAddRows(table: LooseTable, rows: Record<string, unknown>[]): Promise<number | undefined> {
+  const lastKey = await table.bulkAdd(rows)
+  return typeof lastKey === 'number' ? lastKey : undefined
 }
 
 /** 只接受「对象元素」的数组；非对象元素直接丢弃，避免脏数据在后续 merge 中炸开。 */
@@ -137,13 +138,58 @@ export function validateImportData(json: unknown): ImportSummary {
   }
 }
 
+/** 扁平表的名字键：小写 + 去空白；不是字符串就当没有名字（调用方会直接新增） */
+function nameKeyOf(row: Record<string, unknown>, nameField: string): string {
+  const name = row[nameField]
+  return typeof name === 'string' ? name.toLowerCase().trim() : ''
+}
+
+/**
+ * 笔记的**复合键**：`分类 + 父级标题 + 标题`。
+ *
+ * 只用标题判同名是错的：两本书各有一章「新章节」、或者「地点」类里有个「夜market」
+ * 而「组织」类里也有一个，它们是完全不同的条目 —— 按标题去重会把新的那一条**静默跳过**，
+ * 用户看到的是「导入了，但书里没有章节」。
+ *
+ * 父级用**标题**而不是 id：备份里的 id 到了目标库就失效了，标题才是跨库稳定的。
+ */
+function noteKeyOf(
+  row: Record<string, unknown>,
+  titleById: ReadonlyMap<number, string>,
+): string {
+  const title = typeof row.title === 'string' ? row.title.toLowerCase().trim() : ''
+  if (title === '') return ''
+  const category = typeof row.category === 'string' ? row.category.trim().toLowerCase() : ''
+  const parentId = typeof row.parentId === 'number' ? row.parentId : null
+  const parentTitle = parentId === null ? '' : (titleById.get(parentId) ?? '').toLowerCase().trim()
+  return `${category}\u0000${parentTitle}\u0000${title}`
+}
+
 async function processTableMerge(
   table: LooseTable,
   records: Record<string, unknown>[],
   strategy: MergeStrategy,
   nameField: string,
-): Promise<{ added: number; skipped: number; overwritten: number }> {
-  if (records.length === 0) return { added: 0, skipped: 0, overwritten: 0 }
+  /**
+   * 同名判定键；不传就按 `nameField` 的文本（角色 / 事件 / 国家 / 标签都是平的）。
+   * 分成两份是因为**父级 id 在两边含义不同**：库里是真实 id，备份里是备份内的 id。
+   */
+  keyOf?: {
+    existing: (row: Record<string, unknown>) => string
+    imported: (row: Record<string, unknown>) => string
+  },
+): Promise<{
+  added: number
+  skipped: number
+  overwritten: number
+  /** 备份里的 id → 落库后的 id（新增与覆盖都记；用来重映射 `parentId`） */
+  idMap: Map<number, number>
+}> {
+  if (records.length === 0) {
+    return { added: 0, skipped: 0, overwritten: 0, idMap: new Map() }
+  }
+
+  const idMap = new Map<number, number>()
 
   if (strategy === 'keep-both') {
     const toAdd = records.map((r) => {
@@ -151,18 +197,23 @@ async function processTableMerge(
       void _id
       return rest
     })
-    await bulkAddRows(table, toAdd)
-    return { added: toAdd.length, skipped: 0, overwritten: 0 }
+    const lastKey = await bulkAddRows(table, toAdd)
+    if (typeof lastKey === 'number') {
+      const firstKey = lastKey - toAdd.length + 1
+      records.forEach((row, index) => {
+        const backupId = Number(row.id)
+        if (Number.isFinite(backupId)) idMap.set(backupId, firstKey + index)
+      })
+    }
+    return { added: toAdd.length, skipped: 0, overwritten: 0, idMap }
   }
 
   const existingRecords = await table.toArray()
   const existingByName = new Map<string, Record<string, unknown>>()
 
   for (const item of existingRecords) {
-    const name = item[nameField]
-    if (typeof name === 'string') {
-      existingByName.set(name.toLowerCase().trim(), item)
-    }
+    const key = keyOf !== undefined ? keyOf.existing(item) : nameKeyOf(item, nameField)
+    if (key !== '') existingByName.set(key, item)
   }
 
   let added = 0
@@ -183,14 +234,16 @@ async function processTableMerge(
       continue
     }
 
-    const key = name.toLowerCase().trim()
-    const existing = existingByName.get(key)
+    const key = keyOf !== undefined ? keyOf.imported(rec) : name.toLowerCase().trim()
+    const existing = key === '' ? undefined : existingByName.get(key)
 
     if (existing) {
       if (strategy === 'overwrite') {
         const { id: _importId, ...importData } = rec
         void _importId
         await table.put({ ...importData, id: existing.id } as Record<string, unknown>)
+        const backupId = Number(rec.id)
+        if (Number.isFinite(backupId) && typeof existing.id === 'number') idMap.set(backupId, existing.id)
         overwritten++
       } else {
         skipped++
@@ -204,10 +257,29 @@ async function processTableMerge(
   }
 
   if (toAdd.length > 0) {
-    await bulkAddRows(table, toAdd)
+    const lastKey = await bulkAddRows(table, toAdd)
+    if (typeof lastKey === 'number') {
+      // 自增主键连续：用「最后一个 key − 数量 + 1」反推这一批的起点
+      const firstKey = lastKey - toAdd.length + 1
+      let offset = 0
+      for (const rec of records) {
+        if (typeof rec[nameField] !== 'string') {
+          const backupId = Number(rec.id)
+          if (Number.isFinite(backupId)) idMap.set(backupId, firstKey + offset)
+          offset += 1
+          continue
+        }
+        const key = keyOf !== undefined ? keyOf.imported(rec) : String(rec[nameField]).toLowerCase().trim()
+        const existing = key === '' ? undefined : existingByName.get(key)
+        if (existing !== undefined) continue
+        const backupId = Number(rec.id)
+        if (Number.isFinite(backupId)) idMap.set(backupId, firstKey + offset)
+        offset += 1
+      }
+    }
   }
 
-  return { added, skipped, overwritten }
+  return { added, skipped, overwritten, idMap }
 }
 
 export async function importData(
@@ -268,12 +340,59 @@ export async function importData(
       let totalSkipped = 0
       let totalOverwritten = 0
 
+      const existingNoteTitles = new Map<number, string>()
+      for (const row of await db.worldEntries.toArray()) {
+        if (typeof row.id === 'number') existingNoteTitles.set(row.id, String(row.title ?? ''))
+      }
+      const importedNoteTitles = new Map<number, string>()
+      for (const row of records.worldEntries) {
+        const id = typeof row.id === 'number' ? row.id : Number(row.id)
+        if (Number.isFinite(id)) importedNoteTitles.set(id, String(row.title ?? ''))
+      }
+
+      /** 备份里的笔记 id → 落库后的 id（父级重映射用） */
+      const noteIdMap = new Map<number, number>()
+
       for (const config of TABLE_CONFIG) {
         const items = records[config.key] ?? []
-        const result = await processTableMerge(config.table, items, strategy, config.nameField)
+        const result = await processTableMerge(
+          config.table,
+          items,
+          strategy,
+          config.nameField,
+          config.key === 'worldEntries'
+            ? {
+                existing: (row) => noteKeyOf(row, existingNoteTitles),
+                imported: (row) => noteKeyOf(row, importedNoteTitles),
+              }
+            : undefined,
+        )
         totalAdded += result.added
         totalSkipped += result.skipped
         totalOverwritten += result.overwritten
+        if (config.key === 'worldEntries') {
+          for (const [from, to] of result.idMap) noteIdMap.set(from, to)
+        }
+      }
+
+      /**
+       * 笔记的父级重映射。
+       *
+       * 备份里的 `parentId` 是**备份内的 id**，直接落库会指到目标库里同样数字的**另一行**
+       * （小说章节最明显：章挂在别人的书上）。这里按「备份 id → 新 id」把父级换成本库的 id；
+       * 父级没能导进来的（被跳过 / 不在备份里）就置空 —— 至少不会挂到别人下面。
+       */
+      if (noteIdMap.size > 0) {
+        for (const row of records.worldEntries) {
+          const newId = noteIdMap.get(Number(row.id))
+          if (newId === undefined) continue
+          const parentFromBackup = typeof row.parentId === 'number' ? row.parentId : null
+          const nextParent = parentFromBackup === null ? null : (noteIdMap.get(parentFromBackup) ?? null)
+          const current = await db.worldEntries.get(newId)
+          if (!current) continue
+          if ((current.parentId ?? null) === nextParent) continue
+          await db.worldEntries.update(newId, { parentId: nextParent })
+        }
       }
 
       // 项目元信息为单例：直接覆盖本地
