@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react"
 import { invoke } from "@tauri-apps/api/core"
+import { toast } from "sonner"
 import { isTauri } from "./env"
 import { readBlurPreference } from "./blur-preference"
 import { DEFAULT_SIDEBAR_WIDTH, clampSidebarWidth } from "./sidebar-width"
@@ -119,12 +120,22 @@ function loadSettings(): Settings {
   return DEFAULT_SETTINGS
 }
 
+/** 只提醒一次：存储坏掉时每次改设置都弹一条会很吵 */
+let saveFailedWarned = false
+
 function saveSettings(settings: Settings): void {
   if (typeof window === "undefined") return
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(settings))
-  } catch {
-    // storage full or unavailable
+  } catch (error) {
+    // 存不进去必须说一声：界面已经变了，重启却会回退 —— 用户会以为「设置自己变回去了」
+    console.error("[settings] 保存设置失败", error)
+    if (!saveFailedWarned) {
+      saveFailedWarned = true
+      toast.error("设置没能保存到本机", {
+        description: "浏览器存储不可用或已满，本次改动在重启后会回到旧值。",
+      })
+    }
   }
 }
 
