@@ -222,6 +222,69 @@ for (const file of walk(SRC)) {
   }
 }
 /**
+ * 界面文案里别写 Markdown 星号。
+ *
+ * 事故形状（2026-11-12）：备份页脚注写成「导入时**只在目标还是空的**时恢复」，
+ * 界面上原样显示两个星号。文档里能这么写，界面里不能 —— 用户看到的是乱码。
+ *
+ * 只扫「会渲染的文字」：跳过行注释、块注释与 JSX 注释，也跳过展开运算符之类的代码。
+ */
+{
+  const offenders: Array<{ file: string; line: number; text: string }> = []
+  const files: string[] = []
+  const walk = (dir: string): void => {
+    for (const name of readdirSync(dir)) {
+      const full = join(dir, name)
+      if (statSync(full).isDirectory()) {
+        if (name === 'node_modules') continue
+        walk(full)
+      } else if (name.endsWith('.tsx')) {
+        files.push(full)
+      }
+    }
+  }
+  walk(join(process.cwd(), 'src'))
+
+  for (const full of files) {
+    const rel = full.replace(/\\/g, '/').replace(join(process.cwd(), 'src').replace(/\\/g, '/') + '/', 'src/')
+    const lines = readFileSync(full, 'utf8').split('\n')
+    let inBlockComment = false
+    let inJsxComment = false
+    lines.forEach((line, index) => {
+      const trimmed = line.trim()
+      if (inJsxComment) {
+        if (trimmed.includes('*/}')) inJsxComment = false
+        return
+      }
+      if (inBlockComment) {
+        if (trimmed.includes('*/')) inBlockComment = false
+        return
+      }
+      if (trimmed.includes('{/*')) {
+        if (!trimmed.includes('*/}')) inJsxComment = true
+        return
+      }
+      if (trimmed.startsWith('/*')) {
+        if (!trimmed.includes('*/')) inBlockComment = true
+        return
+      }
+      if (trimmed.startsWith('*') || trimmed.startsWith('//')) return
+      const code = line.split('//')[0]
+      if (!code.includes('**')) return
+      if (code.includes('...')) return
+      if (!/[\u4e00-\u9fa5]/.test(code)) return
+      offenders.push({ file: rel, line: index + 1, text: trimmed.slice(0, 80) })
+    })
+  }
+
+  for (const offender of offenders) {
+    const violation = { rule: 'markdown-star', ...offender }
+    violations.push(violation)
+    byRule.set('markdown-star', [...(byRule.get('markdown-star') ?? []), violation])
+  }
+}
+
+/**
  * 输入法（IME）守卫：这些输入框在**回车即提交**（新建 / 重命名），
  * 组字中的回车是「选候选词」——不拦就会把拼音（`xinyhijian`）建成实体名；
  * Esc 同理（取消组字 vs 关闭编辑）。文件里必须出现 `isImeComposing(`。

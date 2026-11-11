@@ -97,7 +97,7 @@ export function BackupPanel() {
             ))}
           </div>
           <div className="mt-8 border-t border-line pt-4 text-[11px] leading-relaxed text-ink-faint">
-            图片与封面一并内联；分类 / 字段表 / 模板等设置不在备份里，它们跟着笔记库文件夹走。
+            图片与封面一并内联；分类 / 字段表 / 模板 / 信息组 / 正文组 / 文件夹清单也一起打包，导入时只在目标还是空的时恢复。创作时间线（只追加的操作记录）不进备份。
           </div>
         </div>
       }
@@ -105,10 +105,10 @@ export function BackupPanel() {
         <>
           <ExportSection title="备份">
             <p className="text-[12px] leading-relaxed text-ink-muted">
-              一个 `.ocbak` 包含全部实体、图片与关系，换设备后可以还原。
+              一个 .ocbak 文件包含全部实体、图片与关系，换设备后可以还原。
               <span className="text-ink-faint">
                 {' '}
-                分类、字段表、模板这些设置不装进来 —— 它们随「笔记库文件夹」走，整体搬文件夹最稳。
+                分类、字段表、模板这些设置也装在里面，导入到空库时一并恢复；目标已经有自己的设置时一律保留。
               </span>
             </p>
             <div className="flex flex-col gap-1 border-t border-line pt-3">
