@@ -1058,6 +1058,11 @@ a:hover {
   color: var(--oc-error);
 }
 
+/* 图标槽默认是 muted，会盖掉 danger 的继承色 —— 危险项要和文字一起变红 */
+.menu-item.danger .menu-item-slot {
+  color: var(--oc-error);
+}
+
 .menu-item.danger:hover {
   background: var(--oc-error-light);
   color: var(--oc-error);

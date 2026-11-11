@@ -840,6 +840,9 @@ background: var(--oc-hover);
 .oc-agent-root .menu-item.danger{
 color: var(--oc-error);
 }
+.oc-agent-root .menu-item.danger .menu-item-slot{
+color: var(--oc-error);
+}
 .oc-agent-root .menu-item.danger:hover{
 background: var(--oc-error-light);
   color: var(--oc-error);
