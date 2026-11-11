@@ -22,6 +22,19 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - `src/lib/sync.ts` — 操作日志 (`logOperation`) + 待同步时间戳 (`pendingStamp`)
 - `src/lib/repository.ts` — 泛型 CRUD 仓储原语（listActive / getById / softDelete）。签名是 `Table<T, number, TInsert>`，**第 3 个泛型位不可省**（否则推断会把行类型统一成写入类型，见 §已知差异）
 - `src/lib/membership.ts` — **成员关系的单向应用**（阶段二·一之后，镜像已拆）：真源只有实体侧 —— 角色 `countryId`（国籍）、事件 `countries`（相关国家）。国家页的「相关角色 / 相关事件」**不是存储**，是查询（`features/countries/services.ts` 的 `listCountryCharacters` / `listCountryEvents`）。这里只剩 `applyCountryCharacters` / `applyCountryEvents`（国家编辑器的名单 → 写实体侧）与 `purgeCharacterReferences` / `purgeCountryReferences`（软删除清引用）。盘上遗留的 `country.characters` / `country.events` **不读、不写、不删**：`COUNTRY_KEYS` 里没有这两个键，`Country` 类型里也**已经没有这两个字段**（阶段二·一收尾）—— 留着字段就会有人再去读它。**不要再引入第二份名单**。国籍的显示/分组/筛选统一走 `resolveCharacterCountryId`（id 优先，只剩旧 `国籍:` 文本时按国家名回落）；清空归属时**连旧文本一起清**，否则回落逻辑会让「改成未归属」下一次又变回去
+- **引用到底靠 id 还是靠名字**（2026-11-12 把这一类 bug 逐条收口后列的清单，改引用前先看这张表）：
+
+| 引用 | 存什么 | 改名时必须 | 删除时必须 |
+|---|---|---|---|
+| 角色 `countryId`、事件 `countries` / `characters` | **id** | 不用动 | `purgeCountryReferences` / `purgeCharacterReferences` 摘掉指过来的 |
+| 标签 `tags[]` | **id** | 只改标签行（id 不变） | `removeTagReferences` 四张表全摘 |
+| 笔记 `category` | **名字** | `renameCategoryEntries` 把笔记一起搬 | **不清名字** —— 笔记落回世界观；同名分类重建时会自动归队 |
+| 角色 `folder` | **名字** | `renameFolder` 批量改成员 + 清册 | `deleteFolder` 成员回未分组 + 清册 |
+| 地图 `mapId` | **名字** | `renameMap` 把所有实体的 `mapId` 改成新名字 | `deleteMap` 清 `mapId` **和 `mapPosition`**（只清 id 会让锚点掉进主地图） |
+| 正文 `mention` / `wikiLink` | **类型 + id**，另存 label 快照 | `updateReferencesAfterRename`（键必须是 `类型:id`，见 `reference-labels.ts`） | 保留名字、不可点 |
+| 命名关系 `relations` / `relatedNotes` | name 快照 + `targetId` | 改名时同步 name | 保留名字、不可点（这是刻意的） |
+
+  **名字当键的三处（分类 / 文件夹 / 地图）在删除时都要显式决定「清不清」** —— 默认什么都不做就是 bug 的温床。
 - **删除后的残留分两类，别混为一谈**（2026-11-11 逐项核过）：**成员关系**（角色的 `relatedCharacters`、事件的 `characters`（参与者 id 数组）、国家的国籍/相关国家、地图的 `mapId`）在软删除时**主动清掉**（`purge*References` / `deleteMap` 里的事务）；**命名关系**（笔记的 `relations`、角色的 `relatedNotes`、事件的 `relations`）**故意保留名字**——目标被删或改名时那一行仍然显示原文、只是不可点（`RelationName` 在 `targetId === undefined` 时渲染成纯文本）。想「统一」成全都清掉之前先想清楚：命名边是用户写下的语义，删了不可恢复。**回收站的「永久删除」要连子孙和文件一起删**（withEntryDescendants 只向下走 —— 删一章绝不能把整本书带走；笔记库模式还要 aultFs.remove 掉 .ocstudio/trash/ 里的文件，否则行删了、磁盘还占着）
 - `src/lib/env.ts` — 环境检测唯一权威（isTauri / isCapacitor / isNativePlatform）
 - `src/lib/version.ts` — 版本号单源（读 package.json）
