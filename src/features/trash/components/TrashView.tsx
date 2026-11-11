@@ -132,12 +132,29 @@ export function TrashView({ onClose }: TrashViewProps) {
         setConfirmTarget(null)
         refresh()
         notifyDataUpdated()
-      } catch {
-        toast.error("删除失败")
+      } catch (err) {
+        // 以前只有「删除失败」四个字：删不掉的到底是文件还是行，用户没法判断
+        toast.error('永久删除失败', { description: err instanceof Error ? err.message : String(err) })
       }
     },
     [refresh],
   )
+
+  /**
+   * Esc 关闭回收站 —— 与设置、导出中心一致。
+   *
+   * 里面还开着「永久删除」确认框时不动手：那个框自己会处理 Esc，
+   * 抢在前面会变成「连回收站一起关掉」。
+   */
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape') return
+      if (document.querySelector('[role="alertdialog"], [role="dialog"]') !== null) return
+      handleClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [handleClose])
 
   const grouped = useMemo(() => {
     const map: Record<string, TrashItem[]> = {}
