@@ -126,6 +126,8 @@ function ApiTab() {
   const [keyInput, setKeyInput] = useState('')
   const [testing, setTesting] = useState(false)
   const [remoteModels, setRemoteModels] = useState<string[]>([])
+  const [modelMenu, setModelMenu] = useState<MenuAnchor | null>(null)
+  const modelInputRef = useRef<HTMLInputElement>(null)
 
   const provider = PROVIDERS[settings.api.provider]
   const modelOptions = useMemo(() => {
@@ -217,22 +219,51 @@ function ApiTab() {
         <Field label={t('settings.model')}>
           <div className="row">
             <input
+              ref={modelInputRef}
               className="input"
-              list="model-options"
               value={settings.api.model}
               onChange={(event) =>
                 patch((current) => ({ ...current, api: { ...current.api, model: event.target.value } }))
               }
             />
-            <datalist id="model-options">
-              {modelOptions.map((id) => (
-                <option key={id} value={id} />
-              ))}
-            </datalist>
+            {/* 原生 datalist 由 WebView 画，圆角 / 阴影 / 暗色都够不着；用宿主菜单 */}
+            <button
+              type="button"
+              className="icon-btn"
+              aria-label={t('settings.modelList')}
+              title={t('settings.modelList')}
+              onClick={(event) => {
+                const rect =
+                  modelInputRef.current?.getBoundingClientRect() ??
+                  event.currentTarget.getBoundingClientRect()
+                setModelMenu({ x: rect.left, y: rect.bottom + 4 })
+              }}
+            >
+              <Icon name="chevron-down" size={14} />
+            </button>
             <button className="btn quiet" onClick={() => void test()} disabled={testing || !settings.api.baseUrl}>
               {testing ? t('settings.testing') : t('settings.test')}
             </button>
           </div>
+          <Menu anchor={modelMenu} onClose={() => setModelMenu(null)}>
+            {modelOptions.length === 0 ? (
+              <MenuItem onClick={() => setModelMenu(null)} disabled>
+                {t('settings.modelListEmpty')}
+              </MenuItem>
+            ) : (
+              modelOptions.map((id) => (
+                <MenuItem
+                  key={id}
+                  onClick={() => {
+                    patch((current) => ({ ...current, api: { ...current.api, model: id } }))
+                    setModelMenu(null)
+                  }}
+                >
+                  {id}
+                </MenuItem>
+              ))
+            )}
+          </Menu>
         </Field>
 
         <Field
