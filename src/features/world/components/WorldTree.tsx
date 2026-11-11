@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useMemo } from 'react'
-import { Plus, Pencil, FileText, Trash2 } from 'lucide-react'
+import { Pencil, FileText, Trash2 } from 'lucide-react'
 import {
   DndContext,
   closestCenter,
@@ -41,7 +41,6 @@ export function WorldTree({
   entries,
   selectedId,
   onSelect,
-  onCreate,
   onDelete,
   onRename,
   onReorder,
@@ -115,17 +114,17 @@ export function WorldTree({
   return (
     <div className="flex h-full flex-col">
       {tree.length === 0 ? (
+        /*
+         * 空库时右栏已经有一整块「还没有词条 / 新建词条」的空状态，树这里只给一句话。
+         * 以前这里是「暂无词条 + 创建词条」—— 同一屏两个按钮做同一件事，措辞还不一样
+         *（创建 / 新建、暂无 / 还没有）。工具栏上也有「新建词条」，创建入口不会丢。
+         */
         <div className="flex flex-1 items-center justify-center px-4">
-          <div className="text-center">
-            <p className="text-xs text-ink-faint mb-2">暂无词条</p>
-            <button
-              onClick={() => onCreate(null, '新词条')}
-              className="touch-feedback mx-auto flex items-center gap-1 px-3 py-1.5 text-[13px] text-ink-muted transition-colors hover:text-ink"
-            >
-              <Plus size={14} strokeWidth={2} />
-              <span>创建词条</span>
-            </button>
-          </div>
+          <p className="text-center text-xs leading-relaxed text-ink-faint">
+            目录还是空的
+            <br />
+            点右上角的 ＋ 新建
+          </p>
         </div>
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
