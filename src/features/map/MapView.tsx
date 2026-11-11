@@ -293,11 +293,13 @@ export function MapView() {
     }
   }, [immersive])
 
-  // 地图列表是浮层：Esc 也能收
+  // 地图列表是浮层：Esc 也能收（删除确认框开着时先让它关，不然一按两个都收）
   useEffect(() => {
     if (!switcherOpen) return
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') setSwitcherOpen(false)
+      if (event.key !== 'Escape') return
+      if (document.querySelector('[role="alertdialog"], [role="dialog"]') !== null) return
+      setSwitcherOpen(false)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)

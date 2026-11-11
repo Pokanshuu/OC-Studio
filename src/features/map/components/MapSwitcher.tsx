@@ -16,6 +16,16 @@ import { useState } from 'react'
 import { Check, Info, Pencil, Plus, Trash2 } from 'lucide-react'
 import { resolveImageUrl } from '@/lib/image-service'
 import { BTN_QUIET, ICON_BTN, INPUT_LINE, PANEL_SOLID } from '@/lib/ui-tokens'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import type { MapEntity } from '../services'
 
 /** 渐隐遮罩：右边留给缩略图，左边交给纸色实底 */
@@ -47,6 +57,13 @@ export function MapSwitcher({
 }: MapSwitcherProps) {
   const [renamingId, setRenamingId] = useState<number | null>(null)
   const [draft, setDraft] = useState('')
+  /**
+   * 删除前先问一句 —— 与角色 / 国家 / 事件 / 笔记 / 小说是同一套规矩。
+   *
+   * 以前这个小垃圾桶是**一点就删**：整张图连同锚点、标注、生成参数一起没了，
+   * 而隔壁「详情」里的删除却要确认。同一个动作两种行为，手滑一次就得去回收站捞。
+   */
+  const [pendingDelete, setPendingDelete] = useState<{ id: number; name: string } | null>(null)
 
   return (
     <div
@@ -158,7 +175,7 @@ export function MapSwitcher({
                   {maps.length > 1 ? (
                     <button
                       type="button"
-                      onClick={() => onDelete(map.id, map.name)}
+                      onClick={() => setPendingDelete({ id: map.id, name: map.name })}
                       className={`${ICON_BTN} hover:text-error`}
                       aria-label="删除地图"
                       title="删除"
@@ -183,6 +200,33 @@ export function MapSwitcher({
           详情
         </button>
       </div>
+
+      <AlertDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDelete(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>删除地图</AlertDialogTitle>
+            <AlertDialogDescription>
+              「{pendingDelete?.name ?? ''}」和它的锚点、标注会一起移到回收站，可在回收站里恢复。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingDelete !== null) onDelete(pendingDelete.id, pendingDelete.name)
+                setPendingDelete(null)
+              }}
+            >
+              删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
