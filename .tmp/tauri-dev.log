@@ -1,174 +1,0 @@
-     Running BeforeDevCommand (`npm run dev`)
-
-> oc-studio@0.20.3-beta dev
-> next dev
-
-▲ Next.js 16.2.4 (Turbopack)
-- Local:         http://localhost:3000
-- Network:       http://198.18.0.1:3000
-✓ Ready in 661ms
-     Running DevCommand (`cargo  run --no-default-features --color always --`)
-        Info Watching D:\Codes\oc_studio\src-tauri for changes...
-
- GET / 200 in 1772ms (next.js: 709ms, application-code: 1063ms)
- GET /DATA/images/header-1779987485588.png 404 in 551ms (next.js: 122ms, application-code: 429ms)
- GET /DATA/images/portrait-1779987192490.png 404 in 554ms (next.js: 92ms, application-code: 463ms)
- GET /DATA/images/header-1779987129811.png 404 in 558ms (next.js: 52ms, application-code: 506ms)
- GET /DATA/images/header-1779987096306.png 404 in 554ms (next.js: 319ms, application-code: 235ms)
- GET /DATA/images/avatar-1780136489043.png 404 in 554ms (next.js: 346ms, application-code: 208ms)
-[1m[96m    Cleaning[0m [                         ]   0.00%          [1m[96m    Cleaning[0m [                         ]   0.36%          [1m[96m    Cleaning[0m [                         ]   2.74%          [1m[96m    Cleaning[0m [==>                      ]  12.04%          [1m[96m    Cleaning[0m [==>                      ]  13.94%          [1m[96m    Cleaning[0m [==>                      ]  14.33%          [1m[96m    Cleaning[0m [==>                      ]  15.08%          [1m[96m    Cleaning[0m [==>                      ]  15.58%          [1m[96m    Cleaning[0m [==>                      ]  15.92%          [1m[96m    Cleaning[0m [===>                     ]  17.46%          [1m[96m    Cleaning[0m [===>                     ]  17.77%          [1m[96m    Cleaning[0m [===>                     ]  18.66%          [1m[96m    Cleaning[0m [===>                     ]  18.94%          [1m[96m    Cleaning[0m [====>                    ]  22.64%          [1m[96m    Cleaning[0m [====>                    ]  23.46%          [1m[96m    Cleaning[0m [=====>                   ]  24.72%          [1m[96m    Cleaning[0m [=====>                   ]  25.59%          [1m[96m    Cleaning[0m [=====>                   ]  26.53%          [1m[96m    Cleaning[0m [=====>                   ]  26.77%          [1m[96m    Cleaning[0m [======>                  ]  28.58%          [1m[96m    Cleaning[0m [======>                  ]  29.02%          [1m[96m    Cleaning[0m [======>                  ]  29.33%          [1m[96m    Cleaning[0m [======>                  ]  29.61%          [1m[96m    Cleaning[0m [======>                  ]  30.30%          [1m[96m    Cleaning[0m [======>                  ]  31.41%          [1m[96m    Cleaning[0m [=========>               ]  40.62%          [1m[96m    Cleaning[0m [=========>               ]  42.22%          [1m[96m    Cleaning[0m [=========>               ]  42.56%          [1m[96m    Cleaning[0m [=========>               ]  42.81%          [1m[96m    Cleaning[0m [=========>               ]  43.38%          [1m[96m    Cleaning[0m [==========>              ]  44.37%          [1m[96m    Cleaning[0m [==========>              ]  45.01%          [1m[96m    Cleaning[0m [==========>              ]  46.47%          [1m[96m    Cleaning[0m [==========>              ]  46.83%          [1m[96m    Cleaning[0m [===========>             ]  49.49%          [1m[96m    Cleaning[0m [===========>             ]  50.52%          [1m[96m    Cleaning[0m [===========>             ]  50.84%          [1m[96m    Cleaning[0m [===========>             ]  51.34%          [1m[96m    Cleaning[0m [============>            ]  53.35%          [1m[96m    Cleaning[0m [============>            ]  54.44%          [1m[96m    Cleaning[0m [============>            ]  55.29%          [1m[96m    Cleaning[0m [============>            ]  55.70%          [1m[96m    Cleaning[0m [============>            ]  55.91%          [1m[96m    Cleaning[0m [=============>           ]  56.71%          [1m[96m    Cleaning[0m [=============>           ]  57.21%          [1m[96m    Cleaning[0m [=============>           ]  57.82%          [1m[96m    Cleaning[0m [=============>           ]  58.12%          [1m[96m    Cleaning[0m [=============>           ]  58.92%          [1m[96m    Cleaning[0m [=============>           ]  59.52%          [1m[96m    Cleaning[0m [==============>          ]  60.06%          [1m[96m    Cleaning[0m [==============>          ]  62.60%          [1m[96m    Cleaning[0m [==============>          ]  62.97%          [1m[96m    Cleaning[0m [================>        ]  68.82%          [1m[96m    Cleaning[0m [================>        ]  70.39%          [1m[96m    Cleaning[0m [=================>       ]  72.40%          [1m[96m    Cleaning[0m [==================>      ]  77.41%          [1m[96m    Cleaning[0m [==================>      ]  78.50%          [1m[96m    Cleaning[0m [==================>      ]  79.00%          [1m[96m    Cleaning[0m [===================>     ]  80.54%          [1m[96m    Cleaning[0m [===================>     ]  82.46%          [1m[96m    Cleaning[0m [===================>     ]  83.57%          [1m[96m    Cleaning[0m [=====================>   ]  88.44%          [1m[96m    Cleaning[0m [=====================>   ]  88.80%          [1m[96m    Cleaning[0m [=====================>   ]  90.20%          [1m[96m    Cleaning[0m [=====================>   ]  90.54%          [1m[96m    Cleaning[0m [======================>  ]  92.87%          [1m[96m    Cleaning[0m [======================>  ]  94.93%          [1m[96m    Cleaning[0m [======================>  ]  95.41%          [1m[96m    Cleaning[0m [=======================> ]  98.79%          [1m[96m    Cleaning[0m [=======================> ]  99.38%          [1m[96m    Cleaning[0m [=======================> ]  99.61%                                                                      [1m[92m   Compiling[0m app v0.20.3-beta (D:\Codes\oc_studio\src-tauri)
-[1m[96m    Building[0m [=======================> ] 466/468: app             Info File src-tauri\src\vault.rs changed. Rebuilding application...
-     Running DevCommand (`cargo  run --no-default-features --color always --`)
-[1m[92m   Compiling[0m app v0.20.3-beta (D:\Codes\oc_studio\src-tauri)
-[1m[96m    Building[0m [=======================> ] 466/468: app      GET /DATA/images/header-1779987129811.png 404 in 276ms (next.js: 54ms, application-code: 222ms)
- GET /DATA/images/header-1779987096306.png 404 in 279ms (next.js: 20ms, application-code: 259ms)
- GET /DATA/images/header-1779987485588.png 404 in 295ms (next.js: 176ms, application-code: 118ms)
- GET /DATA/images/header-1779987129811.png 404 in 257ms (next.js: 41ms, application-code: 216ms)
- GET /DATA/images/header-1779987096306.png 404 in 259ms (next.js: 16ms, application-code: 243ms)
- GET /DATA/images/header-1779987485588.png 404 in 250ms (next.js: 163ms, application-code: 87ms)
-                                                            [1m[93mwarning[0m[1m[97m: struct `VaultTrashBatch` is never constructed[0m
-   [1m[96m--> [0msrc\vault.rs:836:12
-    [1m[96m|[0m
-[1m[96m836[0m [1m[96m|[0m pub struct VaultTrashBatch {
-    [1m[96m|[0m            [1m[93m^^^^^^^^^^^^^^^[0m
-    [1m[96m|[0m
-    [1m[96m= [0m[1m[97mnote[0m: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
-
-[1m[96m    Building[0m [=======================> ] 466/468: app                                                                 [1m[93mwarning[0m[1m[97m: function `is_trash_batch_name` is never used[0m
-   [1m[96m--> [0msrc\vault.rs:846:4
-    [1m[96m|[0m
-[1m[96m846[0m [1m[96m|[0m fn is_trash_batch_name(name: &str) -> bool {
-    [1m[96m|[0m    [1m[93m^^^^^^^^^^^^^^^^^^^[0m
-
-[1m[93mwarning[0m[1m[97m: function `vault_trash_batches` is never used[0m
-   [1m[96m--> [0msrc\vault.rs:859:14
-    [1m[96m|[0m
-[1m[96m859[0m [1m[96m|[0m pub async fn vault_trash_batches(path: String) -> Result<Vec<VaultTrashBatch>, String> {
-    [1m[96m|[0m              [1m[93m^^^^^^^^^^^^^^^^^^^[0m
-
-[1m[93mwarning[0m[1m[97m: function `vault_trash_purge` is never used[0m
-   [1m[96m--> [0msrc\vault.rs:904:14
-    [1m[96m|[0m
-[1m[96m904[0m [1m[96m|[0m pub async fn vault_trash_purge(path: String, batch: String) -> Result<u64, String> {
-    [1m[96m|[0m              [1m[93m^^^^^^^^^^^^^^^^^[0m
-
-[1m[96m    Building[0m [=======================> ] 466/468: app                                                                 [1m[93mwarning[0m: `app` (lib) generated 4 warnings
-[1m[96m    Building[0m [=======================> ] 467/468: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 32.82s
-[1m[92m     Running[0m `target\debug\app.exe`
- GET / 200 in 129ms (next.js: 11ms, application-code: 118ms)
-✓ Compiled in 357ms
-⚠ Fast Refresh had to perform a full reload when ./src/lib/vault/vault-fs.ts changed. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
-⚠ Fast Refresh had to perform a full reload when ./src/lib/vault/vault-fs.ts changed. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
-Yjs was already imported. This breaks constructor checks and will lead to issues! - https://github.com/yjs/yjs/issues/438
- GET / 200 in 1143ms (next.js: 198ms, application-code: 945ms)
- GET / 200 in 1151ms (next.js: 142ms, application-code: 1009ms)
- GET / 200 in 1119ms (next.js: 8ms, application-code: 1111ms)
- GET / 200 in 316ms (next.js: 9ms, application-code: 307ms)
-Yjs was already imported. This breaks constructor checks and will lead to issues! - https://github.com/yjs/yjs/issues/438
- GET /DATA/images/portrait-1779987192490.png 404 in 823ms (next.js: 188ms, application-code: 635ms)
- GET /DATA/images/header-1779987129811.png 404 in 826ms (next.js: 141ms, application-code: 684ms)
- GET /DATA/images/header-1779987485588.png 404 in 825ms (next.js: 218ms, application-code: 607ms)
- GET /DATA/images/header-1779987096306.png 404 in 162ms (next.js: 12ms, application-code: 150ms)
- GET /DATA/images/avatar-1780136489043.png 404 in 162ms (next.js: 81ms, application-code: 82ms)
-        Info File src-tauri\src\lib.rs changed. Rebuilding application...
-     Running DevCommand (`cargo  run --no-default-features --color always --`)
-[1m[92m   Compiling[0m app v0.20.3-beta (D:\Codes\oc_studio\src-tauri)
-[1m[96m    Building[0m [=======================> ] 466/468: app      GET / 200 in 92ms (next.js: 6ms, application-code: 85ms)
-[1m[96m    Building[0m [=======================> ] 467/468: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 21.88s
-[1m[92m     Running[0m `target\debug\app.exe`
- GET / 200 in 102ms (next.js: 6ms, application-code: 96ms)
-✓ Compiled in 169ms
- GET / 200 in 237ms (next.js: 133ms, application-code: 104ms)
- GET / 200 in 64ms (next.js: 8ms, application-code: 55ms)
-✓ Compiled in 735ms
-⚠ Fast Refresh had to perform a full reload when ./node_modules/@tauri-apps/api/window.js changed. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
-Yjs was already imported. This breaks constructor checks and will lead to issues! - https://github.com/yjs/yjs/issues/438
- GET / 200 in 1081ms (next.js: 226ms, application-code: 854ms)
- GET / 200 in 1082ms (next.js: 197ms, application-code: 885ms)
- GET / 200 in 192ms (next.js: 108ms, application-code: 84ms)
- GET / 200 in 191ms (next.js: 162ms, application-code: 29ms)
- GET / 200 in 194ms (next.js: 51ms, application-code: 142ms)
- GET / 200 in 192ms (next.js: 135ms, application-code: 57ms)
- GET / 200 in 1552ms (next.js: 123ms, application-code: 1429ms)
- GET / 200 in 456ms (next.js: 83ms, application-code: 373ms)
- GET / 200 in 456ms (next.js: 106ms, application-code: 350ms)
- GET / 200 in 1554ms (next.js: 172ms, application-code: 1383ms)
- GET / 200 in 200ms (next.js: 17ms, application-code: 183ms)
- GET / 200 in 200ms (next.js: 81ms, application-code: 118ms)
- GET / 200 in 607ms (next.js: 10ms, application-code: 596ms)
- GET / 200 in 612ms (next.js: 61ms, application-code: 552ms)
-Yjs was already imported. This breaks constructor checks and will lead to issues! - https://github.com/yjs/yjs/issues/438
- GET /DATA/images/portrait-1779987192490.png 404 in 750ms (next.js: 157ms, application-code: 593ms)
- GET /DATA/images/header-1779987129811.png 404 in 753ms (next.js: 113ms, application-code: 639ms)
- GET /DATA/images/header-1779987485588.png 404 in 753ms (next.js: 656ms, application-code: 96ms)
- GET /DATA/images/header-1779987096306.png 404 in 173ms (next.js: 17ms, application-code: 156ms)
- GET /DATA/images/avatar-1780136489043.png 404 in 175ms (next.js: 79ms, application-code: 95ms)
-✓ Compiled in 327ms
-⚠ Fast Refresh had to perform a full reload when ./node_modules/@tauri-apps/api/window.js changed. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
-Yjs was already imported. This breaks constructor checks and will lead to issues! - https://github.com/yjs/yjs/issues/438
- GET / 200 in 1548ms (next.js: 300ms, application-code: 1248ms)
- GET / 200 in 1107ms (next.js: 129ms, application-code: 978ms)
- GET / 200 in 277ms (next.js: 64ms, application-code: 212ms)
- GET / 200 in 276ms (next.js: 91ms, application-code: 186ms)
- GET / 200 in 278ms (next.js: 40ms, application-code: 238ms)
- GET / 200 in 279ms (next.js: 205ms, application-code: 74ms)
- GET / 200 in 1122ms (next.js: 167ms, application-code: 954ms)
- GET / 200 in 285ms (next.js: 234ms, application-code: 50ms)
- GET / 200 in 293ms (next.js: 180ms, application-code: 113ms)
- GET / 200 in 1570ms (next.js: 338ms, application-code: 1232ms)
- GET / 200 in 43ms (next.js: 15ms, application-code: 29ms)
- GET / 200 in 1117ms (next.js: 9ms, application-code: 1108ms)
- GET / 200 in 486ms (next.js: 14ms, application-code: 472ms)
-Yjs was already imported. This breaks constructor checks and will lead to issues! - https://github.com/yjs/yjs/issues/438
- GET /DATA/images/portrait-1779987192490.png 404 in 649ms (next.js: 150ms, application-code: 500ms)
- GET /DATA/images/header-1779987129811.png 404 in 651ms (next.js: 103ms, application-code: 548ms)
- GET /DATA/images/header-1779987485588.png 404 in 272ms (next.js: 14ms, application-code: 258ms)
- GET /DATA/images/header-1779987096306.png 404 in 187ms (next.js: 29ms, application-code: 158ms)
- GET /DATA/images/avatar-1780136489043.png 404 in 188ms (next.js: 106ms, application-code: 82ms)
-✓ Compiled in 133ms
- GET / 200 in 162ms (next.js: 112ms, application-code: 51ms)
-✓ Compiled in 163ms
-[browser] Uncaught ReferenceError: purgeExpiredTrash is not defined
-    at VaultConfigSync.useEffect (src/components/layout/AppShell.tsx:64:5)
-    at AppShell (src/components/layout/AppShell.tsx:277:22)
-    at RootLayout (src\app\layout.tsx:65:23)
-  62 |   useEffect(() => {
-  63 |     if (root === null) return
-> 64 |     void purgeExpiredTrash(retentionDays)
-     |     ^
-  65 |   }, [root, retentionDays])
-  66 |
-  67 |   return null
- GET / 200 in 287ms (next.js: 150ms, application-code: 137ms)
- GET / 200 in 55ms (next.js: 7ms, application-code: 48ms)
-⚠ Fast Refresh had to perform a full reload due to a runtime error.
-✓ Compiled in 152ms
-Yjs was already imported. This breaks constructor checks and will lead to issues! - https://github.com/yjs/yjs/issues/438
-[browser] Encountered a script tag while rendering React component. Scripts inside React components are never executed when rendering on the client. Consider using template tag instead (https://developer.mozilla.org/en-US/docs/Web/HTML/Element/template). 
-    at Set.forEach (<anonymous>) (<anonymous>)
- GET / 200 in 1074ms (next.js: 134ms, application-code: 939ms)
- GET / 200 in 1085ms (next.js: 193ms, application-code: 892ms)
-✓ Compiled in 146ms
- GET / 200 in 554ms (next.js: 155ms, application-code: 400ms)
- GET / 200 in 556ms (next.js: 209ms, application-code: 346ms)
- GET / 200 in 309ms (next.js: 6ms, application-code: 302ms)
- GET / 200 in 309ms (next.js: 36ms, application-code: 273ms)
- GET / 200 in 242ms (next.js: 73ms, application-code: 169ms)
- GET / 200 in 245ms (next.js: 8ms, application-code: 237ms)
- GET / 200 in 245ms (next.js: 46ms, application-code: 199ms)
- GET / 200 in 245ms (next.js: 131ms, application-code: 114ms)
- GET / 200 in 246ms (next.js: 100ms, application-code: 146ms)
- GET / 200 in 246ms (next.js: 162ms, application-code: 84ms)
-Yjs was already imported. This breaks constructor checks and will lead to issues! - https://github.com/yjs/yjs/issues/438
- GET / 200 in 875ms (next.js: 6ms, application-code: 869ms)
- GET / 200 in 151ms (next.js: 8ms, application-code: 143ms)
-[browser] [TAURI] Couldn't find callback id 2452161319. This might happen when the app is reloaded while Rust is running an asynchronous operation. (<anonymous>:286:15)
-[browser] "⨯ unhandledRejection:" window.destroy not allowed. Permissions associated with this command: core:window:allow-destroy 
-
-        Info File src-tauri\capabilities\default.json changed. Rebuilding application...
-     Running DevCommand (`cargo  run --no-default-features --color always --`)
-[1m[92m   Compiling[0m app v0.20.3-beta (D:\Codes\oc_studio\src-tauri)
-[1m[96m    Building[0m [=======================> ] 465/468: app(bui…[1m[96m    Building[0m [=======================> ] 466/468: app     [1m[96m    Building[0m [=======================> ] 467/468: app(bin)                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 22.01s
-[1m[92m     Running[0m `target\debug\app.exe`
-[agent] repaired 1 dangling streaming message(s)
- GET / 200 in 146ms (next.js: 11ms, application-code: 134ms)

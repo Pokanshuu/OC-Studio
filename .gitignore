@@ -111,3 +111,4 @@ logs/
 /android/.gradle/
 /android/app/build/
 /android/app/src/main/assets/public/
+/.tmp*/
