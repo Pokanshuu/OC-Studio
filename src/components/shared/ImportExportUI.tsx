@@ -201,7 +201,17 @@ export function useImportExport(options?: {
             </AlertDialogDescription>
           </AlertDialogHeader>
 
-          <MergeStrategyPicker value={strategy} onChange={setStrategy} />
+          <MergeStrategyPicker
+            value={strategy}
+            onChange={setStrategy}
+            disabled={
+              // 笔记库开着时「替换」做不到（清 Dexie 清不掉磁盘），当场灰掉并说明，
+              // 不让人选了、点确认、再吃一个错误提示
+              vault.status === 'ready' && vault.root !== null
+                ? { replace: '笔记库开着时不可用：替换会清空当前库，先换个文件夹再从欢迎页导入' }
+                : undefined
+            }
+          />
 
           <AlertDialogFooter>
             <AlertDialogCancel onClick={handleCancel}>取消</AlertDialogCancel>

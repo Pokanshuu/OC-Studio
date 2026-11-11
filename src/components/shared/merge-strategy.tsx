@@ -25,19 +25,28 @@ export function MergeStrategyPicker({
   value,
   onChange,
   label = '重复记录处理策略',
+  /**
+   * 哪些策略**当前不可用**（附一句为什么）。不可用的选项直接灰掉，
+   * 别让用户选了、点了确认、再吃一个错误提示 —— 那是把拒绝变成一个流程。
+   */
+  disabled = {},
 }: {
   value: MergeStrategy
   onChange: (value: MergeStrategy) => void
   label?: string
+  disabled?: Partial<Record<MergeStrategy, string>>
 }) {
   return (
     <div className="flex flex-col gap-2 py-2">
       <span className="text-[13px] text-ink-muted">{label}</span>
-      {MERGE_OPTIONS.map((opt) => (
+      {MERGE_OPTIONS.map((opt) => {
+        const reason = disabled[opt.value]
+        const blocked = reason !== undefined
+        return (
         <label
           key={opt.value}
           className={`flex cursor-pointer items-start gap-3 border p-3 transition-colors ${
-            value === opt.value ? 'border-line-hover bg-paper-card' : 'border-line hover:border-line-hover'
+            blocked ? 'cursor-not-allowed opacity-50 border-line' : value === opt.value ? 'border-line-hover bg-paper-card' : 'border-line hover:border-line-hover'
           }`}
         >
           <input
@@ -45,20 +54,17 @@ export function MergeStrategyPicker({
             name="merge-strategy"
             value={opt.value}
             checked={value === opt.value}
+            disabled={blocked}
             onChange={() => onChange(opt.value)}
             className="mt-0.5 h-4 w-4 shrink-0 border-line bg-paper-card text-ink accent-ink"
           />
           <div className="flex flex-col gap-0.5">
             <span className="text-[13px] text-ink">{opt.label}</span>
-            <span className="text-[11px] text-ink-faint">{opt.description}</span>
-            {opt.value === 'keep-both' && value === 'keep-both' ? (
-              <span className="pt-0.5 text-[11px] text-error">
-                注意：关联关系（如 relatedCharacters）可能需要手动修复
-              </span>
-            ) : null}
+            <span className="text-[11px] text-ink-faint">{blocked ? reason : opt.description}</span>
           </div>
         </label>
-      ))}
+        )
+      })}
     </div>
   )
 }
