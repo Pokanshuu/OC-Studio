@@ -49,6 +49,7 @@ import {
 } from '@/lib/templates/info-groups'
 import { useTemplates } from '@/lib/templates/store'
 import { BTN_DANGER, BTN_QUIET, ICON_BTN, INPUT_LINE, ROUND_ITEM, SETTINGS_EMPTY } from '@/lib/ui-tokens'
+import { isImeComposing } from '@/lib/ime'
 
 /**
  * 实体字段表（`ready: false` = 那张表还没接到渲染器上，见 `lib/fields/types.ts`）。
@@ -226,6 +227,8 @@ function GroupFieldsSettings({ group }: { group: InfoGroup }) {
           value={draftName}
           onChange={(event) => setDraftName(event.target.value)}
           onKeyDown={(event) => {
+            // 组字中的回车是「选候选词」/ Esc 是「取消组字」：此时不提交、不关闭
+            if (isImeComposing(event)) return
             if (event.key === 'Enter') add()
           }}
           placeholder="新字段名"
@@ -362,6 +365,8 @@ export function BasicInfoPanel({ onBack, initialId }: { onBack: () => void; init
               onChange={(event) => setNameDraft(event.target.value)}
               onBlur={commitRename}
               onKeyDown={(event) => {
+                // 组字中的回车是「选候选词」/ Esc 是「取消组字」：此时不提交、不关闭
+                if (isImeComposing(event)) return
                 if (event.key === 'Enter') commitRename()
                 if (event.key === 'Escape') setRenaming(false)
               }}

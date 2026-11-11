@@ -36,6 +36,7 @@ import {
 import { toast } from 'sonner'
 import { parseAnnotations } from '../annotations'
 import type { MapEntity } from '../services'
+import { isImeComposing } from '@/lib/ime'
 
 interface MapDetailDialogProps {
   map: MapEntity
@@ -219,6 +220,8 @@ export function MapDetailDialog({
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
                 onKeyDown={(event) => {
+                  // 组字中的回车是「选候选词」/ Esc 是「取消组字」：此时不提交、不关闭
+                  if (isImeComposing(event)) return
                   if (event.key === 'Enter') void submitRename()
                   if (event.key === 'Escape') setRenaming(false)
                 }}

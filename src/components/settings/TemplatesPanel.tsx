@@ -51,6 +51,7 @@ import {
 import type { TemplateComponent, TemplateComponentId, TemplateDoc } from '@/lib/templates/types'
 import { BTN_DANGER, BTN_QUIET, ICON_BTN, INPUT_LINE, ROUND_ITEM, SETTINGS_EMPTY } from '@/lib/ui-tokens'
 import { SettingsEntryRow } from './EntryRow'
+import { isImeComposing } from '@/lib/ime'
 function isBuiltin(id: string): boolean {
   return BUILTIN_TEMPLATES.some((doc) => doc.id === id)
 }
@@ -270,6 +271,8 @@ export function TemplatesPanel({
             onChange={(event) => setNameDraft(event.target.value)}
             onBlur={commitRename}
             onKeyDown={(event) => {
+              // 组字中的回车是「选候选词」/ Esc 是「取消组字」：此时不提交、不关闭
+              if (isImeComposing(event)) return
               if (event.key === 'Enter') commitRename()
               if (event.key === 'Escape') setRenaming(null)
             }}

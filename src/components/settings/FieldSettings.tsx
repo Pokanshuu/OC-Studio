@@ -18,6 +18,7 @@ import { defaultFields, missingBuiltinFields } from '@/lib/fields/defaults'
 import { ROUND_ITEM, SETTINGS_EMPTY } from '@/lib/ui-tokens'
 import { SortableList, moveId } from '@/components/shared/list-dnd'
 import { SettingsFieldRow } from './FieldRow'
+import { isImeComposing } from '@/lib/ime'
 
 /** 行实现统一在 `FieldRow.tsx`（列型 / 组件型共用一套语法） */
 
@@ -138,7 +139,7 @@ function FieldGroup({ kind, showTitle = true }: { kind: FieldKind; showTitle?: b
             <input
               value={draftName}
               onChange={(e) => setDraftName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') addCustom() }}
+              onKeyDown={(e) => { if (isImeComposing(e)) return; if (e.key === 'Enter') addCustom() }}
               placeholder="新字段名"
               className="h-7 min-w-0 flex-1 border-b border-line bg-transparent text-[12px] text-ink placeholder:text-ink-faint focus:border-line-hover focus:outline-none"
             />

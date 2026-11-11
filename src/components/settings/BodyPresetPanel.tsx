@@ -25,6 +25,7 @@ import {
 import { bodyGroupHasPreset } from '@/lib/templates/body-preset'
 import { useTemplates } from '@/lib/templates/store'
 import { BTN_QUIET, ICON_BTN, INPUT_LINE, SETTINGS_EMPTY } from '@/lib/ui-tokens'
+import { isImeComposing } from '@/lib/ime'
 
 function nextName(groups: readonly BodyGroup[]): string {
   const names = new Set(groups.map((group) => group.name))
@@ -97,6 +98,8 @@ export function BodyPresetPanel({ onBack, initialId }: { onBack: () => void; ini
               onChange={(event) => setNameDraft(event.target.value)}
               onBlur={commitRename}
               onKeyDown={(event) => {
+                // 组字中的回车是「选候选词」/ Esc 是「取消组字」：此时不提交、不关闭
+                if (isImeComposing(event)) return
                 if (event.key === 'Enter') commitRename()
                 if (event.key === 'Escape') setRenaming(false)
               }}

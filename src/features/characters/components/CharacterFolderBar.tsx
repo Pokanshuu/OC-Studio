@@ -26,6 +26,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import type { CharacterFolder } from '../folders'
+import { isImeComposing } from '@/lib/ime'
 
 export type FolderFilter = 'all' | 'ungrouped' | string
 
@@ -134,6 +135,7 @@ export function CharacterFolderBar({
               onChange={(event) => setRenameDraft(event.target.value)}
               onBlur={() => void commitRename(folder.name)}
               onKeyDown={(event) => {
+                if (isImeComposing(event)) return
                 if (event.key === 'Enter') void commitRename(folder.name)
                 if (event.key === 'Escape') setRenaming(null)
               }}
@@ -211,6 +213,8 @@ export function CharacterFolderBar({
           value={createDraft}
           onChange={(event) => setCreateDraft(event.target.value)}
           onKeyDown={(event) => {
+            // 组字中的回车是「选候选词」/ Esc 是「取消组字」：此时不提交、不关闭
+            if (isImeComposing(event)) return
             if (event.key === 'Enter') {
               event.preventDefault()
               commitCreate()

@@ -27,6 +27,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import type { MapEntity } from '../services'
+import { isImeComposing } from '@/lib/ime'
 
 /** 渐隐遮罩：右边留给缩略图，左边交给纸色实底 */
 const FADE_MASK = 'linear-gradient(to right, black, transparent 62%)'
@@ -133,6 +134,8 @@ export function MapSwitcher({
                     value={draft}
                     onChange={(event) => setDraft(event.target.value)}
                     onKeyDown={(event) => {
+                      // 组字中的回车是「选候选词」/ Esc 是「取消组字」：此时不提交、不关闭
+                      if (isImeComposing(event)) return
                       if (event.key === 'Enter') {
                         const next = draft.trim()
                         if (next !== '') onRename(map.id, next)

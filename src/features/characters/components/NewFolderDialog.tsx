@@ -10,6 +10,7 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { FolderPlus } from 'lucide-react'
 import { BTN_PRIMARY, BTN_QUIET, FIELD_LABEL_BLOCK, INPUT_LINE, PAGE_TITLE, PANEL } from '@/lib/ui-tokens'
+import { isImeComposing } from '@/lib/ime'
 
 interface NewFolderDialogProps {
   open: boolean
@@ -69,6 +70,8 @@ function NewFolderDialogBody({ existing, onClose, onCreate }: Omit<NewFolderDial
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {
+              // 组字中的回车是「选候选词」，Esc 是「取消组字」，不是提交 / 关闭
+              if (isImeComposing(event)) return
               if (event.key === 'Enter') void commit()
               if (event.key === 'Escape') onClose()
             }}

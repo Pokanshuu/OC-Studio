@@ -14,6 +14,7 @@ import { Check, Folder } from 'lucide-react'
 import type { Character } from '@/types'
 import { BTN_PRIMARY, BTN_QUIET, FIELD_LABEL_BLOCK, INPUT_LINE, PAGE_TITLE, PANEL } from '@/lib/ui-tokens'
 import { CheckboxBox } from '@/components/ui/checkbox'
+import { isImeComposing } from '@/lib/ime'
 
 interface FolderManageDialogProps {
   open: boolean
@@ -105,6 +106,7 @@ function FolderDialogBody({
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={(event) => {
+                if (isImeComposing(event)) return
                 if (event.key === 'Enter') void commitRename()
                 if (event.key === 'Escape') onClose()
               }}

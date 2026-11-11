@@ -221,6 +221,39 @@ for (const file of walk(SRC)) {
     fragments.set(raw, set)
   }
 }
+/**
+ * 输入法（IME）守卫：这些输入框在**回车即提交**（新建 / 重命名），
+ * 组字中的回车是「选候选词」——不拦就会把拼音（`xinyhijian`）建成实体名；
+ * Esc 同理（取消组字 vs 关闭编辑）。文件里必须出现 `isImeComposing(`。
+ *
+ * 用「文件级存在」而不是正则匹配单行：守卫写在 `onKeyDown` 开头，
+ * 与 `key === 'Enter'` 不在同一行的写法太多了，按行匹配全是误报。
+ */
+const IME_GUARDED_FILES = [
+  'src/features/characters/components/NewFolderDialog.tsx',
+  'src/features/characters/components/FolderManageDialog.tsx',
+  'src/features/characters/components/CharacterFolderBar.tsx',
+  'src/features/map/components/MapSwitcher.tsx',
+  'src/features/map/components/MapDetailDialog.tsx',
+  'src/components/settings/BasicInfoPanel.tsx',
+  'src/components/settings/BodyPresetPanel.tsx',
+  'src/components/settings/TemplatesPanel.tsx',
+  'src/components/settings/FieldSettings.tsx',
+]
+
+for (const rel of IME_GUARDED_FILES) {
+  const text = readFileSync(join(process.cwd(), rel), 'utf8')
+  if (text.includes('isImeComposing(')) continue
+  const violation = {
+    rule: 'ime-guard',
+    file: rel,
+    line: 1,
+    text: '回车即提交的输入框没有输入法守卫（isImeComposing）',
+  }
+  violations.push(violation)
+  byRule.set('ime-guard', [...(byRule.get('ime-guard') ?? []), violation])
+}
+
 const repeated = [...fragments.entries()]
   .filter(([, files]) => files.size >= 3)
   .sort((a, b) => b[1].size - a[1].size)
