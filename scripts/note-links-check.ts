@@ -8,6 +8,7 @@
  */
 import type { Character, WorldEntry } from '../src/types'
 import { buildNoteLinks } from '../src/features/world/hooks/useNoteLinks'
+import { hasRef, retitleOneRef } from '../src/lib/reference-labels'
 
 let passed = 0
 function check(name: string, ok: boolean) {
@@ -106,5 +107,35 @@ check('B · 正文反查排除已有命名边的来源', b.backlinks.length === 
 
 const e = buildNoteLinks(rows, 5)
 check('E · 目标被删时保留名字且不可跳转', e.manual.length === 1 && e.manual[0].name === '已删除' && e.manual[0].id === undefined)
+
+// ── 改名后回写引用：**按类型**改，不能只看 id ──────────────────────────
+// 事故形状：角色 1 改名，把正文里指向**笔记 1** 的 `[[链接]]` 也改了 ——
+// 用户看到「改了个角色名，某个词条正文里的链接文字跟着变了」。
+{
+  const doc = {
+    type: 'doc',
+    content: [
+      {
+        type: 'paragraph',
+        content: [
+          { type: 'wikiLink', attrs: { id: '1', label: '示例词条：转弯' } },
+          { type: 'mention', attrs: { id: '1', entityType: 'character', label: '示例角色A' } },
+          { type: 'mention', attrs: { id: '1', entityType: 'event', label: '同名事件' } },
+        ],
+      },
+    ],
+  }
+  const renamed = retitleOneRef(doc, 'character', 1, '新名字')
+  const attrs = (renamed?.content as Array<{ content: Array<{ attrs: { label: string } }> }>)[0].content
+  check('角色改名：角色提及跟着改', attrs[1].attrs.label === '新名字')
+  check('角色改名：同 id 的笔记链接不动', attrs[0].attrs.label === '示例词条：转弯')
+  check('角色改名：同 id 的事件提及不动', attrs[2].attrs.label === '同名事件')
+
+  const renamedNote = retitleOneRef(doc, 'world', 1, '示例词条：改了')
+  const noteAttrs = (renamedNote?.content as Array<{ content: Array<{ attrs: { label: string } }> }>)[0].content
+  check('笔记改名：只改 wikiLink', noteAttrs[0].attrs.label === '示例词条：改了' && noteAttrs[1].attrs.label === '示例角色A')
+  check('没有该类型的引用 → 不改并返回 null', retitleOneRef(doc, 'country', 1, '某国') === null)
+  check('hasRef 按类型判断', hasRef(doc, 'world', 1) && !hasRef(doc, 'country', 1))
+}
 
 console.log(`\n共 ${passed} 项断言通过`)
