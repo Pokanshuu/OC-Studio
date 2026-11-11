@@ -62,7 +62,7 @@ export function DataTab() {
           onClick={handleExport}
           className="touch-feedback flex h-8 items-center justify-center px-3 text-[13px] text-ink transition-colors hover:bg-[var(--oc-hover)]"
         >
-          导出完整备份 (.ocbak)
+          导出数据备份 (.ocbak)
         </button>
         <button
           onClick={() => void handleImportLegacy()}
