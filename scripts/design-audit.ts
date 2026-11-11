@@ -267,7 +267,7 @@ for (const file of walk(SRC)) {
 }
 
 /**
- * 新建 / 删除必须广播。
+ * 新建 / 删除 / 改名必须广播。
  *
  * 事故形状（2026-11-12，连撞两次）：地图 / 相册这类**不走 react-query** 的视图只订阅
  * `DATA_UPDATED_EVENT`；而 mutation 只 `invalidateQueries` 的话它们收不到 ——
@@ -277,7 +277,9 @@ for (const file of walk(SRC)) {
  * 函数体里必须出现 `notifyDataUpdated`。确实不该广播的写进下面的白名单并说明原因。
  */
 const BROADCAST_EXEMPT = new Set<string>([
-  // 标签 / 分类 / 时期 / 小说 / 地图的写入口不在这些 hook 里，各自模块里已经播过
+  // 词条正文 / 字段是**自动保存**（防抖 700ms）：广播会让相册跟着打字重扫全库正文图片。
+  // 词条的「改名」走世界观的树 / 标题输入，那里另外播。
+  'useUpdateEntry',
 ])
 
 {
@@ -298,7 +300,7 @@ const BROADCAST_EXEMPT = new Set<string>([
   for (const full of hookFiles) {
     const text = readFileSync(full, 'utf8')
     const rel = full.replace(/\\/g, '/').replace(process.cwd().replace(/\\/g, '/') + '/', '')
-    const matches = [...text.matchAll(/export function (use(?:Create|Delete)\w+)\(/g)]
+    const matches = [...text.matchAll(/export function (use(?:Create|Delete|Update)\w+)\(/g)]
     for (const match of matches) {
       const name = match[1]
       if (BROADCAST_EXEMPT.has(name)) continue
@@ -310,7 +312,7 @@ const BROADCAST_EXEMPT = new Set<string>([
         rule: 'mutation-broadcast',
         file: rel,
         line: text.slice(0, start).split('\n').length,
-        text: `${name} 的 onSuccess 没有 notifyDataUpdated（新建 / 删除必须广播）`,
+        text: `${name} 的 onSuccess 没有 notifyDataUpdated（新建 / 删除 / 改名必须广播）`,
       }
       violations.push(violation)
       byRule.set('mutation-broadcast', [...(byRule.get('mutation-broadcast') ?? []), violation])
@@ -489,7 +491,7 @@ const EXTRA_WHY: Record<string, string> = {
   'markdown-star': '界面文案里不写 Markdown 星号（`**`），用户看到的是乱码',
   'dead-setting': '设置项必须在设置页之外有读者，否则就是个拨了没反应的开关',
   'dead-editor-event': '移动端下发的编辑器事件必须有接收方，否则点了没反应',
-  'mutation-broadcast': '新建 / 删除要广播 DATA_UPDATED_EVENT，否则地图、相册这类视图不刷新',
+  'mutation-broadcast': '新建 / 删除 / 改名都要广播 DATA_UPDATED_EVENT，否则地图、相册这类视图不刷新',
 }
 
 console.log(`设计令牌体检：${violations.length} 处违规\n`)
