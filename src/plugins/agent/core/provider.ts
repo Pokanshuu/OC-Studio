@@ -54,7 +54,7 @@ export const PROVIDERS: Record<ProviderKind, ProviderMeta> = {
     // Google 的 OpenAI 兼容层；鉴权仍是 `Authorization: Bearer <key>`，
     // 与自定义端点同一条链路，不需要单独适配。
     defaultBaseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
-    defaultModel: 'gemini-3.7-flash',
+    defaultModel: 'gemini-3.8-flash',
     modelListNeedsAuth: true,
     hint: 'generativelanguage.googleapis.com/v1beta/openai',
   },
@@ -123,7 +123,6 @@ const OPENCODE_MODELS: ModelInfo[] = [
 ]
 
 const GEMINI_MODELS: ModelInfo[] = [
-  model('gemini-3.7-flash', 'Gemini 3.7 Flash', 1_000_000, true),
   model('gemini-3.8-flash', 'Gemini 3.8 Flash', 1_000_000, true),
   model('gemini-3.6-flash', 'Gemini 3.6 Flash', 1_000_000, true),
   model('gemini-3.5-flash', 'Gemini 3.5 Flash', 1_000_000, true),

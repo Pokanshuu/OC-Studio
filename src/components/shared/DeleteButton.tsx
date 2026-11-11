@@ -31,7 +31,7 @@ interface DeleteButtonProps {
 export function DeleteButton({
   onDelete,
   label = '删除',
-  description = '删除后将移至回收站，可在 30 天内恢复。',
+  description = '删除后将移至回收站，随时可以恢复。',
   tone = 'default',
 }: DeleteButtonProps) {
   const [done, setDone] = useState(false)
