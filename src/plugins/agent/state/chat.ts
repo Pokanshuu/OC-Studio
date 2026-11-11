@@ -274,6 +274,9 @@ export const useChatStore = create<ChatStore>((set, get) => {
       return
     }
     const rows = await cmd.loadMessages(conversationId)
+    // 加载期间用户已经切走（切库 / 新对话 / 选另一条）：这份结果不能写回，
+    // 否则旧库的消息会落到空的新会话上，出现「侧栏没有会话、正文却有一大段」
+    if (get().currentId !== conversationId) return
     set({ allMessages: rows.map(rowToMessage) })
   }
 
@@ -714,6 +717,8 @@ export const useChatStore = create<ChatStore>((set, get) => {
         cmd.getCompaction(id).catch(() => null),
         cmd.getDraft(id).catch(() => null),
       ])
+      // 加载期间切走了：这份结果属于旧会话，写回去就会把旧消息安到新会话上
+      if (get().currentId !== id) return
       const conversation = get().conversations.find((c) => c.id === id)
       set({
         allMessages: rows.map(rowToMessage),
@@ -727,6 +732,11 @@ export const useChatStore = create<ChatStore>((set, get) => {
       if (get().streamingMessageId) await get().stop()
       draftPersist.flush()
       set({ currentId: null, allMessages: [], compaction: null, todos: [], draft: '' })
+      // 别让下一次启动 / 下次切库又把上一条恢复回来
+      useSettingsStore.getState().patch((current) => ({
+        ...current,
+        ui: { ...current.ui, lastConversationId: null },
+      }))
       const stored = await cmd.getDraft('').catch(() => null)
       set({ draft: stored?.text ?? '', pendingTitle: stored?.title ?? null })
     },

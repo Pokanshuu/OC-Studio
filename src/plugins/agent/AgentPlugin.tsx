@@ -140,7 +140,8 @@ export function AgentPlugin() {
     // 列表里由 Sidebar 按库过滤，不会串到另一个世界。
     if (!vaultRoot || !currentId) return
     const current = conversations.find((conversation) => conversation.id === currentId)
-    if (!current?.workspace || current.workspace === vaultRoot) return
+    // 找不到也算不属于当前库：列表还没刷新时的旧 id 不能继续显示正文
+    if (current && (!current.workspace || current.workspace === vaultRoot)) return
     clearPendingAgentSessionContext()
     void useChatStore.getState().newConversation()
   }, [vaultRoot, currentId, conversations])
