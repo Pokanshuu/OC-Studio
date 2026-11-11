@@ -182,10 +182,10 @@
 
 ## 11. 工程与回归
 
-> 这一节是「让改动变快」的地基 —— 现在 30+ 条 `audit:*` 脚本都在，但没有一条命令把它们串起来，也没有 CI。
-> 每加一条都问一句：它能不能在提交前自动跑？
+> 这一节是「让改动变快」的地基 —— 30+ 条 `audit:*` 脚本现在由 `npm run audit` 串起来了
+> （`scripts/audit-all.mjs`，逐条报、失败非 0 退出；`npm run check` 再叠上 tsc + eslint，约 30 秒）。
+> 还差 CI。每加一条都问一句：它能不能在提交前自动跑？
 
-- [ ] **P1 一条命令全检**：`npm run check` = `tsc --noEmit` + `eslint src` + 全部 `audit:*` + 生成类脚本的 `--check`。本地与 CI 同一条命令
 - [ ] **P1 CI**：GitHub Actions（`windows-latest`）跑 `npm run check` + `next build` + `cargo check`；PR 必绿才可合
 - [ ] **P2 单测**：vitest + happy-dom，先覆盖纯函数（`tree-order` / `world-tree` / `relation-colors` / `fields` / `cover`）
 - [ ] **P2 E2E 冒烟**：Playwright 五条主链路（启动 → 开库 → 建角色 → 编辑正文 → 保存 → 重开），CI 必跑

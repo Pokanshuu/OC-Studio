@@ -81,6 +81,12 @@
 
 文档说「已完成」的东西，通常有一条命令能证明它没坏（全部在 `package.json` 的 `scripts` 里）：
 
+**提交前跑一条就够：**
+
+```bash
+npm run check      # tsc --noEmit + eslint + 全部 audit:*（约 30s）
+```
+
 | 关心什么 | 命令 |
 |---|---|
 | 模板 / 组件契约 | `npm run audit:templates` |
@@ -89,3 +95,6 @@
 | 设计令牌与主题 | `npm run audit:design` · `npm run audit:theme` |
 | 助手的能力面 | `npm run audit:capabilities` · `npm run audit:agent` · `npm run audit:library-guide` |
 | 全量命令清单 | [`../AGENTS.md`](../AGENTS.md) 的「开发命令」一节 |
+
+只跑某几条：`node scripts/audit-all.mjs vault`（按名字过滤）。
+Rust 侧另跑 `cargo test --manifest-path src-tauri/Cargo.toml --lib`（44 项，约 20s，不进 `check`）。

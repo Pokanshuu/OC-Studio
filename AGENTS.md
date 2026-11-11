@@ -198,6 +198,7 @@ cargo test --manifest-path src-tauri/Cargo.toml --lib         # 含 IPC 线格�
 
 ## 开发命令
 ```bash
+npm run check     # 提交前一条命令：tsc --noEmit + eslint + 全部 audit:*（约 30s）
 npm run dev       # 开发服务器 (localhost:3000)
 npm run build     # 生产构建 (静态导出)
 npm run lint      # ESLint
