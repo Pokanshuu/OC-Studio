@@ -6,6 +6,7 @@ import type { Character } from '@/types'
 import type { CharacterFormData } from '../types'
 import * as characterService from '../services'
 import { DATA_UPDATED_EVENT } from '@/lib/data-events'
+import { notifyDataUpdated } from '@/lib/data-events'
 
 const LIST_KEY = ['characters']
 
@@ -79,6 +80,7 @@ export function useCreateCharacter(): {
   const mutation = useMutation({
     mutationFn: (data: CharacterFormData) => characterService.createCharacter(data),
     onSuccess: () => {
+      notifyDataUpdated()
       void queryClient.invalidateQueries({ queryKey: LIST_KEY })
     },
   })
@@ -118,6 +120,7 @@ export function useDeleteCharacter(): {
   const mutation = useMutation({
     mutationFn: (id: number) => characterService.deleteCharacter(id),
     onSuccess: () => {
+      notifyDataUpdated()
       void queryClient.invalidateQueries({ queryKey: LIST_KEY })
     },
   })

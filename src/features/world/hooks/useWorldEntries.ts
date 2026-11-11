@@ -7,6 +7,7 @@ import { isCodexEntry } from '@/lib/entry-kinds'
 import type { WorldFormData } from '../types'
 import * as service from '../services'
 import { DATA_UPDATED_EVENT } from '@/lib/data-events'
+import { notifyDataUpdated } from '@/lib/data-events'
 
 const LIST_KEY = ['worldEntries']
 
@@ -100,6 +101,7 @@ export function useCreateEntry(): {
   const mutation = useMutation({
     mutationFn: (data: WorldFormData) => service.createEntry(data),
     onSuccess: () => {
+      notifyDataUpdated()
       void queryClient.invalidateQueries({ queryKey: LIST_KEY })
     },
   })
@@ -139,6 +141,7 @@ export function useDeleteEntry(): {
   const mutation = useMutation({
     mutationFn: (id: number) => service.deleteEntry(id),
     onSuccess: () => {
+      notifyDataUpdated()
       void queryClient.invalidateQueries({ queryKey: LIST_KEY })
     },
   })

@@ -6,6 +6,7 @@ import type { Country } from '@/types'
 import type { CountryFormData } from '../types'
 import * as countryService from '../services'
 import { DATA_UPDATED_EVENT } from '@/lib/data-events'
+import { notifyDataUpdated } from '@/lib/data-events'
 
 const LIST_KEY = ['countries']
 
@@ -76,6 +77,7 @@ export function useCreateCountry(): {
   const mutation = useMutation({
     mutationFn: (data: CountryFormData) => countryService.createCountry(data),
     onSuccess: () => {
+      notifyDataUpdated()
       void queryClient.invalidateQueries({ queryKey: LIST_KEY })
     },
   })
@@ -115,6 +117,7 @@ export function useDeleteCountry(): {
   const mutation = useMutation({
     mutationFn: (id: number) => countryService.deleteCountry(id),
     onSuccess: () => {
+      notifyDataUpdated()
       void queryClient.invalidateQueries({ queryKey: LIST_KEY })
     },
   })

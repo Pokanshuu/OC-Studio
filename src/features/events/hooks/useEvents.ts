@@ -6,6 +6,7 @@ import type { Event } from '@/types'
 import type { EventFormData } from '../types'
 import * as eventService from '../services'
 import { DATA_UPDATED_EVENT } from '@/lib/data-events'
+import { notifyDataUpdated } from '@/lib/data-events'
 
 const LIST_KEY = ['events']
 const TIMELINE_KEY = ['timeline-events']
@@ -80,6 +81,7 @@ export function useCreateEvent(): {
   const mutation = useMutation({
     mutationFn: (data: EventFormData) => eventService.createEvent(data),
     onSuccess: (id) => {
+      notifyDataUpdated()
       void queryClient.invalidateQueries({ queryKey: LIST_KEY })
       void queryClient.invalidateQueries({ queryKey: TIMELINE_KEY })
       void queryClient.invalidateQueries({ queryKey: makeEventKey(id) })
@@ -122,6 +124,7 @@ export function useDeleteEvent(): {
   const mutation = useMutation({
     mutationFn: (id: number) => eventService.deleteEvent(id),
     onSuccess: () => {
+      notifyDataUpdated()
       void queryClient.invalidateQueries({ queryKey: LIST_KEY })
       void queryClient.invalidateQueries({ queryKey: TIMELINE_KEY })
     },
