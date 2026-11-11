@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, createContext, useContext, type ReactNode } from 'react'
-import { tauriReadClipboard } from '@/lib/tauri-clipboard'
+import { readClipboardText } from '@/lib/clipboard-read'
 import { createPortal } from 'react-dom'
 import { Separator } from '@/components/ui/separator'
 import { MENU, MENU_ITEM } from '@/lib/ui-tokens'
 import { adjustContextMenuPosition } from '@/lib/menu-utils'
 import { shortcutLabel } from '@/lib/shortcut-label'
+import { toast } from 'sonner'
 
 interface InputMenuContextValue {
   openMenuAt: (target: HTMLElement, x: number, y: number) => void
@@ -173,13 +174,16 @@ export function GlobalContextMenu({ children }: { children: ReactNode }) {
     const el = targetRef.current
     if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
       el.focus()
-      try {
-        const text = await tauriReadClipboard()
+      const text = await readClipboardText()
+      if (text === null) {
+        // 以前这里是静默的：点了「粘贴」输入框毫无变化，像坏了一样
+        toast('读不到剪贴板', { description: '可以直接用 Ctrl+V 粘贴' })
+      } else if (text !== '') {
         const start = el.selectionStart ?? 0
         const end = el.selectionEnd ?? 0
         el.setRangeText(text, start, end, 'end')
         el.dispatchEvent(new Event('input', { bubbles: true }))
-      } catch { /* clipboard unavailable */ }
+      }
     }
     close()
   }, [])

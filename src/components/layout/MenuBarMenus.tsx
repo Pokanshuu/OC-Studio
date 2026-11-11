@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { Check } from 'lucide-react'
-import { tauriReadClipboard } from '@/lib/tauri-clipboard'
+
 import { shortcutLabel } from '@/lib/shortcut-label'
 import { useSettingsTrigger } from '@/components/layout/SettingsTriggerContext'
 import { useSettings } from '@/lib/settings'
@@ -15,6 +15,7 @@ import { VaultMenuSection } from '@/features/vault'
 import { useVault } from '@/lib/vault/vault-provider'
 import { NativeMacMenu } from './NativeMacMenu'
 import { toast } from 'sonner'
+import { pasteTextIntoEditor } from '@/lib/clipboard-paste'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -82,9 +83,7 @@ export function MenuBarMenus() {
   const handlePaste = useCallback(() => {
     if (!activeEditor) return
     activeEditor.view.focus()
-    tauriReadClipboard()
-      .then((text) => { activeEditor.chain().focus().insertContent(text).run() })
-      .catch(() => {})
+    void pasteTextIntoEditor(activeEditor)
   }, [activeEditor])
 
   const handleSelectAll = useCallback(() => {

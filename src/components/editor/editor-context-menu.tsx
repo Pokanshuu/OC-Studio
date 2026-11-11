@@ -1,8 +1,9 @@
 'use client'
 
 import type { Editor } from '@tiptap/core'
-import { tauriReadClipboard } from '@/lib/tauri-clipboard'
+
 import type { ContextMenuItem } from '@/components/shared/ContextMenu'
+import { pasteTextIntoEditor } from '@/lib/clipboard-paste'
 
 /**
  * 编辑器右键菜单项定义。
@@ -52,9 +53,7 @@ export function buildEditorContextMenu({
       onClick: () => {
         if (!editor) return
         editor.view.focus()
-        tauriReadClipboard()
-          .then((text) => { editor.chain().focus().insertContent(text).run() })
-          .catch(() => {})
+        void pasteTextIntoEditor(editor)
       },
     },
     { separator: true, label: '', onClick: () => {} },
