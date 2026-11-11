@@ -114,6 +114,10 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
           settings = DEFAULT_SETTINGS
         }
       }
+      // 3.7 已弃用（请求会被 Google 转到 3.8）：旧设置里的模型名跟着升一次
+      if (settings.api.provider === 'GEMINI' && settings.api.model === 'gemini-3.7-flash') {
+        settings = { ...settings, api: { ...settings.api, model: 'gemini-3.8-flash' } }
+      }
       set({ settings, presets, loaded: true })
       await get().refreshKeyHint()
     } catch (error) {

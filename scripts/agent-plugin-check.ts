@@ -1323,7 +1323,7 @@ async function main(): Promise<void> {
   )
 
   // ── Gemini：OpenAI 兼容端点 + thought_signature 回放 ───────────────────
-  check('Gemini 默认模型是 3.7 Flash', PROVIDERS.GEMINI.defaultModel === 'gemini-3.7-flash')
+  check('Gemini 默认模型是 3.8 Flash', PROVIDERS.GEMINI.defaultModel === 'gemini-3.8-flash')
   check(
     'Gemini 端点拼装正确',
     chatCompletionsUrl(PROVIDERS.GEMINI.defaultBaseUrl) ===
@@ -1333,12 +1333,12 @@ async function main(): Promise<void> {
   )
   check(
     'Gemini 的 models/ 前缀会被归一',
-    normalizeModelId('GEMINI', 'models/gemini-3.7-flash') === 'gemini-3.7-flash' &&
+    normalizeModelId('GEMINI', 'models/gemini-3.8-flash') === 'gemini-3.8-flash' &&
       normalizeModelId('DEEPSEEK', 'deepseek-flash') === 'deepseek-flash',
   )
   const geminiBody = buildChatRequest({
     provider: 'GEMINI',
-    modelId: 'models/gemini-3.7-flash',
+    modelId: 'models/gemini-3.8-flash',
     messages: [{ role: 'user', content: 'x' }],
     reasoning: 'high',
     temperature: 1,
@@ -1347,7 +1347,7 @@ async function main(): Promise<void> {
   })
   check(
     'Gemini 请求不带 thinking / reasoning_effort',
-    geminiBody.model === 'gemini-3.7-flash' &&
+    geminiBody.model === 'gemini-3.8-flash' &&
       !('thinking' in geminiBody) &&
       !('reasoning_effort' in geminiBody),
     JSON.stringify(geminiBody),
@@ -1461,7 +1461,7 @@ async function main(): Promise<void> {
       ],
       status: 'DONE',
       errorMessage: null,
-      model: 'gemini-3.7-flash',
+      model: 'gemini-3.8-flash',
       thinkingMs: null,
       ttftMs: null,
       tps: null,

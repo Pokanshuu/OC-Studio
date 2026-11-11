@@ -30,7 +30,7 @@
 
 ### Gemini
 
-- **新增 Gemini 提供方**：走 Google 的 OpenAI 兼容端点（`generativelanguage.googleapis.com/v1beta/openai`），鉴权仍是 `Authorization: Bearer <key>`；默认模型 `gemini-3.7-flash`，设置里可一键切，模型列表从 `/models` 拉取并去掉 `models/` 前缀。
+- **新增 Gemini 提供方**：走 Google 的 OpenAI 兼容端点（`generativelanguage.googleapis.com/v1beta/openai`），鉴权仍是 `Authorization: Bearer <key>`；默认模型 `gemini-3.8-flash`（3.7 已弃用、请求会自动转到 3.8），设置里可一键切，模型列表从 `/models` 拉取并去掉 `models/` 前缀。
 - **工具调用能用了**：Gemini 3.x 要求每条 `functionCall` 回传 `extra_content.google.thought_signature`，否则第二轮直接 400。现在流式解析会保留它，循环内与历史消息回放都会带回去。
 - 验证：26 个工具 schema 全量请求通过（3,831 prompt tokens）；单轮工具调用、签名回放、多轮工具结果均实测通过。
 
