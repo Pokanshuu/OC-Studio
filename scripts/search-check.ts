@@ -125,6 +125,25 @@ function main(): void {
   } as unknown as WorldEntry
   check('词条老 content 是 JSON 时也能取出正文', entityBodyText('world', legacyWorld) === '星图')
 
+  // ── 真实查询形态（浏览器里逐条核过的几种） ──────────────────────────────
+  // 单字中文查询必须能命中：中文用户经常只打一个字
+  check('单字中文也能命中', searchTerms('晨').length === 1 && matchRow(row({ titleLower: '示例国家：晨曦共和国' }), searchTerms('晨')) !== null)
+  // 多词是 AND：少一个就不算命中（否则「赤 月」会把只有「赤」的也捞出来）
+  {
+    const both = row({ titleLower: '赤月', bodyLower: '赤月降临' })
+    check('多词全部命中才算匹配', matchRow(both, searchTerms('赤 月')) !== null)
+    check('多词只中一个就落选', matchRow(row({ titleLower: '赤色' }), searchTerms('赤 月')) === null)
+  }
+  // 正文命中要给出上下文，而不是只有标题
+  {
+    const hit = matchRow(row({ titleLower: '示例角色A', bodyLower: '路边出现一块指示牌：前方转弯' }), searchTerms('转弯'))
+    check('正文命中标成 body', hit?.matched === 'body')
+    check('正文命中带摘要', buildSnippet('路边出现一块指示牌：前方转弯', searchTerms('转弯'))?.includes('转弯') === true)
+  }
+  // 标签名目前**不参与**搜索（索引里没有标签文本）—— 这是现状，不是「应该」；
+  // 哪天真接上，把这条断言反过来写，顺便在搜索框 placeholder 里说明。
+  check('标签名不参与搜索（现状）', matchRow(row({ titleLower: '示例角色A', fieldLower: '人类 晨曦共和国' }), searchTerms('主角')) === null)
+
   console.log(`全局搜索匹配自检：${passed} 项断言通过`)
 }
 
