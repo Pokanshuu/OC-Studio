@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { Download, ExternalLink, Eye, Images, Menu, RefreshCw, Search } from 'lucide-react'
 import { ICON_BTN_MD, LOADING_TEXT } from '@/lib/ui-tokens'
 import { useScrollShade } from '@/lib/use-scroll-shade'
@@ -63,6 +63,25 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
   }, [])
 
   const { entries, loading, refresh } = useAlbumData()
+  const rootRef = useRef<HTMLDivElement | null>(null)
+
+  /**
+   * 相册是**常驻挂载**的（分区用 `data-visible=false` + `display:none` 隐藏），
+   * 只在挂载时扫一次图 —— 换一张立绘 / 在正文里插一张图，切回相册还是旧的那张。
+   *
+   * 这里盯住外层分区的 `data-visible`：从隐藏变可见就重扫一遍。
+   * 不放在「每次保存都广播」那套里，是因为相册要扫全库的正文图片，代价比列表大得多。
+   */
+  useEffect(() => {
+    const section = rootRef.current?.closest('.section-fade')
+    if (!(section instanceof HTMLElement)) return
+    if (section.getAttribute('data-visible') !== 'false') return
+    const observer = new MutationObserver(() => {
+      if (section.getAttribute('data-visible') !== 'false') void refresh()
+    })
+    observer.observe(section, { attributes: true, attributeFilter: ['data-visible'] })
+    return () => observer.disconnect()
+  }, [refresh])
 
   // 「按来源筛选」只对具体分类有意义：'全部' 下没有单一实体类型可筛
   const sourceType = useMemo(() => albumSourceType(selectedKey), [selectedKey])
@@ -185,7 +204,7 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
   )
 
   return (
-    <div className="flex h-full">
+    <div ref={rootRef} className="flex h-full">
       {/* Desktop sidebar */}
       {!isMobile ? (
         <div

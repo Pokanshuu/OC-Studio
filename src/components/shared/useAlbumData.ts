@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { db } from '@/lib/db'
+import { DATA_UPDATED_EVENT } from '@/lib/data-events'
 import { isCodexEntry } from '@/lib/entry-kinds'
 import {
   collectCharacterImageRefs,
@@ -102,6 +103,13 @@ export function useAlbumData() {
   const [entries, setEntries] = useState<AlbumEntry[]>([])
   const [loading, setLoading] = useState(true)
 
+  const refresh = useCallback(async () => {
+    const rows = await buildAlbumEntries()
+    setEntries(rows)
+    setLoading(false)
+    return rows
+  }, [])
+
   useEffect(() => {
     let cancelled = false
     void buildAlbumEntries().then((rows) => {
@@ -112,11 +120,19 @@ export function useAlbumData() {
     return () => { cancelled = true }
   }, [])
 
-  const refresh = useCallback(async () => {
-    const rows = await buildAlbumEntries()
-    setEntries(rows)
-    return rows
-  }, [])
+  /**
+   * 别处把数据改了（新建 / 删除 / 导入 / 助手写入）就重新收一遍图。
+   *
+   * 相册是**常驻挂载**的（分区用 CSS 显隐），以前只在挂载时扫一次 ——
+   * 换一张立绘、在正文里插一张图，相册里都看不到，非重启不可。
+   */
+  useEffect(() => {
+    const handler = () => {
+      void refresh()
+    }
+    window.addEventListener(DATA_UPDATED_EVENT, handler)
+    return () => window.removeEventListener(DATA_UPDATED_EVENT, handler)
+  }, [refresh])
 
   return { entries, loading, refresh }
 }

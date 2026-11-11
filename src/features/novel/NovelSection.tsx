@@ -36,6 +36,7 @@ import { normalizeViewMode, type ViewMode } from '@/components/shared/SortViewCo
 import { useDevice } from '@/lib/use-device'
 import { ListEmptyState } from '@/components/shared/ListEmptyState'
 import { resolveImageUrl } from '@/lib/image-service'
+import { DATA_UPDATED_EVENT } from '@/lib/data-events'
 import { listNovelEntries, createNovelRoot, deleteNovelSubtree } from './services'
 import { readLegacyNovels } from '@/lib/legacy/pr5-novels'
 import { importLegacyNovels } from '@/lib/legacy/pr5-novels-import'
@@ -164,6 +165,19 @@ export function NovelSection({
     void readLegacyNovels()
       .then((rows) => setLegacyCount(rows.length))
       .catch(() => setLegacyCount(0))
+  }, [reload])
+
+  /**
+   * 别处改了小说（助手写章节 / 导入备份 / 世界观页新建了 `小说` 词条）之后，
+   * 书架也要重新数一遍 —— 否则新书要重启才出现，章节数也停在旧值。
+   * 与角色 / 事件 / 国家 / 时间线同一个约定（`data-updated`）。
+   */
+  useEffect(() => {
+    const handler = () => {
+      void reload()
+    }
+    window.addEventListener(DATA_UPDATED_EVENT, handler)
+    return () => window.removeEventListener(DATA_UPDATED_EVENT, handler)
   }, [reload])
 
   // 内链定位：等书架数据到达后解析「章节 → 书根」，再打开书并选中目标章
