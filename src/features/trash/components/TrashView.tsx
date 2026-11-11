@@ -149,7 +149,7 @@ export function TrashView({ onClose }: TrashViewProps) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (event.key !== 'Escape') return
-      if (document.querySelector('[role="alertdialog"], [role="dialog"]') !== null) return
+      if (document.querySelector('[role="alertdialog"], [role="dialog"]:not([data-trash-overlay])') !== null) return
       handleClose()
     }
     window.addEventListener('keydown', onKey)
@@ -170,6 +170,10 @@ export function TrashView({ onClose }: TrashViewProps) {
   return (
     <div
       className="fixed inset-0 z-[9999] flex items-center justify-center bg-[var(--oc-scrim)] transition-opacity duration-150"
+      role="dialog"
+      aria-modal="true"
+      aria-label="回收站"
+      data-trash-overlay
       style={{ opacity: visible ? 1 : 0 }}
       onClick={(e) => { if (e.target === e.currentTarget) handleClose() }}
     >
@@ -194,7 +198,7 @@ export function TrashView({ onClose }: TrashViewProps) {
               panelClassName={`fixed z-30 mt-1 flex flex-col overflow-auto ${MENU} pointer-events-auto`}
             />
           </div>
-          <button onClick={handleClose} className={ICON_BTN} aria-label="关闭回收站">
+          <button onClick={handleClose} className={ICON_BTN} aria-label="关闭回收站" data-overlay-back>
             <X size={16} strokeWidth={2} />
           </button>
         </div>

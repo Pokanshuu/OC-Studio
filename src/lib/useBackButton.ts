@@ -31,6 +31,16 @@ export function useBackButton() {
             if (close) { close.click(); return }
           }
 
+          // 2.5 自定义全屏浮层（回收站 / 导出中心）：没有「关闭」两个字可认，
+          //     由浮层自己标 `data-overlay-back` 指路。里面还开着确认框时不动手。
+          if (!document.querySelector('[role="alertdialog"]')) {
+            const overlayBack = document.querySelector<HTMLElement>('[data-overlay-back]')
+            if (overlayBack) {
+              overlayBack.click()
+              return
+            }
+          }
+
           // 3. 页面自带返回按钮时，先回上一级（分类编辑器 / 实体编辑器 / 地图 / 小说等）。
           //    弹窗开着时不点：背后那个返回按钮不可见，点了会「关掉编辑器」而不是关弹窗。
           if (!document.querySelector('[role="dialog"], [role="alertdialog"]')) {
