@@ -1,3 +1,5 @@
+import type { Editor } from '@tiptap/core'
+
 /**
  * 词条正文的**唯一读取入口**。
  *
@@ -60,4 +62,25 @@ export function hasWorldBody(entry: WorldBodySource): boolean {
  */
 export function worldBodyPatch(doc: unknown): { document: unknown; content: string } {
   return { document: doc, content: '' }
+}
+
+/**
+ * 把正文灌进编辑器，但**不进撤销历史**。
+ *
+ * 事故形状（2026-11-11 复现）：打开一篇笔记、什么都不改、按一次 Ctrl+Z —— 正文被清空。
+ * 原因是 TipTap 的 `setContent` 会把「装载」记成一条可撤销的操作，撤销就回到空文档；
+ * 而正文是防抖自动保存的，空文档随后会被写进文件。
+ *
+ * `setContent` 与 `addToHistory: false` 必须写在**同一条链**上（链里共用一个 transaction），
+ * 分两次 run 就不算同一条事务，历史里仍然会留下装载这一步。
+ */
+export function loadBodyWithoutHistory(editor: Editor, body: WorldBody): void {
+  editor
+    .chain()
+    .setContent(body)
+    .command(({ tr }) => {
+      tr.setMeta('addToHistory', false)
+      return true
+    })
+    .run()
 }

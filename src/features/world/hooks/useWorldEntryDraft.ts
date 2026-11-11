@@ -5,7 +5,7 @@ import type { Editor } from '@tiptap/core'
 import type { WorldEntry } from '@/types'
 import { saveEntryContent } from '../services'
 import { syncReferenceLabels } from '@/lib/reference-sync'
-import { hasWorldBody, worldBodyOf } from '@/lib/world-body'
+import { hasWorldBody, loadBodyWithoutHistory, worldBodyOf } from '@/lib/world-body'
 
 /**
  * 待写草稿：内容与它的归属词条 id 绑在一起，避免切换词条时写错地方。
@@ -98,7 +98,7 @@ export function useWorldEntryDraft({
     saveEnabledRef.current = false
     const entry = currentEntryRef.current
     if (entry && entry.id === selectedIdRef.current && hasWorldBody(entry)) {
-      editor.commands.setContent(worldBodyOf(entry))
+      loadBodyWithoutHistory(editor, worldBodyOf(entry))
       setTimeout(() => {
         saveEnabledRef.current = true
       }, 300)
@@ -109,7 +109,7 @@ export function useWorldEntryDraft({
   useEffect(() => {
     if (currentEntry && editorRef.current && currentEntry.id === selectedId) {
       saveEnabledRef.current = false
-      editorRef.current.commands.setContent(worldBodyOf(currentEntry))
+      loadBodyWithoutHistory(editorRef.current, worldBodyOf(currentEntry))
       setTimeout(() => {
         saveEnabledRef.current = true
       }, 300)
