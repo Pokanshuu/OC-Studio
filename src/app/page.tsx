@@ -1,6 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
+import { memo, useCallback } from 'react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,6 +15,7 @@ import {
 import { EventList } from '@/features/events/components/EventList'
 import { EventEditor } from '@/features/events/components/EventEditor'
 import { CharacterList } from '@/features/characters/components/CharacterList'
+const MemoCharacterList = memo(CharacterList)
 import { CharacterEditor } from '@/features/characters/components/CharacterEditor'
 import { CountryList } from '@/features/countries/components/CountryList'
 import { CountryEditor } from '@/features/countries/components/CountryEditor'
@@ -27,6 +29,7 @@ import { isToolItem } from '@/lib/entry-kinds'
 import { ToolSection } from '@/features/tools/ToolSection'
 import { useEntityWorkspace } from '@/lib/use-entity-workspace'
 import { useVisitedOnce } from '@/lib/use-visited-once'
+import type { TreeTableKind } from '@/features/tree-table'
 
 const MapView = dynamic(() => import('@/features/map').then((mod) => ({ default: mod.MapView })), {
   ssr: false,
@@ -35,6 +38,7 @@ const MapView = dynamic(() => import('@/features/map').then((mod) => ({ default:
 const TreeTable = dynamic(() => import('@/features/tree-table').then((mod) => ({ default: mod.TreeTable })), {
   ssr: false,
 })
+const MemoTreeTable = memo(TreeTable)
 
 const NovelSection = dynamic(() => import('@/features/novel').then((mod) => ({ default: mod.NovelSection })), {
   ssr: false,
@@ -106,6 +110,16 @@ export default function Home() {
     showWorld,
     worldSelectedEntryId,
   } = useEntityWorkspace()
+
+  /**
+   * 区块之间来回切时，父组件（本页）会整体重渲染一次：已经挂载的重视图也跟着重画 ——
+   * 400 张封面卡重画一次约 1.5 秒。给这两个大件加 memo 边界，
+   * **前提是 props 全都是稳定引用**（工作区 hook 里的处理函数都是 useCallback）。
+   */
+  const navigateRelated = useCallback(
+    (id: number, type: TreeTableKind) => handleRelatedItemNavigate(id, type),
+    [handleRelatedItemNavigate],
+  )
 
   /*
    * 关系图 / 时间线是常驻区块（只切 `data-visible`）。它们在大库下很重
@@ -182,7 +196,7 @@ export default function Home() {
         data-animate={charSlide === 'to-editor' ? 'slide-out-left' : charSlide === 'to-list' ? 'slide-in-left' : undefined}
       >
         {charactersVisited ? (
-          <CharacterList
+          <MemoCharacterList
             characters={characters}
             loading={charactersLoading}
             error={charactersError}
@@ -288,9 +302,7 @@ export default function Home() {
         className="h-full section-fade overflow-auto section-fade-no-gutter"
         data-visible={showTreeTable ? "true" : "false"}
       >
-        {tableVisited ? (
-          <TreeTable onNavigate={(id, type) => handleRelatedItemNavigate(id, type)} />
-        ) : null}
+        {tableVisited ? <MemoTreeTable onNavigate={navigateRelated} /> : null}
       </div>
 
       {/* 工具：插件提供的能力面板（`工具:<插件 id>`），不是内容，不进词条树 / 相册 */}
