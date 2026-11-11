@@ -80,7 +80,13 @@ export async function getDeletedItems(): Promise<TrashItem[]> {
   return items
 }
 
-export async function restoreItem(type: TrashItemType, id: number): Promise<void> {
+/**
+ * 恢复一条（笔记 / 小说会连整棵树一起）。
+ *
+ * 返回**实际恢复了几行**：小说恢复一章会把书和它的子章节一起带回来，
+ * 界面上只说「已恢复」会让人以为只恢复了一条，回头在书里数章节才发现多了。
+ */
+export async function restoreItem(type: TrashItemType, id: number): Promise<number> {
   const tableName = TABLES[type]
   const now = Date.now()
 
@@ -97,6 +103,7 @@ export async function restoreItem(type: TrashItemType, id: number): Promise<void
     })
     await logOperation(tableName, rowId, 'deleted', 'true', 'false')
   }
+  return ids.length
 }
 
 /**

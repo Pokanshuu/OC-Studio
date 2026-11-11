@@ -111,8 +111,8 @@ export function TrashView({ onClose }: TrashViewProps) {
       const key = type + "-" + String(id)
       setRestoring(key)
       try {
-        await trashService.restoreItem(type, id)
-        toast("已恢复")
+        const restored = await trashService.restoreItem(type, id)
+        toast(restored > 1 ? `已恢复 ${restored} 项（连同它的上级 / 子级）` : '已恢复')
         refresh()
         notifyDataUpdated()
       } catch {
