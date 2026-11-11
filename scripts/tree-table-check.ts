@@ -221,6 +221,28 @@ function main(): void {
     groupedByCountry.map((row) => row.label).join('|'),
   )
 
+  // ── 旧数据：只有 `国籍:` 文本、没有 countryId ──────────────────────────
+  // 卡片按文本回落显示国籍、编辑器左侧分组也这么归；表格曾经只看 countryId，
+  // 于是同一批老数据在卡片上写着国家、在表格里躺在「未归属」，按国家筛还筛不到。
+  {
+    const legacyCharacters = [
+      character({ id: 15, name: '旧甲', countryId: null, nationalityLegacy: '甲' }),
+      character({ id: 16, name: '旧乙', countryId: null, nationalityLegacy: '不存在的国' }),
+    ]
+    const rows = flattenCharacterRows(countryTree, legacyCharacters, options('', ['group:1']))
+    const labels = rows.map((row) => row.label).join('|')
+    check('旧国籍文本：能对上国家名就归到那组', labels === '甲|旧甲|未归属', labels)
+    check(
+      '旧国籍文本：对不上的仍然进未归属',
+      rows.filter((row) => row.label === '未归属')[0]?.childCount === 1,
+    )
+    check(
+      '旧国籍文本：表格「所属国家」列与分组用同一个 id',
+      rows.find((row) => row.label === '旧甲')?.countryId === 1,
+      String(rows.find((row) => row.label === '旧甲')?.countryId),
+    )
+  }
+
   // ── 事件：平表 + HTML 字段剥标签 ──────────────────────────────────────
   const events = [
     event({ id: 21, title: '会战', time: '帝国历 100 年', location: '<p>北方边境</p>' }),
