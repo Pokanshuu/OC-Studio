@@ -115,6 +115,9 @@ export default function Home() {
    */
   const timelineVisited = useVisitedOnce(showTimeline)
   const relationsVisited = useVisitedOnce(showRelations)
+  // 角色画廊与表格是大头：400 个角色时两者合计约 2.6 万 DOM 节点，开机全建出来毫无意义
+  const charactersVisited = useVisitedOnce(showCharacters && characterView.sub === 'list')
+  const tableVisited = useVisitedOnce(showTreeTable)
 
   return (    <div className="section-stack">
       <div
@@ -178,14 +181,16 @@ export default function Home() {
         data-visible={(showCharacters && characterView.sub === 'list') ? "true" : "false"}
         data-animate={charSlide === 'to-editor' ? 'slide-out-left' : charSlide === 'to-list' ? 'slide-in-left' : undefined}
       >
-        <CharacterList
-          characters={characters}
-          loading={charactersLoading}
-          error={charactersError}
-          onSelectCharacter={handleSelectCharacter}
-          onCreateCharacter={handleCreateCharacter}
-          onDeleteCharacter={handleDeleteCharacter}
-        />
+        {charactersVisited ? (
+          <CharacterList
+            characters={characters}
+            loading={charactersLoading}
+            error={charactersError}
+            onSelectCharacter={handleSelectCharacter}
+            onCreateCharacter={handleCreateCharacter}
+            onDeleteCharacter={handleDeleteCharacter}
+          />
+        ) : null}
       </div>
 
       <div
@@ -283,7 +288,9 @@ export default function Home() {
         className="h-full section-fade overflow-auto section-fade-no-gutter"
         data-visible={showTreeTable ? "true" : "false"}
       >
-        <TreeTable onNavigate={(id, type) => handleRelatedItemNavigate(id, type)} />
+        {tableVisited ? (
+          <TreeTable onNavigate={(id, type) => handleRelatedItemNavigate(id, type)} />
+        ) : null}
       </div>
 
       {/* 工具：插件提供的能力面板（`工具:<插件 id>`），不是内容，不进词条树 / 相册 */}
