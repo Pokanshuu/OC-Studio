@@ -222,6 +222,51 @@ for (const file of walk(SRC)) {
   }
 }
 /**
+ * 移动端选词工具栏下发的编辑器事件，必须真有接收方。
+ *
+ * 这些命令靠**字符串事件名**连起来：`dispatchEditorEvent('mobile:insert-table')`
+ * 派发一个 CustomEvent，`editor-mobile-events.ts` 里的表负责接。两边各自写名字，
+ * 改一边忘另一边就变成「点了没反应」——而且只在手机上出现，桌面很难发现。
+ *
+ * 判定：派发的每个名字都要在 `editor-mobile-events.ts` 里出现。
+ */
+{
+  const eventFiles: string[] = []
+  const walkEvents = (dir: string): void => {
+    for (const name of readdirSync(dir)) {
+      const full = join(dir, name)
+      if (statSync(full).isDirectory()) {
+        walkEvents(full)
+        continue
+      }
+      if (!/\.(ts|tsx)$/.test(name)) continue
+      eventFiles.push(full)
+    }
+  }
+  walkEvents(join(process.cwd(), 'src'))
+
+  const bindings = readFileSync(join(process.cwd(), 'src/components/editor/editor-mobile-events.ts'), 'utf8')
+  const missing = new Set<string>()
+  for (const full of eventFiles) {
+    const text = readFileSync(full, 'utf8')
+    for (const match of text.matchAll(/dispatchEditorEvent\(\s*['"]([^'"]+)['"]/g)) {
+      if (!bindings.includes(`'${match[1]}'`)) missing.add(match[1])
+    }
+  }
+
+  for (const name of missing) {
+    const violation = {
+      rule: 'dead-editor-event',
+      file: 'src/components/shared/mobile-text-selection/useMobileSelectionActions.tsx',
+      line: 1,
+      text: `事件 ${name} 有派发、没有接收方（editor-mobile-events.ts 里没有它）`,
+    }
+    violations.push(violation)
+    byRule.set('dead-editor-event', [...(byRule.get('dead-editor-event') ?? []), violation])
+  }
+}
+
+/**
  * 没有读者的设置项 = 骗人的开关。
  *
  * 事故形状：开机自启动的开关以前只写 localStorage、没人调系统接口，拨了没反应
@@ -391,6 +436,7 @@ const EXTRA_WHY: Record<string, string> = {
   'ime-guard': '回车即提交的输入框必须挡掉输入法组字中的回车 / Esc',
   'markdown-star': '界面文案里不写 Markdown 星号（`**`），用户看到的是乱码',
   'dead-setting': '设置项必须在设置页之外有读者，否则就是个拨了没反应的开关',
+  'dead-editor-event': '移动端下发的编辑器事件必须有接收方，否则点了没反应',
 }
 
 console.log(`设计令牌体检：${violations.length} 处违规\n`)
