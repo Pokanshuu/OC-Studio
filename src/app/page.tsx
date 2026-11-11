@@ -26,6 +26,7 @@ import { categoryIdFromItem, isCategoryItem } from '@/lib/categories/types'
 import { isToolItem } from '@/lib/entry-kinds'
 import { ToolSection } from '@/features/tools/ToolSection'
 import { useEntityWorkspace } from '@/lib/use-entity-workspace'
+import { useVisitedOnce } from '@/lib/use-visited-once'
 
 const MapView = dynamic(() => import('@/features/map').then((mod) => ({ default: mod.MapView })), {
   ssr: false,
@@ -105,6 +106,15 @@ export default function Home() {
     showWorld,
     worldSelectedEntryId,
   } = useEntityWorkspace()
+
+  /*
+   * 关系图 / 时间线是常驻区块（只切 `data-visible`）。它们在大库下很重
+   * （400 个角色时实测各约 3 秒、共 3.2 万 DOM 节点），以前开机就挂载 ——
+   * 从不点它们的人也要为这 3 秒买单。改成**第一次真正看到时才挂载**，
+   * 之后保持挂载（切走再回来不丢缩放 / 滚动 / 选中）。
+   */
+  const timelineVisited = useVisitedOnce(showTimeline)
+  const relationsVisited = useVisitedOnce(showRelations)
 
   return (    <div className="section-stack">
       <div
@@ -243,10 +253,12 @@ export default function Home() {
         className="h-full section-fade overflow-y-auto max-md:pt-[calc(60px+var(--safe-top))] max-md:pb-[calc(60px+var(--safe-bottom))]"
         data-visible={showTimeline ? "true" : "false"}
       >
-        <TimelineView
-          onSelectEvent={handleTimelineSelectEvent}
-          onSelectCharacter={handleTimelineSelectCharacter}
-        />
+        {timelineVisited ? (
+          <TimelineView
+            onSelectEvent={handleTimelineSelectEvent}
+            onSelectCharacter={handleTimelineSelectCharacter}
+          />
+        ) : null}
       </div>
 
       <div
@@ -295,25 +307,27 @@ export default function Home() {
         className="h-full section-fade overflow-y-auto max-md:pt-[calc(60px+var(--safe-top))] max-md:pb-[calc(60px+var(--safe-bottom))]"
         data-visible={showRelations ? "true" : "false"}
       >
-        <RelationGraph
-          visible={showRelations}
-          onNavigateToCharacter={(id) => {
-            setSource('relations')
-            handleRelatedItemNavigate(id, 'character')
-          }}
-          onNavigateToEvent={(id) => {
-            setSource('relations')
-            handleRelatedItemNavigate(id, 'event')
-          }}
-          onNavigateToCountry={(id) => {
-            setSource('relations')
-            handleRelatedItemNavigate(id, 'country')
-          }}
-          onNavigateToWorld={(id) => {
-            setSource('relations')
-            handleRelatedItemNavigate(id, 'world')
-          }}
-        />
+        {relationsVisited ? (
+          <RelationGraph
+            visible={showRelations}
+            onNavigateToCharacter={(id) => {
+              setSource('relations')
+              handleRelatedItemNavigate(id, 'character')
+            }}
+            onNavigateToEvent={(id) => {
+              setSource('relations')
+              handleRelatedItemNavigate(id, 'event')
+            }}
+            onNavigateToCountry={(id) => {
+              setSource('relations')
+              handleRelatedItemNavigate(id, 'country')
+            }}
+            onNavigateToWorld={(id) => {
+              setSource('relations')
+              handleRelatedItemNavigate(id, 'world')
+            }}
+          />
+        ) : null}
       </div>
 
       <div
