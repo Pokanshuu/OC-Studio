@@ -14,6 +14,7 @@
  * 这一层不碰 React / Dexie：行怎么排、按什么命中，全在这里决定，组件只负责画。
  */
 import type { Character, Country, Event as EntityEvent, WorldEntry } from '@/types'
+import { resolveCharacterCountryId } from '@/lib/membership'
 import type { WorldTreeNode } from '@/lib/world-tree'
 import { plainTextOf } from '@/lib/export/site/render'
 
@@ -187,7 +188,7 @@ export function flattenCountryRows(
 
 /* ── 角色（按国家分组） ─────────────────────────────────── */
 
-function characterRow(character: Character, depth: number): TreeRow {
+function characterRow(character: Character, depth: number, resolvedCountryId: number | null): TreeRow {
   return {
     key: `character:${character.id}`,
     kind: 'character',
@@ -196,7 +197,7 @@ function characterRow(character: Character, depth: number): TreeRow {
     depth,
     hasChildren: false,
     expanded: false,
-    countryId: character.countryId ?? null,
+    countryId: resolvedCountryId,
     character,
   }
 }
@@ -226,9 +227,12 @@ export function flattenCharacterRows(
   options: RowOptions,
 ): TreeRow[] {
   const known = new Set<number>()
+  /** 同时留一份 `{ id, name }`：旧数据只有 `国籍:` 文本，要按名字反查国家 */
+  const allCountries: Country[] = []
   const collect = (nodes: CountryNode[]): void => {
     for (const node of nodes) {
       known.add(node.country.id)
+      allCountries.push(node.country)
       collect(node.children)
     }
   }
@@ -237,7 +241,8 @@ export function flattenCharacterRows(
   const byCountry = new Map<number, Character[]>()
   const unassigned: Character[] = []
   for (const character of characters) {
-    const countryId = character.countryId
+    // 与角色卡 / 编辑器分组同一口径：id 优先，只剩旧国籍文本时按名字回落
+    const countryId = resolveCharacterCountryId(character, allCountries)
     if (countryId != null && known.has(countryId)) {
       const list = byCountry.get(countryId) ?? []
       list.push(character)
@@ -291,7 +296,7 @@ export function flattenCharacterRows(
         country: node.country,
       })
       if (!open) continue
-      for (const member of visibleMembers) rows.push(characterRow(member, depth + 1))
+      for (const member of visibleMembers) rows.push(characterRow(member, depth + 1, node.country.id))
       rows.push(...childRows)
     }
     return rows
@@ -316,7 +321,7 @@ export function flattenCharacterRows(
       childCount: unassigned.length,
       countryId: null,
     })
-    if (open) for (const character of visibleUnassigned) rows.push(characterRow(character, 1))
+    if (open) for (const character of visibleUnassigned) rows.push(characterRow(character, 1, null))
   }
 
   return rows

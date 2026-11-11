@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, Plus, Search } from 'lucide-react'
 import { Avatar } from '@/components/shared/Avatar'
 import { ICON_BTN_MD, PAGE_TITLE, ROUND_ITEM } from '@/lib/ui-tokens'
 import { useCountryList } from '@/features/countries/hooks/useCountries'
+import { resolveCharacterCountryId } from '@/lib/membership'
 import type { Character } from '@/types'
 import { useCharacterList } from '../hooks/useCharacters'
 
@@ -39,12 +40,9 @@ export function CharacterEditorList({ currentId, onSelect, onCollapse, onCreate 
   }, [characters, q])
 
   const groups = useMemo(() => {
-    const countryIdOf = (character: Character): number | undefined => {
-      if (character.countryId != null) return character.countryId
-      // 只剩 legacy 文本可回落（国家侧的 id 名单已退役，见 lib/membership.ts 顶部）
-      const byLegacy = countries.find((country) => country.name === character.nationalityLegacy)
-      return byLegacy?.id
-    }
+    /** 与角色卡 / 表格 / 按国家筛选同一口径（`resolveCharacterCountryId`） */
+    const countryIdOf = (character: Character): number | null =>
+      resolveCharacterCountryId(character, countries)
     const known = new Set(countries.map((country) => country.id))
     const result = countries
       .map((country) => ({

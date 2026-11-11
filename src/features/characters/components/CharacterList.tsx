@@ -5,6 +5,7 @@ import { withTouchFeedback } from '@/lib/animation'
 import { ArrowLeft, FolderOpen, Pencil, SearchX, Trash2, Users } from 'lucide-react'
 import type { Character } from '@/types'
 import { useCountryList } from '@/features/countries/hooks/useCountries'
+import { resolveCharacterCountryId } from '@/lib/membership'
 import { useDevice } from '@/lib/use-device'
 import { MobileActionSheet, type ActionItem } from '@/components/shared/MobileActionSheet'
 import { MobileFab } from '@/components/layout/MobileFab'
@@ -270,7 +271,8 @@ export function CharacterList({
       result = result.filter((c) => (c.folder ?? '').trim() === folderFilter)
     }
     if (countryFilter !== 'all') {
-      result = result.filter((c) => c.countryId === countryFilter)
+      // 与卡片显示同一口径：旧数据只有 `国籍:` 文本时也认（否则「卡上写着晨曦共和国、按它筛却没有」）
+      result = result.filter((c) => resolveCharacterCountryId(c, countries) === countryFilter)
     }
     if (search.trim()) {
       const q = search.trim().toLowerCase()
@@ -283,7 +285,7 @@ export function CharacterList({
       )
     }
     return sortCharacters(result, sortKey)
-  }, [characters, sortKey, search, countryFilter, folderFilter])
+  }, [characters, sortKey, search, countryFilter, folderFilter, countries])
 
   const handleViewChange = (mode: ViewMode) => {
     setViewMode(mode)

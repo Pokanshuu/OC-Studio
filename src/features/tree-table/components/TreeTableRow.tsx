@@ -224,7 +224,7 @@ export function TreeTableRow({
           <td className="py-1.5 pr-4" onClick={(event) => event.stopPropagation()}>
             {row.character ? (
               <FilterSelect<number | 'none'>
-                value={row.character.countryId ?? 'none'}
+                value={row.countryId ?? 'none'}
                 onChange={(value) => {
                   void handlers.onSetCountry(row, value === 'none' ? null : value)
                 }}

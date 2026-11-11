@@ -212,10 +212,20 @@ export async function deleteCharacter(id: number): Promise<void> {
 export async function assignCharacterCountry(id: number, countryId: number | null): Promise<void> {
   const existing = await db.characters.get(id)
   if (!existing) throw new Error(`Character not found: ${id}`)
-  if ((existing.countryId ?? null) === countryId) return
+  const sameId = (existing.countryId ?? null) === countryId
+  /**
+   * 旧数据只有 `国籍:` 文本、没有 id 时，`countryId` 本来就是 null ——
+   * 这时选「未归属」会命中下面的「没变化」提前返回，文本又会被当成归属，等于清不掉。
+   * 所以「清空 + 还有旧文本」也必须走一次写入。
+   */
+  const staleLegacy = countryId === null && (existing.nationalityLegacy ?? '').trim() !== ''
+  if (sameId && !staleLegacy) return
   const now = Date.now()
   await db.characters.update(id, {
     countryId,
+    // 清空归属时把旧的「国籍」文本一起清掉：`resolveCharacterCountryId` 会在没有 id 时
+    // 按这段文本回落，不清的话「改成未归属」下一次渲染又变回原来那个国家。
+    ...(countryId === null ? { nationalityLegacy: '' } : {}),
     updatedAt: now,
     ...pendingStamp(now),
   } as unknown as Partial<Character>)

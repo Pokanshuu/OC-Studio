@@ -24,6 +24,29 @@ import type { Character } from '@/types'
  */
 
 /**
+ * 角色当前属于哪个国家 —— **唯一口径**。
+ *
+ * 优先 `countryId`；只剩旧的 `国籍:` 文本（id 名单退役前写的）时按国家名匹配。
+ *
+ * 为什么要收成一个函数：角色卡一直这么显示（`countryName || nationalityLegacy`），
+ * 角色编辑器左侧的分组也这么归（按旧的国籍文本找同名国家），但**表格按国家分组**
+ * 与**按国家筛选**只看了 `countryId` —— 于是同一批老数据在卡片上写着「晨曦共和国」，
+ * 在表格里却躺在「未归属」下，按「晨曦共和国」筛选还筛不到它。
+ *
+ * 返回 `null` 表示确实没有归属（或旧文本对不上任何国家）。
+ */
+export function resolveCharacterCountryId(
+  character: Pick<Character, 'countryId' | 'nationalityLegacy'>,
+  countries: readonly { id?: number; name: string }[],
+): number | null {
+  if (character.countryId != null) return character.countryId
+  const legacy = (character.nationalityLegacy ?? '').trim()
+  if (legacy === '') return null
+  const match = countries.find((country) => country.name === legacy)
+  return match?.id ?? null
+}
+
+/**
  * 国家编辑器改了「相关角色」：写回角色的国籍。
  * - 新加的人：只在**没有国籍**时补上（名单是松散的，不抢别人已经填好的国籍）
  * - 去掉的人：国籍正是本国的才清空 —— 否则关系图上那条「属于」的边还会留着，看着像删不掉
@@ -45,6 +68,8 @@ export async function applyCountryCharacters(
     if (!character || character.countryId !== countryId) continue
     await db.characters.update(character.id, {
       countryId: null,
+      // 同上：没有 id 时旧「国籍」文本会被当成归属，不清掉等于「移出没生效」
+      nationalityLegacy: '',
       updatedAt: now,
       ...pendingStamp(now),
     } as unknown as Partial<Character>)
