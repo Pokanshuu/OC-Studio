@@ -385,12 +385,36 @@ export function TimelineView({ onSelectEvent, onSelectCharacter }: TimelineViewP
     )
   }
 
+  /**
+   * 一条事件都没有 —— 但要分清「库里真的没有」和「被筛选筛没了」。
+   *
+   * 角色 / 国家的筛选是**在服务端查询时就带上**的，所以筛空时 `events` 本身就是空数组，
+   * 以前直接落到 EmptyTimeline 的「暂无事件，请先创建事件后查看时间线」——
+   * 用户明明有事件，只是筛掉了，却被告知去新建一条。
+   */
   if (events.length === 0) {
     return (
       <div className="flex h-full flex-col">
-      {emptyToolbar}
-      <div className="max-md:h-10 flex-shrink-0" />
-      <EmptyTimeline />
+        {emptyToolbar}
+        <div className="max-md:h-10 flex-shrink-0" />
+        {isFiltering ? (
+          <div className="flex flex-1 flex-col items-center justify-center gap-3">
+            <p className="text-sm text-ink-muted">没有符合筛选条件的事件</p>
+            <button
+              type="button"
+              className="text-[12px] text-ink-faint underline-offset-2 transition-colors hover:text-ink hover:underline"
+              onClick={() => {
+                setCharacterFilter('all')
+                setCountryFilter('all')
+                setFilterMajor(false)
+              }}
+            >
+              清除筛选
+            </button>
+          </div>
+        ) : (
+          <EmptyTimeline />
+        )}
       </div>
     )
   }
