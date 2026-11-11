@@ -1,6 +1,8 @@
 import { db } from '@/lib/db'
 import { logOperation, pendingStamp } from '@/lib/sync'
 import type { TrashItem, TrashItemType } from './types'
+import { getVaultSession } from '@/lib/vault/vault-session'
+import { vaultFs } from '@/lib/vault/vault-fs'
 
 const TYPE_LABELS: Record<TrashItemType, string> = {
   character: '角色',
@@ -140,10 +142,61 @@ async function withEntryTree(id: number): Promise<number[]> {
   return [...tree].filter(isDeleted)
 }
 
+/**
+ * 永久删除一条（笔记 / 小说连**子孙**一起）。
+ *
+ * 只删自己是不够的：回收站里「永久删除」一本书，章节会作为孤儿留在回收站里，
+ * 文件也继续占着回收站目录。反过来**不能连祖先一起删** —— 删一章就把整本书删掉
+ * 这种事绝对不能发生，所以这里只向下走（`withEntryTree` 是上下都走的，恢复才用它）。
+ *
+ * 返回实际删掉的行数，界面据此说「已永久删除 N 项」。
+ */
 export async function permanentlyDeleteItem(
   type: TrashItemType,
   id: number,
-): Promise<void> {
+): Promise<number> {
   const table = db.table(TABLES[type])
-  await table.delete(id)
+  const ids = type === 'worldEntry' ? await withEntryDescendants(id) : [id]
+
+  // 笔记库模式下回收站里的东西是**文件**：只删 Dexie 行等于把文件留在
+  // `.ocstudio/trash/<批次>/` 里，占着磁盘直到保留期过。删不掉就说出来（行也不删，
+  // 用户还能再试一次），别装作已经删干净了。
+  await removeTrashedFiles(TABLES[type], ids)
+
+  for (const rowId of ids) await table.delete(rowId)
+  return ids.length
+}
+
+/** 把这些行对应的回收站文件删掉（不在笔记库 / 不在回收站里的行直接跳过） */
+async function removeTrashedFiles(tableName: string, ids: number[]): Promise<void> {
+  const session = getVaultSession()
+  if (session === null) return
+  const wanted = new Set(ids)
+  for (const state of session.entries.values()) {
+    if (state.table !== tableName || !wanted.has(state.id)) continue
+    if (!state.relPath.startsWith('.ocstudio/trash/')) continue
+    try {
+      await vaultFs.remove(session.root, state.relPath)
+    } catch (error) {
+      throw new Error(
+        `文件删不掉：${state.relPath}（${error instanceof Error ? error.message : String(error)}）`,
+      )
+    }
+  }
+}
+
+/** 自己 + 所有子孙（只向下，不碰祖先） */
+async function withEntryDescendants(id: number): Promise<number[]> {
+  const rows = await db.worldEntries.toArray()
+  const tree = new Set<number>([id])
+  let grew = true
+  while (grew) {
+    grew = false
+    for (const row of rows) {
+      if (row.parentId == null || tree.has(row.id) || !tree.has(row.parentId)) continue
+      tree.add(row.id)
+      grew = true
+    }
+  }
+  return [...tree]
 }

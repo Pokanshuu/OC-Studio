@@ -129,8 +129,8 @@ export function TrashView({ onClose }: TrashViewProps) {
   const handlePermanentDelete = useCallback(
     async (type: TrashItemType, id: number) => {
       try {
-        await trashService.permanentlyDeleteItem(type, id)
-        toast("已永久删除")
+        const removed = await trashService.permanentlyDeleteItem(type, id)
+        toast(removed > 1 ? `已永久删除 ${removed} 项（连同它的子级）` : '已永久删除')
         setConfirmTarget(null)
         refresh()
         notifyDataUpdated()
