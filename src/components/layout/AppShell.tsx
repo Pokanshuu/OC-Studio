@@ -32,6 +32,7 @@ import { useSettings } from "@/lib/settings"
 import { useKeyboard } from "@/lib/KeyboardContext"
 import { useBackButton } from "@/lib/useBackButton"
 import { getChromiumVersion, isBelowTargetVersion, isHarmonyOS, getHarmonyOSVersion, isSafeAreaEnvAvailable, estimateSafeAreaInsets, getSafeAreaBottomCorrection, isMobilePlatform } from "@/lib/browser-compat"
+import { toast } from 'sonner'
 
 /**
  * 分类表随库走：**不能挂在 Sidebar 上**（关闭侧栏 / 手机上 Sidebar 不渲染时，
@@ -114,11 +115,16 @@ function AppShellChrome({ settings, children }: { settings: ReturnType<typeof us
         e.preventDefault()
         requestSave()
         if (vault.supported && vault.status === 'ready') void vault.flush()
+        // 没有脏表单时（笔记 / 章节都是自动保存）给一句回执：以前按下去毫无反应，
+        // 用户只会以为快捷键失效了
+        if (status !== 'dirty' && status !== 'saving') {
+          toast('没有需要保存的改动', { description: '笔记与章节是自动保存的' })
+        }
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [requestSave, vault])
+  }, [requestSave, status, vault])
 
   // 未保存时关闭标签页/刷新浏览器 → 原生确认
   useEffect(() => {
