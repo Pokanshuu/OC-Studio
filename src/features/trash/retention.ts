@@ -61,15 +61,22 @@ export function shouldPurgeBatch(name: string, mtimeMs: number, cutoff: number):
 /**
  * 清理超过 `days` 天的回收站批次。`days <= 0` 表示从不清理。
  *
- * 没有打开笔记库（浏览器预览）时什么都不做。
+ * 浏览器 / Capacitor 里没有笔记库、也没有回收站目录，但「软删除的行」照样在 Dexie 里堆着 ——
+ * 那些行的回收站界面也会列出来。所以这条路上按 `updatedAt` 清掉过期的软删除行，
+ * 否则下拉里写着「保留 7 天」，实际永远不会清。
  */
 export async function purgeExpiredTrash(days: number): Promise<TrashPurgeResult> {
   if (!Number.isFinite(days) || days <= 0) return EMPTY_PURGE
-  if (!isVaultSupported()) return EMPTY_PURGE
+  const cutoff = Date.now() - days * 24 * 60 * 60 * 1000
+
+  if (!isVaultSupported()) {
+    const removed = await purgeSoftDeletedRows(cutoff)
+    return { batches: 0, files: removed, skipped: 0 }
+  }
+
   const session = getVaultSession()
   if (session === null) return EMPTY_PURGE
 
-  const cutoff = Date.now() - days * 24 * 60 * 60 * 1000
   let batches: { name: string; mtimeMs: number; files: number }[]
   try {
     batches = await vaultFs.trashBatches(session.root)
@@ -99,6 +106,34 @@ export async function purgeExpiredTrash(days: number): Promise<TrashPurgeResult>
   // 「恢复时源文件不存在」的幽灵。删行走正常管线（它自己会把已知是回收站里的文件删掉）。
   if (purged.length > 0) await dropRowsUnder(session, purged)
   return result
+}
+
+/**
+ * 浏览器 / Capacitor：把过期（软删除超过 `cutoff`）的行真正删掉。
+ *
+ * 只碰 `deleted === true` 且 `updatedAt <= cutoff` 的行 —— 删除时会把 `updatedAt` 顶到现在，
+ * 所以它等价于「删除时间」。返回删掉的条数。
+ */
+async function purgeSoftDeletedRows(cutoff: number): Promise<number> {
+  const { db } = await import('@/lib/db')
+  let removed = 0
+  for (const table of [db.characters, db.events, db.countries, db.worldEntries]) {
+    try {
+      const rows = await table
+        .filter(
+          (row: { deleted?: boolean; updatedAt?: number }) =>
+            row.deleted === true && typeof row.updatedAt === 'number' && row.updatedAt <= cutoff,
+        )
+        .toArray()
+      for (const row of rows) {
+        await table.delete(row.id)
+        removed += 1
+      }
+    } catch {
+      // 单表失败就跳过：清理是后台动作，不向用户抛错
+    }
+  }
+  return removed
 }
 
 /** 删掉 relPath 落在这些回收站批次下的实体行 */

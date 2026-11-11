@@ -83,7 +83,9 @@ export function TrashView({ onClose }: TrashViewProps) {
         return
       }
       const result = await purgeExpiredTrash(days)
-      if (result.batches > 0) {
+      // `files` 在笔记库模式是删掉的文件数、浏览器模式是删掉的软删除行数；
+      // 两边都可能是「批次 0 但有东西被清掉」，只判断 batches 会把清理成功说成「没有过期条目」
+      if (result.batches > 0 || result.files > 0) {
         toast.success(`已清理 ${result.files} 个过期条目`, {
           description: `超过 ${days} 天的条目已从回收站删除`,
         })
