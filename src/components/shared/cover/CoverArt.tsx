@@ -23,6 +23,7 @@ import {
 import { enqueueCoverRender } from '@/lib/cover/queue'
 import { useIsDarkTheme } from '@/lib/use-theme'
 import { useSettings } from '@/lib/settings'
+import { observeCoverVisibility } from './cover-visibility'
 
 interface CoverArtProps {
   /** 已解析的头图地址；空 = 没有头图，只画色块与衬线首字 */
@@ -60,40 +61,11 @@ export function CoverArt({ src, tintSrc, watermark, aspect, photoHeight, blurSta
   useEffect(() => {
     const host = hostRef.current
     if (!host) return
-    if (typeof IntersectionObserver === 'undefined') {
-      // 老 WebView 没有 IntersectionObserver：下一帧直接画，别在 effect 里同步 setState
-      const frame = requestAnimationFrame(() => setActive(true))
-      return () => cancelAnimationFrame(frame)
-    }
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          setActive(true)
-          observer.disconnect()
-        }
-      },
-      { rootMargin: '280px 0px' },
-    )
-    observer.observe(host)
-
     /*
-     * 兜底：IntersectionObserver 的回调依赖渲染生命周期。刚被 `display:none` 挡住、
-     * 在一开始就滚出视口的容器里、以及无头浏览器里都可能一次都不来 ——
-     * 那样卡片会永远空着（只剩底色）。1.2s 后自己量一次矩形，在视口附近就直接画。
+     * 「进入视口才画」的观察者与兜底计时器是**全站共用**的（`cover-visibility.ts`）：
+     * 以前每张卡各建一个观察者 + 一个 1.2s 计时器，400 条时就是 400 份开销。
      */
-    const guard = window.setTimeout(() => {
-      const rect = host.getBoundingClientRect()
-      const near =
-        rect.width > 0 && rect.height > 0 && rect.top < window.innerHeight + 280 && rect.bottom > -280
-      if (!near) return
-      setActive(true)
-      observer.disconnect()
-    }, 1200)
-
-    return () => {
-      window.clearTimeout(guard)
-      observer.disconnect()
-    }
+    return observeCoverVisibility(host, () => setActive(true))
   }, [])
 
   useEffect(() => {
