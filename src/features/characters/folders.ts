@@ -157,6 +157,16 @@ function getRegistrySnapshot(): string[] {
   return registry
 }
 
+/** 当前文件夹清单（非 Hook 版，备份导出 / 恢复用） */
+export function getFolderRegistry(): string[] {
+  return registry
+}
+
+/** 整表替换文件夹清单（备份恢复用；与新建 / 改名共用同一套校验） */
+export async function saveFolderRegistry(next: string[]): Promise<void> {
+  await saveRegistry(next)
+}
+
 /** 当前文件夹清单（含空文件夹）；角色上出现但还没登记的名字由 `listFolders` 合并 */
 export function useFolderRegistry(): string[] {
   return useSyncExternalStore(subscribeRegistry, getRegistrySnapshot, getRegistrySnapshot)

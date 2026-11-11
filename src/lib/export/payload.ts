@@ -3,6 +3,7 @@ import type { Character, Country, Event, WorldEntry } from '@/types'
 import { downloadJson } from './download'
 import { resolveImageUrl } from '../image-service'
 import { localDateStamp } from '../date-stamp'
+import { collectBackupConfig, type BackupConfig } from './backup-config'
 import {
   collectBodyImageRefs,
   collectDatasetImageRefs,
@@ -12,6 +13,12 @@ import {
 export interface ExportPayload {
   version: 1
   exportedAt: string
+  /**
+   * 设置（自定义分类 / 字段表 / 模板 / 信息组 / 正文组 / 文件夹清单）。
+   * 可选：旧版本导出的备份没有这段，读到时按「没有设置可恢复」处理。
+   * 导入端只在目标**还没配过**时整段恢复，见 `lib/export/backup-config.ts`。
+   */
+  config?: BackupConfig
   data: {
     characters: unknown[]
     events: unknown[]
@@ -160,6 +167,8 @@ export async function exportFullBackup(): Promise<ExportPayload> {
   inlineBodies(payload.data.events, map)
   inlineBodies(payload.data.countries, map)
   inlineBodies(payload.data.worldEntries, map)
+  // 设置跟数据一起走：以前只导数据，换机器后自建分类 / 字段表 / 模板全没了
+  payload.config = collectBackupConfig()
   return payload
 }
 

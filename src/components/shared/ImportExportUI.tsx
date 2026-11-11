@@ -133,6 +133,10 @@ export function useImportExport(options?: {
           parts.push(`${materialize.missingImages.length} 张图片找不到原件`)
         }
       }
+      if (result.config !== undefined) {
+        if (result.config.restored.length > 0) parts.push(`恢复设置 ${result.config.restored.join('/')}`)
+        if (result.config.kept.length > 0) parts.push(`保留当前设置 ${result.config.kept.join('/')}`)
+      }
 
       toast.success(`导入完成：${parts.join('，')}`, {
         description:
@@ -170,6 +174,8 @@ export function useImportExport(options?: {
         `时期 ${summary.periods} 条`,
         // fork 版备份里的地图：我们有锚点模型，暂不导入，只如实告诉用户
         summary.maps ? `地图 ${summary.maps} 张（暂不导入）` : '',
+        // 设置只在「目标还没配过」时恢复；这里先如实说明备份里带了什么
+        summary.config ? `设置 ${summary.config.join('/')}（目标还没配过时才会恢复）` : '',
       ]
         .filter(Boolean)
         .join('，')

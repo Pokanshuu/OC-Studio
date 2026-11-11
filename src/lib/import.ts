@@ -1,10 +1,13 @@
 import { db } from '@/lib/db'
 import type { QueryClient } from '@tanstack/react-query'
 import type { Table, EntityTable } from 'dexie'
+import { restoreBackupConfig, type BackupConfig } from './export/backup-config'
 
 interface ImportPayload {
   version: 1
   exportedAt: string
+  /** 设置段；旧备份没有 */
+  config?: BackupConfig
   data: {
     characters: Record<string, unknown>[]
     events: Record<string, unknown>[]
@@ -19,6 +22,8 @@ interface ImportPayload {
 export interface ImportSummary {
   /** fork 版（version 2）备份里的地图：只统计不导入（锚点在我们的模型里存实体上） */
   maps?: number
+  /** 备份里带的设置项（人可读短名）；旧备份没有这段 */
+  config?: string[]
   characters: number
   events: number
   countries: number
@@ -33,6 +38,8 @@ export interface ImportResult {
   added: number
   skipped: number
   overwritten: number
+  /** 设置段的处理结果：恢复了哪几项 / 哪几项因为目标已有设置而保留 */
+  config?: { restored: string[]; kept: string[] }
 }
 
 const TABLE_CONFIG: Array<{
@@ -72,6 +79,16 @@ function asRows(value: unknown): Record<string, unknown>[] {
   return value.filter((item): item is Record<string, unknown> => item !== null && typeof item === 'object')
 }
 
+/** 备份 `config` 段里各键的人可读名（顺序与备份写入顺序一致） */
+const CONFIG_LABELS: Array<[string, string]> = [
+  ['categories', '分类'],
+  ['fields', '字段表'],
+  ['templates', '模板'],
+  ['infoGroups', '基本信息组'],
+  ['bodyGroups', '正文组'],
+  ['folders', '文件夹清单'],
+]
+
 export function validateImportData(json: unknown): ImportSummary {
   if (json === null || typeof json !== 'object') {
     throw new Error('无效的数据格式：数据不是 JSON 对象')
@@ -101,8 +118,16 @@ export function validateImportData(json: unknown): ImportSummary {
   // periods 为 v1 后期新增字段，旧备份可能缺失，向后兼容按 0 处理
   const periods = asRows(data.periods)
 
+  const rawConfig = payload.config
+  const config = rawConfig !== null && typeof rawConfig === 'object' && !Array.isArray(rawConfig)
+    ? CONFIG_LABELS.filter(([key]) => (rawConfig as Record<string, unknown>)[key] !== undefined).map(
+        ([, label]) => label,
+      )
+    : undefined
+
   return {
     maps: version === 2 ? asRows(data.maps).length : undefined,
+    config: config !== undefined && config.length > 0 ? config : undefined,
     characters: asRows(data.characters).length,
     events: asRows(data.events).length,
     countries: asRows(data.countries).length,
@@ -263,7 +288,12 @@ export async function importData(
     },
   )
 
+  /**
+   * 设置段在**数据落库之后**恢复：它写的是 `.ocstudio/` 下的文件（或 localStorage），
+   * 不在 Dexie 事务里。目标还没配过时整段恢复，配过就整段保留 —— 规则见 backup-config.ts。
+   */
+  const config = await restoreBackupConfig(payload.config)
   queryClient?.invalidateQueries()
 
-  return result
+  return { ...result, config }
 }
