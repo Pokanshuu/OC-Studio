@@ -102,12 +102,9 @@ function brief(value: unknown): string {
  */
 export interface DocNodeLike {
   eq(other: DocNodeLike): boolean
-  readonly childCount: number
-  readonly lastChild: DocNodeLike | null | undefined
   readonly type: { name: string }
   readonly content: { size: number }
   forEach(fn: (node: DocNodeLike) => void): void
-  copy(content: readonly DocNodeLike[]): DocNodeLike
 }
 
 export function sameDocNodeIgnoringTrailingSpacer<T>(a: T, b: T): boolean {
@@ -116,27 +113,33 @@ export function sameDocNodeIgnoringTrailingSpacer<T>(a: T, b: T): boolean {
   const left = a as unknown as DocNodeLike
   const right = b as unknown as DocNodeLike
   if (left.eq(right)) return true
-  return trimTrailingEmptyParagraphs(left).eq(trimTrailingEmptyParagraphs(right))
+  if (left.type?.name !== right.type?.name) return false
+  const leftChildren = childrenIgnoringTrailingSpacer(left)
+  const rightChildren = childrenIgnoringTrailingSpacer(right)
+  return (
+    leftChildren.length === rightChildren.length &&
+    leftChildren.every((node, index) => node.eq(rightChildren[index]!))
+  )
 }
 
-function trimTrailingEmptyParagraphs(node: DocNodeLike): DocNodeLike {
-  let current = node
-  while (true) {
-    // ProseMirror 的 `lastChild` 在空文档 / 空 fragment 上可能是 `undefined`
-    // （类型标注写的是 `| null`，但运行时两种情况都有），直接读 `.type` 会炸。
-    const last = current.lastChild
-    if (!last) break
-    const type = last.type
-    const content = last.content
-    if (!type || !content) break
-    const emptyParagraph = type.name === 'paragraph' && content.size === 0
-    if (!emptyParagraph) break
-    const children: DocNodeLike[] = []
-    current.forEach((child) => children.push(child))
+/**
+ * 顶层子节点，去掉末尾的「空段落」。
+ *
+ * 不调 `Node.copy(array)`：ProseMirror 的 `copy` 要的是 **Fragment**，传数组会把
+ * `node.content` 变成数组，下一轮 `.eq()` 就报 `content.eq is not a function`。
+ * 这里只收集 / 比较子节点，完全不改原文档。
+ */
+function childrenIgnoringTrailingSpacer(node: DocNodeLike): DocNodeLike[] {
+  const children: DocNodeLike[] = []
+  node.forEach((child) => children.push(child))
+  while (children.length > 0) {
+    const last = children[children.length - 1]
+    // 空文档 / 空 fragment 的 `lastChild` 可能是 `undefined`；直接用 `!last` 兜住
+    if (!last?.type || !last.content) break
+    if (last.type.name !== 'paragraph' || last.content.size !== 0) break
     children.pop()
-    current = current.copy(children)
   }
-  return current
+  return children
 }
 
 /**

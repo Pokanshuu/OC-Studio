@@ -36,7 +36,7 @@
 
 ### 修复
 
-- **空文档比较崩溃**：`sameDocNodeIgnoringTrailingSpacer` 直接读 `lastChild.type`；ProseMirror 在空文档 / 空 fragment 上返回的是 `undefined` 而不是 `null`，于是 `last.type` 抛 `Cannot read properties of undefined`。现在同时兜住 `undefined` 与缺失的 `type` / `content`。
+- **空文档比较崩溃**：`sameDocNodeIgnoringTrailingSpacer` 读 `lastChild.type`（空文档时是 `undefined`），并且在去除末尾空段落时给 ProseMirror 的 `copy()` 传了数组——`copy` 要的是 `Fragment`，会把 `content` 变成数组，下一次 `.eq()` 报 `content.eq is not a function`。现在只收集 / 比较顶层子节点，不再复制节点，也不再读 `lastChild`。
 - **中文引号旁的加粗不生效**：`会有**"反相位干涉"**（…` 这类写法不符合 CommonMark 的强调规则（`**` 后面紧跟引号、前面又是汉字），会原样显示星号。现在接入 CJK-friendly 的 remark 扩展，中文标点紧邻的 `**` / `*` 能正常解析。
 - **`$...$` 数学原样显示**：助手常写 `$\rightarrow$` 表示箭头、也偶尔写公式。现在接入 `remark-math` + KaTeX：行内与块级公式都渲染；流式逐字动画会跳过 KaTeX 子树，不会把公式拆散。
 - **模型下拉不再用原生 `datalist`**：系统弹出的列表圆角、阴影、暗色都不受设计令牌控制。改成输入框 + 宿主 `Menu`（设计令牌原生菜单），模型多时菜单内部滚动，仍可直接手输模型名。
