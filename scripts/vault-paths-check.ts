@@ -10,6 +10,7 @@ import {
   sanitizeFileName,
 } from '../src/lib/vault/vault-paths'
 import { batchStartedAt, shouldPurgeBatch } from '../src/features/trash/retention'
+import { readFileSync } from 'node:fs'
 
 let passed = 0
 const failures: string[] = []
@@ -100,6 +101,25 @@ check(
   '直接递进内部目录也会被挡掉',
   pickPreferredFolder('country', ['.ocstudio/trash/20261110-120000/国家']) === '国家',
 )
+
+// ── 回收站保留天数：下拉的取值与设置的允许列表必须一致 ──────────────────
+// 两处各写一份常量（下拉在 retention.ts，归一化在 settings.tsx）。
+// 如果哪天给下拉加了「保留 90 天」却忘了改 settings，那个值会被悄悄当成 30 —— 设置看起来没保存。
+{
+  const read = (rel: string): string => readFileSync(new URL(`../${rel}`, import.meta.url), 'utf8')
+  const retention = read('src/features/trash/retention.ts')
+  const settings = read('src/lib/settings.tsx')
+
+  const optionValues = [...retention.matchAll(/value:\s*(\d+)/g)].map((m) => Number(m[1])).sort((a, b) => a - b)
+  const allowMatch = settings.match(/\[([0-9,\s]+)\]\.includes\(merged\.trashRetentionDays\)/)
+  const allowValues = allowMatch
+    ? allowMatch[1].split(',').map((v) => Number(v.trim())).filter((v) => Number.isFinite(v)).sort((a, b) => a - b)
+    : []
+
+  check('回收站下拉有三个选项', optionValues.length === 3)
+  check('下拉取值 = 设置允许列表', JSON.stringify(optionValues) === JSON.stringify(allowValues), `${optionValues} vs ${allowValues}`)
+  check('包含「从不」= 0', allowValues.includes(0))
+}
 
 if (failures.length > 0) {
   console.error('vault 路径自检失败：')
