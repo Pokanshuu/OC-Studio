@@ -97,6 +97,7 @@ export function useUpdateCountry(): {
     mutationFn: ({ id, data }: { id: number; data: Partial<CountryFormData> }) =>
       countryService.updateCountry(id, data),
     onSuccess: (_result, variables) => {
+      notifyDataUpdated()
       void queryClient.invalidateQueries({ queryKey: makeCountryKey(variables.id) })
       void queryClient.invalidateQueries({ queryKey: LIST_KEY })
     },

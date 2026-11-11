@@ -103,6 +103,7 @@ export function useUpdateEvent(): {
     mutationFn: ({ id, data }: { id: number; data: Partial<EventFormData> }) =>
       eventService.updateEvent(id, data),
     onSuccess: (_result, variables) => {
+      notifyDataUpdated()
       void queryClient.invalidateQueries({ queryKey: LIST_KEY })
       void queryClient.invalidateQueries({ queryKey: TIMELINE_KEY })
       void queryClient.invalidateQueries({ queryKey: makeEventKey(variables.id) })

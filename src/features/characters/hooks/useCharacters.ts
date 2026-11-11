@@ -100,6 +100,7 @@ export function useUpdateCharacter(): {
     mutationFn: ({ id, data }: { id: number; data: Partial<CharacterFormData> }) =>
       characterService.updateCharacter(id, data),
     onSuccess: (_result, variables) => {
+      notifyDataUpdated()
       void queryClient.invalidateQueries({ queryKey: makeCharacterKey(variables.id) })
       void queryClient.invalidateQueries({ queryKey: LIST_KEY })
     },
