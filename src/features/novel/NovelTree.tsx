@@ -231,24 +231,28 @@ export function NovelTree({
     onBack()
   }
 
-  const handleCreateChapter = async () => {
-    await flushSave()
-    const id = await createNovelChapter(novelId)
-    await reload()
-    setSelectedId(id)
-    setShowMobileTree(false)
-    notifyDataUpdated()
+  /** 建一章（`parentId` 非空 = 在当前选中章下面建子章） */
+  const createChapterUnder = async (parentId: number | null) => {
+    try {
+      await flushSave()
+      const id = await createNovelChapter(parentId ?? novelId)
+      await reload()
+      setSelectedId(id)
+      setShowMobileTree(false)
+      notifyDataUpdated()
+    } catch (error) {
+      toast.error('新建章节失败', {
+        description: error instanceof Error ? error.message : String(error),
+      })
+    }
   }
+
+  const handleCreateChapter = () => createChapterUnder(null)
 
   /** 在当前章下面建子章：目录因此能长成「卷 → 章 → 节」 */
   const handleCreateSubChapter = async () => {
     if (selectedId == null) return
-    await flushSave()
-    const id = await createNovelChapter(selectedId)
-    await reload()
-    setSelectedId(id)
-    setShowMobileTree(false)
-    notifyDataUpdated()
+    await createChapterUnder(selectedId)
   }
 
   /** 拖拽落点：插到 `overId` 那一条的位置（父级跟着目标走），旧层与新层一起重排 */
@@ -256,10 +260,17 @@ export function NovelTree({
     const overParent = entries.find((entry) => entry.id === overId)?.parentId ?? null
     const updates = computeReorder(entries, draggedId, overParent, overId)
     if (updates.length === 0) return
-    await flushSave()
-    await reorderEntries(updates)
-    await reload()
-    notifyDataUpdated()
+    try {
+      await flushSave()
+      await reorderEntries(updates)
+      await reload()
+      notifyDataUpdated()
+    } catch (error) {
+      // 拖完松手、章节弹回原位，一句话都没有 —— 用户只会以为拖拽坏了
+      toast.error('章节排序没保存下来', {
+        description: error instanceof Error ? error.message : String(error),
+      })
+    }
   }
 
   // 内链落点：书架把「目标章节 id」传下来，章节树负责定位（只认一次）
@@ -281,10 +292,30 @@ export function NovelTree({
 
   const handleRenameChapter = async (id: number, next: string) => {
     if (!next.trim()) return
-    await renameNovelEntry(id, next.trim())
-    setEditingId(null)
-    await reload()
-    notifyDataUpdated()
+    try {
+      await renameNovelEntry(id, next.trim())
+      setEditingId(null)
+      await reload()
+      notifyDataUpdated()
+    } catch (error) {
+      toast.error('改名失败', {
+        description: error instanceof Error ? error.message : String(error),
+      })
+    }
+  }
+
+  const handleRenameBook = async (value: string) => {
+    const trimmed = value.trim()
+    if (!root || !trimmed || trimmed === root.title) return
+    try {
+      await renameNovelEntry(root.id, trimmed)
+      await reload()
+      notifyDataUpdated()
+    } catch (error) {
+      toast.error('书名没保存下来', {
+        description: error instanceof Error ? error.message : String(error),
+      })
+    }
   }
 
   const saveMeta = async (patch: Parameters<typeof updateNovelMeta>[1]) => {
@@ -334,10 +365,7 @@ export function NovelTree({
       onToggleMeta={() => setMetaOpen((open) => !open)}
       root={root}
       onSaveMeta={(patch) => void saveMeta(patch)}
-      onRenameBook={(value) => {
-        if (!root || !value.trim() || value === root.title) return
-        void renameNovelEntry(root.id, value.trim()).then(() => void reload())
-      }}
+      onRenameBook={(value) => void handleRenameBook(value)}
       onCloseMobile={isMobile ? () => setShowMobileTree(false) : undefined}
       onToggleCollapsed={isMobile ? undefined : () => setListOpen((open) => !open)}
     />
