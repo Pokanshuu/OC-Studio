@@ -108,10 +108,16 @@ export function TimelinePanel() {
 
   const fileName = useMemo(() => `OC时间线-${stamp()}.png`, [])
   const sizeLabel = figure === null ? '—' : `${figure.width} × ${figure.height}`
+  /**
+   * 事件和时期都没有时，导出的就是一张只有标题的白图。
+   * 与文档面板（`visible.total === 0` 直接禁用）保持同一口径：没有内容就不给导。
+   */
+  const isEmpty = figure !== null && figure.events === 0 && figure.periods === 0
+  const exportDisabled = figure === null || busy || isEmpty
 
   const exportPng = async (): Promise<void> => {
     const canvas = canvasRef.current
-    if (canvas === null || busy) return
+    if (canvas === null || busy || isEmpty) return
     setBusy(true)
     try {
       const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
@@ -202,8 +208,8 @@ export function TimelinePanel() {
           <button
             type="button"
             onClick={() => void exportPng()}
-            disabled={figure === null || busy}
-            className={`${BTN_PRIMARY} ${figure === null || busy ? 'cursor-not-allowed opacity-50' : ''}`}
+            disabled={exportDisabled}
+            className={`${BTN_PRIMARY} ${exportDisabled ? 'cursor-not-allowed opacity-50' : ''}`}
           >
             <Download size={14} strokeWidth={2} />
             {busy ? '正在导出…' : '导出 PNG'}

@@ -249,9 +249,16 @@ export function GraphPanel() {
 
   const fileName = useMemo(() => `OC关系图-${stamp()}.png`, [])
 
+  /**
+   * 一个节点都没有时导出的是一张空图。与文档 / 时间线面板同一口径：没内容就不给导。
+   * （只剩孤立节点也算有内容：用户可能就是要把「名单」导出成图。）
+   */
+  const isEmpty = figure !== null && figure.nodes === 0
+  const exportDisabled = figure === null || busy || isEmpty
+
   const exportPng = async (): Promise<void> => {
     const canvas = canvasRef.current
-    if (canvas === null || busy) return
+    if (canvas === null || busy || isEmpty) return
     setBusy(true)
     try {
       const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
@@ -487,8 +494,8 @@ export function GraphPanel() {
           <button
             type="button"
             onClick={() => void exportPng()}
-            disabled={figure === null || busy}
-            className={`${BTN_PRIMARY} ${figure === null || busy ? 'cursor-not-allowed opacity-50' : ''}`}
+            disabled={exportDisabled}
+            className={`${BTN_PRIMARY} ${exportDisabled ? 'cursor-not-allowed opacity-50' : ''}`}
           >
             <Download size={14} strokeWidth={2} />
             {busy ? '正在导出…' : '导出 PNG'}
