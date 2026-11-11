@@ -6,6 +6,7 @@ import type { WorldEntry } from '@/types'
 import { saveEntryContent } from '../services'
 import { syncReferenceLabels } from '@/lib/reference-sync'
 import { hasWorldBody, loadBodyWithoutHistory, worldBodyOf } from '@/lib/world-body'
+import { notifyDataUpdated } from '@/lib/data-events'
 
 /**
  * 待写草稿：内容与它的归属词条 id 绑在一起，避免切换词条时写错地方。
@@ -45,9 +46,25 @@ export function useWorldEntryDraft({
   const selectedIdRef = useRef<number | null>(null)
   const saveEnabledRef = useRef(false)
   const currentEntryRef = useRef<WorldEntry | undefined>(undefined)
+  /**
+   * 上一次**已经广播过**的标题。
+   *
+   * 词条名会出现在别处（地图锚点标签、相册来源、关系图节点）。标题输入框每敲一个字都会
+   * 触发防抖保存 —— 不能每个字都广播（相册要扫全库），所以在**保存落地之后**比一次：
+   * 标题真的变了才广播，一次改名只播一次。
+   */
+  const broadcastTitleRef = useRef<string | null>(null)
 
   useEffect(() => { selectedIdRef.current = selectedId }, [selectedId])
   useEffect(() => { currentEntryRef.current = currentEntry }, [currentEntry])
+  /**
+   * 切换词条时把「已广播的标题」对齐到盘上/库里的当前标题 ——
+   * 否则打开一篇没改名字的笔记、只动了正文，保存时也会因为 ref 是 null 而广播一次，
+   * 相册就要白扫一遍全库。
+   */
+  useEffect(() => {
+    broadcastTitleRef.current = currentEntry?.title ?? null
+  }, [currentEntry?.id, currentEntry?.title])
 
   const flushSave = useCallback(async () => {
     const pending = pendingSaveRef.current
@@ -61,6 +78,11 @@ export function useWorldEntryDraft({
       await saveEntryContent(pending.entryId, pending.title, synced)
       // 期间若又攒了新草稿就别清掉它
       if (pendingSaveRef.current === pending) pendingSaveRef.current = null
+      // 名字变了才广播（每次保存最多一次）：地图 / 相册 / 关系图上的旧名要跟着换
+      if (broadcastTitleRef.current !== pending.title) {
+        broadcastTitleRef.current = pending.title
+        notifyDataUpdated()
+      }
       refresh()
     } catch (err) {
       console.error(`[save] flushSave 写入失败:`, err)

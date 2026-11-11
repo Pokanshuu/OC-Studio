@@ -27,6 +27,7 @@ import { WorldEntryBody } from './WorldEntryBody'
 import { filterEntriesWithAncestors } from './world-content-utils'
 import { useMobilePageHeader } from '@/components/layout/MobilePageHeaderContext'
 import { useMobileNavigation } from '@/components/layout/MobileNavigationContext'
+import { notifyDataUpdated } from '@/lib/data-events'
 
 interface WorldLayoutProps {
   onMentionClick?: (id: string, entityType?: string) => void
@@ -171,7 +172,11 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
   }, [deleteEntry, refresh, selectedId])
 
   const handleRename = useCallback((id: number, newTitle: string) => {
-    renameEntry(id, newTitle).then(() => { refresh() }).catch(() => {})
+    renameEntry(id, newTitle).then(() => {
+      refresh()
+      // 改名是离散动作：地图锚点标签、相册来源名、关系图节点名都靠这条广播刷新
+      notifyDataUpdated()
+    }).catch(() => {})
   }, [refresh])
 
   const handleReorder = useCallback((updates: { id: number; parentId: number | null; order: number }[]) => {
