@@ -9,6 +9,7 @@ import {
   pickPreferredFolder,
   sanitizeFileName,
 } from '../src/lib/vault/vault-paths'
+import { batchStartedAt, shouldPurgeBatch } from '../src/features/trash/retention'
 
 let passed = 0
 const failures: string[] = []
@@ -42,6 +43,26 @@ const renamedRestore = allocateRelPath(
   restoreTarget.slice(restoreTarget.lastIndexOf('/') + 1).replace(/\.md$/i, ''),
 )
 check('回收站恢复撞名时改名而不是覆盖', renamedRestore === '角色/亚瑟 (2).md', renamedRestore)
+
+// ── 回收站自动清理：宁可留着，也不能清错 ──────────────────────────────
+// 删的是用户文件，规则错一条就是数据事故：名字认不出 / 两个时间有一个不老，都必须跳过。
+const day = 24 * 60 * 60 * 1000
+const oldStart = new Date('2025-01-02T03:04:05').getTime()
+const cutoff = oldStart + 31 * day
+check('批次名解析出的是删除那天', batchStartedAt('20250102-030405') === oldStart)
+check('批次名长度不对不认', batchStartedAt('2025010-030405') === null)
+check('批次名分隔符不对不认', batchStartedAt('20250102_030405') === null)
+check('批次名混字母不认', batchStartedAt('20250102-03040a') === null)
+check('两边都过期才清', shouldPurgeBatch('20250102-030405', oldStart, cutoff))
+check(
+  '目录 mtime 不老就不清（时钟 / 手工改名的双保险）',
+  !shouldPurgeBatch('20250102-030405', cutoff + day, cutoff),
+)
+check(
+  '名字里的时间不老就不清（目录 mtime 被碰过）',
+  !shouldPurgeBatch('20261111-183005', oldStart, cutoff),
+)
+check('名字认不出的批次一律不动', !shouldPurgeBatch('trash', oldStart, cutoff))
 check('Windows 非法字符被清掉', sanitizeFileName('a/b:c*?"<>|') === 'a b c')
 
 // ── 新建条目的落点：回收站与 .ocstudio 不能参与推断 ──────────────────────

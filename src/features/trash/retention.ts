@@ -48,6 +48,17 @@ export const TRASH_RETENTION_OPTIONS = [
 ]
 
 /**
+ * 一批回收站目录该不该清掉。**两个时间都要过期**：
+ * 目录 mtime（这一批最后一次删除的时间）与批次名里的时间（删除那天的日期）。
+ * 任何一边不老、或者名字认不出，都返回 false —— 宁可留着，也不能清错。
+ */
+export function shouldPurgeBatch(name: string, mtimeMs: number, cutoff: number): boolean {
+  const startedAt = batchStartedAt(name)
+  if (startedAt === null) return false
+  return startedAt <= cutoff && mtimeMs <= cutoff
+}
+
+/**
  * 清理超过 `days` 天的回收站批次。`days <= 0` 表示从不清理。
  *
  * 没有打开笔记库（浏览器预览）时什么都不做。
@@ -69,9 +80,8 @@ export async function purgeExpiredTrash(days: number): Promise<TrashPurgeResult>
   const result: TrashPurgeResult = { batches: 0, files: 0, skipped: 0 }
   const purged: string[] = []
   for (const batch of batches) {
-    const startedAt = batchStartedAt(batch.name)
-    // 名字认不出、或者「目录时间」或「名字里的时间」有一个不老，就不动这一批
-    if (startedAt === null || startedAt > cutoff || batch.mtimeMs > cutoff) {
+    // 名字认不出、或者两个时间有一个不老，就不动这一批
+    if (!shouldPurgeBatch(batch.name, batch.mtimeMs, cutoff)) {
       result.skipped += 1
       continue
     }
