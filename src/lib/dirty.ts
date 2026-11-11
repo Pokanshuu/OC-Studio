@@ -103,7 +103,7 @@ function brief(value: unknown): string {
 export interface DocNodeLike {
   eq(other: DocNodeLike): boolean
   readonly childCount: number
-  readonly lastChild: DocNodeLike | null
+  readonly lastChild: DocNodeLike | null | undefined
   readonly type: { name: string }
   readonly content: { size: number }
   forEach(fn: (node: DocNodeLike) => void): void
@@ -122,9 +122,14 @@ export function sameDocNodeIgnoringTrailingSpacer<T>(a: T, b: T): boolean {
 function trimTrailingEmptyParagraphs(node: DocNodeLike): DocNodeLike {
   let current = node
   while (true) {
+    // ProseMirror 的 `lastChild` 在空文档 / 空 fragment 上可能是 `undefined`
+    // （类型标注写的是 `| null`，但运行时两种情况都有），直接读 `.type` 会炸。
     const last = current.lastChild
-    if (last === null) break
-    const emptyParagraph = last.type.name === 'paragraph' && last.content.size === 0
+    if (!last) break
+    const type = last.type
+    const content = last.content
+    if (!type || !content) break
+    const emptyParagraph = type.name === 'paragraph' && content.size === 0
     if (!emptyParagraph) break
     const children: DocNodeLike[] = []
     current.forEach((child) => children.push(child))
