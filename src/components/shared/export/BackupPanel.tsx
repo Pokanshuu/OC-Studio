@@ -63,7 +63,7 @@ export function BackupPanel() {
     try {
       const name = await downloadFullBackup()
       setSaved(name)
-      toast.success(`完整备份已导出`, { description: name })
+      toast.success('数据备份已导出', { description: name })
     } catch (reason) {
       const message = reason instanceof Error ? reason.message : String(reason)
       if (message !== '已取消') toast.error('备份导出失败', { description: message })

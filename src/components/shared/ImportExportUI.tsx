@@ -43,10 +43,10 @@ export function useImportExport(options?: {
     if (exporting) return
     setExporting(true)
     try {
-      // 备份只有一种：完整备份（.ocbak，图片内联）。不再提供「不含图片的 JSON」
+      // 备份只有一种：.ocbak（图片内联）。不再提供「不含图片的 JSON」——那是更弱、更容易丢东西的第二格式
       // —— 那是个更弱、更容易丢东西的第二格式。
       const name = await downloadFullBackup()
-      toast.success(`完整备份导出成功：${name}`)
+      toast.success('数据备份已导出', { description: name })
     } catch (error) {
       const message = error instanceof Error ? error.message : ''
       if (message !== '已取消') {
