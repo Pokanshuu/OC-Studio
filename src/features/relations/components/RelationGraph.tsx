@@ -418,7 +418,14 @@ export function RelationGraph({
     const entityType = node.data?.entityType as RelationNodeType | undefined
     const entityId = node.data?.entityId as number | undefined
     if (!entityType || entityId === undefined) return
-    void saveNodePosition(entityType, entityId, node.position.x, node.position.y)
+    // 写失败要说出来：否则「摆好了、重开又跳回原位」，用户只会以为布局不保存
+    void saveNodePosition(entityType, entityId, node.position.x, node.position.y).catch(
+      (error: unknown) => {
+        toast.error('保存节点位置失败', {
+          description: error instanceof Error ? error.message : String(error),
+        })
+      },
+    )
   }, [])
 
   /** 拖拽时跟着指针走的「名字浮尘」：缩得很小时节点名看不见，跟着手反而看得清 */
@@ -506,13 +513,20 @@ export function RelationGraph({
     setNodes((current) =>
       current.map((node) => ({ ...node, position: layout.get(node.id) ?? node.position })),
     )
+    const writes: Promise<void>[] = []
     for (const node of filteredNodes) {
       const position = layout.get(node.id)
       const entityType = node.data?.entityType as RelationNodeType | undefined
       const entityId = node.data?.entityId as number | undefined
       if (!position || !entityType || entityId === undefined) continue
-      void saveNodePosition(entityType, entityId, position.x, position.y)
+      writes.push(saveNodePosition(entityType, entityId, position.x, position.y))
     }
+    // 一批坐标一次报错（逐个 catch 会在整理 50 个节点时弹 50 条提示）
+    void Promise.all(writes).catch((error: unknown) => {
+      toast.error('保存节点位置失败', {
+        description: error instanceof Error ? error.message : String(error),
+      })
+    })
     rfRef.current?.fitView({ padding: 0.2, duration: 200, minZoom: MIN_ZOOM })
 
     toast('已整理布局', {
@@ -527,9 +541,15 @@ export function RelationGraph({
             }),
           )
           // 快照也要写回实体：否则只是画布回原位，下次打开还是整理后的位置
+          const restores: Promise<void>[] = []
           for (const previous of snapshot.values()) {
-            void saveNodePosition(previous.entityType, previous.entityId, previous.x, previous.y)
+            restores.push(saveNodePosition(previous.entityType, previous.entityId, previous.x, previous.y))
           }
+          void Promise.all(restores).catch((error: unknown) => {
+            toast.error('撤销布局失败', {
+              description: error instanceof Error ? error.message : String(error),
+            })
+          })
         },
       },
     })

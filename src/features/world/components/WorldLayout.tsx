@@ -131,7 +131,10 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
   const handleTagsChange = useCallback((ids: number[]) => {
     setTags(ids)
     if (selectedIdRef.current == null) return
-    void updateEntry(selectedIdRef.current, { tags: ids }).catch(() => {})
+    void updateEntry(selectedIdRef.current, { tags: ids }).catch((err: unknown) => {
+      // 标签是用户点了就走的操作：写失败静默会让「打了标签、重开没了」变成悬案
+      toast.error('保存标签失败', { description: err instanceof Error ? err.message : String(err) })
+    })
   }, [selectedIdRef])
 
   const handleSelect = useCallback(async (id: number, entry: WorldEntry) => {

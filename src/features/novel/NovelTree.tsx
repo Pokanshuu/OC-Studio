@@ -12,6 +12,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/core'
+import { toast } from 'sonner'
 import { BookText, ChevronDown, ChevronLeft, FileDown, Info, Plus, Search } from 'lucide-react'
 import {
   DndContext,
@@ -287,14 +288,28 @@ export function NovelTree({
   }
 
   const saveMeta = async (patch: Parameters<typeof updateNovelMeta>[1]) => {
-    await updateNovelMeta(novelId, patch)
-    await reload()
+    try {
+      await updateNovelMeta(novelId, patch)
+      await reload()
+    } catch (error) {
+      // 作品信息（作者 / 简介 / 目标字数）写失败要说：输入框里还留着刚打的字，
+      // 刷新才发现没存进去 —— 这类「静默失败」比报错难查得多
+      toast.error('保存作品信息失败', {
+        description: error instanceof Error ? error.message : String(error),
+      })
+    }
   }
 
   const saveOutline = async (value: string) => {
     if (!selected) return
-    await updateChapterOutline(selected.id, value)
-    await reload()
+    try {
+      await updateChapterOutline(selected.id, value)
+      await reload()
+    } catch (error) {
+      toast.error('保存章节大纲失败', {
+        description: error instanceof Error ? error.message : String(error),
+      })
+    }
   }
 
   const bookTitle = root?.title ?? title
