@@ -256,6 +256,26 @@ export function buildEditorConfig({
         }
         return false
       },
+      /**
+       * Esc = 交出正文焦点。
+       *
+       * Tab 现在是「段首缩进」（`FirstLineIndent`），键盘用户因此**没有键可以离开正文**
+       * —— WCAG 2.1.2 明确禁止键盘陷阱。这里给一条出路：Esc 把焦点从正文里放出来，
+       * 再按 Tab 就能在界面里走。
+       *
+       * 有浮层开着时不动手：菜单 / 弹窗 / 输入法候选 / 编辑器自己的浮层（链接、slash、@）
+       * 都各自处理 Esc，抢在前面会把「关浮层」变成「连焦点一起丢」。
+       */
+      handleKeyDown: (_view, event) => {
+        if (event.key !== 'Escape' || event.isComposing || event.defaultPrevented) return false
+        if (typeof document === 'undefined') return false
+        const overlay = document.getElementById('overlay-root')
+        if (overlay !== null && overlay.childElementCount > 0) return false
+        const target = event.target
+        if (!(target instanceof HTMLElement)) return false
+        target.blur()
+        return true
+      },
       handleScrollToSelection: () => {
         if (!isMobile) return false
         if (!isKeyboardVisible()) return true
