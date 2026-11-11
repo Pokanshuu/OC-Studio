@@ -125,6 +125,12 @@ const RULES: Rule[] = [
     why: '不要 ring 光晕 → focus-visible 用令牌色描边或底色',
     test: /\bring-(?:[1-9]|\[)/,
   },
+  {
+    name: 'doc-reference',
+    why: '界面文案里不写仓库路径 / 文档编号（「见 docs/todo.md §11」）—— 用户看不懂，文档还会改名',
+    // 只逮字符串与 JSX 文本里的 docs/ 引用；注释在扫描前已被跳过
+    test: /(?:^|[^a-zA-Z0-9_])docs\/[a-zA-Z0-9_\u4e00-\u9fa5-]+\.md/,
+  },
 ]
 
 /**

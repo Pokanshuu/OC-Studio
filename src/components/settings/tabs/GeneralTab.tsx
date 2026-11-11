@@ -140,7 +140,7 @@ export function GeneralTab() {
           false,
           true,
           () => {},
-          <span className={SETTINGS_HINT}>暂未实现 · 见 docs/todo.md §11</span>,
+          <span className={SETTINGS_HINT}>开发中</span>,
         )}
       </div>
     </div>

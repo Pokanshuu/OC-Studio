@@ -44,7 +44,7 @@ export const THEME_TOKENS: readonly TokenRegistration[] = [
   ...Array.from({ length: 12 }, (_, index) => ({
     name: `--oc-accent-${index + 1}`,
     scope: 'page' as const,
-    note: `图表强调色第 ${index + 1} 档（关系图连线等，见 docs/主题.md §4）`,
+    note: `图表强调色第 ${index + 1} 档（关系图连线等）`,
   })),
 ]
 
