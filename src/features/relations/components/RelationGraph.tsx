@@ -208,14 +208,34 @@ export function RelationGraph({
   }, [rawNodes])
 
   /** 每个节点连着几条边：0 = 孤立节点（新建后还没连线的那些） */
+  const typeOfNode = useMemo(() => {
+    const map = new Map<string, RelationNodeType>()
+    for (const node of rawNodes) {
+      const type = node.data?.entityType as RelationNodeType | undefined
+      if (type !== undefined) map.set(node.id, type)
+    }
+    return map
+  }, [rawNodes])
+
   const degree = useMemo(() => {
     const map = new Map<string, number>()
+    /**
+     * 只数**两端都还看得见的边**。
+     *
+     * 以前用全部 rawEdges 数：把「国家」一关，一个只和国家相连的角色仍然算「有连线」，
+     * 于是「孤立节点」关了也藏不掉它 —— 屏幕上留着几个没有任何连线的点，开关像失灵。
+     */
+    const hidden = (id: string): boolean => {
+      const type = typeOfNode.get(id)
+      return type !== undefined && !visibleTypes[type]
+    }
     for (const edge of rawEdges) {
+      if (hidden(edge.source) || hidden(edge.target)) continue
       map.set(edge.source, (map.get(edge.source) ?? 0) + 1)
       map.set(edge.target, (map.get(edge.target) ?? 0) + 1)
     }
     return map
-  }, [rawEdges])
+  }, [rawEdges, typeOfNode, visibleTypes])
 
   /** 聚焦：这个节点 + 一跳邻居 */
   const focusSet = useMemo(() => {
