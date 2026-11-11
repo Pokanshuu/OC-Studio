@@ -32,6 +32,7 @@ import { applyDocumentBodies } from '../src/lib/vault/markdown-bridge'
 import { scanVault } from '../src/lib/vault/scan'
 import { applyTagMeta, parseTagMeta, serializeTagMeta, tagMetaFromTags } from '../src/lib/vault/vault-tags'
 import { setCustomFieldKeys } from '../src/lib/vault/vault-field-keys'
+import { serializeCharacter } from '../src/lib/vault/serialize'
 import { DEFAULT_FOLDER } from '../src/lib/vault/vault-paths'
 import type { VaultStorableKind } from '../src/lib/vault/types'
 import type { Character, Country, Event, Tag, WorldEntry } from '../src/types'
@@ -622,6 +623,41 @@ const dataPlan = collectLegacyImageRefs({
   worldEntries: [{ ...worldEntries[2], mapImage: 'data:image/png;base64,AAA' }],
 })
 eq('落地 · data: 底图进复制队列', dataPlan.copy, ['data:image/png;base64,AAA'])
+
+// ── 删掉自建字段后：文件里的旧值必须留着，加回来还能读 ──────────────────
+// 这是「改设置把数据改没了」最典型的一条。语义写在 `vault-field-keys.ts`：
+// 没登记的键 = 不再是字段 —— 扫描不读、**写回也不动**。
+{
+  const noteWithField = {
+    relPath: '10.角色/凯尔.md',
+    content: '---\n名称: 凯尔\nfavoriteFood: 烤鱼\n---\n',
+    size: 0,
+    mtimeMs: 0,
+  }
+  const scanned = scanVault({ root: '/memory', files: [noteWithField], skippedDirs: [], marker: null })
+  const entity = scanned.dataset.characters[0]?.entity
+  eq('删字段前 · 能读回自建字段', entity?.custom?.favoriteFood, '烤鱼')
+
+  // 字段表里删掉 favoriteFood（不再登记），再把这个实体存一次
+  setCustomFieldKeys({})
+  if (entity !== undefined) {
+    const patch = serializeCharacter(
+      entity,
+      entity,
+      { entity, frontmatter: { 名称: '凯尔', favoriteFood: '烤鱼' } },
+      buildContext(rows),
+    )
+    eq('删字段后 · 保存不会删掉文件里的旧值', 'favoriteFood' in patch, false)
+  }
+
+  // 重新登记（把字段加回来）→ 仍然读得到
+  setCustomFieldKeys({ character: ['favoriteFood'] })
+  const rescanned = scanVault({ root: '/memory', files: [noteWithField], skippedDirs: [], marker: null })
+  eq('字段加回来 · 旧值还在', rescanned.dataset.characters[0]?.entity.custom?.favoriteFood, '烤鱼')
+
+  // 收尾：恢复成这份脚本一开始的登记（后面的断言还要用）
+  setCustomFieldKeys({ character: ['favoriteFood'], worldEntry: ['物种', '习性'] })
+}
 
 // ── 结果 ────────────────────────────────────────────────────────────────
 
