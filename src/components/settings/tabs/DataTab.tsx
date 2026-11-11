@@ -94,7 +94,7 @@ export function DataTab() {
             aria-checked={false}
             aria-disabled="true"
             disabled
-            title="暂未开放"
+            title="开发中"
             className={`${SWITCH_CLASSES.base} ${SWITCH_CLASSES.off} disabled:cursor-not-allowed disabled:opacity-40`}
           >
             <span className={`${SWITCH_DOT} translate-x-[2px]`} />

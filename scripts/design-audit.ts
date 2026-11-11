@@ -222,6 +222,60 @@ for (const file of walk(SRC)) {
   }
 }
 /**
+ * 没有读者的设置项 = 骗人的开关。
+ *
+ * 事故形状：开机自启动的开关以前只写 localStorage、没人调系统接口，拨了没反应
+ * （现在已改成灰掉的「开发中」）。同类问题还会再犯 —— 加一个设置字段、写个开关、
+ * 忘了在别处消费它。这里对着 `Settings` 接口逐个查「设置页之外有没有人读」。
+ *
+ * 允许清单只放**已经明确不做**的项，并且必须在 UI 里是灰的：
+ * - `autoStart`（开机自启）：桌面端要做 StartupTask，见 todo P3
+ * - `cloudSyncEnabled` / `syncServerUrl`（云同步）：未上线，UI 已禁用
+ */
+{
+  const NOT_IMPLEMENTED = new Set(['autoStart', 'cloudSyncEnabled', 'syncServerUrl'])
+  const settingsText = readFileSync(join(process.cwd(), 'src/lib/settings.tsx'), 'utf8')
+  const ifaceStart = settingsText.indexOf('export interface Settings')
+  const ifaceEnd = settingsText.indexOf('}', ifaceStart)
+  const iface = ifaceStart >= 0 ? settingsText.slice(ifaceStart, ifaceEnd) : ''
+  const fields = [...iface.matchAll(/^\s{2}([a-zA-Z][a-zA-Z0-9]*)\s*:/gm)].map((m) => m[1])
+
+  const tsFiles: string[] = []
+  const walkSettings = (dir: string): void => {
+    for (const name of readdirSync(dir)) {
+      const full = join(dir, name)
+      if (statSync(full).isDirectory()) {
+        walkSettings(full)
+        continue
+      }
+      if (!/\.(ts|tsx)$/.test(name)) continue
+      const rel = full.replace(/\\/g, '/')
+      // 设置页自己不算「读者」（它只是写值）；`lib/settings.tsx` 里的应用副作用算
+      // —— 主题 / 背景图就是在 provider 的 effect 里生效的
+      if (rel.includes('/components/settings/')) continue
+      tsFiles.push(full)
+    }
+  }
+  walkSettings(join(process.cwd(), 'src'))
+
+  const sources = tsFiles.map((file) => readFileSync(file, 'utf8'))
+  for (const field of fields) {
+    if (NOT_IMPLEMENTED.has(field)) continue
+    // 只认 `settings.<字段>` 这种**读取**形态：接口声明与默认值里是 `字段: 类型`，不会被算进来
+    const used = sources.some((text) => text.includes(`settings.${field}`))
+    if (used) continue
+    const violation = {
+      rule: 'dead-setting',
+      file: 'src/lib/settings.tsx',
+      line: 1,
+      text: `设置项 ${field} 在设置页之外没有任何读者（要么接上，要么标成开发中）`,
+    }
+    violations.push(violation)
+    byRule.set('dead-setting', [...(byRule.get('dead-setting') ?? []), violation])
+  }
+}
+
+/**
  * 界面文案里别写 Markdown 星号。
  *
  * 事故形状（2026-11-12）：备份页脚注写成「导入时**只在目标还是空的**时恢复」，
@@ -332,11 +386,18 @@ if (violations.length === 0) {
   process.exit(0)
 }
 
+/** 规则名 → 一句「为什么」。正则规则自带 `why`，下面的自定义检查统一在这里登记。 */
+const EXTRA_WHY: Record<string, string> = {
+  'ime-guard': '回车即提交的输入框必须挡掉输入法组字中的回车 / Esc',
+  'markdown-star': '界面文案里不写 Markdown 星号（`**`），用户看到的是乱码',
+  'dead-setting': '设置项必须在设置页之外有读者，否则就是个拨了没反应的开关',
+}
+
 console.log(`设计令牌体检：${violations.length} 处违规\n`)
-for (const rule of RULES) {
-  const list = byRule.get(rule.name)
-  if (list === undefined) continue
-  console.log(`✗ ${rule.name}（${list.length}）—— ${rule.why}`)
+// 按 byRule 打印（不按 RULES 遍历）：自定义检查（IME / Markdown / 死设置）不在 RULES 里
+for (const [name, list] of [...byRule.entries()].sort((a, b) => b[1].length - a[1].length)) {
+  const why = RULES.find((rule) => rule.name === name)?.why ?? EXTRA_WHY[name] ?? ''
+  console.log(`✗ ${name}（${list.length}）${why ? `—— ${why}` : ''}`)
   for (const v of list) console.log(`    ${v.file}:${v.line}  ${v.text}`)
   console.log('')
 }
