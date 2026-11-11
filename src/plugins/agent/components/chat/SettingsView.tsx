@@ -829,12 +829,15 @@ function DataTab() {
     try {
       const summary = await cmd.importBackup(path)
       await reloadConversations()
-      toast.show(
-        summary.conversations + summary.messages > 0
-          ? t('settings.importOk', { c: summary.conversations, m: summary.messages })
-          : t('settings.importEmpty'),
-        summary.conversations + summary.messages > 0 ? 'info' : 'error',
-      )
+      const added = summary.conversations + summary.messages
+      // 同 id 跳过是正常语义（重复导入自己的备份），不能报成「文件是空的」
+      if (added > 0) {
+        toast.show(t('settings.importOk', { c: summary.conversations, m: summary.messages }))
+      } else if (summary.skipped > 0) {
+        toast.show(t('settings.importSkipped', { n: summary.skipped }), 'info')
+      } else {
+        toast.show(t('settings.importEmpty'), 'error')
+      }
     } catch (error) {
       toast.show(String(error), 'error')
     }
