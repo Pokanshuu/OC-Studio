@@ -262,12 +262,11 @@ export function useEntityWorkspace() {  const { activeItem: desktopActiveItem, s
   )
 
   const handleDeleteEvent = useCallback(
-    (id: number) => {
-      if (deleting) return
-      deleteEvent(id).then(() => {
+    (id: number): Promise<void> => {
+      if (deleting) return Promise.resolve()
+      // 同角色：把 promise 交给调用方，由它决定「成功才报已移至回收站」
+      return deleteEvent(id).then(() => {
         refresh()
-      }).catch(() => {
-        // error handled via hook
       })
     },
     [deleteEvent, deleting, refresh],
@@ -376,12 +375,12 @@ export function useEntityWorkspace() {  const { activeItem: desktopActiveItem, s
   }, [refreshCharacters, clearSource, restoreCrossBack, clearEditing, confirmLeave])
 
   const handleDeleteCharacter = useCallback(
-    (id: number) => {
-      if (deletingChar) return
-      deleteCharacter(id).then(() => {
+    (id: number): Promise<void> => {
+      if (deletingChar) return Promise.resolve()
+      // 把 promise 交出去：调用方（DeleteButton）要等结果才报「已移至回收站」。
+      // 失败信息由 QueryClient 的默认 onError 统一提示，这里不再静默 catch。
+      return deleteCharacter(id).then(() => {
         refreshCharacters()
-      }).catch(() => {
-        // error handled via hook
       })
     },
     [deleteCharacter, deletingChar, refreshCharacters],
@@ -420,11 +419,9 @@ export function useEntityWorkspace() {  const { activeItem: desktopActiveItem, s
   }, [handleCreateCharacter, handleCreateEvent, handleCreateCountry])
 
   const handleDeleteCountry = useCallback(
-    (id: number) => {
-      if (deletingCountry) return
-      deleteCountry(id).catch(() => {
-        // error handled via hook
-      })
+    (id: number): Promise<void> => {
+      if (deletingCountry) return Promise.resolve()
+      return deleteCountry(id)
     },
     [deleteCountry, deletingCountry],
   )
