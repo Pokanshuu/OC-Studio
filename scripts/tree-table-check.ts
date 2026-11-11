@@ -226,8 +226,8 @@ function main(): void {
   // 于是同一批老数据在卡片上写着国家、在表格里躺在「未归属」，按国家筛还筛不到。
   {
     const legacyCharacters = [
-      character({ id: 15, name: '旧甲', countryId: null, nationalityLegacy: '甲' }),
-      character({ id: 16, name: '旧乙', countryId: null, nationalityLegacy: '不存在的国' }),
+      character({ id: 15, name: '旧甲', nationalityLegacy: '甲' }),
+      character({ id: 16, name: '旧乙', nationalityLegacy: '不存在的国' }),
     ]
     const rows = flattenCharacterRows(countryTree, legacyCharacters, options('', ['group:1']))
     const labels = rows.map((row) => row.label).join('|')
