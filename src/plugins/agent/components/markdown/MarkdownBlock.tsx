@@ -14,6 +14,10 @@
 import { memo } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import remarkCjkFriendly from 'remark-cjk-friendly'
+import remarkMath from 'remark-math'
+import rehypeKatex from 'rehype-katex'
+import 'katex/dist/katex.min.css'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { remarkAlerts } from '@/plugins/agent/core/markdown/alerts'
 import { rehypeStreamChars } from '@/plugins/agent/core/markdown/streamChars'
@@ -101,11 +105,11 @@ const components: Components = {
   },
 }
 
-const REMARK_PLUGINS = [remarkGfm, remarkAlerts]
+const REMARK_PLUGINS = [remarkGfm, remarkCjkFriendly, remarkMath, remarkAlerts]
 
 /** Module-level constants: a fresh array per render would defeat the memo. */
-const REHYPE_STREAM = [rehypeStreamChars]
-const REHYPE_NONE: [] = []
+const REHYPE_STREAM = [rehypeKatex, rehypeStreamChars]
+const REHYPE_NONE = [rehypeKatex]
 
 export interface MarkdownBlockProps {
   text: string

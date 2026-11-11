@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { Palette, Waypoints } from 'lucide-react'
 import { useSettings } from '@/lib/settings'
-import { useDevice } from '@/lib/use-device'
 import { readBlurPreference, writeBlurPreference } from '@/lib/blur-preference'
 import { isTauri as isTauriEnv } from '@/lib/env'
 import { SettingsEntryRow } from '../EntryRow'
@@ -26,7 +25,7 @@ type Panel = 'root' | 'theme' | 'relations'
 
 export function GeneralTab() {
   const { settings, updateSetting } = useSettings()
-  const { isMobile } = useDevice()
+  
   const [panel, setPanel] = useState<Panel>('root')
   // 默认开：支持的系统一装上就有毛玻璃（见 lib/blur-preference.ts）
   const [blurEnabled, setBlurEnabled] = useState(() => {
@@ -135,7 +134,14 @@ export function GeneralTab() {
           handleBlurToggle,
           settings.backgroundImage !== "" ? <span className={SETTINGS_HINT}>与背景图互斥</span> : null,
         )}
-        {switchRow("开机自启动", settings.autoStart, isMobile, () => updateSetting("autoStart", !settings.autoStart))}
+        {switchRow(
+          "开机自启动",
+          // 没实现就别给一个能拨的开关：拨亮了、重启却没反应，比没有这个开关更糟
+          false,
+          true,
+          () => {},
+          <span className={SETTINGS_HINT}>暂未实现 · 见 docs/todo.md §11</span>,
+        )}
       </div>
     </div>
   )

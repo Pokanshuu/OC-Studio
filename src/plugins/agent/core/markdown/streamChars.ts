@@ -62,8 +62,14 @@ export function rehypeStreamChars() {
       const next: HastNode[] = []
       for (const child of children) {
         const isCode = insideCode || child.tagName === 'code' || child.tagName === 'pre'
+        // KaTeX output must stay untouched: wrapping its glyphs in `.ch` spans
+        // breaks the math layout (and the plugin runs after `rehype-katex`).
+        const classes = child.properties?.className
+        const isMath = Array.isArray(classes)
+          ? classes.some((name) => name === 'katex' || name === 'math')
+          : false
 
-        if (child.type === 'text' && child.value && !isCode) {
+        if (child.type === 'text' && child.value && !isCode && !isMath) {
           for (const char of child.value) {
             // Whitespace stays as text: wrapping it only adds nodes and nothing
             // to look at.
@@ -82,7 +88,7 @@ export function rehypeStreamChars() {
           continue
         }
 
-        if (child.children) walk(child, isCode)
+        if (child.children && !isMath) walk(child, isCode)
         next.push(child)
       }
       node.children = next

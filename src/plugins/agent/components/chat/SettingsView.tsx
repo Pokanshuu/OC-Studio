@@ -6,7 +6,7 @@
  * "Appearance" is about reading, "Data" is about getting things in and out.
  */
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { open, save } from '@tauri-apps/plugin-dialog'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { Dialog as HostDialog, DialogContent } from '@/components/ui/dialog'
@@ -16,11 +16,14 @@ import {
   Dialog,
   Field,
   FieldRow,
+  Menu,
+  MenuItem,
   Segmented,
   Slider,
   Switch,
   copyText,
   useToast,
+  type MenuAnchor,
 } from '@/plugins/agent/components/ui/primitives'
 import { useSettingsStore } from '@/plugins/agent/state/settings'
 import { useChatStore } from '@/plugins/agent/state/chat'
