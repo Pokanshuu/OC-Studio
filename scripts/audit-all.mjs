@@ -12,7 +12,7 @@
  * 也避免在受限沙箱里因为「管道」被拒。
  */
 import { spawnSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
 const all = Object.keys(pkg.scripts ?? {}).filter((name) => name.startsWith('audit:'))
@@ -21,6 +21,46 @@ const targets = all.filter((name) => name.includes(filter))
 
 if (targets.length === 0) {
   console.error(filter === '' ? '没有找到任何 audit:* 脚本' : `没有名字包含「${filter}」的 audit 脚本`)
+  process.exit(1)
+}
+
+/**
+ * 「写好了却没人跑」的结构性检查。
+ *
+ * `audit-all` 只收 `audit:*` 前缀，于是名字没带前缀的自检脚本等于白写 ——
+ * 2026-11-12 就发现 `vault-migrate-check`（76 项断言）躺在那里从来没被 `npm run check` 跑到，
+ * 同类的还有三个。这里扫一遍 `scripts/`：凡是**看起来是自检**（有 `process.exit(1)` 和断言）
+ * 却没被任何 npm 脚本引用的，报错，除非它在下面的手工清单里。
+ *
+ * 手工清单只放「必须带参数才能跑」的（例如要指定 vault 路径的那种）。
+ */
+const MANUAL_ONLY = new Set([
+  'vault-markdown-check.ts', // 需要 <vault> 路径或 VAULT_PATH
+])
+
+function findUnwiredChecks() {
+  const scriptsDir = new URL('../scripts/', import.meta.url)
+  const names = readdirSync(scriptsDir).filter((name) => /\.(ts|mjs|js)$/.test(name) && name !== 'audit-all.mjs')
+  const referenced = new Set()
+  for (const command of Object.values(pkg.scripts ?? {})) {
+    if (typeof command !== 'string') continue
+    for (const match of command.matchAll(/scripts\/([\w.-]+\.(?:ts|mjs|js))/g)) referenced.add(match[1])
+  }
+  const unwired = []
+  for (const name of names) {
+    if (referenced.has(name) || MANUAL_ONLY.has(name)) continue
+    const text = readFileSync(new URL(name, scriptsDir), 'utf8')
+    if (!/process\.exit\(1\)/.test(text)) continue
+    if (!/(自检|check\(|断言|assert)/.test(text)) continue
+    unwired.push(name)
+  }
+  return unwired
+}
+
+const unwired = filter === '' ? findUnwiredChecks() : []
+if (unwired.length > 0) {
+  process.stderr.write('\n以下脚本看起来是自检，却没有被任何 npm 脚本跑到（加进 audit:* 或写进 MANUAL_ONLY）：\n')
+  for (const name of unwired) process.stderr.write(`  · ${name}\n`)
   process.exit(1)
 }
 
