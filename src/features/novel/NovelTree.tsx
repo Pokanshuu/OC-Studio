@@ -462,7 +462,7 @@ export function NovelTree({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>删除章节</AlertDialogTitle>
-            <AlertDialogDescription>移到回收站，随时可以恢复。</AlertDialogDescription>
+            <AlertDialogDescription>移到回收站，可在回收站里恢复。</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>

@@ -831,6 +831,99 @@ pub async fn vault_mkdir(path: String, rel_path: String) -> Result<(), String> {
     .await
 }
 
+/// 回收站的一个批次目录：名字就是 `YYYYMMDD-HHMMSS`（`trashBatchId()` 生成的）。
+#[derive(serde::Serialize)]
+pub struct VaultTrashBatch {
+    name: String,
+    /// 目录的 mtime（毫秒）。文件是「移进」批次的，所以它就是这一批最后一次删除的时间
+    #[serde(rename = "mtimeMs")]
+    mtime_ms: i64,
+    /// 这一批里还有多少个文件（报告用）
+    files: u64,
+}
+
+/// 批次名必须是 `YYYYMMDD-HHMMSS`：不认这个名字的一律不碰（别的程序放的目录不能删）
+fn is_trash_batch_name(name: &str) -> bool {
+    let bytes = name.as_bytes();
+    if bytes.len() != 15 || bytes[8] != b'-' {
+        return false;
+    }
+    bytes
+        .iter()
+        .enumerate()
+        .all(|(index, byte)| index == 8 || byte.is_ascii_digit())
+}
+
+/// 列出 `.ocstudio/trash` 下的批次目录（不递归）。没有这个目录就返回空数组。
+#[tauri::command]
+pub async fn vault_trash_batches(path: String) -> Result<Vec<VaultTrashBatch>, String> {
+    blocking(move || {
+        let root = PathBuf::from(&path);
+        if !root.is_dir() {
+            return Err(format!("不是目录: {path}"));
+        }
+        let dir = safe_join(&root, ".ocstudio/trash")?;
+        if !dir.is_dir() {
+            return Ok(Vec::new());
+        }
+        let mut batches = Vec::new();
+        for entry in fs::read_dir(&dir)
+            .map_err(|err| format!("读取回收站失败 {}: {err}", dir.display()))?
+            .flatten()
+        {
+            let Ok(meta) = entry.metadata() else { continue };
+            if !meta.is_dir() {
+                continue;
+            }
+            let Some(name) = entry.file_name().to_str().map(|n| n.to_string()) else {
+                continue;
+            };
+            if !is_trash_batch_name(&name) {
+                continue;
+            }
+            let files = fs::read_dir(entry.path())
+                .map(|items| items.flatten().filter(|i| i.path().is_file()).count() as u64)
+                .unwrap_or(0);
+            let mtime_ms = meta
+                .modified()
+                .ok()
+                .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+                .map(|d| d.as_millis() as i64)
+                .unwrap_or(0);
+            batches.push(VaultTrashBatch { name, mtime_ms, files });
+        }
+        batches.sort_by(|a, b| a.name.cmp(&b.name));
+        Ok(batches)
+    })
+    .await
+}
+
+/// 删掉一个批次目录（递归）。**只允许 `.ocstudio/trash/<YYYYMMDD-HHMMSS>` 这一层**：
+/// 名字不认、路径逃逸、或者目标是符号链接，一律拒绝。
+#[tauri::command]
+pub async fn vault_trash_purge(path: String, batch: String) -> Result<u64, String> {
+    blocking(move || {
+        if !is_trash_batch_name(&batch) {
+            return Err(format!("不是合法的回收站批次名: {batch}"));
+        }
+        let root = PathBuf::from(&path);
+        let dir = safe_join(&root, &format!(".ocstudio/trash/{batch}"))?;
+        let meta = match fs::symlink_metadata(&dir) {
+            Ok(meta) => meta,
+            Err(_) => return Ok(0),
+        };
+        if meta.file_type().is_symlink() || !meta.is_dir() {
+            return Err(format!("拒绝删除非目录（或符号链接）: {batch}"));
+        }
+        let files = fs::read_dir(&dir)
+            .map(|items| items.flatten().filter(|i| i.path().is_file()).count() as u64)
+            .unwrap_or(0);
+        fs::remove_dir_all(&dir).map_err(|err| format!("清理回收站批次失败: {err}"))?;
+        Ok(files)
+    })
+    .await
+}
+
 #[tauri::command]
 pub async fn vault_exists(path: String, rel_path: String) -> Result<bool, String> {
     blocking(move || {
@@ -1061,5 +1154,20 @@ mod tests {
             scan.files[0].content.starts_with("---"),
             "BOM 应被剥掉，frontmatter 才能被识别"
         );
+    }
+    /// 回收站批次名是删除时间的唯一凭据：认错了要么删掉不该删的（别的程序放的目录），
+    /// 要么永远清不掉。这里把边界钉死。
+    #[test]
+    fn trash_batch_name_is_strict() {
+        assert!(is_trash_batch_name("20261111-183005"));
+        assert!(is_trash_batch_name("19990101-000000"));
+        // 长度不对 / 分隔符不对 / 混了非数字 / 带路径
+        assert!(!is_trash_batch_name("20261111-18300"));
+        assert!(!is_trash_batch_name("20261111_183005"));
+        assert!(!is_trash_batch_name("2026111-183005"));
+        assert!(!is_trash_batch_name("20261111-1830aa"));
+        assert!(!is_trash_batch_name("../20261111-183005"));
+        assert!(!is_trash_batch_name(""));
+        assert!(!is_trash_batch_name("trash"));
     }
 }

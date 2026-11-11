@@ -55,6 +55,13 @@ export interface Settings {
   defaultSitePresetId: string
   /** 默认导出中心海报预设 id（`.ocstudio/exports.json` 的 poster 段） */
   defaultPosterPresetId: string
+  /**
+   * 回收站自动清理周期（天）：`7` / `30` / `0`（从不）。
+   *
+   * 删掉的笔记会被移到 `.ocstudio/trash/<批次>/`，**清理只由这个设置驱动**：
+   * 打开笔记库 / 改这个值时会删掉过期批次，其余时候不动手。
+   */
+  trashRetentionDays: number
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -77,6 +84,8 @@ const DEFAULT_SETTINGS: Settings = {
   defaultImagePresetId: "",
   defaultSitePresetId: "",
   defaultPosterPresetId: "",
+  // 默认 30 天：跟以前界面上写的「可在 30 天内恢复」对上，只是现在真的会清
+  trashRetentionDays: 30,
 }
 
 function loadSettings(): Settings {
@@ -105,6 +114,8 @@ function loadSettings(): Settings {
         defaultSitePresetId: typeof merged.defaultSitePresetId === 'string' ? merged.defaultSitePresetId : '',
         defaultPosterPresetId:
           typeof merged.defaultPosterPresetId === 'string' ? merged.defaultPosterPresetId : '',
+        // 只认 7 / 30 / 0（从不）；坏值回落 30
+        trashRetentionDays: [7, 30, 0].includes(merged.trashRetentionDays) ? merged.trashRetentionDays : 30,
       }
     }
   } catch {

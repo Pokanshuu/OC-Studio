@@ -1,0 +1,113 @@
+/**
+ * 回收站自动清理。
+ *
+ * 删除的笔记被移到 `.ocstudio/trash/<YYYYMMDD-HHMMSS>/`（一批一次删除），
+ * 这里按「回收站保留天数」把过期批次整个删掉。设置见 设置 › 回收站 / 回收站页头下拉：
+ * **7 天 / 30 天 / 从不**（`settings.trashRetentionDays`，0 = 从不）。
+ *
+ * 保守三条（删的是用户文件，宁可不清也不能清错）：
+ * 1. 只认 `YYYYMMDD-HHMMSS` 这种批次名（后端也认这一条，别的目录一个都不碰）；
+ * 2. 目录 mtime **和** 批次名里的时间都要早于截止时间 —— 时钟错乱 / 手工改名都挡得住；
+ * 3. 任何一步失败只跳过这一批，不中断其它批次，也不向用户抛错（清理是后台动作）。
+ */
+import { getVaultSession } from '@/lib/vault/vault-session'
+import { isVaultSupported, vaultFs } from '@/lib/vault/vault-fs'
+
+/** 批次名 → 时间戳（毫秒）；不认识的返回 null */
+export function batchStartedAt(name: string): number | null {
+  if (!/^\d{8}-\d{6}$/.test(name)) return null
+  const year = Number(name.slice(0, 4))
+  const month = Number(name.slice(4, 6))
+  const day = Number(name.slice(6, 8))
+  const hour = Number(name.slice(9, 11))
+  const minute = Number(name.slice(11, 13))
+  const second = Number(name.slice(13, 15))
+  const stamp = new Date(year, month - 1, day, hour, minute, second).getTime()
+  return Number.isFinite(stamp) ? stamp : null
+}
+
+export interface TrashPurgeResult {
+  /** 删掉的批次 */
+  batches: number
+  /** 删掉的文件数（报告用） */
+  files: number
+  /** 跳过 / 失败的批次 */
+  skipped: number
+}
+
+export const EMPTY_PURGE: TrashPurgeResult = { batches: 0, files: 0, skipped: 0 }
+
+/**
+ * 回收站页头下拉的选项。`value` 就是 `settings.trashRetentionDays`：
+ * `30` / `7` 天自动清理，`0` = 从不（清理只能手动「永久删除」）。
+ */
+export const TRASH_RETENTION_OPTIONS = [
+  { value: 30, label: '保留 30 天' },
+  { value: 7, label: '保留 7 天' },
+  { value: 0, label: '从不清理' },
+]
+
+/**
+ * 清理超过 `days` 天的回收站批次。`days <= 0` 表示从不清理。
+ *
+ * 没有打开笔记库（浏览器预览）时什么都不做。
+ */
+export async function purgeExpiredTrash(days: number): Promise<TrashPurgeResult> {
+  if (!Number.isFinite(days) || days <= 0) return EMPTY_PURGE
+  if (!isVaultSupported()) return EMPTY_PURGE
+  const session = getVaultSession()
+  if (session === null) return EMPTY_PURGE
+
+  const cutoff = Date.now() - days * 24 * 60 * 60 * 1000
+  let batches: { name: string; mtimeMs: number; files: number }[]
+  try {
+    batches = await vaultFs.trashBatches(session.root)
+  } catch {
+    return EMPTY_PURGE
+  }
+
+  const result: TrashPurgeResult = { batches: 0, files: 0, skipped: 0 }
+  const purged: string[] = []
+  for (const batch of batches) {
+    const startedAt = batchStartedAt(batch.name)
+    // 名字认不出、或者「目录时间」或「名字里的时间」有一个不老，就不动这一批
+    if (startedAt === null || startedAt > cutoff || batch.mtimeMs > cutoff) {
+      result.skipped += 1
+      continue
+    }
+    try {
+      const files = await vaultFs.purgeTrashBatch(session.root, batch.name)
+      result.batches += 1
+      result.files += files
+      purged.push(batch.name)
+    } catch {
+      result.skipped += 1
+    }
+  }
+
+  // 文件删了，Dexie 里那几行还在（`deleted: true`）—— 不一起删，回收站列表会留一串
+  // 「恢复时源文件不存在」的幽灵。删行走正常管线（它自己会把已知是回收站里的文件删掉）。
+  if (purged.length > 0) await dropRowsUnder(session, purged)
+  return result
+}
+
+/** 删掉 relPath 落在这些回收站批次下的实体行 */
+async function dropRowsUnder(
+  session: NonNullable<ReturnType<typeof getVaultSession>>,
+  batchNames: string[],
+): Promise<void> {
+  const { db } = await import('@/lib/db')
+  const prefixes = batchNames.map((name) => `.ocstudio/trash/${name}/`)
+  const doomed: { table: string; id: number }[] = []
+  for (const state of session.entries.values()) {
+    if (!prefixes.some((prefix) => state.relPath.startsWith(prefix))) continue
+    doomed.push({ table: state.table, id: state.id })
+  }
+  for (const row of doomed) {
+    try {
+      await db.table(row.table).delete(row.id)
+    } catch {
+      // 单行删不掉就留着：下次打开笔记库重新扫描时它自然会消失
+    }
+  }
+}

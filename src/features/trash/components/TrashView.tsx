@@ -14,11 +14,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Separator } from "@/components/ui/separator"
-import { BTN_QUIET, EMPTY_STATE, ICON_BTN, LIST_END, LOADING_TEXT, PAGE_TITLE, ROUND_PANEL } from '@/lib/ui-tokens'
+import { BTN_QUIET, EMPTY_STATE, ICON_BTN, LIST_END, LOADING_TEXT, MENU, PAGE_TITLE, ROUND_PANEL } from '@/lib/ui-tokens'
 import { useTrash } from "../hooks/useTrash"
 import * as trashService from "../services"
 import type { TrashItem, TrashItemType } from "../types"
 import { notifyDataUpdated } from '@/lib/data-events'
+import { useSettings } from '@/lib/settings'
+import { FilterSelect } from '@/components/shared/FilterSelect'
+import { TRASH_RETENTION_OPTIONS, purgeExpiredTrash } from "../retention"
 
 function formatDeleteTime(timestamp: number): string {
   const d = new Date(timestamp)
@@ -63,9 +66,35 @@ interface TrashViewProps {
 
 export function TrashView({ onClose }: TrashViewProps) {
   const { items, loading, error, refresh } = useTrash()
+  const { settings, updateSetting } = useSettings()
   const [confirmTarget, setConfirmTarget] = useState<{ type: TrashItemType; id: number } | null>(null)
   const [restoring, setRestoring] = useState<string | null>(null)
   const [visible, setVisible] = useState(false)
+
+  /**
+   * 改保留天数：立刻按新周期清一次（选「保留 7 天」时应该马上看到超过 7 天的没了），
+   * 以后再打开笔记库时自动执行（见 `VaultConfigSync`）。
+   */
+  const handleRetentionChange = useCallback(
+    async (days: number) => {
+      updateSetting('trashRetentionDays', days)
+      if (days <= 0) {
+        toast('不再自动清理', { description: '回收站里的条目会一直保留，直到你手动永久删除' })
+        return
+      }
+      const result = await purgeExpiredTrash(days)
+      if (result.batches > 0) {
+        toast.success(`已清理 ${result.files} 个过期条目`, {
+          description: `超过 ${days} 天的条目已从回收站删除`,
+        })
+        refresh()
+        notifyDataUpdated()
+      } else {
+        toast(`保留 ${days} 天`, { description: '暂时没有超过这个期限的条目' })
+      }
+    },
+    [updateSetting, refresh],
+  )
 
   useEffect(() => {
     const raf = requestAnimationFrame(() => setVisible(true))
@@ -139,6 +168,14 @@ export function TrashView({ onClose }: TrashViewProps) {
                 {items.length} 项
               </span>
             ) : null}
+            <FilterSelect
+              value={settings.trashRetentionDays}
+              onChange={(value) => void handleRetentionChange(value)}
+              options={TRASH_RETENTION_OPTIONS.map((option) => ({ ...option }))}
+              fallbackLabel="保留 30 天"
+              triggerClassName="flex h-7 items-center gap-1 px-1.5 text-[11px] text-ink-muted transition-colors hover:text-ink"
+              panelClassName={`fixed z-30 mt-1 flex flex-col overflow-auto ${MENU} pointer-events-auto`}
+            />
           </div>
           <button onClick={handleClose} className={ICON_BTN} aria-label="关闭回收站">
             <X size={16} strokeWidth={2} />

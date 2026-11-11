@@ -66,7 +66,7 @@ const SORT_OPTIONS = [
 ]
 
 /** 整本书的删除连章节一起走，确认框里得说清楚 */
-const DELETE_BOOK_NOTE = '这本小说和它的章节会一起移到回收站，随时可以恢复。'
+const DELETE_BOOK_NOTE = '这本小说和它的章节会一起移到回收站，可在回收站里恢复。'
 
 export function NovelSection({
   openEntryRequest,

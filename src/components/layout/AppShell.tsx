@@ -18,6 +18,7 @@ import { TrashOverlayProvider, useTrashOverlay } from "@/components/layout/Trash
 import { MobilePageHeaderProvider } from "@/components/layout/MobilePageHeaderContext"
 import { SaveStatusProvider, useSaveStatus } from "@/components/layout/SaveStatusContext"
 import { TrashView } from "@/features/trash/components/TrashView"
+import { purgeExpiredTrash } from "@/features/trash/retention"
 import { loadInspirations, resetInspirations } from "@/features/inspirations/store"
 import { loadFieldConfig } from "@/lib/fields"
 import { loadCategories } from "@/lib/categories/store"
@@ -43,6 +44,8 @@ import { getChromiumVersion, isBelowTargetVersion, isHarmonyOS, getHarmonyOSVers
  */
 function VaultConfigSync() {
   const { root } = useVault()
+  const { settings } = useSettings()
+  const retentionDays = settings.trashRetentionDays
   useEffect(() => {
     // 这四份都随库走、都存在 `.ocstudio/` 下。启动那一下可能早于会话就绪
     // （root 还是 null），少了这一条就会出现「重启后模板 / 分类 / 字段组回到默认」。
@@ -52,6 +55,16 @@ function VaultConfigSync() {
     void loadBodyGroups()
     void loadFolderRegistry()
   }, [root])
+
+  /**
+   * 回收站按设置自动清理：打开笔记库时跑一次，改保留天数时也跑（TrashView 里改完会自己清，
+   * 这里兜住「换库后」与「重启后」两种情况）。`0` = 从不，函数自己会直接返回。
+   */
+  useEffect(() => {
+    if (root === null) return
+    void purgeExpiredTrash(retentionDays)
+  }, [root, retentionDays])
+
   return null
 }
 
@@ -80,20 +93,32 @@ function AppShellChrome({ settings, children }: { settings: ReturnType<typeof us
   const { isEditing } = useEditor()
   const { visible: keyboardVisible } = useKeyboard()
   const { requestSave, status } = useSaveStatus()
+  const vault = useVault()
   const hideMobileShell = isEditing
   const hideTabBar = isEditing || keyboardVisible
 
-  // Ctrl/Cmd+S：显式保存命令，替代 document.querySelector('[data-save-button]') 的 DOM hack
+  /**
+   * Ctrl/Cmd+S：显式保存。
+   *
+   * 两件事都要做：
+   * 1. `requestSave()` —— 让当前实体表单走它自己的保存（含校验）；
+   * 2. `vault.flush()` —— 把落盘队列立刻排干。
+   *
+   * 只做 1 的话，**笔记 / 小说 / 分类条目按 Ctrl+S 是没反应的**（它们没有注册
+   * 保存处理器，`requestSave` 找不到人），而浏览器默认的「保存网页」又被
+   * `preventDefault` 挡掉了 —— 用户按下去像按了个空键。
+   */
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault()
         requestSave()
+        if (vault.supported && vault.status === 'ready') void vault.flush()
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [requestSave])
+  }, [requestSave, vault])
 
   // 未保存时关闭标签页/刷新浏览器 → 原生确认
   useEffect(() => {

@@ -209,6 +209,8 @@ pub fn run() {
       vault::vault_remove,
       vault::vault_mkdir,
       vault::vault_exists,
+      vault::vault_trash_batches,
+      vault::vault_trash_purge,
       vault::vault_list_assets,
       journal::journal_append,
       journal::journal_tail,

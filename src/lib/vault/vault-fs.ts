@@ -139,6 +139,18 @@ export const vaultFs = {
     await invoke('vault_mkdir', { path, relPath })
   },
 
+  /** 回收站批次（`.ocstudio/trash/<YYYYMMDD-HHMMSS>`）；后端只认这个名字 */
+  async trashBatches(path: string): Promise<{ name: string; mtimeMs: number; files: number }[]> {
+    requireSupport()
+    return invoke<{ name: string; mtimeMs: number; files: number }[]>('vault_trash_batches', { path })
+  },
+
+  /** 递归删掉一个回收站批次；返回删掉的文件数。名字不合法 / 是符号链接会被后端拒绝 */
+  async purgeTrashBatch(path: string, batch: string): Promise<number> {
+    requireSupport()
+    return invoke<number>('vault_trash_purge', { path, batch })
+  },
+
   async exists(path: string, relPath: string): Promise<boolean> {
     if (!isVaultSupported()) return false
     return invoke<boolean>('vault_exists', { path, relPath })

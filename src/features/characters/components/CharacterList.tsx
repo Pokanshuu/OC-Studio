@@ -580,7 +580,7 @@ export function CharacterList({
           <AlertDialogHeader>
             <AlertDialogTitle>确认删除</AlertDialogTitle>
             <AlertDialogDescription>
-              删除后将移至回收站，随时可以恢复。
+              删除后将移至回收站，可在回收站里恢复。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
