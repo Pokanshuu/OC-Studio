@@ -27,6 +27,7 @@ import { MenuSurface } from '@/components/shared/menu/MenuSurface'
 import { useTags, useTagMutations } from '../hooks/useTags'
 import { getTagUsage, mergeTag } from '../services'
 import { TAG_PRESET_COLORS } from '@/lib/tag-colors'
+import { notifyDataUpdated } from '@/lib/data-events'
 import type { Tag } from '@/types'
 import { BTN_QUIET, ICON_BTN, INPUT_LINE, MENU_ITEM, MENU_GROUP_LABEL, ROUND_CONTROL } from '@/lib/ui-tokens'
 
@@ -93,6 +94,8 @@ export function TagsPanel() {
       await mergeTag(source.id, target.id)
       refresh()
       await loadUsage()
+      // 合并会把一堆实体里的标签 id 换掉：广播出去，别处的标签列 / 筛选才会更新
+      notifyDataUpdated()
       toast.success(`已把「${source.name}」合并到「${target.name}」`)
     } catch (err) {
       toast.error('合并失败', { description: String(err) })

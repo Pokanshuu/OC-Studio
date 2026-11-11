@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import type { Tag } from '@/types'
 import * as tagService from '../services'
-import { DATA_UPDATED_EVENT } from '@/lib/data-events'
+import { DATA_UPDATED_EVENT, notifyDataUpdated } from '@/lib/data-events'
 
 export function useTags(): {
   tags: Tag[]
@@ -66,20 +66,29 @@ export function useTagMutations(): {
 } {
   const queryClient = useQueryClient()
 
+  /**
+   * 标签变了要**广播**（`data-updated`），不能只 invalidate `['tags']`：
+   * `useTags()` 是 useState + refreshKey 的实现，不吃 react-query 缓存；
+   * 只 invalidate 的话，设置面板自己 refresh 了，别处（打标签的下拉、表格的标签列、
+   * 相册的标签筛选）仍然拿着旧名字 / 旧颜色，直到重新挂载。
+   */
   const createTag = useCallback(async (data: { name: string; category: string; color: string }) => {
     const id = await tagService.createTag(data)
-    queryClient.invalidateQueries({ queryKey: ['tags'] })
+    void queryClient.invalidateQueries({ queryKey: ['tags'] })
+    notifyDataUpdated()
     return id
   }, [queryClient])
 
   const updateTag = useCallback(async (id: number, data: Partial<{ name: string; category: string; color: string }>) => {
     await tagService.updateTag(id, data)
-    queryClient.invalidateQueries({ queryKey: ['tags'] })
+    void queryClient.invalidateQueries({ queryKey: ['tags'] })
+    notifyDataUpdated()
   }, [queryClient])
 
   const deleteTag = useCallback(async (id: number) => {
     await tagService.deleteTag(id)
-    queryClient.invalidateQueries({ queryKey: ['tags'] })
+    void queryClient.invalidateQueries({ queryKey: ['tags'] })
+    notifyDataUpdated()
   }, [queryClient])
 
   return { createTag, updateTag, deleteTag }
