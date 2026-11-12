@@ -79,6 +79,7 @@
 
 ### 5.2 助手与能力的其它欠账
 
+- [ ] **P1 助手会话纳入 `.ocbak`**：Rust 侧已经有 `agent::db::export_backup` / `import_backup`（会话 + 消息 + 预设，单测 `backup_round_trips_through_import` 覆盖），但只有「写文件」的 command（`export_backup_to`），前端拿不到 JSON。补一条返回 JSON 的 command，把结果塞进 `.ocbak` 的 `agent` 段，导入时再喂回 `import_backup` 即可。**在此之前，备份界面已写明「助手会话不进备份」**（2026-11-12）
 - [ ] **P1 助手 · 存储边界**：会话在插件自己的 SQLite 里，**`.ocbak` 备份带不上**。要么备份时连插件库一起收，要么在备份界面明说不含助手会话 —— 二选一，别让用户以为备份等于全部。（2026-11-06：数据页那行「不含助手会话」按作者要求去掉了，这件事仍未解决）
 - [ ] **P1 助手 · 端到端验收**：真机上走一遍「读条目 → 改字段 → 改正文 → 看时间线里有 `助手` 这一条 → 看 md 文件确实变了」。现在整条链路（Dexie update → 中间件 → 序列化 → 原子写 → journal）只有各段自检，没串起来跑过
 - [ ] **P2 能力层读权限的闸在错的地方**：`READ_PERMISSION = 0` 是**地板**，所以 `requireRead()` 只拦得住「actor 不是 human / agent: / plugin:」，任何合法 actor 都读得到全库。真正的闸在**造 `Caller` 的那一处**（现在是 `agent-tools.ts` 里写死）。对外开放插件 / MCP 之前要把权限位改成真正的分级
