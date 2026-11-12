@@ -11,6 +11,7 @@ import { toast } from 'sonner'
 import { useEditorDirty } from '@/components/layout/useEditorDirty'
 import { describeDocDiff, sameDocNodeIgnoringTrailingSpacer, snapshotKey, useDirtySnapshot } from '@/lib/dirty'
 import { FACT_RELATION, type RelationCandidate, type RelationRow, type RelationTargetKind } from '@/components/shared/relations/types'
+import { useAutoSave } from '@/components/layout/use-auto-save'
 
 /** 政治制度 / 地理环境 / 人文风貌三段合并成一份正文文档 */
 export function mergeCountrySections(system: string, geography: string, culture: string): string | undefined {
@@ -241,6 +242,9 @@ export function useCountryForm(
     ].filter(Boolean).join(' + '),
   )
 
+  // 停手 1.5 秒自动落地：常驻挂载的编辑器没有「卸载」可挂，只能主动写
+  useAutoSave({ dirty: fieldsDirty || docDirty, saving, save: handleSave })
+
   /**
    * 关系组件的数据：国家侧没有自己的关系数组，成员名单是**实体侧的查询**
    * （`docs/模板.md §1.4`）。所以这里只有事实边（居民 / 发生于），关系名只读；
@@ -340,6 +344,8 @@ export function useCountryForm(
     gallery, setGallery,
     custom, setCustomValue,
     saving,
+    /** 字段或正文有未保存改动（离场时的「先保存再走」用它判断） */
+    dirty: fieldsDirty || docDirty,
     docDirty,
     tags, setTags,
     handleSave,

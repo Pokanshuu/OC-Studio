@@ -123,6 +123,7 @@ function CharacterEditorInner({
     saveRef.current = handleSave
   }, [handleSave])
 
+
   // 布局实时跟随设置/窗口；正文有未保存改动时先自动保存，再切布局（切布局会重挂 TipTap）。
   useEffect(() => {
     if (desiredLayout === layout) return

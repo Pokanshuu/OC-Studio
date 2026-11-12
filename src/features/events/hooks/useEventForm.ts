@@ -14,6 +14,7 @@ import { useSaveStatus } from '@/components/layout/SaveStatusContext'
 import { toast } from 'sonner'
 import { useEditorDirty } from '@/components/layout/useEditorDirty'
 import { describeDocDiff, sameDocNodeIgnoringTrailingSpacer, snapshotKey, useDirtySnapshot } from '@/lib/dirty'
+import { useAutoSave } from '@/components/layout/use-auto-save'
 
 /** 表单里可编辑的全部字段 —— 装载、回灌、脏判断共用这一份形状 */
 interface EventValues {
@@ -413,6 +414,9 @@ export function useEventForm(
     [fieldsDirty ? `字段 ${diffSummary}` : '', docDirty ? '正文文档与基线不同' : ''].filter(Boolean).join(' + '),
   )
 
+  // 停手 1.5 秒自动落地：常驻挂载的编辑器没有「卸载」可挂，只能主动写
+  useAutoSave({ dirty: fieldsDirty || docDirty, saving, save: handleSave })
+
   return {
     title, setTitle,
     headerUrl, setHeaderUrl,
@@ -441,6 +445,8 @@ export function useEventForm(
     tags, setTags,
     images, setImages,
     saving,
+    /** 字段或正文有未保存改动（离场时的「先保存再走」用它判断） */
+    dirty: fieldsDirty || docDirty,
     docDirty,
     handleSave,
     handleEditorReady,

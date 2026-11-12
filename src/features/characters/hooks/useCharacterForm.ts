@@ -16,6 +16,7 @@ import { toast } from 'sonner'
 import { useEditorDirty } from '@/components/layout/useEditorDirty'
 import { describeDocDiff, sameDocNodeIgnoringTrailingSpacer, snapshotKey, useDirtySnapshot } from '@/lib/dirty'
 import { parseTime, assembleTime } from '@/features/events/utils'
+import { useAutoSave } from '@/components/layout/use-auto-save'
 
 /** 存量数据里 aliases 可能是字符串（历史格式），统一成可编辑文本 */
 export function safeAliasesJoin(aliases: string[]): string {
@@ -575,6 +576,9 @@ export function useCharacterForm(
     [fieldsDirty ? `字段 ${diffSummary}` : '', docDirty ? '正文文档与基线不同' : ''].filter(Boolean).join(' + '),
   )
 
+  // 停手 1.5 秒自动落地：常驻挂载的编辑器没有「卸载」可挂，只能主动写
+  useAutoSave({ dirty: fieldsDirty || docDirty, saving, save: handleSave })
+
   // 名字下方的身份摘要（纯数据，不编辑器自身字段）
   const summaryLine = [
     occupation,
@@ -609,6 +613,8 @@ export function useCharacterForm(
 
     custom, setCustomValue,
     saving,
+    /** 字段或正文有未保存改动（离场时的「先保存再走」用它判断） */
+    dirty: fieldsDirty || docDirty,
     docDirty,
     handleSave,
     handleDocReady,

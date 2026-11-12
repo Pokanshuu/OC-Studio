@@ -45,6 +45,7 @@ export function EventEditor({ event, onBack, onCreate, onSave, onNavigateToEvent
     saveRef.current = handleSave
   }, [handleSave])
 
+
   useEffect(() => {
     if (desiredLayout === layout) return
     if (!docDirty) {
