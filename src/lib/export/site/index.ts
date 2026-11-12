@@ -13,6 +13,7 @@ import {
   type SiteThemeTokens,
 } from './build'
 import type { SiteTemplateId } from './template-types'
+import { isCodexEntry } from '@/lib/entry-kinds'
 
 export { applySiteSections, buildSite, collectSiteImages } from './build'
 export type { SiteData, BuildOptions, SiteSectionOptions, SiteThemeTokens } from './build'
@@ -40,7 +41,8 @@ export async function loadSiteData(): Promise<SiteData> {
     db.characters.filter((c) => !c.deleted).toArray(),
     db.events.filter((e) => !e.deleted).toArray(),
     db.countries.filter((c) => !c.deleted).toArray(),
-    db.worldEntries.filter((w) => !w.deleted).toArray(),
+    // 与文档导出同一口径：小说章节与地图不进「词条」分区
+    db.worldEntries.filter((w) => !w.deleted && isCodexEntry(w)).toArray(),
     db.tags.toArray(),
     db.periods.filter((p) => !p.deleted).toArray(),
     db.meta.toArray(),
