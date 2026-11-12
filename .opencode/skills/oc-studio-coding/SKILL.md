@@ -158,7 +158,12 @@ description: >
 | `src/lib/repository.ts` | 泛型 CRUD 仓储原语：`listActive` / `getById` / `softDelete`（签名 `Table<T, number, TInsert>`，第 3 个泛型位不可省） |
 | `src/lib/env.ts` | 运行环境检测唯一权威实现：`isTauri` / `isCapacitor` / `isNativePlatform` / `isMobilePlatform` |
 | `src/lib/version.ts` | 版本号单源（读取 package.json） |
-| `src/lib/data-events.ts` | 跨模块数据变更通知（`DATA_UPDATED_EVENT` + `notifyDataUpdated()`） |
+| `src/lib/data-events.ts` | 跨模块数据变更通知（`DATA_UPDATED_EVENT` + `notifyDataUpdated()`）。**新建 / 删除 / 改名必须广播**（写在 mutation 的 `onSuccess` 里），否则地图、相册这类不走 react-query 的视图不刷新；自检规则 `mutation-broadcast` 会点名漏掉的表单 |
+| `src/components/layout/use-auto-save.ts` | 静置自动保存（默认 1.5 秒）：角色 / 国家 / 事件三个编辑器共用；失败后停下，等用户再改动 |
+| `src/lib/import-remap.ts` | 导入后的引用重映射（`countryId` / `tags` / 三类命名关系），目标不存在则摘掉并计数 |
+| `src/lib/reference-labels.ts` | 引用标签与改名联动（键必须是 `类型:id`，防同名跨实体误改） |
+| `src/lib/export/backup-config.ts` | `.ocbak` 设置段：目标库已配置时保留当前设置，未配置才恢复 |
+| `src/components/shared/TreeRow.tsx` | 树行唯一实现（`actions` 槽位负责 hover 操作，拖拽手柄、右键菜单都在这里） |
 | `src/lib/reference-registry.ts` | @ 引用和 [[ 内链的数据源注册 |
 | `src/lib/use-device.ts` | useDevice() hook |
 | `src/lib/editor-context.tsx` | ActiveEditorProvider，追踪当前聚焦的编辑器 |

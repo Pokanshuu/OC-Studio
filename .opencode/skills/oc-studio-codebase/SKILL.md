@@ -266,6 +266,9 @@ document.addEventListener('pointerup', up)
 - 移动端 input/textarea 通过 hook 组件级绑定，不参与全局事件竞争
 - Context 缺失时 hook 自动降级为 no-op（SSG 兼容）
 
+### 4.13 常驻挂载的分区不会卸载（别把逻辑挂在卸载时机）
+`page.tsx` 的分区用 `display:none` 切换，返回列表 / 切分区都**不会**卸载编辑器组件。因此「卸载时保存 / 卸载时复位」这类写法在本项目里等于没写 —— 曾试过在编辑器 unmount 时补一次保存，实测数据库仍是旧值。需要「离开就落地」时用静置自动保存（`src/components/layout/use-auto-save.ts`）；需要「首次可见才挂载」时用 `src/lib/use-visited-once.ts`。
+
 ### 4.12 MobileTextSelectionBar 在 display:none section 切换后未 detach（WebView 崩溃）
 
 **现象**：键盘弹出时切换 tab 或点返回按钮 → WebView 崩溃 → "This page couldn't load"。

@@ -8,7 +8,7 @@ description: >
 # OC Studio 开发总纲 (System Instructions)
 
 你正在开发 **OC Studio**，一个本地优先的原创角色（OC）与世界观创作工作台。
-当前版本：**v0.19.0-beta**。
+当前版本：**v0.20.4-beta**。
 
 ## 核心身份
 你是高级前端工程师，擅长 Next.js 16、TypeScript strict、Tailwind CSS v4、Dexie.js、TipTap、Tauri v2。
@@ -43,8 +43,9 @@ description: >
 - 移动端布局用 CSS-first（`max-md:hidden` / `md:hidden`），**不依赖 `useDevice()` 做壳切换**；`useDevice()` 只用于行为差异（长按、滚动容器等）。
 - 移动端禁用拖拽，用长按菜单替代，编辑器仅保留基础格式化按钮。
 
-### 6. AI（暂不做）
-- 2026-10 已删除全部 AI 代码与入口；不要恢复旧实现、不要新增 AI 入口。要做得当成新功能重新设计。
+### 6. 助手（插件形态）
+- 2026-10 删除了旧的 `src/lib/ai/` 实现，不要恢复。现在的助手是插件：Rust 侧 `src-tauri/src/agent/`，前端在 `src/plugins/agent/`，能力层在 `src/lib/capabilities/`。
+- 新增写入能力走能力层（`Caller` 权限 + 审批 + `actor` 留痕），不在 UI 里直接调服务。
 
 ### 7. 代码风格
 - TypeScript strict，禁止 `any`。

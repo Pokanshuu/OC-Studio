@@ -2,10 +2,10 @@
 
 本地优先的原创角色（OC）与世界观创作工作台。
 
-当前版本：**v0.20.3-beta**（发布在 `latest`）
+当前版本：**v0.20.4-beta**（发布在 `latest`）
 **不保证对旧版本（v0.19.2 及更早）的备份与笔记库、以及 OC-editor 的兼容性**。升级前请先复制一份笔记库。
 >
-> - 本版：[Pokanshuu/OC-Studio v0.20.3-beta](https://github.com/Pokanshuu/OC-Studio/releases/tag/v0.20.3-beta)
+> - 本版：[Pokanshuu/OC-Studio v0.20.4-beta](https://github.com/Pokanshuu/OC-Studio/releases/tag/v0.20.3-beta)
 > - 上一版：[Pokanshuu/OC-Studio v0.20.2-beta](https://github.com/Pokanshuu/OC-Studio/releases/tag/v0.20.2-beta)（`.app` / `.dmg`）
 >
 
@@ -32,7 +32,7 @@
 
 ### 写作
 
-- **编辑器**：支持表格、待办、图片、`@` 提及和 `[[` 内链。
+- **编辑器**：支持表格、待办、图片、`@` 提及和 `[[` 内链；角色、国家、事件停止输入 1.5 秒后自动保存。
 - **小说**：一章一篇，提供书架和分页预览，可导出 Word、Markdown 或 TXT。
 - **随手记**：点击顶栏的灯泡即可记录，写完后可以一键转为正式笔记。
 - **搜索**：`Ctrl/Cmd+K` 可以搜索正文内容。
@@ -41,8 +41,8 @@
 
 - **海报**：提供六种版式，可调整封面、字号和背景，导出高清 PNG；角色、事件和国家页面均有入口。
 - **网站**：提供三种版式，导出为单个 `index.html`，可直接打开或发布到 GitHub Pages。
-- **文档**：支持 Word、Markdown、TXT，导出前可以预览整页。
-- **备份**：导出 `.ocbak` 文件，图片一并包含。
+- **文档**：支持 Word、Markdown、TXT，导出前可以预览整页；可按条目选择只导单篇或多篇。
+- **备份**：导出 `.ocbak` 文件，图片与创作时间线一并包含；导入时时间线按条去重后追加。
 
 ### 外观
 
@@ -79,6 +79,8 @@
 | Windows 桌面 | Tauri v2 打包，原生 Mica 半透明窗口效果 |
 | macOS 桌面 | Tauri v2 打包（`.app` / `.dmg`），原生红绿灯与系统菜单栏、窗口模糊 |
 | Android | Capacitor v8 封装，底部 Tab 导航，编辑器键盘适配 |
+
+安装包未签名，Windows 安全中心可能将 `setup.exe` 判定为威胁；如遇拦截，请改用 MSI 安装包，或在保护历史记录中选择允许。
 
 ---
 
