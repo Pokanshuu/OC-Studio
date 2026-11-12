@@ -66,7 +66,17 @@ function attrString(node: DocNode, key: string): string {
 
 function attrNumber(node: DocNode, key: string): number | null {
   const value = node.attrs?.[key]
-  return typeof value === 'number' && Number.isFinite(value) ? value : null
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  /**
+   * 引用节点的 id 存的是**字符串**（`mention` / `wikiLink` 的 `attrs.id` 在编辑器里
+   * 一律 `String(...)`）。只认 number 的话，导出站里每一个 @引用 / [[链接]] 都会被
+   * 当成「解析不到」退回纯文本 —— 站内一个可点的引用都没有（2026-11-12 修）。
+   */
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
 }
 
 function attrBool(node: DocNode, key: string): boolean {

@@ -391,6 +391,67 @@ check(
   )
 }
 
+// ── 引用：指得到就成链接，指不到就退回纯文本 ───────────────────────────
+// 这是「导出后正文里的 @ 与 [[ ]] 还点不点得动」的契约。指不到却仍生成
+// `#/character/9999` 的话，读者点进去是一片空白 —— 比纯文本更糟。
+{
+  const withRefs = buildSite(
+    {
+      ...data,
+      characters: [
+        character({
+          id: 1,
+          name: '引用者',
+          document: {
+            type: 'doc',
+            content: [
+              {
+                type: 'paragraph',
+                content: [
+                  { type: 'text', text: '指向' },
+                  { type: 'mention', attrs: { id: '2', entityType: 'character', label: '被引用者' } },
+                  { type: 'text', text: '与' },
+                  { type: 'mention', attrs: { id: '9999', entityType: 'character', label: '不存在的人' } },
+                  { type: 'text', text: '还有' },
+                  { type: 'wikiLink', attrs: { id: '3', label: '存在的词条' } },
+                  { type: 'text', text: '与' },
+                  { type: 'wikiLink', attrs: { id: '8888', label: '不存在的词条' } },
+                ],
+              },
+            ],
+          },
+        }),
+        character({ id: 2, name: '被引用者' }),
+      ],
+      worldEntries: [
+        {
+          ...data.worldEntries[0],
+          id: 3,
+          title: '存在的词条',
+        },
+      ],
+    },
+    { images: new Map() },
+  )
+  // 路由 id 会按排序重排，所以断言「生成了 ref 链接」而不是写死某个 id
+  check(
+    '存在的 @引用 生成站内链接',
+    /<a class="ref" href="#\/characters\/\d+">被引用者<\/a>/.test(withRefs),
+  )
+  check(
+    '存在的 [[链接]] 生成站内链接',
+    /<a class="ref" href="#\/world\/\d+">存在的词条<\/a>/.test(withRefs),
+  )
+  check('指向不存在的 @引用 不生成死链', !withRefs.includes('9999'))
+  check('指向不存在的 [[链接]] 不生成死链', !withRefs.includes('8888'))
+  check(
+    '指不到的引用仍保留文字（不是链接）',
+    withRefs.includes('不存在的人') &&
+      withRefs.includes('不存在的词条') &&
+      !/<a[^>]*>不存在的人<\/a>/.test(withRefs),
+  )
+}
+
 if (failures.length > 0) {
   console.error('静态站导出自检失败：')
   for (const failure of failures) console.error(`  - ${failure}`)
