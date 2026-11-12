@@ -41,6 +41,8 @@ export interface ImportResult {
   overwritten: number
   /** 设置段的处理结果：恢复了哪几项 / 哪几项因为目标已有设置而保留 */
   config?: { restored: string[]; kept: string[] }
+  /** 因为目标不存在（或没导进来）而清掉的引用条数：国籍 / 参与者 / 命名关系 */
+  droppedRefs?: number
 }
 
 const TABLE_CONFIG: Array<{
@@ -451,6 +453,8 @@ export async function importData(
         worldEntries: idMaps.worldEntries,
         tags: idMaps.tags,
       }
+      /** 目标不存在的引用被摘掉的条数：报告里要说，不能静默丢 */
+      let droppedRefs = 0
       const remapTable = async (
         kind: 'character' | 'event' | 'country' | 'worldEntry',
         table: LooseTable,
@@ -463,8 +467,9 @@ export async function importData(
           if (newId === undefined) continue
           const current = (await table.get(newId)) as Record<string, unknown> | undefined
           if (current === undefined) continue
-          const patch = remapRowRefs(kind, current, remapMaps)
-          if (patch !== null) await table.update(newId, patch)
+          const result = remapRowRefs(kind, current, remapMaps)
+          droppedRefs += result.dropped
+          if (result.patch !== null) await table.update(newId, result.patch)
         }
       }
 
@@ -494,7 +499,7 @@ export async function importData(
         else totalAdded += 1
       }
 
-      return { added: totalAdded, skipped: totalSkipped, overwritten: totalOverwritten }
+      return { added: totalAdded, skipped: totalSkipped, overwritten: totalOverwritten, droppedRefs }
     },
   )
 

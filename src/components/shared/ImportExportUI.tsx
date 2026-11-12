@@ -137,6 +137,11 @@ export function useImportExport(options?: {
         if (result.config.restored.length > 0) parts.push(`恢复设置 ${result.config.restored.join('/')}`)
         if (result.config.kept.length > 0) parts.push(`保留当前设置 ${result.config.kept.join('/')}`)
       }
+      // 指向「本库不存在」的引用会被清掉（不然会指到同号的另一条）。清了几条要说出来 ——
+      // 静默清理等于「导进来少了两个关系，没人知道」。
+      if (result.droppedRefs !== undefined && result.droppedRefs > 0) {
+        parts.push(`清掉 ${result.droppedRefs} 条指向不存在目标的引用`)
+      }
 
       toast.success(`导入完成：${parts.join('，')}`, {
         description:

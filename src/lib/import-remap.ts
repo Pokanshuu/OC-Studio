@@ -38,12 +38,20 @@ function mapIds(map: ReadonlyMap<number, number>, value: unknown): number[] {
 const same = (a: unknown, b: unknown): boolean => JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
 
 /** 给一行算出「引用被重映射之后」的补丁（只含变化的键） */
+export interface RemapResult {
+  /** 有变化的键；没变化是 null */
+  patch: Record<string, unknown> | null
+  /** 因为目标不存在而被摘掉的引用条数（用于导入报告，别静默丢） */
+  dropped: number
+}
+
 export function remapRowRefs(
   kind: RemapKind,
   row: Record<string, unknown>,
   maps: IdMaps,
-): Record<string, unknown> | null {
+): RemapResult {
   const patch: Record<string, unknown> = {}
+  let dropped = 0
 
   const setIfChanged = (key: string, next: unknown): void => {
     if (same(row[key], next)) return
@@ -51,12 +59,17 @@ export function remapRowRefs(
   }
 
   if (Array.isArray(row.tags)) {
-    setIfChanged('tags', mapIds(maps.tags, row.tags))
+    const nextTags = mapIds(maps.tags, row.tags)
+    dropped += (row.tags as unknown[]).length - nextTags.length
+    setIfChanged('tags', nextTags)
   }
 
   if (kind === 'character') {
     if (row.countryId !== undefined) {
-      setIfChanged('countryId', mapId(maps.countries, row.countryId))
+      const nextCountry = mapId(maps.countries, row.countryId)
+      // 原来有国籍、但目标不存在 → 也算「清掉一条引用」，报告里要计入
+      if (nextCountry === null && row.countryId !== null) dropped += 1
+      setIfChanged('countryId', nextCountry)
     }
     if (Array.isArray(row.relatedCharacters)) {
       setIfChanged(
@@ -64,7 +77,11 @@ export function remapRowRefs(
         (row.relatedCharacters as Array<Record<string, unknown>>)
           .map((item) => {
             const next = mapId(maps.characters, item.characterId)
-            return next === null ? null : { ...item, characterId: next }
+            if (next === null) {
+              dropped += 1
+              return null
+            }
+            return { ...item, characterId: next }
           })
           .filter((item) => item !== null) as Array<Record<string, unknown>>,
       )
@@ -75,7 +92,11 @@ export function remapRowRefs(
         (row.relatedNotes as Array<Record<string, unknown>>)
           .map((item) => {
             const next = mapId(maps.worldEntries, item.targetId)
-            return next === null ? null : { ...item, targetId: next }
+            if (next === null) {
+              dropped += 1
+              return null
+            }
+            return { ...item, targetId: next }
           })
           .filter((item) => item !== null) as Array<Record<string, unknown>>,
       )
@@ -83,15 +104,27 @@ export function remapRowRefs(
   }
 
   if (kind === 'event') {
-    if (Array.isArray(row.countries)) setIfChanged('countries', mapIds(maps.countries, row.countries))
-    if (Array.isArray(row.characters)) setIfChanged('characters', mapIds(maps.characters, row.characters))
+    if (Array.isArray(row.countries)) {
+      const next = mapIds(maps.countries, row.countries)
+      dropped += (row.countries as unknown[]).length - next.length
+      setIfChanged('countries', next)
+    }
+    if (Array.isArray(row.characters)) {
+      const next = mapIds(maps.characters, row.characters)
+      dropped += (row.characters as unknown[]).length - next.length
+      setIfChanged('characters', next)
+    }
     if (Array.isArray(row.relations)) {
       setIfChanged(
         'relations',
         (row.relations as Array<Record<string, unknown>>)
           .map((item) => {
             const next = mapId(maps.events, item.targetId)
-            return next === null ? null : { ...item, targetId: next }
+            if (next === null) {
+              dropped += 1
+              return null
+            }
+            return { ...item, targetId: next }
           })
           .filter((item) => item !== null) as Array<Record<string, unknown>>,
       )
@@ -105,12 +138,16 @@ export function remapRowRefs(
         (row.relations as Array<Record<string, unknown>>)
           .map((item) => {
             const next = mapId(maps.worldEntries, item.targetId)
-            return next === null ? null : { ...item, targetId: next }
+            if (next === null) {
+              dropped += 1
+              return null
+            }
+            return { ...item, targetId: next }
           })
           .filter((item) => item !== null) as Array<Record<string, unknown>>,
       )
     }
   }
 
-  return Object.keys(patch).length > 0 ? patch : null
+  return { patch: Object.keys(patch).length > 0 ? patch : null, dropped }
 }
