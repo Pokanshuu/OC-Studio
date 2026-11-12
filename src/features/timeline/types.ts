@@ -14,11 +14,16 @@ export interface TimelineEvent {
   countries?: number[]
   /**
    * 节点来源。缺省 = 真事件。
-   * `birth` 是由角色生日合成的伪节点：不可拖拽（拖了会去改事件的 time），点击跳角色。
+   * `birth` 是由角色生日合成的伪节点；`country` 是由国家时间字段合成的建国 / 亡国节点。
+   * 两者都不进关系线、参与者轨道，也不可拖拽（拖了会去改事件的时间）。
    */
-  kind?: 'birth'
+  kind?: 'birth' | 'country'
   /** `kind === 'birth'` 时指向的角色 id */
   characterId?: number
+  /** `kind === 'country'` 时指向的国家 id */
+  countryId?: number
+  /** `kind === 'country'` 时那个时间字段的显示名（建立时间 / 结束时间） */
+  countryField?: string
 }
 
 export function pickTimelineFields(event: Event): TimelineEvent {

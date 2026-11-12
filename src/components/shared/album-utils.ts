@@ -1,11 +1,14 @@
 import { resolveImageUrl, getDefaultImage } from '@/lib/image-service'
 import type { AlbumEntry } from './useAlbumData'
+import { ALBUM_SLOT_LABELS, type AlbumCategory } from './album-labels'
+
+export { ALBUM_EXCLUDED_CATEGORIES, ALBUM_SLOT_LABELS, type AlbumCategory } from './album-labels'
 
 export interface SubCategory {
   key: string
   label: string
   sourceType: string
-  category: string
+  category: AlbumCategory
 }
 
 export interface TopCategory {
@@ -24,47 +27,52 @@ export const CATEGORY_TREE: TopCategory[] = [
   {
     key: 'character', label: '角色',
     children: [
-      { key: 'character:avatar', label: '头像', sourceType: 'character', category: 'avatar' },
-      { key: 'character:fullbody', label: '立绘', sourceType: 'character', category: 'fullbody' },
-      { key: 'character:header', label: '封面', sourceType: 'character', category: 'header' },
-      { key: 'character:gallery', label: '相册图片', sourceType: 'character', category: 'gallery' },
-      { key: 'character:body', label: '正文图片', sourceType: 'character', category: 'body' },
+      { key: 'character:avatar', label: ALBUM_SLOT_LABELS.avatar, sourceType: 'character', category: 'avatar' },
+      { key: 'character:fullbody', label: ALBUM_SLOT_LABELS.fullbody, sourceType: 'character', category: 'fullbody' },
+      { key: 'character:header', label: ALBUM_SLOT_LABELS.header, sourceType: 'character', category: 'header' },
+      { key: 'character:gallery', label: ALBUM_SLOT_LABELS.gallery, sourceType: 'character', category: 'gallery' },
+      { key: 'character:body', label: ALBUM_SLOT_LABELS.body, sourceType: 'character', category: 'body' },
     ],
   },
   {
     key: 'event', label: '事件',
     children: [
-      { key: 'event:header', label: '封面', sourceType: 'event', category: 'header' },
-      { key: 'event:gallery', label: '图片', sourceType: 'event', category: 'gallery' },
-      { key: 'event:body', label: '正文图片', sourceType: 'event', category: 'body' },
+      { key: 'event:header', label: ALBUM_SLOT_LABELS.header, sourceType: 'event', category: 'header' },
+      { key: 'event:gallery', label: ALBUM_SLOT_LABELS.gallery, sourceType: 'event', category: 'gallery' },
+      { key: 'event:body', label: ALBUM_SLOT_LABELS.body, sourceType: 'event', category: 'body' },
     ],
   },
   {
     key: 'country', label: '国家',
     children: [
-      { key: 'country:flag', label: '标志', sourceType: 'country', category: 'flag' },
-      { key: 'country:header', label: '封面', sourceType: 'country', category: 'header' },
-      { key: 'country:gallery', label: '画廊', sourceType: 'country', category: 'gallery' },
-      { key: 'country:body', label: '正文图片', sourceType: 'country', category: 'body' },
+      { key: 'country:flag', label: ALBUM_SLOT_LABELS.flag, sourceType: 'country', category: 'flag' },
+      { key: 'country:header', label: ALBUM_SLOT_LABELS.header, sourceType: 'country', category: 'header' },
+      { key: 'country:gallery', label: ALBUM_SLOT_LABELS.gallery, sourceType: 'country', category: 'gallery' },
+      { key: 'country:body', label: ALBUM_SLOT_LABELS.body, sourceType: 'country', category: 'body' },
     ],
   },
   {
     key: 'worldEntry', label: '词条',
     children: [
-      { key: 'worldEntry:avatar', label: '头像', sourceType: 'worldEntry', category: 'avatar' },
-      { key: 'worldEntry:image', label: '图片', sourceType: 'worldEntry', category: 'image' },
-      { key: 'worldEntry:gallery', label: '画廊', sourceType: 'worldEntry', category: 'gallery' },
-      { key: 'worldEntry:cover', label: '封面', sourceType: 'worldEntry', category: 'cover' },
-      { key: 'worldEntry:body', label: '正文图片', sourceType: 'worldEntry', category: 'body' },
+      { key: 'worldEntry:avatar', label: ALBUM_SLOT_LABELS.avatar, sourceType: 'worldEntry', category: 'avatar' },
+      { key: 'worldEntry:image', label: ALBUM_SLOT_LABELS.image, sourceType: 'worldEntry', category: 'image' },
+      { key: 'worldEntry:gallery', label: ALBUM_SLOT_LABELS.gallery, sourceType: 'worldEntry', category: 'gallery' },
+      { key: 'worldEntry:cover', label: ALBUM_SLOT_LABELS.cover, sourceType: 'worldEntry', category: 'cover' },
+      { key: 'worldEntry:body', label: ALBUM_SLOT_LABELS.body, sourceType: 'worldEntry', category: 'body' },
     ],
   },
   {
     key: 'world', label: '世界',
     children: [
-      { key: 'world:cover', label: '封面', sourceType: 'world', category: 'cover' },
+      { key: 'world:cover', label: ALBUM_SLOT_LABELS.cover, sourceType: 'world', category: 'cover' },
     ],
   },
 ]
+
+/** 相册条目的槽位名；未知 category 原样返回（不应发生，自检会拦） */
+export function albumCategoryLabel(category: string): string {
+  return ALBUM_SLOT_LABELS[category as AlbumCategory] ?? category
+}
 
 export function getTopCount(entries: AlbumEntry[], top: TopCategory): number {
   return entries.filter((e) =>

@@ -80,7 +80,7 @@ export const DraggableNode = memo(function DraggableNode({
   const dragDelta = (bodyDrag.transform || leftDrag.transform || rightDrag.transform)?.x ?? 0
   const isRange = !!event.endTime
   const barWidth = isRange ? Math.max(width, minBarWidth) : undefined
-  const tall = detail && event.kind !== 'birth'
+  const tall = detail && event.kind === undefined
 
   return (
     // 不加 touch-feedback：拖动本体 / 拖右边缘调时长时按下去会整体缩一圈，跟手势冲突
@@ -144,7 +144,7 @@ export const StaticNode = memo(function StaticNode({
   selected?: boolean
 }) {
   const isRange = !!event.endTime
-  const tall = detail && event.kind !== 'birth'
+  const tall = detail && event.kind === undefined
   return (
     <div
       className={`touch-feedback absolute flex items-center gap-1.5 rounded-item border bg-[var(--oc-hover)] px-2 py-1 text-sm text-ink transition-colors ${

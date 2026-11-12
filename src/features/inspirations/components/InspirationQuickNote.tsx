@@ -22,6 +22,16 @@ import {
   ROUND_ITEM,
   TITLE_INPUT,
 } from '@/lib/ui-tokens'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { useEntityNavigate } from '@/components/layout/EntityNavigateContext'
 import { notifyDataUpdated } from '@/lib/data-events'
 import { newWorldEntryData } from '@/lib/entity-defaults'
@@ -88,6 +98,8 @@ export function InspirationQuickNote() {
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null)
   const [dragging, setDragging] = useState(false)
   const [promoting, setPromoting] = useState(false)
+  /** 待确认删除的灵感：非空 = 警告窗打开（照 WorldTree / NovelTree 的删除确认） */
+  const [deleteTarget, setDeleteTarget] = useState<Inspiration | null>(null)
 
   const panelRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<DragState | null>(null)
@@ -103,6 +115,7 @@ export function InspirationQuickNote() {
   const selectItem = useCallback((id: string) => {
     setSelectedId(id)
     setListOpen(false)
+    setDeleteTarget(null)
     setError(null)
     focusOnReady.current = true
   }, [])
@@ -117,22 +130,24 @@ export function InspirationQuickNote() {
     }
   }, [selectItem])
 
-  const handleDelete = useCallback(async () => {
-    if (selected === null) return
+  const handleDelete = useCallback(async (target: Inspiration) => {
     try {
       // 先写完最后一个字再删，否则防抖计时器会拿旧 id 再写一次
-      await draft.flush()
-      await deleteInspiration(selected.id)
-      setSelectedId(null)
-      setListOpen(true)
+      if (target.id === selectedId) await draft.flush()
+      await deleteInspiration(target.id)
+      if (selectedId === target.id) {
+        setSelectedId(null)
+        setListOpen(true)
+      }
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : '删除失败')
     }
-  }, [draft, selected])
+  }, [draft, selectedId])
 
   const closeWindow = useCallback(() => {
     void draft.flush()
+    setDeleteTarget(null)
     setOpen(false)
   }, [draft])
 
@@ -207,6 +222,7 @@ export function InspirationQuickNote() {
     setPosition((current) => clampToViewport(current ?? defaultPosition()))
     // 点灯泡就是为了写字：即便上次停在列表，也从最近那条接着记
     setListOpen(false)
+    setDeleteTarget(null)
     const stillThere = selectedId !== null && items.some((item) => item.id === selectedId)
     if (!stillThere) setSelectedId(items[0]?.id ?? null)
     focusOnReady.current = true
@@ -359,7 +375,13 @@ export function InspirationQuickNote() {
                     >
                       <Plus size={14} strokeWidth={2} />
                     </button>
-                    <button type="button" className={ICON_BTN} title="删除" aria-label="删除" onClick={() => void handleDelete()}>
+                    <button
+                      type="button"
+                      className={ICON_BTN}
+                      title="删除"
+                      aria-label="删除"
+                      onClick={() => { if (selected !== null) setDeleteTarget(selected) }}
+                    >
                       <Trash2 size={14} strokeWidth={2} />
                     </button>
                     <button type="button" className={ICON_BTN} title="收起" aria-label="收起" onClick={closeWindow}>
@@ -460,6 +482,32 @@ export function InspirationQuickNote() {
             document.getElementById('overlay-root') ?? document.body,
           )
         : null}
+
+      <AlertDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>删除这条灵感</AlertDialogTitle>
+            <AlertDialogDescription>
+              灵感没有回收站，删除后不可恢复。已经「变成笔记」的内容不会受影响。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const target = deleteTarget
+                setDeleteTarget(null)
+                if (target !== null) void handleDelete(target)
+              }}
+            >
+              删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }

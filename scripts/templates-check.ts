@@ -43,10 +43,10 @@ import {
   normalizeInfoGroups,
   selectableInfoGroups,
 } from '../src/lib/templates/info-groups'
-import { BUILTIN_FIELDS } from '../src/lib/fields/defaults'
+import { BUILTIN_FIELDS, defaultFieldConfig } from '../src/lib/fields/defaults'
 import { FIELD_KINDS } from '../src/lib/fields/types'
 import { legacyNoteSpecialFields, upgradeLegacyTemplate } from '../src/lib/templates/store'
-import { normalizeFieldConfig, upgradeFieldConfig } from '../src/lib/fields/store'
+import { normalizeFieldConfig, serializeFieldConfig, upgradeFieldConfig } from '../src/lib/fields/store'
 import { BUILTIN_CATEGORIES } from '../src/lib/categories/builtins'
 import type { TemplateDoc } from '../src/lib/templates/types'
 
@@ -582,9 +582,81 @@ check(
   )
   check(ids.includes('isMajor') && ids.includes('f_1'), '字段表升级把用户原有字段丢了')
   check(
-    upgradeFieldConfig(upgraded, 2) === upgraded,
-    '已经是 v2 的字段表又被补了一遍（用户删掉的行会回来）',
+    upgradeFieldConfig(upgraded, 3) === upgraded,
+    '已经是 v3 的字段表又被补了一遍（用户删掉的行会回来）',
   )
+}
+
+// 字段表 v2 → v4：国家补出厂字段（建立 / 结束时间、政体、首都、官方语言、货币），
+// 其中建立 / 结束时间是 time 类型（三段控件），值仍是 YYYY-MM-DD 字符串
+{
+  const v2 = normalizeFieldConfig({ country: [] })
+  const upgraded = upgradeFieldConfig(v2, 2)
+  const labels = upgraded.country.map((field) => field.label)
+  check(
+    ['建立时间', '结束时间', '政体', '首都', '官方语言', '货币'].every((label) => labels.includes(label)),
+    '国家出厂字段没有补齐',
+  )
+  check(
+    upgraded.country.find((field) => field.label === '政体')?.key === '政体类型',
+    '「政体」的落盘键与 system 的读别名撞了',
+  )
+  check(
+    upgraded.country.find((field) => field.label === '建立时间')?.type === 'time' &&
+      upgraded.country.find((field) => field.label === '结束时间')?.type === 'time',
+    '国家的建立 / 结束时间不是 time 类型',
+  )
+  check(
+    upgraded.country.every((field) => field.key !== undefined),
+    '国家出厂字段被当成内置列（key 丢了）',
+  )
+  check(
+    upgradeFieldConfig(upgraded, 4) === upgraded,
+    '已经是 v4 的国家出厂字段又被补了一遍',
+  )
+
+  // 用户已经有的同键字段不能再塞一条
+  const existing = normalizeFieldConfig({
+    country: [{ id: 'f_owned', label: '建立时间', key: '建立时间' }],
+  })
+  const merged = upgradeFieldConfig(existing, 2)
+  check(
+    merged.country.filter((field) => field.key === '建立时间').length === 1,
+    '已有的「建立时间」被重复添加',
+  )
+  check(
+    defaultFieldConfig().country.some((field) => field.label === '政体'),
+    '新库的默认字段表里没有国家出厂字段',
+  )
+  const roundTrip = normalizeFieldConfig(defaultFieldConfig())
+  check(
+    roundTrip.country.find((field) => field.label === '政体')?.key === '政体类型',
+    '默认配置读回时把政体的落盘键丢了',
+  )
+  check(
+    roundTrip.country.find((field) => field.label === '建立时间')?.type === 'time',
+    '默认配置读回时把建立时间的 time 类型丢了',
+  )
+  const persisted = normalizeFieldConfig(JSON.parse(serializeFieldConfig(defaultFieldConfig())))
+  check(
+    persisted.country.find((field) => field.key === '建立时间')?.type === 'time',
+    '字段表落盘再读回时把建立时间的 time 类型丢了',
+  )
+
+  // v3 的旧配置把建立 / 结束时间存成 text；升级后应转成 time
+  const v3 = normalizeFieldConfig({
+    country: [
+      { id: 'f_country_founded', label: '建立时间', key: '建立时间' },
+      { id: 'f_country_dissolved', label: '结束时间', key: '结束时间' },
+    ],
+  })
+  const v4 = upgradeFieldConfig(v3, 3)
+  check(
+    v4.country.find((field) => field.key === '建立时间')?.type === 'time' &&
+      v4.country.find((field) => field.key === '结束时间')?.type === 'time',
+    'v3 → v4 没把国家时间字段转成 time',
+  )
+  check(upgradeFieldConfig(v4, 4) === v4, 'v4 的国家时间字段又被转了一遍')
 }
 
 // 模板 v2 → v3：时间 / 地点组件退役；笔记模板的这两块要补成基本信息的特殊字段

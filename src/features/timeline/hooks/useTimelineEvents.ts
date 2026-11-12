@@ -6,6 +6,7 @@ import * as timelineService from '../services'
 import type { TimelineEvent } from '../types'
 import type { TimelineFilter } from '../services'
 import { DATA_UPDATED_EVENT } from '@/lib/data-events'
+import { useFieldConfig } from '@/lib/fields'
 
 /**
  * 时间线的事件列表。
@@ -22,13 +23,18 @@ export function useTimelineEvents(
   error: string | null
   refresh: () => void
 } {
+  const countryTimeKey = useFieldConfig()
+    .country.filter((field) => field.type === 'time')
+    .map((field) => `${field.id}:${field.key ?? ''}:${field.label}`)
+    .join('|')
+
   const {
     data = [],
     isLoading,
     error,
     refetch,
   } = useQuery<TimelineEvent[]>({
-    queryKey: ['timeline-events', filter],
+    queryKey: ['timeline-events', filter, countryTimeKey],
     queryFn: () => timelineService.getTimelineEvents(filter),
     staleTime: 0,
   })

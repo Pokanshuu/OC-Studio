@@ -3,7 +3,7 @@ import { db } from '@/lib/db'
 import { isVaultSupported, vaultFs } from '@/lib/vault/vault-fs'
 import { getVaultSession } from '@/lib/vault/vault-session'
 import { setCustomFieldKeys } from '@/lib/vault/vault-field-keys'
-import { defaultFieldConfig, defaultFields, missingBuiltinFields } from './defaults'
+import { DEFAULT_CUSTOM_FIELDS, defaultFieldConfig, defaultFields, missingBuiltinFields } from './defaults'
 import {
   CUSTOM_FIELD_PREFIX,
   FIELD_KINDS,
@@ -26,8 +26,12 @@ export const FIELDS_REL_PATH = '.ocstudio/fields.json'
  * - 2（2026-11-10）：时间 / 结束时间 / 地点收回「基本信息」。旧配置里没有这三行
  *   （当年退役时从读盘结果里丢掉了），升级时**一次性**补回默认位置；
  *   之后用户删掉就写版本 2，不会再被加回来。
+ * - 3（2026-11-13）：国家补出厂自建字段（建立时间 / 结束时间 / 政体 / 首都 /
+ *   官方语言 / 货币），值落 `Country.custom`；同样只补一次。
+ * - 4（2026-11-13）：建立时间 / 结束时间改成 `type: 'time'`（年 / 月 / 日三段），
+ *   值仍是同一个 `YYYY-MM-DD` 字符串；旧配置里的这两行按 id / 键一次性转过来。
  */
-const FIELDS_VERSION = 2
+const FIELDS_VERSION = 4
 
 let snapshot: FieldConfig = defaultFieldConfig()
 /**
@@ -98,6 +102,43 @@ export function upgradeFieldConfig(config: FieldConfig, version: number): FieldC
     // 这几行原本就排在「重大事件」之前，补回时也放前面
     next = { ...next, [kind]: [...restored, ...next[kind]] }
   }
+
+  // v3：国家补出厂自建字段。按 id **和键**去重 —— 用户已经有一条「建立时间」
+  // 就不要再塞第二条；之后用户删掉也不会回来（版本已经写成 3）。
+  if (version < 3) {
+    const existing = new Set<string>()
+    for (const field of next.country) {
+      existing.add(field.id)
+      if (field.key !== undefined) existing.add(field.key)
+    }
+    const additions = (DEFAULT_CUSTOM_FIELDS.country ?? []).filter(
+      (field) => !existing.has(field.id) && (field.key === undefined || !existing.has(field.key)),
+    )
+    if (additions.length > 0) {
+      next = {
+        ...next,
+        country: [...additions.map((field) => ({ ...field })), ...next.country],
+      }
+    }
+  }
+
+  // v4：建立 / 结束时间换成三段控件；旧配置里这两行还是 text（甚至没有 type）。
+  // 按 id 和键都认，用户改过显示名也转得过来；已经是 time 的不动，保持对象身份。
+  if (version < 4) {
+    let changed = false
+    const country = next.country.map((field) => {
+      if (field.type === 'time') return field
+      const isCountryTime =
+        field.id === 'f_country_founded' ||
+        field.id === 'f_country_dissolved' ||
+        field.key === '建立时间' ||
+        field.key === '结束时间'
+      if (!isCountryTime) return field
+      changed = true
+      return { ...field, type: 'time' as const }
+    })
+    if (changed) next = { ...next, country }
+  }
   return next
 }
 
@@ -127,7 +168,10 @@ export function normalizeFieldConfig(raw: unknown): FieldConfig {
       const fallbackLabel = builtin?.label ?? (typeof record.key === 'string' ? record.key : id)
       const label =
         typeof record.label === 'string' && record.label.trim() !== '' ? record.label.trim() : fallbackLabel
-      const field: FieldDef = { id, label, type: builtin?.type ?? 'text' }
+      // 内置字段的类型由列决定；自建字段只认 time，其余一律 text。
+      // 旧配置没有 type 键，这里回落 text，不影响已有字段。
+      const customType = record.type === 'time' ? 'time' : 'text'
+      const field: FieldDef = { id, label, type: builtin?.type ?? customType }
       if (builtin === undefined) {
         const key = typeof record.key === 'string' && record.key.trim() !== '' ? record.key.trim() : id
         field.key = key
@@ -147,7 +191,9 @@ function fieldConfigPayload(config: FieldConfig): Record<string, unknown> {
     payload[kind] = config[kind].map((field) =>
       field.key === undefined
         ? { id: field.id, label: field.label }
-        : { id: field.id, label: field.label, key: field.key },
+        : field.type === 'text'
+          ? { id: field.id, label: field.label, key: field.key }
+          : { id: field.id, label: field.label, type: field.type, key: field.key },
     )
   }
   return payload

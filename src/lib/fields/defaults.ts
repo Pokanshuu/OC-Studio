@@ -34,18 +34,41 @@ export const BUILTIN_FIELDS: Record<FieldKind, FieldDef[]> = {
   worldEntry: [],
 }
 
-/** 默认配置 = 全部内置字段、默认顺序 */
+/**
+ * 出厂自带的**自建字段**（值落实体 `custom`，frontmatter 写同名键）。
+ *
+ * 和 `BUILTIN_FIELDS` 分开：后者是「实体本来就有列」的字段，前者只是默认配置里的
+ * 普通自建字段 —— 用户可以删、可以改名，删了不会从列里丢数据。
+ *
+ * 国家这组是 2026-11-13 补的：建立 / 结束时间、政体、首都、官方语言、货币都是国家
+ * 的短事实，适合放在基本信息里；「政治制度 / 地理环境 / 人文风貌」的长文仍归正文。
+ * `政体` 的键刻意用 `政体类型`，避开 `vault/fields.ts` 里 `system` 的读别名「政体」。
+ */
+export const DEFAULT_CUSTOM_FIELDS: Partial<Record<FieldKind, FieldDef[]>> = {
+  country: [
+    { id: 'f_country_founded', label: '建立时间', type: 'time', key: '建立时间' },
+    { id: 'f_country_dissolved', label: '结束时间', type: 'time', key: '结束时间' },
+    { id: 'f_country_regime', label: '政体', type: 'text', key: '政体类型' },
+    { id: 'f_country_capital', label: '首都', type: 'text', key: '首都' },
+    { id: 'f_country_language', label: '官方语言', type: 'text', key: '官方语言' },
+    { id: 'f_country_currency', label: '货币', type: 'text', key: '货币' },
+  ],
+}
+
+/** 默认配置 = 全部内置字段 + 出厂自建字段，默认顺序 */
 export function defaultFields(kind: FieldKind): FieldDef[] {
   return BUILTIN_FIELDS[kind].map((field) => ({ ...field }))
 }
 
 export function defaultFieldConfig(): FieldConfig {
-  return {
-    character: defaultFields('character'),
-    event: defaultFields('event'),
-    country: defaultFields('country'),
-    worldEntry: defaultFields('worldEntry'),
+  const config = {} as FieldConfig
+  for (const kind of Object.keys(BUILTIN_FIELDS) as FieldKind[]) {
+    config[kind] = [
+      ...defaultFields(kind),
+      ...(DEFAULT_CUSTOM_FIELDS[kind] ?? []).map((field) => ({ ...field })),
+    ]
   }
+  return config
 }
 
 /** 某类实体里还没出现在配置中的内置字段（设置页「+ 添加字段」用） */

@@ -18,6 +18,8 @@
     "audit:theme": "tsx scripts/theme-tokens-check.ts",
     "audit:palettes": "tsx scripts/theme-presets-check.ts",
     "audit:templates": "tsx scripts/templates-check.ts",
+    "audit:album": "tsx scripts/album-check.ts",
+    "audit:timeline": "tsx scripts/timeline-check.ts",
     "audit:stores": "tsx scripts/vault-stores-check.ts",
     "audit:migrate": "tsx scripts/vault-migrate-check.ts",
     "audit:cover": "tsx scripts/cover-check.ts",

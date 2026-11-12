@@ -23,9 +23,10 @@ export type FieldKind = (typeof FIELD_KINDS)[number]
 
 /**
  * 控件类型。`text` 覆盖绝大多数；其余是内置字段专用的特化控件。
- * 自定义字段 v1 只有 `text`（文本框），够用且不需要额外存储结构。
+ * 自定义字段默认 `text`；出厂的国家时间字段用 `time`（年 / 月 / 日三段，
+ * 值仍是 `YYYY-MM-DD` 字符串，和事件 / 词条的时间同一种落盘形态）。
  */
-export type FieldType = 'text' | 'bool' | 'tags' | 'country' | 'countryParent'
+export type FieldType = 'text' | 'bool' | 'tags' | 'country' | 'countryParent' | 'time'
 
 export interface FieldDef {
   /** 稳定标识：内置字段用列名（race / faction / …），自定义字段用 `f_` 前缀 */

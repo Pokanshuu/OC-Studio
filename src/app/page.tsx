@@ -276,6 +276,7 @@ export default function Home() {
           <TimelineView
             onSelectEvent={handleTimelineSelectEvent}
             onSelectCharacter={handleTimelineSelectCharacter}
+            onSelectCountry={handleSelectCountry}
           />
         ) : null}
       </div>

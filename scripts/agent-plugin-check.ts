@@ -1061,7 +1061,15 @@ async function main(): Promise<void> {
   )
   check(
     'toolSummary 认合并前的 import_image（保留旧记录的可读性）',
-    toolSummary({ id: 'c12', name: 'library_import_image', args: '{"slot":"avatar"}' } as never) === '',
+    toolSummary({ id: 'c12', name: 'library_import_image', args: '{"slot":"avatar"}' } as never) === 'avatar',
+  )
+  check(
+    'toolSummary 认合并前的 set_custom（保留旧记录的可读性）',
+    toolSummary({
+      id: 'c14',
+      name: 'library_set_custom',
+      args: '{"fields":{"物种":"精灵","材质":"银"}}',
+    } as never) === '物种 · 材质',
   )
   check(
     'toolSummary 认 library_rename',

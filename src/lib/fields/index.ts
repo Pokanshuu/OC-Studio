@@ -1,5 +1,6 @@
 export {
   BUILTIN_FIELDS,
+  DEFAULT_CUSTOM_FIELDS,
   defaultFieldConfig,
   defaultFields,
   missingBuiltinFields,

@@ -52,9 +52,11 @@ interface TimelineViewProps {
   onSelectEvent: (id: number) => void
   /** 打开角色（出生节点点进来时用） */
   onSelectCharacter: (id: number) => void
+  /** 打开国家（建立 / 结束时间节点点进来时用） */
+  onSelectCountry?: (id: number) => void
 }
 
-export function TimelineView({ onSelectEvent, onSelectCharacter }: TimelineViewProps) {
+export function TimelineView({ onSelectEvent, onSelectCharacter, onSelectCountry }: TimelineViewProps) {
   const { isMobile } = useDevice()
   const { settings, updateSetting } = useSettings()
   const [editMode, setEditMode] = useState(false)
@@ -114,13 +116,25 @@ export function TimelineView({ onSelectEvent, onSelectCharacter }: TimelineViewP
 
   const handleDragEnd = useTimelineDrag(refresh)
 
-  /** 出生节点的 id 是负数（角色 id 取反），其余是事件 id —— 分发只在这里做一次 */
+  /**
+   * 伪节点分发：出生节点打开角色、国家节点打开国家，其余是真事件。
+   * 以前靠 id 负数判断出生；国家节点也负数，所以必须看 `kind`。
+   */
+  const eventById = useMemo(() => new Map(events.map((event) => [event.id, event])), [events])
   const handleSelect = useCallback(
     (id: number) => {
-      if (id < 0) onSelectCharacter(-id)
-      else onSelectEvent(id)
+      const event = eventById.get(id)
+      if (event?.kind === 'birth' && event.characterId !== undefined) {
+        onSelectCharacter(event.characterId)
+        return
+      }
+      if (event?.kind === 'country' && event.countryId !== undefined) {
+        onSelectCountry?.(event.countryId)
+        return
+      }
+      onSelectEvent(id)
     },
-    [onSelectEvent, onSelectCharacter],
+    [eventById, onSelectCharacter, onSelectCountry, onSelectEvent],
   )
 
   const {
@@ -175,10 +189,10 @@ export function TimelineView({ onSelectEvent, onSelectCharacter }: TimelineViewP
     const seen = new Set<string>()
     const out: { id: string; d: string; relation: string; labelX: number; labelY: number; fromId: number; toId: number }[] = []
     for (const item of nodes.items) {
-      if (item.event.kind === 'birth') continue
+      if (item.event.kind !== undefined) continue
       for (const rel of item.event.relations ?? []) {
         const target = byId.get(rel.targetId)
-        if (!target || target.event.kind === 'birth' || target.event.id === item.event.id) continue
+        if (!target || target.event.kind !== undefined || target.event.id === item.event.id) continue
         const pair = item.event.id < target.event.id
           ? `${item.event.id}-${target.event.id}`
           : `${target.event.id}-${item.event.id}`
@@ -242,7 +256,7 @@ export function TimelineView({ onSelectEvent, onSelectCharacter }: TimelineViewP
    */
   const trackRows = useMemo<ParticipantTrackRow[]>(() => {
     if (!showTracks || density !== 'year') return []
-    const items = nodes.items.filter((item) => item.event.kind !== 'birth')
+    const items = nodes.items.filter((item) => item.event.kind === undefined)
     const charNames = new Map<number, string>()
     for (const character of characters) {
       if (character.id !== undefined) charNames.set(character.id, character.name)
@@ -316,7 +330,7 @@ export function TimelineView({ onSelectEvent, onSelectCharacter }: TimelineViewP
     }
     const out = new Map<number, string>()
     for (const item of nodes.items) {
-      if (item.event.kind === 'birth') continue
+      if (item.event.kind !== undefined) continue
       const list = [...(item.event.characters ?? []), ...(item.event.countries ?? [])]
         .map((id) => names.get(id))
         .filter((name): name is string => Boolean(name))
@@ -586,7 +600,7 @@ export function TimelineView({ onSelectEvent, onSelectCharacter }: TimelineViewP
                 modifiers={[restrictToHorizontalAxis]}
               >
                 {nodes.items.map((item) =>
-                  item.event.kind === 'birth' ? (
+                  item.event.kind !== undefined ? (
                     <StaticNode
                       key={item.event.id}
                       event={item.event}

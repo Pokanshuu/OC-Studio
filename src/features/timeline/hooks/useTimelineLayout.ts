@@ -108,8 +108,8 @@ export function useTimelineLayout({
   }, [filtered, yearRange, pxPerYear, density])
 
   const buckets = useMemo(() => {
-    // 聚合桶只收真事件：出生节点不是「事件」，混进桶里点开就跳错地方了
-    const withTime = filtered.filter((e) => !!e.time && e.kind !== 'birth')
+    // 聚合桶只收真事件：出生 / 国家节点不是「事件」，混进桶里点开就跳错地方了
+    const withTime = filtered.filter((e) => !!e.time && e.kind === undefined)
     if (density === 'year' || !yearRange || withTime.length === 0) return null
     return buildBuckets(
       withTime,

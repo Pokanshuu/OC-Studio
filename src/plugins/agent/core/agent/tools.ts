@@ -592,6 +592,16 @@ export function toolSummary(call: ToolCall): string {
       const keys = Object.keys(fields as Record<string, unknown>)
       return keys.length > 0 ? keys.join(' · ') : ''
     }
+    /**
+     * 合并掉的旧名：历史记录 / 模型记忆里还会出现，摘要按**旧参数形状**读。
+     * 不要拿新工具的字段去套 —— 旧名没有 `entries` / `url` 这些新形状。
+     */
+    case 'library_set_custom': {
+      const fields = args.fields
+      if (fields === null || typeof fields !== 'object') return ''
+      const keys = Object.keys(fields as Record<string, unknown>)
+      return keys.length > 0 ? keys.join(' · ') : ''
+    }
     case 'library_set_body':
       return typeof args.body === 'string' ? `${args.body.length} 字` : ''
     case 'library_link':
@@ -608,6 +618,9 @@ export function toolSummary(call: ToolCall): string {
       return count > 1 ? `${count} 条 · ${tags}` : tags
     }
     case 'library_set_media':
+      return typeof args.slot === 'string' ? args.slot : ''
+    /** 合并掉的旧名：旧参数形状是 `{ kind, id, slot, url }`，摘要仍显示槽位 */
+    case 'library_import_image':
       return typeof args.slot === 'string' ? args.slot : ''
     case 'library_templates':
       return '模板目录'

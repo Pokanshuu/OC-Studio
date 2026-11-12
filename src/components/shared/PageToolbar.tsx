@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * 页面页头（S4）：左标题（`PAGE_TITLE`）+ 右侧动作区，48px。
+ * 页面页头（S4）：左侧可带 leading / 返回 + 标题（`PAGE_TITLE`），右侧动作区，48px。
  *
  * **静止时是纸的一部分**：没有分隔线、没有底色；内容向上滚过判定阈值后，
  * 才补 1px 线与 `backdrop-blur`。两种接法，按页面的滚动结构选：
@@ -21,7 +21,9 @@ import { useInHeaderSurface } from './ListShell'
 
 interface PageToolbarProps {
   title: string
-  /** 标题右侧的附加控件（地图选择 / 相册折叠目录） */
+  /** 标题左侧的附加控件（相册折叠目录） */
+  leading?: ReactNode
+  /** 标题右侧的附加控件（地图选择） */
   children?: ReactNode
   /** 右侧动作区 */
   actions?: ReactNode
@@ -38,6 +40,7 @@ interface PageToolbarProps {
 
 export function PageToolbar({
   title,
+  leading,
   children,
   actions,
   onBack,
@@ -56,6 +59,7 @@ export function PageToolbar({
       } ${shade} ${className}`}
     >
       <div className="flex min-w-0 items-center gap-2">
+        {leading ? <div className="flex shrink-0 items-center gap-2">{leading}</div> : null}
         {onBack ? (
           <button
             type="button"

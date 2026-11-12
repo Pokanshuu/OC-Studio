@@ -20,7 +20,7 @@ import { AlbumTreePanel } from './AlbumTreePanel'
 import { useMediaDownload } from '@/lib/use-media-download'
 import { ListWidthResizer } from '@/components/editor/ListWidthResizer'
 import { useListWidth } from '@/components/editor/useListWidth'
-import { CATEGORY_TREE, albumSourceLabel, albumSourceType, collectAlbumSources, matchesAlbumCategory } from './album-utils'
+import { CATEGORY_TREE, albumCategoryLabel, albumSourceLabel, albumSourceType, collectAlbumSources, matchesAlbumCategory } from './album-utils'
 
 /** 相册页头里的筛选触发按钮（比 ui-tokens 的 FILTER_TRIGGER 更紧一点） */
 const ALBUM_FILTER_TRIGGER = 'touch-feedback flex h-8 items-center gap-1 px-2 text-[13px] text-ink transition-colors hover:bg-[var(--oc-hover)]'
@@ -155,7 +155,7 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
     if (search.trim()) {
       const q = search.trim().toLowerCase()
       result = result.filter((e) =>
-        e.sourceName.toLowerCase().includes(q) || e.category.toLowerCase().includes(q)
+        `${e.sourceName} ${albumCategoryLabel(e.category)}`.toLowerCase().includes(q)
       )
     }
     if (tagFilter !== 'all') {
@@ -238,6 +238,18 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
             title={selectedLabel}
             scrolled={gridScrolled}
             className="max-md:hidden"
+            leading={
+              treeCollapsed ? (
+                <button
+                  onClick={() => setTreeCollapsed(false)}
+                  className={`${ICON_BTN_MD} shrink-0`}
+                  title="展开目录"
+                  aria-label="展开目录"
+                >
+                  <Menu size={16} strokeWidth={2} />
+                </button>
+              ) : null
+            }
             actions={
               <>
                 <div className="relative">
@@ -290,17 +302,7 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
                 </button>
               </>
             }
-          >
-            {treeCollapsed ? (
-              <button
-                onClick={() => setTreeCollapsed(false)}
-                className={ICON_BTN_MD}
-                title="展开目录"
-              >
-                <Menu size={16} strokeWidth={2} />
-              </button>
-            ) : null}
-          </PageToolbar>
+          />
 
           {/* Grid content */}
           <div className="flex flex-1 flex-col px-4 pt-4 pb-24 md:pb-4">
