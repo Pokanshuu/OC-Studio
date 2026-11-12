@@ -33,6 +33,20 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 Set-Location $root
 
+# 取代码签名证书。
+#
+# 不用 `Get-ChildItem Cert: -CodeSigningCert`：那是 PKI 模块提供的动态参数，
+# 在 `powershell -NoProfile` 拉起的会话里不一定注册，会报「找不到参数 CodeSigningCert」。
+# 直接按 EKU 过滤（代码签名 OID 1.3.6.1.5.5.7.3.3），Windows PowerShell 5.1 与 7 都能跑。
+function Get-CodeSigningCerts {
+  Get-ChildItem 'Cert:\CurrentUser\My' -ErrorAction SilentlyContinue | Where-Object {
+    if (-not $_.HasPrivateKey) { return $false }
+    $eku = @($_.EnhancedKeyUsageList.ObjectId.Value)
+    # 带代码签名 EKU，或 EKU 为空（自签证书常见，视作「不限用途」）
+    return ($eku -contains '1.3.6.1.5.5.7.3.3') -or ($eku.Count -eq 0)
+  }
+}
+
 function Step($text) { Write-Host "`n== $text" -ForegroundColor Cyan }
 function Fail($text) { Write-Host "✗ $text" -ForegroundColor Red; exit 1 }
 
@@ -167,7 +181,7 @@ if (-not $NoSign) {
   # -Publisher 换成 Partner Center 的 Identity/Publisher 以后，本机通常没有对应证书 ——
   # 签名证书的 Subject 必须和清单里的 Publisher 一致，所以这里可以现生成一张自签的
   if ($CertThumbprint -eq '' -and $MakeCert) {
-    $match = Get-ChildItem Cert:\CurrentUser\My -CodeSigningCert |
+    $match = Get-CodeSigningCerts |
       Where-Object { $_.Subject -eq $Publisher } |
       Sort-Object NotAfter -Descending |
       Select-Object -First 1
@@ -181,12 +195,12 @@ if (-not $NoSign) {
     $CertThumbprint = $match.Thumbprint
   }
   if ($CertThumbprint -eq '') {
-    $cert = Get-ChildItem Cert:\CurrentUser\My -CodeSigningCert |
+    $cert = Get-CodeSigningCerts |
       Where-Object { $_.Subject -eq $Publisher } |
       Sort-Object NotAfter -Descending |
       Select-Object -First 1
     if (-not $cert) {
-      $cert = Get-ChildItem Cert:\CurrentUser\My -CodeSigningCert |
+      $cert = Get-CodeSigningCerts |
         Sort-Object NotAfter -Descending |
         Select-Object -First 1
     }
