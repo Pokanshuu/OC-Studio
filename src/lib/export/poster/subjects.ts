@@ -15,6 +15,7 @@ import { plainTextOf } from '@/lib/export/site/render'
 import { findTemplateByName, getTemplates, loadTemplates } from '@/lib/templates/store'
 import { getCategories, loadCategories } from '@/lib/categories/store'
 import type { PosterData, PosterField, PosterRelation } from './types'
+import { isCodexEntry } from '@/lib/entry-kinds'
 
 export type PosterSubjectKind = 'character' | 'event' | 'country' | 'world'
 
@@ -287,7 +288,9 @@ async function collectData(): Promise<{
     db.characters.filter((row) => !row.deleted).toArray(),
     db.events.filter((row) => !row.deleted).toArray(),
     db.countries.filter((row) => !row.deleted).toArray(),
-    db.worldEntries.filter((row) => !row.deleted).toArray(),
+    // 小说章节与地图不是「词条」：章节属于小说导出，地图只有底图。
+    // 不过滤的话海报对象列表里会出现「第一章」「世界地图」，导出来是一张空卡。
+    db.worldEntries.filter((row) => !row.deleted && isCodexEntry(row)).toArray(),
   ])
   return { characters, events, countries, entries }
 }
