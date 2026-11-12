@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "OC Studio",
-  "version": "0.20.3-beta",
+  "version": "0.20.4-beta",
   "identifier": "com.ocstudio.ocstudio",
   "build": {
     "frontendDist": "../out",
@@ -39,7 +39,7 @@
     "targets": ["nsis", "msi"],
     "windows": {
       "wix": {
-        "version": "0.20.3"
+        "version": "0.20.4"
       }
     },
     "icon": [
