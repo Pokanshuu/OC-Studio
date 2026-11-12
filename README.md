@@ -5,8 +5,8 @@
 当前版本：**v0.20.4-beta**
 **不保证对旧版本（v0.19.2 及更早）的备份与笔记库、以及 OC-editor 的兼容性**。升级前请先复制一份笔记库。
 >
-> - 参见：[Pokanshuu/OC-Studio v0.20.4-beta](https://github.com/Pokanshuu/OC-Studio/releases/tag/v0.20.3-beta)
->
+> - 最新版：[Pokanshuu/OC-Studio v0.20.4-beta](https://github.com/Pokanshuu/OC-Studio/releases/tag/v0.20.3-beta)
+> - 使用了该项目的部分功能：[nekibud/OC-editor](https://github.com/nekibud/OC-editor/releases)
 
 ---
 
