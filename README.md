@@ -2,11 +2,10 @@
 
 本地优先的原创角色（OC）与世界观创作工作台。
 
-当前版本：**v0.20.4-beta**（发布在 `latest`）
+当前版本：**v0.20.4-beta**
 **不保证对旧版本（v0.19.2 及更早）的备份与笔记库、以及 OC-editor 的兼容性**。升级前请先复制一份笔记库。
 >
-> - 本版：[Pokanshuu/OC-Studio v0.20.4-beta](https://github.com/Pokanshuu/OC-Studio/releases/tag/v0.20.3-beta)
-> - 上一版：[Pokanshuu/OC-Studio v0.20.2-beta](https://github.com/Pokanshuu/OC-Studio/releases/tag/v0.20.2-beta)（`.app` / `.dmg`）
+> - 参见：[Pokanshuu/OC-Studio v0.20.4-beta](https://github.com/Pokanshuu/OC-Studio/releases/tag/v0.20.3-beta)
 >
 
 ---
@@ -42,7 +41,7 @@
 - **海报**：提供六种版式，可调整封面、字号和背景，导出高清 PNG；角色、事件和国家页面均有入口。
 - **网站**：提供三种版式，导出为单个 `index.html`，可直接打开或发布到 GitHub Pages。
 - **文档**：支持 Word、Markdown、TXT，导出前可以预览整页；可按条目选择只导单篇或多篇。
-- **备份**：导出 `.ocbak` 文件，图片与创作时间线一并包含；导入时时间线按条去重后追加。
+- **备份**：导出 `.ocbak` 文件，图片与创作时间线一并包含。
 
 ### 外观
 
