@@ -64,15 +64,15 @@
 
 **2026-11-10 已落地**：能力卡片（−61% 字符）、写回执、错误三分类、`library_read` 暴露上级 / 图片槽位 / 可写脚注、journal 过滤 `undefined`、同名创建幂等、工具结果预算、循环守卫、`audit:agent-budget`。
 
-- [ ] **P1 代码签名（发版前最该补的一条）**：安装包目前未签名，Defender 的机器学习规则会随机命中 NSIS 壳 —— 2026-11-12 的 0.20.4-beta 就中过一次（`Trojan:Win32/Wacatac.C!ml`），同一份源码重建后又不命中；`app.exe` 与 MSI 两次都干净。本机 `Cert:\CurrentUser\My` 里那两张是**自签**证书（Issuer = Subject），签了也不会被 Windows 信任，必须买公共 CA 的代码签名证书（2023-06 起私钥必须在硬件 token / 云 HSM 里，不再有可下载的 .pfx）。接入方式：证书装进证书库后填 `bundle.windows.certificateThumbprint` + `digestAlgorithm: sha256` + `timestampUrl`，或改用 `signCommand` 走云签名。没签之前的临时手段：MSI 放主下载、命中后重建一次换哈希、向微软提交误报（<https://www.microsoft.com/en-us/wdsi/filesubmission>）
-- [ ] **P1 统一自动保存 + 版本历史（发版后第一件事，先出设计再写码）**：方向已定 —— 角色 / 国家 / 事件也改成自动保存（笔记、章节、分类条目已经是），并给「创作时间线」加版本记录与 diff。三个前置与决定：
-  - ① **先做磁盘冲突检测**（把「P2 磁盘冲突」提到前面）：文件被外部改过时，自动保存会静默覆盖别人的改动。
-  - ② **一次编辑会话 = 一版**：进编辑器后第一次改动开始计时，停手 10 秒或离开编辑器才合成一版；否则 1.5 秒一存会让历史被「每 1.5 秒一条」淹掉。
-  - ③ **快照存独立目录** `.ocstudio/history/<实体>/<ts>.json`（整份文档，不是 patch），保留策略默认「最近 30 版 + 每天 1 版 + 超 90 天只留每周 1 版」，可在设置里关掉 / 清空。
-  - ④ **不要塞进 `journal.jsonl`**：那是「一行一条、只追加、能拿给别人看」的证据文件（`lib/vault/journal.ts` 开头写着「不做回滚、不做 diff、不存全文」）；快照是内容副本，混进去会同时毁掉体积和可外发性。也**默认不进 `.ocbak`**（本机时间机器，不是备份内容）。
-  - ⑤ 回滚语义：整条恢复（不做字段级），回滚本身记进 journal（`kind: restore`，actor=human）。
-  - 待拍板：正文 diff 做段落级还是字符级；版本永久保留还是按上面的策略。
-- [ ] **P2 编辑会话与撤销**：自动保存铺开之后，用户失去「不保存就撤销」的退路 —— 需要一个明确的「放弃这次改动」入口（或依赖版本历史回滚），否则改坏了只能手动改回去。
+- [ ] **P1 代码签名**：安装包未签名，Defender 的机器学习规则会随机判定 NSIS 安装包为威胁。2026 年 11 月 12 日的 0.20.4-beta 中发生过一次（`Trojan:Win32/Wacatac.C!ml`），同一份源码重新构建后不再命中；`app.exe` 与 MSI 均未命中。本机证书库中的两张证书为自签名证书，不能用于分发。当前处理：以 MSI 作为主要下载、命中后重新构建替换哈希、向微软提交误报。正式方案：购买公共 CA 的代码签名证书（2023 年 6 月起私钥必须保存在硬件令牌或云 HSM 中），在 `tauri.conf.json` 中配置 `bundle.windows.certificateThumbprint`、`digestAlgorithm` 与 `timestampUrl`，或改用 `signCommand` 调用云签名。
+- [ ] **P1 统一自动保存与版本历史**：角色、国家、事件改为自动保存；创作时间线增加版本记录、diff 与回滚。实施前需确定以下事项：
+  - 磁盘冲突检测：文件被外部修改时，自动保存会覆盖对方的改动，因此先做冲突检测。
+  - 版本粒度：一次编辑会话记为一版，停手 10 秒或离开编辑器时提交，避免每 1.5 秒生成一版。
+  - 存储位置：`.ocstudio/history/<实体>/<ts>.json`，保存整份文档。保留策略默认为最近 30 版、每天 1 版、超过 90 天只保留每周 1 版，可在设置中关闭或清空。
+  - 与现有文件的关系：不写入 `journal.jsonl`（该文件为只追加的证据记录，不存内容），默认不纳入 `.ocbak`。
+  - 回滚语义：整条恢复，回滚操作本身记入创作时间线（`kind: restore`，`actor: human`）。
+  - 待定：正文 diff 的粒度（段落或字符），版本保留期限。
+- [ ] **P2 编辑会话与撤销**：自动保存启用后，用户无法通过「不保存」放弃本次修改。需要提供明确的「放弃这次改动」入口，或依赖版本历史回滚。
 - [ ] **P1 工具收敛到 10–12 个动词**：合并 `set_fields` / `set_tags` / `rename` / `set_placement` 为 `library_update`；`library_search / read / catalog / history / create / update / body / link / media / delete`
 - [ ] **P1 笔记库模式下线 `run_shell`**，并拦截实体文件直写（`write_file` / `edit_file` 命中实体 `.md` 时转成 `library_update`）
 - [ ] **P1 `library_history`**：某条最近的改动（actor / keys / 时间），替代 grep `journal.jsonl`
