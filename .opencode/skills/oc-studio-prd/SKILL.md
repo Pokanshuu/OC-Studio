@@ -220,154 +220,36 @@ description: >
 
 > 这里只留**能力线**（每版一句话结论），逐版细节看 `CHANGELOG.md`；**不要再往这里追加逐条改动** ——
 > 以前这里积累到 100+ 行，和 `docs/todo.md` 漂成了两套。
+>
+> **每个大版本发布后梳理一次**：最近 3 个版本各留一段能力线，更早的压成「更早」里的一行；顺序从新到旧。
 
-### 已完成（2025-05）
-- 移动端 Phase 1 完整上线：MobileTopBar（动态标题+动作按钮）、MobileFilterBar（CSS-only fixed）、MobileTabBar、MobileFab、编辑页壳隐藏、backdrop-blur 统一渲染
-- 移动端解耦：MobileRelationControls、MobilePageHeaderContext、MobileFilterBar/MobileFab 纯 CSS 控制
-- Android 安全区域沉浸：edge-to-edge + CSS 变量 `--safe-top/bottom`，顶栏/底栏/编辑 header/树浮层全适配，MIUI 白条透明
-- backdrop-blur 统一修复：header 移入滚动容器内部，WorldLayout/GlobalAlbum/TrashView 全部生效
-- 图标规范统一：折叠=ChevronLeft，展开=Menu，返回=ArrowLeft
-- 编辑器返回按钮仅图标化（去文字）
-- 缩放系统重构：固定中心缩放，滚轮/触控板横向滚动
-- 事件时间段：开始/结束时间矩形条，左/右边缘拉伸，sticky 标题
-- 时期（Period）功能：periods 表（DB v4），工具栏 + 按钮，时期条渲染，lane 分配
-- 全局相册重构：category 精确标记，两级可折叠分类树，搜索增强
-- 全局相册侧边栏宽度统一为 120px，选中态颜色规范修正
-- 负数年份支持：parseTime/parseYear/normalizeTime/sortEvents 全部适配
-- 时间线五十年聚合间隔
-- 回收站 Bug 修复：deleted 字段统一为 boolean，恢复后列表实时刷新
-- 时间线拖拽后列表实时刷新
-- 编辑器时间编辑后自动同步
-- 关系图谱 index.ts 补全导出
-- 毛玻璃顶栏 + 控件半透明统一 + Portal 浮层隔离
-- 图片系统完整上线（双裁剪引擎 + Tauri 持久化）
-- 暗黑按钮 hover 全局加固
-- 关系图谱（@xyflow/react）
-- 统一 DocumentEditor
-- 导入增量合并
-- 角色/事件/国家/世界观模块
-- 编辑器内核
-- 暗黑模式
-- 全局搜索
-- 回收站
-- Tauri 桌面打包
-- 原生窗口效果
-- 浮层系统重建
-- 全局 Ctrl+S 保存
+### 最近三个版本
 
-### 已完成（Phase 1b，2025-05）
-- 移动端触控反馈系统：双层规范（有边框 `touch-feedback` scale(0.96) / 无边框 `active:bg`），覆盖全部移动端可交互控件
-- MobileActionSheet：iOS 风格底部弹出菜单（长按触发），统一替换桌面端 hover 删除按钮，覆盖角色/事件/国家/词条树/时间线模块
-- 移动端删除二次确认：ActionSheet 删除触发 AlertDialog 确认弹窗（与桌面端 DeleteButton 一致）
-- MobileFab 滑动色块动画：网格/列表切换时圆形指示器平滑滑动（transition-[top] duration-300）
-- AlertDialog 按钮加 `touch-feedback`，移动端按压反馈统一
-- GlobalAlbum 分类树/刷新/折叠按钮触控反馈全覆盖
-- 返回/展开/折叠按钮全局触控反馈（编辑页 ArrowLeft、WorldLayout/GlobalAlbum 侧边栏 Menu/ChevronLeft）
-- 移动端编辑器键盘适配（完整解决）：`adjustNothing` + `h-screen` 布局稳定 + flex-1 `min-h-0` 修复，光标不跳；移动端键盘工具栏（格式按钮 + 块类型面板），`clientHeight` 计算键盘高度精确定位（放弃不可靠的 `visualViewport.height`）；Capacitor Keyboard 插件集成；**移除 `virtualkeyboardpolicy="manual"` + `Keyboard.show()`**，改用 Android 原生 IME 路径自动弹出（延迟从 ~500ms 降至 ~80ms warm / ~230ms cold）；长按检测 + `dom.blur()` 防止长按误触键盘
-- 移动端 World/Album 页面 backdrop-blur 修复：移除 section-fade 的 `max-md:pt`/`max-md:pb` padding（padding 阻断内容经过 fixed bar），改用内部 spacer div；桌面端 section-fade-no-gutter 消除右侧白条；CSS 层叠规则固化（非 layered 样式覆盖 @layer utilities）
-- MobileTextSelectionBar：移动端选词工具栏（复制/剪切/粘贴/全选），事件驱动状态机（idle→caret→selection→dragging→action-sheet），epoch 防重、selectionConsumeLock 防异步 selectionchange 干扰，@capacitor/clipboard 原生剪贴板集成，TipTap 空行光标定位修复，ActionSheet z-60 遮罩交互修复
-
-### 已完成（Phase 1b，2025-05 早期）
-- Capacitor 图片持久化（CapacitorAdapter + @capacitor/filesystem）
-- 裁切器安全区域适配 + 桌面/移动端双工具栏分离
-- 移动端跨模块导航修复（mobileNav 同步）
-- 编辑器 header 垂直居中优化
-- 弹出界面移动端边距统一（AlertDialog/PeriodDialog/SettingsDialog/TrashView）
-- 回收站移动端紧凑化（面板/header/body/item 响应式尺寸）
-- 设置页 Tab 全宽居中（grid grid-cols-4）
-- AlertDialog z-index 提升到 z-[99999]（与 ImageCropper 等对齐）
-- 头图比例 3:1 → 3:2（编辑器/列表/裁剪器/占位图）
-- 图片上传 blob URL 修复（input.value='' 移至 click 前）
-- 全屏查看器 safe-area 适配 + body 滚动锁
-- 未标注时间事件从滚动容器移出，始终可见
-- useBackButton 单次注册优化（useRef 闭环）
-
-### 已完成（Phase 1c，2025-06）
-- 浏览器兼容性检测模块（`src/lib/browser-compat.ts`）：Chromium 版本检测（`getChromiumVersion`）、HarmonyOS/ArkWeb UA 检测（`isHarmonyOS`/`getHarmonyOSVersion`/`isHarmonyOS4`/`isHarmonyOSNext`）、CSS 特性检测（`supportsTransitionBehavior`/`supportsStartingStyle`/`needsAnimationFallback`）
-- CSS M114 fallback：`transition-behavior: allow-discrete` 和 `@starting-style` 降级方案（`globals.css` `@supports not` 规则）
-- 安全区域降级系统：HarmonyOS/模拟器 `env()` 返回 0 或不准确时自动估算（`estimateSafeAreaInsets` + `isSafeAreaEnvAvailable` + `getSafeAreaBottomCorrection`），resize 监听导航模式切换自动更新底栏高度
-- 移动端安全区域 CSS 变量体系：`--safe-top`/`--safe-bottom`（`env()`）+ `--safe-top-estimated`/`--safe-bottom-estimated`（JS 降级），`data-safe-area-fallback` 属性切换
-- Xiaomi/MIUI 设备检测：`MainActivity.java` 条件化 `FLAG_TRANSLUCENT_NAVIGATION`（`Build.MANUFACTURER` 检测），非小米设备不再设置此 flag
-- 世界观编辑器移动端首次点击光标修复：`EditorCore.tsx` touchend handler 改用 `setTimeout` + `!editor.isFocused` guard + `editor.view.dom.focus()`，避免 `editor.commands.focus()` 覆盖浏览器原生触控光标定位
-- Radio 按钮误触发移动端文字菜单修复：`MobileTextSelectionBar.tsx`/`GlobalContextMenu.tsx` 的 `isEditable()` 排除 radio/checkbox/button/file 等非文本 input 类型
-- 旧内核键盘高度检测修复：`KeyboardContext.tsx` 通过 `isBelowTargetVersion()` 分支，旧内核改用 Capacitor 插件原生 `keyboardHeight`（扣 safe-bottom + 微调），现代内核路径不变；`EditorCore.tsx` 工具栏/块菜单 safe-bottom 补偿仅旧内核生效
-- 旧内核 backdrop-blur 降级：`AppShell.tsx` 设 `data-below-target-version` 属性，`globals.css` 用 `[data-below-target-version] .backdrop-blur-lg` 统一禁用模糊 + 半透明改不透明（亮 `#FEFCF8` / 暗 `#1C1B1A`），39 处组件零改动
-
-### 已完成（stability-update，v0.18.0-alpha 稳定性修复）
-- 数据安全：内链弹层 XSS 修复、Tauri 下 HEIF→JPEG 转换丢弃修复、导入加 Dexie 事务回滚、导出/导入补 periods 表、Capacitor 导出 await 化（去假成功）
-- 交互缺陷：CountryEditor 无限 refetch、Android 返回键层级返回、`[[` 内链 world 数据源顶层注册、关系图双向边语义去重、桌面右键不再被吞、createCharacter 保留 countryId、标签删除级联清理、`z-60`→`z-[60]`、GlobalContextMenu Provider 上移
-- 复用：`data-updated` 魔法字符串收敛为 `src/lib/data-events.ts`（`DATA_UPDATED_EVENT` + `notifyDataUpdated()`）
-- 用户反馈修复：命令面板快速新建在编辑态不再"后台创建"（补全板块/移动端导航 + 返回现场 + 未保存确认）；编辑器切换时重置全局保存状态，消除「未保存」误报
-
-### 已完成（tech-debt-cleanup，v0.18.0-alpha 技术债清理）
-- 死代码删除：零引用 `EditorToolbar` / `AlbumTriggerContext`、`saveDocument` ×4、`sync.ts` 同步 stub（markAsPending 等）、`Character.relationships` 字段、db v3→v4 空迁移、`adapter.getUrl()`
-- 数据层统一：characters / events / world 全部改用 React Query（useQuery/useMutation，列表 30s staleTime + data-updated 刷新，详情 staleTime 0）；`refreshKey` 手写加载已删除
-- 泛型 CRUD 仓储原语 `src/lib/repository.ts`：`listActive` / `getById` / `softDelete` 收敛 5 个 service 的重复三件套
-- `_syncStatus`/`_lastModified` 写入统一为 `sync.ts` 的 `pendingStamp(now)` helper
-- 环境检测收敛 `src/lib/env.ts`：`isTauri` / `isCapacitor` / `isNativePlatform` 单一权威实现（browser-compat 再导出兼容）
-- 版本号单源：package.json → `src/lib/version.ts` → SettingsDialog
-- 浮层 Portal 统一到 `#overlay-root`：dialog / alert-dialog / FullscreenViewer / ImageCropper / 编辑器弹层 ×4（mention、slash、移动端键盘工具栏+块面板、BlockTypeMenu）
-
-### 已完成（v0.19.0-alpha · 界面重构 + 类型收紧）
-- **设计语言统一**：新增 `src/lib/ui-tokens.ts` 作为界面原子类唯一源；极小圆角只有 4 / 6 / 8 三档（仅头像/徽章为圆形）、控件零描边（输入改下划线，只有一条底线）；页头统一 48px、标题统一 18px 衬线加粗（`PAGE_TITLE`）、区块标题 15px（`SECTION_TITLE`）；菜单栏 40→32px、状态栏 32→24px；列表页视图切换改为图标（`LayoutGrid` / `List`，默认画廊 + 本地记忆）；浮层去圆角与 ring 光晕，全局按钮 hover 统一为 `var(--oc-hover)`
-- **概览（主页）首屏** + 侧边栏「主页」入口（详见 4.18）
-- **项目元信息**：DB schema v6 新增 `meta` 单例表 + `src/features/project/` + 设置「世界」tab + 菜单栏显示世界名 + `.ocbak` 备份携带
-- **角色 `isMajor`** 主要角色标记（基本信息字段行）
-- **取消 Q 版头像**：`qAvatarUrl` 全链路移除（类型 / 服务 / 导出 / 相册分类 / 关系图 / @ 引用 / 种子数据）
-- **编辑器「关联 / 标签」改字段行**：`RelatedItemsSelector` 重写为单行内联，「＋ 添加」并入标题行右侧；四个编辑器（角色 / 事件 / 国家 / 世界观）统一
-- **类型收紧**：实体 `id` 必填 + Dexie `EntityTable<T,'id'>` + 仓储第 3 泛型位（`Table<T, number, TInsert>`）；`as number` / `as never` **82 → 5**（余 4 处为外部无类型边界：dnd-kit `data`、react-flow `node.data`、自定义事件 `detail`、ProseMirror `attrs`）；导入层 10 处 `as never[]` 收敛为单一 `looseTable()`
-- **God 组件拆分（解耦收口）**：全项目已无「真·God 组件」。`TimelineView` **1457 → 445**（`useTimelineLayout` / `useTimelineViewport` / `useTimelineContainerWidth` / `useTimelineDrag` / `usePeriodEditor` + 6 个叶子组件 + constants / utils）、`EditorCore` **1041 → 277**、`page.tsx` **770 → 272**（`lib/use-entity-workspace.ts`）；其余同批：`MobileTextSelectionBar` 766→109、`CharacterEditor` 613→234、`MenuBar` 574→39、`CharacterList` 555→235、`WorldLayout` 502→327、`GlobalAlbum` 504→249、`WorldTree` 501→187、`SettingsDialog` 498→100、`SeedData` 399→17、`EventList/EventEditor` 392/366→189/120、`CountryList/CountryEditor` 370/332→185/188、`ImageGallery` 382→95、`lib/export.ts` 380→barrel、`RelationGraph` 334→283、`ContextMenu` 310→161。顺带清掉 6 条既有 eslint warning
-- **本批解耦修掉的两个真 bug**：① 选词工具栏 `ACTION_OPEN` 先 `blur()` 导致 `focusout` 把自己卸载 → Android 触摸下「插入图片 / 表格」菜单永远打不开且工具栏此后失效；② `ImageGallery` 的 `grid + enableCrop`（角色「立绘」用法）裁剪器渲染在 slider 死分支 → 上传是空操作
-
-### 已完成（vault · 文件夹设定集 + 标签颜色 + 静态展示站）
-- **Vault 文件夹设定集**（详见 4.19）：文件夹即设定集，Markdown + frontmatter；Rust 自建文件 IO + 外科式读写 + Dexie `dbcore` 中间件落盘 + 启动闸门与写盘提示；4 个验收脚本
-- **标签颜色**：`Tag.color` 落库 + `src/lib/tag-colors.ts` 预设色板唯一源（`pickTagColor` 按名字稳定分配、`normalizeTagColor` 收敛非法值）；`TagBadge` 按色值映射到**完整字面量**类名（Tailwind JIT 不能拼接）
-- **编辑器配套**：`SmallMark`（`<small>` 行内标记）、标题开放 H4、表格 `rawSeparator`、WikiLink `raw` 原文保存
-- **角色 vault 字段**：`faction`（阵营，自由文本）+ `factionId`（按名字解析的软引用）+ `aliases`（别名，`[[ ]]` 解析键，改名时旧名推进这里）
-- **静态展示站导出**（详见 4.20）：设置 → 数据 → 「发布为静态网站...」，单个 `index.html` 装下内容/样式/脚本/图片，hash 路由保深链接
-
-### 已完成（词条层级收口 + 概览精简）
-- **词条「分类」删除**（详见 4.5）：层级只由 `parentId` 表达，新增 `lib/world-tree.ts` 作为树的唯一实现 —— 编辑器目录与导出共用，顺带修掉「新建词条全是 concept」
-- **静态站词条页按树分章**：一级词条当章节标题、子孙按深度缩进、零散词条归「其它」；详情页「分类」换成「上级」链接
-- **角色生日改年/月/日 三段**（详见 4.2），年份可解析时进时间线当「出生」节点（详见 4.6）
-- **笔记库概览极简**（详见 4.19）：从「扫描报告」改成一个结论 + 一条「未知 N 项」，正常时只说「没有发现问题」
-- **设置页签「通用」→「个性化」**（图标 `Cpu` → `Palette`）；新增 `DATE_INPUT` 令牌；**禁用原生 `<datalist>`**
-
-### 已完成（v0.19.2-beta · 编辑稳定性修复）
-- **词条跳转只消费一次**：`worldSelectedEntryId` 作为一次性导航意图（`handledNavRef` + 消费后回写 `null`）。此前它只装填不清空，自动保存后的列表 `refresh()` 会让导航 effect 重放上次内链目标 —— 「编辑着突然跳到别的词条」的根因
-- **自动保存按归属写**：草稿连同 `entryId` 一起存，写入目标不再读「当前选中」（`await` 期间切词条会把 A 的正文写进 B）
-- **内链弹层**：`WikiLinkExtension` 改为每编辑器一份（原模块级单例共享 `popup` 状态，第二个菜单 `abort` 掉前一个的关闭监听、节点永久留在 DOM）；定位改 `fixed` + Portal 到 `#overlay-root`；`clientRect()` 退化成全 0 时不弹。`@` 引用同批加固
-- **任务列表排版**：TipTap v3 的 `TaskItem` 是 NodeView，`<li>` 上没有 `data-type="taskItem"`，旧选择器整段失效 → 复选框与正文分行、露出原生蓝框。改认 `[data-type="taskList"] > li`，选中色用 `--oc-ink-muted`
-- **笔记库链接索引**：解析键从「只认文件名」扩到「文件名 / 去 `NN.` 序号 / frontmatter 标题」；新写入的内链写成 `[[文件名|标题]]`，Obsidian 侧也能解析。真实 vault 1537 处链接 100% 解析（此前 5 条被判未知，且那些链接在装载时会退化成纯文本）
-
-### 已完成（v0.20.0-beta · 模板、组件与多种视图）
-- **模板与组件系统落地**：十一个组件（封面 / 头像 / 基本信息 / 立绘 / 关系 / 标签 / 画廊 / 图片 / 简介 / 动画 / 正文；立绘 / 动画为角色专属）在五个宿主（角色 / 事件 / 国家 / 词条 / 分类条目）全部接线；时间 / 地点 2026-11-10 并回「基本信息」的字段行（事件走字段表，词条走基本信息组件的特殊类型，值写 time / endTime / location 列）；六个内置模板 + 自建模板（新建 / 复制 / 改名进别名 / 删除 / 恢复默认）；基本信息拆成独立「基本信息组件」（`.ocstudio/info-groups.json`）；单篇笔记用 `模板:` 键覆盖（候选只含笔记型模板，排除角色 / 事件 / 国家；词条默认模板只有「标签 + 正文」，没有全局字段表）；完整编排层 + 组件参数行内编辑；分类 = 模板 + 一组笔记
-- **多种视图**：卡片 / 画廊（Cover Flow）/ 列表三视图、封面卡（渐进模糊 + 自动取色 + 调参面板）、表格页（四页签、就地编辑、Pointer Events 拖拽排序）、地图、时间线、关系图（静态手摆 / 正交曲线 / 12 档边色 / 双向箭头 / 框选）、相册
-- **导出中心**：海报六套版式、静态站三套版式、文档（Markdown / TXT / Word）、备份四页签；另加小说导出、关系图子图导出、时间线导出；实体编辑器页头「导出海报」入口
-- **小说与灵感**：章节 = 笔记、书架、分页预览、Word 导出；灵感并入顶栏便签，一键升级成笔记
-- **主题与外观**：11 套官方主题、背景图、封面卡黑白、Mica
-- **插件与数据**：地图生成器 + 助手（`library_*` 读写 / 审批 / 会话）；笔记库回收站按批次分目录（同名不再撞车）、移动失败可重试；全局搜索搜正文
-- **发布口径**：0.20.0-beta 是**测试版**，只作新功能预览，**不保证对旧版本（v0.19.2 及更早）的备份 / 笔记库与 OC-editor 的兼容性**
-
-### 已完成（v0.20.2-beta · macOS 与手感修补）
-- **macOS 桌面端**：原生红绿灯 + Overlay 标题栏、vibrancy、系统菜单栏与 ⌘ 快捷键；`.app` / `.dmg` 安装包
-- **时间 / 地点收口**：不再是独立组件，回到基本信息（事件字段表 / 词条特殊字段），模板 schema 3 + 字段表 version 2 一次性迁移
-- **地图**：修复底图永远「读不出来」（asset 协议默认挡点目录）、六档保存中可误关、非全屏多留红绿灯位；底图读不出来单列一种状态
-- **封面卡**：居中卡不做 3D 提层、圆角改 `clip-path`，按压仍保留缩放
-- **列表 ↔ 编辑器**：小说书架 ↔ 目录、自定义分类列表 ↔ 条目编辑器复用角色 / 事件 / 国家的 150ms 滑动过渡（`SectionSwap`）
-
-### 已完成（v0.20.1-beta · 助手优化）
-- 助手：`library_*` 工具面可按条目读写、改动走落盘链路、会话可续、审批可撤；上下文开销显示
-
-### 已完成（v0.20.4-beta · 收口与助手，发布在 `latest`）
+#### v0.20.4-beta（2026-11-12）
 - **数据安全**：角色 / 国家 / 事件改为停手 1.5 秒自动保存；删除地图时同时清 `mapPosition`；创作时间线纳入 `.ocbak`（导入按 ts + 路径 + 哈希去重）。
 - **导出**：静态站的 `@` 引用与 `[[` 内链恢复可点（此前 id 类型不匹配导致全部退成纯文本）；「词条」分区不再混入小说章节与地图；文档导出支持按条目选择；时间线导出在图底部列出未标注时间的事件。
 - **助手**：库手册改能力卡片（提示词字符 −61%）、工具结果按预算回放、默认步数 64 → 12、新增 Gemini 提供方与四段写作手法。
 
-### 已完成（v0.20.3-beta · 模板与组件系统补完，发布在 `latest`）
-- **模板与组件**：组件闭集补到 13 个；模板写盘纪律统一（四份随库配置共用一套队列：先写盘再换内存、未加载不许写、删模板同时删文件）；模板迁移顺序修好（先落字段再升 schema）；`templatePath` 文件名净化
-- **界面**：设置 › 模板面板显示「N 个组件 · M 个分类」，删模板前告诉你影响哪些分类
-- **数据安全**：并发改参数不再丢更新；`folders.json` 读失败后禁止写回；导出 / 站点消费模板参数
+#### v0.20.3-beta（2026-11-10）
+- **模板与组件**：组件闭集补到 13 个；四份随库配置共用一套写盘队列（先写盘再换内存、未加载不许写、删模板同时删文件）；迁移顺序修好（先落字段再升 schema）。
+- **数据安全**：并发改参数不再丢更新；`folders.json` 读失败后禁止写回；导出与站点消费模板参数。
+
+#### v0.20.2-beta（2026-11-08）
+- **macOS 桌面端**：原生红绿灯 + Overlay 标题栏、vibrancy、系统菜单栏与 ⌘ 快捷键；`.app` / `.dmg` 安装包。
+- **时间 / 地点收口**：不再是独立组件，回到基本信息（事件字段表 / 词条特殊字段），模板 schema 3 + 字段表 version 2 一次性迁移。
+- **手感**：地图底图读取、封面卡圆角裁切、列表 ↔ 编辑器 150ms 滑动过渡。
+
+### 更早（每版一句话）
+
+- **v0.20.1-beta（2026-11-06）**：助手可写 —— `library_*` 工具面按条目读写、改动走落盘链路、会话可续、审批可撤。
+- **v0.20.0-beta（2026-11-06）**：模板与组件系统落地（11 个组件 / 5 个宿主 / 6 套内置模板）；六种视图；导出中心；小说与灵感；11 套主题；插件（地图生成器、助手）。
+- **v0.19.2-beta（2026-10-31）**：编辑稳定性 —— 词条跳转只消费一次、自动保存按归属写、内链弹层改为每编辑器一份、任务列表选择器、vault 链接索引扩到 frontmatter 标题。
+- **v0.19.0-beta 与 vault（2026-10-29 前后）**：数据层改为「文件夹是真源」；编辑器骨架重写（多栏 / 全屏 / 自动三布局、侧栏目录、顶栏模糊）；设计令牌收口（`ui-tokens`、圆角 3 档、控件零描边）；God 组件拆分（`TimelineView` 1457→445 等）；静态展示站；标签颜色；词条层级只看 `parentId`。
+- **v0.18.0-alpha（稳定性 + 技术债）**：XSS / HEIF / 导入事务等修复；数据层统一到 React Query；`repository.ts` 泛型原语；`env.ts` 环境检测单源；版本号单源；浮层 Portal 统一。
+- **2025-06（Phase 1c）**：浏览器兼容与安全区域降级 —— HarmonyOS / 旧内核的键盘高度、backdrop-blur、`@starting-style` 回退。
+- **2025-05（Phase 1b）**：移动端触控反馈体系、ActionSheet 长按菜单、键盘适配、选词工具栏、backdrop-blur 修复。
+- **2025-05（Phase 1 与早期）**：移动端壳与底部导航、事件时间段、时期表、全局相册、关系图谱、图片系统（双裁剪引擎 + Tauri 持久化）、Tauri 打包与原生窗口。
+
 
 ### 待处理 / 规划中 → 统一在 `docs/todo.md`
 
