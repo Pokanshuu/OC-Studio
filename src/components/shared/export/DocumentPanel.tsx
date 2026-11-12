@@ -228,7 +228,9 @@ export function DocumentPanel() {
                 { value: 'all', label: '全部' },
                 {
                   value: 'picked',
-                  label: picked.size > 0 ? `选条目 · ${picked.size}` : '选条目',
+                  // 显示**实际会导出**的条数：勾了但它所在的分区被关掉时，那个勾不算数，
+                  // 标签上写总数会变成「选了 3 条、只导 2 条」。
+                  label: (visible?.total ?? 0) > 0 ? `选条目 · ${visible?.total ?? 0}` : '选条目',
                 },
               ]}
             />
@@ -251,7 +253,9 @@ export function DocumentPanel() {
                     <p className="px-1.5 py-2 text-[12px] text-ink-faint">
                       {counts.characters + counts.events + counts.countries + counts.world === 0
                         ? '这个库还没有可导出的条目'
-                        : '没有匹配的条目'}
+                        : !DOCUMENT_SECTIONS.some((option) => sections[option.key])
+                          ? '四个分区都关着，先把上面的分区打开'
+                          : '没有匹配的条目'}
                     </p>
                   ) : (
                     pickable.map((group) => {

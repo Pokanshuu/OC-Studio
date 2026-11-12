@@ -184,6 +184,21 @@ check('关掉事件后 total 只算角色', onlyCharacters.total === 1)
     pickedOne.sections.flatMap((section) => section.entries).every((entry) => entry.id === firstId),
   )
 
+  // 勾了但所在分区被关掉：那条不算数（标签上显示的就是这个「实际条数」）
+  {
+    const pickedInDisabledSection = selectDocumentEntries(
+      MODEL,
+      { characters: false, events: true, countries: true, world: true },
+      'picked',
+      new Set([firstId]),
+    )
+    check(
+      '范围 · 勾了但分区关掉 → 不导出（条数也不含它）',
+      pickedInDisabledSection.total === 0,
+      String(pickedInDisabledSection.total),
+    )
+  }
+
   const pickedNothing = selectDocumentEntries(
     MODEL,
     { characters: true, events: true, countries: true, world: true },
