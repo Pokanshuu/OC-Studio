@@ -104,6 +104,18 @@ function timedEvents(events: TimelineEvent[]): { event: TimelineEvent; year: num
   return rows.sort((a, b) => a.year - b.year || a.event.title.localeCompare(b.event.title))
 }
 
+/**
+ * 读不出年份、**不会上轴**的事件标题。
+ *
+ * 画布上没处放它们，但直接丢掉等于「导出的图比页面少了几条」—— 页面底部另有一栏
+ * 「未标注时间的事件」。导出时把它们排在页脚，至少不静默消失。
+ */
+export function untimedEventTitles(events: TimelineEvent[]): string[] {
+  return events
+    .filter((event) => parseYear(event.time) === null)
+    .map((event) => event.title.trim() || '未命名事件')
+}
+
 /** 按当前坐标把整条时间线重绘到离屏画布（不做视口变换：导出的是整条轴，不是屏幕截图） */
 export async function renderTimelineCanvas({
   events,
@@ -170,8 +182,11 @@ export async function renderTimelineCanvas({
   const lanesTop = axisY + YEAR_TICK_HEIGHT + LANE_HEIGHT * 0.6
   const lanesHeight = (Math.min(maxLane, MAX_LANES) + 1) * LANE_HEIGHT
 
+  const untimed = untimedEventTitles(events)
   const width = Math.round(LEFT_PADDING + RIGHT_PADDING + totalYears * pxPerYear)
-  const height = Math.round(Math.min(MAX_HEIGHT, lanesTop + lanesHeight + FOOTER_HEIGHT))
+  const height = Math.round(
+    Math.min(MAX_HEIGHT, lanesTop + lanesHeight + FOOTER_HEIGHT + (untimed.length > 0 ? 18 : 0)),
+  )
 
   const canvas = document.createElement('canvas')
   canvas.width = width
@@ -271,6 +286,14 @@ export async function renderTimelineCanvas({
     const yearLabel =
       row && row.endYear > row.year ? `${row.year} – ${row.endYear}` : row ? String(row.year) : ''
     ctx.fillText(yearLabel, labelX, y + 10)
+  }
+
+  // 未标注时间的事件：排在署名上方，别让它们从图里消失
+  if (untimed.length > 0) {
+    ctx.fillStyle = tokens.inkFaint
+    ctx.font = `400 11px ${tokens.sans}`
+    const line = truncateText(ctx, `未标注时间：${untimed.join('、')}`, width - LEFT_PADDING - RIGHT_PADDING)
+    ctx.fillText(line, LEFT_PADDING, height - 38)
   }
 
   // 署名
