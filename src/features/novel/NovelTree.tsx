@@ -361,6 +361,7 @@ export function NovelTree({
       setEditingId={setEditingId}
       onRename={(id, next) => void handleRenameChapter(id, next)}
       onRequestDelete={setDeleteTarget}
+      onDeleteDirect={(id) => void handleDeleteChapter(id)}
       metaOpen={metaOpen}
       onToggleMeta={() => setMetaOpen((open) => !open)}
       root={root}
@@ -426,10 +427,8 @@ export function NovelTree({
               <FileDown size={16} strokeWidth={2} />
             </button>
             {selected ? (
-              <>
-                <DeleteButton label="删除章节" onDelete={() => void handleDeleteChapter(selected.id)} />
-                <EntityHistoryButton table="worldEntries" id={selected.id} name={selected.title} />
-              </>
+              // 删除入口在章节行的 hover 动作里（与词条行一致），工具栏只留历史
+              <EntityHistoryButton table="worldEntries" id={selected.id} name={selected.title} />
             ) : null}
           </div>
         }
@@ -528,6 +527,8 @@ interface NovelTreePanelProps {
   onRename: (id: number, title: string) => void
   /** 右键「删除」：交给外层弹确认 */
   onRequestDelete: (id: number) => void
+  /** 行内删除（不弹页面级确认框，`DeleteButton` 自己带一个） */
+  onDeleteDirect: (id: number) => void
   metaOpen: boolean
   onToggleMeta: () => void
   root: WorldEntry | null
@@ -553,6 +554,7 @@ function NovelTreePanel({
   setEditingId,
   onRename,
   onRequestDelete,
+  onDeleteDirect,
   metaOpen,
   onToggleMeta,
   root,
@@ -637,6 +639,7 @@ function NovelTreePanel({
               setEditingId={setEditingId}
               onRename={onRename}
               onRequestDelete={onRequestDelete}
+              onDeleteDirect={onDeleteDirect}
               depth={0}
             />
           </DndContext>
@@ -744,6 +747,7 @@ function ChapterRows({
   setEditingId,
   onRename,
   onRequestDelete,
+  onDeleteDirect,
   depth,
 }: {
   nodes: WorldTreeNode[]
@@ -754,6 +758,8 @@ function ChapterRows({
   setEditingId: (id: number | null) => void
   onRename: (id: number, title: string) => void
   onRequestDelete: (id: number) => void
+  /** 行内删除：确认交给 `DeleteButton` 自带的对话框，这里直接删 */
+  onDeleteDirect: (id: number) => void
   depth: number
 }) {
   return (
@@ -776,6 +782,7 @@ function ChapterRows({
             setEditingId={setEditingId}
             onRename={onRename}
             onRequestDelete={onRequestDelete}
+            onDeleteDirect={onDeleteDirect}
             depth={depth}
           />
         ))}
@@ -793,6 +800,7 @@ function ChapterRow({
   setEditingId,
   onRename,
   onRequestDelete,
+  onDeleteDirect,
   depth,
 }: {
   node: WorldTreeNode
@@ -803,6 +811,8 @@ function ChapterRow({
   setEditingId: (id: number | null) => void
   onRename: (id: number, title: string) => void
   onRequestDelete: (id: number) => void
+  /** 行内删除：确认交给 `DeleteButton` 自带的对话框，这里直接删 */
+  onDeleteDirect: (id: number) => void
   depth: number
 }) {
   const id = node.entry.id
@@ -840,6 +850,13 @@ function ChapterRow({
         onCancelRename={() => setEditingId(null)}
         dragHandle={sortable ? { attributes, listeners } : undefined}
         contextMenu={contextMenu}
+        actions={
+          <DeleteButton
+            label="删除章节"
+            description="移到回收站，可在回收站里恢复。"
+            onDelete={() => onDeleteDirect(id)}
+          />
+        }
       />
       {node.children.length > 0 ? (
         <ChapterRows
@@ -851,6 +868,7 @@ function ChapterRow({
           setEditingId={setEditingId}
           onRename={onRename}
           onRequestDelete={onRequestDelete}
+          onDeleteDirect={onDeleteDirect}
           depth={depth + 1}
         />
       ) : null}
