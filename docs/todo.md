@@ -64,6 +64,7 @@
 
 **2026-11-10 已落地**：能力卡片（−61% 字符）、写回执、错误三分类、`library_read` 暴露上级 / 图片槽位 / 可写脚注、journal 过滤 `undefined`、同名创建幂等、工具结果预算、循环守卫、`audit:agent-budget`。
 
+- [ ] **P1 代码签名（发版前最该补的一条）**：安装包目前未签名，Defender 的机器学习规则会随机命中 NSIS 壳 —— 2026-11-12 的 0.20.4-beta 就中过一次（`Trojan:Win32/Wacatac.C!ml`），同一份源码重建后又不命中；`app.exe` 与 MSI 两次都干净。本机 `Cert:\CurrentUser\My` 里那两张是**自签**证书（Issuer = Subject），签了也不会被 Windows 信任，必须买公共 CA 的代码签名证书（2023-06 起私钥必须在硬件 token / 云 HSM 里，不再有可下载的 .pfx）。接入方式：证书装进证书库后填 `bundle.windows.certificateThumbprint` + `digestAlgorithm: sha256` + `timestampUrl`，或改用 `signCommand` 走云签名。没签之前的临时手段：MSI 放主下载、命中后重建一次换哈希、向微软提交误报（<https://www.microsoft.com/en-us/wdsi/filesubmission>）
 - [ ] **P1 统一自动保存 + 版本历史（发版后第一件事，先出设计再写码）**：方向已定 —— 角色 / 国家 / 事件也改成自动保存（笔记、章节、分类条目已经是），并给「创作时间线」加版本记录与 diff。三个前置与决定：
   - ① **先做磁盘冲突检测**（把「P2 磁盘冲突」提到前面）：文件被外部改过时，自动保存会静默覆盖别人的改动。
   - ② **一次编辑会话 = 一版**：进编辑器后第一次改动开始计时，停手 10 秒或离开编辑器才合成一版；否则 1.5 秒一存会让历史被「每 1.5 秒一条」淹掉。
