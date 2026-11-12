@@ -12,13 +12,19 @@
 #   ... -SkipBuild      # 已经构建过，只重新组包
 #   ... -NoSign         # 只出包不签名（自己给 partner center 传未签名件时用）
 #
-# ⚠️ 提交商店前必须改的两个值（在 Partner Center › 产品身份 里能看到）：
-#   -Publisher     Identity/Publisher，形如 CN=A1B2C3D4-0000-0000-0000-000000000000
-#   -PackageName   Identity/Name，形如 12345Pokanshuu.OCStudio
-# 默认值只适合本地侧载测试。
+# ⚠️ 提交商店的两个身份值（Partner Center › 产品管理 › 产品标识）：
+#   -Publisher     Identity/Publisher = CN=C585EFD6-1C30-48E8-A8B0-2F1DD03460DB
+#   -PackageName   Identity/Name      = Pokanshuu.OCStudio
+# 已作为默认值。换账号 / 换产品时要改，否则商店报「无效的软件包系列名称 / 发布者名称」：
+#   包系列名 = Name + "_" + base32(SHA256(UTF-16LE(Publisher))[0..8])，
+#   当前默认值算出来是 Pokanshuu.OCStudio_bhwvq0v85wsey。
 
 param(
-  [string]$Publisher = 'CN=Pokanshuu',
+  # 这两个值必须与 Partner Center › 产品管理 › 产品标识 完全一致，否则商店报
+  # 「无效的软件包系列名称 / 无效的软件包发布者名称」。核对方法：
+  #   包系列名 = Identity/Name + "_" + base32(SHA256(UTF-16LE(Identity/Publisher))[0..8])
+  #   现在这两项算出来是 Pokanshuu.OCStudio_bhwvq0v85wsey —— 与商店后台一致。
+  [string]$Publisher = 'CN=C585EFD6-1C30-48E8-A8B0-2F1DD03460DB',
   [string]$PackageName = 'Pokanshuu.OCStudio',
   [string]$DisplayName = 'OC Studio',
   [string]$PublisherDisplayName = 'Pokanshuu',
