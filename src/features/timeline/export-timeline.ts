@@ -116,6 +116,11 @@ export function untimedEventTitles(events: TimelineEvent[]): string[] {
     .map((event) => event.title.trim() || '未命名事件')
 }
 
+/** 有哪些事件真的能上轴（读得出年份）—— 面板与导出共用这一条判据 */
+export function hasTimedEvent(events: TimelineEvent[]): boolean {
+  return events.some((event) => parseYear(event.time) !== null)
+}
+
 /** 按当前坐标把整条时间线重绘到离屏画布（不做视口变换：导出的是整条轴，不是屏幕截图） */
 export async function renderTimelineCanvas({
   events,
@@ -124,7 +129,16 @@ export async function renderTimelineCanvas({
   density,
 }: TimelineExportInput): Promise<HTMLCanvasElement> {
   const rows = timedEvents(events)
-  if (rows.length === 0) throw new Error('时间线上没有带年份的事件，无法导出')
+  if (rows.length === 0) {
+    // 一条带年份的都没有：画不出轴。区分「空」和「全没标时间」——
+    // 后者只是没填时间，用户补上就能导，别让他对着「没有事件」发呆。
+    const untimedCount = untimedEventTitles(events).length
+    throw new Error(
+      untimedCount > 0
+        ? `这条时间线上 ${untimedCount} 个事件都没标年份，先给它们补上时间再导出`
+        : '时间线上还没有事件，先建几个再导出',
+    )
+  }
 
   const activePeriods = periods.filter((period) => parseYear(period.startTime) !== null)
   const tokens = readTokens()

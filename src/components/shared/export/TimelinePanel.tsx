@@ -11,7 +11,9 @@ import { Download } from 'lucide-react'
 import { toast } from 'sonner'
 import { getTimelineEvents } from '@/features/timeline/services'
 import {
+  hasTimedEvent,
   renderTimelineCanvas,
+  untimedEventTitles,
   TIMELINE_DENSITY_OPTIONS,
   type TimelineExportDensity,
 } from '@/features/timeline/export-timeline'
@@ -113,6 +115,12 @@ export function TimelinePanel() {
    * 与文档面板（`visible.total === 0` 直接禁用）保持同一口径：没有内容就不给导。
    */
   const isEmpty = figure !== null && figure.events === 0 && figure.periods === 0
+  /**
+   * 有事件、但一个都读不出年份：画不出轴。
+   * 这时别只留一句「无法导出」—— 告诉用户具体几条没标时间、补上就能导。
+   */
+  const onlyUntimed = events.length > 0 && !hasTimedEvent(events)
+  const untimedCount = onlyUntimed ? untimedEventTitles(events).length : 0
   const exportDisabled = figure === null || busy || isEmpty
 
   const exportPng = async (): Promise<void> => {
@@ -199,6 +207,12 @@ export function TimelinePanel() {
             <ExportRow label="时期">
               <span className="tabular-nums text-[12px] text-ink">{figure?.periods ?? '—'}</span>
             </ExportRow>
+            {/* 预览区出错时已经把那句话写在画面中间了，这里不再重复一遍 */}
+            {onlyUntimed && status !== 'error' ? (
+              <p className="text-[11px] leading-relaxed text-ink-faint">
+                {untimedCount} 个事件都没标年份，补上时间才能画到轴上（没标时间的会被列在图底部）。
+              </p>
+            ) : null}
           </ExportSection>
         </>
       }
