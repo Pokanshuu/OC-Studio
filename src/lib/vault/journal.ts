@@ -117,8 +117,70 @@ export async function readJournal(limit = JOURNAL_TAIL_LIMIT): Promise<JournalEn
     const entry = parseJournalLine(line)
     if (entry !== null) entries.push(entry)
   }
+  // 合并过备份、或文件被手工整理过之后，行序不一定还是时间序 —— 排一遍再倒序，
+  // 界面「新的在前」才不会错乱
+  entries.sort((a, b) => a.ts - b.ts)
   entries.reverse()
   return entries
+}
+
+/**
+ * 备份用：把**整份**时间线读出来（老的在前，原样保留）。
+ *
+ * 与 `readJournal` 分开：那边是给界面看的（最近 N 条、新的在前、坏行丢掉）；
+ * 这里是给 `.ocbak` 用的，要尽量原样带走，坏行也留着（人工还能看出哪行坏了）。
+ */
+export async function readJournalLines(limit = 200_000): Promise<string[]> {
+  const session = getVaultSession()
+  if (session === null) return []
+  try {
+    return await vaultFs.journalTail(session.root, JOURNAL_REL_PATH, limit)
+  } catch {
+    return []
+  }
+}
+
+/** 一条记录的身份：时间戳 + 文件 + 内容哈希。手改过格式但内容相同的行也算同一条 */
+function journalLineKey(line: string): string | null {
+  const entry = parseJournalLine(line)
+  if (entry === null) return null
+  return `${entry.ts}|${entry.relPath}|${entry.hash}`
+}
+
+/**
+ * 合并两份时间线：只取 `incoming` 里**本地还没有**的行。
+ *
+ * 从备份恢复历史必须是**幂等**的 —— 同一份 `.ocbak` 导两次不能出现两份记录；
+ * 而时间线是只追加的文件，所以只能在追加前先比一遍。
+ * 比对按「ts + relPath + hash」而不是整行字符串：备份可能被别的工具重新序列化过
+ * （键顺序、空格不同），内容一样就不该重复。
+ */
+export function mergeJournalLines(existing: string[], incoming: string[]): string[] {
+  const seen = new Set<string>()
+  for (const line of existing) {
+    const trimmed = line.trim()
+    if (trimmed === '') continue
+    const key = journalLineKey(trimmed)
+    // 坏行没有身份，只能按整行比 —— 不记下来的话，同一份备份导两次会把坏行叠成两份
+    seen.add(key ?? trimmed)
+  }
+  const fresh: string[] = []
+  for (const line of incoming) {
+    const trimmed = line.trim()
+    if (trimmed === '') continue
+    const key = journalLineKey(trimmed)
+    if (key === null) {
+      // 坏行：备份里带着就带上，但同样按整行去重，别重复追加
+      if (seen.has(trimmed)) continue
+      seen.add(trimmed)
+      fresh.push(trimmed)
+      continue
+    }
+    if (seen.has(key)) continue
+    seen.add(key)
+    fresh.push(trimmed)
+  }
+  return fresh
 }
 
 /** 归一化 actor：认识的三种形态照抄，其它一律按 human（不猜） */

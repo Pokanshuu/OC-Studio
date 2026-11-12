@@ -142,6 +142,10 @@ export function useImportExport(options?: {
       if (result.droppedRefs !== undefined && result.droppedRefs > 0) {
         parts.push(`清掉 ${result.droppedRefs} 条指向不存在目标的引用`)
       }
+      // 创作时间线是从备份并进来的（去重之后）：说一声，用户才知道「证据」也跟过来了
+      if (result.journalAdded !== undefined && result.journalAdded > 0) {
+        parts.push(`历史记录 +${result.journalAdded} 条`)
+      }
 
       toast.success(`导入完成：${parts.join('，')}`, {
         description:

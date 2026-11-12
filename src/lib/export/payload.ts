@@ -4,6 +4,7 @@ import { downloadJson } from './download'
 import { resolveImageUrl } from '../image-service'
 import { localDateStamp } from '../date-stamp'
 import { collectBackupConfig, type BackupConfig } from './backup-config'
+import { readJournalLines } from '@/lib/vault/journal'
 import {
   collectBodyImageRefs,
   collectDatasetImageRefs,
@@ -19,6 +20,13 @@ export interface ExportPayload {
    * 导入端只在目标**还没配过**时整段恢复，见 `lib/export/backup-config.ts`。
    */
   config?: BackupConfig
+  /**
+   * 创作时间线（`.ocstudio/journal.jsonl` 的原始行）。
+   *
+   * 只追加的操作记录以前不进备份 —— 换设备后「这角色我 8 月就写了」的证据就断了。
+   * 现在原样带走；导入时按 `ts + relPath + hash` 去重后追加，见 `mergeJournalLines`。
+   */
+  journal?: string[]
   data: {
     characters: unknown[]
     events: unknown[]
@@ -169,6 +177,10 @@ export async function exportFullBackup(): Promise<ExportPayload> {
   inlineBodies(payload.data.worldEntries, map)
   // 设置跟数据一起走：以前只导数据，换机器后自建分类 / 字段表 / 模板全没了
   payload.config = collectBackupConfig()
+  // 创作时间线也一起走：换设备后「这角色我 8 月就写了」的证据不能断。
+  // 浏览器版没有库目录，`readJournalLines()` 会返回空数组，这里不必分支。
+  const journal = await readJournalLines()
+  if (journal.length > 0) payload.journal = journal
   return payload
 }
 

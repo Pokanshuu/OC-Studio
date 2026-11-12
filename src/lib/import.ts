@@ -3,12 +3,17 @@ import type { QueryClient } from '@tanstack/react-query'
 import type { Table, EntityTable } from 'dexie'
 import { restoreBackupConfig, type BackupConfig } from './export/backup-config'
 import { remapRowRefs } from './import-remap'
+import { isVaultSupported, vaultFs } from '@/lib/vault/vault-fs'
+import { getVaultSession } from '@/lib/vault/vault-session'
+import { JOURNAL_REL_PATH, mergeJournalLines, readJournalLines } from '@/lib/vault/journal'
 
 interface ImportPayload {
   version: 1
   exportedAt: string
   /** 设置段；旧备份没有 */
   config?: BackupConfig
+  /** 创作时间线原始行；旧备份没有 */
+  journal?: string[]
   data: {
     characters: Record<string, unknown>[]
     events: Record<string, unknown>[]
@@ -43,6 +48,8 @@ export interface ImportResult {
   config?: { restored: string[]; kept: string[] }
   /** 因为目标不存在（或没导进来）而清掉的引用条数：国籍 / 参与者 / 命名关系 */
   droppedRefs?: number
+  /** 从备份并进本地创作时间线的条数（去重后的增量） */
+  journalAdded?: number
 }
 
 const TABLE_CONFIG: Array<{
@@ -508,7 +515,27 @@ export async function importData(
    * 不在 Dexie 事务里。目标还没配过时整段恢复，配过就整段保留 —— 规则见 backup-config.ts。
    */
   const config = await restoreBackupConfig(payload.config)
+
+  /**
+   * 创作时间线：只追加、按条去重（`mergeJournalLines`），同一份备份导两次不会重复。
+   * 写失败不能把整次导入判失败 —— 与保存时的口径一致：时间线是证据，不是数据本体。
+   */
+  let journalAdded = 0
+  if (Array.isArray(payload.journal) && payload.journal.length > 0 && isVaultSupported()) {
+    try {
+      const existing = await readJournalLines()
+      const fresh = mergeJournalLines(existing, payload.journal)
+      const session = getVaultSession()
+      if (fresh.length > 0 && session !== null) {
+        await vaultFs.journalAppend(session.root, JOURNAL_REL_PATH, fresh)
+        journalAdded = fresh.length
+      }
+    } catch (err) {
+      console.warn('[import] 时间线合并失败（不影响数据导入）:', err)
+    }
+  }
+
   queryClient?.invalidateQueries()
 
-  return { ...result, config }
+  return { ...result, config, ...(journalAdded > 0 ? { journalAdded } : {}) }
 }

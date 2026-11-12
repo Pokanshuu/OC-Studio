@@ -10,6 +10,7 @@
  */
 import {
   buildJournalExport,
+  mergeJournalLines,
   formatTimestamp,
   journalKindLabel,
   journalOf,
@@ -124,6 +125,33 @@ eq('条目保留原始机器字段', exported.entries[0]?.keys, ['race', 'body']
 check('导出是合法 JSON', (() => { try { JSON.parse(JSON.stringify(exported)); return true } catch { return false } })())
 const emptyExport = buildJournalExport([], { relPath: 'x.md', title: 'x' })
 eq('空时间线也能导出', emptyExport.entries, [])
+
+// ── 备份合并：同一份备份导两次不能出现两份记录 ──────────────────────────
+{
+  const line = (ts: number, relPath: string, hash: string): string =>
+    JSON.stringify({ ts, kind: 'update', actor: 'human', relPath, title: 't', keys: ['body'], hash, prevHash: 'p' })
+
+  const existing = [line(1, '角色/甲.md', 'aaa')]
+  const incoming = [line(1, '角色/甲.md', 'aaa'), line(2, '角色/甲.md', 'bbb')]
+  const fresh = mergeJournalLines(existing, incoming)
+  eq('合并：只追加本地没有的那条', fresh, [line(2, '角色/甲.md', 'bbb')])
+
+  // 键顺序 / 空格不同但内容一样 → 仍算同一条（备份可能被别的工具重新序列化）
+  const reformatted = `{ "hash": "aaa", "ts": 1, "relPath": "角色/甲.md", "kind": "update", "actor": "human", "title": "t", "keys": ["body"], "prevHash": "p" }`
+  eq('合并：重新序列化的同一条不重复', mergeJournalLines(existing, [reformatted]), [])
+
+  eq('合并：空备份不动本地', mergeJournalLines(existing, []), [])
+  eq('合并：空行被丢掉', mergeJournalLines([], ['', '  ']), [])
+
+  // 坏行：备份里带着就带上，但重复导入不叠加
+  const broken = '{"ts":  broken json'
+  eq('合并：坏行原样带上', mergeJournalLines([], [broken]), [broken])
+  eq('合并：坏行重复导入不叠加', mergeJournalLines([broken], [broken]), [])
+
+  // 幂等：把上一次的结果再并一次，应当没有新增
+  const second = mergeJournalLines([...existing, ...fresh], incoming)
+  eq('合并：再并一次没有新增（幂等）', second, [])
+}
 
 // ── 结果 ────────────────────────────────────────────────────────────────
 
