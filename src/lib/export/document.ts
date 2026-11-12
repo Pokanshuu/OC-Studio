@@ -212,6 +212,32 @@ export async function buildDocumentModel(options: DocumentBuildOptions = {}): Pr
 }
 
 /** 每个分区的条目数（设置面板右上角的数字）。 */
+/**
+ * 按「分区开关 + 选中的条目」裁一遍模型。
+ *
+ * 为什么放在这里而不是面板里：这是**导出范围**的唯一口径，预览与三种格式都吃它的结果，
+ * 而且它得能被自检直接断言（组件里的函数测不到）。
+ *
+ * `scope === 'picked'` 且 `picked` 为空时结果就是空的 —— 界面据此禁用导出并提示，
+ * **不要**偷偷退回「全部」。
+ */
+export function selectDocumentEntries(
+  model: DocumentModel,
+  sections: Partial<Record<DocumentSection, boolean>>,
+  scope: 'all' | 'picked' = 'all',
+  picked: ReadonlySet<string> = new Set(),
+): DocumentModel {
+  const kept = model.sections
+    .filter((section) => sections[section.key] !== false)
+    .map((section) =>
+      scope === 'all'
+        ? section
+        : { ...section, entries: section.entries.filter((entry) => picked.has(entry.id)) },
+    )
+  const total = kept.reduce((sum, section) => sum + section.entries.length, 0)
+  return { ...model, sections: kept, total }
+}
+
 export function documentCounts(model: DocumentModel): Record<DocumentSection, number> {
   const counts: Record<DocumentSection, number> = { characters: 0, events: 0, countries: 0, world: 0 }
   for (const section of model.sections) counts[section.key] = section.entries.length

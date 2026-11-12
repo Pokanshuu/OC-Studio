@@ -11,7 +11,7 @@
  */
 import { renderMarkdown, renderTxt } from '../src/lib/export/markdown'
 import { pageDocEntryCount, pageDocIsEmpty, pageHtmlFromText } from '../src/lib/export/page'
-import { toPageDoc } from '../src/lib/export/document'
+import { selectDocumentEntries, toPageDoc } from '../src/lib/export/document'
 import { buildDocumentDocx, buildDocumentXml } from '../src/lib/export/document-docx'
 import type { DocumentModel } from '../src/lib/export/document'
 
@@ -130,6 +130,77 @@ onlyCharacters.total = onlyCharacters.sections.reduce((sum, section) => sum + se
 check('关掉事件后 md 里没有事件', !renderMarkdown(onlyCharacters).includes('## 事件'))
 check('关掉事件后 docx 只有一个分区标题', (buildDocumentXml(onlyCharacters).match(/w:val="Heading1"/g) ?? []).length === 1)
 check('关掉事件后 total 只算角色', onlyCharacters.total === 1)
+
+// ── 6. 正文里的表格与图片 ─────────────────────────────────────────────
+// 文档导出**只用文字**（正文图片不进 docx，面板里已写明）。这里钉两件事：
+// 表格里的字不能丢；图片不能被当成字面量 `<img ...>` 印出来。
+{
+  const richModel: DocumentModel = {
+    title: '富文本',
+    subtitle: '',
+    total: 1,
+    sections: [
+      {
+        key: 'characters',
+        label: '角色',
+        entries: [
+          {
+            id: '角色:9',
+            title: '带表格与图',
+            fields: [],
+            text: '表格前\n▦ 单元格甲 | 单元格乙\n▦ 单元格丙 | 单元格丁\n表格后',
+            html: '<p>表格前</p><table><tr><td>单元格甲</td><td>单元格乙</td></tr></table><figure><img src="附件/x.png"></figure>',
+          },
+        ],
+      },
+    ],
+  }
+  const xml = buildDocumentXml(richModel)
+  check('表格文字进 Word', xml.includes('单元格甲') && xml.includes('单元格丁'), xml.slice(0, 120))
+  check('图片的 src 不会被印成字面量', !xml.includes('<img') && !xml.includes('附件/x.png'))
+  check('正文前后的文字都在', xml.includes('表格前') && xml.includes('表格后'))
+}
+
+// ── 7. 导出范围：分区开关 × 选条目 ─────────────────────────────────────
+// 「单篇 / 多篇」是这次新加的：以前只能整库出去。这里钉住四种组合，
+// 免得以后改界面时把「选了却不生效」或「没选偷偷全导」带回来。
+{
+  const all = selectDocumentEntries(MODEL, { characters: true, events: true, countries: true, world: true })
+  check('范围 · 全开时条数不变', all.total === MODEL.total, String(all.total))
+
+  const onlyChars = selectDocumentEntries(MODEL, { characters: true, events: false, countries: false, world: false })
+  check('范围 · 关掉分区只留角色', onlyChars.sections.length === 1 && onlyChars.total === 1)
+
+  const firstId = MODEL.sections[0].entries[0].id
+  const pickedOne = selectDocumentEntries(
+    MODEL,
+    { characters: true, events: true, countries: true, world: true },
+    'picked',
+    new Set([firstId]),
+  )
+  check('范围 · 选一条就只导一条', pickedOne.total === 1, String(pickedOne.total))
+  check(
+    '范围 · 选中的正是那一条',
+    pickedOne.sections.flatMap((section) => section.entries).every((entry) => entry.id === firstId),
+  )
+
+  const pickedNothing = selectDocumentEntries(
+    MODEL,
+    { characters: true, events: true, countries: true, world: true },
+    'picked',
+    new Set(),
+  )
+  check('范围 · 选条目但没选 → 空（不偷偷退回全部）', pickedNothing.total === 0, String(pickedNothing.total))
+
+  // 文件侧也要跟着裁：只选一条时，docx 里不该出现其它条目的标题
+  const xml = buildDocumentXml(pickedOne)
+  const otherTitle = MODEL.sections[1]?.entries[0]?.title
+  check(
+    '范围 · 只选一条时 docx 里没有别的条目',
+    otherTitle === undefined || !xml.includes(otherTitle),
+    otherTitle,
+  )
+}
 
 if (failures.length > 0) {
   console.error('文档导出自检失败：')
