@@ -50,7 +50,7 @@ export function MobileActionSheet({ open, onClose, title, actions }: MobileActio
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[60] touch-none overscroll-none transition-opacity duration-150"
+      className="fixed inset-0 z-[60] touch-none overscroll-none transition-opacity duration-fast"
       style={{ opacity: visible ? 1 : 0, pointerEvents: 'auto' }}
       onContextMenu={(e) => { e.preventDefault() }}
       onPointerDown={(e) => { e.preventDefault(); onClose() }}
@@ -60,7 +60,7 @@ export function MobileActionSheet({ open, onClose, title, actions }: MobileActio
       <div
         ref={panelRef}
         data-action-sheet-panel
-        className={`absolute bottom-0 left-0 right-0 z-10 bg-paper/85 backdrop-blur-lg rounded-t-panel transition-transform duration-200 ease-out ${FLOAT_SHADOW}`}
+        className={`absolute bottom-0 left-0 right-0 z-10 bg-paper/85 backdrop-blur-lg rounded-t-panel transition-transform duration-base ease-quiet ${FLOAT_SHADOW}`}
         style={{
           transform: visible ? 'translateY(0)' : 'translateY(100%)',
           paddingBottom: 'var(--safe-bottom, 0px)',

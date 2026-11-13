@@ -125,6 +125,13 @@ const RULES: Rule[] = [
     test: /\bring-(?:[1-9]|\[)/,
   },
   {
+    name: 'motion-literal',
+    why: '动效节奏统一：时长用 duration-fast / base / slow，缓动一律 ease-quiet（令牌见 globals.css）',
+    // 数字时长与内置缓动都是「随手写」的痕迹：150 / 200 / 300 各写一遍，
+    // 半年后没人记得哪一档才是「展开」。任意值同样拦（`duration-[220ms]`）。
+    test: /\bduration-(?:75|100|150|200|300|500|700|1000|\[)|\bease-(?:linear|in|out|in-out|\[)/,
+  },
+  {
     name: 'doc-reference',
     why: '界面文案里不写仓库路径 / 文档编号（「见 docs/todo.md §11」）—— 用户看不懂，文档还会改名',
     // 只逮字符串与 JSX 文本里的 docs/ 引用；注释在扫描前已被跳过

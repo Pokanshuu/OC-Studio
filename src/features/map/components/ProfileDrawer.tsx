@@ -45,7 +45,7 @@ export function ProfileDrawer({ points, lengthKm, loading, progress, error, onCl
         <div className="flex flex-1 flex-col justify-center gap-2 px-1">
           <div className="h-1 w-full overflow-hidden rounded-full bg-line">
             <div
-              className="h-full rounded-full bg-ink-muted transition-[width] duration-150"
+              className="h-full rounded-full bg-ink-muted transition-[width] duration-fast"
               style={{ width: `${Math.round(Math.min(1, Math.max(0, progress?.value ?? 0)) * 100)}%` }}
             />
           </div>

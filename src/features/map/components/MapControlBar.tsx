@@ -114,7 +114,7 @@ export function MapControlBar({
           <ChevronUp
             size={12}
             strokeWidth={2}
-            className={`shrink-0 text-ink-faint transition-transform duration-150 ${open ? 'rotate-180' : ''}`}
+            className={`shrink-0 text-ink-faint transition-transform duration-fast ${open ? 'rotate-180' : ''}`}
           />
         </button>
 
@@ -156,7 +156,7 @@ export function MapControlBar({
             className="pointer-events-none absolute inset-x-1 bottom-0 h-0.5 overflow-hidden rounded-full bg-line"
           >
             <span
-              className="block h-full rounded-full bg-ink-muted transition-[width] duration-150"
+              className="block h-full rounded-full bg-ink-muted transition-[width] duration-fast"
               style={{ width: `${Math.round((progress ?? 0) * 100)}%` }}
             />
           </span>

@@ -132,7 +132,7 @@ export function ImageGallerySlider({
             onClickCapture={handleClickCapture}
           >
             <div
-              className="flex h-full transition-transform duration-300 ease-out"
+              className="flex h-full transition-transform duration-slow ease-quiet"
               style={{ transform: `translateX(-${currentIndex * 100}%)` }}
             >
               {images.map((url, i) => (

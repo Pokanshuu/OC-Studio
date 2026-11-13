@@ -1047,7 +1047,7 @@ export function MapView() {
                 <ChevronDown
                   size={13}
                   strokeWidth={2}
-                  className={`shrink-0 text-ink-faint transition-transform duration-150 ${
+                  className={`shrink-0 text-ink-faint transition-transform duration-fast ${
                     switcherOpen ? 'rotate-180' : ''
                   }`}
                 />

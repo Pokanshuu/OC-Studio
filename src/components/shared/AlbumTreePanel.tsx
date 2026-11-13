@@ -86,7 +86,7 @@ export function AlbumTreePanel({
                   <span className="flex-1">{top.label}</span>
                   {topCount > 0 ? <span className="text-[11px] text-ink-faint">{topCount}</span> : null}
                 </button>
-                <div className={`grid transition-[grid-template-rows] duration-200 ease-out ${isExpanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
+                <div className={`grid transition-[grid-template-rows] duration-base ease-quiet ${isExpanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
                   <div className="min-h-0 overflow-hidden">
                     <div className="mt-0.5 flex flex-col gap-0.5">
                       {top.children.map((sub) => {

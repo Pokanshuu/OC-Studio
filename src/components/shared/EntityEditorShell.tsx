@@ -47,7 +47,7 @@ export function EntityEditorShell({
       {/* 列表收起/展开用宽度过渡（与相册一致），不是直接卸载；无列表的编辑器整块不渲染 */}
       {hasList ? (
         <aside
-          className={`relative flex h-full shrink-0 flex-col overflow-hidden transition-[width] duration-200 ease-in-out ${
+          className={`relative flex h-full shrink-0 flex-col overflow-hidden transition-[width] duration-base ease-quiet ${
             listOpen ? 'border-r border-line' : 'border-r-0'
           }`}
           style={{ width: listOpen ? listWidth : 0 }}

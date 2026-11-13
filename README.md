@@ -144,9 +144,7 @@ Next.js 16 · TypeScript · Tailwind CSS v4 · Tiptap · Dexie.js (IndexedDB) ·
 3. 提交前自检
 
    ```bash
-   npx tsc --noEmit      # 类型检查
-   npm run lint          # ESLint（存量警告不算失败）
-   npm run audit:design  # 设计令牌检查
+   npm run check         # 类型检查 + ESLint + 单元测试 + 全部自检
    ```
 
    修改笔记库（`src/lib/vault/`、`src-tauri/`）时，再跑一遍 `AGENTS.md` 里列的那组验收脚本。

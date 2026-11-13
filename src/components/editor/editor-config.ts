@@ -22,6 +22,8 @@ import { FirstLineIndent } from './extensions/FirstLineIndent'
 import { SlashCommand } from './SlashCommandMenu'
 import { createWikiLinkExtension } from './WikiLinkExtension'
 import { createMentionRender, type ExtendedReferableEntity } from './mention-render'
+import { plainTextToPastedHtml, sanitizePastedHtml } from './paste'
+import { runAsSingleUndoStep } from './undo-grouping'
 
 /** 拖拽把手 → 块类型菜单的自定义事件名（dispatch 在本模块的 DragHandle render 里，监听在 EditorCore） */
 export const BLOCK_MENU_EVENT = 'editor-block-menu'
@@ -225,19 +227,30 @@ export function buildEditorConfig({
     ],
     editorProps: {
       // 粘贴清洗：OC schema 已经只保留 Markdown 能表达的结构；这里再挡掉
-      // script/style/iframe、on* 事件与不安全链接（javascript:/data: 等）。
-      transformPastedHTML: (html) => {
-        const doc = new DOMParser().parseFromString(html, 'text/html')
-        doc.querySelectorAll('script,style,iframe,object,embed,link,meta').forEach((element) => element.remove())
-        doc.querySelectorAll('*').forEach((element) => {
-          for (const attr of Array.from(element.attributes)) {
-            if (/^on/i.test(attr.name)) element.removeAttribute(attr.name)
-          }
+      // script/style/iframe、on* 事件与不安全链接（javascript:/data: 等），
+      // 同时拆掉无意义 span / 内联样式、保留标题 / 列表 / 表格 / 链接 / 图片。
+      transformPastedHTML: (html) => sanitizePastedHtml(html),
+      /**
+       * 纯文本粘贴：像 Markdown 就转成结构，多段就拆段。
+       *
+       * 有 text/html 时不动手 —— 富文本自己带结构，交给 ProseMirror；
+       * 只有纯文本、且不是图片文件时，才走 Markdown / 段落这条线。
+       */
+      handlePaste: (_view, event) => {
+        const data = event.clipboardData
+        if (!data) return false
+        if (data.getData('text/html').trim() !== '') return false
+        const text = data.getData('text/plain')
+        const html = plainTextToPastedHtml(text)
+        if (html === null) return false
+        const editor = getEditor()
+        if (!editor) return false
+        event.preventDefault()
+        // 一次粘贴算一步：撤销时整段粘贴一起退，不与前后输入粘连
+        runAsSingleUndoStep(editor, () => {
+          editor.chain().focus().insertContent(html).run()
         })
-        doc.querySelectorAll('a[href]').forEach((anchor) => {
-          if (!safeHref(anchor.getAttribute('href') ?? '')) anchor.removeAttribute('href')
-        })
-        return doc.body.innerHTML
+        return true
       },
       handleClick: (_view, _pos, event) => {
         const target = event.target

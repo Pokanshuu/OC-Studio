@@ -270,9 +270,10 @@ description: >
 
 ## 6. 动画规范
 - **不引入动画库**（项目未安装 `framer-motion`）：一律 CSS `transition` + `tw-animate-css` 的数据属性动画
-- 令牌（`globals.css`）：`--dur-fast: 150ms`、`--dur-base: 200ms`、`--ease-quiet: cubic-bezier(0.2, 0.6, 0.2, 1)`
-- 类型：浮层淡入（150ms）、面板滑入（200ms ease-out）、列表淡入（150ms）、按压反馈（120ms）、
-  **列表 ↔ 编辑器换页**（150ms，列表左滑出 / 编辑器右滑入，返回反向）
+- 令牌（`globals.css`）：`--oc-duration-fast: 150ms`、`--oc-duration-base: 200ms`、`--oc-duration-slow: 300ms`、`--oc-ease-quiet: cubic-bezier(0.2, 0.6, 0.2, 1)`；
+  工具类只认 `duration-fast` / `duration-base` / `duration-slow` + `ease-quiet`，**不许写 `duration-150` 这类数字**（`audit:design` 的 `motion-literal` 会拦）
+- 类型：浮层淡入（fast）、面板滑入（base + ease-quiet）、列表淡入（fast）、按压反馈（120ms，`touch-feedback` 专用）、
+  **列表 ↔ 编辑器换页**（fast，列表左滑出 / 编辑器右滑入，返回反向）
 - **列表 ↔ 编辑器换页只走 `SectionSwap`**（`components/shared/SectionSwap.tsx`）：`.section-stack` 叠放 +
   `.section-fade` 的 `data-visible` / `data-animate`。角色 / 事件 / 国家在 `page.tsx` 用它，
   小说书架 ↔ 目录、自定义分类列表 ↔ 条目编辑器也接在它上面；新页面别再手写 `setTimeout + animation`
@@ -300,7 +301,7 @@ description: >
 ### MobileFab
 - 右下角悬浮，`bottom-[calc(5rem+var(--safe-bottom))]`，`rounded-panel`（外框大档）+ `border border-line bg-paper/85 backdrop-blur-lg`
 - 内部按钮 `h-10 w-10`（`rounded-item`，与外框同心：外层 8 − padding 4 = 内层 4）
-- 选中指示器：绝对定位色块 `bg-[var(--oc-hover)]` + `rounded-item`，`transition-[top] duration-300 ease-out` 在网格/列表之间滑动
+- 选中指示器：绝对定位色块 `bg-[var(--oc-hover)]` + `rounded-item`，`transition-[top] duration-slow ease-quiet` 在网格/列表之间滑动
 - 非选中态保留 `active:bg-[var(--oc-hover)]` 按压反馈
 
 ## 8. 例外允许的颜色

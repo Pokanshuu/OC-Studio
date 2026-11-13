@@ -912,7 +912,7 @@ export function MapGeneratorPanel({
                   className="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-line"
                 >
                   <div
-                    className="h-full rounded-full bg-ink-muted transition-[width] duration-150"
+                    className="h-full rounded-full bg-ink-muted transition-[width] duration-fast"
                     style={{ width: `${Math.round(progress.value * 100)}%` }}
                   />
                 </div>

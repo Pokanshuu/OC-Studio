@@ -4,20 +4,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/core'
 import { compressImageFile } from '@/lib/image-compress'
 import { saveBlobToDiskOrToast } from '@/lib/image-service'
+import { clipboardHasReadableText, clipboardImageFiles } from './paste'
+import { beginHistoryBatch, closeUndoGroup } from './undo-grouping'
 
 function transferOf(event: Event): DataTransfer | null {
   const carrier = event as Event & { dataTransfer?: DataTransfer; clipboardData?: DataTransfer }
   return carrier.clipboardData ?? carrier.dataTransfer ?? null
-}
-
-function imageFiles(data: DataTransfer | null): File[] {
-  if (!data) return []
-  const fromFiles = Array.from(data.files ?? []).filter((file) => file.type.startsWith('image/'))
-  if (fromFiles.length) return fromFiles
-  return Array.from(data.items ?? [])
-    .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
-    .map((item) => item.getAsFile())
-    .filter((file): file is File => file !== null)
 }
 
 function isInside(node: Node | null, root: HTMLElement | null): boolean {
@@ -44,6 +36,10 @@ export function useImagePasteDrop(editor: Editor | null): { dragging: boolean } 
     async (files: File[], position: DropPosition) => {
       if (!editor || files.length === 0 || busyRef.current) return
       busyRef.current = true
+      // 一批图片（含替换选区）只算一步撤销：压缩 / 落盘是异步的，
+      // 每张图各自成步的话，Ctrl+Z 要按好几次才退干净。
+      closeUndoGroup(editor)
+      const endBatch = beginHistoryBatch()
       try {
         const start = position.from
         if (position.from !== position.to) {
@@ -64,6 +60,8 @@ export function useImagePasteDrop(editor: Editor | null): { dragging: boolean } 
             .run()
         }
       } finally {
+        endBatch()
+        closeUndoGroup(editor)
         busyRef.current = false
       }
     },
@@ -76,8 +74,12 @@ export function useImagePasteDrop(editor: Editor | null): { dragging: boolean } 
 
     const onPaste = (event: ClipboardEvent) => {
       if (!isInside(event.target as Node | null, root)) return
-      const files = imageFiles(transferOf(event))
+      const data = transferOf(event)
+      const files = clipboardImageFiles(data)
       if (files.length === 0) return
+      // 图文混在一起时文字优先：网页 / 微信复制通常同时给 HTML 和图片文件，
+      // 直接走图片会把文字丢掉。纯文件（访达 / 资源管理器）没有可读文字，仍按图片插。
+      if (clipboardHasReadableText(data)) return
       event.preventDefault()
       const { from, to } = editor.state.selection
       void run(files, { from, to })
@@ -100,7 +102,7 @@ export function useImagePasteDrop(editor: Editor | null): { dragging: boolean } 
     const onDrop = (event: DragEvent) => {
       setDragging(false)
       if (!isInside(event.target as Node | null, root)) return
-      const files = imageFiles(transferOf(event))
+      const files = clipboardImageFiles(transferOf(event))
       if (files.length === 0) return
       event.preventDefault()
       const coords = editor.view.posAtCoords({ left: event.clientX, top: event.clientY })

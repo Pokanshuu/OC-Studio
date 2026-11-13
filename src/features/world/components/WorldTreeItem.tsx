@@ -119,7 +119,7 @@ export function SortableTreeItem({
         rowProps={longPress as React.HTMLAttributes<HTMLDivElement>}
       />
 
-      <div className={`grid transition-[grid-template-rows] duration-200 ease-out ${isExpanded && hasChildren ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
+      <div className={`grid transition-[grid-template-rows] duration-base ease-quiet ${isExpanded && hasChildren ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
         <div className="min-h-0 overflow-hidden">
           {isExpanded && hasChildren ? (
             <SortableContext items={childIds} strategy={verticalListSortingStrategy}>

@@ -164,7 +164,7 @@ export function MapToolView() {
                 className="h-1 w-full overflow-hidden rounded-full bg-line"
               >
                 <div
-                  className="h-full rounded-full bg-ink-muted transition-[width] duration-150"
+                  className="h-full rounded-full bg-ink-muted transition-[width] duration-fast"
                   style={{ width: `${Math.round(progress.value * 100)}%` }}
                 />
               </div>

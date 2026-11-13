@@ -98,7 +98,7 @@ export function FullscreenViewer({ images, initialIndex, onClose }: FullscreenVi
 
   return createPortal(
     <div
-      className="pointer-events-auto fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 overflow-hidden pt-[calc(var(--safe-top,0px)+var(--oc-titlebar-h))] pb-[var(--safe-bottom)] transition-opacity duration-150"
+      className="pointer-events-auto fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 overflow-hidden pt-[calc(var(--safe-top,0px)+var(--oc-titlebar-h))] pb-[var(--safe-bottom)] transition-opacity duration-fast"
       style={{ opacity: visible ? 1 : 0 }}
       onClick={(e) => { if (e.target === e.currentTarget) handleClose() }}
     >
@@ -141,7 +141,7 @@ export function FullscreenViewer({ images, initialIndex, onClose }: FullscreenVi
         ref={imgRef}
         src={currentSrc}
         alt=""
-        className="max-h-[90vh] max-w-[90vw] cursor-grab object-contain transition-transform duration-100"
+        className="max-h-[90vh] max-w-[90vw] cursor-grab object-contain transition-transform duration-fast"
         style={{
           transform: `scale(${scale}) translate(${pan.x / scale}px, ${pan.y / scale}px)`,
           cursor: dragging ? 'grabbing' : scale > 1 ? 'grab' : 'default',

@@ -12,8 +12,10 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "audit": "node scripts/audit-all.mjs",
-    "check": "npm run typecheck && npm run lint && npm run audit",
+    "check": "npm run typecheck && npm run lint && npm run test && npm run audit",
     "audit:design": "tsx scripts/design-audit.ts",
     "audit:theme": "tsx scripts/theme-tokens-check.ts",
     "audit:palettes": "tsx scripts/theme-presets-check.ts",
@@ -125,8 +127,10 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
+    "happy-dom": "^18.0.1",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.7"
   }
 }

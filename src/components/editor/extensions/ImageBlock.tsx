@@ -35,7 +35,19 @@ export const ImageBlock = Node.create({
   },
 
   parseHTML() {
-    return [{ tag: 'div[data-type="image-block"]' }]
+    return [
+      { tag: 'div[data-type="image-block"]' },
+      {
+        // 从网页 / Word 粘贴进来的图片：保留可用的远程或本地地址；
+        // data: 图片体积失控且导出带不走，直接丢（与粘贴清洗的规则一致）。
+        tag: 'img[src]',
+        getAttrs: (element) => {
+          const src = (element as HTMLElement).getAttribute('src') ?? ''
+          if (src === '' || /^data:/i.test(src)) return false
+          return { src, width: null }
+        },
+      },
+    ]
   },
 
   renderHTML({ HTMLAttributes }) {

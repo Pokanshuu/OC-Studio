@@ -154,7 +154,7 @@ export function RelationControlBar({
           <ChevronUp
             size={12}
             strokeWidth={2}
-            className={`shrink-0 text-ink-faint transition-transform duration-150 ${open ? 'rotate-180' : ''}`}
+            className={`shrink-0 text-ink-faint transition-transform duration-fast ${open ? 'rotate-180' : ''}`}
           />
         </button>
 

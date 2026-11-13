@@ -67,6 +67,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - `src/components/editor/BubbleMenuButtons.tsx` — 气泡菜单按钮组
 - `src/components/editor/WikiLinkExtension.ts` — [[ 词条内链。**每个编辑器各建一份**（`createWikiLinkExtension()`），不要提升成模块常量：`popup` / `AbortController` 活在闭包里，模块级共享会让第二个编辑器把前一个弹层的「点外部关闭」监听 abort 掉、节点永久留在 DOM 里。弹层 `fixed` + Portal 到 `#overlay-root`，关闭只走 `closePopup()`（节点与监听一起收）
 - `src/components/editor/extensions/ImageBlock.tsx` — 自定义图片块
+- `src/components/editor/paste.ts` — **粘贴管线**（纯函数 + 单测）：HTML 清洗（拆无意义 span / 内联样式还原格式 / 保留标题·列表·表格·链接·图片·mention）、纯文本 Markdown → 结构、图文混排「文字优先」判定。改规则先改这里，`tests/paste.test.ts` 盯着
+- `src/components/editor/undo-grouping.ts` — **撤销粒度**：包一层 `view.dispatch`，结构性事务（图片 / 表格 / 标题 / 列表 / 引用 / mention / 删除）前后各关一次 `closeHistory`，连续打字仍按时间合并；批量粘贴用 `beginHistoryBatch()` 收成一步。别再逐个命令补 `closeHistory`
 - `src/components/editor/extensions/SmallMark.ts` — `<small>` 行内标记（vault 里唯一用到的行内 HTML，保住 Markdown 往返）
 - `src/components/editor/extensions/FirstLineIndent.ts` — **首行缩进（中文排版）**：Tab 在段首插**两个全角空格 U+3000**，Shift+Tab 退一级、再按不变；多段选区按段处理；列表 / 表格 / 代码块里**直接放行**（表格的 Tab 是跳格、列表的 Tab 是降级）。**不要改成 `text-indent` 或半角空格**：`text-indent` 在 Markdown 里无处可存，半角空格 4 个会被 CommonMark 判成代码块、2 个会被解析器吃掉（`npx tsx scripts/vault-markdown-check.ts "<vault>"` 的定向用例盯着这条）。**Tab 被吃掉之后，Esc 是键盘用户离开正文的出口**（`editor-config.ts` 的 `handleKeyDown`：没有浮层时 `blur()`，有浮层时让浮层自己关）—— 别再把这个出口删掉，那是 WCAG 2.1.2 的键盘陷阱
 
@@ -211,10 +213,13 @@ cargo test --manifest-path src-tauri/Cargo.toml --lib         # 含 IPC 线格�
 - `next.config.ts` — Next.js 配置
 - `tsconfig.json` — TypeScript 配置
 - `eslint.config.mjs` — ESLint 配置
+- `vitest.config.ts` — 单元测试配置（`tests/**/*.test.ts`，`@/` 别名指向 `src`）
+- `.github/workflows/ci.yml` — CI：`npm run check` → `next build` → `cargo check` / `cargo test --lib`（Windows）
 
 ## 开发命令
 ```bash
-npm run check     # 提交前一条命令：tsc --noEmit + eslint + 全部 audit:*（28 条，约 30s）
+npm run check     # 提交前一条命令：tsc --noEmit + eslint + vitest + 全部 audit:*（31 条，约 30s）
+npm test          # 单元测试（vitest + happy-dom，用例在 tests/）
 npm run dev       # 开发服务器 (localhost:3000)
 npm run build     # 生产构建 (静态导出)
 npm run lint      # ESLint

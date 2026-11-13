@@ -21,7 +21,7 @@ export function MobileFab({ viewMode, onViewModeChange }: MobileFabProps) {
     <div className="md:hidden fixed bottom-[calc(5rem+var(--safe-bottom))] right-4 z-40 flex flex-col gap-1 rounded-panel border border-line bg-paper/85 p-1 backdrop-blur-lg float-shadow">
       {/* Sliding pill indicator —— 外层容器 8px、内层按钮 4px：同心圆角（内层 = 外层 - padding） */}
       <div
-        className="absolute left-1 h-10 w-10 rounded-item bg-[var(--oc-hover)] transition-transform duration-300 ease-out"
+        className="absolute left-1 h-10 w-10 rounded-item bg-[var(--oc-hover)] transition-transform duration-slow ease-quiet"
         style={{ transform: `translateY(${activeIndex * 44}px)` }}
       />
 

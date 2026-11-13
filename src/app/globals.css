@@ -30,15 +30,25 @@
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 
-  /* 动效令牌（统一时长与缓动） */
-  --dur-fast: 150ms;
-  --dur-base: 200ms;
-  --ease-quiet: cubic-bezier(0.2, 0.6, 0.2, 1);
+  /* 动效令牌（唯一源：时长三档 + 缓动一档）
+     界面里不再写 `duration-150` 这类数字工具类 —— `npm run audit:design` 的
+     motion-literal 会拦。三档对应：fast = 悬停 / 淡入，base = 展开 / 位移，
+    慢速只给「整块滑出」这种大位移（抽屉 / 轮播）。 */
+  --oc-duration-fast: 150ms;
+  --oc-duration-base: 200ms;
+  --oc-duration-slow: 300ms;
+  --oc-ease-quiet: cubic-bezier(0.2, 0.6, 0.2, 1);
+
+  /* 旧名保留：助手插件的样式表（`src/plugins/agent/styles/*.css`）还在用，
+     值指向新令牌，改节奏只改上面一处。 */
+  --dur-fast: var(--oc-duration-fast);
+  --dur-base: var(--oc-duration-base);
+  --ease-quiet: var(--oc-ease-quiet);
 
   /* 控件悬停底色（界面无色：只用墨色极低透明度） */
   --oc-hover: rgba(43, 43, 43, 0.045);
 
-  /* 弹窗遮罩（scrim）—— 与原来写死的 g-black/15 dark:bg-black/40 **取值完全一致**，
+  /* 弹窗遮罩（scrim）—— 与原来写死的 bg-black/15 dark:bg-black/40 **取值完全一致**，
      只是收成一处：以后要调只改这里。组件里不要再直接写 bg-black/xx。 */
   --oc-scrim: rgba(0, 0, 0, 0.15);
 
@@ -83,6 +93,16 @@
   /* 浮层阴影（**唯一一档**）：只给浮在内容之上的东西 —— 菜单 / 下拉 / 右键 / 弹窗 / 抽屉 / 通知。
      小、淡、两层：近处一圈收边 + 远处一圈柔光。内容面（卡片 / 按钮 / 输入）仍然是零阴影。 */
   --oc-shadow-float: 0 1px 2px rgba(43, 43, 43, 0.05), 0 6px 16px -6px rgba(43, 43, 43, 0.12);
+}
+
+/* 动效工具类接进 Tailwind 的 theme 命名空间：
+   `--transition-duration-*` → duration-fast / duration-base / duration-slow，
+   `--ease-*` → ease-quiet。令牌值仍在 :root，这里只做名字映射。 */
+@theme inline {
+  --transition-duration-fast: var(--oc-duration-fast);
+  --transition-duration-base: var(--oc-duration-base);
+  --transition-duration-slow: var(--oc-duration-slow);
+  --ease-quiet: var(--oc-ease-quiet);
 }
 
 .dark {
@@ -275,8 +295,8 @@
      显式写了圆角类的以显式值为准（utilities 层在 base 之后）。 */
   button {
     border-radius: var(--radius-control);
-    transition: background-color var(--dur-fast) ease-out, color var(--dur-fast) ease-out,
-      border-color var(--dur-fast) ease-out;
+    transition: background-color var(--oc-duration-fast) var(--oc-ease-quiet), color var(--oc-duration-fast) var(--oc-ease-quiet),
+      border-color var(--oc-duration-fast) var(--oc-ease-quiet);
   }
   button:hover {
     background-color: var(--oc-hover);
@@ -530,8 +550,8 @@ body[data-map-immersive='true'] [data-dev-mock] {
   border-radius: var(--radius-item) !important;
   background-color: var(--oc-paper-card) !important;
   cursor: pointer !important;
-  transition: background-color var(--dur-fast) var(--ease-quiet),
-    border-color var(--dur-fast) var(--ease-quiet);
+  transition: background-color var(--oc-duration-fast) var(--oc-ease-quiet),
+    border-color var(--oc-duration-fast) var(--oc-ease-quiet);
 }
 
 .tiptap [data-type="taskList"] > li > label:hover,
@@ -695,7 +715,7 @@ body[data-map-immersive='true'] [data-dev-mock] {
   background-color: var(--color-line-hover);
   cursor: col-resize;
   opacity: 0;
-  transition: opacity 0.15s;
+  transition: opacity var(--oc-duration-fast);
 }
 
 .ProseMirror table .column-resize-handle:hover,
@@ -763,7 +783,7 @@ body[data-map-immersive='true'] [data-dev-mock] {
 
 /* Touch feedback */
 .touch-feedback {
-  transition: transform 120ms ease-out;
+  transition: transform 120ms var(--oc-ease-quiet);
 }
 .touch-feedback:active {
   transform: scale(0.96);
@@ -813,7 +833,7 @@ body[data-map-immersive='true'] [data-dev-mock] {
    transition-behavior: allow-discrete lets us transition display:none —
    display stays block during the opacity fade (150ms), then flips to none. */
 .section-fade {
-  transition: opacity 150ms ease-out, display 150ms ease-out;
+  transition: opacity var(--oc-duration-fast) var(--oc-ease-quiet), display var(--oc-duration-fast) var(--oc-ease-quiet);
   transition-behavior: allow-discrete;
   scrollbar-gutter: stable;
   /* 弹性头图（StretchyHeader）折叠时逐帧改头图高度，正文会被带着上移。
@@ -842,7 +862,7 @@ body[data-map-immersive='true'] [data-dev-mock] {
 /* M114 fallback: transition-behavior not supported — use visibility instead of display */
 @supports not (transition-behavior: allow-discrete) {
   .section-fade {
-    transition: opacity 150ms ease-out;
+    transition: opacity var(--oc-duration-fast) var(--oc-ease-quiet);
   }
   .section-fade[data-visible="false"] {
     visibility: hidden;
@@ -898,22 +918,22 @@ body[data-map-immersive='true'] [data-dev-mock] {
 }
 
 .section-fade[data-animate="slide-in-right"] {
-  animation: slide-in-right 150ms ease-out;
+  animation: slide-in-right var(--oc-duration-fast) var(--oc-ease-quiet);
 }
 .section-fade[data-animate="slide-out-right"] {
-  animation: slide-out-right 150ms ease-out forwards;
+  animation: slide-out-right var(--oc-duration-fast) var(--oc-ease-quiet) forwards;
 }
 .section-fade[data-animate="slide-in-left"] {
-  animation: slide-in-left 150ms ease-out;
+  animation: slide-in-left var(--oc-duration-fast) var(--oc-ease-quiet);
 }
 .section-fade[data-animate="slide-out-left"] {
-  animation: slide-out-left 150ms ease-out forwards;
+  animation: slide-out-left var(--oc-duration-fast) var(--oc-ease-quiet) forwards;
 }
 
 /* Context menu fade transition */
 .context-menu-fade {
   opacity: 0;
-  transition: opacity 150ms ease-out;
+  transition: opacity var(--oc-duration-fast) var(--oc-ease-quiet);
 }
 .context-menu-fade.context-menu-visible {
   opacity: 1;
@@ -931,10 +951,10 @@ body[data-map-immersive='true'] [data-dev-mock] {
   to   { opacity: 1; transform: translateY(0); }
 }
 .overlay-backdrop {
-  animation: overlay-in 140ms ease-out;
+  animation: overlay-in var(--oc-duration-fast) var(--oc-ease-quiet);
 }
 .overlay-panel {
-  animation: overlay-panel-in 160ms ease-out;
+  animation: overlay-panel-in var(--oc-duration-fast) var(--oc-ease-quiet);
 }
 
 /* 导出中心：窄屏上下分区。预览固定高度，配置区吃剩余并自己滚动。
@@ -1075,7 +1095,7 @@ body[data-map-immersive='true'] [data-dev-mock] {
   text-shadow:
     0 0 2px var(--oc-paper),
     0 0 6px var(--oc-paper);
-  transition: opacity 120ms ease-out;
+  transition: opacity 120ms var(--oc-ease-quiet);
 }
 [data-graph-labels='off'] .graph-node-label {
   opacity: 0;
@@ -1083,5 +1103,5 @@ body[data-map-immersive='true'] [data-dev-mock] {
 
 /* 拖动中的名字浮尘（缩放很小时节点名看不见，跟着鼠标反而看得清） */
 .graph-drag-ghost {
-  animation: overlay-in 100ms ease-out;
+  animation: overlay-in var(--oc-duration-fast) var(--oc-ease-quiet);
 }

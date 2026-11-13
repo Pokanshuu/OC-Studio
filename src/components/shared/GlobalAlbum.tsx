@@ -208,7 +208,7 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
       {/* Desktop sidebar */}
       {!isMobile ? (
         <div
-          className="relative shrink-0 overflow-hidden transition-[width] duration-200 ease-in-out"
+          className="relative shrink-0 overflow-hidden transition-[width] duration-base ease-quiet"
           style={{ width: treeCollapsed ? 0 : listWidth }}
         >
           {treePanel}
@@ -220,9 +220,9 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
 
       {/* Mobile overlay */}
       {isMobile ? (
-        <div className={`fixed inset-0 z-50 transition-all duration-200 ${showMobileTree ? 'pointer-events-auto' : 'pointer-events-none'}`}>
-          <div className={`absolute inset-0 bg-black/20 transition-opacity duration-200 ${showMobileTree ? 'opacity-100' : 'opacity-0'}`} onClick={() => setShowMobileTree(false)} />
-          <div className={`absolute top-0 bottom-0 left-0 w-[280px] transition-transform duration-200 ease-out ${showMobileTree ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className={`fixed inset-0 z-50 transition-all duration-base ${showMobileTree ? 'pointer-events-auto' : 'pointer-events-none'}`}>
+          <div className={`absolute inset-0 bg-black/20 transition-opacity duration-base ${showMobileTree ? 'opacity-100' : 'opacity-0'}`} onClick={() => setShowMobileTree(false)} />
+          <div className={`absolute top-0 bottom-0 left-0 w-[280px] transition-transform duration-base ease-quiet ${showMobileTree ? 'translate-x-0' : '-translate-x-full'}`}>
             {treePanel}
           </div>
         </div>

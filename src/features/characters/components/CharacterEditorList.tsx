@@ -159,7 +159,7 @@ export function CharacterEditorList({ currentId, onSelect, onCollapse, onCreate 
                   <span className="flex-1 truncate">{group.name}</span>
                   <span className="text-[11px] text-ink-faint">{group.items.length}</span>
                 </button>
-                <div className={`grid transition-[grid-template-rows] duration-200 ease-out ${isCollapsed ? 'grid-rows-[0fr]' : 'grid-rows-[1fr]'}`}>
+                <div className={`grid transition-[grid-template-rows] duration-base ease-quiet ${isCollapsed ? 'grid-rows-[0fr]' : 'grid-rows-[1fr]'}`}>
                   <div className="min-h-0 overflow-hidden">
                     <div className="mt-0.5 flex flex-col gap-0.5">{group.items.map(renderRow)}</div>
                   </div>

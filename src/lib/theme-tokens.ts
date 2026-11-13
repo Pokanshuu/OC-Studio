@@ -48,8 +48,9 @@ export const THEME_TOKENS: readonly TokenRegistration[] = [
   })),
 ]
 
-/** 不属于主题的令牌（布局 / 动效 / 安全区），自检时跳过 */
-export const NON_THEME_TOKEN_PATTERN = /^--(safe-|dur-|ease-)/
+/** 不属于主题的令牌（布局 / 动效 / 安全区），自检时跳过。
+ *  `dur-` / `ease-` 是旧名，仅为助手插件的样式表保留。 */
+export const NON_THEME_TOKEN_PATTERN = /^--(safe-|oc-duration-|oc-ease-|dur-|ease-)/
 
 export function tokenScope(name: string): TokenScope | undefined {
   return THEME_TOKENS.find((token) => token.name === name)?.scope

@@ -171,7 +171,7 @@ export function TrashView({ onClose }: TrashViewProps) {
 
   return (
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-[var(--oc-scrim)] transition-opacity duration-150"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-[var(--oc-scrim)] transition-opacity duration-fast"
       role="dialog"
       aria-modal="true"
       aria-label="回收站"
@@ -180,7 +180,7 @@ export function TrashView({ onClose }: TrashViewProps) {
       onClick={(e) => { if (e.target === e.currentTarget) handleClose() }}
     >
       <div
-        className={`flex max-md:w-[calc(100%-2rem)] max-md:min-h-[40vh] max-md:max-h-[calc(100vh-4rem)] max-md:my-4 h-[80vh] w-[80vw] max-w-5xl flex-col overflow-auto border border-line bg-paper float-shadow transition-opacity duration-150 ${ROUND_PANEL}`}
+        className={`flex max-md:w-[calc(100%-2rem)] max-md:min-h-[40vh] max-md:max-h-[calc(100vh-4rem)] max-md:my-4 h-[80vh] w-[80vw] max-w-5xl flex-col overflow-auto border border-line bg-paper float-shadow transition-opacity duration-fast ${ROUND_PANEL}`}
         style={{ opacity: visible ? 1 : 0 }}
       >
         <div className="flex h-12 shrink-0 items-center justify-between sticky top-0 z-10 border-b border-line px-4 bg-paper/85 backdrop-blur-lg">

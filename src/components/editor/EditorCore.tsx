@@ -19,6 +19,7 @@ import { MobileEditorToolbar } from './MobileEditorToolbar'
 
 import { buildEditorConfig, BLOCK_MENU_EVENT } from './editor-config'
 import { bindMobileEditorEvents } from './editor-mobile-events'
+import { installUndoGrouping } from './undo-grouping'
 import { useEditorBubbleMenu } from './useEditorBubbleMenu'
 import { useEditorMobileInput } from './useEditorMobileInput'
 import { useImagePasteDrop } from './useImagePasteDrop'
@@ -105,6 +106,10 @@ export function EditorCore({
     onCharacterCount,
     onContentChange,
   }))
+  useEffect(() => {
+    if (!editor) return
+    return installUndoGrouping(editor)
+  }, [editor])
   useEffect(() => {
     if (!editor) return
     const updateTableState = () => {
