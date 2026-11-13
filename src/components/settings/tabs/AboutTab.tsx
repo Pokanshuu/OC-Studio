@@ -1,12 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import { ArrowLeft, ChevronRight, ExternalLink } from 'lucide-react'
+import { ArrowLeft, ExternalLink } from 'lucide-react'
 
 import { APP_VERSION } from '@/lib/version'
 import { openExternal } from '@/lib/open-external'
-import { BTN_PRIMARY, ICON_BTN } from '@/lib/ui-tokens'
+import { runUpdateCheck } from '@/lib/update-check-ui'
+import { ICON_BTN, SETTINGS_ACTION_BTN } from '@/lib/ui-tokens'
 import { CREDIT_GROUPS, type CreditItem } from '../credits'
+import { SettingsEntryRow } from '../EntryRow'
+import { PrivacyPanel } from './PrivacyPanel'
 
 const REPO_URL = 'https://github.com/Pokanshuu/OC-Studio'
 
@@ -28,8 +31,13 @@ function CreditRow({ item }: { item: CreditItem }) {
 }
 
 export function AboutTab() {
-  /** 二级界面：开源许可（一长串致谢不铺在一级页面上） */
-  const [panel, setPanel] = useState<'root' | 'credits'>('root')
+  /** 二级界面：隐私声明 / 开源许可（长内容不铺在一级页面上） */
+  const [panel, setPanel] = useState<'root' | 'privacy' | 'credits'>('root')
+  const [checkingUpdate, setCheckingUpdate] = useState(false)
+
+  if (panel === 'privacy') {
+    return <PrivacyPanel onBack={() => setPanel('root')} />
+  }
 
   if (panel === 'credits') {
     return (
@@ -66,31 +74,32 @@ export function AboutTab() {
       </div>
 
       <button
-        disabled
-        className="flex h-8 w-full cursor-not-allowed items-center justify-center gap-2 text-[13px] text-ink-faint"
+        type="button"
+        disabled={checkingUpdate}
+        onClick={() => {
+          if (checkingUpdate) return
+          setCheckingUpdate(true)
+          void runUpdateCheck().finally(() => setCheckingUpdate(false))
+        }}
+        className={SETTINGS_ACTION_BTN}
       >
-        检查更新
-        <span className="text-[11px] text-ink-faint">开发中</span>
+        {checkingUpdate ? '正在检查…' : '检查更新'}
       </button>
 
       <button
         type="button"
         onClick={() => void openExternal(REPO_URL)}
-        className={`${BTN_PRIMARY} w-full justify-center`}
+        className={SETTINGS_ACTION_BTN}
       >
         <ExternalLink size={13} strokeWidth={2} />
         访问 GitHub 项目
       </button>
 
-      {/* 二级界面入口：开源许可整份收进下一级 */}
-      <button
-        type="button"
-        onClick={() => setPanel('credits')}
-        className="flex items-center justify-between border-t border-line pt-4 text-sm text-ink transition-colors hover:bg-transparent hover:text-ink-muted"
-      >
-        <span>开源许可</span>
-        <ChevronRight size={16} strokeWidth={2} className="text-ink-faint" />
-      </button>
+      {/* 二级界面入口：行高与分隔线复用设置里的一级入口行 */}
+      <div className="border-t border-line pt-2">
+        <SettingsEntryRow label="隐私声明" onClick={() => setPanel('privacy')} />
+        <SettingsEntryRow label="开源许可" onClick={() => setPanel('credits')} />
+      </div>
     </div>
   )
 }

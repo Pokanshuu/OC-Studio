@@ -151,6 +151,15 @@ export const BTN_QUIET =
   'flex h-8 shrink-0 items-center gap-1.5 px-1.5 text-[13px] text-ink-muted transition-colors hover:text-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink-muted'
 
 /**
+ * 设置里成排的文字动作（导入 / 导出 / 检查更新 / GitHub）。
+ *
+ * 整行宽、无底色、悬停才铺一层；不要在这些地方再混 `BTN_PRIMARY` 的实心底，
+ * 同一列里一块灰底会把「动作」误读成「当前选中」。
+ */
+export const SETTINGS_ACTION_BTN =
+  'touch-feedback flex h-8 w-full items-center justify-center gap-1.5 px-3 text-[13px] text-ink transition-colors hover:bg-[var(--oc-hover)] disabled:cursor-not-allowed disabled:text-ink-faint disabled:hover:bg-transparent'
+
+/**
  * 区块标题右侧的「＋ 添加」：纯文字、和标题同排，不另占一整行。
  * 关系表 / 立绘 / 相册共用 —— 空区块只留标题行，内容出现后再撑开。
  */

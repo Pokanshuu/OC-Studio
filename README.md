@@ -58,6 +58,18 @@
 
 ---
 
+## 隐私
+
+OC Studio 本地优先。您的笔记、图片和设定默认只保存在自己的设备上。OC Studio 没有账号系统，也不收集使用统计或诊断数据。
+
+- 桌面版把内容写进您选择的笔记库文件夹；移动版保存在应用的本地存储。
+- 助手插件是可选功能。使用时，您发送的内容会直接发给您设置的 API 服务商，不经过 OC Studio 的服务器。服务商如何处理数据，取决于它的隐私政策和服务条款。
+- 从网址导入图片、打开外部链接，以及查看笔记里的远程图片，会直接访问对应地址。
+
+完整声明见 [`PRIVACY.md`](PRIVACY.md)；应用内见「设置 › 关于 › 隐私声明」。
+
+---
+
 ## 规划中
 
 - 统一自动保存与版本历史：角色 / 国家 / 事件改为自动保存；创作时间线增加版本记录、diff 与回滚。
@@ -117,7 +129,7 @@ Next.js 16 · TypeScript · Tailwind CSS v4 · Tiptap · Dexie.js (IndexedDB) ·
 1. Fork **最新仓库**后克隆，装依赖（Node.js 20.9+）：
 
    ```bash
-   git clone git@github.com:<你的用户名>/OC-Studio.git
+   git clone git@github.com:<您的用户名>/OC-Studio.git
    cd OC-Studio
    npm install
    ```
@@ -169,4 +181,6 @@ Next.js 16 · TypeScript · Tailwind CSS v4 · Tiptap · Dexie.js (IndexedDB) ·
 
 ## 许可
 
-MIT · 版权归 Pokanshuu、nekibud 与贡献者所有。
+OC Studio 是开源软件，按 MIT 许可发布。任何个人或组织都可以检查、使用、修改它的源代码，也可以分发它的副本。分发副本或实质性部分时，需要保留版权声明和 MIT 许可声明。
+
+MIT · 版权归 Pokanshu、nekibud 与贡献者所有。

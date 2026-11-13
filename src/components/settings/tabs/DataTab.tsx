@@ -1,10 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { useImportExport } from '@/components/shared/ImportExportUI'
 import { useExportCenter } from '@/components/shared/export/ExportCenterHost'
 import { useSettings } from '@/lib/settings'
+import { SETTINGS_ACTION_BTN } from '@/lib/ui-tokens'
+import { hasLegacyImportSource } from '@/lib/legacy/availability'
 import { importLegacyNovels } from '@/lib/legacy/pr5-novels-import'
 import { importLegacyRelations } from '@/lib/legacy/pr5-relations-import'
 import { SWITCH_CLASSES, SWITCH_DOT } from '../controls'
@@ -21,6 +23,22 @@ export function DataTab() {
   const { settings } = useSettings()
   const openExportCenter = useExportCenter()
   const [importingLegacy, setImportingLegacy] = useState(false)
+  /** 旧版本（PR #5 fork）数据：探测不到就不摆这个入口 */
+  const [legacyAvailable, setLegacyAvailable] = useState(false)
+
+  useEffect(() => {
+    let alive = true
+    void hasLegacyImportSource()
+      .then((found) => {
+        if (alive) setLegacyAvailable(found)
+      })
+      .catch(() => {
+        if (alive) setLegacyAvailable(false)
+      })
+    return () => {
+      alive = false
+    }
+  }, [])
 
   /** 老版本（fork）数据：小说在独立库、关系在单独的 relations 表；都是只读 + 幂等导入 */
   async function handleImportLegacy(): Promise<void> {
@@ -54,26 +72,29 @@ export function DataTab() {
         <h3 className="text-sm font-medium text-ink">导入与导出</h3>
         <button
           onClick={handleImportClick}
-          className="touch-feedback flex h-8 items-center justify-center px-3 text-[13px] text-ink transition-colors hover:bg-[var(--oc-hover)]"
+          className={SETTINGS_ACTION_BTN}
         >
           导入数据...
         </button>
         <button
           onClick={handleExport}
-          className="touch-feedback flex h-8 items-center justify-center px-3 text-[13px] text-ink transition-colors hover:bg-[var(--oc-hover)]"
+          className={SETTINGS_ACTION_BTN}
         >
           导出数据备份 (.ocbak)
         </button>
-        <button
-          onClick={() => void handleImportLegacy()}
-          disabled={importingLegacy}
-          className={`touch-feedback flex h-8 items-center justify-center px-3 text-[13px] transition-colors hover:bg-[var(--oc-hover)] ${importingLegacy ? 'text-ink-faint cursor-not-allowed' : 'text-ink'}`}
-        >
-          {importingLegacy ? '正在导入…' : '从旧版本导入（小说 / 关系）...'}
-        </button>
+        {legacyAvailable ? (
+          <button
+            onClick={() => void handleImportLegacy()}
+            disabled={importingLegacy}
+            title="仅当同一设备上存在旧版本数据时显示"
+            className={SETTINGS_ACTION_BTN}
+          >
+            {importingLegacy ? '正在导入…' : '从旧版本导入（小说 / 关系）...'}
+          </button>
+        ) : null}
         <button
           onClick={() => openExportCenter({ tab: 'site' })}
-          className="touch-feedback flex h-8 items-center justify-center px-3 text-[13px] text-ink transition-colors hover:bg-[var(--oc-hover)]"
+          className={SETTINGS_ACTION_BTN}
         >
           导出中心...
         </button>

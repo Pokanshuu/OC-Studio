@@ -22,6 +22,10 @@ export interface LegacyRelationRow {
   deleted?: boolean
 }
 
+/** fork 主库名与关系表名；探测与读取共用，避免两处各写一份 */
+export const LEGACY_MAIN_DB = 'OCStudioDB'
+export const LEGACY_RELATIONS_TABLE = 'relations'
+
 export interface LegacyEdge {
   targetId: number
   /** 关系名（label 优先，退化成 kind 的人话标签） */
@@ -97,19 +101,19 @@ export function planRelationImport(rows: LegacyRelationRow[]): LegacyRelationImp
 export async function readLegacyRelations(): Promise<LegacyRelationRow[]> {
   if (typeof indexedDB === 'undefined') return []
   const rows = await new Promise<LegacyRelationRow[]>((resolve) => {
-    const request = indexedDB.open('OCStudioDB')
+    const request = indexedDB.open(LEGACY_MAIN_DB)
     request.onerror = () => resolve([])
     request.onupgradeneeded = () => resolve([]) // 空库：没有 relations 表
     request.onsuccess = () => {
       const db = request.result
-      if (!db.objectStoreNames.contains('relations')) {
+      if (!db.objectStoreNames.contains(LEGACY_RELATIONS_TABLE)) {
         db.close()
         resolve([])
         return
       }
       try {
-        const tx = db.transaction('relations', 'readonly')
-        const all = tx.objectStore('relations').getAll()
+        const tx = db.transaction(LEGACY_RELATIONS_TABLE, 'readonly')
+        const all = tx.objectStore(LEGACY_RELATIONS_TABLE).getAll()
         all.onerror = () => {
           db.close()
           resolve([])

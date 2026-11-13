@@ -7,6 +7,7 @@ mod agent;
 mod files;
 mod journal;
 mod open;
+mod update;
 mod vault;
 
 #[cfg(target_os = "windows")]
@@ -197,6 +198,7 @@ pub fn run() {
       update_blur_effect,
       init_blur,
       blur_supported,
+      update::github_latest_release,
       open::open_external,
       vault::vault_probe,
       vault::vault_scan,

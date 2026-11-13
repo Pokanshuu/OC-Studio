@@ -8,7 +8,6 @@ import { NavigationSourceProvider } from "@/components/layout/NavigationSourceCo
 import { SettingsProvider } from "@/lib/settings";
 import { ActiveEditorProvider } from "@/lib/editor-context";
 import { Providers } from "./providers";
-import { SeedData } from "@/components/shared/SeedData";
 import { VaultGate } from "@/features/vault";
 import { VaultProvider } from "@/lib/vault/vault-provider";
 import { OverlayRoot } from "@/components/layout/OverlayRoot";
@@ -52,7 +51,6 @@ export default function RootLayout({
         <body className="flex flex-col h-screen overflow-hidden">
         <Providers>
           <VaultProvider>
-            <SeedData />
             <KeyboardProvider>
             <SettingsProvider>
               <ActiveEditorProvider>

@@ -167,7 +167,6 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - `src/features/vault/` — UI（`VaultGate` 启动闸门 / `VaultWriteBanner` / `VaultMenuSection` / `VaultStatus` / `VaultSurfaces` / `VaultOverlay` / `VaultScanReportDialog` —— 界面上叫**概览**：一行「N 篇笔记 → 构成」，正常时只说「没有发现问题」，有异常才出现一条「未知 N 项」，点开才是文件清单）；`components/JournalTimelineDialog.tsx` 是「视图 › 创作时间线」（全库 journal 只读审计流，按日期分组，不做回滚）
   - 欢迎页（`VaultGate` 的 idle 分支）= 单列 288px 网格：标题 → 旧数据组（「检测到 N 条旧版本数据」+ 导出备份 / 备份旧版本数据并导入到…）→ 打开已有 / 新建文件夹 → 一行黄色提醒。旧数据组只在 `orphanCount > 0` 时渲染，且**排在主按钮上方**（压在最下面时用户会先点按钮、把旧数据顶掉）
   - `hooks/useLegacyImport.tsx` — 「备份旧版本数据并导入到…」的唯一实现，欢迎页与「文件」菜单共用。对话框由**调用方**渲染：`DropdownMenuContent` 关闭时整棵卸载，挂在下拉里会跟着消失
-  - `components/shared/SeedData.tsx` — 桌面版**不播种**（判 `isVaultSupported()`，不能只判 `isVaultEnabled()`：那个标记首次绑定后才置位，全新安装会先塞 10 条示例，再在欢迎页当成「旧版本数据」）
 - `scripts/vault-analyze.ts` — 离线体检 + 内存往返验证
 - `scripts/vault-frontmatter-check.ts` — 外科式读写原语的**逐字节恒等**检查
 - `scripts/vault-body-diff.ts` — 正文往返差异归因（按签名聚合）
@@ -279,7 +278,7 @@ npx tauri build   # Tauri 打包 (.exe/.msi)
    - 界面上**不出现「AI」字样**、不承诺 AI 能力；产品口径见 `oc-studio-prd` skill §1
 
 ## 已知差异（技术债，待后续修复）
-- **解耦已收口**：无「真·God 组件」。`≥300 行` 仅剩已抽出的层/壳：`lib/use-entity-workspace.ts`（编排层）、`features/timeline/components/TimelineView.tsx`（壳+画布 JSX）、`features/world/components/WorldLayout.tsx`（壳+编辑区 JSX）、`features/timeline/hooks/useTimelineViewport.ts`、`lib/seed/index.ts`（播种脚本）—— **再拆就是为拆而拆，不要动**
+- **解耦已收口**：无「真·God 组件」。`≥300 行` 仅剩已抽出的层/壳：`lib/use-entity-workspace.ts`（编排层）、`features/timeline/components/TimelineView.tsx`（壳+画布 JSX）、`features/world/components/WorldLayout.tsx`（壳+编辑区 JSX）、`features/timeline/hooks/useTimelineViewport.ts` —— **再拆就是为拆而拆，不要动**
 - 仓储层（`lib/repository.ts`）的 `Table<T, number, TInsert>` 第 3 个泛型位、实体 `id: number` 必填、`EntityTable` 的用法是**互相咬合**的：省掉第 3 个泛型位会让 `listActive` / `getById` 的返回值被推断成「id 可选」，从而在全项目催生 `as number` 断言。改动前先读 `src/lib/repository.ts` 顶部注释
 
 ## 待办与改进清单

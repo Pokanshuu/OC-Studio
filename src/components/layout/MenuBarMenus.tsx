@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { Check } from 'lucide-react'
 
 import { shortcutLabel } from '@/lib/shortcut-label'
+import { runUpdateCheck } from '@/lib/update-check-ui'
 import { useSettingsTrigger } from '@/components/layout/SettingsTriggerContext'
 import { useSettings } from '@/lib/settings'
 import { useImportExport } from '@/components/shared/ImportExportUI'
@@ -41,6 +42,7 @@ export function MenuBarMenus() {
   const { activeEditor } = useActiveEditor()
   const openExportCenter = useExportCenter()
   const [journalOpen, setJournalOpen] = useState(false)
+  const [checkingUpdate, setCheckingUpdate] = useState(false)
 
   /**
    * 保存：与 `AppShell` 里的 Ctrl/Cmd+S 走**同一套动作** ——
@@ -59,6 +61,12 @@ export function MenuBarMenus() {
     requestSave()
     if (vault.supported && vault.status === 'ready') void vault.flush()
   }, [requestSave, saveStatus, vault])
+
+  const handleCheckUpdate = useCallback(() => {
+    if (checkingUpdate) return
+    setCheckingUpdate(true)
+    void runUpdateCheck().finally(() => setCheckingUpdate(false))
+  }, [checkingUpdate])
 
   const handleUndo = useCallback(() => {
     activeEditor?.chain().focus().undo().run()
@@ -254,8 +262,8 @@ export function MenuBarMenus() {
               <DropdownMenuItem onClick={() => openSettings("about")}>
                 关于软件
               </DropdownMenuItem>
-              <DropdownMenuItem disabled onClick={() => {}}>
-                检查更新...
+              <DropdownMenuItem disabled={checkingUpdate} onClick={handleCheckUpdate}>
+                {checkingUpdate ? '正在检查更新…' : '检查更新...'}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

@@ -1,0 +1,123 @@
+'use client'
+
+import { ArrowLeft, ExternalLink } from 'lucide-react'
+
+import { openExternal } from '@/lib/open-external'
+import { ICON_BTN } from '@/lib/ui-tokens'
+
+const PRIVACY_URL = 'https://github.com/Pokanshuu/OC-Studio/blob/main/PRIVACY.md'
+
+function Section({
+  title,
+  children,
+}: {
+  title: string
+  children: React.ReactNode
+}) {
+  return (
+    <section className="flex flex-col gap-1.5">
+      <h3 className="text-sm font-medium text-ink">{title}</h3>
+      <div className="flex flex-col gap-1.5 text-[13px] leading-6 text-ink-muted">{children}</div>
+    </section>
+  )
+}
+
+function Bullets({ items }: { items: React.ReactNode[] }) {
+  return (
+    <ul className="list-disc space-y-1 pl-5">
+      {items.map((item, index) => (
+        <li key={index}>{item}</li>
+      ))}
+    </ul>
+  )
+}
+
+/** 设置 › 关于 › 隐私声明。完整声明在仓库根目录的 `PRIVACY.md`。 */
+export function PrivacyPanel({ onBack }: { onBack: () => void }) {
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center gap-2">
+        <button type="button" onClick={onBack} aria-label="返回" className={ICON_BTN}>
+          <ArrowLeft size={16} strokeWidth={2} />
+        </button>
+        <span className="text-sm text-ink">隐私声明</span>
+      </div>
+
+      <p className="text-[13px] leading-6 text-ink-muted">
+        OC Studio 是本地优先的创作工具。您的笔记、图片和设定默认只保存在自己的设备上。
+        OC Studio 没有账号系统，也不收集使用统计或诊断数据。
+      </p>
+
+      <p className="text-[13px] leading-6 text-ink-muted">
+        OC Studio 是开源软件，按 MIT 许可发布。任何个人或组织都可以检查、使用、修改它的源代码，也可以分发它的副本。
+        分发副本或实质性部分时，需要保留版权声明和 MIT 许可声明。
+      </p>
+
+      <Section title="数据存储">
+        <Bullets
+          items={[
+            '桌面版：内容写进您选择的笔记库文件夹。正文、字段和图片保存在这个文件夹里；模板、字段表、分类、灵感等设置保存在其中的 .ocstudio 文件夹；回收站也在里面。',
+            '移动版：数据保存在应用的本地存储中。',
+            '助手插件：会话记录保存在系统的应用数据目录，API 密钥保存在操作系统的凭据管理器。它们不会写进笔记库，也不会进入 .ocbak 备份。',
+            '导出和备份：只有您主动导出时，文件才会写到您选择的位置。',
+          ]}
+        />
+      </Section>
+
+      <Section title="网络访问">
+        <p>默认不会联网。只有您主动使用下面这些功能时，OC Studio 才会连接网络：</p>
+        <ol className="list-decimal space-y-1 pl-5">
+          <li>使用助手。您发送消息时，消息内容、相关的库内上下文、会话历史和工具说明会直接发送到您设置的 API 服务商。请求不经过 OC Studio 的服务器。</li>
+          <li>从网址导入图片。您粘贴图片网址并确认导入时，OC Studio 会直接下载该网址的内容。</li>
+          <li>查看笔记里的远程图片。笔记引用 http(s) 图片时，显示或导出内联图片会从图片所在的服务器加载。</li>
+          <li>打开外部链接。您点击 GitHub、开源许可等链接时，链接会在系统浏览器中打开。</li>
+        </ol>
+        <p>OC Studio 不使用广告、分析或崩溃上报 SDK，也不会在后台自动上传您的笔记库。</p>
+      </Section>
+
+      <Section title="助手与第三方服务">
+        <p>
+          助手插件只是客户端。您选择的 API 服务商如何收集、使用、保存和删除数据，取决于它的隐私政策和服务条款。
+          OC Studio 无法控制这些服务商如何处理数据。
+        </p>
+        <p>
+          使用助手前，请先阅读对应服务商的隐私政策和服务条款，也不要发送您不愿意交给它的内容。
+          API 密钥只保存在本机凭据管理器；您可以随时在助手设置里更换或清除。
+        </p>
+      </Section>
+
+      <Section title="您的选择">
+        <Bullets
+          items={[
+            '直接删除笔记库文件夹、.ocbak 备份或应用数据目录里的文件。',
+            '卸载应用不会自动删除您创建的笔记库。',
+            '随时停用助手插件。停用后，它不会再发起 API 请求。',
+            '移动版可在系统设置中清除应用数据，删除本地保存的内容。',
+          ]}
+        />
+      </Section>
+
+      <Section title="声明变更">
+        <p>
+          OC Studio 可能会更新这份声明。新版本会发布在仓库的 PRIVACY.md，并同步到 README 和应用的「设置 › 关于 › 隐私声明」。
+          如果变化较大，会在版本说明里写明。
+        </p>
+      </Section>
+
+      <Section title="问题与反馈">
+        <p>
+          如果您对这份声明有疑问，请在 GitHub 仓库提交 Issue。
+        </p>
+      </Section>
+
+      <button
+        type="button"
+        onClick={() => void openExternal(PRIVACY_URL)}
+        className="flex items-center gap-1.5 self-start text-[12px] text-ink-muted transition-colors hover:text-ink"
+      >
+        <ExternalLink size={13} strokeWidth={2} />
+        在 GitHub 查看完整声明
+      </button>
+    </div>
+  )
+}
