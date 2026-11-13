@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Editor } from '@tiptap/core'
 import { useEditorState } from '@tiptap/react'
@@ -137,6 +137,26 @@ export function EditorToolbar({
 }) {
   const [menu, setMenu] = useState<{ kind: MenuKind; anchor: HTMLButtonElement } | null>(null)
   const [linkAnchor, setLinkAnchor] = useState<HTMLElement | null | undefined>(undefined)
+
+  /**
+   * 光标离开正文时整栏灰掉：标题输入框、国家下拉、相册搜索里都不该看起来像能改格式。
+   * 菜单 / 链接浮层开着时不灰 —— 那时编辑器失焦是正常的（浮层里有输入框）。
+   */
+  const [focused, setFocused] = useState(editor.isFocused)
+  useEffect(() => {
+    const dom = editor.view.dom
+    const sync = () => setFocused(dom.contains(document.activeElement))
+    // 挂在 document 上而不是编辑器节点：编辑器自己的 focus 事件在部分
+    // WebView / 程序化 focus 下不触发，导致整栏一直灰着（2026-11-14 实测）。
+    document.addEventListener('focusin', sync)
+    document.addEventListener('focusout', sync)
+    sync()
+    return () => {
+      document.removeEventListener('focusin', sync)
+      document.removeEventListener('focusout', sync)
+    }
+  }, [editor])
+  const dimmed = !focused && menu === null && linkAnchor === undefined
 
   const state = useEditorState({
     editor,
@@ -430,9 +450,10 @@ export function EditorToolbar({
         role="toolbar"
         aria-label="格式工具"
         className={
-          embedded
+          (embedded
             ? 'flex h-full w-full items-center justify-center'
-            : `flex items-center px-2 max-md:hidden ${sticky ? 'sticky top-12' : ''} z-10 h-10 border-b border-line bg-paper/85 backdrop-blur-lg`
+            : `flex items-center px-2 max-md:hidden ${sticky ? 'sticky top-12' : ''} z-10 h-10 border-b border-line bg-paper/85 backdrop-blur-lg`) +
+          ` transition-opacity duration-fast ${dimmed ? 'opacity-40' : ''}`
         }
       >
         <OverflowBar

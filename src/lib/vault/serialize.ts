@@ -363,6 +363,7 @@ export function serializeWorldEntry(
   // 只在**有值**时写 —— 老数据迁移时保住原值，新条目（空）则绝不碰文件里已有的键。
   if (entity.category.trim() !== '') {
     putIfChanged(out, existing, WORLD_KEYS.category, writeString(entity.category), p === null ? null : writeString(p.category))
+    putIfChanged(out, existing, WORLD_KEYS.folder, writeString(entity.folder ?? ''), p === null ? null : writeString(p.folder ?? ''))
   }
   putIfChanged(out, existing, WORLD_KEYS.summary, writeString(entity.summary ?? ''), p === null ? null : writeString(p.summary ?? ''))
   putIfChanged(out, existing, WORLD_KEYS.cover, writeString(entity.cover ?? ''), p === null ? null : writeString(p.cover ?? ''))

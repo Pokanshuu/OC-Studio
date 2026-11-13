@@ -39,6 +39,7 @@ export function CharacterFolderBar({
   onRename,
   onDelete,
   onCreate,
+  noun = '角色',
 }: {
   folders: CharacterFolder[]
   ungrouped: number
@@ -50,6 +51,8 @@ export function CharacterFolderBar({
   onDelete: (name: string) => Promise<void>
   /** 新建（可能是空的）文件夹；成功后清空输入 */
   onCreate: (name: string) => Promise<void>
+  /** 文案里的实体称呼（角色 / 条目），只影响提示语 */
+  noun?: string
 }) {
   const [menu, setMenu] = useState<{ name: string; at: { x: number; y: number } } | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
@@ -245,7 +248,7 @@ export function CharacterFolderBar({
           <AlertDialogHeader>
             <AlertDialogTitle>删除文件夹「{deleting?.name}」</AlertDialogTitle>
             <AlertDialogDescription>
-              里面的 {deleting?.count ?? 0} 个角色回到未分组，角色本身不会被删除。
+              里面的 {deleting?.count ?? 0} 个{noun}回到未分组，{noun}本身不会被删除。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -270,9 +273,9 @@ export function CharacterFolderBar({
 }
 
 /** 放在列表里给「筛选到空」用的空态（不属于文件夹条，但文案要跟着它走） */
-export function folderEmptyHint(value: FolderFilter): string {
-  if (value === 'ungrouped') return '未分组里还没有角色'
-  if (value !== 'all') return `「${value}」里还没有角色`
-  return '还没有角色'
+export function folderEmptyHint(value: FolderFilter, noun = '角色'): string {
+  if (value === 'ungrouped') return `未分组里还没有${noun}`
+  if (value !== 'all') return `「${value}」里还没有${noun}`
+  return `还没有${noun}`
 }
 

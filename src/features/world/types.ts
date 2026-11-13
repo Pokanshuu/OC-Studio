@@ -27,6 +27,8 @@ export interface WorldFormData {
   tags: number[]
   /** 自定义分类归属（空 = 普通词条，进世界观目录树） */
   category?: string
+  /** 自定义分类里的文件夹（空 = 未分组；与角色的 folder 同一语义） */
+  folder?: string
   /** 自建字段的值（键 = 字段表里的 key；落盘写 frontmatter 同名键） */
   custom?: Record<string, string>
   /** 单篇覆盖的模板名（空 = 跟随分类 / 内置词条模板） */

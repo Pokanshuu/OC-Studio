@@ -27,6 +27,7 @@ function buildDefaultEntry(data: WorldFormData, overrides: Partial<WorldEntry> =
     // `category` 现在是「自定义分类」的归属键（空 = 普通词条，进世界观目录树）。
     // 历史上它还兼过层级用途，那部分早已由 `parentId` 取代。
     category: data.category ?? '',
+    folder: data.folder,
     template: data.template,
     custom: data.custom,
     parentId: data.parentId,
@@ -89,7 +90,7 @@ export async function updateEntry(id: number, data: Partial<WorldFormData>): Pro
   const fields: FieldKey[] = [
     'title', 'content', 'summary', 'cover', 'avatar', 'image',
     'time', 'endTime', 'location',
-    'parentId', 'order', 'isConcept', 'category', 'template',
+    'parentId', 'order', 'isConcept', 'category', 'folder', 'template',
   ]
   for (const field of fields) {
     const newValue = data[field]

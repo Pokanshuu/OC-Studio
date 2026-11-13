@@ -215,6 +215,8 @@ export interface WorldEntry {
    * 历史上它兼过层级用途，那部分早已由 `parentId` 取代；盘上仍有老文件的 `分类:` 键。
    */
   category: string
+  /** 自定义分类里的文件夹名（空 = 未分组）；语义与角色的 `folder` 一致 */
+  folder?: string
   /** 单篇覆盖的模板名（空 = 跟随分类 / 内置词条模板；落盘键 模板） */
   template?: string
   parentId: number | null

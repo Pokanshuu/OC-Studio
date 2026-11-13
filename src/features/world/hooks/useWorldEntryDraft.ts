@@ -6,6 +6,8 @@ import type { WorldEntry } from '@/types'
 import { saveEntryContent } from '../services'
 import { syncReferenceLabels } from '@/lib/reference-sync'
 import { hasWorldBody, loadBodyWithoutHistory, worldBodyOf } from '@/lib/world-body'
+import { registerPendingSave } from '@/lib/pending-saves'
+import { bodyDocFromMarkdown } from '@/lib/vault/write-body'
 import { notifyDataUpdated } from '@/lib/data-events'
 
 /**
@@ -25,6 +27,17 @@ interface PendingSave {
  * 切换词条、页面卸载（beforeunload）、组件卸载时把待写内容 flush 掉。
  * 关闭 `saveEnabledRef` 的窗口期用来避免「刚 setContent 就被当成用户编辑」。
  */
+/**
+ * 老库的 `content` 可能是纯文本 / Markdown 字符串（novel 早期版本就这么存）。
+ * Tiptap 的 `setContent(string)` 会把它当 **HTML** —— 于是 `**` / `[[ ]]` 原样
+ * 显示、段落塌成一条。这里先走一次 Markdown 解析，再灌进编辑器。
+ */
+function loadableBody(entry: WorldEntry): object | string {
+  const body = worldBodyOf(entry)
+  if (typeof body !== 'string' || body.trim() === '') return body
+  return bodyDocFromMarkdown(body) as object
+}
+
 export function useWorldEntryDraft({
   selectedId,
   currentEntry,
@@ -96,8 +109,11 @@ export function useWorldEntryDraft({
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => {
       void flushSave()
-    }, 2000)
+    }, 1000)
   }, [flushSave])
+
+  // 关窗流程会 await 这里：800ms 内输入的东西不会被防抖计时器带走
+  useEffect(() => registerPendingSave(flushSave), [flushSave])
 
   const handleContentChange = useCallback((_html: string) => {
     if (!saveEnabledRef.current) return
@@ -120,7 +136,7 @@ export function useWorldEntryDraft({
     saveEnabledRef.current = false
     const entry = currentEntryRef.current
     if (entry && entry.id === selectedIdRef.current && hasWorldBody(entry)) {
-      loadBodyWithoutHistory(editor, worldBodyOf(entry))
+      loadBodyWithoutHistory(editor, loadableBody(entry))
       setTimeout(() => {
         saveEnabledRef.current = true
       }, 300)
@@ -131,7 +147,7 @@ export function useWorldEntryDraft({
   useEffect(() => {
     if (currentEntry && editorRef.current && currentEntry.id === selectedId) {
       saveEnabledRef.current = false
-      loadBodyWithoutHistory(editorRef.current, worldBodyOf(currentEntry))
+      loadBodyWithoutHistory(editorRef.current, loadableBody(currentEntry))
       setTimeout(() => {
         saveEnabledRef.current = true
       }, 300)

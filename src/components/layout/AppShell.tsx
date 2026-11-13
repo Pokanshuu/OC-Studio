@@ -31,6 +31,8 @@ import { useVault } from "@/lib/vault/vault-provider"
 import { useSettings } from "@/lib/settings"
 import { useKeyboard } from "@/lib/KeyboardContext"
 import { useBackButton } from "@/lib/useBackButton"
+import { flushPendingSaves } from "@/lib/pending-saves"
+import { isTauri } from "@/lib/env"
 import { getChromiumVersion, isBelowTargetVersion, isHarmonyOS, getHarmonyOSVersion, isSafeAreaEnvAvailable, estimateSafeAreaInsets, getSafeAreaBottomCorrection, isMobilePlatform } from "@/lib/browser-compat"
 import { toast } from 'sonner'
 
@@ -136,6 +138,42 @@ function AppShellChrome({ settings, children }: { settings: ReturnType<typeof us
     window.addEventListener('beforeunload', handler)
     return () => window.removeEventListener('beforeunload', handler)
   }, [status])
+
+  /**
+   * 关窗前落盘。
+   *
+   * 浏览器里 `beforeunload` 只能弹确认，拦不住异步写盘；Tauri 的 close 事件可以：
+   * 先 preventDefault，等当前表单 / 词条草稿 / 落盘队列都刷完，再 destroy。
+   * 以前关得比 1–2 秒的防抖快，最后一段就没了。
+   */
+  useEffect(() => {
+    if (!isTauri()) return
+    let unlisten: (() => void) | null = null
+    let closing = false
+    void (async () => {
+      try {
+        const { getCurrentWindow } = await import('@tauri-apps/api/window')
+        const win = getCurrentWindow()
+        unlisten = await win.onCloseRequested(async (event) => {
+          if (closing) return
+          closing = true
+          event.preventDefault()
+          try {
+            requestSave()
+            await flushPendingSaves()
+            if (vault.supported && vault.status === 'ready') await vault.flush()
+          } finally {
+            await win.destroy()
+          }
+        })
+      } catch (error) {
+        console.error('[close] 关窗落盘失败', error)
+      }
+    })()
+    return () => {
+      unlisten?.()
+    }
+  }, [requestSave, vault])
 
   // 外壳容器**不写底色**：chrome 的底色由 globals.css 的
   // `html:not(.tauri-mica) [data-menubar|data-sidebar|data-statusbar]` 给成 paper-alt，

@@ -540,6 +540,7 @@ export function scanVault(options: ScanOptions): VaultScanResult {
         // `分类` 已废弃（层级只由 parentId 表达），界面不再编辑；
         // 但老笔记里已有的值仍然读回来 —— 迁移时不至于把它弄丢。
         category: readString(fm, WORLD_KEYS.category),
+        folder: readString(fm, WORLD_KEYS.folder) || undefined,
         cover: readString(fm, WORLD_KEYS.cover) || undefined,
         avatar: readString(fm, WORLD_KEYS.avatar) || undefined,
         image: readString(fm, WORLD_KEYS.image) || undefined,

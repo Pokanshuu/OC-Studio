@@ -114,6 +114,8 @@ export const WORLD_KEYS = {
   title: chain('title', 'name'),
   aliases: chain('aliases'),
   category: chain('category', '分类'),
+  /** 自定义分类里的文件夹（与角色的 folder 同名，**不能**再用「分类」） */
+  folder: chain('folder', '文件夹'),
   /** 分类条目封面（3:2）；`封面图` 是手写常见写法，`封面` 留给小说根节点 */
   cover: chain('cover', '封面图'),
   /**

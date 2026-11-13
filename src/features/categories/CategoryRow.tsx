@@ -12,6 +12,7 @@ import { resolveImageUrl } from '@/lib/image-service'
 import { formatRelativeTime } from '@/lib/relative-time'
 import { useLongPress } from '@/lib/useLongPress'
 import { DeleteButton } from '@/components/shared/DeleteButton'
+import { MoveToFolderMenu } from '@/features/characters/components/MoveToFolderMenu'
 import { DragHandle, useSortableItem } from '@/components/shared/list-dnd'
 import { DRAG_SLOT_ROW, ROW_ACTIONS, ROUND_ITEM } from '@/lib/ui-tokens'
 
@@ -23,6 +24,8 @@ interface CategoryRowProps {
   onOpen: (id: number) => void
   onDelete: (entry: WorldEntry) => void
   onLongPress?: () => void
+  folders?: string[]
+  onMoveToFolder?: (folder: string | null) => void
 }
 
 export function CategoryRow({
@@ -33,6 +36,8 @@ export function CategoryRow({
   onOpen,
   onDelete,
   onLongPress,
+  folders = [],
+  onMoveToFolder,
 }: CategoryRowProps) {
   const { setNodeRef, style, attributes, listeners, longPress: longPressSort, cardAttributes, cardListeners } =
     useSortableItem(entry.id, !sortable)
@@ -79,6 +84,9 @@ export function CategoryRow({
       ) : null}
       {!isMobile ? (
         <div className={ROW_ACTIONS}>
+          {onMoveToFolder ? (
+            <MoveToFolderMenu folders={folders} current={entry.folder} onMove={onMoveToFolder} />
+          ) : null}
           <DeleteButton onDelete={() => onDelete(entry)} />
         </div>
       ) : null}

@@ -136,6 +136,7 @@ export const UI_ONLY_FIELDS: Record<EntityKind, Record<string, string>> = {
   },
   world: {
     gallery: '界面（图集）',
+    folder: '界面（分类文件夹）',
     category: 'library_set_placement',
     template: 'library_set_placement',
     parentId: 'library_set_placement',

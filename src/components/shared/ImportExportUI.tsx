@@ -45,8 +45,13 @@ export function useImportExport(options?: {
     try {
       // 备份只有一种：.ocbak（图片内联）。不再提供「不含图片的 JSON」——那是更弱、更容易丢东西的第二格式
       // —— 那是个更弱、更容易丢东西的第二格式。
-      const name = await downloadFullBackup()
-      toast.success('数据备份已导出', { description: name })
+      const { fileName, missingImages } = await downloadFullBackup()
+      toast.success('数据备份已导出', {
+        description:
+          missingImages.length > 0
+            ? `${fileName}；${missingImages.length} 张图片找不到原件，备份里只有路径`
+            : fileName,
+      })
     } catch (error) {
       const message = error instanceof Error ? error.message : ''
       if (message !== '已取消') {
@@ -120,6 +125,11 @@ export function useImportExport(options?: {
           : null
       if (materialize !== null) {
         await vault.rescan()
+        // rescan 之后 Dexie 才真正变成新数据。`importData` 里的那次 invalidate
+        // 发生在 rescan 之前，查询已经用旧缓存刷过一轮；这里必须再来一次，
+        // 否则列表 / 相册 / 计数要等到重启才更新（2026-11-14 实测）。
+        await queryClient.invalidateQueries()
+        notifyDataUpdated()
       }
 
       const parts: string[] = []

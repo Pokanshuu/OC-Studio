@@ -7,6 +7,7 @@
 import type { WorldEntry } from '@/types'
 import { resolveImageUrl } from '@/lib/image-service'
 import { DragHandle, useSortableItem } from '@/components/shared/list-dnd'
+import { MoveToFolderMenu } from '@/features/characters/components/MoveToFolderMenu'
 import { EMPTY_HINT, ROUND_ITEM } from '@/lib/ui-tokens'
 
 interface CategoryCardProps {
@@ -15,9 +16,11 @@ interface CategoryCardProps {
   sortable: boolean
   onOpen: (id: number) => void
   onDelete: (entry: WorldEntry) => void
+  folders?: string[]
+  onMoveToFolder?: (folder: string | null) => void
 }
 
-export function CategoryCard({ entry, excerpt, sortable, onOpen, onDelete }: CategoryCardProps) {
+export function CategoryCard({ entry, excerpt, sortable, onOpen, onDelete, folders = [], onMoveToFolder }: CategoryCardProps) {
   const { setNodeRef, style, attributes, listeners } = useSortableItem(entry.id, !sortable)
   const customEntries = Object.entries(entry.custom ?? {})
     .map(([key, value]) => [key, value.trim()] as const)
@@ -57,16 +60,21 @@ export function CategoryCard({ entry, excerpt, sortable, onOpen, onDelete }: Cat
             </span>
           ))}
         </div>
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation()
-            onDelete(entry)
-          }}
-          className={`${EMPTY_HINT} shrink-0 px-1 text-[11px] opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 ${ROUND_ITEM}`}
-        >
-          删除
-        </button>
+        <div className="flex items-center gap-1">
+          {onMoveToFolder ? (
+            <MoveToFolderMenu folders={folders} current={entry.folder} onMove={onMoveToFolder} />
+          ) : null}
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation()
+              onDelete(entry)
+            }}
+            className={`${EMPTY_HINT} shrink-0 px-1 text-[11px] opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 ${ROUND_ITEM}`}
+          >
+            删除
+          </button>
+        </div>
       </div>
     </div>
   )

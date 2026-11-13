@@ -61,9 +61,14 @@ export function BackupPanel() {
     if (busy) return
     setBusy(true)
     try {
-      const name = await downloadFullBackup()
-      setSaved(name)
-      toast.success('数据备份已导出', { description: name })
+      const { fileName, missingImages } = await downloadFullBackup()
+      setSaved(fileName)
+      toast.success('数据备份已导出', {
+        description:
+          missingImages.length > 0
+            ? `${fileName}；${missingImages.length} 张图片找不到原件，备份里只有路径`
+            : fileName,
+      })
     } catch (reason) {
       const message = reason instanceof Error ? reason.message : String(reason)
       if (message !== '已取消') toast.error('备份导出失败', { description: message })
