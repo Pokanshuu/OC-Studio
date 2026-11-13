@@ -19,7 +19,8 @@
  * **窄了就收口**（2026-11-10）：整行交给 `OverflowBar` 量宽度，放不下的条目收进一个「…」菜单。
  * 以前是左组 `min-w-0` + 子项 `shrink-0`，窗口一窄左边的筛选就压到右边的图标上。
  */
-import { ChevronLeft, ChevronRight, Lock, LockOpen, Plus, ImageDown, ZoomIn, ZoomOut } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { ChevronLeft, ChevronRight, Lock, LockOpen, Plus, ImageDown } from 'lucide-react'
 import { ICON_BTN_MD, PAGE_TITLE, ROUND_ITEM } from '@/lib/ui-tokens'
 import { MobileFilterBar } from '@/components/layout/MobileFilterBar'
 import { OverflowBar, type OverflowEntry } from '@/components/shared/OverflowBar'
@@ -29,6 +30,84 @@ import { FilterSelect } from './FilterSelect'
 
 /** 组间竖线：只分隔「这一行的四件事」，不画在页头上下（页头的线由外壳给） */
 const DIVIDER = 'h-4 w-px shrink-0 bg-line'
+
+/**
+ * 缩放滑杆。
+ *
+ * 滑块**自己**持有拖动中的值：缩放要经过 `startTransition` 和画布重排，
+ * 受控值跟着它走会让原生滑块每帧被 React 拉回旧位置，表现就是「疯狂抖动」。
+ * 拖动时只更新本地值；滚动 / 捏合 / 菜单改缩放时再由外部值同步回来。
+ */
+function ZoomSlider({
+  zoomRatio,
+  onChange,
+  onCommit,
+}: {
+  zoomRatio: number
+  onChange: (percent: number) => void
+  onCommit: (percent: number) => void
+}) {
+  const [local, setLocal] = useState(() => Math.round(zoomRatio * 100))
+  const draggingRef = useRef(false)
+  const rafRef = useRef(0)
+  const pendingRef = useRef(local)
+
+  useEffect(() => {
+    if (!draggingRef.current) setLocal(Math.round(zoomRatio * 100))
+  }, [zoomRatio])
+
+  useEffect(() => () => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current)
+  }, [])
+
+  const schedule = (next: number) => {
+    pendingRef.current = next
+    if (rafRef.current !== 0) return
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = 0
+      onChange(pendingRef.current)
+    })
+  }
+
+  const commit = (next: number) => {
+    if (rafRef.current !== 0) {
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = 0
+    }
+    onChange(next)
+    onCommit(next)
+  }
+
+  return (
+    <input type="range" min={10} max={500} step={1}
+      aria-label="时间跨度"
+      value={local}
+      onChange={(e) => {
+        const next = Number(e.currentTarget.value)
+        setLocal(next)
+        schedule(next)
+      }}
+      onPointerDown={() => { draggingRef.current = true }}
+      onPointerUp={(e) => {
+        draggingRef.current = false
+        commit(Number(e.currentTarget.value))
+      }}
+      onPointerCancel={(e) => {
+        draggingRef.current = false
+        commit(Number(e.currentTarget.value))
+      }}
+      onKeyUp={(e) => commit(Number(e.currentTarget.value))}
+      className="h-8 w-24 cursor-pointer appearance-none bg-transparent
+        [&::-webkit-slider-runnable-track]:h-1 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-line
+        [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:-mt-1 [&::-webkit-slider-thumb]:h-3.5
+        [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-ink-muted
+        [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-line
+        [&::-moz-range-track]:h-1 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-line
+        [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:rounded-full
+        [&::-moz-range-thumb]:bg-ink-muted [&::-moz-range-thumb]:border-0"
+    />
+  )
+}
 
 /**
  * 简 / 详：两档并排（开关式会逼人记住「另一头是什么」），选中是浅底块。
@@ -174,13 +253,6 @@ export function TimelineToolbar({
   /** 打开导出中心（时间线页签） */
   onExport?: () => void
 }) {
-  /** 滑块被收进菜单后，用它代替（菜单里放不下滑块，就给「缩小 / 放大」两条） */
-  const stepZoom = (delta: number) => {
-    const next = Math.min(500, Math.max(10, Math.round(zoomRatio * 100) + delta))
-    onZoomChange(next / 100)
-    onZoomCommit(next / 100)
-  }
-
   const entries: OverflowEntry[] = []
 
   entries.push({
@@ -298,68 +370,15 @@ export function TimelineToolbar({
     ),
     menu: [
       {
-        label: '怎么看',
+        label: '显示',
         items: [
-          { label: '简（只有标题）', active: !detail, onClick: () => onDetailChange('simple') },
-          { label: '详（时间 · 参与者）', active: detail, onClick: () => onDetailChange('detailed') },
+          { label: '简', active: !detail, onClick: () => onDetailChange('simple') },
+          { label: '详', active: detail, onClick: () => onDetailChange('detailed') },
           { label: '参与者轨道', active: showTracks, onClick: onToggleTracks },
         ],
       },
     ],
   })
-
-  if (showZoom) {
-    entries.push({
-      key: 'zoom',
-      node: (
-        <div className="flex shrink-0 items-center gap-1.5">
-          <span className={DIVIDER} aria-hidden />
-          <span className="text-[11px] text-ink-faint">百年</span>
-          <input type="range" min={10} max={500} step={1}
-            aria-label="时间跨度"
-            value={Math.round(zoomRatio * 100)}
-            onChange={(e) => onZoomChange(Number(e.target.value))}
-            onMouseUp={(e) => onZoomCommit(Number((e.target as HTMLInputElement).value))}
-            onTouchEnd={(e) => onZoomCommit(Number((e.target as HTMLInputElement).value))}
-            className="h-8 w-24 cursor-pointer appearance-none bg-transparent
-              [&::-webkit-slider-runnable-track]:h-1 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-line
-              [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:-mt-1 [&::-webkit-slider-thumb]:h-3.5
-              [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-ink-muted
-              [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-line
-              [&::-moz-range-track]:h-1 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-line
-              [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:rounded-full
-              [&::-moz-range-thumb]:bg-ink-muted [&::-moz-range-thumb]:border-0"
-          />
-          <span className="text-[11px] text-ink-faint">年</span>
-        </div>
-      ),
-      menu: [
-        {
-          label: '缩放',
-          items: [
-            { label: '放大（看得更细）', icon: <ZoomIn size={14} strokeWidth={2} />, onClick: () => stepZoom(25) },
-            { label: '缩小（看得更远）', icon: <ZoomOut size={14} strokeWidth={2} />, onClick: () => stepZoom(-25) },
-          ],
-        },
-      ],
-    })
-  }
-
-  if (onExport) {
-    entries.push({
-      key: 'export',
-      node: (
-        <button onClick={onExport}
-          className="flex h-8 w-8 shrink-0 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink"
-          title="导出图片…"
-          aria-label="导出图片"
-        >
-          <ImageDown size={16} strokeWidth={2} />
-        </button>
-      ),
-      menu: [{ label: '输出', items: [{ label: '导出图片…', icon: <ImageDown size={14} strokeWidth={2} />, onClick: onExport }] }],
-    })
-  }
 
   return (
     <>
@@ -369,13 +388,31 @@ export function TimelineToolbar({
           lead={<h2 className={`${PAGE_TITLE} mr-1 shrink-0`}>时间线</h2>}
           entries={entries}
           trail={
-            <button onClick={onToggleEdit}
-              className={`flex h-8 w-8 items-center justify-center transition-colors hover:bg-[var(--oc-hover)] ${editMode ? 'text-ink' : 'text-ink-muted hover:text-ink'}`}
-              title={editMode ? '锁定时间轴' : '解锁时间轴'}
-              aria-pressed={editMode}
-            >
-              {editMode ? <LockOpen size={16} strokeWidth={2} /> : <Lock size={16} strokeWidth={2} />}
-            </button>
+            <div className="flex items-center gap-2">
+              {showZoom ? (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] text-ink-faint">百年</span>
+                  <ZoomSlider zoomRatio={zoomRatio} onChange={onZoomChange} onCommit={onZoomCommit} />
+                  <span className="text-[11px] text-ink-faint">年</span>
+                </div>
+              ) : null}
+              {onExport ? (
+                <button onClick={onExport}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink"
+                  title="导出图片…"
+                  aria-label="导出图片"
+                >
+                  <ImageDown size={16} strokeWidth={2} />
+                </button>
+              ) : null}
+              <button onClick={onToggleEdit}
+                className={`flex h-8 w-8 items-center justify-center transition-colors hover:bg-[var(--oc-hover)] ${editMode ? 'text-ink' : 'text-ink-muted hover:text-ink'}`}
+                title={editMode ? '锁定时间轴' : '解锁时间轴'}
+                aria-pressed={editMode}
+              >
+                {editMode ? <LockOpen size={16} strokeWidth={2} /> : <Lock size={16} strokeWidth={2} />}
+              </button>
+            </div>
           }
           gap={8}
           className="h-full w-full"

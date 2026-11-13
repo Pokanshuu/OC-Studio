@@ -193,12 +193,15 @@ export function useTimelineViewport({
     if (!el) return
 
     const handleWheel = (e: WheelEvent) => {
-      if (e.ctrlKey || e.metaKey) {
+      // 触控板捏合在 Chromium / WebView2 里是 ctrl+wheel；Alt 留一个鼠标滚轮
+      // 的备用入口。普通两指滚动仍然是横向平移。
+      if (e.ctrlKey || e.metaKey || e.altKey) {
         e.preventDefault()
+        e.stopPropagation()
         const rect = el.getBoundingClientRect()
         const origin = e.clientX - rect.left
-        const newRatio = zoomRatioRef.current - e.deltaY * 0.005
-        applyZoom(newRatio, origin)
+        const delta = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * 100 : e.deltaY
+        applyZoom(zoomRatioRef.current * Math.exp(-delta * 0.002), origin)
       } else {
         e.preventDefault()
         el.scrollLeft += e.deltaX + e.deltaY
@@ -207,6 +210,47 @@ export function useTimelineViewport({
 
     el.addEventListener('wheel', handleWheel, { passive: false })
     return () => el.removeEventListener('wheel', handleWheel)
+  }, [hasEvents, applyZoom, scrollRef])
+
+  /**
+   * macOS / WKWebView 的触控板捏合走的是 `gesturestart` / `gesturechange`，
+   * 不是 ctrl+wheel。两套都接上，Windows（WebView2）和 macOS 才都能捏。
+   */
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+
+    type GestureEvent = Event & { scale?: number; clientX?: number; clientY?: number }
+    let start: { ratio: number; origin: number } | null = null
+
+    const handleGestureStart = (event: Event) => {
+      event.preventDefault()
+      const gesture = event as GestureEvent
+      const rect = el.getBoundingClientRect()
+      start = {
+        ratio: zoomRatioRef.current,
+        origin: (gesture.clientX ?? rect.left + rect.width / 2) - rect.left,
+      }
+    }
+    const handleGestureChange = (event: Event) => {
+      if (start === null) return
+      event.preventDefault()
+      const gesture = event as GestureEvent
+      const scale = typeof gesture.scale === 'number' ? gesture.scale : 1
+      applyZoom(start.ratio * scale, start.origin)
+    }
+    const handleGestureEnd = () => {
+      start = null
+    }
+
+    el.addEventListener('gesturestart', handleGestureStart, { passive: false })
+    el.addEventListener('gesturechange', handleGestureChange, { passive: false })
+    el.addEventListener('gestureend', handleGestureEnd)
+    return () => {
+      el.removeEventListener('gesturestart', handleGestureStart)
+      el.removeEventListener('gesturechange', handleGestureChange)
+      el.removeEventListener('gestureend', handleGestureEnd)
+    }
   }, [hasEvents, applyZoom, scrollRef])
 
   useEffect(() => {
