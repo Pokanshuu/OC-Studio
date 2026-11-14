@@ -1,5 +1,7 @@
 'use client'
 
+import { useDelayedFlag } from '@/lib/use-delayed-flag'
+
 /**
  * 设置 › 世界 › 模板。
  *
@@ -163,8 +165,10 @@ export function TemplatesPanel({
     }
   }
 
+  // 加载态不闪：200ms 内什么都不画，超过才显示「加载中…」
+  const showLoading = useDelayedFlag(loading)
   if (loading && templates.length === 0) {
-    return <p className="py-6 text-[13px] text-ink-faint">加载中…</p>
+    return showLoading ? <p className="py-6 text-[13px] text-ink-faint">加载中…</p> : null
   }
 
   if (!active) {

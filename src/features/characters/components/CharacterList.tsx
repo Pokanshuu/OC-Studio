@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect, useLayoutEffect, useRef, useDeferredValue } from 'react'
 import { withTouchFeedback } from '@/lib/animation'
-import { ArrowLeft, FolderOpen, Pencil, SearchX, Trash2, Users } from 'lucide-react'
+import { ArrowLeft, CircleAlert, FolderOpen, Pencil, SearchX, Trash2, Users } from 'lucide-react'
 import type { Character } from '@/types'
 import { useCountryList } from '@/features/countries/hooks/useCountries'
 import { resolveCharacterCountryId } from '@/lib/membership'
@@ -45,13 +45,16 @@ import type { SortKey } from './character-list-utils'
 import type { ViewMode } from '@/components/shared/SortViewControls'
 import { SortableList, moveId } from '@/components/shared/list-dnd'
 import { useReorderCharacters } from '../hooks/useCharacters'
-import { BTN_QUIET, CENTER_STATE, CHIP, LIST_GRID } from '@/lib/ui-tokens'
+import { CHIP, LIST_GRID, LOADING_TEXT } from '@/lib/ui-tokens'
 import { ListEmptyState } from '@/components/shared/ListEmptyState'
+import { useDelayedFlag } from '@/lib/use-delayed-flag'
 
 interface CharacterListProps {
   characters: Character[]
   loading: boolean
   error: string | null
+  /** 加载失败时的重新拉取（**不是**新建）：由调用方传入数据 hook 的 refresh */
+  onRetry: () => void
   onSelectCharacter: (id: number) => void
   onCreateCharacter: () => void
   onDeleteCharacter: (id: number) => void
@@ -61,6 +64,7 @@ export function CharacterList({
   characters,
   loading,
   error,
+  onRetry,
   onSelectCharacter,
   onCreateCharacter,
   onDeleteCharacter,
@@ -213,8 +217,8 @@ export function CharacterList({
 
   const handleRenameFolder = useCallback(
     async (from: string, to: string) => {
-      const moved = await renameFolder(from, to)
-      toast.success(`已重命名为「${to}」`, { description: `${moved} 个角色跟着走，角色本身没动` })
+      await renameFolder(from, to)
+      toast.success(`已重命名为「${to}」`)
       notifyDataUpdated()
       if (folderFilter === from) setFolderFilter(to)
     },
@@ -223,8 +227,8 @@ export function CharacterList({
 
   const handleDeleteFolder = useCallback(
     async (name: string) => {
-      const count = await deleteFolder(name)
-      toast.success(`已删除文件夹「${name}」`, { description: `${count} 个角色回到未分组，一个都没删` })
+      await deleteFolder(name)
+      toast.success(`已删除文件夹「${name}」`)
       notifyDataUpdated()
       if (folderFilter === name) setFolderFilter('all')
     },
@@ -246,7 +250,7 @@ export function CharacterList({
       try {
         const name = await mergeIntoNewFolder(ids, folderNames)
         notifyDataUpdated()
-        toast.success(`已新建文件夹「${name}」`, { description: `${ids.length} 个角色已放进去` })
+        toast.success(`已新建文件夹「${name}」`)
       } catch (err) {
         toast.error('新建文件夹失败', { description: err instanceof Error ? err.message : String(err) })
       }
@@ -315,27 +319,8 @@ export function CharacterList({
     [characters, reorderCharacters],
   )
 
-  if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <span className="text-[13px] text-ink-faint">加载中…</span>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className={CENTER_STATE}>
-        <span className="text-sm text-error">{error}</span>
-        <button
-          onClick={onCreateCharacter}
-          className={BTN_QUIET}
-        >
-          重试
-        </button>
-      </div>
-    )
-  }
+  /** 加载态不闪：页头与外壳照常渲染，内容区延迟 200ms 才认「确实在等」 */
+  const showLoading = useDelayedFlag(loading)
 
   return (
     <>
@@ -401,7 +386,19 @@ export function CharacterList({
             </span>
           </div>
         ) : null}
-        {characters.length === 0 ? (
+        {loading ? (
+          showLoading ? (
+            <div className="flex flex-1 items-center justify-center py-16">
+              <span className={LOADING_TEXT}>加载中…</span>
+            </div>
+          ) : null
+        ) : error ? (
+          <ListEmptyState
+            icon={CircleAlert}
+            message={error}
+            action={{ label: '重试', onClick: onRetry }}
+          />
+        ) : characters.length === 0 ? (
           <ListEmptyState
             icon={Users}
             message="还没有角色"

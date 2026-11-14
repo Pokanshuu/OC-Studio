@@ -32,7 +32,7 @@ export function RelationCreateDialog({ draft, saving, onCancel, onSubmit }: Rela
     <Dialog open onOpenChange={(open) => { if (!open && !saving) onCancel() }}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle className={PAGE_TITLE}>添加关系</DialogTitle>
+          <DialogTitle>添加关系</DialogTitle>
         </DialogHeader>
 
         <div className="flex items-center gap-2 text-[13px]">

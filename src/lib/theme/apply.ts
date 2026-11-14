@@ -11,6 +11,7 @@ export const THEME_CSS_VARS: Record<keyof ThemeTokens, string> = {
   inkMuted: '--oc-ink-muted',
   inkFaint: '--oc-ink-faint',
   hover: '--oc-hover',
+  selection: '--oc-selection',
 }
 
 const TOKEN_KEYS = Object.keys(THEME_CSS_VARS) as (keyof ThemeTokens)[]
@@ -31,6 +32,10 @@ export function applyThemePreset(id: ThemePresetId, isDark: boolean): void {
 
   root.setAttribute('data-palette', preset.id)
   for (const key of TOKEN_KEYS) {
-    root.style.setProperty(THEME_CSS_VARS[key], tokens[key])
+    const value = tokens[key]
+    // 可选令牌（如 `selection`）没给值就撤掉行内变量，让 `globals.css` 的默认值生效
+    // —— 留着上一套主题的行内值比「不设」更糟（换主题后选区颜色不会回来）。
+    if (value === undefined) root.style.removeProperty(THEME_CSS_VARS[key])
+    else root.style.setProperty(THEME_CSS_VARS[key], value)
   }
 }

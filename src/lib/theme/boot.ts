@@ -25,7 +25,7 @@ var presets=${TOKENS_BY_PRESET};
 var id=presets[s.themePreset]?s.themePreset:'paper';
 var tokens=presets[id][dark?'dark':'light'];
 var vars=${JSON.stringify(THEME_CSS_VARS)};
-for(var key in vars){root.style.setProperty(vars[key],tokens[key])}
+for(var key in vars){if(tokens[key])root.style.setProperty(vars[key],tokens[key])}
 root.setAttribute('data-palette',id);
 if(window.__TAURI__||window.__TAURI_INTERNALS__){root.classList.add('tauri-mica')}
 }catch(e){}})()`

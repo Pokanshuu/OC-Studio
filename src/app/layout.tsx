@@ -13,6 +13,7 @@ import { VaultProvider } from "@/lib/vault/vault-provider";
 import { OverlayRoot } from "@/components/layout/OverlayRoot";
 import { Toaster } from "@/components/shared/toaster";
 import { NativeMenuBlocker } from "@/components/shared/NativeMenuBlocker";
+import { BrowserKeyBlocker } from "@/components/shared/BrowserKeyBlocker";
 import { KeyboardProvider } from "@/lib/KeyboardContext";
 import { THEME_BOOT_SCRIPT } from "@/lib/theme/boot";
 import { PLATFORM_BOOT_SCRIPT } from "@/lib/env";
@@ -76,6 +77,9 @@ export default function RootLayout({
           <Toaster />
           {/* 同理：屏蔽 WebView 自带右键菜单也要在闸门外面，否则闸门里右键会弹出「刷新/另存为」 */}
           <NativeMenuBlocker />
+          {/* 浏览器加速键（F5 / Ctrl+R / Ctrl+P / Ctrl+U / Ctrl+加减号）：只在 Tauri 里生效，
+              浏览器开发时保留刷新。也必须挂在闸门外面 —— 闸门期间按 F5 一样会丢草稿。 */}
+          <BrowserKeyBlocker />
         </Providers>
       <OverlayRoot />
       </body>

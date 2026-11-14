@@ -109,7 +109,7 @@ export function TreeRow({
       {...rowProps}
       onClick={onClick}
       className={`group flex items-center gap-0.5 rounded-item py-1 text-[13px] transition-colors ${
-        onClick ? 'cursor-pointer' : ''
+        onClick ? '' : ''
       } ${
         selected
           ? 'bg-[var(--oc-hover)] text-ink'

@@ -198,7 +198,7 @@ export function useEntityWorkspace() {  const { activeItem: desktopActiveItem, s
     events,
     loading: eventsLoading,
     error: eventsError,
-    refresh,
+    refresh: refreshEvents,
   } = useEventList()
 
   const currentEventId = useMemo(
@@ -243,22 +243,22 @@ export function useEntityWorkspace() {  const { activeItem: desktopActiveItem, s
         }
         setEditing('event', id)
         clearSource()
-        refresh()
+        refreshEvents()
       }).catch(() => {
         // error handled via hook
       })
     }
     confirmLeave(doCreate)
-  }, [createEvent, creating, refresh, setEditing, confirmLeave, rememberCrossBack, setActiveItem, isMobile, mobileSetSection, mobileSetGallerySubTab, clearSource])
+  }, [createEvent, creating, refreshEvents, setEditing, confirmLeave, rememberCrossBack, setActiveItem, isMobile, mobileSetSection, mobileSetGallerySubTab, clearSource])
 
   const handleSaveEvent = useCallback(
     async (id: number, data: Partial<EventFormData>) => {
       if (updating) return
       await updateEvent(id, data)
-      refresh()
+      refreshEvents()
       refreshEvent()
     },
-    [updateEvent, updating, refresh, refreshEvent],
+    [updateEvent, updating, refreshEvents, refreshEvent],
   )
 
   const handleDeleteEvent = useCallback(
@@ -266,10 +266,10 @@ export function useEntityWorkspace() {  const { activeItem: desktopActiveItem, s
       if (deleting) return Promise.resolve()
       // 同角色：把 promise 交给调用方，由它决定「成功才报已移至回收站」
       return deleteEvent(id).then(() => {
-        refresh()
+        refreshEvents()
       })
     },
-    [deleteEvent, deleting, refresh],
+    [deleteEvent, deleting, refreshEvents],
   )
 
   const restoreCrossBack = useCallback(() => {
@@ -734,6 +734,12 @@ export function useEntityWorkspace() {  const { activeItem: desktopActiveItem, s
     leaveConfirm,
     novelEntryTarget,
     placeholderText,
+    /**
+     * 列表加载失败时的「重试」走这两个（数据 hook 的 `refetch`）。
+     * 别再把「重试」接到 onCreate* 上 —— 那会新建一个空实体。
+     */
+    refreshCharacters,
+    refreshEvents,
     selectedEvent,
     setActiveItem,
     setLeaveConfirm,

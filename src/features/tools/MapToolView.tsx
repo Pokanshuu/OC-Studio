@@ -130,7 +130,7 @@ export function MapToolView() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className={PAGE_TITLE}>新建地图</DialogTitle>
+            <DialogTitle>新建地图</DialogTitle>
           </DialogHeader>
 
           <input

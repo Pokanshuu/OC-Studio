@@ -99,7 +99,6 @@ export function RelationGraphPreview({ rows, inbound, selfName, onNavigate }: Re
               role={clickable ? 'button' : undefined}
               tabIndex={clickable ? 0 : undefined}
               aria-label={clickable ? `打开 ${item.row.name}` : undefined}
-              className={clickable ? 'cursor-pointer' : undefined}
               onClick={() => {
                 if (clickable && item.row.targetId !== undefined) {
                   onNavigate(item.row.kind, item.row.targetId)

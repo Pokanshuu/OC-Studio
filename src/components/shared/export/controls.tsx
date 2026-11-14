@@ -114,7 +114,7 @@ export function Toggle({
  * 轨 2px、拇指 12px 墨色（`-5px` = (2 - 12) / 2，让拇指在细轨上居中）。
  */
 const RANGE_CLASS = [
-  'h-4 min-w-0 flex-1 cursor-pointer appearance-none bg-transparent',
+  'h-4 min-w-0 flex-1 appearance-none bg-transparent',
   '[&::-webkit-slider-runnable-track]:h-[2px] [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-[var(--oc-line-hover)]',
   '[&::-webkit-slider-thumb]:mt-[-5px] [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-ink',
   '[&::-moz-range-track]:h-[2px] [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-[var(--oc-line-hover)]',

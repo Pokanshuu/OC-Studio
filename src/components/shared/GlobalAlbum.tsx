@@ -1,5 +1,7 @@
 'use client'
 
+import { useDelayedFlag } from '@/lib/use-delayed-flag'
+
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { Download, ExternalLink, Eye, Images, Menu, RefreshCw, Search } from 'lucide-react'
 import { ICON_BTN_MD, LOADING_TEXT } from '@/lib/ui-tokens'
@@ -63,6 +65,8 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
   }, [])
 
   const { entries, loading, refresh } = useAlbumData()
+  /** 加载态不闪：200ms 内内容区什么都不画，超过才显示「加载中…」 */
+  const showLoading = useDelayedFlag(loading)
   const rootRef = useRef<HTMLDivElement | null>(null)
 
   /**
@@ -307,7 +311,9 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
           {/* Grid content */}
           <div className="flex flex-1 flex-col px-4 pt-4 pb-24 md:pb-4">
           {loading ? (
-            <div className="flex flex-1 items-center justify-center"><span className={LOADING_TEXT}>加载中…</span></div>
+            showLoading ? (
+              <div className="flex flex-1 items-center justify-center"><span className={LOADING_TEXT}>加载中…</span></div>
+            ) : null
           ) : filtered.length === 0 ? (
             <ListEmptyState icon={Images} message="暂无图片" className="min-h-[40vh]" />
           ) : (

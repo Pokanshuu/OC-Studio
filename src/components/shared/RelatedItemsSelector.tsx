@@ -108,7 +108,7 @@ export function RelatedItemsSelector({
               <button
                 type="button"
                 onClick={() => onNavigateItem?.(item.id)}
-                className="cursor-pointer transition-colors hover:text-ink"
+                className="transition-colors hover:text-ink"
                 title={item.name}
               >
                 {item.name}

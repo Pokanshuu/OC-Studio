@@ -45,7 +45,7 @@ export function MergeStrategyPicker({
         return (
         <label
           key={opt.value}
-          className={`flex cursor-pointer items-start gap-3 border p-3 transition-colors ${
+          className={`flex items-start gap-3 border p-3 transition-colors ${
             blocked ? 'cursor-not-allowed opacity-50 border-line' : value === opt.value ? 'border-line-hover bg-paper-card' : 'border-line hover:border-line-hover'
           }`}
         >

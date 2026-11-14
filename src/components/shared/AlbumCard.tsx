@@ -70,7 +70,7 @@ export function AlbumCard({
         <img
           src={getEntryImageUrl(entry)}
           alt={entry.sourceName}
-          className="aspect-square w-full cursor-pointer object-cover transition-opacity hover:opacity-90"
+          className="aspect-square w-full object-cover transition-opacity hover:opacity-90"
           onClick={onViewImage}
           onError={(event) => {
             const img = event.currentTarget

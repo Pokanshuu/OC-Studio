@@ -142,7 +142,7 @@ export function ImageCropper({
             step={0.1}
             value={zoom}
             onChange={(e) => setZoom(Number(e.target.value))}
-            className="h-8 w-32 cursor-pointer appearance-none bg-transparent
+            className="h-8 w-32 appearance-none bg-transparent
               [&::-webkit-slider-runnable-track]:h-1
               [&::-webkit-slider-runnable-track]:rounded-item
               [&::-webkit-slider-runnable-track]:bg-line-hover
@@ -196,7 +196,7 @@ export function ImageCropper({
             step={0.1}
             value={zoom}
             onChange={(e) => setZoom(Number(e.target.value))}
-            className="h-8 w-full cursor-pointer appearance-none bg-transparent
+            className="h-8 w-full appearance-none bg-transparent
               [&::-webkit-slider-runnable-track]:h-1
               [&::-webkit-slider-runnable-track]:rounded-item
               [&::-webkit-slider-runnable-track]:bg-line-hover

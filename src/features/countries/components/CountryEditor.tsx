@@ -1,5 +1,7 @@
 'use client'
 
+import { useDelayedFlag } from '@/lib/use-delayed-flag'
+
 import { useEffect, useRef, useState } from 'react'
 import { Save } from 'lucide-react'
 import type { Editor } from '@tiptap/core'
@@ -46,12 +48,14 @@ export function CountryEditor({
   const { country, loading, error } = useCountry(editCountryId)
   const { updateCountry } = useUpdateCountry()
 
+  // 加载态不闪：200ms 内什么都不画，超过才显示「加载中…」
+  const showLoading = useDelayedFlag(loading)
   if (loading) {
-    return (
+    return showLoading ? (
       <div className="flex h-full items-center justify-center">
         <span className="text-[13px] text-ink-faint">加载中…</span>
       </div>
-    )
+    ) : null
   }
 
   if (error) {

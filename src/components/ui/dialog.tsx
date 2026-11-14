@@ -4,7 +4,7 @@ import * as React from "react"
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
 
 import { cn } from "@/lib/utils"
-import { FLOAT_SHADOW, ICON_BTN } from "@/lib/ui-tokens"
+import { FLOAT_SHADOW, ICON_BTN, PAGE_TITLE } from "@/lib/ui-tokens"
 import { XIcon } from "lucide-react"
 
 function Dialog({ ...props }: DialogPrimitive.Root.Props) {
@@ -55,7 +55,7 @@ function DialogContent({
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(
-          `pointer-events-auto fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 border border-line bg-paper/85 backdrop-blur-lg ${FLOAT_SHADOW} p-4 text-sm text-ink duration-fast outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 rounded-panel`,
+          `pointer-events-auto fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 border border-line bg-paper/85 backdrop-blur-lg ${FLOAT_SHADOW} p-4 text-sm text-ink duration-fast outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:slide-in-from-bottom-1 data-closed:animate-out data-closed:fade-out-0 rounded-panel`,
           className
         )}
         {...props}
@@ -89,10 +89,9 @@ function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn(
-        "font-heading text-base leading-none font-medium",
-        className
-      )}
+      /* 弹窗标题 = 页面标题那一档（18px 衬线加粗）。写进默认值，调用点不用再传 —— 
+         以前 SettingsDialog 没传，于是它成了全项目唯一一个黑体标题的弹窗。 */
+      className={cn(PAGE_TITLE, className)}
       {...props}
     />
   )

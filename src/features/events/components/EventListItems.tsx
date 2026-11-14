@@ -83,7 +83,7 @@ export function EventRow({
       tabIndex={0}
       onClick={() => onSelect(event.id)}
       onKeyDown={handleKeyDown}
-      className={`group relative row-rule flex w-full cursor-pointer items-center gap-4 rounded-item py-3 pr-4 text-left transition-colors hover:bg-[var(--oc-hover)] active:bg-[var(--oc-hover)] ${sortable ? 'pl-10' : 'pl-4'}`}
+      className={`group relative row-rule flex w-full items-center gap-4 rounded-item py-3 pr-4 text-left transition-colors hover:bg-[var(--oc-hover)] active:bg-[var(--oc-hover)] ${sortable ? 'pl-10' : 'pl-4'}`}
       {...longPress}
       {...cardAttributes}
       {...cardListeners}

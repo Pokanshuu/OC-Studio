@@ -192,7 +192,7 @@ export function buildEditorConfig({
         },
       }).configure({
         HTMLAttributes: {
-          class: 'inline-flex bg-paper-alt border border-line rounded-item px-1.5 text-sm text-ink cursor-pointer',
+          class: 'inline-flex bg-paper-alt border border-line rounded-item px-1.5 text-sm text-ink',
         },
         renderHTML: ({ options, node }) => {
           const cls = options.HTMLAttributes?.class ?? ''

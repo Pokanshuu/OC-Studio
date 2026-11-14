@@ -1,5 +1,7 @@
 'use client'
 
+import { useDelayedFlag } from '@/lib/use-delayed-flag'
+
 /**
  * 小说书架 + 从书架进入章节树。
  *
@@ -83,6 +85,8 @@ export function NovelSection({
   const [rootByEntry, setRootByEntry] = useState<Record<number, number>>({})
   const [focusedEntry, setFocusedEntry] = useState<{ id: number; nonce: number } | null>(null)
   const [loading, setLoading] = useState(true)
+  /** 加载态不闪：200ms 内内容区什么都不画，超过才显示「加载中…」 */
+  const showLoading = useDelayedFlag(loading)
   const [error, setError] = useState<string | null>(null)
   const [activeId, setActiveId] = useState<number | null>(null)
   const [legacyCount, setLegacyCount] = useState(0)
@@ -341,9 +345,11 @@ export function NovelSection({
         <div className="flex flex-1 flex-col px-6 pb-6 pt-4 max-md:pb-24">
           <div className="md:hidden h-[calc(60px+var(--safe-top))] shrink-0" aria-hidden />
           {loading ? (
-            <div className={CENTER_STATE}>
-              <span className={LOADING_TEXT}>加载中…</span>
-            </div>
+            showLoading ? (
+              <div className={CENTER_STATE}>
+                <span className={LOADING_TEXT}>加载中…</span>
+              </div>
+            ) : null
           ) : error ? (
             <ListEmptyState
               icon={CircleAlert}
@@ -431,7 +437,7 @@ function NovelRow({
       tabIndex={0}
       onClick={onOpen}
       onKeyDown={(e) => { if (e.key === 'Enter') onOpen() }}
-      className="group relative row-rule flex w-full cursor-pointer items-center gap-3 rounded-item py-2.5 pl-4 pr-4 text-left transition-colors hover:bg-[var(--oc-hover)] active:bg-[var(--oc-hover)] md:pr-10"
+      className="group relative row-rule flex w-full items-center gap-3 rounded-item py-2.5 pl-4 pr-4 text-left transition-colors hover:bg-[var(--oc-hover)] active:bg-[var(--oc-hover)] md:pr-10"
       {...longPress}
     >
       <span className="min-w-0 flex-1 truncate text-sm text-ink">{book.title}</span>

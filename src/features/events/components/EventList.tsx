@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import { withTouchFeedback } from '@/lib/animation'
-import { CalendarDays, Pencil, SearchX, Trash2 } from 'lucide-react'
+import { CalendarDays, CircleAlert, Pencil, SearchX, Trash2 } from 'lucide-react'
 import type { Event } from '@/types'
 import { sortEvents } from '../utils'
 import { MobileActionSheet, type ActionItem } from '@/components/shared/MobileActionSheet'
@@ -29,13 +29,16 @@ import { readSortKey, writeSortKey } from '@/lib/sort-manual'
 import type { ViewMode } from '@/components/shared/SortViewControls'
 import { SortableList, moveId } from '@/components/shared/list-dnd'
 import { useReorderEvents } from '../hooks/useEvents'
-import { BTN_QUIET, CENTER_STATE, LIST_GRID } from '@/lib/ui-tokens'
+import { LIST_GRID, LOADING_TEXT } from '@/lib/ui-tokens'
 import { ListEmptyState } from '@/components/shared/ListEmptyState'
+import { useDelayedFlag } from '@/lib/use-delayed-flag'
 
 interface EventListProps {
   events: Event[]
   loading: boolean
   error: string | null
+  /** 加载失败时的重新拉取（**不是**新建）：由调用方传入数据 hook 的 refresh */
+  onRetry: () => void
   onSelectEvent: (id: number) => void
   onCreateEvent: () => void
   onDeleteEvent: (id: number) => void
@@ -45,6 +48,7 @@ export function EventList({
   events,
   loading,
   error,
+  onRetry,
   onSelectEvent,
   onCreateEvent,
   onDeleteEvent,
@@ -105,27 +109,11 @@ export function EventList({
     [events, reorderEvents],
   )
 
-  if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <span className="text-[13px] text-ink-faint">加载中…</span>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className={CENTER_STATE}>
-        <span className="text-sm text-error">{error}</span>
-        <button
-          onClick={onCreateEvent}
-          className={BTN_QUIET}
-        >
-          重试
-        </button>
-      </div>
-    )
-  }
+  /**
+   * 加载态不闪：页头与外壳照常渲染，内容区在 200ms 内什么都不画，
+   * 超过才显示「加载中…」（本地库通常在第一帧就回来了）。
+   */
+  const showLoading = useDelayedFlag(loading)
 
   return (
     <>
@@ -145,7 +133,19 @@ export function EventList({
       >
         <div className="max-md:h-10" />
         <div className={viewMode === 'gallery' ? 'flex min-h-0 flex-1 flex-col' : 'flex flex-1 flex-col p-4'}>
-        {events.length === 0 ? (
+        {loading ? (
+          showLoading ? (
+            <div className="flex flex-1 items-center justify-center py-16">
+              <span className={LOADING_TEXT}>加载中…</span>
+            </div>
+          ) : null
+        ) : error ? (
+          <ListEmptyState
+            icon={CircleAlert}
+            message={error}
+            action={{ label: '重试', onClick: onRetry }}
+          />
+        ) : events.length === 0 ? (
           <ListEmptyState
             icon={CalendarDays}
             message="还没有事件"

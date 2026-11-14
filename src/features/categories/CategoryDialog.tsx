@@ -381,7 +381,7 @@ function CategoryDialogBody({ category, onClose, onCreated, onDeleted }: Omit<Ca
                       selected ? 'text-ink' : 'text-ink-muted'
                     }`}
                   >
-                    <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5">
+                    <label className="flex min-w-0 flex-1 items-center gap-2.5">
                       <span
                         className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
                           selected ? 'border-ink-muted' : 'border-line'

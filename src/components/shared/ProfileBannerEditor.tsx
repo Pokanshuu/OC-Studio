@@ -236,7 +236,7 @@ export function ProfileBannerEditor({
       {showHeader ? (
         <div {...headerMenuHandlers}>
           <StretchyHeader
-            className={`rounded-item bg-paper-card ${headerUrl || onHeaderChange ? 'cursor-pointer' : ''}`}
+            className="rounded-item bg-paper-card"
             onClick={headerUrl ? viewHeader : onHeaderChange ? pickHeader : undefined}
           >
             {headerSrc ? (
@@ -259,7 +259,7 @@ export function ProfileBannerEditor({
               type="button"
               {...avatarMenuHandlers}
               onClick={viewAvatar}
-              className="relative block cursor-pointer bg-transparent hover:bg-transparent"
+              className="relative block bg-transparent hover:bg-transparent"
             >
               <div className="overflow-hidden rounded-full border-4 border-paper"> {/* design-audit-allow border-fat 头像外圈装饰描边 */}
                 <Avatar src={avatarUrl} size="lg" type={avatarType} />

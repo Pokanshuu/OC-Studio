@@ -1,5 +1,7 @@
 'use client'
 
+import { useDelayedFlag } from '@/lib/use-delayed-flag'
+
 /**
  * 小说章节树（某本书的内部编辑器）。
  *
@@ -372,12 +374,14 @@ export function NovelTree({
     />
   )
 
+  // 加载态不闪：200ms 内什么都不画，超过才显示「加载中…」
+  const showLoading = useDelayedFlag(loading)
   if (loading) {
-    return (
+    return showLoading ? (
       <div className={CENTER_STATE}>
         <span className="text-[13px] text-ink-faint">加载中…</span>
       </div>
-    )
+    ) : null
   }
 
   if (error) {

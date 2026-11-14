@@ -40,7 +40,7 @@ export function EventInfoSection({
   const renderRow = (field: FieldDef) => {
     if (field.type === 'bool' && field.id === 'isMajor') {
       return (
-        <label key={field.id} className={`${FIELD_ROW} cursor-pointer`}>
+        <label key={field.id} className={`${FIELD_ROW}`}>
           <span className={FIELD_LABEL}>{field.label}</span>
           <Checkbox
             checked={form.isMajor}

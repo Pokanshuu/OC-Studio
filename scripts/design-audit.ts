@@ -476,10 +476,55 @@ for (const rel of IME_GUARDED_FILES) {
   byRule.set('ime-guard', [...(byRule.get('ime-guard') ?? []), violation])
 }
 
+/**
+ * 「重试」必须重新加载，不能新建。
+ *
+ * 事故形状（2026-11-14 审查）：角色 / 事件 / 国家三张列表在错误态里把「重试」按钮的
+ * `onClick` 接到了 `onCreate*` 上 —— 加载失败后点一下「重试」，库里多出一条空实体。
+ * 这不是样式问题，但它只有点开那个错误态才会发现（本地库几乎不报错，等于永远不会遇到）。
+ *
+ * 判定：文件里出现 `重试` 这个 UI 文案时，它 ±400 字符内必须出现 `onRetry` / `retry`，
+ * 且**不能**出现 `onCreate`。新写列表的错误态照这条走。
+ */
+{
+  const listFiles: string[] = []
+  const walkLists = (dir: string): void => {
+    for (const name of readdirSync(dir)) {
+      const full = join(dir, name)
+      if (statSync(full).isDirectory()) {
+        walkLists(full)
+        continue
+      }
+      if (!/List\.tsx$/.test(name)) continue
+      listFiles.push(full)
+    }
+  }
+  walkLists(join(process.cwd(), 'src/features'))
+
+  for (const full of listFiles) {
+    const text = readFileSync(full, 'utf8')
+    const rel = full.replace(/\\/g, '/').replace(process.cwd().replace(/\\/g, '/') + '/', '')
+    let index = text.indexOf('重试')
+    while (index !== -1) {
+      const nearby = text.slice(Math.max(0, index - 400), index + 400)
+      if (!nearby.includes('onRetry') && !nearby.includes('retry')) {
+        const violation = {
+          rule: 'retry-creates',
+          file: rel,
+          line: text.slice(0, index).split('\n').length,
+          text: '错误态的「重试」没有接 onRetry（重新加载），别接新建',
+        }
+        violations.push(violation)
+        byRule.set('retry-creates', [...(byRule.get('retry-creates') ?? []), violation])
+      }
+      index = text.indexOf('重试', index + 1)
+    }
+  }
+}
+
 const repeated = [...fragments.entries()]
   .filter(([, files]) => files.size >= 3)
   .sort((a, b) => b[1].size - a[1].size)
-
 if (violations.length === 0) {
   console.log('设计令牌体检：干净（0 处违规）')
   if (repeated.length > 0) {
@@ -498,6 +543,7 @@ const EXTRA_WHY: Record<string, string> = {
   'dead-setting': '设置项必须在设置页之外有读者，否则就是个拨了没反应的开关',
   'dead-editor-event': '移动端下发的编辑器事件必须有接收方，否则点了没反应',
   'mutation-broadcast': '新建 / 删除 / 改名都要广播 DATA_UPDATED_EVENT，否则地图、相册这类视图不刷新',
+  'retry-creates': '列表错误态的「重试」必须重新加载（onRetry），不能接新建 —— 点了会多出一条空实体',
 }
 
 console.log(`设计令牌体检：${violations.length} 处违规\n`)

@@ -142,7 +142,7 @@ export const OVERLAY_ROUND_BTN =
    主按钮 = 浅底实心（**不是**实心墨色：强调色只留给「选中态」），次按钮 = 纯文字。
    原则：一屏之内不该出现第二块深色；动作靠位置与文字表达，不靠反相。 */
 export const BTN_PRIMARY =
-  `touch-feedback flex h-8 shrink-0 items-center gap-1.5 bg-paper-card px-3 text-[13px] text-ink transition-colors hover:bg-line disabled:opacity-40 ${ROUND_CONTROL}`
+  `touch-feedback flex h-8 shrink-0 items-center gap-1.5 bg-paper-card px-3 text-[13px] text-ink transition-colors hover:bg-line active:bg-line-hover disabled:opacity-40 ${ROUND_CONTROL}`
 /**
  * 纯文字按钮。禁用态要显式收掉悬停：全局 `button:hover` 会给任何按钮铺底色，
  * 光加 `opacity-40` 的话鼠标移上去仍像能点。
@@ -157,7 +157,7 @@ export const BTN_QUIET =
  * 同一列里一块灰底会把「动作」误读成「当前选中」。
  */
 export const SETTINGS_ACTION_BTN =
-  'touch-feedback flex h-8 w-full items-center justify-center gap-1.5 px-3 text-[13px] text-ink transition-colors hover:bg-[var(--oc-hover)] disabled:cursor-not-allowed disabled:text-ink-faint disabled:hover:bg-transparent'
+  'touch-feedback flex h-8 w-full items-center justify-center gap-1.5 px-3 text-[13px] text-ink transition-colors hover:bg-[var(--oc-hover)] active:bg-[var(--oc-hover)] disabled:cursor-not-allowed disabled:text-ink-faint disabled:hover:bg-transparent'
 
 /**
  * 区块标题右侧的「＋ 添加」：纯文字、和标题同排，不另占一整行。
@@ -298,7 +298,7 @@ export const MOBILE_FILTER_BTN =
 
 /** 筛选 / 排序下拉的触发按钮（桌面 h-8，移动端 h-7；宽度由内容决定） */
 export const FILTER_TRIGGER =
-  'touch-feedback flex h-7 items-center gap-1 px-2 text-[11px] text-ink transition-colors hover:bg-[var(--oc-hover)] md:h-8 md:px-3 md:text-[13px]'
+  'touch-feedback flex h-7 items-center gap-1 px-2 text-[11px] text-ink transition-colors hover:bg-[var(--oc-hover)] active:bg-[var(--oc-hover)] md:h-8 md:px-3 md:text-[13px]'
 
 /* ── 拖拽排序 ─────────────────────────────────────────
    手柄位置只有两种：卡片压在图左上角、列表行在左侧留白里。

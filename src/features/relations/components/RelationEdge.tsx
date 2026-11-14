@@ -153,7 +153,7 @@ export function RelationEdge({
               color,
               opacity: typeof style?.opacity === 'number' ? style.opacity : 1,
             }}
-            className="cursor-pointer rounded-item border border-line bg-paper px-1.5 py-0.5 text-[10px] whitespace-nowrap"
+            className="rounded-item border border-line bg-paper px-1.5 py-0.5 text-[10px] whitespace-nowrap"
           >
             {relation}
           </div>

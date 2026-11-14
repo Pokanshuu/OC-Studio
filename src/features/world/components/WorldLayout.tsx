@@ -1,5 +1,7 @@
 'use client'
 
+import { useDelayedFlag } from '@/lib/use-delayed-flag'
+
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { useDevice } from '@/lib/use-device'
 import type { WorldEntry } from '@/types'
@@ -40,6 +42,8 @@ interface WorldLayoutProps {
 
 export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId, onSelectedEntryConsumed, onWikiLinkClick }: WorldLayoutProps) {
   const { entries, loading, error, refresh } = useEntryList()
+  /** 加载态不闪：200ms 内内容区什么都不画，超过才显示「加载中…」 */
+  const showLoading = useDelayedFlag(loading)
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [title, setTitle] = useState('')
   const [showMobileTree, setShowMobileTree] = useState(false)
@@ -321,9 +325,11 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
             </div>
           </div>
         ) : loading ? (
-          <div className="flex h-full items-center justify-center">
-            <span className="text-[13px] text-ink-faint">加载中…</span>
-          </div>
+          showLoading ? (
+            <div className="flex h-full items-center justify-center">
+              <span className="text-[13px] text-ink-faint">加载中…</span>
+            </div>
+          ) : null
         ) : error ? (
           <div className="flex h-full items-center justify-center">
             <span className="text-sm text-error">{error}</span>

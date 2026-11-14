@@ -1,5 +1,7 @@
 'use client'
 
+import { useDelayedFlag } from '@/lib/use-delayed-flag'
+
 import { useMemo, useCallback, useState, useRef } from 'react'
 import {
   DndContext,
@@ -383,12 +385,14 @@ export function TimelineView({ onSelectEvent, onSelectCharacter, onSelectCountry
     />
   )
 
+  // 加载态不闪：200ms 内什么都不画，超过才显示「加载中…」
+  const showLoading = useDelayedFlag(loading)
   if (loading) {
-    return (
+    return showLoading ? (
       <div className="flex h-full items-center justify-center">
         <span className="text-[13px] text-ink-faint">加载中…</span>
       </div>
-    )
+    ) : null
   }
 
   if (error) {

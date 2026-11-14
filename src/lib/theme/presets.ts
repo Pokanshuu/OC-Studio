@@ -26,6 +26,14 @@ export interface ThemeTokens {
   inkFaint: string
   /** 控件悬停 / 抬起的浅底，带透明度 */
   hover: string
+  /**
+   * 正文选区底色（`::selection`），带透明度。
+   *
+   * **可选**：不写就沿用 `globals.css` 里 `:root` / `.dark` 的默认值 —— 选区色要的
+   * 是「跟着主题的墨色走」，而现有 11 套预设的墨色都在同一段灰阶里，默认值本来就成立；
+   * 真正需要单独调的场景（比如纸色特别黄的主题）才在预设里给这一项。
+   */
+  selection?: string
 }
 
 export interface ThemePreset {

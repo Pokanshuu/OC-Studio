@@ -45,7 +45,7 @@ function RadioGrid<T extends string>({
       {options.map((option) => {
         const selected = option.value === value
         return (
-          <label key={option.value} className="flex min-w-0 cursor-pointer items-center gap-2">
+          <label key={option.value} className="flex min-w-0 items-center gap-2">
             <span
               className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border transition-colors ${
                 selected ? "border-line-hover" : "border-line"
@@ -107,7 +107,7 @@ export function ThemePresetRadio({
       {presets.map((preset) => {
         const selected = value === preset.id
         return (
-          <label key={preset.id} title={preset.name} className="cursor-pointer">
+          <label key={preset.id} title={preset.name}>
             <input
               type="radio"
               name="themePreset"
@@ -134,7 +134,7 @@ export function ThemePresetRadio({
 
 /** 开关：胶囊轨道 + 圆形滑块（界面里唯一的「圆」除了头像，因为它表达的是拨动） */
 export const SWITCH_CLASSES = {
-  base: "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border transition-colors",
+  base: "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition-colors",
   on: "border-line-hover bg-ink-muted",
   off: "border-line bg-[var(--oc-hover)]",
 }

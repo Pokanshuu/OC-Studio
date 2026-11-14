@@ -222,7 +222,7 @@ export function TagPicker({ selectedIds, onChange }: TagPickerProps) {
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => { if (tag.id != null) { addTag(tag.id); setQuery('') } }}
                       onKeyDown={(e) => { if (e.key === 'Enter' && tag.id != null) { addTag(tag.id); setQuery('') } }}
-                      className={`group cursor-pointer ${MENU_ITEM}`}
+                      className={`group ${MENU_ITEM}`}
                     >
                       <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: tag.color || 'var(--oc-ink-faint)' }} />
                       <span className="flex-1">{tag.name}</span>

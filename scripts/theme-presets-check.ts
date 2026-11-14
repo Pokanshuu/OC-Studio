@@ -31,8 +31,9 @@ function contrast(a: string, b: string): number {
 
 interface Check {
   label: string
-  from: keyof ThemeTokens
-  to: keyof ThemeTokens
+  /** 对比度只测**必有**的令牌：`selection` 这类可选项缺省时沿用 globals.css 的默认值 */
+  from: Exclude<keyof ThemeTokens, 'selection'>
+  to: Exclude<keyof ThemeTokens, 'selection'>
   min: number
 }
 

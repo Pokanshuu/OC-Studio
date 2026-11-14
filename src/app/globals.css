@@ -48,6 +48,9 @@
   /* 控件悬停底色（界面无色：只用墨色极低透明度） */
   --oc-hover: rgba(43, 43, 43, 0.045);
 
+  /* 正文选区底色（::selection）—— 走令牌才会跟主题预设一起变 */
+  --oc-selection: rgba(107, 102, 93, 0.25);
+
   /* 弹窗遮罩（scrim）—— 与原来写死的 bg-black/15 dark:bg-black/40 **取值完全一致**，
      只是收成一处：以后要调只改这里。组件里不要再直接写 bg-black/xx。 */
   --oc-scrim: rgba(0, 0, 0, 0.15);
@@ -116,6 +119,7 @@
   --oc-ink-muted: #A5A098;
   --oc-ink-faint: #6E6A63;
   --oc-hover: rgba(227, 223, 216, 0.06);
+  --oc-selection: rgba(227, 223, 216, 0.3);
   --oc-scrim: rgba(0, 0, 0, 0.40);
   --oc-error-light: rgba(179, 102, 81, 0.18);
   --oc-error: #B36651;
@@ -157,9 +161,9 @@
   --color-danger: var(--oc-danger);
   --color-danger-hover: var(--oc-danger-hover);
   --color-danger-ink: var(--oc-danger-ink);
-  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans SC', sans-serif;
-  --font-mono: 'Courier New', Courier, monospace;
-  --font-serif: 'Noto Serif SC', 'Times New Roman', serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei UI', 'PingFang SC', Roboto, 'Helvetica Neue', Arial, 'Noto Sans SC', sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Mono', Consolas, 'SF Mono', Menlo, monospace;
+  --font-serif: 'OC Serif', 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'Times New Roman', serif;
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -300,6 +304,22 @@
   }
   button:hover {
     background-color: var(--oc-hover);
+  }
+  /* 光标：桌面应用的按钮 / 菜单项 / 行都是箭头，手形只留给超链接。
+     网页的 `cursor: pointer` 泛用是最明显的「这是网站」信号之一。 */
+  button,
+  [role='button'],
+  [role='menuitem'],
+  [role='tab'],
+  [role='option'],
+  summary,
+  label {
+    cursor: default;
+  }
+  /* 图片不可拖出：WebView 里拖一张头像会出现半透明拖拽影像，甚至能拖到桌面。 */
+  img {
+    -webkit-user-drag: none;
+    user-drag: none;
   }
 }
 
@@ -549,7 +569,7 @@ body[data-map-immersive='true'] [data-dev-mock] {
   border: 1px solid var(--oc-line) !important;
   border-radius: var(--radius-item) !important;
   background-color: var(--oc-paper-card) !important;
-  cursor: pointer !important;
+  cursor: default !important;
   transition: background-color var(--oc-duration-fast) var(--oc-ease-quiet),
     border-color var(--oc-duration-fast) var(--oc-ease-quiet);
 }
@@ -590,7 +610,7 @@ body[data-map-immersive='true'] [data-dev-mock] {
   appearance: none !important;
   -webkit-appearance: none !important;
   opacity: 0 !important;
-  cursor: pointer !important;
+  cursor: default !important;
 }
 
 .tiptap [data-type="taskList"] > li > label:has(input:focus-visible),
@@ -683,7 +703,7 @@ body[data-map-immersive='true'] [data-dev-mock] {
 
 .tiptap code {
   background: var(--color-paper-card);
-  border-radius: 0;
+  border-radius: var(--radius-item);
   padding: 0.15em 0.4em;
   font-family: var(--font-mono);
   font-size: 0.9em;
@@ -692,7 +712,7 @@ body[data-map-immersive='true'] [data-dev-mock] {
 .tiptap pre {
   background: var(--color-paper-card);
   border: 1px solid var(--color-line);
-  border-radius: 0;
+  border-radius: var(--radius-item);
   padding: 0.75em 1em;
   margin-top: 0.75em;
   margin-bottom: 0.75em;
@@ -728,24 +748,15 @@ body[data-map-immersive='true'] [data-dev-mock] {
   position: relative;
 }
 
-/* Selection styles */
+/* Selection styles —— 颜色是令牌（`--oc-selection`），换主题预设时跟着变。
+   以前这里写死 rgba(107,102,93,.25) / rgba(227,223,216,.3)，主题一换就不对了。 */
 ::selection {
-  background: rgba(107, 102, 93, 0.25);
-  color: inherit;
-}
-
-.dark ::selection {
-  background: rgba(227, 223, 216, 0.3);
+  background: var(--oc-selection);
   color: inherit;
 }
 
 .ProseMirror *::selection {
-  background: rgba(107, 102, 93, 0.25) !important;
-  color: inherit !important;
-}
-
-.dark .ProseMirror *::selection {
-  background: rgba(227, 223, 216, 0.3) !important;
+  background: var(--oc-selection) !important;
   color: inherit !important;
 }
 
@@ -787,6 +798,13 @@ body[data-map-immersive='true'] [data-dev-mock] {
 }
 .touch-feedback:active {
   transform: scale(0.96);
+}
+/* 桌面端不缩放：`scale(0.96)` 是触屏的按压反馈，鼠标点下去整颗按钮缩一下是移动网页的手感。
+   原生桌面控件按下只变色（见 ui-tokens 里各按钮的 active: 底色）。 */
+@media (hover: hover) and (pointer: fine) {
+  .touch-feedback:active {
+    transform: none;
+  }
 }
 
 /* 浮层阴影 —— 唯一一档（值见 :root / .dark 的 --oc-shadow-float）。
@@ -883,14 +901,12 @@ body[data-map-immersive='true'] [data-dev-mock] {
   }
 }
 
-/* 旧内核 backdrop-blur 降级：半透明 → 不透明 */
+/* 旧内核 backdrop-blur 降级：半透明 → 不透明。
+   底色必须走令牌（换主题预设 / 暗色时 #FEFCF8 那块会是一块错色）。 */
 [data-below-target-version] .backdrop-blur-lg {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  background-color: #FEFCF8;
-}
-[data-below-target-version] .dark .backdrop-blur-lg {
-  background-color: #1C1B1A;
+  background-color: var(--oc-paper);
 }
 
 /* HarmonyOS safe-area fallback: 当 ArkWeb env() 返回 0 时使用 JS 注入的估算值 */

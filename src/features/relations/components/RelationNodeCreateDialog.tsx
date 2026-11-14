@@ -50,7 +50,7 @@ export function RelationNodeCreateDialog({
     <Dialog open={open} onOpenChange={(next) => { if (!next && !busy) close() }}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle className={PAGE_TITLE}>新建节点</DialogTitle>
+          <DialogTitle>新建节点</DialogTitle>
         </DialogHeader>
 
         <div className="flex items-center gap-1.5">

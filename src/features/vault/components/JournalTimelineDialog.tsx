@@ -93,7 +93,7 @@ export function JournalTimelineDialog({ open, onOpenChange }: JournalTimelineDia
         }}
       >
         <DialogHeader>
-          <DialogTitle className={PAGE_TITLE}>创作时间线</DialogTitle>
+          <DialogTitle>创作时间线</DialogTitle>
           <DialogDescription className="text-[12px] text-ink-faint">
             {loading ? '读取中…' : `${entries.length} 条记录`}
           </DialogDescription>

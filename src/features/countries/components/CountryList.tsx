@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import { withTouchFeedback } from '@/lib/animation'
-import { Flag, Pencil, SearchX, Trash2 } from 'lucide-react'
+import { CircleAlert, Flag, Pencil, SearchX, Trash2 } from 'lucide-react'
 import type { Country } from '@/types'
 import { MobileActionSheet, type ActionItem } from '@/components/shared/MobileActionSheet'
 import {
@@ -28,23 +28,28 @@ import type { CountrySortKey } from './country-list-utils'
 import { readSortKey, writeSortKey } from '@/lib/sort-manual'
 import type { ViewMode } from '@/components/shared/SortViewControls'
 import { SortableList, moveId } from '@/components/shared/list-dnd'
-import { BTN_QUIET, CENTER_STATE, LIST_GRID } from '@/lib/ui-tokens'
+import { LIST_GRID, LOADING_TEXT } from '@/lib/ui-tokens'
 import { ListEmptyState } from '@/components/shared/ListEmptyState'
+import { useDelayedFlag } from '@/lib/use-delayed-flag'
 
 interface CountryListProps {
+  /** 加载失败时的重新拉取（**不是**新建）：不传就用本组件自己那个数据 hook 的 refresh */
+  onRetry?: () => void
   onSelectCountry: (id: number) => void
   onCreateCountry: () => void
   onDeleteCountry: (id: number) => void
 }
 
 export function CountryList({
+  onRetry,
   onSelectCountry,
   onCreateCountry,
   onDeleteCountry,
 }: CountryListProps) {
   const { isMobile } = useDevice()
   const handleSelect = useMemo(() => withTouchFeedback(onSelectCountry), [onSelectCountry])
-  const { countries, loading, error } = useCountryList()
+  const { countries, loading, error, refresh } = useCountryList()
+  const retry = onRetry ?? refresh
   const [search, setSearch] = useState('')
   const [sortKey, setSortKey] = useState<CountrySortKey>(() => readSortKey(SORT_STORAGE_KEY, 'updatedAt'))
   const [viewMode, setViewMode] = useState<ViewMode>(readViewPreference)
@@ -100,27 +105,8 @@ export function CountryList({
     [countries, reorderCountries],
   )
 
-  if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <span className="text-[13px] text-ink-faint">加载中…</span>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className={CENTER_STATE}>
-        <span className="text-sm text-error">{error}</span>
-        <button
-          onClick={onCreateCountry}
-          className={BTN_QUIET}
-        >
-          重试
-        </button>
-      </div>
-    )
-  }
+  /** 加载态不闪：页头与外壳照常渲染，内容区延迟 200ms 才认「确实在等」 */
+  const showLoading = useDelayedFlag(loading)
 
   return (
     <>
@@ -140,7 +126,19 @@ export function CountryList({
       >
         <div className="max-md:h-10" />
         <div className={viewMode === 'gallery' ? 'flex min-h-0 flex-1 flex-col' : 'flex flex-1 flex-col p-4'}>
-        {countries.length === 0 ? (
+        {loading ? (
+          showLoading ? (
+            <div className="flex flex-1 items-center justify-center py-16">
+              <span className={LOADING_TEXT}>加载中…</span>
+            </div>
+          ) : null
+        ) : error ? (
+          <ListEmptyState
+            icon={CircleAlert}
+            message={error}
+            action={{ label: '重试', onClick: retry }}
+          />
+        ) : countries.length === 0 ? (
           <ListEmptyState
             icon={Flag}
             message="还没有国家"

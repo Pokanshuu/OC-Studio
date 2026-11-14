@@ -1,5 +1,7 @@
 'use client'
 
+import { useDelayedFlag } from '@/lib/use-delayed-flag'
+
 /**
  * 表格（树形表格，原「树表」页，W5）：角色 / 事件 / 国家 / 词条 的同源表格视图。
  *
@@ -177,6 +179,8 @@ export function TreeTable({
         : tab === 'character'
           ? countryList.loading || characterList.loading
           : eventList.loading
+  /** 加载态不闪：200ms 内内容区什么都不画，超过才显示「加载中…」 */
+  const showLoading = useDelayedFlag(loading)
 
   const toggle = (key: string) => {
     const open = expanded.has(key)
@@ -408,9 +412,11 @@ export function TreeTable({
 
       <div className="flex min-h-0 flex-1 flex-col overflow-auto">
         {loading && rows.length === 0 ? (
-          <div className={CENTER_STATE}>
-            <p className={LOADING_TEXT}>加载中…</p>
-          </div>
+          showLoading ? (
+            <div className={CENTER_STATE}>
+              <p className={LOADING_TEXT}>加载中…</p>
+            </div>
+          ) : null
         ) : rows.length === 0 ? (
           query ? (
             <ListEmptyState

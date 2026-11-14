@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils"
 import { MENU, MENU_ITEM } from "@/lib/ui-tokens"
 
 const PANEL = `z-[99999] min-w-[160px] pointer-events-none ${MENU}`
-const ITEM = `${MENU_ITEM} cursor-pointer outline-none pointer-events-auto data-highlighted:bg-[var(--oc-hover)]`
+const ITEM = `${MENU_ITEM} outline-none pointer-events-auto data-highlighted:bg-[var(--oc-hover)]`
 
 function DropdownMenu(props: Menu.Root.Props) {
   return <Menu.Root {...props} />

@@ -99,7 +99,7 @@ function ImageBlockView({ node, updateAttributes, deleteNode }: ReactNodeViewPro
     return (
       <NodeViewWrapper>
         <div
-          className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-item border border-dashed border-line bg-paper-card py-12"
+          className="flex flex-col items-center justify-center gap-2 rounded-item border border-dashed border-line bg-paper-card py-12"
           contentEditable={false}
           onClick={handleUpload}
         >

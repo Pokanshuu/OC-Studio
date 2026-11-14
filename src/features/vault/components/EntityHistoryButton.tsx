@@ -97,7 +97,7 @@ export function EntityHistoryButton({ table, id, name }: EntityHistoryButtonProp
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle className={PAGE_TITLE}>历史</DialogTitle>
+            <DialogTitle>历史</DialogTitle>
             <DialogDescription className="text-[12px] text-ink-faint">
               {relPath ?? currentPath}
             </DialogDescription>

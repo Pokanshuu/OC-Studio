@@ -69,7 +69,7 @@ function CategorySettingRow({
       style={style}
       className={`flex items-center gap-1 border-b border-line py-2 text-sm text-ink ${ROUND_ITEM} ${
         // 悬停单位是整行：只有自建分类可点（内置分类只能开关，整行就不是按钮）
-        category.builtin ? '' : 'cursor-pointer transition-colors hover:bg-[var(--oc-hover)]'
+        category.builtin ? '' : 'transition-colors hover:bg-[var(--oc-hover)]'
       }`}
       onClick={
         category.builtin

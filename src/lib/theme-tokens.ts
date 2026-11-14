@@ -32,6 +32,7 @@ export const THEME_TOKENS: readonly TokenRegistration[] = [
   { name: '--oc-ink-fixed', scope: 'page', note: '固定底色上的墨色（不随主题翻转）' },
   { name: '--oc-paper-fixed', scope: 'page', note: '固定底色（不随主题翻转）' },
   { name: '--oc-hover', scope: 'page', note: '控件悬停 / 抬起的浅底' },
+  { name: '--oc-selection', scope: 'page', note: '正文选区底色（::selection）' },
   { name: '--oc-scrim', scope: 'page', note: '弹窗遮罩' },
   { name: '--oc-shadow-float', scope: 'page', note: '浮层唯一一档阴影' },
   { name: '--oc-error-light', scope: 'page', note: '错误态浅底' },

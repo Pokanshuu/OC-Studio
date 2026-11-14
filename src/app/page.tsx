@@ -93,6 +93,8 @@ export default function Home() {
     leaveConfirm,
     novelEntryTarget,
     placeholderText,
+    refreshCharacters,
+    refreshEvents,
     selectedEvent,
     setActiveItem,
     setLeaveConfirm,
@@ -164,6 +166,7 @@ export default function Home() {
           events={events}
           loading={eventsLoading}
           error={eventsError}
+          onRetry={refreshEvents}
           onSelectEvent={handleSelectEvent}
           onCreateEvent={handleCreateEvent}
           onDeleteEvent={handleDeleteEvent}
@@ -200,6 +203,7 @@ export default function Home() {
             characters={characters}
             loading={charactersLoading}
             error={charactersError}
+            onRetry={refreshCharacters}
             onSelectCharacter={handleSelectCharacter}
             onCreateCharacter={handleCreateCharacter}
             onDeleteCharacter={handleDeleteCharacter}

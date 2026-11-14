@@ -1,5 +1,7 @@
 'use client'
 
+import { useDelayedFlag } from '@/lib/use-delayed-flag'
+
 /**
  * 一个自定义分类的列表页 + 条目编辑器。
  *
@@ -239,8 +241,8 @@ export function CategorySection({
 
   const handleRenameFolder = useCallback(async (from: string, to: string) => {
     if (!category) return
-    const moved = await renameWorldFolder(category.name, from, to)
-    toast.success(`已重命名为「${to}」`, { description: `${moved} 个条目跟着走，条目本身没动` })
+    await renameWorldFolder(category.name, from, to)
+    toast.success(`已重命名为「${to}」`)
     notifyDataUpdated()
     await reload()
     if (folderFilter === from) setFolderFilter(to)
@@ -248,8 +250,8 @@ export function CategorySection({
 
   const handleDeleteFolder = useCallback(async (name: string) => {
     if (!category) return
-    const count = await deleteWorldFolder(category.name, name)
-    toast.success(`已删除文件夹「${name}」`, { description: `${count} 个条目回到未分组，一个都没删` })
+    await deleteWorldFolder(category.name, name)
+    toast.success(`已删除文件夹「${name}」`)
     notifyDataUpdated()
     await reload()
     if (folderFilter === name) setFolderFilter('all')
@@ -364,6 +366,9 @@ export function CategorySection({
     return src ? [src] : []
   }, [entries])
 
+  /** 加载态不闪：200ms 内什么都不画，超过才显示「加载中…」 */
+  const showLoading = useDelayedFlag(loading)
+
   if (!category) {
     return (
       <div className={CENTER_STATE}>
@@ -374,11 +379,11 @@ export function CategorySection({
 
   // 与实体列表同款：加载 / 错误走整页居中，不把工具条留在上面
   if (loading) {
-    return (
+    return showLoading ? (
       <div className="flex h-full items-center justify-center">
         <span className="text-[13px] text-ink-faint">加载中…</span>
       </div>
-    )
+    ) : null
   }
 
   if (error) {

@@ -97,7 +97,7 @@ function ZoomSlider({
         commit(Number(e.currentTarget.value))
       }}
       onKeyUp={(e) => commit(Number(e.currentTarget.value))}
-      className="h-8 w-24 cursor-pointer appearance-none bg-transparent
+      className="h-8 w-24 appearance-none bg-transparent
         [&::-webkit-slider-runnable-track]:h-1 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-line
         [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:-mt-1 [&::-webkit-slider-thumb]:h-3.5
         [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-ink-muted

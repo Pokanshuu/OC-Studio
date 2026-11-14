@@ -1,5 +1,7 @@
 'use client'
 
+import { useDelayedFlag } from '@/lib/use-delayed-flag'
+
 /**
  * 分类条目编辑器 —— **留在分类里**，不再跳去「世界观」。
  *
@@ -45,12 +47,14 @@ interface CategoryEntryEditorProps {
 export function CategoryEntryEditor(props: CategoryEntryEditorProps) {
   const { entry, loading, error } = useEntry(props.entryId)
 
+  // 加载态不闪：200ms 内什么都不画，超过才显示「加载中…」
+  const showLoading = useDelayedFlag(loading)
   if (loading) {
-    return (
+    return showLoading ? (
       <div className={CENTER_STATE}>
         <span className={LOADING_TEXT}>加载中…</span>
       </div>
-    )
+    ) : null
   }
 
   if (error || !entry) {

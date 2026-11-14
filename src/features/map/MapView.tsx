@@ -1,5 +1,7 @@
 'use client'
 
+import { useDelayedFlag } from '@/lib/use-delayed-flag'
+
 /**
  * 地图视图（W3）：**地图是实体（笔记）**，锚点挂在其它实体上。
  *
@@ -919,12 +921,14 @@ export function MapView() {
     { label: '取地形剖面', icon: <Activity size={13} strokeWidth={2} />, onSelect: () => startProfile() },
   ]
 
+  // 加载态不闪：200ms 内什么都不画，超过才显示「加载中…」
+  const showLoading = useDelayedFlag(loading)
   if (loading) {
-    return (
+    return showLoading ? (
       <div className={CENTER_STATE}>
         <span className={LOADING_TEXT}>加载中…</span>
       </div>
-    )
+    ) : null
   }
 
   if (maps.length === 0) {
