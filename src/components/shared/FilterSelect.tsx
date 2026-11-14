@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronDown } from 'lucide-react'
 import { MENU, MENU_ITEM_BASE } from '@/lib/ui-tokens'
+import { useMenuKeyboard } from '@/lib/use-menu-keyboard'
 
 export interface FilterOption<T extends string | number = number | 'all'> {
   value: T
@@ -77,9 +78,13 @@ export function FilterSelect<T extends string | number>({
 
   useEffect(() => {
     if (!open) return
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
+    document.addEventListener('pointerdown', handleClickOutside, true)
+    return () => document.removeEventListener('pointerdown', handleClickOutside, true)
   }, [open, handleClickOutside])
+
+  const closePanel = useCallback(() => setOpen(false), [])
+  // 键盘：焦点进面板、↑/↓ 走、Enter 选、Esc 关闭并把焦点还给触发按钮
+  useMenuKeyboard(panelRef, closePanel, open)
 
   const selectedLabel = options.find((o) => o.value === value)?.label ?? fallbackLabel
 
@@ -104,6 +109,7 @@ export function FilterSelect<T extends string | number>({
               {options.map((opt) => (
                 <button
                   key={String(opt.value)}
+                  role="menuitem"
                   onClick={() => {
                     onChange(opt.value)
                     setOpen(false)

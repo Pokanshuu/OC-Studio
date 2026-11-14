@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import React from 'react'
 import { MENU, ROUND_ITEM } from '@/lib/ui-tokens'
+import { useMenuKeyboard } from '@/lib/use-menu-keyboard'
 
 interface BlockButton {
   label: string
@@ -43,10 +44,14 @@ export function BlockTypeMenu({ editor, position, onClose, blockPos }: BlockType
     }
   }, [position])
 
+  /** 关闭不淡出：系统菜单是瞬时的，淡出会让人觉得慢 */
   const handleClose = useCallback(() => {
     setVisible(false)
-    setTimeout(() => onClose(), 150)
+    onClose()
   }, [onClose])
+
+  // 键盘：打开后焦点进第一枚按钮、←/↑ 与 →/↓ 在按钮间走（←/→ 与菜单朝向一致）
+  useMenuKeyboard(ref, handleClose, position !== null)
 
   useEffect(() => {
     if (!position) return
@@ -56,11 +61,11 @@ export function BlockTypeMenu({ editor, position, onClose, blockPos }: BlockType
       }
     }
     const id = setTimeout(() => {
-      document.addEventListener('click', handleClick)
+      document.addEventListener('pointerdown', handleClick, true)
     }, 0)
     return () => {
       clearTimeout(id)
-      document.removeEventListener('click', handleClick)
+      document.removeEventListener('pointerdown', handleClick, true)
     }
   }, [position, handleClose])
 
@@ -198,8 +203,9 @@ export function BlockTypeMenu({ editor, position, onClose, blockPos }: BlockType
       {buttons.map((btn) => (
         <button
           key={btn.label}
+          role="menuitem"
           onClick={btn.action}
-          title={btn.label}
+          aria-label={btn.label}
           onMouseDown={(e) => e.preventDefault()}
           className={`flex h-7 w-7 items-center justify-center transition-colors ${ROUND_ITEM} ${
             btn.isActive()

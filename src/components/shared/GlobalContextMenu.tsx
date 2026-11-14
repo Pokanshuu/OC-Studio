@@ -8,6 +8,7 @@ import { MENU, MENU_ITEM } from '@/lib/ui-tokens'
 import { adjustContextMenuPosition } from '@/lib/menu-utils'
 import { shortcutLabel } from '@/lib/shortcut-label'
 import { toast } from 'sonner'
+import { useMenuKeyboard } from '@/lib/use-menu-keyboard'
 
 interface InputMenuContextValue {
   openMenuAt: (target: HTMLElement, x: number, y: number) => void
@@ -137,10 +138,11 @@ export function GlobalContextMenu({ children }: { children: ReactNode }) {
 
   // 用函数声明而不是 const 箭头函数：上面的 effect 里要用到它们，
   // 函数声明会提升，避免「先使用后声明」（react-hooks/immutability）
+  // 关闭不做淡出：系统菜单是瞬时的，150ms 淡出期间菜单还在屏幕上、还能被点到
   function close() {
-    setVisible(false)
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
-    closeTimerRef.current = setTimeout(() => setOpen(false), 150)
+    setVisible(false)
+    setOpen(false)
   }
   function closeImmediate() {
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
@@ -198,6 +200,9 @@ export function GlobalContextMenu({ children }: { children: ReactNode }) {
     close()
   }, [])
 
+  // 键盘：打开后焦点进第一项、↑/↓ 走、Enter 执行、Esc 关闭并把焦点还给原来的输入框
+  useMenuKeyboard(menuRef, close, open)
+
   const menuEl = open ? (
     <div className="pointer-events-none fixed inset-0 z-50">
       <div
@@ -208,20 +213,20 @@ export function GlobalContextMenu({ children }: { children: ReactNode }) {
           top: adjPosition.y,
         }}
       >
-        <button onClick={handleCut} className={MENU_ITEM}>
+        <button role="menuitem" onClick={handleCut} className={MENU_ITEM}>
           <span>剪切</span>
           <span className="ml-auto text-[11px] text-ink-faint">{shortcutLabel('Ctrl+X')}</span>
         </button>
-        <button onClick={handleCopy} className={MENU_ITEM}>
+        <button role="menuitem" onClick={handleCopy} className={MENU_ITEM}>
           <span>复制</span>
           <span className="ml-auto text-[11px] text-ink-faint">{shortcutLabel('Ctrl+C')}</span>
         </button>
-        <button onClick={handlePaste} className={MENU_ITEM}>
+        <button role="menuitem" onClick={handlePaste} className={MENU_ITEM}>
           <span>粘贴</span>
           <span className="ml-auto text-[11px] text-ink-faint">{shortcutLabel('Ctrl+V')}</span>
         </button>
         <Separator className="mx-2 my-1" />
-        <button onClick={handleSelectAll} className={MENU_ITEM}>
+        <button role="menuitem" onClick={handleSelectAll} className={MENU_ITEM}>
           <span>全选</span>
           <span className="ml-auto text-[11px] text-ink-faint">{shortcutLabel('Ctrl+A')}</span>
         </button>

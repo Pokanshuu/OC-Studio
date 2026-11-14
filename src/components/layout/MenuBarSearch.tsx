@@ -222,7 +222,16 @@ export function MenuBarSearch() {
           value={query}
           onChange={(e) => { setQuery(e.target.value); openPanel(); setSelectedIndex(0) }}
           onFocus={openPanel}
-          onBlur={() => { setTimeout(() => setIsOpen(false), 150) }}
+          /*
+           * 关面板：只看**焦点去了哪**，不用 `setTimeout(150)`。
+           * 定时器版本点得慢一点就会点空（面板已在计时器里关掉，点击落到别处）。面板项自己
+           * `onMouseDown={preventDefault}`，所以点面板不会让输入框失焦。
+           */
+          onBlur={(event) => {
+            const next = event.relatedTarget as Node | null
+            if (next && panelRef.current?.contains(next)) return
+            setIsOpen(false)
+          }}
           onKeyDown={handleKeyDown}
           placeholder="搜索标题、正文…"
           className="h-6 w-40 border-b border-transparent bg-transparent pl-7 pr-3 text-[12px] text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none sm:w-56 lg:w-64 xl:w-96"

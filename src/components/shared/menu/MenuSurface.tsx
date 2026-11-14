@@ -22,6 +22,7 @@ import { createPortal } from 'react-dom'
 import { MENU } from '@/lib/ui-tokens'
 import { adjustContextMenuPosition } from '@/lib/menu-utils'
 import { useDismissableLayer } from '@/lib/use-dismissable-layer'
+import { useMenuKeyboard } from '@/lib/use-menu-keyboard'
 
 interface MenuSurfaceProps {
   /** 点击处（视口坐标） */
@@ -46,6 +47,8 @@ export function MenuSurface({
 }: MenuSurfaceProps) {
   const [position, setPosition] = useState(at)
   const panelRef = useDismissableLayer<HTMLDivElement>({ onClose })
+  // 键盘：打开后焦点进第一项、↑/↓ 走、Enter 执行、Esc 关闭并把焦点还回去
+  useMenuKeyboard(panelRef, onClose)
 
   // 量出真实宽高再夹进视口：直接 left/top 会让右下角弹出的菜单飞出屏幕
   useLayoutEffect(() => {

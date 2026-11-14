@@ -7,6 +7,7 @@ import { adjustContextMenuPosition } from '@/lib/menu-utils'
 import { ContextMenuButton } from './context-menu/ContextMenuButton'
 import { ContextSubMenu } from './context-menu/ContextSubMenu'
 import type { ContextMenuProps, ContextMenuItem } from './context-menu/context-menu-types'
+import { useMenuKeyboard } from '@/lib/use-menu-keyboard'
 
 export type { ContextMenuItem, ContextMenuProps }
 
@@ -36,10 +37,11 @@ export function ContextMenu({ children, items }: ContextMenuProps) {
   const cooldownUntilRef = useRef(0)
   const closeTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
+  /** 关闭不做淡出：系统菜单是瞬时的，150ms 淡出期间菜单还在屏幕上、还能被点到 */
   const close = useCallback(() => {
-    setVisible(false)
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
-    closeTimerRef.current = setTimeout(() => setOpen(false), 150)
+    setVisible(false)
+    setOpen(false)
   }, [])
   const closeImmediate = useCallback(() => {
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
@@ -133,6 +135,9 @@ export function ContextMenu({ children, items }: ContextMenuProps) {
     document.addEventListener('selectionchange', handler)
     return () => document.removeEventListener('selectionchange', handler)
   }, [open, closeImmediate])
+
+  // 键盘：打开后焦点进第一项、↑/↓ 走、Enter 执行、Esc 关闭并把焦点还给原来的元素
+  useMenuKeyboard(menuRef, close, open)
 
   return (
     <div onContextMenu={handleContextMenu}>

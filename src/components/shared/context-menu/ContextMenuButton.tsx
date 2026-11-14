@@ -14,6 +14,7 @@ export function ContextMenuButton({
 }) {
   return (
     <button
+      role="menuitem"
       disabled={item.disabled}
       onClick={() => {
         item.onClick?.()
