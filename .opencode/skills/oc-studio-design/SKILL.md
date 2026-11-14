@@ -260,6 +260,61 @@ description: >
 - 尺寸：桌面 16px，移动 20px。颜色继承父级文字色
 - 状态图标：成功用 `CheckCircle` (灰)，错误用 `XCircle` (红)，警告用 `AlertTriangle` (黄)
 - **语义规则**：返回/关闭=`ArrowLeft`，折叠（收侧边栏）=`ChevronLeft`，展开（开侧边栏）=`Menu`
+- **例外：窗口按钮用系统字形，不用 lucide**（`src/components/layout/window-glyphs.tsx`）。
+  lucide 的 `Minimize2` / `Maximize2` 是「两个斜向箭头」，语义是全屏 / 退出全屏；
+  Windows 的最大化是一个**方框**、还原是**两个错位叠放的方框**、最小化是一条横线、关闭是一个 X。
+  这四个是 10×10 内联 SVG（`strokeWidth={1}`、`shape-rendering="crispEdges"`、`currentColor`），
+  按系统标题栏的版式画 —— 用斜箭头一眼就能看出这不是系统窗口。
+- **例外：导航历史 ≠ 返回列表**。桌面编辑器页头的「后退 / 前进」是一对 `ChevronLeft` / `ChevronRight`
+  （历史语义），不是 `ArrowLeft`（返回 / 关闭）。移动端仍保留 `ArrowLeft` + 「返回」文字
+  （`data-mobile-back` 是 Android 物理返回键的落点，别动）。
+
+## 4.1 桌面交互的三条新增规范（2026-11-14 前端桌面化）
+
+### Tooltip（`components/ui/tooltip.tsx` 的 `Tip`）
+- **图标按钮一律用 `Tip`，不写原生 `title`**。原生 title 是浏览器画的：约 1 秒才出、字体与底色跟系统走、
+  位置不可控、触屏不出 —— 每个图标按钮都在提醒用户「这是 WebView」。
+- `Tip` 参数：`label`（一句话说明它**是什么**）+ 可选 `shortcut`（组合串写 `Ctrl+Shift+Z`，
+  macOS 自动显示成 `⌘⇧Z`，走 `lib/shortcut-label.ts`）+ `side`（默认 `bottom`）。
+- 延迟 500ms、同一 Provider 内相邻按钮**即时切换**；面板是 `TOOLTIP`（纸面 + 1px 线 + `float-shadow`），
+  淡入 `duration-fast`、**不缩放**。整棵树由 `AppShell` 根部的 `TooltipProvider` 统一管延迟。
+- 文字按钮（按钮本身有可见文字）上的 `title` **直接删**，不要换成 Tip；
+  截断文字上用来看全文的 `title` 保留。
+
+### 焦点圈
+- 全局唯一一档：`:focus-visible { outline: 1.5px solid var(--oc-ink-muted); outline-offset: 1px }`
+  （`globals.css` 的 `@layer base`）。
+- **输入框 / textarea / contenteditable / `.ProseMirror` 不要圈**：它们靠那条底线表达焦点。
+- 所以业务代码里按钮 / 行 / 菜单项上的 `focus:outline-none` 要删掉（让全局圈生效），
+  输入框上的保留。菜单项例外：`MENU_ITEM_BASE` 自带 `focus-visible:outline-none`，
+  因为菜单项走键盘时已经由 `data-highlighted` 铺底色，再套一圈就是双重指示。
+- 焦点圈被 `overflow-hidden` 裁掉时改 `outline-offset: -1.5px`（圈画在盒子里）。
+
+### 选中态 / 光标 / 按压
+- 列表行与卡片的**选中态** = `ROW_SELECTED`（`bg-[var(--oc-hover)]` + 一圈 `inset` 内线
+  `--oc-line-hover`）。只加深底色不够 —— 悬停和选中会看着是同一件事。
+  卡片上的底色没有意义（图会盖住），选中层用同一条内线压在 `COVER_FRAME` 上方的绝对定位层。
+- **光标**：`button` / `[role=button|menuitem|tab|option]` / `summary` / `label` 一律 `cursor: default`
+  （`globals.css` 的 `@layer base`）。手形只留给正文链接与 `[[链接]]` / `@提及` 节点，
+  以及关系图里靠手形提示可拖的节点（`NODE_WRAPPER`）。业务代码里不要再写 `cursor-pointer`。
+- **图片不可拖出**：`img { -webkit-user-drag: none }`。
+- **桌面端没有按压缩放**：`.touch-feedback:active { scale(.96) }` 只对触屏生效
+  （`@media (hover: hover) and (pointer: fine)` 里被 `transform: none` 覆盖）。
+  桌面的按下反馈是**底色再深一档**：`BTN_PRIMARY` → `active:bg-line-hover`，
+  `SETTINGS_ACTION_BTN` / `FILTER_TRIGGER` / `WINDOW_BTN` → `active:bg-[var(--oc-hover)]`。
+
+### 字号五档（`globals.css` 的 `@theme`）
+| 类 | 值 | 用在哪 |
+|---|---|---|
+| `text-micro` | 11px | 角标 / 分组标题 / 表头的极小字 |
+| `text-caption` | 12px | 说明 / 状态 / 次要信息 |
+| `text-ui` | 13px | 界面默认（按钮、菜单项、字段、列表副标题） |
+| `text-body` | 14px | 正文段落 / 表单主文 |
+| `text-reading` | 15px | 长文阅读（编辑器正文） |
+
+`ui-tokens.ts` 里已全部换成这五档；业务文件里的 `text-[11px]` 这类字面量还有约 500 处，
+`audit:design` 的 `font-size-literal` 目前**只报计数、不计入失败**。
+`text-[10px]` / `text-[12.5px]` 这类不在五档内的，迁移时按语义归到最近一档。
 
 ## 5. 数据可视化风格
 - 坐标轴 / 连线 / 刻度：1px `line`；数据线：1.5px `ink-muted`
@@ -307,6 +362,9 @@ description: >
 ## 8. 例外允许的颜色
 - 图片 hover 遮罩允许：`bg-black/40`、`bg-black/30` 等半透明黑色
 - 遮罩内文字允许：`text-white`
+- **窗口关闭按钮**允许系统红：`hover:bg-[#C42B1C]` + `hover:text-paper-fixed`、按下 `active:bg-[#B22A1C]`
+  （`ui-tokens.ts` 的 `WINDOW_BTN_CLOSE`，已写 `// design-audit-allow raw-hex`）。
+  这是**唯一**该打破「界面无色」的地方：用户靠那块红确认「我要关的是窗口」。
 - `FullscreenViewer` 全屏背景允许：`bg-black/80`
 - 标签色板（`src/lib/tag-colors.ts` + `TagBadge`）允许**字面量十六进制**类名（如 `bg-[#FF6B6B]/15 text-[#FF6B6B]`）：颜色是用户数据，Tailwind JIT 按源码文本扫描，**不能**写成 `bg-[${hex}]/15`
 - 关系图的 canvas/SVG 层（点阵、连线、缩略图）写 `var(--color-line)` 这类**令牌变量**，不写十六进制 —— 它不经过 Tailwind，暗色下写死就会错色
