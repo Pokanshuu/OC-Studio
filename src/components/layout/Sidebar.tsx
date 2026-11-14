@@ -285,7 +285,7 @@ export function Sidebar() {
         onPointerCancel={handlePointerUp}
         onDoubleClick={() => commitWidth(DEFAULT_SIDEBAR_WIDTH)}
         onKeyDown={handleKeyDown}
-        className={`absolute inset-y-0 right-0 w-1.5 cursor-col-resize touch-none transition-colors focus:outline-none ${
+        className={`absolute inset-y-0 right-0 w-1.5 cursor-col-resize touch-none transition-colors ${
           dragWidth !== null ? 'bg-[var(--oc-hover)]' : 'hover:bg-[var(--oc-hover)]'
         }`}
       />

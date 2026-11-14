@@ -175,7 +175,7 @@ export const ADD_ACTION =
  * hover `bg-error-light`）—— 在菜单里铺一块红底会把「行」变成「按钮」。
  */
 export const BTN_DANGER =
-  `touch-feedback flex h-8 shrink-0 items-center justify-center gap-1.5 bg-danger px-3 text-[13px] text-danger-ink transition-colors hover:bg-danger-hover focus-visible:outline-none disabled:opacity-40 ${ROUND_CONTROL}`
+  `touch-feedback flex h-8 shrink-0 items-center justify-center gap-1.5 bg-danger px-3 text-[13px] text-danger-ink transition-colors hover:bg-danger-hover disabled:opacity-40 ${ROUND_CONTROL}`
 
 /* ── 输入 ─────────────────────────────────────────────
    零描边：静默态只留一条极淡的线，聚焦时加深。 */
@@ -212,11 +212,21 @@ export const PANEL = `border border-line bg-paper/85 backdrop-blur-lg ${FLOAT_SH
  */
 export const PANEL_SOLID = `border border-line bg-paper ${FLOAT_SHADOW} ${ROUND_PANEL}`
 export const MENU = `border border-line bg-paper/85 backdrop-blur-lg py-1 ${FLOAT_SHADOW} ${ROUND_CONTROL}`
-/** 菜单行骨架：只含盒子与排版，不带文字色和 hover 底色（危险项 / 禁用项 / 高亮态用它） */
+/** 菜单行骨架：只含盒子与排版，不带文字色和 hover 底色（危险项 / 禁用项 / 高亮态用它）
+ *  `focus-visible:outline-none`：菜单项走键盘时靠 `data-highlighted` 的底色指示，
+ *  再叠一圈焦点圈就成了双重指示（两个高亮框同时亮）。 */
 export const MENU_ITEM_BASE =
-  `flex w-full items-center gap-2 px-3 py-1 text-left text-[13px] transition-colors ${ROUND_ITEM}`
+  `flex w-full items-center gap-2 px-3 py-1 text-left text-[13px] transition-colors focus-visible:outline-none ${ROUND_ITEM}`
 export const MENU_ITEM = `${MENU_ITEM_BASE} text-ink hover:bg-[var(--oc-hover)]`
 export const MENU_GROUP_LABEL = 'px-3 py-1 text-[11px] tracking-[0.08em] text-ink-faint'
+
+/* ── Tooltip ─────────────────────────────────────────────
+   桌面应用的悬停提示：淡入、**不缩放**、贴在触发元素下方 6px，500ms 后出现；
+   同一组按钮之间移动时立即切换（延迟由 `Tooltip.Provider` 统一给）。
+   原生 `title` 是浏览器画的（约 1 秒才出、字体底色跟系统走、暗色下可能是浅色框），
+   每个图标按钮都是一次「这是 WebView」的提醒 —— 所以图标按钮一律用 `Tip`。 */
+export const TOOLTIP =
+  `pointer-events-none border border-line bg-paper px-2 py-1 text-[12px] text-ink ${FLOAT_SHADOW} ${ROUND_CONTROL}`
 
 /* ── chip ─────────────────────────────────────────────
    无描边、低对比底色；选中态反相为实心墨色。 */

@@ -15,6 +15,7 @@ import { ArrowLeft, Search, X } from 'lucide-react'
 import { getImageUrl } from '@/lib/image-service'
 import { FLOAT_BAR, FLOAT_BAR_ICON, FLOAT_BAR_TEXT, MENU_ITEM_BASE, PANEL, ROUND_ITEM } from '@/lib/ui-tokens'
 import { useDismissableLayer } from '@/lib/use-dismissable-layer'
+import { Tip } from '@/components/ui/tooltip'
 import type { GraphNode, RelationNodeType } from '../types'
 import { NodeTypeIcon, NODE_TYPE_LABELS } from './node-type-icon'
 
@@ -183,15 +184,16 @@ export function RelationTopBar({ nodes, edgeCount, focusLabel, onExitFocus, onLo
             </button>
           </>
         ) : (
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className={FLOAT_BAR_ICON}
-            aria-label="定位条目"
-            title="定位条目"
-          >
-            <Search size={13} strokeWidth={2} />
-          </button>
+          <Tip label="定位条目">
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              className={FLOAT_BAR_ICON}
+              aria-label="定位条目"
+            >
+              <Search size={13} strokeWidth={2} />
+            </button>
+          </Tip>
         )}
       </div>
 

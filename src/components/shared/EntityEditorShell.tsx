@@ -7,6 +7,7 @@ import { EditorToolbar } from '@/components/editor/EditorToolbar'
 import { ListWidthResizer } from '@/components/editor/ListWidthResizer'
 import { useListWidth } from '@/components/editor/useListWidth'
 import { ICON_BTN_MD } from '@/lib/ui-tokens'
+import { Tip } from '@/components/ui/tooltip'
 
 interface EntityEditorShellProps {
   title: string
@@ -64,15 +65,16 @@ export function EntityEditorShell({
         <div className="absolute inset-x-0 top-0 z-30 flex h-12 shrink-0 items-center gap-2 border-b border-line bg-paper/85 px-3 backdrop-blur-lg">
           <div className="flex shrink-0 items-center gap-2">
             {hasList && !listOpen && onToggleList ? (
-              <button
-                type="button"
-                onClick={onToggleList}
-                className={ICON_BTN_MD}
-                title="展开列表"
-                aria-label="展开列表"
-              >
-                <Menu size={16} strokeWidth={2} />
-              </button>
+              <Tip label="展开列表">
+                <button
+                  type="button"
+                  onClick={onToggleList}
+                  className={ICON_BTN_MD}
+                  aria-label="展开列表"
+                >
+                  <Menu size={16} strokeWidth={2} />
+                </button>
+              </Tip>
             ) : null}
             {onBack ? (
               <button
@@ -81,7 +83,6 @@ export function EntityEditorShell({
                 data-mobile-back
                 className={`${ICON_BTN_MD} w-auto gap-1 px-1.5`}
                 aria-label="返回"
-                title="返回"
               >
                 <ArrowLeft size={16} strokeWidth={2} />
                 <span className="text-[13px]">返回</span>

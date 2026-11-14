@@ -9,6 +9,7 @@
  */
 import { Minus, Plus, Scan } from 'lucide-react'
 import { FLOAT_BAR, FLOAT_BAR_ICON } from '@/lib/ui-tokens'
+import { Tip } from '@/components/ui/tooltip'
 
 export function RelationZoomBar({
   zoom,
@@ -22,35 +23,38 @@ export function RelationZoomBar({
   const percent = Math.round(zoom * 100)
   return (
     <div className={`pointer-events-auto ${FLOAT_BAR}`}>
-      <button
-        type="button"
-        onClick={() => onZoomChange(percent - 10)}
-        className={FLOAT_BAR_ICON}
-        aria-label="缩小"
-        title="缩小"
-      >
-        <Minus size={14} strokeWidth={2} />
-      </button>
+      <Tip label="缩小">
+        <button
+          type="button"
+          onClick={() => onZoomChange(percent - 10)}
+          className={FLOAT_BAR_ICON}
+          aria-label="缩小"
+        >
+          <Minus size={14} strokeWidth={2} />
+        </button>
+      </Tip>
       <span className="w-9 text-center text-[11px] tabular-nums text-ink-faint">{percent}%</span>
-      <button
-        type="button"
-        onClick={() => onZoomChange(percent + 10)}
-        className={FLOAT_BAR_ICON}
-        aria-label="放大"
-        title="放大"
-      >
-        <Plus size={14} strokeWidth={2} />
-      </button>
+      <Tip label="放大">
+        <button
+          type="button"
+          onClick={() => onZoomChange(percent + 10)}
+          className={FLOAT_BAR_ICON}
+          aria-label="放大"
+        >
+          <Plus size={14} strokeWidth={2} />
+        </button>
+      </Tip>
       <span className="mx-0.5 h-4 w-px shrink-0 bg-line" aria-hidden />
-      <button
-        type="button"
-        onClick={onFit}
-        className={FLOAT_BAR_ICON}
-        aria-label="全景"
-        title="全景"
-      >
-        <Scan size={14} strokeWidth={2} />
-      </button>
+      <Tip label="全景">
+        <button
+          type="button"
+          onClick={onFit}
+          className={FLOAT_BAR_ICON}
+          aria-label="全景"
+        >
+          <Scan size={14} strokeWidth={2} />
+        </button>
+      </Tip>
     </div>
   )
 }

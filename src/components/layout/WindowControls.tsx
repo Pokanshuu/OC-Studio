@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { CloseGlyph, MaximizeGlyph, MinimizeGlyph, RestoreGlyph } from './window-glyphs'
 import { WINDOW_BTN, WINDOW_BTN_CLOSE } from '@/lib/ui-tokens'
+import { Tip } from '@/components/ui/tooltip'
 
 /**
  * 应用窗口控制按钮（Tauri 环境下生效；浏览器里三个调用静默失败）。
@@ -51,30 +52,36 @@ export function WindowControls() {
 
   return (
     <div data-window-controls className="flex items-center gap-0">
-      <button
-        type="button"
-        className={WINDOW_BTN}
-        onClick={() => run('minimize')}
-        aria-label="最小化"
-      >
-        <MinimizeGlyph />
-      </button>
-      <button
-        type="button"
-        className={WINDOW_BTN}
-        onClick={() => run('toggle')}
-        aria-label={isMaximized ? '还原' : '最大化'}
-      >
-        {isMaximized ? <RestoreGlyph /> : <MaximizeGlyph />}
-      </button>
-      <button
-        type="button"
-        className={WINDOW_BTN_CLOSE}
-        onClick={() => run('close')}
-        aria-label="关闭"
-      >
-        <CloseGlyph />
-      </button>
+      <Tip label="最小化">
+        <button
+          type="button"
+          className={WINDOW_BTN}
+          onClick={() => run('minimize')}
+          aria-label="最小化"
+        >
+          <MinimizeGlyph />
+        </button>
+      </Tip>
+      <Tip label={isMaximized ? '还原' : '最大化'}>
+        <button
+          type="button"
+          className={WINDOW_BTN}
+          onClick={() => run('toggle')}
+          aria-label={isMaximized ? '还原' : '最大化'}
+        >
+          {isMaximized ? <RestoreGlyph /> : <MaximizeGlyph />}
+        </button>
+      </Tip>
+      <Tip label="关闭">
+        <button
+          type="button"
+          className={WINDOW_BTN_CLOSE}
+          onClick={() => run('close')}
+          aria-label="关闭"
+        >
+          <CloseGlyph />
+        </button>
+      </Tip>
     </div>
   )
 }

@@ -32,6 +32,7 @@ import {
   IndentDecrease,
 } from 'lucide-react'
 import { ICON_BTN_MD, ROUND_CONTROL } from '@/lib/ui-tokens'
+import { Tip } from '@/components/ui/tooltip'
 import { OverflowBar, type OverflowEntry } from '@/components/shared/OverflowBar'
 import { LinkPopover } from './LinkPopover'
 import { ToolbarMenu, type ToolbarMenuGroup, type ToolbarMenuItem } from './ToolbarMenu'
@@ -53,23 +54,24 @@ function IconButton({ label, active, disabled, onActivate, children }: IconButto
     if (!disabled) onActivate(el)
   }
   return (
-    <button
-      type="button"
-      title={label}
-      aria-label={label}
-      aria-pressed={active === undefined ? undefined : active}
-      disabled={disabled}
-      onPointerDown={(e) => {
-        e.preventDefault()
-        fire(e.currentTarget)
-      }}
-      onClick={(e) => {
-        if (e.detail === 0) fire(e.currentTarget)
-      }}
-      className={`${ICON_BTN_MD} shrink-0 disabled:opacity-30 ${active ? 'bg-[var(--oc-hover)] text-ink' : ''}`}
-    >
-      {children}
-    </button>
+    <Tip label={label}>
+      <button
+        type="button"
+        aria-label={label}
+        aria-pressed={active === undefined ? undefined : active}
+        disabled={disabled}
+        onPointerDown={(e) => {
+          e.preventDefault()
+          fire(e.currentTarget)
+        }}
+        onClick={(e) => {
+          if (e.detail === 0) fire(e.currentTarget)
+        }}
+        className={`${ICON_BTN_MD} shrink-0 disabled:opacity-30 ${active ? 'bg-[var(--oc-hover)] text-ink' : ''}`}
+      >
+        {children}
+      </button>
+    </Tip>
   )
 }
 
@@ -85,22 +87,23 @@ function ToolbarTrigger({
   onClick: (anchor: HTMLButtonElement) => void
 }) {
   return (
-    <button
-      type="button"
-      aria-haspopup="menu"
-      aria-label={label}
-      title={label}
-      onPointerDown={(e) => e.preventDefault()}
-      onClick={(e) => onClick(e.currentTarget)}
-      className={`flex h-8 shrink-0 items-center gap-0.5 px-1.5 transition-colors ${ROUND_CONTROL} ${
-        active
-          ? 'bg-[var(--oc-hover)] text-ink'
-          : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
-      }`}
-    >
-      {icon}
-      <ChevronDown size={12} strokeWidth={2} className="text-ink-faint" />
-    </button>
+    <Tip label={label}>
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-label={label}
+        onPointerDown={(e) => e.preventDefault()}
+        onClick={(e) => onClick(e.currentTarget)}
+        className={`flex h-8 shrink-0 items-center gap-0.5 px-1.5 transition-colors ${ROUND_CONTROL} ${
+          active
+            ? 'bg-[var(--oc-hover)] text-ink'
+            : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
+        }`}
+      >
+        {icon}
+        <ChevronDown size={12} strokeWidth={2} className="text-ink-faint" />
+      </button>
+    </Tip>
   )
 }
 

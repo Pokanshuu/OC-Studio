@@ -9,6 +9,7 @@
  */
 import { MoreHorizontal, Plus } from 'lucide-react'
 import { FLOAT_BAR, FLOAT_BAR_ICON, FLOAT_BAR_TEXT } from '@/lib/ui-tokens'
+import { Tip } from '@/components/ui/tooltip'
 
 export function RelationToolsBar({
   onCreate,
@@ -23,18 +24,19 @@ export function RelationToolsBar({
         <Plus size={13} strokeWidth={2} />
         新建
       </button>
-      <button
-        type="button"
-        onClick={(event) => {
-          const rect = event.currentTarget.getBoundingClientRect()
-          onMore({ x: rect.left, y: rect.bottom + 6 })
-        }}
-        className={FLOAT_BAR_ICON}
-        aria-label="更多"
-        title="更多"
-      >
-        <MoreHorizontal size={15} strokeWidth={2} />
-      </button>
+      <Tip label="更多">
+        <button
+          type="button"
+          onClick={(event) => {
+            const rect = event.currentTarget.getBoundingClientRect()
+            onMore({ x: rect.left, y: rect.bottom + 6 })
+          }}
+          className={FLOAT_BAR_ICON}
+          aria-label="更多"
+        >
+          <MoreHorizontal size={15} strokeWidth={2} />
+        </button>
+      </Tip>
     </div>
   )
 }

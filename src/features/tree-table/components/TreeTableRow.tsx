@@ -115,7 +115,7 @@ export function TreeTableRow({
           handlers.onOpen(row)
         }
       }}
-      className="group row-rule transition-colors hover:bg-[var(--oc-hover)] focus:outline-none focus-visible:bg-[var(--oc-hover)]"
+      className="group row-rule transition-colors hover:bg-[var(--oc-hover)] focus-visible:bg-[var(--oc-hover)]"
     >
       <td className="py-1.5 pl-6">
         <div className="flex min-w-0 items-center gap-1" style={{ paddingLeft: row.depth * 18 }}>

@@ -38,6 +38,7 @@ import { newWorldEntryData } from '@/lib/entity-defaults'
 import { createInspiration, deleteInspiration, markPromoted, useInspirations } from '../store'
 import { inspirationLabel, inspirationText, inspirationTimeLabel, type Inspiration } from '../types'
 import { useInspirationDraft } from '../use-inspiration-draft'
+import { Tip } from '@/components/ui/tooltip'
 
 /**
  * 编辑器内核按需加载：它带着 TipTap 全家桶，而便签是「想到才点」的东西 ——
@@ -309,16 +310,17 @@ export function InspirationQuickNote() {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={toggle}
-        aria-label="灵感"
-        aria-pressed={open}
-        title="灵感"
-        className={`${ICON_BTN} ${open ? 'bg-[var(--oc-hover)] text-ink' : ''}`}
-      >
-        <Lightbulb size={13} strokeWidth={2} />
-      </button>
+      <Tip label="灵感">
+        <button
+          type="button"
+          onClick={toggle}
+          aria-label="灵感"
+          aria-pressed={open}
+          className={`${ICON_BTN} ${open ? 'bg-[var(--oc-hover)] text-ink' : ''}`}
+        >
+          <Lightbulb size={13} strokeWidth={2} />
+        </button>
+      </Tip>
 
       {open && position !== null
         ? createPortal(
@@ -346,64 +348,73 @@ export function InspirationQuickNote() {
               >
                 {showNote ? (
                   <>
-                    <button
-                      type="button"
-                      className={ICON_BTN}
-                      title="返回列表"
-                      aria-label="返回列表"
-                      onClick={() => setListOpen(true)}
-                    >
-                      <ArrowLeft size={14} strokeWidth={2} />
-                    </button>
+                    <Tip label="返回列表">
+                      <button
+                        type="button"
+                        className={ICON_BTN}
+                        aria-label="返回列表"
+                        onClick={() => setListOpen(true)}
+                      >
+                        <ArrowLeft size={14} strokeWidth={2} />
+                      </button>
+                    </Tip>
                     <span className="flex-1" />
-                    <button
-                      type="button"
-                      className={`${ICON_BTN} disabled:opacity-40`}
-                      title="变成笔记"
-                      aria-label="变成笔记"
-                      disabled={promoting}
-                      onClick={() => void handlePromote()}
-                    >
-                      <Sparkles size={14} strokeWidth={2} />
-                    </button>
-                    <button
-                      type="button"
-                      className={ICON_BTN}
-                      title="记一条"
-                      aria-label="记一条"
-                      onClick={() => void handleCreate()}
-                    >
-                      <Plus size={14} strokeWidth={2} />
-                    </button>
-                    <button
-                      type="button"
-                      className={ICON_BTN}
-                      title="删除"
-                      aria-label="删除"
-                      onClick={() => { if (selected !== null) setDeleteTarget(selected) }}
-                    >
-                      <Trash2 size={14} strokeWidth={2} />
-                    </button>
-                    <button type="button" className={ICON_BTN} title="收起" aria-label="收起" onClick={closeWindow}>
-                      <X size={14} strokeWidth={2} />
-                    </button>
+                    <Tip label="变成笔记">
+                      <button
+                        type="button"
+                        className={`${ICON_BTN} disabled:opacity-40`}
+                        aria-label="变成笔记"
+                        disabled={promoting}
+                        onClick={() => void handlePromote()}
+                      >
+                        <Sparkles size={14} strokeWidth={2} />
+                      </button>
+                    </Tip>
+                    <Tip label="记一条">
+                      <button
+                        type="button"
+                        className={ICON_BTN}
+                        aria-label="记一条"
+                        onClick={() => void handleCreate()}
+                      >
+                        <Plus size={14} strokeWidth={2} />
+                      </button>
+                    </Tip>
+                    <Tip label="删除">
+                      <button
+                        type="button"
+                        className={ICON_BTN}
+                        aria-label="删除"
+                        onClick={() => { if (selected !== null) setDeleteTarget(selected) }}
+                      >
+                        <Trash2 size={14} strokeWidth={2} />
+                      </button>
+                    </Tip>
+                    <Tip label="收起">
+                      <button type="button" className={ICON_BTN} aria-label="收起" onClick={closeWindow}>
+                        <X size={14} strokeWidth={2} />
+                      </button>
+                    </Tip>
                   </>
                 ) : (
                   <>
                     <span className="px-1 text-[11px] tracking-[0.08em] text-ink-faint">灵感</span>
                     <span className="flex-1" />
-                    <button
-                      type="button"
-                      className={ICON_BTN}
-                      title="记一条"
-                      aria-label="记一条"
-                      onClick={() => void handleCreate()}
-                    >
-                      <Plus size={14} strokeWidth={2} />
-                    </button>
-                    <button type="button" className={ICON_BTN} title="收起" aria-label="收起" onClick={closeWindow}>
-                      <X size={14} strokeWidth={2} />
-                    </button>
+                    <Tip label="记一条">
+                      <button
+                        type="button"
+                        className={ICON_BTN}
+                        aria-label="记一条"
+                        onClick={() => void handleCreate()}
+                      >
+                        <Plus size={14} strokeWidth={2} />
+                      </button>
+                    </Tip>
+                    <Tip label="收起">
+                      <button type="button" className={ICON_BTN} aria-label="收起" onClick={closeWindow}>
+                        <X size={14} strokeWidth={2} />
+                      </button>
+                    </Tip>
                   </>
                 )}
               </div>

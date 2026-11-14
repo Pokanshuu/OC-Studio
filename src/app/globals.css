@@ -316,6 +316,20 @@
   label {
     cursor: default;
   }
+  /* 键盘焦点圈 —— 全局唯一一档。
+     `focus:outline-none` 在业务代码里出现过 46 处、统一的 `focus-visible` 又基本没有，
+     于是键盘用户 Tab 时经常不知道焦点在哪。这里给一个统一圈，**输入框除外**：
+     输入框靠那条底线表达焦点，再套一圈就重了。 */
+  :focus-visible {
+    outline: 1.5px solid var(--oc-ink-muted);
+    outline-offset: 1px;
+  }
+  input:focus-visible,
+  textarea:focus-visible,
+  [contenteditable]:focus-visible,
+  .ProseMirror:focus-visible {
+    outline: none;
+  }
   /* 图片不可拖出：WebView 里拖一张头像会出现半透明拖拽影像，甚至能拖到桌面。 */
   img {
     -webkit-user-drag: none;

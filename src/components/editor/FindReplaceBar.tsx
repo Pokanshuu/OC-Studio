@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import type { Editor } from '@tiptap/core'
 import { CaseSensitive, ChevronDown, ChevronUp, X } from 'lucide-react'
 import { BTN_PRIMARY, BTN_QUIET, ICON_BTN_MD, INPUT_LINE, PANEL } from '@/lib/ui-tokens'
+import { Tip } from '@/components/ui/tooltip'
 import { findMatches, nextMatchIndex, replaceAllMatches, replaceMatch, selectMatch } from './find-replace'
 
 interface FindReplaceBarProps {
@@ -134,46 +135,50 @@ export function FindReplaceBar({ editor, onClose }: FindReplaceBarProps) {
         <span className="w-12 shrink-0 text-center text-[11px] tabular-nums text-ink-muted">
           {matches.length ? `${safeIndex + 1}/${matches.length}` : '0/0'}
         </span>
-        <button
-          type="button"
-          title="上一个 (Shift+Enter)"
-          aria-label="上一个"
-          className={ICON_BTN_MD}
-          onClick={() => step(-1)}
-        >
-          <ChevronUp size={15} strokeWidth={2} />
-        </button>
-        <button
-          type="button"
-          title="下一个 (Enter)"
-          aria-label="下一个"
-          className={ICON_BTN_MD}
-          onClick={() => step(1)}
-        >
-          <ChevronDown size={15} strokeWidth={2} />
-        </button>
-        <button
-          type="button"
-          title="区分大小写"
-          aria-label="区分大小写"
-          aria-pressed={caseSensitive}
-          className={`${ICON_BTN_MD} ${caseSensitive ? 'bg-[var(--oc-hover)] text-ink' : ''}`}
-          onClick={() => {
-            setCaseSensitive((v) => !v)
-            setIndex(0)
-          }}
-        >
-          <CaseSensitive size={15} strokeWidth={2} />
-        </button>
-        <button
-          type="button"
-          title="关闭 (Esc)"
-          aria-label="关闭查找"
-          className={ICON_BTN_MD}
-          onClick={onClose}
-        >
-          <X size={15} strokeWidth={2} />
-        </button>
+        <Tip label="上一个" shortcut="Shift+Enter">
+          <button
+            type="button"
+            aria-label="上一个"
+            className={ICON_BTN_MD}
+            onClick={() => step(-1)}
+          >
+            <ChevronUp size={15} strokeWidth={2} />
+          </button>
+        </Tip>
+        <Tip label="下一个" shortcut="Enter">
+          <button
+            type="button"
+            aria-label="下一个"
+            className={ICON_BTN_MD}
+            onClick={() => step(1)}
+          >
+            <ChevronDown size={15} strokeWidth={2} />
+          </button>
+        </Tip>
+        <Tip label="区分大小写">
+          <button
+            type="button"
+            aria-label="区分大小写"
+            aria-pressed={caseSensitive}
+            className={`${ICON_BTN_MD} ${caseSensitive ? 'bg-[var(--oc-hover)] text-ink' : ''}`}
+            onClick={() => {
+              setCaseSensitive((v) => !v)
+              setIndex(0)
+            }}
+          >
+            <CaseSensitive size={15} strokeWidth={2} />
+          </button>
+        </Tip>
+        <Tip label="关闭" shortcut="Esc">
+          <button
+            type="button"
+            aria-label="关闭查找"
+            className={ICON_BTN_MD}
+            onClick={onClose}
+          >
+            <X size={15} strokeWidth={2} />
+          </button>
+        </Tip>
       </div>
 
       <div className="mt-2 flex items-center gap-1.5 border-t border-line pt-2">

@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronDown, GalleryHorizontalEnd, LayoutGrid, List } from 'lucide-react'
 import { FILTER_TRIGGER, MENU, MENU_ITEM_BASE, ROUND_ITEM } from '@/lib/ui-tokens'
+import { Tip } from '@/components/ui/tooltip'
 
 export interface SortOption {
   label: string
@@ -123,36 +124,39 @@ export function ViewToggle({
 }) {
   return (
     <div className="flex items-center">
-      <button
-        onClick={() => onViewModeChange('grid')}
-        aria-label="卡片视图"
-        title="卡片"
-        className={`flex h-8 w-8 items-center justify-center ${ROUND_ITEM} transition-colors ${
-          viewMode === 'grid' ? 'text-ink' : 'text-ink-faint hover:text-ink-muted'
-        }`}
-      >
-        <LayoutGrid size={16} strokeWidth={2} />
-      </button>
-      <button
-        onClick={() => onViewModeChange('gallery')}
-        aria-label="画廊视图"
-        title="画廊"
-        className={`flex h-8 w-8 items-center justify-center ${ROUND_ITEM} transition-colors ${
-          viewMode === 'gallery' ? 'text-ink' : 'text-ink-faint hover:text-ink-muted'
-        }`}
-      >
-        <GalleryHorizontalEnd size={16} strokeWidth={2} />
-      </button>
-      <button
-        onClick={() => onViewModeChange('list')}
-        aria-label="列表视图"
-        title="列表"
-        className={`flex h-8 w-8 items-center justify-center ${ROUND_ITEM} transition-colors ${
-          viewMode === 'list' ? 'text-ink' : 'text-ink-faint hover:text-ink-muted'
-        }`}
-      >
-        <List size={16} strokeWidth={2} />
-      </button>
+      <Tip label="卡片">
+        <button
+          onClick={() => onViewModeChange('grid')}
+          aria-label="卡片视图"
+          className={`flex h-8 w-8 items-center justify-center ${ROUND_ITEM} transition-colors ${
+            viewMode === 'grid' ? 'text-ink' : 'text-ink-faint hover:text-ink-muted'
+          }`}
+        >
+          <LayoutGrid size={16} strokeWidth={2} />
+        </button>
+      </Tip>
+      <Tip label="画廊">
+        <button
+          onClick={() => onViewModeChange('gallery')}
+          aria-label="画廊视图"
+          className={`flex h-8 w-8 items-center justify-center ${ROUND_ITEM} transition-colors ${
+            viewMode === 'gallery' ? 'text-ink' : 'text-ink-faint hover:text-ink-muted'
+          }`}
+        >
+          <GalleryHorizontalEnd size={16} strokeWidth={2} />
+        </button>
+      </Tip>
+      <Tip label="列表">
+        <button
+          onClick={() => onViewModeChange('list')}
+          aria-label="列表视图"
+          className={`flex h-8 w-8 items-center justify-center ${ROUND_ITEM} transition-colors ${
+            viewMode === 'list' ? 'text-ink' : 'text-ink-faint hover:text-ink-muted'
+          }`}
+        >
+          <List size={16} strokeWidth={2} />
+        </button>
+      </Tip>
     </div>
   )
 }

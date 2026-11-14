@@ -38,7 +38,7 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
         // 悬停只换文字色：这一排没有「块」，不铺底色（全局 button:hover 会给按钮铺块，这里显式取消）
         "hover:bg-transparent hover:text-ink",
         // 焦点交给下划线：不加方框（方框会被误读成「选中的胶囊」）
-        "focus:outline-none focus-visible:outline-none",
+        "",
         "after:pointer-events-none after:absolute after:inset-x-0 after:-bottom-px after:h-[2px] after:bg-ink after:opacity-0 after:transition-opacity",
         "data-active:text-ink data-active:after:opacity-100",
         className

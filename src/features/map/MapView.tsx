@@ -110,6 +110,7 @@ import {
   type MapEntity,
 } from './services'
 import { DEFAULT_MAP_LAYERS, type MapAnchor, type MapLayerKind, type MapLayerState } from './types'
+import { Tip } from '@/components/ui/tooltip'
 // 六档档位与「生成结果落成底图」这一步由生成器与工具页共用，见 save-generated.ts
 import { MAP_VIEWS as VIEWS, saveGeneratedMap, type MapViewRenderer } from './save-generated'
 import { consumeOpenMapRequest } from './open-request'
@@ -1109,7 +1110,6 @@ export function MapView() {
                 type="button"
                 onClick={() => setGeneratorOpen(false)}
                 disabled={generatorBusy}
-                title={generatorBusy ? '正在保存底图，稍等一下' : undefined}
                 className={`${FLOAT_BAR_TEXT} disabled:opacity-50`}
               >
                 <ArrowLeft size={13} strokeWidth={2} />
@@ -1117,15 +1117,16 @@ export function MapView() {
               </button>
             ) : null}
 
-            <button
-              type="button"
-              onClick={() => setImmersive((previous) => !previous)}
-              className={FLOAT_BAR_ICON}
-              title={immersive ? '退出全屏' : '全屏'}
-              aria-label={immersive ? '退出全屏' : '全屏'}
-            >
-              {immersive ? <Minimize2 size={14} strokeWidth={2} /> : <Maximize2 size={14} strokeWidth={2} />}
-            </button>
+            <Tip label={immersive ? '退出全屏' : '全屏'}>
+              <button
+                type="button"
+                onClick={() => setImmersive((previous) => !previous)}
+                className={FLOAT_BAR_ICON}
+                aria-label={immersive ? '退出全屏' : '全屏'}
+              >
+                {immersive ? <Minimize2 size={14} strokeWidth={2} /> : <Maximize2 size={14} strokeWidth={2} />}
+              </button>
+            </Tip>
 
             {!showGenerator ? (
               <button
@@ -1171,7 +1172,6 @@ export function MapView() {
                 }}
                 className={FLOAT_BAR_ICON}
                 aria-label="更多"
-                title="更多"
               >
                 <MoreHorizontal size={15} strokeWidth={2} />
               </button>
@@ -1205,7 +1205,6 @@ export function MapView() {
                   type="button"
                   onClick={() => setAnchorPickerOpen(true)}
                   className={TOOL_BTN}
-                  title="添加锚点"
                   aria-label="添加锚点"
                 >
                   <MapPin size={15} strokeWidth={2} />
@@ -1217,7 +1216,6 @@ export function MapView() {
                     setToolMenu({ x: rect.left, y: rect.top })
                   }}
                   className={TOOL_BTN}
-                  title="标注"
                   aria-label="标注"
                 >
                   <PenLine size={15} strokeWidth={2} />
@@ -1231,7 +1229,6 @@ export function MapView() {
                 onClick={viewport.zoomOut}
                 className={FLOAT_BAR_ICON}
                 aria-label="缩小"
-                title="缩小"
               >
                 <Minus size={14} strokeWidth={2} />
               </button>
@@ -1243,7 +1240,6 @@ export function MapView() {
                 onClick={viewport.zoomIn}
                 className={FLOAT_BAR_ICON}
                 aria-label="放大"
-                title="放大"
               >
                 <Plus size={14} strokeWidth={2} />
               </button>
@@ -1252,7 +1248,6 @@ export function MapView() {
                 onClick={viewport.reset}
                 className={FLOAT_BAR_ICON}
                 aria-label="复位"
-                title="复位"
               >
                 <RotateCcw size={14} strokeWidth={2} />
               </button>

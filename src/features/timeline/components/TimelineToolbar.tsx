@@ -25,6 +25,7 @@ import { ICON_BTN_MD, PAGE_TITLE, ROUND_ITEM } from '@/lib/ui-tokens'
 import { MobileFilterBar } from '@/components/layout/MobileFilterBar'
 import { OverflowBar, type OverflowEntry } from '@/components/shared/OverflowBar'
 import type { ToolbarMenuGroup, ToolbarMenuItem } from '@/components/editor/ToolbarMenu'
+import { Tip } from '@/components/ui/tooltip'
 import type { FilterOption } from '../types'
 import { FilterSelect } from './FilterSelect'
 
@@ -334,24 +335,30 @@ export function TimelineToolbar({
           <span className={DIVIDER} aria-hidden />
           {showNav ? (
             <>
-              <button onClick={onPrev} disabled={isFirst}
-                className={`flex h-8 w-8 shrink-0 items-center justify-center transition-colors ${isFirst ? 'cursor-default text-ink-faint' : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'}`}
-                title="上一个事件"
-              >
-                <ChevronLeft size={16} strokeWidth={2} />
-              </button>
-              <button onClick={onNext} disabled={isLast}
-                className={`flex h-8 w-8 shrink-0 items-center justify-center transition-colors ${isLast ? 'cursor-default text-ink-faint' : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'}`}
-                title="下一个事件"
-              >
-                <ChevronRight size={16} strokeWidth={2} />
-              </button>
+              <Tip label="上一个事件">
+                <button onClick={onPrev} disabled={isFirst}
+                  aria-label="上一个事件"
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center transition-colors ${isFirst ? 'cursor-default text-ink-faint' : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'}`}
+                >
+                  <ChevronLeft size={16} strokeWidth={2} />
+                </button>
+              </Tip>
+              <Tip label="下一个事件">
+                <button onClick={onNext} disabled={isLast}
+                  aria-label="下一个事件"
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center transition-colors ${isLast ? 'cursor-default text-ink-faint' : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'}`}
+                >
+                  <ChevronRight size={16} strokeWidth={2} />
+                </button>
+              </Tip>
             </>
           ) : null}
           {onAddPeriod ? (
-            <button onClick={onAddPeriod} className={ICON_BTN_MD} title="添加时期">
-              <Plus size={16} strokeWidth={2} />
-            </button>
+            <Tip label="添加时期">
+              <button onClick={onAddPeriod} className={ICON_BTN_MD} aria-label="添加时期">
+                <Plus size={16} strokeWidth={2} />
+              </button>
+            </Tip>
           ) : null}
         </div>
       ),
@@ -397,21 +404,24 @@ export function TimelineToolbar({
                 </div>
               ) : null}
               {onExport ? (
-                <button onClick={onExport}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink"
-                  title="导出图片…"
-                  aria-label="导出图片"
-                >
-                  <ImageDown size={16} strokeWidth={2} />
-                </button>
+                <Tip label="导出图片">
+                  <button onClick={onExport}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink"
+                    aria-label="导出图片"
+                  >
+                    <ImageDown size={16} strokeWidth={2} />
+                  </button>
+                </Tip>
               ) : null}
-              <button onClick={onToggleEdit}
-                className={`flex h-8 w-8 items-center justify-center transition-colors hover:bg-[var(--oc-hover)] ${editMode ? 'text-ink' : 'text-ink-muted hover:text-ink'}`}
-                title={editMode ? '锁定时间轴' : '解锁时间轴'}
-                aria-pressed={editMode}
-              >
-                {editMode ? <LockOpen size={16} strokeWidth={2} /> : <Lock size={16} strokeWidth={2} />}
-              </button>
+              <Tip label={editMode ? '锁定时间轴' : '解锁时间轴'}>
+                <button onClick={onToggleEdit}
+                  className={`flex h-8 w-8 items-center justify-center transition-colors hover:bg-[var(--oc-hover)] ${editMode ? 'text-ink' : 'text-ink-muted hover:text-ink'}`}
+                  aria-label={editMode ? '锁定时间轴' : '解锁时间轴'}
+                  aria-pressed={editMode}
+                >
+                  {editMode ? <LockOpen size={16} strokeWidth={2} /> : <Lock size={16} strokeWidth={2} />}
+                </button>
+              </Tip>
             </div>
           }
           gap={8}
@@ -444,7 +454,7 @@ export function TimelineToolbar({
         {onAddPeriod ? (
           <button onClick={onAddPeriod}
             className="flex h-7 w-7 shrink-0 items-center justify-center text-ink-muted transition-colors hover:text-ink"
-            title="添加时期"
+            aria-label="添加时期"
           >
             <Plus size={14} strokeWidth={2} />
           </button>

@@ -24,7 +24,6 @@ export function MenuBar() {
         <button
           type="button"
           onClick={() => openSettings('world')}
-          title="编辑世界信息"
           className="bg-transparent font-serif text-[13px] text-ink transparent-text transition-colors hover:bg-transparent hover:text-ink-muted"
         >
           {meta.worldName.trim() || 'OC Studio'}

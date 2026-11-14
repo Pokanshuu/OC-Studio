@@ -38,6 +38,7 @@ import { currentStatus } from "@/lib/vault/vault-persist"
 import { isTauri } from "@/lib/env"
 import { getChromiumVersion, isBelowTargetVersion, isHarmonyOS, getHarmonyOSVersion, isSafeAreaEnvAvailable, estimateSafeAreaInsets, getSafeAreaBottomCorrection, isMobilePlatform } from "@/lib/browser-compat"
 import { toast } from 'sonner'
+import { TooltipProvider } from '@/components/ui/tooltip'
 
 /**
  * 分类表随库走：**不能挂在 Sidebar 上**（关闭侧栏 / 手机上 Sidebar 不渲染时，
@@ -333,6 +334,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [])
 
   return (
+    // Tooltip 的 Provider 包在最外层：整棵树共用一个延迟（500ms），
+    // 相邻按钮之间悬停时立即切换（见 components/ui/tooltip.tsx）。
+    <TooltipProvider>
     <GlobalContextMenu>
       <ExportCenterProvider>
       <SettingsTriggerContext.Provider value={{ openSettings, closeSettings }}>
@@ -365,6 +369,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </SettingsTriggerContext.Provider>
       </ExportCenterProvider>
     </GlobalContextMenu>
+    </TooltipProvider>
   )
 }
 

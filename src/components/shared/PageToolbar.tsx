@@ -67,7 +67,6 @@ export function PageToolbar({
             data-mobile-back
             className={`${ICON_BTN_MD} w-auto gap-1 px-1.5`}
             aria-label="返回"
-            title="返回"
           >
             <ArrowLeft size={16} strokeWidth={2} />
             <span className="text-[13px]">返回</span>
