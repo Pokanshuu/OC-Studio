@@ -14,7 +14,9 @@ import { useLongPress } from '@/lib/useLongPress'
 import { DeleteButton } from '@/components/shared/DeleteButton'
 import { MoveToFolderMenu } from '@/features/characters/components/MoveToFolderMenu'
 import { DragHandle, useSortableItem } from '@/components/shared/list-dnd'
-import { DRAG_SLOT_ROW, ROW_ACTIONS, ROUND_ITEM } from '@/lib/ui-tokens'
+import { DRAG_SLOT_ROW, ROW_ACTIONS, ROUND_ITEM, ROW_SELECTED } from '@/lib/ui-tokens'
+import { listRowClass, listRowProps } from '@/lib/list-item'
+import type { ListItemHandlers } from '@/lib/use-list-navigation'
 
 interface CategoryRowProps {
   entry: WorldEntry
@@ -26,6 +28,8 @@ interface CategoryRowProps {
   onLongPress?: () => void
   folders?: string[]
   onMoveToFolder?: (folder: string | null) => void
+  /** 桌面列表选中模型（use-list-navigation）给的一组属性 */
+  nav?: ListItemHandlers
 }
 
 export function CategoryRow({
@@ -38,6 +42,7 @@ export function CategoryRow({
   onLongPress,
   folders = [],
   onMoveToFolder,
+  nav,
 }: CategoryRowProps) {
   const { setNodeRef, style, attributes, listeners, longPress: longPressSort, cardAttributes, cardListeners } =
     useSortableItem(entry.id, !sortable)
@@ -55,11 +60,12 @@ export function CategoryRow({
     <div
       ref={setNodeRef}
       style={longPressSort ? { ...style, touchAction: 'none' } : style}
-      role="button"
-      tabIndex={0}
-      onClick={() => onOpen(entry.id)}
-      onKeyDown={handleKeyDown}
-      className={`group relative row-rule flex w-full items-center gap-4 rounded-item py-3 pr-4 text-left transition-colors hover:bg-[var(--oc-hover)] active:bg-[var(--oc-hover)] ${sortable ? 'pl-10' : 'pl-4'} ${longPressSort ? 'touch-none' : ''}`}
+      {...listRowProps(nav, { onClick: () => onOpen(entry.id), onKeyDown: handleKeyDown })}
+      className={listRowClass(
+        nav,
+        `group relative row-rule flex w-full items-center gap-4 rounded-item py-3 pr-4 text-left transition-colors hover:bg-[var(--oc-hover)] active:bg-[var(--oc-hover)] ${sortable ? 'pl-10' : 'pl-4'} ${longPressSort ? 'touch-none' : ''}`,
+        ROW_SELECTED,
+      )}
       {...longPress}
       {...cardAttributes}
       {...cardListeners}

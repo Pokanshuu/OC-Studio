@@ -31,6 +31,8 @@ import {
   DRAG_SLOT_CARD,
 } from '@/lib/ui-tokens'
 import { useSettings } from '@/lib/settings'
+import type { ListItemHandlers } from '@/lib/use-list-navigation'
+import { ROW_SELECTED } from '@/lib/ui-tokens'
 import { CoverArt } from './CoverArt'
 
 interface CoverCardProps {
@@ -57,6 +59,8 @@ interface CoverCardProps {
   isMobile: boolean
   /** 手动排序模式下才挂拖拽手柄 */
   sortable?: boolean
+  /** 桌面列表选中模型（use-list-navigation）给的一组属性 */
+  nav?: ListItemHandlers
   /**
    * 卡片比例（宽 / 高）覆盖。
    * 默认用调试面板的全局值（实体卡 7:6）；小说封面是 2:3 的竖槽位，单独传。
@@ -109,6 +113,7 @@ export function CoverCard({
   onLongPress,
   isMobile,
   sortable = false,
+  nav,
   aspect,
   photoHeight,
 }: CoverCardProps) {
@@ -124,6 +129,11 @@ export function CoverCard({
   const mono = useSettings().settings.coverTintMode === 'mono'
   // 只有画廊里的卡片跟着放大；网格的卡片尺寸由布局决定，保持面板原始尺寸
   const inCoverFlow = useInCoverFlow()
+  /*
+   * 桌面选中模型接管单击：外层容器是焦点停靠点（tabIndex / 右键 / 选中态），
+   * 内层那个 `<button>` 退成 `tabIndex={-1}` —— 一张卡不能有两个 Tab 停靠点。
+   */
+  const { onClick: navClick, ...navShell } = nav ?? {}
 
   /*
    * 规范：**模糊从标题开始，混色从小字开始**。
@@ -182,6 +192,7 @@ export function CoverCard({
       {...longPress}
       {...cardAttributes}
       {...cardListeners}
+      {...navShell}
     >
       {sortable ? (
         <div className={DRAG_SLOT_CARD}>
@@ -193,7 +204,7 @@ export function CoverCard({
         </div>
       ) : null}
 
-      <button type="button" onClick={onSelect} className="block w-full text-left">
+      <button type="button" tabIndex={-1} onClick={navClick ?? onSelect} className="block w-full text-left">
         <div
           ref={frameRef}
           className={COVER_FRAME}
@@ -289,6 +300,11 @@ export function CoverCard({
                 松手新建文件夹
               </span>
             </div>
+          ) : null}
+
+          {/* 选中：同一条内线压在封面上（`ROW_SELECTED` 的底色在卡片上没有意义 —— 图会把底色盖住） */}
+          {nav?.['data-selected'] === 'true' ? (
+            <span aria-hidden className={`pointer-events-none absolute inset-0 z-10 ${ROW_SELECTED}`} />
           ) : null}
         </div>
       </button>

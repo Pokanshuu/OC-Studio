@@ -32,6 +32,8 @@ import { useReorderEvents } from '../hooks/useEvents'
 import { LIST_GRID, LOADING_TEXT } from '@/lib/ui-tokens'
 import { ListEmptyState } from '@/components/shared/ListEmptyState'
 import { useDelayedFlag } from '@/lib/use-delayed-flag'
+import { useListNavigation } from '@/lib/use-list-navigation'
+import { MediaContextMenu } from '@/components/shared/MediaContextMenu'
 
 interface EventListProps {
   events: Event[]
@@ -61,7 +63,9 @@ export function EventList({
   const [actionSheet, setActionSheet] = useState<{ open: boolean; title: string; actions: ActionItem[] }>({
     open: false, title: '', actions: [],
   })
-  const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
+  const [deleteTargets, setDeleteTargets] = useState<number[] | null>(null)
+  /** 列表右键菜单 */
+  const [listMenu, setListMenu] = useState<{ ids: number[]; at: { x: number; y: number } } | null>(null)
 
   const openActionSheet = useCallback((ev: Event) => {
     setActionSheet({
@@ -69,7 +73,7 @@ export function EventList({
       title: ev.title,
       actions: [
         { id: 'edit', label: '编辑', icon: <Pencil size={20} strokeWidth={2} />, onPress: () => onSelectEvent(ev.id) },
-        { id: 'delete', label: '删除', icon: <Trash2 size={20} strokeWidth={2} />, destructive: true, onPress: () => setDeleteTarget(ev.id) },
+        { id: 'delete', label: '删除', icon: <Trash2 size={20} strokeWidth={2} />, destructive: true, onPress: () => setDeleteTargets([ev.id]) },
       ],
     })
   }, [onSelectEvent])
@@ -114,6 +118,22 @@ export function EventList({
    * 超过才显示「加载中…」（本地库通常在第一帧就回来了）。
    */
   const showLoading = useDelayedFlag(loading)
+
+  /** 桌面列表选中模型（移动端不启用：长按动作表是那边的入口） */
+  const listNav = useListNavigation<number>({
+    ids: filteredEvents.map((e) => e.id),
+    onOpen: (id) => handleSelect(id),
+    onDelete: (ids) => setDeleteTargets(ids),
+    onContextMenu: (ids, at) => setListMenu({ ids, at }),
+    enabled: !isMobile,
+  })
+
+  const confirmDelete = useCallback(() => {
+    const targets = deleteTargets
+    setDeleteTargets(null)
+    if (!targets) return
+    for (const id of targets) onDeleteEvent(id)
+  }, [deleteTargets, onDeleteEvent])
 
   return (
     <>
@@ -167,6 +187,7 @@ export function EventList({
                   <EventCard
                     key={event.id}
                     event={event}
+                    nav={listNav.itemProps(event.id)}
                     onSelect={handleSelect}
                     onDelete={onDeleteEvent}
                     onLongPress={() => openActionSheet(event)}
@@ -182,11 +203,12 @@ export function EventList({
                 layout="list"
                 disabled={!manual}
               >
-                <div className="flex flex-col rules-end px-1">
+                <div className="flex flex-col rules-end px-1" {...listNav.containerProps}>
                   {filteredEvents.map((event) => (
                     <EventRow
                       key={event.id}
                       event={event}
+                      nav={listNav.itemProps(event.id)}
                       onSelect={handleSelect}
                       onDelete={onDeleteEvent}
                       onLongPress={() => openActionSheet(event)}
@@ -205,11 +227,12 @@ export function EventList({
             layout="grid"
             disabled={!manual}
           >
-            <div className={LIST_GRID}>
+            <div className={LIST_GRID} {...listNav.containerProps}>
               {filteredEvents.map((event) => (
                 <div key={event.id}>
                   <EventCard
                     event={event}
+                    nav={listNav.itemProps(event.id)}
                     onSelect={handleSelect}
                     onDelete={onDeleteEvent}
                     onLongPress={() => openActionSheet(event)}
@@ -227,11 +250,12 @@ export function EventList({
             layout="list"
             disabled={!manual}
           >
-            <div className="flex flex-col rules-end">
+            <div className="flex flex-col rules-end" {...listNav.containerProps}>
               {filteredEvents.map((event) => (
                 <EventRow
                   key={event.id}
                   event={event}
+                  nav={listNav.itemProps(event.id)}
                   onSelect={handleSelect}
                   onDelete={onDeleteEvent}
                   onLongPress={() => openActionSheet(event)}
@@ -253,25 +277,40 @@ export function EventList({
         actions={actionSheet.actions}
       />
 
-      <AlertDialog open={deleteTarget !== null} onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}>
+      <AlertDialog open={deleteTargets !== null} onOpenChange={(open) => { if (!open) setDeleteTargets(null) }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>确认删除</AlertDialogTitle>
             <AlertDialogDescription>
-              删除后将移至回收站，可在回收站里恢复。
+              {deleteTargets !== null && deleteTargets.length > 1
+                ? `删除 ${deleteTargets.length} 项？删除后可在回收站恢复。`
+                : '删除后将移至回收站，可在回收站里恢复。'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={() => {
-              if (deleteTarget !== null) {
-                onDeleteEvent(deleteTarget)
-                setDeleteTarget(null)
-              }
-            }}>删除</AlertDialogAction>
+            <AlertDialogAction onClick={confirmDelete}>删除</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {listMenu ? (
+        <MediaContextMenu
+          at={listMenu.at}
+          onClose={() => setListMenu(null)}
+          items={[
+            ...(listMenu.ids.length === 1
+              ? [{ label: '打开', onSelect: () => handleSelect(listMenu.ids[0]) }]
+              : []),
+            {
+              label: listMenu.ids.length > 1 ? `删除 ${listMenu.ids.length} 项` : '删除',
+              danger: true,
+              icon: <Trash2 size={13} strokeWidth={2} />,
+              onSelect: () => setDeleteTargets(listMenu.ids),
+            },
+          ]}
+        />
+      ) : null}
     </>
   )
 }

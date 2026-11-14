@@ -306,6 +306,14 @@ export const WINDOW_BTN =
 export const WINDOW_BTN_CLOSE = 'flex h-8 w-[46px] items-center justify-center rounded-none text-ink-muted transition-colors hover:bg-[#C42B1C] hover:text-paper-fixed active:bg-[#B22A1C]' // design-audit-allow raw-hex Windows 系统关闭色（#C42B1C 悬停 / #B22A1C 按下）：用户靠这块红确认关的是窗口
 
 /* ── 列表行 / 移动端筛选条 ───────────────────────────── */
+/**
+ * 列表行 / 卡片的**选中态**：比悬停多一圈内线。
+ *
+ * 只加深底色是不够的 —— 悬停和选中会看着是同一件事（鼠标停在哪一行、选中了哪几行分不清）。
+ * 内线用 `box-shadow: inset` 而不是 `border`：border 会把行撑大 2px，整列跟着跳；
+ * 它也不是「浮层的阴影」，所以不受 `shadow-literal` 那条规则约束。
+ */
+export const ROW_SELECTED = 'bg-[var(--oc-hover)] [box-shadow:inset_0_0_0_1px_var(--oc-line-hover)]'
 /** 列表行右侧的动作组（悬停才出现，纵向居中） */
 export const ROW_ACTIONS = 'absolute right-2 top-1/2 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100'
 /** 空态里那句「点这里去建一个」的衬线提示 */

@@ -45,9 +45,10 @@ import type { SortKey } from './character-list-utils'
 import type { ViewMode } from '@/components/shared/SortViewControls'
 import { SortableList, moveId } from '@/components/shared/list-dnd'
 import { useReorderCharacters } from '../hooks/useCharacters'
-import { CHIP, LIST_GRID, LOADING_TEXT } from '@/lib/ui-tokens'
+import { BTN_QUIET, CENTER_STATE, CHIP, LIST_GRID, LOADING_TEXT } from '@/lib/ui-tokens'
 import { ListEmptyState } from '@/components/shared/ListEmptyState'
 import { useDelayedFlag } from '@/lib/use-delayed-flag'
+import { useListNavigation } from '@/lib/use-list-navigation'
 
 interface CharacterListProps {
   characters: Character[]
@@ -86,7 +87,9 @@ export function CharacterList({
   const [actionSheet, setActionSheet] = useState<{ open: boolean; title: string; actions: ActionItem[] }>({
     open: false, title: '', actions: [],
   })
-  const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
+  const [deleteTargets, setDeleteTargets] = useState<number[] | null>(null)
+  /** 列表右键菜单（对选中项 / 右键那一项） */
+  const [listMenu, setListMenu] = useState<{ ids: number[]; at: { x: number; y: number } } | null>(null)
   /** 右键「堆」弹出的菜单（重命名 / 管理内容 / 删除） */
   const [stackMenu, setStackMenu] = useState<{ name: string; at: { x: number; y: number } } | null>(null)
   const [folderDialog, setFolderDialog] = useState<{ mode: 'rename' | 'members'; name: string } | null>(null)
@@ -97,7 +100,7 @@ export function CharacterList({
       title: char.name,
       actions: [
         { id: 'edit', label: '编辑', icon: <Pencil size={20} strokeWidth={2} />, onPress: () => onSelectCharacter(char.id) },
-        { id: 'delete', label: '删除', icon: <Trash2 size={20} strokeWidth={2} />, destructive: true, onPress: () => setDeleteTarget(char.id) },
+        { id: 'delete', label: '删除', icon: <Trash2 size={20} strokeWidth={2} />, destructive: true, onPress: () => setDeleteTargets([char.id]) },
       ],
     })
   }, [onSelectCharacter])
@@ -322,6 +325,34 @@ export function CharacterList({
   /** 加载态不闪：页头与外壳照常渲染，内容区延迟 200ms 才认「确实在等」 */
   const showLoading = useDelayedFlag(loading)
 
+  /**
+   * 桌面列表选中模型：方向键 / Ctrl·Shift 多选 / Delete / 右键 / F2。
+   * 移动端不启用（长按动作表是那边的入口）。
+   */
+  const listNav = useListNavigation<number>({
+    ids: filtered.map((c) => c.id),
+    onOpen: (id) => handleSelect(id),
+    onDelete: (ids) => setDeleteTargets(ids),
+    onContextMenu: (ids, at) => setListMenu({ ids, at }),
+    enabled: !isMobile,
+  })
+
+  /** 批量删除：走同一个确认弹窗，逐个软删除（与单个删除同一条路径） */
+  const confirmDelete = useCallback(() => {
+    const targets = deleteTargets
+    setDeleteTargets(null)
+    if (!targets) return
+    for (const id of targets) void onDeleteCharacter(id)
+  }, [deleteTargets, onDeleteCharacter])
+
+  /** 右键菜单：把选中项整体移到某个文件夹（多选也成立） */
+  const moveTo = useCallback(
+    (ids: number[], folder: string | null) => {
+      for (const id of ids) handleMoveToFolder(id, folder)
+    },
+    [handleMoveToFolder],
+  )
+
   return (
     <>
       <ListShell
@@ -473,11 +504,12 @@ export function CharacterList({
                     layout="list"
                     disabled={!manual}
                   >
-                    <div className="flex flex-col rules-end px-1">
+                    <div className={`flex flex-col rules-end px-1`} {...listNav.containerProps}>
                       {filtered.map((character) => (
                         <CharacterRow
                           key={character.id}
                           character={character}
+                          nav={listNav.itemProps(character.id)}
                           onSelect={handleSelect}
                           folders={folderNames}
                           onMoveToFolder={handleMoveToFolder}
@@ -503,7 +535,7 @@ export function CharacterList({
             layout="grid"
             disabled={!manual}
           >
-            <div className={LIST_GRID}>
+            <div className={LIST_GRID} {...listNav.containerProps}>
               {/* 文件夹和角色卡在**同一个网格**里：单独排一行会在末尾留一个空格子 */}
               {!inFolder
                 ? folders.map((folder) => (
@@ -524,6 +556,7 @@ export function CharacterList({
                 <div key={character.id}>
                   <CharacterCard
                     character={character}
+                    nav={listNav.itemProps(character.id)}
                     onSelect={handleSelect}
           folders={folders.map((f) => f.name)}
           onMoveToFolder={(id, folder) => {
@@ -546,11 +579,12 @@ export function CharacterList({
             layout="list"
             disabled={!manual}
           >
-            <div className="flex flex-col rules-end">
+            <div className="flex flex-col rules-end" {...listNav.containerProps}>
               {filtered.map((character) => (
                 <CharacterRow
                   key={character.id}
                   character={character}
+                  nav={listNav.itemProps(character.id)}
                   onSelect={handleSelect}
           folders={folders.map((f) => f.name)}
           onMoveToFolder={(id, folder) => {
@@ -580,25 +614,61 @@ export function CharacterList({
         actions={actionSheet.actions}
       />
 
-      <AlertDialog open={deleteTarget !== null} onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}>
+      <AlertDialog open={deleteTargets !== null} onOpenChange={(open) => { if (!open) setDeleteTargets(null) }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>确认删除</AlertDialogTitle>
             <AlertDialogDescription>
-              删除后将移至回收站，可在回收站里恢复。
+              {deleteTargets !== null && deleteTargets.length > 1
+                ? `删除 ${deleteTargets.length} 项？删除后可在回收站恢复。`
+                : '删除后将移至回收站，可在回收站里恢复。'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={() => {
-              if (deleteTarget !== null) {
-                onDeleteCharacter(deleteTarget)
-                setDeleteTarget(null)
-              }
-            }}>删除</AlertDialogAction>
+            <AlertDialogAction onClick={confirmDelete}>删除</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {listMenu ? (
+        <MediaContextMenu
+          at={listMenu.at}
+          onClose={() => setListMenu(null)}
+          items={[
+            ...(listMenu.ids.length === 1
+              ? [
+                  {
+                    label: '打开',
+                    icon: <FolderOpen size={13} strokeWidth={2} />,
+                    onSelect: () => handleSelect(listMenu.ids[0]),
+                  },
+                ]
+              : []),
+            ...(folderNames.length > 0 || listMenu.ids.length === 1
+              ? [
+                  {
+                    label: listMenu.ids.length > 1 ? `移到文件夹（${listMenu.ids.length} 项）` : '移到文件夹',
+                    icon: <FolderOpen size={13} strokeWidth={2} />,
+                    submenu: [
+                      ...folderNames.map((name) => ({
+                        label: name,
+                        onSelect: () => moveTo(listMenu.ids, name),
+                      })),
+                      { label: '移出文件夹', onSelect: () => moveTo(listMenu.ids, null) },
+                    ],
+                  },
+                ]
+              : []),
+            {
+              label: listMenu.ids.length > 1 ? `删除 ${listMenu.ids.length} 项` : '删除',
+              danger: true,
+              icon: <Trash2 size={13} strokeWidth={2} />,
+              onSelect: () => setDeleteTargets(listMenu.ids),
+            },
+          ]}
+        />
+      ) : null}
 
       {stackMenu ? (
         <MediaContextMenu

@@ -9,8 +9,10 @@ import { CoverCard } from '@/components/shared/cover/CoverCard'
 import { useLongPress } from '@/lib/useLongPress'
 import { coverExcerpt } from '@/lib/cover'
 import { formatTimeDisplay } from './event-list-utils'
-import { DRAG_SLOT_ROW, ROW_ACTIONS } from '@/lib/ui-tokens'
+import { DRAG_SLOT_ROW, ROW_ACTIONS, ROW_SELECTED } from '@/lib/ui-tokens'
 import { DragHandle, useSortableItem } from '@/components/shared/list-dnd'
+import { listRowClass, listRowProps } from '@/lib/list-item'
+import type { ListItemHandlers } from '@/lib/use-list-navigation'
 
 interface EventItemProps {
   event: Event
@@ -20,6 +22,8 @@ interface EventItemProps {
   isMobile: boolean
   /** 手动排序模式下才挂拖拽手柄 */
   sortable?: boolean
+  /** 桌面列表选中模型（use-list-navigation）给的一组属性 */
+  nav?: ListItemHandlers
 }
 
 /** 「画廊」视图的卡片：一张封面（照片 → 渐进模糊 → 色块，事件名与时间落在色块里） */
@@ -30,10 +34,12 @@ export function EventCard({
   onLongPress,
   isMobile,
   sortable = false,
+  nav,
 }: EventItemProps) {
   return (
     <CoverCard
       id={event.id}
+      nav={nav}
       title={event.title}
       intro={coverExcerpt(event.summary, 84)}
       meta={event.time ? formatTimeDisplay(event) : undefined}
@@ -60,6 +66,7 @@ export function EventRow({
   onLongPress,
   isMobile,
   sortable = false,
+  nav,
 }: EventItemProps) {
   const { setNodeRef, style, attributes, listeners, longPress: longPressSort, cardAttributes, cardListeners } =
     useSortableItem(event.id, !sortable)
@@ -79,11 +86,12 @@ export function EventRow({
     <div
       ref={setNodeRef}
       style={longPressSort ? { ...style, touchAction: 'none' } : style}
-      role="button"
-      tabIndex={0}
-      onClick={() => onSelect(event.id)}
-      onKeyDown={handleKeyDown}
-      className={`group relative row-rule flex w-full items-center gap-4 rounded-item py-3 pr-4 text-left transition-colors hover:bg-[var(--oc-hover)] active:bg-[var(--oc-hover)] ${sortable ? 'pl-10' : 'pl-4'}`}
+      {...listRowProps(nav, { onClick: () => onSelect(event.id), onKeyDown: handleKeyDown })}
+      className={listRowClass(
+        nav,
+        `group relative row-rule flex w-full items-center gap-4 rounded-item py-3 pr-4 text-left transition-colors hover:bg-[var(--oc-hover)] active:bg-[var(--oc-hover)] ${sortable ? 'pl-10' : 'pl-4'}`,
+        ROW_SELECTED,
+      )}
       {...longPress}
       {...cardAttributes}
       {...cardListeners}

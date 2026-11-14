@@ -10,6 +10,9 @@ import { coverExcerpt } from '@/lib/cover'
 import { countryPreview } from './country-list-utils'
 import { DRAG_SLOT_ROW, ROW_ACTIONS } from '@/lib/ui-tokens'
 import { DragHandle, useSortableItem } from '@/components/shared/list-dnd'
+import { listRowClass, listRowProps } from '@/lib/list-item'
+import type { ListItemHandlers } from '@/lib/use-list-navigation'
+import { ROW_SELECTED } from '@/lib/ui-tokens'
 
 interface CountryItemProps {
   country: Country
@@ -19,6 +22,8 @@ interface CountryItemProps {
   isMobile: boolean
   /** 手动排序模式下才挂拖拽手柄 */
   sortable?: boolean
+  /** 桌面列表选中模型（use-list-navigation）给的一组属性 */
+  nav?: ListItemHandlers
 }
 
 /** 「目录」视图的行 */
@@ -29,6 +34,7 @@ export function CountryRow({
   onLongPress,
   isMobile,
   sortable = false,
+  nav,
 }: CountryItemProps) {
   const preview = countryPreview(country)
 
@@ -50,11 +56,12 @@ export function CountryRow({
     <div
       ref={setNodeRef}
       style={longPressSort ? { ...style, touchAction: 'none' } : style}
-      role="button"
-      tabIndex={0}
-      onClick={() => onSelect(country.id)}
-      onKeyDown={handleKeyDown}
-      className={`group relative row-rule flex w-full items-center gap-3 rounded-item py-3 pr-4 text-left transition-colors hover:bg-[var(--oc-hover)] active:bg-[var(--oc-hover)] ${sortable ? 'pl-10' : 'pl-4'}`}
+      {...listRowProps(nav, { onClick: () => onSelect(country.id), onKeyDown: handleKeyDown })}
+      className={listRowClass(
+        nav,
+        `group relative row-rule flex w-full items-center gap-3 rounded-item py-3 pr-4 text-left transition-colors hover:bg-[var(--oc-hover)] active:bg-[var(--oc-hover)] ${sortable ? 'pl-10' : 'pl-4'}`,
+        ROW_SELECTED,
+      )}
       {...longPress}
       {...cardAttributes}
       {...cardListeners}
@@ -88,10 +95,12 @@ export function CountryCard({
   onLongPress,
   isMobile,
   sortable = false,
+  nav,
 }: CountryItemProps) {
   return (
     <CoverCard
       id={country.id}
+      nav={nav}
       title={country.name}
       intro={coverExcerpt(countryPreview(country), 84)}
       imageSrc={country.headerUrl ? resolveImageUrl(country.headerUrl, 'header') : undefined}

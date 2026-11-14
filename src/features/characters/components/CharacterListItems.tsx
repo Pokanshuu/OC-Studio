@@ -9,9 +9,11 @@ import { getImageUrl, resolveImageUrl } from '@/lib/image-service'
 import { coverExcerpt } from '@/lib/cover'
 import { useLongPress } from '@/lib/useLongPress'
 import { aliasesText } from './character-list-utils'
-import { DRAG_SLOT_ROW, ROW_ACTIONS } from '@/lib/ui-tokens'
+import { DRAG_SLOT_ROW, ROW_ACTIONS, ROW_SELECTED } from '@/lib/ui-tokens'
 import { DragHandle, useSortableItem } from '@/components/shared/list-dnd'
 import { MoveToFolderMenu } from './MoveToFolderMenu'
+import { listRowClass, listRowProps } from '@/lib/list-item'
+import type { ListItemHandlers } from '@/lib/use-list-navigation'
 
 interface CharacterItemProps {
   character: Character
@@ -25,6 +27,8 @@ interface CharacterItemProps {
   onMoveToFolder?: (id: number, folder: string | null) => void
   /** 手动排序模式下才挂拖拽手柄 */
   sortable?: boolean
+  /** 桌面列表选中模型（use-list-navigation）给的一组属性 */
+  nav?: ListItemHandlers
 }
 
 /** 「画廊」视图的卡片：一张封面（照片 → 渐进模糊 → 色块，名字落在色块里） */
@@ -38,6 +42,7 @@ export function CharacterCard({
   folders = [],
   onMoveToFolder,
   sortable = false,
+  nav,
 }: CharacterItemProps) {
   const displayNationality = countryName || character.nationalityLegacy
   const meta = [character.race, displayNationality].filter(Boolean).join(' · ')
@@ -46,6 +51,7 @@ export function CharacterCard({
   return (
     <CoverCard
       id={character.id}
+      nav={nav}
       title={character.name}
       intro={coverExcerpt(character.bio, 84)}
       meta={meta || undefined}
@@ -89,6 +95,7 @@ export function CharacterRow({
   folders = [],
   onMoveToFolder,
   sortable = false,
+  nav,
 }: CharacterItemProps) {
   const displayNationality = countryName || character.nationalityLegacy
   const aliasText = aliasesText(character.aliases)
@@ -110,11 +117,12 @@ export function CharacterRow({
     <div
       ref={setNodeRef}
       style={style}
-      role="button"
-      tabIndex={0}
-      onClick={() => onSelect(character.id)}
-      onKeyDown={handleKeyDown}
-      className={`group relative row-rule flex w-full items-center gap-3 rounded-item py-2 pr-4 text-left transition-colors hover:bg-[var(--oc-hover)] ${sortable ? 'pl-10' : 'pl-4'} ${longPressSort ? 'touch-none' : ''}`}
+      {...listRowProps(nav, { onClick: () => onSelect(character.id), onKeyDown: handleKeyDown })}
+      className={listRowClass(
+        nav,
+        `group relative row-rule flex w-full items-center gap-3 rounded-item py-2 pr-4 text-left transition-colors hover:bg-[var(--oc-hover)] ${sortable ? 'pl-10' : 'pl-4'} ${longPressSort ? 'touch-none' : ''}`,
+        ROW_SELECTED,
+      )}
       {...longPress}
       {...cardAttributes}
       {...cardListeners}

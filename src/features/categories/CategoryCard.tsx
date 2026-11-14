@@ -14,6 +14,8 @@ import { resolveImageUrl } from '@/lib/image-service'
 import { Avatar } from '@/components/shared/Avatar'
 import { DeleteButton } from '@/components/shared/DeleteButton'
 import { CoverCard } from '@/components/shared/cover/CoverCard'
+import { listRowClass, listRowProps } from '@/lib/list-item'
+import type { ListItemHandlers } from '@/lib/use-list-navigation'
 import { MoveToFolderMenu } from '@/features/characters/components/MoveToFolderMenu'
 
 interface CategoryCardProps {
@@ -26,6 +28,8 @@ interface CategoryCardProps {
   onLongPress?: () => void
   folders?: string[]
   onMoveToFolder?: (folder: string | null) => void
+  /** 桌面列表选中模型（use-list-navigation）给的一组属性 */
+  nav?: ListItemHandlers
 }
 
 export function CategoryCard({
@@ -38,6 +42,7 @@ export function CategoryCard({
   onLongPress,
   folders = [],
   onMoveToFolder,
+  nav,
 }: CategoryCardProps) {
   const cover = entry.cover ? resolveImageUrl(entry.cover, 'cover') : undefined
   const avatar = entry.avatar ? resolveImageUrl(entry.avatar, 'avatar') : undefined
@@ -46,6 +51,7 @@ export function CategoryCard({
   return (
     <CoverCard
       id={entry.id}
+      nav={nav}
       title={entry.title || '未命名'}
       intro={excerpt || undefined}
       meta={folder || undefined}

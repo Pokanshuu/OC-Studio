@@ -1,6 +1,7 @@
 'use client'
 
 import { useDelayedFlag } from '@/lib/use-delayed-flag'
+import { useListNavigation } from '@/lib/use-list-navigation'
 
 /**
  * 一个自定义分类的列表页 + 条目编辑器。
@@ -110,7 +111,9 @@ export function CategorySection({
   const [search, setSearch] = useState('')
   const [sortKey, setSortKey] = useState<CategorySortKey>(readCategorySortKey)
   const [viewMode, setViewMode] = useState<CategoryViewMode>(readCategoryViewMode)
-  const [deleteTarget, setDeleteTarget] = useState<WorldEntry | null>(null)
+  const [deleteTargets, setDeleteTargets] = useState<WorldEntry[] | null>(null)
+  /** 列表右键菜单 */
+  const [listMenu, setListMenu] = useState<{ ids: number[]; at: { x: number; y: number } } | null>(null)
   const [folderFilter, setFolderFilter] = useState<FolderFilter>('all')
   const [stackMenu, setStackMenu] = useState<{ name: string; at: { x: number; y: number } } | null>(null)
   const [folderDialog, setFolderDialog] = useState<{ mode: 'rename' | 'members'; name: string } | null>(null)
@@ -301,7 +304,7 @@ export function CategorySection({
           label: '删除',
           icon: <Trash2 size={20} strokeWidth={2} />,
           destructive: true,
-          onPress: () => setDeleteTarget(entry),
+          onPress: () => setDeleteTargets([entry]),
         },
       ],
     })
@@ -329,11 +332,11 @@ export function CategorySection({
   }
 
   const handleDelete = async (): Promise<void> => {
-    const target = deleteTarget
-    setDeleteTarget(null)
-    if (!target) return
+    const targets = deleteTargets
+    setDeleteTargets(null)
+    if (!targets || targets.length === 0) return
     try {
-      await deleteEntry(target.id)
+      for (const target of targets) await deleteEntry(target.id)
       notifyDataUpdated()
       await reload()
     } catch (err) {
@@ -368,6 +371,23 @@ export function CategorySection({
 
   /** 加载态不闪：200ms 内什么都不画，超过才显示「加载中…」 */
   const showLoading = useDelayedFlag(loading)
+
+  /**
+   * 桌面列表选中模型（方向键 / Ctrl·Shift 多选 / Delete / 右键）。
+   * 移动端不启用：那边是长按动作表。
+   */
+  const listNav = useListNavigation<number>({
+    ids: filtered.map((entry) => entry.id),
+    onOpen: handleSelect,
+    onDelete: (ids) => {
+      const targets = ids
+        .map((id) => filtered.find((entry) => entry.id === id))
+        .filter((entry): entry is WorldEntry => entry !== undefined)
+      if (targets.length > 0) setDeleteTargets(targets)
+    },
+    onContextMenu: (ids, at) => setListMenu({ ids, at }),
+    enabled: !isMobile,
+  })
 
   if (!category) {
     return (
@@ -433,6 +453,7 @@ export function CategorySection({
   const renderRow = (entry: WorldEntry) => (
     <CategoryRow
       key={entry.id}
+      nav={listNav.itemProps(entry.id)}
       entry={entry}
       excerpt={excerptOf(entry)}
       sortable={canReorder}
@@ -448,6 +469,7 @@ export function CategorySection({
   const renderCard = (entry: WorldEntry) => (
     <CategoryCard
       key={entry.id}
+      nav={listNav.itemProps(entry.id)}
       entry={entry}
       excerpt={excerptOf(entry)}
       sortable={canReorder}
@@ -497,7 +519,7 @@ export function CategorySection({
           layout="list"
           disabled={!canReorder}
         >
-          <div className="flex flex-col rules-end px-1">{filtered.map(renderRow)}</div>
+          <div className="flex flex-col rules-end px-1" {...listNav.containerProps}>{filtered.map(renderRow)}</div>
         </SortableList>
       }
     />
@@ -510,7 +532,7 @@ export function CategorySection({
       layout="grid"
       disabled={!canReorder}
     >
-      <div className={LIST_GRID}>
+      <div className={LIST_GRID} {...listNav.containerProps}>
         {/* 文件夹和条目卡在同一个网格里：单独排一行会在末尾留一个空格子 */}
         {!inFolder ? folders.map(renderFolderStack) : null}
         {filtered.map((entry) => (
@@ -527,7 +549,7 @@ export function CategorySection({
       layout="list"
       disabled={!canReorder}
     >
-      <div className="flex flex-col rules-end">{filtered.map(renderRow)}</div>
+      <div className="flex flex-col rules-end" {...listNav.containerProps}>{filtered.map(renderRow)}</div>
     </SortableList>
   )
 
@@ -608,15 +630,19 @@ export function CategorySection({
           />
 
           <AlertDialog
-            open={deleteTarget !== null}
+            open={deleteTargets !== null}
             onOpenChange={(open) => {
-              if (!open) setDeleteTarget(null)
+              if (!open) setDeleteTargets(null)
             }}
           >
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>确认删除</AlertDialogTitle>
-                <AlertDialogDescription>删除后将移至回收站，可在回收站里恢复。</AlertDialogDescription>
+                <AlertDialogDescription>
+                  {deleteTargets !== null && deleteTargets.length > 1
+                    ? `删除 ${deleteTargets.length} 项？删除后可在回收站恢复。`
+                    : '删除后将移至回收站，可在回收站里恢复。'}
+                </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>取消</AlertDialogCancel>
@@ -656,6 +682,47 @@ export function CategorySection({
                     const name = stackMenu.name
                     setStackMenu(null)
                     void handleDeleteFolder(name)
+                  },
+                },
+              ]}
+            />
+          ) : null}
+
+          {listMenu ? (
+            <MediaContextMenu
+              at={listMenu.at}
+              onClose={() => setListMenu(null)}
+              items={[
+                ...(listMenu.ids.length === 1
+                  ? [{ label: '打开', icon: <FolderOpen size={13} strokeWidth={2} />, onSelect: () => handleSelect(listMenu.ids[0]) }]
+                  : []),
+                {
+                  label: listMenu.ids.length > 1 ? `移到文件夹（${listMenu.ids.length} 项）` : '移到文件夹',
+                  icon: <FolderOpen size={13} strokeWidth={2} />,
+                  submenu: [
+                    ...folders.map((folder) => ({
+                      label: folder.name,
+                      onSelect: () => {
+                        for (const id of listMenu.ids) handleMoveToFolder(id, folder.name)
+                      },
+                    })),
+                    {
+                      label: '移出文件夹',
+                      onSelect: () => {
+                        for (const id of listMenu.ids) handleMoveToFolder(id, null)
+                      },
+                    },
+                  ],
+                },
+                {
+                  label: listMenu.ids.length > 1 ? `删除 ${listMenu.ids.length} 项` : '删除',
+                  danger: true,
+                  icon: <Trash2 size={13} strokeWidth={2} />,
+                  onSelect: () => {
+                    const targets = listMenu.ids
+                      .map((id) => filtered.find((entry) => entry.id === id))
+                      .filter((entry): entry is WorldEntry => entry !== undefined)
+                    if (targets.length > 0) setDeleteTargets(targets)
                   },
                 },
               ]}
