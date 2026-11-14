@@ -522,11 +522,40 @@ for (const rel of IME_GUARDED_FILES) {
   }
 }
 
+/**
+ * 字号字面量（**警告，不计入失败**）。
+ *
+ * 设计系统管住了颜色和圆角，但没管字号：`text-[10px]`…`text-[15px]` 这类字面量
+ * 有五百多处，实际在用的字号有八九档。五档语义字号（`--text-micro/caption/ui/body/reading`，
+ * 见 globals.css 的 @theme）已经就位，`ui-tokens.ts` 已全部换过去；
+ * 业务文件里的存量逐个改是另一个量级的改动，所以这条规则**先只报计数**。
+ *
+ * 五档之外的（`text-[10px]` / `text-[12.5px]` 这类）不在迁移范围里，也会出现在计数中。
+ */
+const fontSizeLiterals: { file: string; line: number; text: string }[] = []
+for (const file of walk(SRC)) {
+  if (skipped(file)) continue
+  const rel = relative(ROOT, file).replace(/\\/g, '/')
+  if (rel.endsWith('ui-tokens.ts')) continue
+  const lines = readFileSync(file, 'utf8').split(/\r?\n/)
+  lines.forEach((line, index) => {
+    const trimmed = line.trim()
+    if (trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*')) return
+    if (!/text-\[\d+(?:\.\d+)?px\]/.test(line)) return
+    fontSizeLiterals.push({ file: rel, line: index + 1, text: trimmed.slice(0, 120) })
+  })
+}
+
 const repeated = [...fragments.entries()]
   .filter(([, files]) => files.size >= 3)
   .sort((a, b) => b[1].size - a[1].size)
 if (violations.length === 0) {
   console.log('设计令牌体检：干净（0 处违规）')
+  if (fontSizeLiterals.length > 0) {
+    console.log(`\n⚠ font-size-literal：字号字面量 ${fontSizeLiterals.length} 处（警告，不计入失败；五档见 globals.css 的 @theme）`)
+    for (const item of fontSizeLiterals.slice(0, 10)) console.log(`    ${item.file}:${item.line}  ${item.text.slice(0, 80)}`)
+    if (fontSizeLiterals.length > 10) console.log(`    …另有 ${fontSizeLiterals.length - 10} 处`)
+  }
   if (repeated.length > 0) {
     console.log(`\n可收进 ui-tokens 的重复片段（${repeated.length} 条，仅供整理，不算违规）：`)
     for (const [fragment, files] of repeated.slice(0, 12)) {

@@ -16,6 +16,17 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* 标题衬线字体。
+   仓库里**不带字体文件**（体积该由作者决定，见 docs/衬线字体.md）：
+   把子集化后的思源宋体放到 `public/fonts/oc-serif.woff2` 就会自动生效；
+   文件不在时浏览器会跳过这条 @font-face（不报错），字体栈回落到系统的思源宋体 / 宋体。 */
+@font-face {
+  font-family: 'OC Serif';
+  src: url('/fonts/oc-serif.woff2') format('woff2');
+  font-weight: 600 700;
+  font-display: swap;
+}
+
 :root {
   --oc-paper: #FEFCF8;
   --oc-paper-alt: #FAF7F2;
@@ -106,6 +117,26 @@
   --transition-duration-base: var(--oc-duration-base);
   --transition-duration-slow: var(--oc-duration-slow);
   --ease-quiet: var(--oc-ease-quiet);
+}
+
+/* 字号五档（Tailwind v4 会生成 text-micro / text-caption / text-ui / text-body / text-reading）。
+   以前字面量有 `text-[10px]`…`text-[15px]` 八九档，加上 `text-xs/sm/base` 实际在用的字号更多。
+   五档按**角色**取，不按大小随手写：
+
+     micro     11px  角标 / 分组标题 / 表头的极小字
+     caption   12px  说明 / 状态 / 次要信息
+     ui        13px  界面默认（按钮、菜单项、字段、列表副标题）
+     body      14px  正文段落 / 表单主文
+     reading   15px  长文阅读（编辑器正文）
+
+   `text-[11px]` 这类字面量还没清完（业务文件里有五百多处），
+   `scripts/design-audit.ts` 的 `font-size-literal` 先以**警告**形式输出计数，不计入失败。 */
+@theme {
+  --text-micro: 11px;
+  --text-caption: 12px;
+  --text-ui: 13px;
+  --text-body: 14px;
+  --text-reading: 15px;
 }
 
 .dark {
@@ -489,12 +520,12 @@ body[data-map-immersive='true'] [data-dev-mock] {
 }
 
 .main-scroll::-webkit-scrollbar-thumb {
-  background: var(--color-line);
+  background: transparent;
   border-radius: 3px;
 }
 
 .main-scroll::-webkit-scrollbar-thumb:hover {
-  background: var(--color-line-hover);
+  background: var(--oc-ink-faint);
 }
 
 .aside-scroll::-webkit-scrollbar {
@@ -506,7 +537,7 @@ body[data-map-immersive='true'] [data-dev-mock] {
 }
 
 .aside-scroll::-webkit-scrollbar-thumb {
-  background: var(--color-line);
+  background: transparent;
   border-radius: 2px;
 }
 
@@ -781,7 +812,9 @@ body[data-map-immersive='true'] [data-dev-mock] {
 
 
 
-/* 自定义滚动条 */
+/* 自定义滚动条 —— **静止时透明**（Windows 11 / macOS 的默认行为是细条、静止看不见、
+   悬停才显形）。WebView2 不支持「自动隐藏」，用「容器 :hover 时才给滑块上色」近似：
+   静止透明 → 悬停在容器上 `line-hover` → 按住 / 悬停滑块本身 `ink-faint`。 */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -792,12 +825,29 @@ body[data-map-immersive='true'] [data-dev-mock] {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--oc-line-hover); /* 亮色 #D6D0C4 / 暗色 #4A4642 */
+  background: transparent;
   border-radius: 3px;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: var(--oc-ink-faint); /* 亮色 #A5A098 / 暗色 #6E6A63 */
+/* 任意可滚动元素被悬停时（指针在内容上也成立 —— `:hover` 会传到祖先）才显形 */
+*:hover::-webkit-scrollbar-thumb {
+  background: var(--oc-line-hover);
+}
+
+::-webkit-scrollbar-thumb:hover,
+::-webkit-scrollbar-thumb:active {
+  background: var(--oc-ink-faint);
+}
+
+/* 主滚动容器 / 侧栏独立滚动区：同一套规则（滑块静止透明，容器悬停才显形） */
+.main-scroll:hover::-webkit-scrollbar-thumb,
+.aside-scroll:hover::-webkit-scrollbar-thumb {
+  background: var(--oc-line-hover);
+}
+
+.main-scroll::-webkit-scrollbar-thumb:hover,
+.aside-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--oc-ink-faint);
 }
 
 /* Firefox 兜底 */

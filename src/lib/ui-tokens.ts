@@ -34,7 +34,7 @@ export const LIST_END = '[&>*:last-child]:border-b-0'
 export const FIELD_GRID = '[&>*:last-child]:border-b-0 sm:[&>*:nth-last-child(-n+2)]:border-b-0'
 export const FIELD_LABEL = 'w-16 shrink-0 text-sm text-ink-muted'
 /** 竖排表单里的标签（弹窗/设置） */
-export const FIELD_LABEL_BLOCK = 'mb-1.5 block text-[13px] text-ink-muted'
+export const FIELD_LABEL_BLOCK = 'mb-1.5 block text-ui text-ink-muted'
 
 /* ── 设置弹窗的行 ───────────────────────────────────────
    只有两种，按控件的形状取，绝不混用：
@@ -45,7 +45,7 @@ export const FIELD_LABEL_BLOCK = 'mb-1.5 block text-[13px] text-ink-muted'
    分组之间靠 `SETTINGS_GROUP` 的 1px 线 + 20px 间距，而不是只靠空隙。 */
 export const SETTINGS_TOGGLE_ROW = 'flex items-center justify-between gap-4'
 export const SETTINGS_FIELD = 'flex min-w-0 flex-col gap-2'
-export const SETTINGS_LABEL = 'text-[13px] leading-5 text-ink'
+export const SETTINGS_LABEL = 'text-ui leading-5 text-ink'
 /**
  * 一组「标签在上」的字段（单选组 / 色板）：**字段之间 24px**，比开关行的 12px 松。
  * 12px 时下一组的标签只比它自己的控件远一点点 —— 两条设置读起来像同一条的续行。
@@ -55,9 +55,9 @@ export const SETTINGS_FIELD_GROUP = 'mt-5 flex flex-col gap-6 border-t border-li
 /** 分组：除第一组外都带上边线（`SETTINGS_GROUP`）—— 一行一个类，别就地写 */
 export const SETTINGS_GROUP = 'mt-5 flex flex-col gap-3 border-t border-line pt-5'
 /** 组内更细的分隔（如「背景」下的铺法 / 遮罩），不占整行 */
-export const SETTINGS_HINT = 'text-[11px] leading-4 text-ink-faint'
+export const SETTINGS_HINT = 'text-micro leading-4 text-ink-faint'
 /** 列表里「这一栏还是空的」那一行：和列表行同高基线，别用小一号的灰字凑数 */
-export const SETTINGS_EMPTY = 'py-2 text-[13px] leading-5 text-ink-faint'
+export const SETTINGS_EMPTY = 'py-2 text-ui leading-5 text-ink-faint'
 
 /* ── 区块标题 ───────────────────────────────────────────
    衬线 15px：靠字族而非字号与 14px 的字段标签拉开层级。 */
@@ -122,11 +122,11 @@ export const FLOAT_BAR = `flex h-8 items-center gap-0.5 p-1 ${FLOAT_SKIN}`
 /** 浮条里的图标按钮（24 见方） */
 export const FLOAT_BAR_ICON = `flex h-6 w-6 shrink-0 items-center justify-center text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink ${ROUND_ITEM}`
 /** 浮条里的文字按钮（图标 + 12px 字） */
-export const FLOAT_BAR_TEXT = `flex h-6 shrink-0 items-center gap-1 px-1.5 text-[12px] text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink ${ROUND_ITEM}`
+export const FLOAT_BAR_TEXT = `flex h-6 shrink-0 items-center gap-1 px-1.5 text-caption text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink ${ROUND_ITEM}`
 /** 竖排浮条（右下角工具栈）：与 `FLOAT_BAR` 同一皮肤，只换方向 */
 export const FLOAT_STACK = `flex flex-col gap-0.5 p-1 ${FLOAT_SKIN}`
 /** 面板内的分组小标题（比 `MENU_GROUP_LABEL` 少一级缩进，配 `p-2` 的 `PANEL`） */
-export const PANEL_GROUP_LABEL = 'px-1.5 py-1 text-[11px] tracking-[0.08em] text-ink-faint'
+export const PANEL_GROUP_LABEL = 'px-1.5 py-1 text-micro tracking-[0.08em] text-ink-faint'
 
 /**
  * 压在图片 / 封面上的圆形图标按钮（删除 / 移到文件夹 / 拖拽手柄 / 图片菜单）—— **唯一皮肤**。
@@ -142,13 +142,13 @@ export const OVERLAY_ROUND_BTN =
    主按钮 = 浅底实心（**不是**实心墨色：强调色只留给「选中态」），次按钮 = 纯文字。
    原则：一屏之内不该出现第二块深色；动作靠位置与文字表达，不靠反相。 */
 export const BTN_PRIMARY =
-  `touch-feedback flex h-8 shrink-0 items-center gap-1.5 bg-paper-card px-3 text-[13px] text-ink transition-colors hover:bg-line active:bg-line-hover disabled:opacity-40 ${ROUND_CONTROL}`
+  `touch-feedback flex h-8 shrink-0 items-center gap-1.5 bg-paper-card px-3 text-ui text-ink transition-colors hover:bg-line active:bg-line-hover disabled:opacity-40 ${ROUND_CONTROL}`
 /**
  * 纯文字按钮。禁用态要显式收掉悬停：全局 `button:hover` 会给任何按钮铺底色，
  * 光加 `opacity-40` 的话鼠标移上去仍像能点。
  */
 export const BTN_QUIET =
-  'flex h-8 shrink-0 items-center gap-1.5 px-1.5 text-[13px] text-ink-muted transition-colors hover:text-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink-muted'
+  'flex h-8 shrink-0 items-center gap-1.5 px-1.5 text-ui text-ink-muted transition-colors hover:text-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink-muted'
 
 /**
  * 设置里成排的文字动作（导入 / 导出 / 检查更新 / GitHub）。
@@ -157,14 +157,14 @@ export const BTN_QUIET =
  * 同一列里一块灰底会把「动作」误读成「当前选中」。
  */
 export const SETTINGS_ACTION_BTN =
-  'touch-feedback flex h-8 w-full items-center justify-center gap-1.5 px-3 text-[13px] text-ink transition-colors hover:bg-[var(--oc-hover)] active:bg-[var(--oc-hover)] disabled:cursor-not-allowed disabled:text-ink-faint disabled:hover:bg-transparent'
+  'touch-feedback flex h-8 w-full items-center justify-center gap-1.5 px-3 text-ui text-ink transition-colors hover:bg-[var(--oc-hover)] active:bg-[var(--oc-hover)] disabled:cursor-not-allowed disabled:text-ink-faint disabled:hover:bg-transparent'
 
 /**
  * 区块标题右侧的「＋ 添加」：纯文字、和标题同排，不另占一整行。
  * 关系表 / 立绘 / 相册共用 —— 空区块只留标题行，内容出现后再撑开。
  */
 export const ADD_ACTION =
-  'flex shrink-0 items-center gap-1 py-[3px] pr-1 text-[12px] text-ink-faint transition-colors hover:text-ink'
+  'flex shrink-0 items-center gap-1 py-[3px] pr-1 text-caption text-ink-faint transition-colors hover:text-ink'
 
 /**
  * 危险按钮 —— **全局唯一形态**：灰调实心红（`--oc-danger`）。
@@ -175,7 +175,7 @@ export const ADD_ACTION =
  * hover `bg-error-light`）—— 在菜单里铺一块红底会把「行」变成「按钮」。
  */
 export const BTN_DANGER =
-  `touch-feedback flex h-8 shrink-0 items-center justify-center gap-1.5 bg-danger px-3 text-[13px] text-danger-ink transition-colors hover:bg-danger-hover disabled:opacity-40 ${ROUND_CONTROL}`
+  `touch-feedback flex h-8 shrink-0 items-center justify-center gap-1.5 bg-danger px-3 text-ui text-danger-ink transition-colors hover:bg-danger-hover disabled:opacity-40 ${ROUND_CONTROL}`
 
 /* ── 输入 ─────────────────────────────────────────────
    零描边：静默态只留一条极淡的线，聚焦时加深。 */
@@ -187,7 +187,7 @@ export const INPUT_LINE =
  * `INPUT_LINE` 是 `w-full`，放进文件夹条会把整行撑开 —— 改名 / 新建文件夹用这个。
  */
 export const INLINE_INPUT =
-  'h-6 w-28 min-w-0 border-b border-line bg-transparent px-0 text-[12px] text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none'
+  'h-6 w-28 min-w-0 border-b border-line bg-transparent px-0 text-caption text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none'
 
 /**
  * 数字输入 —— **不要用 `type="number"`**。
@@ -198,7 +198,7 @@ export const INLINE_INPUT =
  * 宽度不在这里定：字段行里的宽高是 64，种子是 80 —— 调用点带一个 `w-*`。
  */
 export const NUMBER_INPUT =
-  'h-7 shrink-0 border-b border-line bg-transparent px-0 text-right text-[12px] tabular-nums text-ink transition-colors focus:border-line-hover focus:outline-none'
+  'h-7 shrink-0 border-b border-line bg-transparent px-0 text-right text-caption tabular-nums text-ink transition-colors focus:border-line-hover focus:outline-none'
 
 /* ── 浮层 ─────────────────────────────────────────────
    只有浮层允许有边框；**阴影只有一档**（`FLOAT_SHADOW`，值在 globals.css 的 `--oc-shadow-float`）——
@@ -216,9 +216,9 @@ export const MENU = `border border-line bg-paper/85 backdrop-blur-lg py-1 ${FLOA
  *  `focus-visible:outline-none`：菜单项走键盘时靠 `data-highlighted` 的底色指示，
  *  再叠一圈焦点圈就成了双重指示（两个高亮框同时亮）。 */
 export const MENU_ITEM_BASE =
-  `flex w-full items-center gap-2 px-3 py-1 text-left text-[13px] transition-colors focus-visible:outline-none ${ROUND_ITEM}`
+  `flex w-full items-center gap-2 px-3 py-1 text-left text-ui transition-colors focus-visible:outline-none ${ROUND_ITEM}`
 export const MENU_ITEM = `${MENU_ITEM_BASE} text-ink hover:bg-[var(--oc-hover)]`
-export const MENU_GROUP_LABEL = 'px-3 py-1 text-[11px] tracking-[0.08em] text-ink-faint'
+export const MENU_GROUP_LABEL = 'px-3 py-1 text-micro tracking-[0.08em] text-ink-faint'
 
 /* ── Tooltip ─────────────────────────────────────────────
    桌面应用的悬停提示：淡入、**不缩放**、贴在触发元素下方 6px，500ms 后出现；
@@ -226,13 +226,13 @@ export const MENU_GROUP_LABEL = 'px-3 py-1 text-[11px] tracking-[0.08em] text-in
    原生 `title` 是浏览器画的（约 1 秒才出、字体底色跟系统走、暗色下可能是浅色框），
    每个图标按钮都是一次「这是 WebView」的提醒 —— 所以图标按钮一律用 `Tip`。 */
 export const TOOLTIP =
-  `pointer-events-none border border-line bg-paper px-2 py-1 text-[12px] text-ink ${FLOAT_SHADOW} ${ROUND_CONTROL}`
+  `pointer-events-none border border-line bg-paper px-2 py-1 text-caption text-ink ${FLOAT_SHADOW} ${ROUND_CONTROL}`
 
 /* ── chip ─────────────────────────────────────────────
    无描边、低对比底色；选中态反相为实心墨色。 */
-export const CHIP = `inline-flex items-center gap-1 bg-paper-alt px-2 py-[3px] text-[12px] text-ink-muted ${ROUND_ITEM}`
+export const CHIP = `inline-flex items-center gap-1 bg-paper-alt px-2 py-[3px] text-caption text-ink-muted ${ROUND_ITEM}`
 /** chip 选中态：反相为实心墨色（只用于「选中」语义，不当按钮强调色用） */
-export const CHIP_ON = `inline-flex items-center gap-1 bg-ink px-2 py-[3px] text-[12px] text-paper ${ROUND_ITEM}`
+export const CHIP_ON = `inline-flex items-center gap-1 bg-ink px-2 py-[3px] text-caption text-paper ${ROUND_ITEM}`
 /**
  * chip 的**编辑态**（行内改名）：退回纸面。
  *
@@ -240,7 +240,7 @@ export const CHIP_ON = `inline-flex items-center gap-1 bg-ink px-2 py-[3px] text
  * `text-paper` 深字），而 `INLINE_INPUT` 写的是 `text-ink`（暗色下是浅字）——
  * 浅字压浅底，暗色主题里就成了「看不见字」。改名时不要再反相。
  */
-export const CHIP_EDIT = `inline-flex items-center gap-1 bg-paper-alt px-2 py-[3px] text-[12px] text-ink ${ROUND_ITEM}`
+export const CHIP_EDIT = `inline-flex items-center gap-1 bg-paper-alt px-2 py-[3px] text-caption text-ink ${ROUND_ITEM}`
 
 /* ── 空态 / 加载 ───────────────────────────────────────
    空态 = **一个图标 + 一句话 + 一个主按钮**（`BTN_PRIMARY`），整块在内容区里**横向 + 纵向居中**。
@@ -249,14 +249,14 @@ export const CHIP_EDIT = `inline-flex items-center gap-1 bg-paper-alt px-2 py-[3
    内容那一层加 `flex-1` 就会撑满可视区（见 `ListShell` 顶部注释）。
    动作不许再写成可点的衬线小字（`EMPTY_HINT` 只留给侧栏 / 卡片里的行内入口）。 */
 export const EMPTY_STATE = 'flex flex-1 flex-col items-center justify-center gap-3 px-6 py-16 text-center'
-export const LOADING_TEXT = 'text-[13px] text-ink-faint'
+export const LOADING_TEXT = 'text-ui text-ink-faint'
 
 /* ── 列表页（网格 / 搜索） ─────────────────────────────
    列表页的列数只在这一处定义：角色 / 事件 / 国家三张列表共用。 */
 export const LIST_GRID = 'grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5'
 /** 列表页页头里的搜索框（左侧给搜索图标留 pl-8） */
 export const SEARCH_INPUT =
-  'h-8 w-44 border-b border-transparent bg-transparent pl-8 pr-2 text-[13px] text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none'
+  'h-8 w-44 border-b border-transparent bg-transparent pl-8 pr-2 text-ui text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none'
 /** 搜索图标：绝对定位在输入框左侧 */
 export const SEARCH_ICON = 'pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-faint'
 
@@ -320,11 +320,11 @@ export const ROW_ACTIONS = 'absolute right-2 top-1/2 -translate-y-1/2 opacity-0 
 export const EMPTY_HINT = 'font-serif text-sm text-ink-faint transition-colors hover:text-ink'
 /** 移动端筛选条右侧的新建按钮 */
 export const MOBILE_FILTER_BTN =
-  'touch-feedback flex items-center gap-1 bg-paper/85 px-2 py-1 text-[11px] text-ink-muted backdrop-blur transition-colors hover:text-ink'
+  'touch-feedback flex items-center gap-1 bg-paper/85 px-2 py-1 text-micro text-ink-muted backdrop-blur transition-colors hover:text-ink'
 
 /** 筛选 / 排序下拉的触发按钮（桌面 h-8，移动端 h-7；宽度由内容决定） */
 export const FILTER_TRIGGER =
-  'touch-feedback flex h-7 items-center gap-1 px-2 text-[11px] text-ink transition-colors hover:bg-[var(--oc-hover)] active:bg-[var(--oc-hover)] md:h-8 md:px-3 md:text-[13px]'
+  'touch-feedback flex h-7 items-center gap-1 px-2 text-micro text-ink transition-colors hover:bg-[var(--oc-hover)] active:bg-[var(--oc-hover)] md:h-8 md:px-3 md:text-ui'
 
 /* ── 拖拽排序 ─────────────────────────────────────────
    手柄位置只有两种：卡片压在图左上角、列表行在左侧留白里。
