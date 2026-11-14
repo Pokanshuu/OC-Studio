@@ -2,7 +2,8 @@
 
 import type { ReactNode } from 'react'
 import type { Editor } from '@tiptap/core'
-import { ArrowLeft, Menu } from 'lucide-react'
+import { ArrowLeft, ChevronLeft, ChevronRight, Menu } from 'lucide-react'
+import { useNavigationHistory } from '@/components/layout/NavigationHistoryContext'
 import { EditorToolbar } from '@/components/editor/EditorToolbar'
 import { ListWidthResizer } from '@/components/editor/ListWidthResizer'
 import { useListWidth } from '@/components/editor/useListWidth'
@@ -42,6 +43,12 @@ export function EntityEditorShell({
 }: EntityEditorShellProps) {
   const hasList = list !== undefined
   const { width: listWidth, startDrag: startListDrag, reset: resetListWidth } = useListWidth()
+  const {
+    back: historyBack,
+    forward: historyForward,
+    canBack,
+    canForward,
+  } = useNavigationHistory()
 
   return (
     <div className="flex h-full min-h-0 overflow-hidden">
@@ -77,17 +84,45 @@ export function EntityEditorShell({
               </Tip>
             ) : null}
             {onBack ? (
+              // 移动端保持「← 返回」文字按钮：`data-mobile-back` 是 Android 物理返回键的落点
+              //（`useBackButton.ts` 靠它找元素），别改成图标。
               <button
                 type="button"
                 onClick={onBack}
                 data-mobile-back
-                className={`${ICON_BTN_MD} w-auto gap-1 px-1.5`}
+                className={`${ICON_BTN_MD} w-auto gap-1 px-1.5 md:hidden`}
                 aria-label="返回"
               >
                 <ArrowLeft size={16} strokeWidth={2} />
                 <span className="text-[13px]">返回</span>
               </button>
             ) : null}
+            {/* 桌面：历史后退 / 前进。这是「历史」不是「返回列表」——
+                语义与 §9 的 ArrowLeft（返回 / 关闭）不同，所以用一对 Chevron。 */}
+            <div className="hidden items-center gap-0.5 md:flex">
+              <Tip label="后退" shortcut="Alt+←">
+                <button
+                  type="button"
+                  onClick={() => (canBack ? historyBack() : onBack?.())}
+                  disabled={!canBack && !onBack}
+                  className={`${ICON_BTN_MD} disabled:opacity-40`}
+                  aria-label="后退"
+                >
+                  <ChevronLeft size={16} strokeWidth={2} />
+                </button>
+              </Tip>
+              <Tip label="前进" shortcut="Alt+→">
+                <button
+                  type="button"
+                  onClick={() => historyForward()}
+                  disabled={!canForward}
+                  className={`${ICON_BTN_MD} disabled:opacity-40`}
+                  aria-label="前进"
+                >
+                  <ChevronRight size={16} strokeWidth={2} />
+                </button>
+              </Tip>
+            </div>
             <h2 className="sr-only">{title}</h2>
           </div>
 

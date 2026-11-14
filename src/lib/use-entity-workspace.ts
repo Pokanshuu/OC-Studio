@@ -9,6 +9,7 @@ import { useMobileNavigation } from '@/components/layout/MobileNavigationContext
 import { useWordCount } from '@/components/layout/WordCountContext'
 import { useEntityNavigate } from '@/components/layout/EntityNavigateContext'
 import { useSaveStatus } from '@/components/layout/SaveStatusContext'
+import { useNavigationHistory, type NavLocation } from '@/components/layout/NavigationHistoryContext'
 import { useEventList, useEvent, useCreateEvent, useUpdateEvent, useDeleteEvent } from '@/features/events/hooks/useEvents'
 import { useCharacterList, useCreateCharacter, useDeleteCharacter } from '@/features/characters/hooks/useCharacters'
 import { useCreateCountry, useDeleteCountry } from '@/features/countries/hooks/useCountries'
@@ -684,6 +685,94 @@ export function useEntityWorkspace() {  const { activeItem: desktopActiveItem, s
   }, [showEvents, showCharacters, showCountries, showWorld, eventView, characterView, countryView, setWordCount])
 
   const { setNavigateHandler } = useEntityNavigate()
+
+  /* ── 导航历史 ────────────────────────────────────────────────────
+     记录点只有这一处：**位置**（板块 + 打开着的实体）一变就入栈。
+     切板块（setActiveItem）、跨实体跳转（navigateToEntity / @ / [[内链]]）、
+     各列表的「打开实体」全部经过同一组状态，所以不用每个入口各挂一次。
+     ---- */
+  const history = useNavigationHistory()
+
+  const currentLocation = useMemo<NavLocation>(() => {
+    const entity =
+      eventView.sub === 'editor'
+        ? { type: 'event', id: eventView.eventId }
+        : characterView.sub === 'editor'
+          ? { type: 'character', id: characterView.characterId }
+          : countryView.sub === 'editor'
+            ? { type: 'country', id: countryView.countryId }
+            : undefined
+    return { item: activeItem, entity }
+  }, [activeItem, eventView, characterView, countryView])
+
+  useEffect(() => {
+    history.record(currentLocation)
+  }, [history, currentLocation])
+
+  /**
+   * 回放一条历史位置。
+   * 返回 `false` = 这个实体已经被删了（或指向不存在的行），调用方继续往前退。
+   */
+  const replayLocation = useCallback(
+    async (location: NavLocation): Promise<boolean> => {
+      const entity = location.entity
+      if (entity) {
+        const row =
+          entity.type === 'character'
+            ? await db.characters.get(entity.id)
+            : entity.type === 'event'
+              ? await db.events.get(entity.id)
+              : entity.type === 'country'
+                ? await db.countries.get(entity.id)
+                : undefined
+        if (!row || row.deleted) return false
+      }
+
+      if (location.item !== null) setActiveItem(location.item)
+      if (!entity) {
+        setEventView({ sub: 'list' })
+        setCharacterView({ sub: 'list' })
+        setCountryView({ sub: 'list' })
+        clearEditing()
+        return true
+      }
+      if (entity.type === 'event') {
+        setEventView({ sub: 'editor', eventId: entity.id })
+        setEditing('event', entity.id)
+        if (isMobile) {
+          mobileSetSection('gallery')
+          mobileSetGallerySubTab('events')
+        }
+      } else if (entity.type === 'character') {
+        setCharacterView({ sub: 'editor', characterId: entity.id })
+        setEditing('character', entity.id)
+        if (isMobile) {
+          mobileSetSection('gallery')
+          mobileSetGallerySubTab('characters')
+        }
+      } else if (entity.type === 'country') {
+        setCountryView({ sub: 'editor', countryId: entity.id })
+        setEditing('country', entity.id)
+        if (isMobile) {
+          mobileSetSection('gallery')
+          mobileSetGallerySubTab('countries')
+        }
+      }
+      return true
+    },
+    [clearEditing, isMobile, mobileSetGallerySubTab, mobileSetSection, setActiveItem, setEditing],
+  )
+
+  useEffect(() => {
+    history.setReplay((location) => replayLocation(location))
+    // 动栈之前先问「有没有未保存的改动」—— 与「← 返回」走同一条 confirmLeave，
+    // 历史导航不能绕过它（约束 14）。
+    history.setGuard((action) => confirmLeave(action))
+    return () => {
+      history.setReplay(null)
+      history.setGuard(null)
+    }
+  }, [history, replayLocation, confirmLeave])
 
   useEffect(() => {
     setNavigateHandler((id: number, type: string) => {

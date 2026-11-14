@@ -5,6 +5,7 @@ import { NavigationProvider } from "@/components/layout/NavigationContext";
 import { WordCountProvider } from "@/components/layout/WordCountContext";
 import { EntityNavigateProvider } from "@/components/layout/EntityNavigateContext";
 import { NavigationSourceProvider } from "@/components/layout/NavigationSourceContext";
+import { NavigationHistoryProvider } from "@/components/layout/NavigationHistoryContext";
 import { SettingsProvider } from "@/lib/settings";
 import { ActiveEditorProvider } from "@/lib/editor-context";
 import { Providers } from "./providers";
@@ -65,12 +66,14 @@ export default function RootLayout({
                 <WordCountProvider>
                   <NavigationProvider>
                     <NavigationSourceProvider>
+                    <NavigationHistoryProvider>
                     <BlurEffect />
                     <VaultGate>
                       <AppShell>
                         {children}
                       </AppShell>
                     </VaultGate>
+                    </NavigationHistoryProvider>
                     </NavigationSourceProvider>
                   </NavigationProvider>
                 </WordCountProvider>

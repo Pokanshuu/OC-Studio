@@ -960,6 +960,28 @@ body[data-map-immersive='true'] [data-dev-mock] {
   animation: slide-out-left var(--oc-duration-fast) var(--oc-ease-quiet) forwards;
 }
 
+/* 桌面端不做横滑：横向位移是「进入详情页」的手机 / 网页语言。
+   桌面上编辑器与列表是同屏的主从布局，整块横着推一下只会让人以为页面在动。
+   只淡入淡出，移动端（粗指针）保留原来的横滑。 */
+@keyframes fade-in-only {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes fade-out-only {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+@media (hover: hover) and (pointer: fine) {
+  .section-fade[data-animate="slide-in-right"],
+  .section-fade[data-animate="slide-in-left"] {
+    animation: fade-in-only var(--oc-duration-fast) var(--oc-ease-quiet);
+  }
+  .section-fade[data-animate="slide-out-right"],
+  .section-fade[data-animate="slide-out-left"] {
+    animation: fade-out-only var(--oc-duration-fast) var(--oc-ease-quiet) forwards;
+  }
+}
+
 /* Context menu fade transition */
 .context-menu-fade {
   opacity: 0;
