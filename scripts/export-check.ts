@@ -240,6 +240,9 @@ check('同版式不动', optionsForTemplate(toNoir, 'noir') === toNoir)
 }
 
 // ── 导入的引用重映射（备份 id → 落库 id / 悬空即清空）───────────────────
+// 成员事实（标签 / 国籍 / 参与者 / 相关角色）目标没了就断开；
+// **命名语义（笔记 relations / 角色 relatedNotes / 事件 relations）保留原文**，
+// 只解除 targetId —— 这是项目对「目标被删」的一贯口径（审查报告 F09 / R12）。
 {
   const maps = {
     characters: new Map([[1, 11]]),
@@ -261,7 +264,7 @@ check('同版式不动', optionsForTemplate(toNoir, 'noir') === toNoir)
   )
   const characterPatch = characterResult.patch
   check('重映射 · 国籍跟着换成本库 id', characterPatch?.countryId === 55, JSON.stringify(characterPatch?.countryId))
-  check('重映射 · 统计被摘掉的悬空引用（标签 1 + 角色关系 1 + 相关笔记 1）', characterResult.dropped === 3, String(characterResult.dropped))
+  check('重映射 · 统计被断开的成员事实（标签 1 + 相关角色 1）', characterResult.dropped === 2, String(characterResult.dropped))
   check('重映射 · 标签只留能解析的', JSON.stringify(characterPatch?.tags) === '[99]', JSON.stringify(characterPatch?.tags))
   check(
     '重映射 · 角色关系换 id、悬空的摘掉',
@@ -269,10 +272,12 @@ check('同版式不动', optionsForTemplate(toNoir, 'noir') === toNoir)
     JSON.stringify(characterPatch?.relatedCharacters),
   )
   check(
-    '重映射 · 相关笔记同理',
-    JSON.stringify(characterPatch?.relatedNotes) === JSON.stringify([{ targetId: 33, name: '笔记', relation: '主角' }]),
+    '重映射 · 相关笔记悬空后保留名字、只解除 targetId',
+    JSON.stringify(characterPatch?.relatedNotes) ===
+      JSON.stringify([{ targetId: 33, name: '笔记', relation: '主角' }, { name: '悬空', relation: '' }]),
     JSON.stringify(characterPatch?.relatedNotes),
   )
+  check('重映射 · 统计保留文字的命名关系（1 条）', characterResult.unresolvedNamed === 1, String(characterResult.unresolvedNamed))
 
   const eventPatch = remapRowRefs(
     'event',
@@ -281,14 +286,50 @@ check('同版式不动', optionsForTemplate(toNoir, 'noir') === toNoir)
   )
   const eventValues = eventPatch.patch
   check('重映射 · 相关国家 / 参与者', JSON.stringify(eventValues?.countries) === '[55]' && JSON.stringify(eventValues?.characters) === '[11]')
+  // 只有 relation 为空的一条边没有可读文字，摘掉时不丢用户内容
   check(
-    '重映射 · 事件关系（悬空摘掉）',
+    '重映射 · 事件关系（无名无文的悬空边摘掉）',
     JSON.stringify(eventValues?.relations) === JSON.stringify([{ targetId: 22, relation: '前因' }]),
     JSON.stringify(eventValues?.relations),
   )
 
   const notePatch = remapRowRefs('worldEntry', { relations: [{ targetId: 3, name: 'B', relation: '相关' }] }, maps)
   check('重映射 · 笔记关系', JSON.stringify(notePatch.patch?.relations) === JSON.stringify([{ targetId: 33, name: 'B', relation: '相关' }]))
+
+  // 正文引用按目标类型查表：字符串 id 保持字符串，跨类型不串号
+  const body = remapRowRefs(
+    'worldEntry',
+    {
+      document: {
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [
+              { type: 'mention', attrs: { id: '1', entityType: 'character', label: '甲' } },
+              { type: 'wikiLink', attrs: { id: '3', label: '乙' } },
+            ],
+          },
+        ],
+      },
+    },
+    maps,
+  )
+  const bodyNodes = (body.patch?.document as { content: Array<{ content: Array<{ attrs: { id: string } }> }> }).content[0].content
+  check(
+    '重映射 · 正文里按类型换 id（角色 1→11、笔记 3→33）',
+    bodyNodes[0].attrs.id === '11' && bodyNodes[1].attrs.id === '33',
+    JSON.stringify(bodyNodes),
+  )
+  check('重映射 · 正文目标缺失时保留文字、解除跳转', (() => {
+    const missing = remapRowRefs(
+      'worldEntry',
+      { document: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'mention', attrs: { id: '99', entityType: 'character', label: '不在备份里' } }] }] } },
+      maps,
+    )
+    const node = (missing.patch?.document as { content: Array<{ content: Array<{ attrs: { id?: string; label: string } }> }> }).content[0].content[0]
+    return node.attrs.id === undefined && node.attrs.label === '不在备份里' && missing.unlinked === 1
+  })())
 
   check(
     '重映射 · 没有引用变化时返回 null',

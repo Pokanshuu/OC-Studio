@@ -11,9 +11,9 @@ import { TableCell } from '@tiptap/extension-table-cell'
 import { TableHeader } from '@tiptap/extension-table-header'
 import Mention from '@tiptap/extension-mention'
 import { DragHandle } from '@tiptap/extension-drag-handle'
-import type { Editor } from '@tiptap/core'
+import { getSchema, type Editor } from '@tiptap/core'
 import type { UseEditorOptions } from '@tiptap/react'
-import { searchAllEntitiesFlat } from '@/lib/reference-registry'
+import { searchReferableEntities } from '@/lib/reference-registry'
 import { openExternal } from '@/lib/open-external'
 import { safeHref } from '@/lib/safe-href'
 import { ImageBlock } from './extensions/ImageBlock'
@@ -24,6 +24,7 @@ import { createWikiLinkExtension } from './WikiLinkExtension'
 import { createMentionRender, type ExtendedReferableEntity } from './mention-render'
 import { plainTextToPastedHtml, sanitizePastedHtml } from './paste'
 import { runAsSingleUndoStep } from './undo-grouping'
+import { editorContentOf } from './editor-content'
 
 /** 拖拽把手 → 块类型菜单的自定义事件名（dispatch 在本模块的 DragHandle render 里，监听在 EditorCore） */
 export const BLOCK_MENU_EVENT = 'editor-block-menu'
@@ -68,7 +69,7 @@ export function buildEditorConfig({
   onCharacterCount,
   onContentChange,
 }: BuildEditorConfigArgs): UseEditorOptions {
-  return {
+  const config: UseEditorOptions = {
     immediatelyRender: false,
     extensions: [
       StarterKit.configure({
@@ -182,6 +183,11 @@ export function buildEditorConfig({
               parseHTML: (element) => element.getAttribute('data-raw'),
               renderHTML: (attributes) => (attributes.raw ? { 'data-raw': attributes.raw } : {}),
             },
+            anchor: {
+              default: null,
+              parseHTML: (element) => element.getAttribute('data-anchor'),
+              renderHTML: (attributes) => (attributes.anchor ? { 'data-anchor': attributes.anchor } : {}),
+            },
           }
         },
       }).configure({
@@ -197,13 +203,18 @@ export function buildEditorConfig({
             'data-id': node.attrs.id as string ?? '',
             'data-label': label,
             'data-entity-type': node.attrs.entityType as string ?? '',
+            ...(node.attrs.raw ? { 'data-raw': node.attrs.raw as string } : {}),
+            ...(node.attrs.anchor ? { 'data-anchor': node.attrs.anchor as string } : {}),
           }, `@${label}`]
         },
         suggestion: {
           char: '@',
           items: async ({ query }) => {
-            const entities = await searchAllEntitiesFlat(query)
-            return entities.filter((e) => e.type !== 'world').map((e) => ({ ...e, label: e.name }))
+            // 类型过滤在注册表内完成；先截断再按类型挑选，会让事件与国家在角色众多时整体缺失
+            const entities = await searchReferableEntities(query, {
+              types: ['character', 'event', 'country'],
+            })
+            return entities.map((e) => ({ ...e, label: e.name }))
           },
           render: createMentionRender(),
           command: ({ editor, range, props }) => {
@@ -327,6 +338,8 @@ export function buildEditorConfig({
       onContentChange?.(updatedEditor.getHTML())
     },
   }
+  config.content = editorContentOf(content, () => getSchema(config.extensions ?? []))
+  return config
 }
 
 

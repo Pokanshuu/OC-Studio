@@ -29,16 +29,45 @@ describe('rankReferableEntities', () => {
     expect(rankReferableEntities(entities, '')).toHaveLength(40)
   })
 
-  it('查询为空时保留全部（上限 50），顺序按 zh-Hans 名字', () => {
-    const entities = Array.from({ length: 60 }, (_, i) => entity(`条目${i}`))
-    const result = rankReferableEntities(entities, '')
-    expect(result).toHaveLength(50)
-    expect(result[0].name).toBe('条目0')
+  it('查询为空时按 zh-Hans 名字排序，超过上限才截断', () => {
+    const entities = Array.from({ length: 210 }, (_, i) => entity(`条目${i}`))
+    const capped = rankReferableEntities(entities, '')
+    expect(capped).toHaveLength(200)
+    expect(capped[0].name).toBe('条目0')
+    expect(rankReferableEntities(entities, '', Number.POSITIVE_INFINITY)).toHaveLength(210)
   })
 
   it('大小写不敏感，别名也参与', () => {
     const entities = [entity('Alice', ['ali']), entity('Bob')]
     expect(rankReferableEntities(entities, 'ALI').map((e) => e.name)).toEqual(['Alice'])
+  })
+
+  it('拉丁字母查询按拼音首字母命中，不必先打汉字', () => {
+    const entities = [entity('艾拉'), entity('凯尔'), entity('北境')]
+    expect(rankReferableEntities(entities, 'al').map((e) => e.name)).toEqual(['艾拉'])
+    expect(rankReferableEntities(entities, 'a').map((e) => e.name)).toEqual(['艾拉'])
+    expect(rankReferableEntities(entities, 'k').map((e) => e.name)).toEqual(['凯尔'])
+    expect(rankReferableEntities(entities, 'bj').map((e) => e.name)).toEqual(['北境'])
+  })
+
+  it('拼音首字母只认前缀：l 不命中「艾拉」', () => {
+    expect(rankReferableEntities([entity('艾拉')], 'l')).toEqual([])
+    expect(rankReferableEntities([entity('艾拉')], 'alice')).toEqual([])
+  })
+
+  it('别名同样参与首字母匹配', () => {
+    expect(rankReferableEntities([entity('艾拉', ['小艾'])], 'xa').map((e) => e.name)).toEqual([
+      '艾拉',
+    ])
+  })
+
+  it('字面前缀排在拼音首字母之前', () => {
+    const entities = [entity('阿花'), entity('Alice')]
+    expect(rankReferableEntities(entities, 'a').map((e) => e.name)).toEqual(['Alice', '阿花'])
+  })
+
+  it('汉字查询不触发首字母匹配', () => {
+    expect(rankReferableEntities([entity('艾拉')], '爱')).toEqual([])
   })
 
   it('没有命中返回空数组', () => {

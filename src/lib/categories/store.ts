@@ -98,6 +98,23 @@ function serialize(categories: Category[]): string {
   return `${JSON.stringify({ version: VERSION, categories }, null, 2)}\n`
 }
 
+/**
+ * 文件形状校验：写出去的一定是 `{ version, categories: [] }`。
+ *
+ * JSON 能 parse 不代表内容还对（`{}` / `null` / 数组都是坏文件）。普通界面仍会
+ * 回落内置分类，但读取要把它记成失败，备份 / 恢复才不会把回落值当真配置。
+ */
+function readCategoryPayload(payload: unknown): unknown[] {
+  if (
+    payload === null ||
+    typeof payload !== 'object' ||
+    !Array.isArray((payload as { categories?: unknown }).categories)
+  ) {
+    throw new Error('分类文件结构不正确')
+  }
+  return (payload as { categories: unknown[] }).categories
+}
+
 function vaultRoot(): string | null {
   if (!isVaultSupported()) return null
   return (getVaultSession()?.root ?? null)
@@ -130,17 +147,23 @@ export async function loadCategories(force = false): Promise<void> {
       if (root) {
         if (await vaultFs.exists(root, CATEGORIES_REL_PATH)) {
           const bytes = await vaultFs.readBytes(root, CATEGORIES_REL_PATH)
-          const payload = JSON.parse(new TextDecoder().decode(new Uint8Array(bytes))) as { categories?: unknown }
-          staleReserved = hasReservedCategory(payload?.categories)
-          next = mergeBuiltins(normalize(payload?.categories))
+          const payload = JSON.parse(new TextDecoder().decode(new Uint8Array(bytes))) as unknown
+          const categories = readCategoryPayload(payload)
+          staleReserved = hasReservedCategory(categories)
+          next = mergeBuiltins(normalize(categories))
         } else {
           next = mergeBuiltins([])
         }
       } else if (typeof window !== 'undefined') {
         const raw = localStorage.getItem(LS_KEY)
-        const parsed = raw === null ? null : (JSON.parse(raw) as { categories?: unknown })
-        staleReserved = hasReservedCategory(parsed?.categories)
-        next = parsed === null ? mergeBuiltins([]) : mergeBuiltins(normalize(parsed.categories))
+        const parsed = raw === null ? null : (JSON.parse(raw) as unknown)
+        if (parsed !== null) {
+          const categories = readCategoryPayload(parsed)
+          staleReserved = hasReservedCategory(categories)
+          next = mergeBuiltins(normalize(categories))
+        } else {
+          next = mergeBuiltins([])
+        }
       } else {
         next = mergeBuiltins([])
       }
@@ -207,6 +230,28 @@ export async function saveCategories(next: Category[]): Promise<void> {
 
 export function getCategories(): Category[] {
   return snapshot
+}
+
+/**
+ * 备份读取用的只读状态（不触发加载）。
+ *
+ * 普通界面读失败时仍回落内置表（容错打开），但备份必须能看出「这份表是读失败后的
+ * 回落 / 旧库缓存」，否则会把空表或上一个库的分类写进 `.ocbak`。
+ */
+export interface CategoriesReadState {
+  loaded: boolean
+  readFailed: boolean
+  root: string | null
+  reason?: string
+}
+
+export function getCategoriesReadState(): CategoriesReadState {
+  return {
+    loaded,
+    readFailed,
+    root: loadedRoot,
+    ...(readFailed ? { reason: '分类文件读取失败（权限 / 坏 JSON）' } : {}),
+  }
 }
 
 function subscribe(listener: () => void): () => void {

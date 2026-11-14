@@ -3,7 +3,14 @@ import type { Character, Country, Event, WorldEntry } from '@/types'
 import { downloadJson } from './download'
 import { resolveImageUrl } from '../image-service'
 import { localDateStamp } from '../date-stamp'
-import { collectBackupConfig, type BackupConfig } from './backup-config'
+import { loadBackupConfigSnapshot, type BackupConfig } from './backup-config'
+import {
+  BACKUP_STORE_ID_BY_CONFIG_KEY,
+  buildBackupManifest,
+  type BackupManifest,
+  type BackupManifestIssue,
+} from './backup-manifest'
+import { flushPendingSaves } from '@/lib/pending-saves'
 import { readJournalLines } from '@/lib/vault/journal'
 import { getVaultSession } from '@/lib/vault/vault-session'
 import { vaultFs } from '@/lib/vault/vault-fs'
@@ -18,11 +25,17 @@ export interface ExportPayload {
   version: 1
   exportedAt: string
   /**
-   * 设置（自定义分类 / 字段表 / 模板 / 信息组 / 正文组 / 文件夹清单）。
+   * 设置（自定义分类 / 字段表 / 模板 / 信息组 / 正文组 / 文件夹清单 /
+   * 分类空文件夹清单 / 灵感）。
    * 可选：旧版本导出的备份没有这段，读到时按「没有设置可恢复」处理。
-   * 导入端只在目标**还没配过**时整段恢复，见 `lib/export/backup-config.ts`。
+   * 导入端只在目标**还没配过**时整段恢复（灵感按条合并），见 `lib/export/backup-config.ts`。
    */
   config?: BackupConfig
+  /**
+   * 持久 store 的备份清单（包含 / 明确排除及原因）。
+   * 旧备份没有这个键；旧版应用读到也会忽略。
+   */
+  manifest?: BackupManifest
   /**
    * 创作时间线（`.ocstudio/journal.jsonl` 的原始行）。
    *
@@ -183,11 +196,49 @@ export interface BackupExportDetail {
    * 以前这些是静默的 —— 用户以为「备份成功」，换台机器导入后才发现全是灰图。
    */
   missingImages: string[]
+  /** 只在当前会话有效的地址（`blob:`）：刷新即失效，写进备份只会是一串死地址 */
+  skippedImages: string[]
+  /** 哪几段设置没读出来（备份里可能不完整）；界面要如实说，不能只报成功 */
+  configWarnings: string[]
+  /**
+   * 清单是否声明为完整。`false` 时 payload.manifest.unavailable 非空：
+   * 这次 `.ocbak` 确实缺了登记表声称应包含的段落 / 素材，界面不能报「完整」。
+   */
+  complete: boolean
+}
+
+/** 备份导出前先把草稿刷进数据层：失败就中止，不能导出一份「看起来成功、少一段字」的快照 */
+async function flushDraftsForBackup(): Promise<void> {
+  try {
+    await flushPendingSaves()
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error)
+    throw new Error(`还有草稿没有保存成功，已中止备份：${detail}`)
+  }
 }
 
 /** 完整备份：导出数据 + 将图片内联为 data URI（可移植，导入后图片不失效）。 */
 export async function exportFullBackupDetailed(): Promise<BackupExportDetail> {
+  // 快照必须晚于草稿保存：词条正文 / 表单还没落进数据层时先读 Dexie，
+  // 备份里就会是上一版。flush 失败一律中止（调用方会显示错误，不显示成功）。
+  await flushDraftsForBackup()
   const payload = await exportAllData()
+  // 设置跟数据一起走：以前只导数据，换机器后自建分类 / 字段表 / 模板全没了。
+  // 灵感与分类空文件夹清单 2026-11-14 起也在里面（F15）。
+  // 先取设置再收图片：灵感草稿里也可能有 `imageBlock`，要跟实体正文一起内联。
+  //
+  // **读不到的段整段不写**（Q05）：以前 loader 内部 catch 后正常 resolve，
+  // 备份会把空表 / 旧库缓存当成真实配置收下，manifest 还宣称完整。
+  const configSnapshot = await loadBackupConfigSnapshot()
+  payload.config = configSnapshot.config
+  const configWarnings = configSnapshot.unavailable.map(
+    (issue) => `${issue.label}没有读取成功，本次备份不包含这一段：${issue.reason}`,
+  )
+  const manifestIssues: BackupManifestIssue[] = configSnapshot.unavailable.map((issue) => ({
+    id: BACKUP_STORE_ID_BY_CONFIG_KEY[issue.key] ?? issue.key,
+    label: issue.label,
+    reason: issue.reason,
+  }))
   // 图片引用的收集规则与相册、文件夹落地共用 `lib/image-refs`：
   // 字段图（头像/头图/图集/旗帜/封面）、**正文 imageBlock**、角色动画（视频）
   // 与词条的 `novelCover` / `mapImage` 都要算进来，只内联字段图的话，
@@ -205,6 +256,10 @@ export async function exportFullBackupDetailed(): Promise<BackupExportDetail> {
     { skipped },
   )
   const urls = new Set(refs.map((ref) => ref.url))
+  // 灵感不是实体，不在 `collectDatasetImageRefs` 的入参里；草稿正文同样要带走
+  for (const item of payload.config.inspirations ?? []) {
+    for (const url of collectBodyImageRefs(item.content)) urls.add(url)
+  }
 
   const map = new Map<string, string>()
   const missingImages: string[] = []
@@ -229,13 +284,35 @@ export async function exportFullBackupDetailed(): Promise<BackupExportDetail> {
   inlineBodies(payload.data.events, map)
   inlineBodies(payload.data.countries, map)
   inlineBodies(payload.data.worldEntries, map)
-  // 设置跟数据一起走：以前只导数据，换机器后自建分类 / 字段表 / 模板全没了
-  payload.config = collectBackupConfig()
+  inlineInspirationBodies(payload.config.inspirations, map)
+  if (missingImages.length > 0) {
+    manifestIssues.push({
+      id: 'images',
+      label: '图片与动画',
+      reason: `${missingImages.length} 张图片读不到字节，备份里只有路径`,
+    })
+  }
+  if (skipped.length > 0) {
+    manifestIssues.push({
+      id: 'images',
+      label: '图片与动画',
+      reason: `${skipped.length} 个 blob: 会话内地址刷新即失效，没有写进备份`,
+    })
+  }
+  // 清单随文件走：读的人能直接看出「哪些 store 在里面 / 哪些明确排除、为什么」，
+  // 以及这次实际缺了哪几段（`complete:false`）。旧版应用忽略这个键。
+  payload.manifest = buildBackupManifest({ unavailable: manifestIssues })
   // 创作时间线也一起走：换设备后「这角色我 8 月就写了」的证据不能断。
   // 浏览器版没有库目录，`readJournalLines()` 会返回空数组，这里不必分支。
   const journal = await readJournalLines()
   if (journal.length > 0) payload.journal = journal
-  return { payload, missingImages }
+  return {
+    payload,
+    missingImages,
+    skippedImages: [...skipped],
+    configWarnings,
+    complete: payload.manifest.complete,
+  }
 }
 
 export async function exportFullBackup(): Promise<ExportPayload> {
@@ -256,15 +333,38 @@ function inlineBodies(records: unknown[], map: Map<string, string>): void {
   }
 }
 
+/**
+ * 灵感草稿里的正文图也要内联。
+ *
+ * 灵感不是实体，`inlineBodies` 的入参形状对不上；内容同样是「Tiptap JSON 字符串 /
+ * 老 HTML」两种，直接复用同一个改写函数即可（认不出来时原样返回）。
+ */
+function inlineInspirationBodies(items: unknown[] | undefined, map: Map<string, string>): void {
+  if (items === undefined || map.size === 0) return
+  for (const item of items as Array<{ content?: unknown }>) {
+    if (typeof item.content !== 'string' || item.content === '') continue
+    if (collectBodyImageRefs(item.content).length === 0) continue
+    const next = inlineBodyImageRefs(item.content, map)
+    if (typeof next === 'string') item.content = next
+  }
+}
+
 export interface BackupDownloadResult {
   fileName: string
   missingImages: string[]
+  /** 只在当前会话有效的素材地址（`blob:`），备份里带不走；界面要如实说一声 */
+  skippedImages: string[]
+  /** 设置里没读出来的段落（备份可能不完整） */
+  configWarnings: string[]
+  /** 清单是否声明完整；`false` 时文件里确实缺了段落 / 素材 */
+  complete: boolean
 }
 
 export async function downloadFullBackup(): Promise<BackupDownloadResult> {
-  const { payload, missingImages } = await exportFullBackupDetailed()
+  const { payload, missingImages, skippedImages, configWarnings, complete } =
+    await exportFullBackupDetailed()
   const fileName = await downloadJson(payload, `oc-full-backup-${localDateStamp()}.ocbak`)
-  return { fileName, missingImages }
+  return { fileName, missingImages, skippedImages, configWarnings, complete }
 }
 
 

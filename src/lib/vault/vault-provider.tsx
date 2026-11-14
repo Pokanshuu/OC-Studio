@@ -15,22 +15,36 @@ import { open as openFolderDialog } from '@tauri-apps/plugin-dialog'
 import { toast } from 'sonner'
 
 import { notifyDataUpdated } from '@/lib/data-events'
-import { isTauri } from '@/lib/env'
+import { flushPendingSaves } from '@/lib/pending-saves'
 import type { MergeStrategy } from '@/lib/import'
 import { setVaultImageContext } from '@/lib/image-service'
+import {
+  failuresFromVaultReport,
+  runGuardedTransition,
+  runSaveBarrier,
+  type SaveBarrierFailure,
+} from '@/lib/save-barrier'
+import { reportSaveBarrierFailures } from '@/lib/save-feedback'
+import { createConflictConfirmation, type ConflictConfirmationRequest } from './conflict-confirmation'
 import { exportLegacyToFolder } from './export-dir'
 import { backupLegacyData } from './legacy-backup'
 import { pickAssetsDir } from './vault-paths'
 import { loadVault, type VaultLoadResult } from './vault-load'
 import { isVaultSupported, vaultFs } from './vault-fs'
-import { getVaultSession } from './vault-session'
 import {
   currentStatus,
+  discardConflict,
   drainVaultWrites,
   installVaultPersist,
   subscribeVaultWriteStatus,
+  type VaultFlushReport,
   type VaultWriteStatus,
 } from './vault-persist'
+import {
+  adoptDiskAndReload,
+  reloadAfterSaveBarrier,
+  type VaultReloadResult,
+} from './vault-reload'
 import {
   lastVaultPath,
   listRecentVaults,
@@ -69,7 +83,19 @@ interface VaultContextValue {
   pickFolder: () => Promise<string | null>
   openFolder: (path?: string) => Promise<void>
   createFolder: (path?: string) => Promise<void>
-  rescan: () => Promise<void>
+  /**
+   * 普通刷新：保存屏障全绿才按磁盘内容重载。
+   * 返回结果让调用方（导入页等）能区分「重载成功 / 被拦下 / 失败」，不要只 toast。
+   */
+  rescan: () => Promise<VaultReloadResult>
+  /**
+   * 明确「采用磁盘版本」：先确认放弃指定本地冲突，再排干其它写入、重新读盘。
+   * 不传 `paths` 时从当前未解决冲突里取；**不会**先覆盖外部文件。
+   */
+  adoptDiskVersion: (paths?: string[]) => Promise<VaultReloadResult>
+  /** 等待用户确认的冲突列表；非空时 `VaultConflictDialog` 会弹出 */
+  conflictChoice: ConflictConfirmationRequest | null
+  answerConflictChoice: (confirmed: boolean) => void
   flush: () => Promise<void>
   /**
    * 把应用内（Dexie）的数据写进一个文件夹，然后打开它。
@@ -132,6 +158,16 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const [recent, setRecent] = useState<VaultRegistryEntry[]>([])
   const [writeStatus, setWriteStatus] = useState<VaultWriteStatus>(() => currentStatus())
   const [reportOpen, setReportOpen] = useState(false)
+  /** 等待用户确认「采用磁盘版本」的冲突文件；null = 没有对话框 */
+  const [conflictChoice, setConflictChoice] = useState<ConflictConfirmationRequest | null>(null)
+  const [conflictConfirmation] = useState(() => createConflictConfirmation(setConflictChoice))
+
+  const answerConflictChoice = useCallback(
+    (confirmed: boolean) => {
+      conflictConfirmation.answer(confirmed)
+    },
+    [conflictConfirmation],
+  )
 
   useEffect(() => subscribeVaultWriteStatus(setWriteStatus), [])
 
@@ -146,11 +182,20 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     void queryClient.invalidateQueries()
   }, [queryClient])
 
+  /**
+   * 真正的开库动作：读盘 → 整库替换 → 建立会话。
+   *
+   * **不在这里做保存屏障**：屏障必须在调用方、在 `setPhase('loading')` **之前**完成，
+   * 否则 VaultGate 会先撤下编辑器，那些还没提交的草稿就没有人来写了。
+   *
+   * `previousRoot` 用来区分「换库失败」与「首次开库失败」：前者保留原库与原界面，
+   * 后者才显示错误页。
+   */
   const openVault = useCallback(
     async (
       path: string,
-      options?: { boot?: boolean; announce?: boolean; backupLegacy?: boolean },
-    ) => {
+      options?: { boot?: boolean; announce?: boolean; backupLegacy?: boolean; previousRoot?: string | null },
+    ): Promise<boolean> => {
       try {
         const probe = await vaultFs.probe(path)
         if (!probe.exists) throw new Error('文件夹不存在，可能已被移动或删除')
@@ -168,22 +213,6 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             }
           } catch (err) {
             throw new Error(`旧版本数据备份失败，已取消打开：${describeError(err)}`)
-          }
-        }
-
-        /**
-         * 换库之前先把**当前库**的待写队列排干。
-         *
-         * `loadVault` 会整库替换 Dexie 并清空队列，那些还在防抖窗口里的编辑
-         * （最后一次输入后的 350ms–2s）会被静默丢掉 —— 用户看到的就是
-         * 「刚打的字，换个文件夹就没了」。写失败也要说一声再走，不能默默吞掉。
-         */
-        if (getVaultSession() !== null) {
-          const drained = await drainVaultWrites()
-          if (drained.errors.length > 0) {
-            toast.warning('切换前有内容没能写进原来的笔记库', {
-              description: `${drained.errors[0].relPath || '写入'}：${drained.errors[0].message}`,
-            })
           }
         }
 
@@ -206,11 +235,15 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             description: countsSummary(result),
           })
         }
+        return true
       } catch (err) {
         const message = describeError(err)
-        setError(message)
-        setPhase('error')
+        const keepCurrent = options?.previousRoot != null
+        // 换库失败：原库、原界面、原草稿都留着（用户还能继续编辑 / 重试）
+        setError(keepCurrent ? null : message)
+        setPhase(keepCurrent ? 'ready' : 'error')
         toast.error('打开笔记库失败', { description: message })
+        return false
       }
     },
     [refreshLists],
@@ -243,122 +276,210 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     return typeof picked === 'string' ? picked : null
   }, [supported])
 
+  /**
+   * 明确「采用磁盘版本」：恢复 Q08 被堵住的出口。
+   *
+   * 与普通刷新不同，它允许用户**放弃指定本地冲突**去采纳外部文件；但必须：
+   * 1. 先弹出确认（取消 = 两边都不动）；
+   * 2. 确认后只 `discardConflict`，不调用 `overwriteConflicts` —— 绝不先覆盖外部文件；
+   * 3. 排干其它普通写入后再读盘，失败/取消原样返回给调用方。
+   */
+  const adoptDiskVersion = useCallback(
+    async (paths?: string[]): Promise<VaultReloadResult> => {
+      if (root === null) return { status: 'failed', error: '当前没有打开的笔记库' }
+
+      // Submit every editor draft before discovering conflicts; unrelated drafts
+      // must reach the queue before a full-cache reload can replace their rows.
+      try {
+        await flushPendingSaves()
+      } catch (error) {
+        const failures: SaveBarrierFailure[] = [{ stage: 'draft', message: describeError(error) }]
+        reportSaveBarrierFailures(failures)
+        return { status: 'blocked', failures }
+      }
+
+      let targets = [
+        ...new Set((paths ?? []).map((path) => path.trim()).filter((path) => path !== '')),
+      ]
+
+      if (targets.length === 0) {
+        // 从当前队列里找真正未解决的冲突。这里只做普通 drain，不带 overwriteConflicts。
+        let preview: VaultFlushReport
+        try {
+          preview = await drainVaultWrites()
+        } catch (error) {
+          return { status: 'failed', error: describeError(error) }
+        }
+        targets = [...new Set(preview.conflicts)]
+        if (targets.length === 0) {
+          const failures = failuresFromVaultReport(preview)
+          if (failures.length > 0) {
+            reportSaveBarrierFailures(failures)
+            return { status: 'blocked', failures }
+          }
+          toast.info('没有需要采用的磁盘冲突')
+          return { status: 'cancelled' }
+        }
+      }
+
+      const confirmed = await conflictConfirmation.request(targets)
+      if (!confirmed) return { status: 'cancelled' }
+
+      // The confirmation may have stayed open while an editor submitted more text.
+      try {
+        await flushPendingSaves()
+      } catch (error) {
+        const failures: SaveBarrierFailure[] = [{ stage: 'draft', message: describeError(error) }]
+        reportSaveBarrierFailures(failures)
+        return { status: 'blocked', failures }
+      }
+
+      setPhase('loading')
+      const result = await adoptDiskAndReload(targets, {
+        discard: (relPath) => discardConflict(relPath),
+        drain: () => drainVaultWrites(),
+        status: () => currentStatus(),
+        reload: async () => {
+          const data = await loadVault(root)
+          setReport(data)
+          refreshLists()
+        },
+      })
+      setPhase('ready')
+
+      if (result.status === 'reloaded') {
+        toast.success('已采用磁盘版本', {
+          description: '未写入的本地冲突已放弃；磁盘上的文件没有被改写',
+        })
+      } else if (result.status === 'failed') {
+        toast.error('采用磁盘版本失败', { description: result.error })
+      } else if (result.status === 'blocked') {
+        reportSaveBarrierFailures(result.failures)
+      }
+      return result
+    },
+    [conflictConfirmation, refreshLists, root],
+  )
+
+  /** 屏障被冲突拦下时的统一回执：给「采用磁盘版本」和「覆盖磁盘」两个明确方向 */
+  const reportBlocked = useCallback(
+    (failures: SaveBarrierFailure[]) => {
+      reportSaveBarrierFailures(failures, {
+        adoptDisk: (paths) => {
+          void adoptDiskVersion(paths)
+        },
+      })
+    },
+    [adoptDiskVersion],
+  )
+
+  /**
+   * 换库的统一入口：**先保存屏障，再进入 loading**。
+   *
+   * 以前这里先 `setPhase('loading')`，VaultGate 立刻撤下主界面、编辑器卸载，
+   * 随后才 drain 队列 —— 那些还在表单/防抖计时器里的草稿根本不在队列里，直接丢。
+   * 现在屏障失败就原地不动：原库、原草稿、原界面都保留。
+   */
   const openFolder = useCallback(
     async (path?: string) => {
       const target = path ?? (await pickFolder())
       if (target === null) return
-      setPhase('loading')
-      setError(null)
-      await openVault(target)
+
+      const previousRoot = root
+      await runGuardedTransition(
+        runSaveBarrier,
+        reportBlocked,
+        async () => {
+          setPhase('loading')
+          setError(null)
+          await openVault(target, { previousRoot })
+        },
+      )
     },
-    [openVault, pickFolder],
+    [openVault, pickFolder, reportBlocked, root],
   )
 
   const createFolder = useCallback(
     async (path?: string) => {
       const target = path ?? (await pickFolder())
       if (target === null) return
-      setPhase('loading')
-      setError(null)
-      try {
-        const probe = await vaultFs.probe(target)
-        if (!probe.isDir) throw new Error('选择的路径不是文件夹')
 
-        // 已有标记就是现成 vault，按打开处理，不覆盖
-        if (!probe.hasMarker) {
-          await vaultFs.writeTexts(target, [
-            { relPath: MARKER_REL_PATH, content: buildMarkerContent(vaultNameFromPath(target)) },
-          ])
-        }
-        await openVault(target, { boot: true })
-        setPhase('ready')
-      } catch (err) {
-        const message = describeError(err)
-        setError(message)
-        setPhase('error')
-        toast.error('新建笔记库失败', { description: message })
-      }
+      const previousRoot = root
+      await runGuardedTransition(
+        runSaveBarrier,
+        reportBlocked,
+        async () => {
+          setPhase('loading')
+          setError(null)
+          try {
+            const probe = await vaultFs.probe(target)
+            if (!probe.isDir) throw new Error('选择的路径不是文件夹')
+
+            // 已有标记就是现成 vault，按打开处理，不覆盖
+            if (!probe.hasMarker) {
+              await vaultFs.writeTexts(target, [
+                { relPath: MARKER_REL_PATH, content: buildMarkerContent(vaultNameFromPath(target)) },
+              ])
+            }
+            await openVault(target, { boot: true, previousRoot })
+          } catch (err) {
+            const message = describeError(err)
+            const keepCurrent = previousRoot !== null
+            setError(keepCurrent ? null : message)
+            setPhase(keepCurrent ? 'ready' : 'error')
+            toast.error('新建笔记库失败', { description: message })
+          }
+        },
+      )
     },
-    [openVault, pickFolder],
+    [openVault, pickFolder, reportBlocked, root],
   )
 
-  const rescan = useCallback(async () => {
-    if (root === null) return
-    try {
-      await drainVaultWrites()
-      const result = await loadVault(root)
-      setReport(result)
+  /**
+   * 普通刷新：「以文件夹为准重载」。
+   *
+   * 语义（明确，不含糊）：先把所有草稿保存到磁盘、落盘队列全绿，才用磁盘内容
+   * 整库覆盖内存；有失败或冲突就**不重载**，返回 `blocked` 让调用方不要报成功。
+   * 想放弃本地冲突、采纳磁盘版本，必须走显式的 `adoptDiskVersion()`（会再确认）。
+   */
+  const rescan = useCallback(async (): Promise<VaultReloadResult> => {
+    if (root === null) return { status: 'failed', error: '当前没有打开的笔记库' }
+
+    const result = await reloadAfterSaveBarrier({
+      barrier: runSaveBarrier,
+      reload: () => loadVault(root),
+      onBlocked: reportBlocked,
+    })
+
+    if (result.status === 'reloaded') {
+      setReport(result.value)
       refreshLists()
-      toast.success('已重新载入', { description: countsSummary(result) })
-    } catch (err) {
-      toast.error('重新载入失败', { description: describeError(err) })
+      toast.success('已按文件夹内容重新载入', { description: countsSummary(result.value) })
+      return { status: 'reloaded' }
     }
-  }, [root, refreshLists])
+    if (result.status === 'failed') {
+      toast.error('重新载入失败', { description: result.error })
+      return result
+    }
+    return result
+  }, [refreshLists, reportBlocked, root])
 
   /**
-   * 关窗口前把待写队列排干。
+   * 只重试落盘队列（顶部「保存异常」提示条的「重试保存」用它）。
    *
-   * 保存是防抖的（编辑器 700ms–2s + 落盘队列 350ms），点关闭时最后几秒的输入可能
-   * 还在队列里；Tauri 没有窗口关闭钩子的话，进程一退它们就没了。
-   * 这里拦一次 CloseRequested：有待写就先 flush 再关（flush 内部有 5 秒看门狗，
-   * 卡住也不会把窗口锁死）。
+   * 关窗 / 换库不走这里 —— 它们必须连同草稿一起走 `runSaveBarrier()`。这里不抛错，
+   * 因为按钮的 onClick 是 `void flush()`；失败统一交给 `reportBlocked` 展示，
+   * 冲突时给出「采用磁盘版本 / 覆盖磁盘」两个明确方向。
    */
-  useEffect(() => {
-    if (!isTauri()) return
-    let unlisten: (() => void) | null = null
-    let allowClose = false
-    void (async () => {
-      try {
-        const { getCurrentWindow } = await import('@tauri-apps/api/window')
-        const win = getCurrentWindow()
-        unlisten = await win.onCloseRequested(async (event) => {
-          if (allowClose) return
-          if (currentStatus().pending === 0) return
-          event.preventDefault()
-          await drainVaultWrites()
-          allowClose = true
-          await win.close()
-        })
-      } catch {
-        // 取窗口失败（浏览器预览 / 旧版 API）：交给浏览器的 beforeunload 兜底
-      }
-    })()
-    return () => {
-      unlisten?.()
-    }
-  }, [])
-
   const flush = useCallback(async () => {
-    const result = await drainVaultWrites()
-    if (result.errors.length > 0) {
-      toast.error('保存失败', { description: result.errors[0].message })
+    try {
+      const result = await drainVaultWrites()
+      const failures = failuresFromVaultReport(result)
+      if (failures.length > 0) reportBlocked(failures)
+    } catch (err) {
+      reportSaveBarrierFailures([{ stage: 'disk', message: describeError(err) }])
     }
-
-    if (result.conflicts.length > 0) {
-      /**
-       * 冲突要给一条**能走的路**，不能只说「已跳过」。
-       *
-       * 自动保存永远不覆盖外部修改（那可能是用户在编辑器外写下的东西）；
-       * 但用户明确点「覆盖磁盘」时，就把基准 mtime 换成磁盘上的、按编辑器里的内容重写。
-       * 想反过来采纳磁盘版本，用「文件 › 刷新」重读即可。
-       */
-      toast.warning(`${result.conflicts.length} 个文件在磁盘上被外部修改过`, {
-        description: `${result.conflicts[0]} 已跳过、没有覆盖。要采纳磁盘版本就刷新；要用编辑器里的版本覆盖，点右边。`,
-        duration: 15000,
-        action: {
-          label: '覆盖磁盘',
-          onClick: () => {
-            void (async () => {
-              const retried = await drainVaultWrites({ overwriteConflicts: true })
-              if (retried.conflicts.length === 0 && retried.errors.length === 0) {
-                toast.success('已按编辑器里的版本覆盖磁盘')
-              }
-            })()
-          },
-        },
-      })
-    }
-  }, [])
+  }, [reportBlocked])
 
   // 老数据迁移：把 Dexie 全量物化进一个**空文件夹**，然后打开它。
   //
@@ -370,28 +491,43 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     const target = options?.path ?? (await pickFolder())
     if (target === null) return
 
-    setPhase('loading')
-    setError(null)
-    try {
-      const result = await exportLegacyToFolder(target, { strategy: options?.strategy })
-      await openVault(target, { boot: true, announce: false, backupLegacy: false })
+    // 先把当前库的草稿与队列写完，再往目标文件夹物化；屏障失败就原地不动
+    const previousRoot = root
+    await runGuardedTransition(
+      runSaveBarrier,
+      reportBlocked,
+      async () => {
+        setPhase('loading')
+        setError(null)
+        try {
+          const result = await exportLegacyToFolder(target, { strategy: options?.strategy })
+          const loaded = await openVault(target, {
+            boot: true,
+            announce: false,
+            backupLegacy: false,
+            previousRoot,
+          })
+          if (!loaded) return
 
-      const parts = [`新建 ${result.created} 篇`]
-      if (result.overwritten > 0) parts.push(`更新 ${result.overwritten} 篇`)
-      if (result.skippedExisting > 0) parts.push(`跳过同名 ${result.skippedExisting} 篇`)
-      if (result.movedToTrash > 0) parts.push(`旧笔记挪进回收站 ${result.movedToTrash} 篇`)
-      if (result.images > 0) parts.push(`图片 ${result.images} 张`)
-      if (result.missingImages.length > 0) {
-        parts.push(`${result.missingImages.length} 张图片找不到原件`)
-      }
-      toast.success('已写进文件夹', { description: parts.join(' · ') })
-    } catch (err) {
-      const message = describeError(err)
-      setError(message)
-      setPhase('error')
-      toast.error('导入失败', { description: message })
-    }
-  }, [openVault, pickFolder])
+          const parts = [`新建 ${result.created} 篇`]
+          if (result.overwritten > 0) parts.push(`更新 ${result.overwritten} 篇`)
+          if (result.skippedExisting > 0) parts.push(`跳过同名 ${result.skippedExisting} 篇`)
+          if (result.movedToTrash > 0) parts.push(`旧笔记挪进回收站 ${result.movedToTrash} 篇`)
+          if (result.images > 0) parts.push(`图片 ${result.images} 张`)
+          if (result.missingImages.length > 0) {
+            parts.push(`${result.missingImages.length} 张图片找不到原件`)
+          }
+          toast.success('已写进文件夹', { description: parts.join(' · ') })
+        } catch (err) {
+          const message = describeError(err)
+          const keepCurrent = previousRoot !== null
+          setError(keepCurrent ? null : message)
+          setPhase(keepCurrent ? 'ready' : 'error')
+          toast.error('导入失败', { description: message })
+        }
+      },
+    )
+  }, [openVault, pickFolder, reportBlocked, root])
 
 
   // 是否该去装载：只看「上次打开过哪个文件夹」，不再额外要求一个开关位。
@@ -421,6 +557,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       openFolder,
       createFolder,
       rescan,
+      adoptDiskVersion,
+      conflictChoice,
+      answerConflictChoice,
       flush,
       migrateLegacy,
       showReport: () => setReportOpen(true),
@@ -439,6 +578,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       openFolder,
       createFolder,
       rescan,
+      adoptDiskVersion,
+      conflictChoice,
+      answerConflictChoice,
       flush,
       migrateLegacy,
     ],

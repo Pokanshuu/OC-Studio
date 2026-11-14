@@ -41,6 +41,10 @@ let snapshot: FieldConfig = defaultFieldConfig()
  * 一旦用户随手改一下并保存，盘上那份真的配置就被默认值覆盖了 —— 和分类表那个坑同一类。
  */
 let readFailed = false
+/** 完成过一次装载（成功或失败）；备份读取用它判断「还没读」不等于「空表」 */
+let loaded = false
+/** 上次装载对应的库根（浏览器模式为 null）；根对不上 = 旧库缓存，不能进备份 */
+let loadedRoot: string | null = null
 const listeners = new Set<() => void>()
 
 function emit(): void {
@@ -223,9 +227,15 @@ function readFieldPayload(raw: unknown): { config: FieldConfig; version: number 
 /** 读配置：有文件夹时读 `.ocstudio/fields.json`，没有（浏览器预览）读 meta；读不到就是默认（全字段可见） */
 export async function loadFieldConfig(): Promise<void> {
   const session = getVaultSession()
+  const vaultMode = isVaultSupported()
+  const root = vaultMode ? (session?.root ?? null) : null
   try {
-    if (session !== null && isVaultSupported()) {
-      snapshot = await readFieldConfigFromRoot(session.root)
+    if (root !== null) {
+      // 严格读：文件存在但读不出 / 坏 JSON 会抛，由下面记成 readFailed（界面仍回落默认）
+      snapshot = await readFieldConfigFromRootStrict(root)
+    } else if (vaultMode) {
+      // 桌面版但会话还没就绪：不拿 Dexie 里的旧 meta 冒充当前库的字段表
+      throw new Error('笔记库还没打开')
     } else {
       const row = await db.meta.get(1)
       if (row?.fields === undefined) {
@@ -241,8 +251,48 @@ export async function loadFieldConfig(): Promise<void> {
     // 读失败：记下来，之后禁止写回（否则默认值会盖掉盘上那份真配置）
     readFailed = true
   }
+  loaded = true
+  loadedRoot = root
   syncCustomFieldKeys(snapshot)
   emit()
+}
+
+/**
+ * 备份读取用的只读状态（不触发加载）。
+ * 普通界面读失败仍回落默认；备份要把这一段标成「未包含」，不能把回落值当真实配置。
+ */
+export interface FieldConfigReadState {
+  loaded: boolean
+  readFailed: boolean
+  root: string | null
+  reason?: string
+}
+
+export function getFieldConfigReadState(): FieldConfigReadState {
+  return {
+    loaded,
+    readFailed,
+    root: loadedRoot,
+    ...(readFailed ? { reason: '字段表读取失败（权限 / 坏 JSON / 笔记库未就绪）' } : {}),
+  }
+}
+
+/**
+ * 严格读取：文件存在但读不出 / 不是合法 JSON 时**抛出**。
+ * 普通打开路径用下面的 `readFieldConfigFromRoot`（回落默认，能开库）；
+ * 备份 / 恢复用这一条，不能把坏文件当成「用户把字段全删了」。
+ */
+async function readFieldConfigFromRootStrict(root: string): Promise<FieldConfig> {
+  if (!(await vaultFs.exists(root, FIELDS_REL_PATH))) return defaultFieldConfig()
+  const bytes = await vaultFs.readBytes(root, FIELDS_REL_PATH)
+  const raw = JSON.parse(new TextDecoder().decode(new Uint8Array(bytes))) as unknown
+  // JSON 能 parse 但不是对象（null / 数组 / 字符串）也是坏文件 ——
+  // 普通界面回落默认，备份不能把它当成「用户把字段全删了」。
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new Error('字段表文件结构不正确')
+  }
+  const { config, version } = readFieldPayload(raw)
+  return upgradeFieldConfig(config, version)
 }
 
 /**
@@ -251,17 +301,11 @@ export async function loadFieldConfig(): Promise<void> {
  */
 export async function readFieldConfigFromRoot(root: string): Promise<FieldConfig> {
   try {
-    if (await vaultFs.exists(root, FIELDS_REL_PATH)) {
-      const bytes = await vaultFs.readBytes(root, FIELDS_REL_PATH)
-      const { config, version } = readFieldPayload(
-        JSON.parse(new TextDecoder().decode(new Uint8Array(bytes))),
-      )
-      return upgradeFieldConfig(config, version)
-    }
+    return await readFieldConfigFromRootStrict(root)
   } catch {
     // 坏文件回落默认：字段表坏了不能让笔记库打不开
+    return defaultFieldConfig()
   }
-  return defaultFieldConfig()
 }
 
 /** 写配置：先更新内存（界面立刻生效），再落盘；落盘失败抛出给调用方提示 */

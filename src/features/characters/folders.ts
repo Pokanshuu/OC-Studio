@@ -64,6 +64,21 @@ function serializeRegistry(names: string[]): string {
   return `${JSON.stringify({ version: REGISTRY_VERSION, folders: names }, null, 2)}\n`
 }
 
+/**
+ * 文件形状校验：写出去的一定是 `{ version, folders: [] }`。
+ * JSON 能 parse 但缺 `folders` 数组也算坏文件（普通界面回落旧清单，备份标记未包含）。
+ */
+function readFoldersPayload(payload: unknown): unknown[] {
+  if (
+    payload === null ||
+    typeof payload !== 'object' ||
+    !Array.isArray((payload as { folders?: unknown }).folders)
+  ) {
+    throw new Error('文件夹清单文件结构不正确')
+  }
+  return (payload as { folders: unknown[] }).folders
+}
+
 function registryRoot(): string | null {
   if (!isVaultSupported()) return null
   return getVaultSession()?.root ?? null
@@ -86,14 +101,14 @@ export async function loadFolderRegistry(force = false): Promise<void> {
       if (root) {
         if (await vaultFs.exists(root, FOLDERS_REL_PATH)) {
           const bytes = await vaultFs.readBytes(root, FOLDERS_REL_PATH)
-          const payload = JSON.parse(new TextDecoder().decode(new Uint8Array(bytes))) as { folders?: unknown }
-          registry = normalizeRegistry(payload?.folders)
+          const payload = JSON.parse(new TextDecoder().decode(new Uint8Array(bytes))) as unknown
+          registry = normalizeRegistry(readFoldersPayload(payload))
         } else {
           registry = []
         }
       } else if (typeof window !== 'undefined') {
         const raw = localStorage.getItem(LS_KEY)
-        registry = raw === null ? [] : normalizeRegistry((JSON.parse(raw) as { folders?: unknown })?.folders)
+        registry = raw === null ? [] : normalizeRegistry(readFoldersPayload(JSON.parse(raw) as unknown))
       }
       registryReadFailed = false
     } catch {
@@ -160,6 +175,26 @@ function getRegistrySnapshot(): string[] {
 /** 当前文件夹清单（非 Hook 版，备份导出 / 恢复用） */
 export function getFolderRegistry(): string[] {
   return registry
+}
+
+/**
+ * 备份读取用的只读状态（不触发加载）。
+ * 普通界面读失败仍保留旧清单，备份必须把这一段标成「未包含」。
+ */
+export interface FolderRegistryReadState {
+  loaded: boolean
+  readFailed: boolean
+  root: string | null
+  reason?: string
+}
+
+export function getFolderRegistryReadState(): FolderRegistryReadState {
+  return {
+    loaded: registryLoaded,
+    readFailed: registryReadFailed,
+    root: registryLoadedRoot,
+    ...(registryReadFailed ? { reason: '角色文件夹清单读取失败（权限 / 坏 JSON）' } : {}),
+  }
 }
 
 /** 整表替换文件夹清单（备份恢复用；与新建 / 改名共用同一套校验） */

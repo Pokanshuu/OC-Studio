@@ -1,13 +1,27 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, Plus, Search } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { ChevronLeft, Plus, Search } from 'lucide-react'
 import { Avatar } from '@/components/shared/Avatar'
+import { GroupModeMenu, type GroupModeOption } from '@/components/shared/GroupModeMenu'
+import { ListGroupSection } from '@/components/shared/ListGroupSection'
 import { ICON_BTN_MD, PAGE_TITLE, ROUND_ITEM } from '@/lib/ui-tokens'
 import { useCountryList } from '@/features/countries/hooks/useCountries'
-import { resolveCharacterCountryId } from '@/lib/membership'
+import { isGroupCollapsed, toggleCollapsedKey } from '@/lib/list-grouping'
+import {
+  readCharacterGroupMode,
+  writeCharacterGroupMode,
+  type CharacterGroupMode,
+} from '@/lib/list-grouping-preference'
 import type { Character } from '@/types'
+import { listFolders, loadFolderRegistry, useFolderRegistry } from '../folders'
+import { groupCharactersByCountry, groupCharactersByFolder } from '../grouping'
 import { useCharacterList } from '../hooks/useCharacters'
+
+const GROUP_OPTIONS: GroupModeOption<CharacterGroupMode>[] = [
+  { value: 'country', label: '按国家' },
+  { value: 'folder', label: '按文件夹' },
+]
 
 interface CharacterEditorListProps {
   currentId: number
@@ -17,17 +31,28 @@ interface CharacterEditorListProps {
 }
 
 /**
- * 三栏左栏：搜索 + 按国家分组。
+ * 三栏左栏：搜索 + 分组（按国家 / 按文件夹，默认按国家）。
  * 只做「换人」，不复制列表页的卡片 / 视图切换 / 删除 / 拖拽。
+ *
+ * 分组只改展示：切换方式不写 `countryId` / `folder`，也不重挂右侧编辑器 ——
+ * 搜索文本、当前选中、未保存正文都留在原处。
  */
 export function CharacterEditorList({ currentId, onSelect, onCollapse, onCreate }: CharacterEditorListProps) {
   const { characters, loading, error } = useCharacterList()
   const { countries } = useCountryList()
   const [query, setQuery] = useState('')
   const [searchFocused, setSearchFocused] = useState(false)
-  const [collapsed, setCollapsed] = useState<Set<number>>(new Set())
+  const [groupMode, setGroupMode] = useState<CharacterGroupMode>(readCharacterGroupMode)
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
+  const registeredFolders = useFolderRegistry()
+
+  // 角色文件夹清单（`.ocstudio/folders.json`）随库读一次：空文件夹只有这份清单记得住
+  useEffect(() => {
+    void loadFolderRegistry()
+  }, [])
 
   const q = query.trim().toLowerCase()
+  const searching = q !== ''
 
   const filtered = useMemo(() => {
     if (!q) return characters
@@ -40,33 +65,18 @@ export function CharacterEditorList({ currentId, onSelect, onCollapse, onCreate 
   }, [characters, q])
 
   const groups = useMemo(() => {
-    /** 与角色卡 / 表格 / 按国家筛选同一口径（`resolveCharacterCountryId`） */
-    const countryIdOf = (character: Character): number | null =>
-      resolveCharacterCountryId(character, countries)
-    const known = new Set(countries.map((country) => country.id))
-    const result = countries
-      .map((country) => ({
-        id: country.id as number,
-        name: country.name,
-        items: filtered.filter((character) => countryIdOf(character) === country.id),
-      }))
-      .filter((group) => group.items.length > 0)
+    if (groupMode === 'country') return groupCharactersByCountry(filtered, countries)
+    const folderNames = listFolders(characters, registeredFolders).folders.map((folder) => folder.name)
+    return groupCharactersByFolder({ items: filtered, folderNames, searching })
+  }, [characters, countries, filtered, groupMode, registeredFolders, searching])
 
-    const unassigned = filtered.filter((character) => {
-      const id = countryIdOf(character)
-      return id == null || !known.has(id)
-    })
-    if (unassigned.length) result.push({ id: -1, name: '未归属', items: unassigned })
-    return result
-  }, [countries, filtered])
+  const handleGroupModeChange = (mode: CharacterGroupMode): void => {
+    setGroupMode(mode)
+    writeCharacterGroupMode(mode)
+  }
 
-  const toggleGroup = (id: number) => {
-    setCollapsed((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
+  const toggleGroup = (key: string): void => {
+    setCollapsed((prev) => toggleCollapsedKey(prev, key))
   }
 
   const renderRow = (character: Character) => {
@@ -133,41 +143,37 @@ export function CharacterEditorList({ currentId, onSelect, onCollapse, onCreate 
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-3">
+      <div className="shrink-0 px-3 py-2">
+        <GroupModeMenu
+          value={groupMode}
+          onChange={handleGroupModeChange}
+          options={GROUP_OPTIONS}
+          className="-ml-1.5"
+        />
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-3">
         {loading ? <p className="px-3 py-3 text-[12px] text-ink-faint">加载中…</p> : null}
         {error ? <p className="px-3 py-3 text-[12px] text-error">{error}</p> : null}
-        {!loading && !error && groups.length === 0 ? (
+        {!loading && !error && filtered.length === 0 ? (
           <p className="px-3 py-6 text-center text-[12px] text-ink-faint">没有匹配的角色</p>
         ) : null}
 
-        <nav className="flex flex-col gap-1">
-          {groups.map((group) => {
-            const isCollapsed = !q && collapsed.has(group.id)
-            return (
-              <div key={group.id}>
-                <button
-                  type="button"
-                  onClick={() => toggleGroup(group.id)}
-                  aria-expanded={!isCollapsed}
-                  className="flex w-full items-center gap-1 rounded-item px-3 py-1.5 text-left text-[13px] text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink"
-                >
-                  <ChevronRight
-                    size={13}
-                    strokeWidth={2}
-                    className={`shrink-0 text-ink-muted transition-transform ${isCollapsed ? '' : 'rotate-90'}`}
-                  />
-                  <span className="flex-1 truncate">{group.name}</span>
-                  <span className="text-[11px] text-ink-faint">{group.items.length}</span>
-                </button>
-                <div className={`grid transition-[grid-template-rows] duration-base ease-quiet ${isCollapsed ? 'grid-rows-[0fr]' : 'grid-rows-[1fr]'}`}>
-                  <div className="min-h-0 overflow-hidden">
-                    <div className="mt-0.5 flex flex-col gap-0.5">{group.items.map(renderRow)}</div>
-                  </div>
-                </div>
-              </div>
-            )
-          })}
-        </nav>
+        {filtered.length > 0 ? (
+          <nav className="flex flex-col gap-1">
+            {groups.map((group) => (
+              <ListGroupSection
+                key={group.key}
+                label={group.label}
+                count={group.items.length}
+                collapsed={isGroupCollapsed(collapsed, group.key, searching)}
+                onToggle={() => toggleGroup(group.key)}
+              >
+                <div className="flex flex-col gap-0.5">{group.items.map(renderRow)}</div>
+              </ListGroupSection>
+            ))}
+          </nav>
+        ) : null}
       </div>
     </div>
   )

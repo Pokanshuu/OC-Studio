@@ -6,12 +6,14 @@
  * 条目就是普通笔记（`worldEntries`），靠 `category` 键归属；打开时留在分类里，
  * 由分类绑定的模板渲染（`CategoryEntryEditor`），不再把人扔进「世界观」的词条树。
  *
- * 列表页与角色 / 事件列表同一套形态：`ListShell` + 共享工具栏 + 移动端筛选条；
+ * **列表页与角色 / 事件 / 国家列表同一套形态**：
+ * `ListShell` + 工具栏 + 文件夹条（仅列表视图）+ 卡片 / 画廊 / 目录三视图 +
+ * 文件夹堆 + 移动端 FAB + 整页加载 / 错误态。
  * 分类只决定「用哪个模板」，删分类也不会删笔记。
  */
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { CircleAlert, FolderInput, Pencil, SearchX, Trash2 } from 'lucide-react'
+import { ArrowLeft, FolderInput, FolderOpen, Pencil, SearchX, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { withTouchFeedback } from '@/lib/animation'
 import type { WorldEntry } from '@/types'
@@ -21,13 +23,17 @@ import { useCategories } from '@/lib/categories/store'
 import { categoryIconOf } from '@/lib/categories/icons'
 import { useDevice } from '@/lib/use-device'
 import { useMobilePageHeader } from '@/components/layout/MobilePageHeaderContext'
+import { MobileFab } from '@/components/layout/MobileFab'
 import { ListShell } from '@/components/shared/ListShell'
 import { SectionSwap } from '@/components/shared/SectionSwap'
 import { ListEmptyState } from '@/components/shared/ListEmptyState'
 import { CoverFlow } from '@/components/shared/CoverFlow'
+import { FolderStack } from '@/components/shared/FolderStack'
 import { VerticalSplit } from '@/components/shared/VerticalSplit'
 import { MobileActionSheet, type ActionItem } from '@/components/shared/MobileActionSheet'
+import { MediaContextMenu } from '@/components/shared/MediaContextMenu'
 import { SortableList, moveId } from '@/components/shared/list-dnd'
+import { resolveImageUrl } from '@/lib/image-service'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,11 +44,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { CENTER_STATE, LIST_GRID, LOADING_TEXT } from '@/lib/ui-tokens'
+import { BTN_QUIET, CENTER_STATE, CHIP, LIST_GRID } from '@/lib/ui-tokens'
 import { createEntry, deleteEntry, reorderEntries } from '@/features/world/services'
 import { DATA_UPDATED_EVENT, notifyDataUpdated } from '@/lib/data-events'
 import { CategoryEntryEditor } from './CategoryEntryEditor'
 import { CategoryListToolbar } from './CategoryListToolbar'
+import { CategoryFolderManageDialog } from './CategoryFolderManageDialog'
 import { CharacterFolderBar, folderEmptyHint, type FolderFilter } from '@/features/characters/components/CharacterFolderBar'
 import {
   createWorldFolder,
@@ -55,7 +62,6 @@ import {
 } from './folders'
 import { CategoryRow } from './CategoryRow'
 import { CategoryCard } from './CategoryCard'
-import { CategoryGalleryCard } from './CategoryGalleryCard'
 import {
   entryBodyText,
   entryMatchesQuery,
@@ -104,6 +110,10 @@ export function CategorySection({
   const [viewMode, setViewMode] = useState<CategoryViewMode>(readCategoryViewMode)
   const [deleteTarget, setDeleteTarget] = useState<WorldEntry | null>(null)
   const [folderFilter, setFolderFilter] = useState<FolderFilter>('all')
+  const [stackMenu, setStackMenu] = useState<{ name: string; at: { x: number; y: number } } | null>(null)
+  const [folderDialog, setFolderDialog] = useState<{ mode: 'rename' | 'members'; name: string } | null>(null)
+  /** 搜索框的值立刻更新，筛选 / 重排走延迟值（与角色列表同款） */
+  const deferredSearch = useDeferredValue(search)
   const registeredFolders = useWorldFolderRegistry(category?.name ?? '')
   const { folders, ungrouped } = useMemo(
     () => listWorldFolders(entries, category?.name ?? '', registeredFolders),
@@ -166,8 +176,6 @@ export function CategorySection({
     setOpenId(id)
   }, [queryClient])
 
-  /** 移动端长按：与事件列表同一套「编辑 / 删除」动作表（定义在文件夹处理器之后） */
-
   // 内链 / @ 指定了要打开哪一条（只认 nonce，避免对象字面量每帧重跑）
   const requestEntryId = openEntryRequest?.entryId ?? null
   const requestNonce = openEntryRequest?.nonce ?? null
@@ -177,7 +185,7 @@ export function CategorySection({
     onOpenEntryConsumed?.()
   }, [requestEntryId, requestNonce, onOpenEntryConsumed, openEntry])
 
-  const inFolder = folderFilter !== 'all' && folderFilter !== 'ungrouped'
+  const inFolder = folderFilter !== 'all'
   const folderEntries = useMemo(() => {
     if (folderFilter === 'all') return entries
     if (folderFilter === 'ungrouped') return entries.filter((entry) => (entry.folder ?? '').trim() === '')
@@ -185,13 +193,13 @@ export function CategorySection({
   }, [entries, folderFilter])
 
   const filtered = useMemo(
-    () => sortCategoryEntries(folderEntries.filter((entry) => entryMatchesQuery(entry, search)), sortKey),
-    [folderEntries, search, sortKey],
+    () => sortCategoryEntries(folderEntries.filter((entry) => entryMatchesQuery(entry, deferredSearch)), sortKey),
+    [deferredSearch, folderEntries, sortKey],
   )
 
   const manual = sortKey === 'manual'
-  // 文件夹视图里拖拽会把「只看这一夹」的列表和全量 order 混在一起；先只在「全部」开排序
-  const canReorder = manual && search.trim() === '' && folderFilter === 'all'
+  // 与实体列表同口径：只有「手动排序」才挂拖拽手柄
+  const canReorder = manual
 
   const handleSelect = useMemo(
     () => withTouchFeedback((id: number) => openEntry(id)),
@@ -342,6 +350,20 @@ export function CategorySection({
     }
   }, [reload])
 
+  /** 文件夹堆的封面：取该夹里第一条有图的条目（封面优先，其次头像） */
+  const stackCover = useCallback((name: string): string[] => {
+    const member = entries.find(
+      (entry) => (entry.folder ?? '').trim() === name && (entry.cover || entry.avatar),
+    )
+    if (!member) return []
+    const src = member.cover
+      ? resolveImageUrl(member.cover, 'cover')
+      : member.avatar
+        ? resolveImageUrl(member.avatar, 'avatar')
+        : null
+    return src ? [src] : []
+  }, [entries])
+
   if (!category) {
     return (
       <div className={CENTER_STATE}>
@@ -350,61 +372,157 @@ export function CategorySection({
     )
   }
 
-  const status = loading ? (
-    <div className={CENTER_STATE}>
-      <span className={LOADING_TEXT}>加载中…</span>
-    </div>
-  ) : error ? (
-    <ListEmptyState
-      icon={CircleAlert}
-      message={error}
-      action={{ label: '重试', onClick: () => void reload() }}
-    />
-  ) : entries.length === 0 ? (
+  // 与实体列表同款：加载 / 错误走整页居中，不把工具条留在上面
+  if (loading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <span className="text-[13px] text-ink-faint">加载中…</span>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className={CENTER_STATE}>
+        <span className="text-sm text-error">{error}</span>
+        <button type="button" onClick={() => void reload()} className={BTN_QUIET}>
+          重试
+        </button>
+      </div>
+    )
+  }
+
+  const searching = search.trim() !== ''
+  const emptyState = entries.length === 0 ? (
     <ListEmptyState
       icon={categoryIconOf(category.icon)}
       message={`「${category.name}」里还没有条目`}
       action={{ label: '创建第一个', onClick: () => void handleCreate() }}
     />
   ) : filtered.length === 0 ? (
-    folderFilter !== 'all' && search.trim() === '' ? (
-      <ListEmptyState
-        icon={categoryIconOf(category.icon)}
-        message={folderEmptyHint(folderFilter, '条目')}
-        action={{ label: '看全部', onClick: () => setFolderFilter('all') }}
-      />
-    ) : (
-      <ListEmptyState
-        icon={SearchX}
-        message="没有匹配的条目"
-        action={{ label: '清除搜索', onClick: () => setSearch('') }}
-      />
-    )
+    <ListEmptyState
+      icon={searching ? SearchX : inFolder ? FolderOpen : SearchX}
+      message={searching ? '没有匹配的条目' : inFolder ? folderEmptyHint(folderFilter, '条目') : '没有匹配的条目'}
+      action={
+        searching || !inFolder
+          ? { label: '清除筛选', onClick: () => setSearch('') }
+          : { label: '回到全部', onClick: () => setFolderFilter('all') }
+      }
+    />
   ) : null
 
-  const rows = (
+  const renderFolderStack = (folder: { name: string; count: number }) => (
+    <FolderStack
+      key={`folder-${folder.name}`}
+      name={folder.name}
+      count={folder.count}
+      covers={stackCover(folder.name)}
+      onOpen={() => setFolderFilter(folder.name)}
+      onContextMenu={(event) => {
+        event.preventDefault()
+        setStackMenu({ name: folder.name, at: { x: event.clientX, y: event.clientY } })
+      }}
+    />
+  )
+
+  const renderRow = (entry: WorldEntry) => (
+    <CategoryRow
+      key={entry.id}
+      entry={entry}
+      excerpt={excerptOf(entry)}
+      sortable={canReorder}
+      isMobile={isMobile}
+      onOpen={handleSelect}
+      onDelete={(target) => void handleDeleteDirect(target)}
+      onLongPress={() => openActionSheet(entry)}
+      folders={folders.map((folder) => folder.name)}
+      onMoveToFolder={(folder) => handleMoveToFolder(entry.id, folder)}
+    />
+  )
+
+  const renderCard = (entry: WorldEntry) => (
+    <CategoryCard
+      key={entry.id}
+      entry={entry}
+      excerpt={excerptOf(entry)}
+      sortable={canReorder}
+      isMobile={isMobile}
+      onOpen={handleSelect}
+      // `CategoryCard` 里的删除是 `DeleteButton`（自带确认）：这里直接删，
+      // 不能再 `setDeleteTarget`，否则会先弹一次再弹一次页面级对话框。
+      onDelete={(target) => void handleDeleteDirect(target)}
+      onLongPress={() => openActionSheet(entry)}
+      folders={folders.map((folder) => folder.name)}
+      onMoveToFolder={(folder) => handleMoveToFolder(entry.id, folder)}
+    />
+  )
+
+  const backChip = inFolder ? (
+    <div
+      className={`mb-3 flex shrink-0 items-center gap-2 ${
+        viewMode === 'gallery' ? 'px-4 pt-4' : ''
+      }`}
+    >
+      <button type="button" onClick={() => setFolderFilter('all')} className={CHIP}>
+        <ArrowLeft size={12} strokeWidth={2} />
+        全部
+      </button>
+      <span className="text-[13px] text-ink">
+        {folderFilter === 'ungrouped' ? '未分组' : folderFilter}
+      </span>
+    </div>
+  ) : null
+
+  const gallery = (
+    <VerticalSplit
+      storageKey="oc-categories-gallery-split"
+      className="min-h-0 flex-1"
+      top={
+        <CoverFlow fill aspect={7 / 6} maxItemWidth={540} className="h-full">
+          {[
+            ...(!inFolder ? folders.map(renderFolderStack) : []),
+            ...filtered.map(renderCard),
+          ]}
+        </CoverFlow>
+      }
+      bottom={
+        <SortableList
+          ids={filtered.map((entry) => entry.id)}
+          onReorder={handleReorder}
+          layout="list"
+          disabled={!canReorder}
+        >
+          <div className="flex flex-col rules-end px-1">{filtered.map(renderRow)}</div>
+        </SortableList>
+      }
+    />
+  )
+
+  const grid = (
+    <SortableList
+      ids={filtered.map((entry) => entry.id)}
+      onReorder={handleReorder}
+      layout="grid"
+      disabled={!canReorder}
+    >
+      <div className={LIST_GRID}>
+        {/* 文件夹和条目卡在同一个网格里：单独排一行会在末尾留一个空格子 */}
+        {!inFolder ? folders.map(renderFolderStack) : null}
+        {filtered.map((entry) => (
+          <div key={entry.id}>{renderCard(entry)}</div>
+        ))}
+      </div>
+    </SortableList>
+  )
+
+  const list = (
     <SortableList
       ids={filtered.map((entry) => entry.id)}
       onReorder={handleReorder}
       layout="list"
       disabled={!canReorder}
     >
-      <div className="rules-end flex flex-col">
-        {filtered.map((entry) => (
-          <CategoryRow
-            key={entry.id}
-            entry={entry}
-            excerpt={excerptOf(entry)}
-            sortable={canReorder}
-            isMobile={isMobile}
-            onOpen={handleSelect}
-            onDelete={(target) => void handleDeleteDirect(target)}
-            onLongPress={() => openActionSheet(entry)}
-            folders={folders.map((folder) => folder.name)}
-            onMoveToFolder={(folder) => handleMoveToFolder(entry.id, folder)}
-          />
-        ))}
-      </div>
+      <div className="flex flex-col rules-end">{filtered.map(renderRow)}</div>
     </SortableList>
   )
 
@@ -432,120 +550,128 @@ export function CategorySection({
         <>
           <ListShell
             fill={viewMode === 'gallery'}
-        header={() => (
-          <CategoryListToolbar
-            title={category.name}
-            search={search}
-            onSearchChange={setSearch}
-            sortKey={sortKey}
-            onSortKeyChange={handleSortChange}
-            viewMode={viewMode}
-            onViewModeChange={handleViewChange}
-            onCreate={() => void handleCreate()}
-          />
-        )}
-      >
-        <div className="max-md:h-10 shrink-0" />
-        {entries.length > 0 && viewMode !== 'gallery' ? (
-          <CharacterFolderBar
-            folders={folders}
-            ungrouped={ungrouped}
-            total={entries.length}
-            value={folderFilter}
-            onChange={setFolderFilter}
-            onRename={handleRenameFolder}
-            onDelete={handleDeleteFolder}
-            onCreate={handleCreateFolder}
-            noun="条目"
-          />
-        ) : null}
-        {viewMode === 'gallery' ? (
-          status ? (
-            <div className="flex flex-1 flex-col p-4">{status}</div>
-          ) : (
-            <VerticalSplit
-              storageKey="oc-categories-gallery-split"
-              className="min-h-0 flex-1"
-              top={
-                <CoverFlow fill aspect={3 / 2} maxItemWidth={420} className="h-full">
-                  {filtered.map((entry) => (
-                    <CategoryGalleryCard
-                      key={entry.id}
-                      entry={entry}
-                      excerpt={excerptOf(entry)}
-                      onOpen={handleSelect}
-                      onDelete={setDeleteTarget}
-                    />
-                  ))}
-                </CoverFlow>
-              }
-              bottom={<div className="flex flex-col p-4">{rows}</div>}
-            />
-          )
-        ) : (
-          <div className="flex flex-1 flex-col p-4">
-            {status ?? (
-              <SortableList
-                ids={filtered.map((entry) => entry.id)}
-                onReorder={handleReorder}
-                layout={viewMode === 'grid' ? 'grid' : 'list'}
-                disabled={!canReorder}
-              >
-                {viewMode === 'grid' ? (
-                  <div className={LIST_GRID}>
-                    {filtered.map((entry) => (
-                      <CategoryCard
-                        key={entry.id}
-                        entry={entry}
-                        excerpt={excerptOf(entry)}
-                        sortable={canReorder}
-                        onOpen={handleSelect}
-                        onDelete={setDeleteTarget}
-                        folders={folders.map((folder) => folder.name)}
-                        onMoveToFolder={(folder) => handleMoveToFolder(entry.id, folder)}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  rows
-                )}
-              </SortableList>
+            header={() => (
+              <>
+                <CategoryListToolbar
+                  title={category.name}
+                  search={search}
+                  onSearchChange={setSearch}
+                  sortKey={sortKey}
+                  onSortKeyChange={handleSortChange}
+                  viewMode={viewMode}
+                  onViewModeChange={handleViewChange}
+                  onCreate={() => void handleCreate()}
+                />
+                {entries.length > 0 && viewMode === 'list' ? (
+                  <CharacterFolderBar
+                    folders={folders}
+                    ungrouped={ungrouped}
+                    total={entries.length}
+                    value={folderFilter}
+                    onChange={setFolderFilter}
+                    onRename={handleRenameFolder}
+                    onDelete={handleDeleteFolder}
+                    onCreate={handleCreateFolder}
+                    noun="条目"
+                  />
+                ) : null}
+              </>
             )}
-          </div>
-        )}
-      </ListShell>
+          >
+            <div className="max-md:h-10 shrink-0" />
+            <div className={viewMode === 'gallery' ? 'flex min-h-0 flex-1 flex-col' : 'flex flex-1 flex-col p-4'}>
+              <div className={viewMode === 'gallery' ? 'flex min-h-0 flex-1 flex-col' : 'flex flex-1 flex-col'}>
+                {backChip}
+                {emptyState ?? (viewMode === 'gallery' ? gallery : viewMode === 'grid' ? grid : list)}
+              </div>
+              <MobileFab viewMode={viewMode} onViewModeChange={handleViewChange} />
+            </div>
+          </ListShell>
 
-      <MobileActionSheet
-        open={actionSheet.open}
-        onClose={() => setActionSheet((prev) => ({ ...prev, open: false }))}
-        title={actionSheet.title}
-        actions={actionSheet.actions}
-      />
+          <MobileActionSheet
+            open={actionSheet.open}
+            onClose={() => setActionSheet((prev) => ({ ...prev, open: false }))}
+            title={actionSheet.title}
+            actions={actionSheet.actions}
+          />
 
-      <MobileActionSheet
-        open={folderSheet.open}
-        onClose={() => setFolderSheet((prev) => ({ ...prev, open: false }))}
-        title={folderSheet.title}
-        actions={folderSheet.actions}
-      />
+          <MobileActionSheet
+            open={folderSheet.open}
+            onClose={() => setFolderSheet((prev) => ({ ...prev, open: false }))}
+            title={folderSheet.title}
+            actions={folderSheet.actions}
+          />
 
-      <AlertDialog
-        open={deleteTarget !== null}
-        onOpenChange={(open) => {
-          if (!open) setDeleteTarget(null)
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>删除「{deleteTarget?.title || '未命名'}」</AlertDialogTitle>
-            <AlertDialogDescription>删除后可在回收站找回。</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void handleDelete()}>删除</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
+          <AlertDialog
+            open={deleteTarget !== null}
+            onOpenChange={(open) => {
+              if (!open) setDeleteTarget(null)
+            }}
+          >
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>确认删除</AlertDialogTitle>
+                <AlertDialogDescription>删除后将移至回收站，可在回收站里恢复。</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>取消</AlertDialogCancel>
+                <AlertDialogAction onClick={() => void handleDelete()}>删除</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
           </AlertDialog>
+
+          {stackMenu ? (
+            <MediaContextMenu
+              at={stackMenu.at}
+              onClose={() => setStackMenu(null)}
+              items={[
+                {
+                  label: '重命名',
+                  icon: <Pencil size={13} strokeWidth={2} />,
+                  onSelect: () => {
+                    const name = stackMenu.name
+                    setStackMenu(null)
+                    setFolderDialog({ mode: 'rename', name })
+                  },
+                },
+                {
+                  label: '管理内容',
+                  icon: <FolderOpen size={13} strokeWidth={2} />,
+                  onSelect: () => {
+                    const name = stackMenu.name
+                    setStackMenu(null)
+                    setFolderDialog({ mode: 'members', name })
+                  },
+                },
+                {
+                  label: '删除文件夹',
+                  danger: true,
+                  icon: <Trash2 size={13} strokeWidth={2} />,
+                  onSelect: () => {
+                    const name = stackMenu.name
+                    setStackMenu(null)
+                    void handleDeleteFolder(name)
+                  },
+                },
+              ]}
+            />
+          ) : null}
+
+          <CategoryFolderManageDialog
+            open={folderDialog !== null}
+            mode={folderDialog?.mode ?? 'rename'}
+            folder={folderDialog?.name ?? null}
+            entries={entries}
+            onClose={() => setFolderDialog(null)}
+            onRename={handleRenameFolder}
+            onToggleMember={async (id, inFolderFlag) => {
+              const target = folderDialog?.name
+              if (!target) return
+              await moveWorldEntryToFolder(id, category.name, inFolderFlag ? target : null)
+              notifyDataUpdated()
+              await reload()
+            }}
+          />
         </>
       }
     />

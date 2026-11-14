@@ -30,6 +30,8 @@ let loaded = false
 /** 上次装载用的是哪个库根；根一变就重读（启动早期会话还没建的坑见 `loadTemplates`） */
 let loadedRoot: string | null = null
 let readFailed = false
+/** 有模板文件存在但解析不出来：普通界面跳过，备份要把它标成「未包含」 */
+let backupIncomplete: string | null = null
 let loading: Promise<void> | null = null
 let error: string | null = null
 const listeners = new Set<() => void>()
@@ -56,21 +58,36 @@ function vaultRoot(): string | null {
  */
 const sourcePaths = new Map<string, string>()
 
-async function readFromVault(root: string): Promise<TemplateDoc[] | null> {
+/**
+ * 从 `.ocstudio/templates/` 读全部模板。
+ *
+ * `unreadable` 是「存在但解析不出来的 .md」数量：普通界面会静默跳过（一个坏文件
+ * 不该让所有模板打不开），但**备份不能把「跳过」当成「没有」** —— 由 `loadTemplates`
+ * 记成不完整，`collectBackupConfig` 把这整段标成未包含。
+ */
+async function readFromVault(
+  root: string,
+): Promise<{ docs: TemplateDoc[] | null; unreadable: number; duplicates: number }> {
   const assets = await vaultFs.listAssets(root, TEMPLATE_DIR)
   const files = assets.filter((asset) => asset.name.toLowerCase().endsWith('.md'))
-  if (files.length === 0) return null
+  if (files.length === 0) return { docs: null, unreadable: 0, duplicates: 0 }
   const out: TemplateDoc[] = []
   const seen = new Set<string>()
+  let unreadable = 0
+  let duplicates = 0
   for (const file of files) {
     const bytes = await vaultFs.readBytes(root, file.relPath)
     const text = new TextDecoder('utf-8').decode(new Uint8Array(bytes))
     const fallbackId = file.name.replace(/\.md$/i, '')
     const parsed = parseTemplate(text, fallbackId)
-    if (!parsed) continue
+    if (!parsed) {
+      unreadable += 1
+      continue
+    }
     // 两份文件声明同一个 id：只认先读到的那份，另一份留着不动也不参与保存 ——
     // 否则存盘时两份按同一个 relPath 互相覆盖，谁赢看目录列举顺序。
     if (seen.has(parsed.id)) {
+      duplicates += 1
       console.warn(`[templates] id 重复，忽略 ${file.relPath}（${parsed.id} 已由前面的文件提供）`)
       continue
     }
@@ -78,16 +95,16 @@ async function readFromVault(root: string): Promise<TemplateDoc[] | null> {
     sourcePaths.set(parsed.id, file.relPath)
     out.push(parsed)
   }
-  return out.length > 0 ? out : null
+  return { docs: out.length > 0 ? out : null, unreadable, duplicates }
 }
 
-function readFromStorage(): TemplateDoc[] | null {
-  if (typeof window === 'undefined') return null
+function readFromStorage(): { docs: TemplateDoc[] | null; corrupt: boolean } {
+  if (typeof window === 'undefined') return { docs: null, corrupt: false }
   try {
     const raw = localStorage.getItem(LS_KEY)
-    if (!raw) return null
+    if (!raw) return { docs: null, corrupt: false }
     const parsed = JSON.parse(raw) as unknown
-    if (!Array.isArray(parsed)) return null
+    if (!Array.isArray(parsed)) return { docs: null, corrupt: true }
     // 一律过一遍归一化：旧版本 / 手改过的快照可能缺 `aliases`，进了缓存就会在
     // `findTemplateByName` 上抛 TypeError（整个「新建条目」跟着失败）。
     const docs: TemplateDoc[] = []
@@ -96,9 +113,10 @@ function readFromStorage(): TemplateDoc[] | null {
       const doc = docFromRecord(item as Record<string, unknown>, '')
       if (doc) docs.push(doc)
     }
-    return docs.length > 0 ? docs : null
+    return { docs: docs.length > 0 ? docs : null, corrupt: false }
   } catch {
-    return null
+    // 坏快照：普通界面回落内置模板，备份把它标成不完整
+    return { docs: null, corrupt: true }
   }
 }
 
@@ -298,6 +316,31 @@ syncFieldKeys()
 export function getTemplates(): TemplateDoc[] {
   return cache
 }
+
+/**
+ * 备份读取用的只读状态（不触发加载）。
+ *
+ * `readFailed` 覆盖权限 / I/O / 坏文件；`backupIncomplete` 覆盖「部分模板文件
+ * 解析失败但整体没抛」的情况 —— 两种都不能让备份宣称模板段完整。
+ */
+export interface TemplatesReadState {
+  loaded: boolean
+  readFailed: boolean
+  root: string | null
+  reason?: string
+}
+
+export function getTemplatesReadState(): TemplatesReadState {
+  const failed = readFailed || backupIncomplete !== null
+  return {
+    loaded,
+    readFailed: failed,
+    root: loadedRoot,
+    ...(failed
+      ? { reason: readFailed ? '模板读取失败（权限 / I/O）' : (backupIncomplete ?? '模板不完整') }
+      : {}),
+  }
+}
 export function subscribeTemplates(listener: () => void): () => void {
   listeners.add(listener)
   return () => listeners.delete(listener)
@@ -325,10 +368,21 @@ export async function loadTemplates(force = false): Promise<void> {
   loading = (async () => {
     error = null
     try {
-      const fromDisk = root ? await readFromVault(root) : null
-      const docs = fromDisk ?? readFromStorage()
+      const disk = root ? await readFromVault(root) : null
+      // 盘上有可解析的模板就只认盘；盘上没有文件（或全部解析失败）时保留原来的
+      // localStorage 兜底（浏览器预览 / 旧快照），但会把「坏」记进 backupIncomplete。
+      const stored = disk !== null && disk.docs !== null ? null : readFromStorage()
+      const docs = disk?.docs ?? stored?.docs ?? null
       cache = merge(docs)
       syncFieldKeys()
+      backupIncomplete =
+        disk !== null && disk.unreadable > 0
+          ? `${disk.unreadable} 个模板文件解析失败`
+          : disk !== null && disk.duplicates > 0
+            ? `${disk.duplicates} 个模板文件与别的文件 id 重复，本次只认第一份`
+            : stored?.corrupt === true
+              ? '浏览器本地的模板快照损坏'
+              : null
       const migrated = queueLegacyNoteSpecialFields(docs)
       // 顺序不能反：模板文件一旦写成 `版本: 3`，下次开库就不再排队补那几行字段。
       // 所以先让特殊字段真正落进 info-groups.json，确认成功了才把模板升级落盘；

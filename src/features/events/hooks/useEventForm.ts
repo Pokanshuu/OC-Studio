@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef, useMemo, useEffect } from 'react'
+import { useState, useCallback, useRef, useMemo, useEffect, useLayoutEffect } from 'react'
 import type { Editor } from '@tiptap/core'
 import { FACT_RELATION, type RelationCandidate, type RelationRow, type RelationTargetKind } from '@/components/shared/relations/types'
 import type { RelationArrow } from '@/lib/relation-colors'
@@ -14,6 +14,8 @@ import { useSaveStatus } from '@/components/layout/SaveStatusContext'
 import { toast } from 'sonner'
 import { useEditorDirty } from '@/components/layout/useEditorDirty'
 import { describeDocDiff, sameDocNodeIgnoringTrailingSpacer, snapshotKey, useDirtySnapshot } from '@/lib/dirty'
+import { docRevisionChanged } from '@/lib/save-revision'
+import { useSavePipeline } from '@/lib/use-save-pipeline'
 import { useAutoSave } from '@/components/layout/use-auto-save'
 
 /** 表单里可编辑的全部字段 —— 装载、回灌、脏判断共用这一份形状 */
@@ -109,7 +111,6 @@ export function useEventForm(
   const [relations, setRelations] = useState<EventRelation[]>(initial.relations)
   const [tags, setTags] = useState<number[]>(initial.tags)
   const [images, setImages] = useState<ImageEntry[]>(initial.images)
-  const [saving, setSaving] = useState(false)
   const editorRef = useRef<Editor | null>(null)
   const docBaselineRef = useRef<Editor['state']['doc'] | null>(null)
   /** 诊断：正文第一次变脏时把差异打一次 log，别每敲一个字都刷屏 */
@@ -131,33 +132,30 @@ export function useEventForm(
   const snapshot = useMemo(() => valuesSnapshot(values), [values])
   const { dirty: fieldsDirty, diffSummary, markClean: markFieldsClean } = useDirtySnapshot(snapshot)
 
-  // 外部改写（时间线拖拽 / 别处保存）后回灌，并把同一份值记为新的干净基线。
-  // 自己刚保存的那份回读不回灌 —— 否则会把保存期间还在输入的字冲掉。
-  useEffect(() => {
-    if (saving || prevUpdatedAtRef.current === event.updatedAt) return
-    prevUpdatedAtRef.current = event.updatedAt
-    const next = valuesFromEntity(event)
-    const nextKey = snapshotKey(valuesSnapshot(next))
-    if (nextKey === savedSnapshotRef.current) return
-    setTitle(next.title)
-    setHeaderUrl(next.headerUrl)
-    setYear(next.year)
-    setMonth(next.month)
-    setDay(next.day)
-    setEndYear(next.endYear)
-    setEndMonth(next.endMonth)
-    setEndDay(next.endDay)
-    setLocation(next.location)
-    setSummary(next.summary)
-    setIsMajor(next.isMajor)
-    setCustom(next.custom)
-    setSelectedCharacterIds(next.characterIds)
-    setSelectedCountryIds(next.countryIds)
-    setRelations(next.relations)
-    setTags(next.tags)
-    setImages(next.images)
-    markFieldsClean(nextKey)
-  }, [event, markFieldsClean, saving])
+  /** 字段 / 正文任一不同都算脏（自动保存、全局状态栏、离场屏障共用） */
+  const isDirty = fieldsDirty || docDirty
+
+  /** 最后一次确认保存的字段签名；await 结束后据此判断「这期间又改了吗」 */
+  const savedFieldsKeyRef = useRef<string>(snapshotKey(valuesSnapshot(initial)))
+
+  /**
+   * 保存是在 await 之后才执行的，必须读「此刻」的值而不是发起保存那一刻的 render 闭包。
+   * 用 layout effect 同步：离散输入事件提交后、微任务恢复前一定拿得到新值。
+   */
+  const latestRef = useRef({ values })
+  useLayoutEffect(() => {
+    latestRef.current = { values }
+  }, [values])
+
+  /** 读当前（非 render 快照）是否还有未保存的修订 */
+  const isDirtyNow = useCallback(() => {
+    if (snapshotKey(valuesSnapshot(latestRef.current.values)) !== savedFieldsKeyRef.current) return true
+    const editor = editorRef.current
+    const baseline = docBaselineRef.current
+    return editor !== null && baseline !== null && docRevisionChanged(editor.state.doc, baseline)
+  }, [])
+
+  // 外部改写（时间线拖拽 / 别处保存）后回灌的逻辑在保存流水线之后（它要读 `saving`）。
 
   const { characters } = useCharacterList()
   const { countries } = useCountryList()
@@ -336,86 +334,115 @@ export function useEventForm(
     setDocDirty(next)
   }, [])
 
-  const handleSave = useCallback(async () => {
-    if (!editorRef.current) return
+  /**
+   * 提交一版修订。
+   *
+   * **保存开始时**捕获不可变文档节点和字段签名；成功后只确认这一版：
+   * 文档基线 = 捕获的节点（不是保存完成时的 `editor.state.doc`），字段基线 = 提交的签名。
+   * await 期间继续输入的内容由 `isDirtyNow()` 重新比出来，保持 dirty、继续保存。
+   * 编辑器还没就绪时也保存其它字段（`document: undefined` 会被 `updateEvent` 跳过），
+   * 不再整次吞掉保存请求。
+   */
+  const commit = useCallback(async () => {
+    const submitted = latestRef.current.values
+    const submittedKey = snapshotKey(valuesSnapshot(submitted))
+    const editor = editorRef.current
+    const submittedDoc = editor ? editor.state.doc : null
+    const document = submittedDoc ? submittedDoc.toJSON() : undefined
+    const time = assembleTime(submitted.year, submitted.month, submitted.day)
+    // 空字符串 = 清掉结束时间。传 undefined 会被 `updateEvent` 当成「没改」跳过，
+    // 于是把三格删空之后旧值还留在盘上（结束时间行现在是可删的普通字段）
+    const endTimeVal = assembleTime(submitted.endYear, submitted.endMonth, submitted.endDay)
+
     markSaving()
-    setSaving(true)
     try {
-      const time = assembleTime(year, month, day)
-      const endTimeVal = assembleTime(endYear, endMonth, endDay)
-      const document = editorRef.current.getJSON()
       await onSave(event.id, {
-        title,
+        title: submitted.title,
         time,
-        // 空字符串 = 清掉结束时间。传 undefined 会被 `updateEvent` 当成「没改」跳过，
-        // 于是把三格删空之后旧值还留在盘上（结束时间行现在是可删的普通字段）
         endTime: endTimeVal,
-        location,
-        summary,
-        isMajor,
+        location: submitted.location,
+        summary: submitted.summary,
+        isMajor: submitted.isMajor,
         document,
         content: event.content,
-        headerUrl,
-        characters: selectedCharacterIds,
-        countries: selectedCountryIds,
-        relations,
-        tags,
-        custom,
-        images,
+        headerUrl: submitted.headerUrl,
+        characters: submitted.characterIds,
+        countries: submitted.countryIds,
+        relations: submitted.relations,
+        tags: submitted.tags,
+        custom: submitted.custom,
+        images: submitted.images,
       })
-      savedSnapshotRef.current = snapshotKey(snapshot)
-      markFieldsClean()
-      docBaselineRef.current = editorRef.current.state.doc
-      setDocDirty(false)
+      savedSnapshotRef.current = submittedKey
+      savedFieldsKeyRef.current = submittedKey
+      markFieldsClean(submittedKey)
+      if (editor && submittedDoc) {
+        docBaselineRef.current = submittedDoc
+        const stillDirty = docRevisionChanged(editor.state.doc, submittedDoc)
+        setDocDirty(stillDirty)
+        docDiffLoggedRef.current = stillDirty
+      }
     } catch (err) {
       // 保存失败必须把状态从「保存中」拉回来：只 catch 不处理会永远转圈
       toast.error('保存失败', { description: err instanceof Error ? err.message : String(err) })
       reportDirty(true)
-    } finally {
-      setSaving(false)
+      throw err
     }
-  }, [
-    event.id,
-    event.content,
-    title,
-    headerUrl,
-    year,
-    month,
-    day,
-    endYear,
-    endMonth,
-    endDay,
-    location,
-    summary,
-    isMajor,
-    selectedCharacterIds,
-    selectedCountryIds,
-    relations,
-    tags,
-    custom,
-    images,
-    onSave,
-    markSaving,
-    markFieldsClean,
-    snapshot,
-    reportDirty,
-  ])
+  }, [event.id, event.content, onSave, markSaving, markFieldsClean, reportDirty])
+
+  const { save: saveNow, saving } = useSavePipeline({ isDirty: isDirtyNow, commit })
+  /**
+   * 兼容既有调用点（`onBeforeOpen` / 工具栏按钮的 props 是 `() => void | Promise<void>`）。
+   * 真正的结果由流水线和离场屏障消费；这里拿到的是「这一轮已经跑完」。
+   */
+  const handleSave = useCallback(async (): Promise<void> => {
+    await saveNow()
+  }, [saveNow])
+
+  // 外部改写（时间线拖拽 / 别处保存）后回灌，并把同一份值记为新的干净基线。
+  // 自己刚保存的那份回读不回灌 —— 否则会把保存期间还在输入的字冲掉。
+  useEffect(() => {
+    if (saving || prevUpdatedAtRef.current === event.updatedAt) return
+    prevUpdatedAtRef.current = event.updatedAt
+    const next = valuesFromEntity(event)
+    const nextKey = snapshotKey(valuesSnapshot(next))
+    if (nextKey === savedSnapshotRef.current) return
+    setTitle(next.title)
+    setHeaderUrl(next.headerUrl)
+    setYear(next.year)
+    setMonth(next.month)
+    setDay(next.day)
+    setEndYear(next.endYear)
+    setEndMonth(next.endMonth)
+    setEndDay(next.endDay)
+    setLocation(next.location)
+    setSummary(next.summary)
+    setIsMajor(next.isMajor)
+    setCustom(next.custom)
+    setSelectedCharacterIds(next.characterIds)
+    setSelectedCountryIds(next.countryIds)
+    setRelations(next.relations)
+    setTags(next.tags)
+    setImages(next.images)
+    savedFieldsKeyRef.current = nextKey
+    markFieldsClean(nextKey)
+  }, [event, markFieldsClean, saving])
 
   useEffect(() => {
-    registerSaveHandler('event', handleSave)
+    registerSaveHandler('event', saveNow)
     return () => registerSaveHandler('event', null)
-  }, [handleSave, registerSaveHandler])
+  }, [registerSaveHandler, saveNow])
 
   useEditorDirty(
     'event',
     event.id,
-    fieldsDirty || docDirty,
+    isDirty,
     saving,
     [fieldsDirty ? `字段 ${diffSummary}` : '', docDirty ? '正文文档与基线不同' : ''].filter(Boolean).join(' + '),
   )
 
   // 停手 1.5 秒自动落地：常驻挂载的编辑器没有「卸载」可挂，只能主动写
-  useAutoSave({ dirty: fieldsDirty || docDirty, saving, save: handleSave })
+  useAutoSave({ dirty: isDirty, saving, save: saveNow })
 
   return {
     title, setTitle,
@@ -445,10 +472,11 @@ export function useEventForm(
     tags, setTags,
     images, setImages,
     saving,
-    /** 字段或正文有未保存改动（离场时的「先保存再走」用它判断） */
-    dirty: fieldsDirty || docDirty,
+    /** 字段或正文有未保存改动（自动保存与离场判断共用这一项） */
+    dirty: isDirty,
     docDirty,
     handleSave,
+    saveNow,
     handleEditorReady,
     handleDocChange,
   }

@@ -3,6 +3,14 @@
 // 这种更弱、更容易丢东西的第二格式。
 export { exportFullBackup, downloadFullBackup } from './export/payload'
 export type { ExportPayload } from './export/payload'
+export {
+  BACKUP_MANIFEST_VERSION,
+  BACKUP_STORES,
+  backupExcludeStores,
+  backupIncludeStores,
+  buildBackupManifest,
+} from './export/backup-manifest'
+export type { BackupManifest, BackupStore } from './export/backup-manifest'
 export { downloadJson, downloadMarkdown, downloadTxt, downloadText } from './export/download'
 export { exportToMarkdown, exportToTxt } from './export/markdown'
 export { buildSite, buildStaticSite, exportStaticSite, loadSiteData, prepareSiteImages, applySiteSections } from './export/site'

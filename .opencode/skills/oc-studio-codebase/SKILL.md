@@ -95,10 +95,12 @@ const hideMobileShell = isEditing
 | 改项目元信息（世界名/简介/封面） | `features/project/services.ts` + 设置弹窗「世界」tab |
 | 改分栏布局 | `WorldLayout.tsx` 或 `GlobalAlbum.tsx` |
 | 改编辑器 header | 各 `*Editor.tsx` 文件 |
-| 改 Vault 落盘行为 | `lib/vault/vault-persist.ts`（Dexie `dbcore` 中间件 + 防抖 flush + `suspend`） |
+| 改 Vault 落盘行为 | `lib/vault/vault-persist.ts`（Dexie `dbcore` 中间件 + 防抖 flush；装载只排除自身事务） |
+| 改开着库时的备份导入 | `lib/vault/import-live.ts` + `lib/import.ts`；实体由队列写盘，仅准备本次写入行的附件，不调用全库 export-dir |
 | 改 Vault frontmatter 读写 | `lib/vault/frontmatter.ts` + `fields.ts`（词表唯一源） |
 | 改 Vault 扫描 / 体检 | `lib/vault/scan.ts`（纯函数） |
 | 改 Markdown 往返 | `lib/vault/markdown/` + `markdown-bridge.ts` |
+| 改历史正文装载 | `lib/body-content.ts` + `components/editor/editor-content.ts`（`editor-config` / `useWorldEntryDraft` 共用） |
 | 加 / 改 Rust 文件命令 | `src-tauri/src/vault.rs`（改字段名要同步 TS 门面 `vault-fs.ts`；有 IPC 线格式单测把关） |
 | 改 Vault 界面 / 入口 | `features/vault/`（Gate / WriteBanner / MenuSection / Status / Surfaces） |
 
@@ -392,6 +394,9 @@ vault 装载未完成前**不渲染主界面**（否则列表先按空库渲染�
 - **表格 `rawSeparator` 必须声明为 attr**：否则 `|------|-----|` 这类紧凑分隔行被规范化成 `| --- |`，等于改用户排版。
 - **`<small>` 必须有 `SmallMark` 标记**：它是 vault 里唯一用到的行内 HTML（实测 32 处），不做成标记就会在正文里露出标签或被丢弃。
 - **WikiLink 的 `raw` 属性**：`[[目标#锚点|别名]]` 只按 id 定位节点、原文另存，写回时逐字还原。
+- **最终转义也要回读自检**：中文前后文夹着局部粗体引号时，两种转义都可能失败；最终仍失败必须保存完整兜底。兜底中的引用以实际文件目标重新解析，数字 id 不能跨扫描保留。
+- **`<u>` 是标签，`underline` 才是标记名**：把标签字符串强转成标记类型不会改变运行时值，实际 schema 会拒绝装载。
+- **装载格式只判断一次**：JSON 文档对象里的 `**示例**` 是字面文字；只有历史字符串走 `editorContentOf` 解析。HTML 示例位于代码里时仍是代码，`oc-document` 优先于可读预览中的 HTML。角色 / 国家旧字段分片解析后再合并，不能用一个 HTML 标题改变整个正文的解析路径。
 
 ### 4.21 时间线里的「角色出生」是伪事件，id 用负数
 

@@ -165,6 +165,40 @@ fn display_rel(root: &Path, path: &Path) -> String {
         .replace('\\', "/")
 }
 
+/// 实体笔记（`.md`）与 `.ocstudio/` 内部配置禁止原始文件工具直接写。
+///
+/// 这是产品边界的原生兜底：渲染层已经拦过一次，但旧前端 / 重放的历史调用
+/// 仍可能直接打 `run_tool`。路径只做词法识别（绝对路径、`..` 由
+/// `resolve_new` / `resolve_existing` 负责）；命中后返回可执行的替代工具名。
+fn is_protected_entity_rel(rel: &str) -> bool {
+    let normalized = rel.replace('\\', "/").to_lowercase();
+    let trimmed = normalized.trim_start_matches("./");
+    if trimmed.is_empty() {
+        return false;
+    }
+    // Windows 会静默去掉每段末尾的空格 / 点：`角色/林.md ` 实际会写成 `林.md`。
+    // 先按同样规则归一，避免给 `.md` / `.ocstudio` 加尾随空格绕过。
+    let segments: Vec<&str> = trimmed
+        .split('/')
+        .map(|segment| segment.trim_end_matches(|c| c == ' ' || c == '.'))
+        .collect();
+    if segments.join("/").ends_with(".md") {
+        return true;
+    }
+    segments.iter().any(|segment| *segment == ".ocstudio")
+}
+
+const ENTITY_WRITE_DENIED: &str = "实体笔记（.md）和 .ocstudio 内部配置只能通过 library_* 工具写入；\
+原始文件工具不能修改它们。要改条目请用 library_set_fields / library_set_body / library_rename。";
+
+fn reject_entity_write(rel: &str) -> Result<(), String> {
+    if is_protected_entity_rel(rel) {
+        Err(ENTITY_WRITE_DENIED.to_string())
+    } else {
+        Ok(())
+    }
+}
+
 fn is_ignored(path: &Path) -> bool {
     path.components().any(|c| {
         let name = c.as_os_str().to_string_lossy().to_lowercase();
@@ -248,6 +282,9 @@ fn write_file(root: &Path, args: &Value) -> Result<(String, Option<Value>), Stri
         .get("content")
         .and_then(Value::as_str)
         .ok_or_else(|| "缺少参数 `content`".to_string())?;
+    // 在 resolve_new 之前拒绝：那个函数会先 create_dir_all，不能让它给
+    // `.ocstudio/` 或实体目录留下一个新目录再报错。
+    reject_entity_write(&rel)?;
     let path = resolve_new(root, &rel)?;
     let existed = path.exists();
     std::fs::write(&path, content.as_bytes()).map_err(|e| format!("写入失败：{e}"))?;
@@ -281,6 +318,7 @@ fn edit_file(root: &Path, args: &Value) -> Result<(String, Option<Value>), Strin
     if old.is_empty() {
         return Err("`old_string` 不能为空；新建文件请用 write_file".into());
     }
+    reject_entity_write(&rel)?;
     let path = resolve_existing(root, &rel)?;
     let original = decode_text(&std::fs::read(&path).map_err(|e| format!("无法读取：{e}"))?);
     let occurrences = original.matches(&old).count();
@@ -746,6 +784,15 @@ async fn run_tool(
     req: &ToolRequest,
     client: &reqwest::Client,
 ) -> Result<(String, Option<Value>), String> {
+    // Shell 是单独的高级能力：没有显式授权就不执行。放在 root 解析之前，
+    // 这样即使 workspace 有问题，模型收到的也是「未授权」而不是别的原因。
+    if req.name == "run_shell" && !req.allow_shell {
+        return Err(
+            "Shell 命令默认关闭：它可以在笔记库目录执行任意命令，并绕过实体写入限制。\
+需要时请作者在「助手 › 设置 › 高级工具」里显式开启。"
+                .to_string(),
+        );
+    }
     let root = canonical_root(&req.workspace)?;
     match req.name.as_str() {
         "read_file" => read_file(&root, &req.args),
@@ -1009,6 +1056,73 @@ mod tests {
     fn empty_workspace_setting_is_rejected_with_a_readable_message() {
         let error = canonical_root("").unwrap_err();
         assert!(error.contains("工作区"), "{error}");
+    }
+
+    #[test]
+    fn entity_write_guard_catches_markdown_and_internal_config() {
+        assert!(is_protected_entity_rel("角色/林知遥.md"));
+        assert!(is_protected_entity_rel("角色/林知遥.MD"));
+        assert!(is_protected_entity_rel(".ocstudio/tags.json"));
+        assert!(is_protected_entity_rel("./.ocstudio/templates/角色.md"));
+        // Windows 会去掉段尾空格 / 点：不能靠尾随字符绕过
+        assert!(is_protected_entity_rel("角色/林知遥.md "));
+        assert!(is_protected_entity_rel(".ocstudio./tags.json"));
+        assert!(!is_protected_entity_rel("附件/cover.png"));
+        assert!(!is_protected_entity_rel("导出/说明.txt"));
+    }
+
+    #[test]
+    fn write_file_rejects_entity_markdown_and_does_not_create_its_folder() {
+        let ws = Workspace::new();
+        let root = canonical_root(ws.path()).unwrap();
+
+        let markdown = write_file(&root, &json!({ "path": "角色/林知遥.md", "content": "x" }));
+        assert!(markdown.is_err(), "实体 .md 必须被拒绝");
+        assert!(!ws.root.join("角色").exists(), "拒绝前不能创建目标目录");
+
+        let internal = write_file(&root, &json!({ "path": ".ocstudio/tags.json", "content": "{}" }));
+        assert!(internal.is_err(), ".ocstudio 内部配置必须被拒绝");
+        assert!(!ws.root.join(".ocstudio").exists(), "拒绝前不能创建 .ocstudio");
+    }
+
+    #[test]
+    fn write_file_still_allows_attachment_files() {
+        let ws = Workspace::new();
+        let root = canonical_root(ws.path()).unwrap();
+        let created = write_file(&root, &json!({ "path": "附件/cover.png", "content": "png" }));
+        assert!(created.is_ok(), "{}", text_of(created));
+        assert!(ws.root.join("附件/cover.png").exists());
+    }
+
+    #[test]
+    fn edit_file_rejects_entity_markdown() {
+        let ws = Workspace::new();
+        let root = canonical_root(ws.path()).unwrap();
+        let result = edit_file(
+            &root,
+            &json!({ "path": "README.md", "old_string": "demo", "new_string": "changed" }),
+        );
+        assert!(result.is_err(), "实体 .md 的 edit_file 必须被拒绝");
+        assert_eq!(
+            std::fs::read_to_string(ws.root.join("README.md")).unwrap(),
+            "# demo\n\nsome text\n",
+            "被拒绝时文件不能变"
+        );
+    }
+
+    #[tokio::test]
+    async fn run_tool_blocks_shell_without_explicit_authorization() {
+        let ws = Workspace::new();
+        let client = reqwest::Client::new();
+        let req = ToolRequest {
+            name: "run_shell".into(),
+            args: json!({ "command": "echo hi" }),
+            workspace: ws.path().to_string(),
+            allow_shell: false,
+        };
+        let response = execute(&req, &client).await;
+        assert!(response.is_error, "{}", response.content);
+        assert!(response.content.contains("默认关闭"), "{}", response.content);
     }
 
     #[test]

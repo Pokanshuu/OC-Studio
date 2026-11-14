@@ -57,7 +57,7 @@ export function createMentionRender() {
       if (!startRect || isDegenerateRect(startRect)) return
       closePopup()
       ac = new AbortController()
-      currentItems = props.items
+      currentItems = groupMentionItems(props.items)
       currentCommand = props.command
       selectedIndex = 0
       popup = document.createElement('div')
@@ -68,7 +68,8 @@ export function createMentionRender() {
         popup.style.left = `${rect.left}px`
         popup.style.top = `${rect.bottom + 4}px`
       }
-      renderMentionGroups(popup, props.items, props.command, 0)
+      renderMentionGroups(popup, currentItems, props.command)
+      paintSelection(popup, selectedIndex)
       ;(document.getElementById('overlay-root') ?? document.body).appendChild(popup)
       document.addEventListener('pointerdown', (e) => {
         if (popup && !popup.contains(e.target as Node)) closePopup()
@@ -87,7 +88,7 @@ export function createMentionRender() {
       if (!popup || props.items.length === 0) { closePopup(); return }
       const rect = props.clientRect?.()
       if (!rect || isDegenerateRect(rect)) { closePopup(); return }
-      currentItems = props.items
+      currentItems = groupMentionItems(props.items)
       currentCommand = props.command
       selectedIndex = Math.min(selectedIndex, props.items.length - 1)
       if (rect) {
@@ -95,7 +96,8 @@ export function createMentionRender() {
         popup.style.top = `${rect.bottom + 4}px`
       }
       popup.innerHTML = ''
-      renderMentionGroups(popup, props.items, props.command, selectedIndex)
+      renderMentionGroups(popup, currentItems, props.command)
+      paintSelection(popup, selectedIndex)
       if (rect) {
         const adjusted = adjustSuggestionPosition(rect, popup.offsetWidth, popup.offsetHeight)
         popup.style.left = `${adjusted.x}px`
@@ -109,18 +111,12 @@ export function createMentionRender() {
       if (props.event.key === 'Escape') { closePopup(); return true }
       if (props.event.key === 'ArrowDown') {
         selectedIndex = Math.min(selectedIndex + 1, currentItems.length - 1)
-        if (popup) {
-          popup.innerHTML = ''
-          renderMentionGroups(popup, currentItems, currentCommand!, selectedIndex)
-        }
+        if (popup) paintSelection(popup, selectedIndex)
         return true
       }
       if (props.event.key === 'ArrowUp') {
         selectedIndex = Math.max(selectedIndex - 1, 0)
-        if (popup) {
-          popup.innerHTML = ''
-          renderMentionGroups(popup, currentItems, currentCommand!, selectedIndex)
-        }
+        if (popup) paintSelection(popup, selectedIndex)
         return true
       }
       if (props.event.key === 'Enter') {
@@ -135,11 +131,15 @@ export function createMentionRender() {
   })
 }
 
+/** Match the rendered group order while preserving relevance within each group. */
+function groupMentionItems(items: ReferableEntity[]): ReferableEntity[] {
+  return [...items].sort((a, b) => a.type < b.type ? -1 : a.type > b.type ? 1 : 0)
+}
+
 function renderMentionGroups(
   container: HTMLElement,
   items: ReferableEntity[],
   command: (item: ReferableEntity) => void,
-  selectedIndex = -1,
 ) {
   let globalIdx = 0
   const groups: Record<string, ReferableEntity[]> = {}
@@ -156,15 +156,18 @@ function renderMentionGroups(
       container.appendChild(hdr)
     }
     for (const item of groups[type]) {
-      const isSelected = globalIdx === selectedIndex
-      globalIdx++
       const btn = document.createElement('button')
       btn.type = 'button'
-      btn.className = `${MENU_ITEM_BASE} ${isSelected ? 'bg-[var(--oc-hover)] text-ink' : 'text-ink'}`
+      btn.dataset.mentionIndex = String(globalIdx)
+      globalIdx++
+      btn.className = `${MENU_ITEM_BASE} text-ink`
 
       if (item.type === 'character' || item.type === 'country') {
         const avatarType = item.type === 'country' ? 'flag' : 'avatar'
         const img = document.createElement('img')
+        // 候选可达上限 200 条：只解码进入视口的头像，避免打开菜单时一次性读取全部图片
+        img.loading = 'lazy'
+        img.decoding = 'async'
         img.src = getImageUrl(item.avatarUrl, avatarType)
         img.alt = ''
         img.className = 'w-5 h-5 rounded-full object-cover shrink-0 border border-line'
@@ -187,6 +190,21 @@ function renderMentionGroups(
       container.appendChild(btn)
     }
   }
+}
+
+/**
+ * 只切换高亮行。
+ *
+ * 候选可达上限 200 条，方向键逐条重建整份列表会带来无谓的重排与图片重新解码；
+ * 行上带 `data-mention-index`，这里按序号改类名即可。
+ */
+function paintSelection(container: HTMLElement, selectedIndex: number) {
+  container.querySelectorAll<HTMLElement>('[data-mention-index]').forEach((row) => {
+    row.classList.toggle(
+      'bg-[var(--oc-hover)]',
+      Number(row.dataset.mentionIndex) === selectedIndex,
+    )
+  })
 }
 
 

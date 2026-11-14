@@ -344,6 +344,21 @@ function serialize(groups: InfoGroup[]): string {
   return `${JSON.stringify({ version: VERSION, groups }, null, 2)}\n`
 }
 
+/**
+ * 文件形状校验：写出去的一定是 `{ version, groups: [] }`。
+ * JSON 能 parse 但缺 `groups` 数组也算坏文件（普通界面回落内置组件，备份标记未包含）。
+ */
+function readInfoGroupsPayload(payload: unknown): unknown[] {
+  if (
+    payload === null ||
+    typeof payload !== 'object' ||
+    !Array.isArray((payload as { groups?: unknown }).groups)
+  ) {
+    throw new Error('基本信息组件文件结构不正确')
+  }
+  return (payload as { groups: unknown[] }).groups
+}
+
 let snapshot: InfoGroup[] = merge([])
 let loaded = false
 /** 上次装载用的库根（根一变重读；启动早期会话没就绪时不装载，见 `loadInfoGroups`） */
@@ -380,14 +395,14 @@ export async function loadInfoGroups(force = false): Promise<void> {
       if (root) {
         if (await vaultFs.exists(root, REL_PATH)) {
           const bytes = await vaultFs.readBytes(root, REL_PATH)
-          const payload = JSON.parse(new TextDecoder().decode(new Uint8Array(bytes))) as { groups?: unknown }
-          snapshot = merge(normalize(payload?.groups))
+          const payload = JSON.parse(new TextDecoder().decode(new Uint8Array(bytes))) as unknown
+          snapshot = merge(normalize(readInfoGroupsPayload(payload)))
         } else {
           snapshot = merge([])
         }
       } else if (typeof window !== 'undefined') {
         const raw = localStorage.getItem(LS_KEY)
-        snapshot = merge(raw === null ? [] : normalize((JSON.parse(raw) as { groups?: unknown })?.groups))
+        snapshot = merge(raw === null ? [] : normalize(readInfoGroupsPayload(JSON.parse(raw) as unknown)))
       }
       readFailed = false
     } catch {
@@ -452,6 +467,26 @@ export function saveInfoGroups(next: InfoGroup[]): Promise<void> {
 
 export function getInfoGroups(): InfoGroup[] {
   return snapshot
+}
+
+/**
+ * 备份读取用的只读状态（不触发加载）。
+ * 普通界面读失败仍保留旧快照 / 回落内置组件，备份必须把这一段标成「未包含」。
+ */
+export interface InfoGroupsReadState {
+  loaded: boolean
+  readFailed: boolean
+  root: string | null
+  reason?: string
+}
+
+export function getInfoGroupsReadState(): InfoGroupsReadState {
+  return {
+    loaded,
+    readFailed,
+    root: loadedRoot,
+    ...(readFailed ? { reason: '基本信息组读取失败（权限 / 坏 JSON）' } : {}),
+  }
 }
 
 export function findInfoGroup(id: string): InfoGroup | undefined {

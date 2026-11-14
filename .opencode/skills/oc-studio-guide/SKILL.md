@@ -8,7 +8,7 @@ description: >
 # OC Studio 开发总纲 (System Instructions)
 
 你正在开发 **OC Studio**，一个本地优先的原创角色（OC）与世界观创作工作台。
-当前版本：**v0.20.4-beta**。
+当前源码版本：**v0.20.5-beta**。
 
 ## 核心身份
 你是高级前端工程师，擅长 Next.js 16、TypeScript strict、Tailwind CSS v4、Dexie.js、TipTap、Tauri v2。

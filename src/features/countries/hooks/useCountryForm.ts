@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef, useMemo, useEffect } from 'react'
+import { useState, useCallback, useRef, useMemo, useEffect, useLayoutEffect } from 'react'
 import type { Editor } from '@tiptap/core'
 import type { Country, GalleryImage } from '@/types'
 import type { CountryFormData } from '../types'
@@ -10,17 +10,19 @@ import { useSaveStatus } from '@/components/layout/SaveStatusContext'
 import { toast } from 'sonner'
 import { useEditorDirty } from '@/components/layout/useEditorDirty'
 import { describeDocDiff, sameDocNodeIgnoringTrailingSpacer, snapshotKey, useDirtySnapshot } from '@/lib/dirty'
+import { docRevisionChanged } from '@/lib/save-revision'
+import { useSavePipeline } from '@/lib/use-save-pipeline'
 import { FACT_RELATION, type RelationCandidate, type RelationRow, type RelationTargetKind } from '@/components/shared/relations/types'
 import { useAutoSave } from '@/components/layout/use-auto-save'
+import { legacyBodySections, type LegacyBodySections } from '@/lib/body-content'
 
 /** 政治制度 / 地理环境 / 人文风貌三段合并成一份正文文档 */
-export function mergeCountrySections(system: string, geography: string, culture: string): string | undefined {
-  if (!system && !geography && !culture) return undefined
-  const parts: string[] = []
-  if (system) { parts.push('<h2>政治制度</h2>'); parts.push(system) }
-  if (geography) { parts.push('<h2>地理环境</h2>'); parts.push(geography) }
-  if (culture) { parts.push('<h2>人文风貌</h2>'); parts.push(culture) }
-  return parts.join('\n')
+export function mergeCountrySections(system: string, geography: string, culture: string): LegacyBodySections | undefined {
+  return legacyBodySections([
+    { heading: '政治制度', content: system },
+    { heading: '地理环境', content: geography },
+    { heading: '人文风貌', content: culture },
+  ])
 }
 
 /** 表单里可编辑的全部字段 —— 装载、回灌、脏判断共用这一份形状 */
@@ -82,7 +84,6 @@ export function useCountryForm(
   const [flagUrl, setFlagUrl] = useState(initial.flagUrl)
   const [headerUrl, setHeaderUrl] = useState(initial.headerUrl)
   const [gallery, setGallery] = useState<GalleryImage[]>(initial.gallery)
-  const [saving, setSaving] = useState(false)
   const [tags, setTags] = useState(initial.tags)
   const [custom, setCustom] = useState<Record<string, string>>(initial.custom)
 
@@ -136,26 +137,45 @@ export function useCountryForm(
     (editedCharIds !== null && !sameIds(editedCharIds, derivedCharacterIds)) ||
     (editedEventIds !== null && !sameIds(editedEventIds, derivedEventIds))
 
-  // 外部改写后回灌，并把同一份值记为新的干净基线。
-  // 自己刚保存的那份回读不回灌 —— 否则会把保存期间还在输入的字冲掉。
-  useEffect(() => {
-    if (saving || prevUpdatedAtRef.current === country.updatedAt) return
-    prevUpdatedAtRef.current = country.updatedAt
-    const next = valuesFromEntity(country)
-    const nextKey = snapshotKey(valuesSnapshot(next))
-    if (nextKey === savedSnapshotRef.current) return
-    setName(next.name)
-    setDescription(next.description)
-    setFlagUrl(next.flagUrl)
-    setHeaderUrl(next.headerUrl)
-    setGallery(next.gallery)
-    setTags(next.tags)
-    setCustom(next.custom)
-    // 名单没有本地副本要回灌：清掉覆盖就自动跟着查询走
-    setEditedCharIds(null)
-    setEditedEventIds(null)
-    markFieldsClean(nextKey)
-  }, [country, markFieldsClean, saving])
+  /**
+   * 统一的脏口径：字段 / 正文 / 成员关系**任何一项**不同都算脏。
+   * 自动保存、返回判断、全局状态栏、离场屏障全都消费这一个值 ——
+   * 以前 listsDirty 只进了 `useEditorDirty`，于是「只改名单」既不自动保存也不计入 dirty。
+   */
+  const isDirty = fieldsDirty || docDirty || listsDirty
+
+  /** 最后一次确认保存的字段签名；await 结束后据此判断「这期间又改了吗」 */
+  const savedFieldsKeyRef = useRef<string>(snapshotKey(valuesSnapshot(initial)))
+
+  /**
+   * 保存是在 await 之后才执行的，必须读「此刻」的值而不是发起保存那一刻的 render 闭包。
+   * 用 layout effect 同步：离散输入事件提交后、微任务恢复前一定拿得到新值。
+   */
+  const latestRef = useRef({
+    values,
+    editedCharIds,
+    editedEventIds,
+    derivedCharacterIds,
+    derivedEventIds,
+  })
+  useLayoutEffect(() => {
+    latestRef.current = { values, editedCharIds, editedEventIds, derivedCharacterIds, derivedEventIds }
+  }, [values, editedCharIds, editedEventIds, derivedCharacterIds, derivedEventIds])
+
+  /** 读当前（非 render 快照）是否还有未保存的修订 */
+  const isDirtyNow = useCallback(() => {
+    const current = latestRef.current
+    if (snapshotKey(valuesSnapshot(current.values)) !== savedFieldsKeyRef.current) return true
+    const characters = current.editedCharIds ?? current.derivedCharacterIds
+    const events = current.editedEventIds ?? current.derivedEventIds
+    if (!sameIds(characters, current.derivedCharacterIds)) return true
+    if (!sameIds(events, current.derivedEventIds)) return true
+    const editor = docEditorRef.current
+    const baseline = docBaselineRef.current
+    return editor !== null && baseline !== null && docRevisionChanged(editor.state.doc, baseline)
+  }, [])
+
+  // 外部改写后回灌的逻辑在保存流水线之后（它要读 `saving`；放在前面会踩 TDZ）。
 
   const handleDocReady = useCallback((editor: Editor) => {
     docEditorRef.current = editor
@@ -182,58 +202,115 @@ export function useCountryForm(
     setDocDirty(next)
   }, [])
 
-  const handleSave = useCallback(async () => {
-    markSaving()
-    setSaving(true)
-    try {
-      const document = docEditorRef.current?.getJSON()
+  /**
+   * 提交一版修订。
+   *
+   * **保存开始时**捕获不可变文档节点和字段签名；成功后只确认这一版：
+   * 文档基线 = 捕获的节点（不是保存完成时的 `editor.state.doc`），字段基线 = 提交的签名。
+   * await 期间用户继续输入的内容由 `isDirtyNow()` 重新比出来，保持 dirty、继续保存。
+   */
+  const commit = useCallback(async () => {
+    const submitted = latestRef.current
+    const submittedValues = submitted.values
+    const submittedKey = snapshotKey(valuesSnapshot(submittedValues))
+    const submittedCharacters = submitted.editedCharIds ?? submitted.derivedCharacterIds
+    const submittedEvents = submitted.editedEventIds ?? submitted.derivedEventIds
+    const editor = docEditorRef.current
+    const submittedDoc = editor ? editor.state.doc : null
+    const document = submittedDoc ? submittedDoc.toJSON() : undefined
 
+    markSaving()
+    try {
       await onSave(country.id, {
-        name,
+        name: submittedValues.name,
         parentId: country.parentId,
-        description,
+        description: submittedValues.description,
         document,
         system: country.system,
         geography: country.geography,
         culture: country.culture,
-        flagUrl,
-        headerUrl,
-        gallery,
-        characters: characterIds,
-        events: eventIds,
-        tags,
-        custom,
+        flagUrl: submittedValues.flagUrl,
+        headerUrl: submittedValues.headerUrl,
+        gallery: submittedValues.gallery,
+        characters: submittedCharacters,
+        events: submittedEvents,
+        tags: submittedValues.tags,
+        custom: submittedValues.custom,
       })
-      savedSnapshotRef.current = snapshotKey(snapshot)
-      markFieldsClean()
-      // 名单已写进实体侧，覆盖层清空 → 重新跟着查询走
-      setEditedCharIds(null)
-      setEditedEventIds(null)
-      const editor = docEditorRef.current
-      if (editor) docBaselineRef.current = editor.state.doc
-      setDocDirty(false)
+
+      savedSnapshotRef.current = submittedKey
+      savedFieldsKeyRef.current = submittedKey
+      markFieldsClean(submittedKey)
+      // 名单已写进实体侧，覆盖层可清空 → 重新跟着查询走；
+      // 但 await 期间如果又加了成员，覆盖层必须保留，否则新加的那个会被当没发生。
+      // 同步改 latestRef：离场屏障的下一轮会在 React 提交 state 之前就重新判断 dirty，
+      // 只看 state 的话会误判「仍然脏」并再存一遍。
+      const latest = latestRef.current
+      if (sameIds(latest.editedCharIds ?? latest.derivedCharacterIds, submittedCharacters)) {
+        latest.editedCharIds = null
+        setEditedCharIds(null)
+      }
+      if (sameIds(latest.editedEventIds ?? latest.derivedEventIds, submittedEvents)) {
+        latest.editedEventIds = null
+        setEditedEventIds(null)
+      }
+      if (editor && submittedDoc) {
+        docBaselineRef.current = submittedDoc
+        const stillDirty = docRevisionChanged(editor.state.doc, submittedDoc)
+        setDocDirty(stillDirty)
+        docDiffLoggedRef.current = stillDirty
+      }
     } catch (err) {
       // 保存失败必须把状态从「保存中」拉回来：只 catch 不处理会永远转圈
       toast.error('保存失败', { description: err instanceof Error ? err.message : String(err) })
       reportDirty(true)
-    } finally {
-      setSaving(false)
+      throw err
     }
   }, [
     country.id, country.parentId, country.system, country.geography, country.culture,
-    name, description, flagUrl, headerUrl, gallery, characterIds, eventIds, tags, custom,
-    onSave, markSaving, markFieldsClean, reportDirty, snapshot,
+    onSave, markSaving, markFieldsClean, reportDirty,
   ])
 
+  const { save: saveNow, saving } = useSavePipeline({ isDirty: isDirtyNow, commit })
+  /**
+   * 兼容既有调用点（`onBeforeOpen` / 工具栏按钮的 props 是 `() => void | Promise<void>`）。
+   * 真正的结果由流水线和离场屏障消费；这里拿到的是「这一轮已经跑完」。
+   */
+  const handleSave = useCallback(async (): Promise<void> => {
+    await saveNow()
+  }, [saveNow])
+
+  // 外部改写后回灌，并把同一份值记为新的干净基线。
+  // 自己刚保存的那份回读不回灌 —— 否则会把保存期间还在输入的字冲掉。
   useEffect(() => {
-    registerSaveHandler('country', handleSave)
+    if (saving || prevUpdatedAtRef.current === country.updatedAt) return
+    prevUpdatedAtRef.current = country.updatedAt
+    const next = valuesFromEntity(country)
+    const nextKey = snapshotKey(valuesSnapshot(next))
+    if (nextKey === savedSnapshotRef.current) return
+    setName(next.name)
+    setDescription(next.description)
+    setFlagUrl(next.flagUrl)
+    setHeaderUrl(next.headerUrl)
+    setGallery(next.gallery)
+    setTags(next.tags)
+    setCustom(next.custom)
+    // 名单没有本地副本要回灌：清掉覆盖就自动跟着查询走
+    setEditedCharIds(null)
+    setEditedEventIds(null)
+    savedFieldsKeyRef.current = nextKey
+    markFieldsClean(nextKey)
+  }, [country, markFieldsClean, saving])
+
+  useEffect(() => {
+    registerSaveHandler('country', saveNow)
     return () => registerSaveHandler('country', null)
-  }, [handleSave, registerSaveHandler])
+  }, [registerSaveHandler, saveNow])
 
   useEditorDirty(
     'country',
     country.id,
-    fieldsDirty || docDirty || listsDirty,
+    isDirty,
     saving,
     [
       fieldsDirty ? `字段 ${diffSummary}` : '',
@@ -243,7 +320,7 @@ export function useCountryForm(
   )
 
   // 停手 1.5 秒自动落地：常驻挂载的编辑器没有「卸载」可挂，只能主动写
-  useAutoSave({ dirty: fieldsDirty || docDirty, saving, save: handleSave })
+  useAutoSave({ dirty: isDirty, saving, save: saveNow })
 
   /**
    * 关系组件的数据：国家侧没有自己的关系数组，成员名单是**实体侧的查询**
@@ -344,11 +421,12 @@ export function useCountryForm(
     gallery, setGallery,
     custom, setCustomValue,
     saving,
-    /** 字段或正文有未保存改动（离场时的「先保存再走」用它判断） */
-    dirty: fieldsDirty || docDirty,
+    /** 字段 / 正文 / 成员关系任一有未保存改动（自动保存与离场判断共用这一项） */
+    dirty: isDirty,
     docDirty,
     tags, setTags,
     handleSave,
+    saveNow,
     handleDocReady,
     handleDocChange,
     relationRows,

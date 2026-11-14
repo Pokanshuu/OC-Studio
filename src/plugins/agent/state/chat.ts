@@ -18,6 +18,11 @@ import { create } from 'zustand'
 import { cmd, patchMessage, rowToMessage } from '@/plugins/agent/api/bridge'
 import { streamCompletion } from '@/plugins/agent/api/chat'
 import { isLibraryTool, libraryAccessGranted, resolveLibraryTool } from '@/plugins/agent/host/library-tools'
+import {
+  checkAgentToolPolicy,
+  filterAgentTools,
+  runAgentTool,
+} from '@/plugins/agent/host/tool-policy'
 import { MERGED_LIBRARY_TOOLS } from '@/lib/capabilities/agent-tools'
 import { buildAgentSessionContextBlock, writeNovelChapter } from '@/plugins/agent/host/session-context'
 import { bindPendingAgentSessionContext, getAgentSessionContext } from '@/lib/plugins/agent-session'
@@ -206,7 +211,7 @@ function systemPromptFor(
     language,
     workspacePath: workspace,
     workspaceName: workspace ? (workspace.split(/[\\/]/).filter(Boolean).pop() ?? null) : null,
-    toolNames: toolsFor(settings.agent.enabledTools).map((tool) => tool.name),
+    toolNames: filterAgentTools(toolsFor(settings.agent.enabledTools)).map((tool) => tool.name),
     platform: navigator.userAgent.includes('Windows') ? 'Windows' : navigator.platform,
     date: new Date().toISOString().slice(0, 10),
     // 创作 / 扮演才用得上；AGENT 的 buildSystemPrompt 会忽略它
@@ -331,14 +336,16 @@ export const useChatStore = create<ChatStore>((set, get) => {
     // 模型会反复试、再花一轮解释为什么失败。
     const libraryAllowed = libraryAccessGranted()
     const tools: ToolSpec[] = toolsAllowed && workspace
-      ? toolsFor(settings.agent.enabledTools).filter((tool) => {
-          if (conversation.mode === 'CREATIVE') return tool.name === 'novel_write_chapter'
-          // 写小说章节也是写库：没拿到库授权时同样不要广告它。
-          // （它不在 `LIBRARY_TOOL_NAMES` 里，因为执行落在宿主自己的小说服务上，
-          //   `isLibraryTool` 认不出来 —— 这里必须点名，否则「没授权也能看见」，模型会去调。）
-          if (tool.name === 'novel_write_chapter') return libraryAllowed
-          return libraryAllowed || !isLibraryTool(tool.name)
-        })
+      ? filterAgentTools(
+          toolsFor(settings.agent.enabledTools).filter((tool) => {
+            if (conversation.mode === 'CREATIVE') return tool.name === 'novel_write_chapter'
+            // 写小说章节也是写库：没拿到库授权时同样不要广告它。
+            // （它不在 `LIBRARY_TOOL_NAMES` 里，因为执行落在宿主自己的小说服务上，
+            //   `isLibraryTool` 认不出来 —— 这里必须点名，否则「没授权也能看见」，模型会去调。）
+            if (tool.name === 'novel_write_chapter') return libraryAllowed
+            return libraryAllowed || !isLibraryTool(tool.name)
+          }),
+        )
       : []
 
     const path = pathOf(get().allMessages).filter((m) => m.id !== assistantId)
@@ -441,6 +448,12 @@ export const useChatStore = create<ChatStore>((set, get) => {
         })
       },
       approve: async (call) => {
+        // 执行端边界先于审批：实体 / 内部配置的原始写入与未授权的 shell
+        // 根本不该弹给用户点「同意」。旧历史里重放的旧工具名也要先映射。
+        const canonicalName = (MERGED_LIBRARY_TOOLS as Record<string, string>)[call.name] ?? call.name
+        const decision = checkAgentToolPolicy(canonicalName, parseToolArgs(call.args))
+        if (!decision.allowed) return 'deny'
+
         const policy = useSettingsStore.getState().settings.agent.approval
         if (policy === 'auto') return 'allow'
         if (policy === 'never') return 'deny'
@@ -484,12 +497,24 @@ export const useChatStore = create<ChatStore>((set, get) => {
         set({ activity: call.name })
         const args = parseToolArgs(call.args)
         try {
+          // 执行端最后一道闸：不依赖系统提示词，也不依赖审批策略。
+          // 实体 `.md` / `.ocstudio` 的原始写入、未授权 shell 在这里直接变成
+          // isError 结果；模型能看到可执行的替代（library_*）。
+          const decision = checkAgentToolPolicy(canonicalName, args)
+          if (!decision.allowed) {
+            return {
+              content: decision.reason,
+              isError: true,
+              durationMs: 0,
+            } satisfies ToolResult
+          }
+
           // 宿主优先：设定库那几个工具在进程内执行，其余落回插件的文件工具层
           const hosted = await resolveLibraryTool(call.name, args)
           const response = hosted ??
             (call.name === 'novel_write_chapter'
               ? await writeNovelChapter(conversationId, args)
-              : await cmd.runTool(call.name, args, workspace ?? ''))
+              : await runAgentTool(call.name, args, workspace ?? ''))
           void cmd
             .auditToolCall(conversationId, call.name, call.args, !response.isError, response.durationMs)
             .catch(() => undefined)

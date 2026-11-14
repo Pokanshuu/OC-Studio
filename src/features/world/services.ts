@@ -8,6 +8,8 @@ import { bodyPresetDoc } from '@/lib/templates/body-preset'
 import { isCodexEntry } from '@/lib/entry-kinds'
 import { getCategories, loadCategories } from '@/lib/categories/store'
 import { worldBodyPatch } from '@/lib/world-body'
+import { writeAsActor } from '@/lib/vault/actor'
+import type { JournalActor } from '@/lib/vault/journal'
 
 const TABLE = 'worldEntries'
 
@@ -68,7 +70,10 @@ export async function getAllEntries(): Promise<WorldEntry[]> {
   return rows.filter((row) => !row.deleted)
 }
 
-export async function createEntry(data: WorldFormData): Promise<number> {
+export async function createEntry(
+  data: WorldFormData,
+  options?: { actor?: JournalActor },
+): Promise<number> {
   // 模板的正文预设：笔记的模板 = 条目自己的 `template`，没写就是内置词条模板
   const draft = buildDefaultEntry(data)
   const preset =
@@ -76,7 +81,8 @@ export async function createEntry(data: WorldFormData): Promise<number> {
       ? await bodyPresetDoc(draft.template?.trim() || 'entry')
       : null
   const entry = preset === null ? draft : { ...draft, document: preset }
-  const id = await db.worldEntries.add(entry)
+  // 准备在事务外；只有 add 绑身份
+  const id = await writeAsActor(options?.actor, () => db.worldEntries.add(entry))
   await logOperation(TABLE, id, 'title', '', data.title)
   return id
 }
@@ -178,16 +184,18 @@ export async function saveEntryContent(
   id: number,
   title: string,
   doc: unknown,
-): Promise<void> {
+): Promise<{ updatedAt: number }> {
   try {
     const now = Date.now()
     // 正文只写 `document`，`content` 顺手清空 —— 两份真源必然漂，见 `lib/world-body.ts`
-    await db.worldEntries.update(id, {
+    const changed = await db.worldEntries.update(id, {
       title,
       ...worldBodyPatch(doc),
       updatedAt: now,
       ...pendingStamp(now),
     })
+    if (changed === 0) throw new Error(`WorldEntry not found: ${id}`)
+    return { updatedAt: now }
   } catch (err) {
     console.error(`[saveEntryContent] 自动保存失败 id=${id}:`, err)
     throw err

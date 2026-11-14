@@ -7,6 +7,7 @@ import {
   type TiptapNode,
 } from './doc'
 import { markdownToTiptap, type LinkRef, type ResolvedLink } from './to-tiptap'
+import { imageMarkdown } from './image-src'
 
 // ── Tiptap JSON → Markdown ──────────────────────────────────────────────
 //
@@ -24,7 +25,7 @@ import { markdownToTiptap, type LinkRef, type ResolvedLink } from './to-tiptap'
 //    配对的另一端**：`她是 **“宰相…` 里的 `**` 后无闭合，解析器本来就读成
 //    纯文本。一律转义会把它写成 `\*\*`，用户的文件就被改写了。这里先按最小
 //    转义试一次，把结果重新解析回来与原文档比对；对得上就用它，对不上才退回
-//    全量转义。
+//    全量转义；全量仍不能无损读回时必须记录兜底，不能把失败的候选直接写盘。
 //
 // 3. **块级写法选不会产生歧义的那种。**
 //    分割线写 `---`（vault 全用它），且块之间固定空一行，这样 `---` 不会被
@@ -106,7 +107,7 @@ export function tiptapToMarkdown(doc: unknown, options: TiptapToMarkdownOptions)
     return { markdown: body, hasFallback: false, unsupported: [] }
   }
 
-  const fallback = buildFallbackBlock(root)
+  const fallback = buildFallbackBlock(root, ctx)
   return {
     markdown: body === '' ? fallback : `${body}\n\n${fallback}`,
     hasFallback: true,
@@ -128,8 +129,15 @@ function assertDoc(value: unknown): TiptapDoc {
   return { type: 'doc', content: record.content as TiptapNode[] }
 }
 
-function buildFallbackBlock(doc: TiptapDoc): string {
-  const json = JSON.stringify(doc, null, 2)
+function buildFallbackBlock(doc: TiptapDoc, ctx: RenderContext): string {
+  // id 只在当前扫描会话内有效；兜底也必须存磁盘目标，重开时按新索引解析。
+  const project = (nodes: TiptapNode[]): TiptapNode[] => nodes.flatMap((node) => {
+    const written = referenceForDisk(node, ctx)
+    if (written === null) return []
+    if (written.content === undefined) return [written]
+    return [{ ...written, content: project(written.content) }]
+  })
+  const json = JSON.stringify({ ...doc, content: project(doc.content) }, null, 2)
   // JSON 里可能出现反引号（正文内容），围栏必须比最长的一段更长
   const fence = '`'.repeat(Math.max(3, longestRun(json, '`') + 1))
   return `${fence}${FALLBACK_FENCE_INFO}\n${json}\n${fence}`
@@ -339,7 +347,12 @@ function renderImageBlock(node: TiptapNode, ctx: RenderContext): string | null {
   const src = typeof node.attrs?.src === 'string' ? node.attrs.src : ''
   if (src === '') return null
   if (node.attrs?.width !== null && node.attrs?.width !== undefined) ctx.unsupported.add('imageBlock:width')
-  return `![](${encodeHref(src)})`
+  return imageMarkdown(src)
+}
+
+/** Link destinations with spaces or parentheses must use angle-bracket form. */
+function encodeHref(href: string): string {
+  return /[\s()<>]/.test(href) ? `<${href.replace(/[<>]/g, '')}>` : href
 }
 
 // ── 行内：标记开合配对 ──────────────────────────────────────────────────
@@ -397,8 +410,12 @@ function renderInlineVerified(
 ): string {
   const expected = nodes ?? []
   const minimal = renderInline(expected, ctx, inTable, atLineStart, 'minimal')
-  if (inlineRoundTrips(expected, minimal, inTable, atLineStart)) return minimal
-  return renderInline(expected, ctx, inTable, atLineStart, 'full')
+  if (inlineRoundTrips(expected, minimal, inTable, atLineStart, ctx)) return minimal
+  const full = renderInline(expected, ctx, inTable, atLineStart, 'full')
+  if (!inlineRoundTrips(expected, full, inTable, atLineStart, ctx)) {
+    ctx.unsupported.add('inline:roundtrip')
+  }
+  return full
 }
 
 function renderInline(
@@ -503,7 +520,10 @@ function renderInline(
 
         const serialized = serializeLinkNode(node, ctx)
         if (serialized === null) {
-          ctx.unsupported.add(node.type)
+          // 引用没有可写的目标（目标被删 / 导入时解除跳转）：按**纯文本**写回。
+          // 这里刻意**不记 unsupported**：那会给整篇正文附一个 oc-document 兜底块，
+          // 等于用 JSON 改写用户的文件；而这里丢的只是「链接」这层语义，字还在。
+          // 也不能写 `[[label]]` —— 下次扫描会按名字绑到同名的另一条实体上（Q02）。
           const label = typeof node.attrs?.label === 'string' ? node.attrs.label : ''
           if (label !== '') {
             let text = escapeText(label, inTable, level)
@@ -551,6 +571,18 @@ function serializeLinkNode(node: TiptapNode, ctx: RenderContext): string | null 
   return ctx.options.serializeLink(node)
 }
 
+/** Project references to the representation actually written to disk, without session IDs. */
+function referenceForDisk(node: TiptapNode, ctx: RenderContext): TiptapNode | null {
+  if (node.type !== 'mention' && node.type !== 'wikiLink') return node
+  const serialized = serializeLinkNode(node, ctx)
+  const raw = serialized === null ? undefined : /^\[\[([\s\S]*)\]\]$/.exec(serialized)?.[1]
+  if (raw === undefined) {
+    const label = typeof node.attrs?.label === 'string' ? node.attrs.label : ''
+    return label === '' ? null : { type: 'text', text: label, ...(node.marks ? { marks: node.marks } : {}) }
+  }
+  return { ...node, attrs: { ...node.attrs, id: '', raw } }
+}
+
 /** 合并相邻的同标记文本节点（`**a**` 紧挨 `**b**` 会被解析器并成一个 strong） */
 function mergeAdjacentText(nodes: TiptapNode[]): TiptapNode[] {
   const out: TiptapNode[] = []
@@ -587,14 +619,21 @@ function inlineRoundTrips(
   markdown: string,
   inTable: boolean,
   atLineStart: boolean,
+  ctx: RenderContext,
 ): boolean {
-  if (markdown === '') return mergeAdjacentText(expected).length === 0
+  // Compare the intended disk representation of references: imports can bind a
+  // new filename, and a deliberately unlinked reference becomes ordinary text.
+  const written = expected.flatMap((node) => {
+    const projected = referenceForDisk(node, ctx)
+    return projected === null ? [] : [projected]
+  })
+  if (markdown === '') return mergeAdjacentText(written).length === 0
 
   // 表格单元格里的 `<br>` 与 `\|` 是单元格专用写法，单独用段落解析会误判
   const context = inTable ? markdown.replace(/<br>/g, '') : markdown
   const prefix = atLineStart ? '' : 'x'
   const links = new Map<string, TiptapNode>()
-  collectLinks(expected, links)
+  collectLinks(written, links)
   const resolveLink = (ref: LinkRef): ResolvedLink | null => {
     const node = links.get(ref.raw)
     if (node === undefined) return null
@@ -621,7 +660,7 @@ function inlineRoundTrips(
   if (parsed.content.length !== 1 || first === undefined || first.type !== 'paragraph') return false
 
   const expectedWithPrefix: TiptapNode[] =
-    prefix === '' ? expected : [{ type: 'text', text: prefix }, ...expected]
+    prefix === '' ? written : [{ type: 'text', text: prefix }, ...written]
 
   return inlineFingerprint(expectedWithPrefix) === inlineFingerprint(first.content ?? [])
 }
@@ -707,9 +746,4 @@ function codeSpan(text: string, inTable: boolean): string {
     (content.startsWith(' ') && content.endsWith(' ') && content.trim() !== '')
   const pad = needsPad ? ' ' : ''
   return `${fence}${pad}${content}${pad}${fence}`
-}
-
-/** 链接目标里有空格或括号时必须用尖括号包起来，否则链接会在括号处截断 */
-function encodeHref(href: string): string {
-  return /[\s()<>]/.test(href) ? `<${href.replace(/[<>]/g, '')}>` : href
 }

@@ -27,6 +27,11 @@ import {
 } from '@/plugins/agent/components/ui/primitives'
 import { useSettingsStore } from '@/plugins/agent/state/settings'
 import { useChatStore } from '@/plugins/agent/state/chat'
+import {
+  getAgentToolPolicy,
+  setAgentToolPolicy,
+  subscribeAgentToolPolicy,
+} from '@/plugins/agent/host/tool-policy'
 import { useLang, useT } from '@/plugins/agent/i18n'
 import { ALL_TOOLS, toolsFor } from '@/plugins/agent/core/agent/tools'
 import { editablePrompt } from '@/plugins/agent/core/agent/prompt'
@@ -613,10 +618,17 @@ function PresetEditor({
 
 // ── agent ───────────────────────────────────────────────────────────────────
 
+/** 只允许用户在「高级工具」里授权，不混进普通工具清单（F16） */
+const ADVANCED_TOOL_NAMES = new Set(['write_file', 'edit_file', 'run_shell'])
+
 function AgentTab() {
   const t = useT()
   const settings = useSettingsStore((s) => s.settings)
   const patch = useSettingsStore((s) => s.patch)
+  const [policy, setPolicy] = useState(() => getAgentToolPolicy())
+  const [confirmShell, setConfirmShell] = useState(false)
+
+  useEffect(() => subscribeAgentToolPolicy(setPolicy), [])
 
   const toggleTool = (name: string) => {
     patch((current) => {
@@ -633,6 +645,28 @@ function AgentTab() {
     })
   }
 
+  /** 打开高级开关时同时把对应工具加进 enabledTools；关掉时只撤授权，保留用户原选择 */
+  const enableTools = (names: string[]) => {
+    patch((current) => {
+      const next = new Set(current.agent.enabledTools)
+      for (const name of names) next.add(name)
+      return {
+        ...current,
+        agent: { ...current.agent, enabledTools: [...next] },
+      }
+    })
+  }
+
+  const changeRawFileWrites = (next: boolean) => {
+    setAgentToolPolicy({ rawFileWrites: next })
+    if (next) enableTools(['write_file', 'edit_file'])
+  }
+
+  const confirmShellAccess = () => {
+    setAgentToolPolicy({ shell: true })
+    enableTools(['run_shell'])
+    setConfirmShell(false)
+  }
 
   return (
     <>
@@ -706,7 +740,7 @@ function AgentTab() {
       <div className="section">
         <div className="section-title">{t('settings.tools')}</div>
 
-        {ALL_TOOLS.map((tool) => {
+        {ALL_TOOLS.filter((tool) => !ADVANCED_TOOL_NAMES.has(tool.name)).map((tool) => {
           const enabled = settings.agent.enabledTools.includes(tool.name)
           return (
             <FieldRow
@@ -727,7 +761,42 @@ function AgentTab() {
         })}
       </div>
 
+      <div className="section">
+        <div className="section-title">{t('settings.advancedTools')}</div>
+        <FieldRow label={t('settings.rawFileWrites')} hint={t('settings.rawFileWritesHint')}>
+          <Switch checked={policy.rawFileWrites} onChange={changeRawFileWrites} />
+        </FieldRow>
+        <FieldRow label={t('settings.shellAccess')} hint={t('settings.shellAccessHint')}>
+          <Switch
+            checked={policy.shell}
+            onChange={(next) => {
+              if (next) setConfirmShell(true)
+              else setAgentToolPolicy({ shell: false })
+            }}
+          />
+        </FieldRow>
+      </div>
 
+      <Dialog
+        open={confirmShell}
+        onClose={() => setConfirmShell(false)}
+        title={t('settings.shellConfirmTitle')}
+        footer={
+          <>
+            <span className="spacer" />
+            <button className="btn" onClick={() => setConfirmShell(false)}>
+              {t('common.cancel')}
+            </button>
+            <button className="btn primary" onClick={confirmShellAccess}>
+              {t('settings.shellConfirmAction')}
+            </button>
+          </>
+        }
+      >
+        <p style={{ margin: 0, fontSize: 13, lineHeight: 1.7, color: 'var(--oc-ink-muted)' }}>
+          {t('settings.shellConfirmBody')}
+        </p>
+      </Dialog>
     </>
   )
 }

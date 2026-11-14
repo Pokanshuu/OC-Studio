@@ -12,6 +12,9 @@ import { useExportCenter } from '@/components/shared/export/ExportCenterHost'
 import { JournalTimelineDialog } from '@/features/vault/components/JournalTimelineDialog'
 import { useActiveEditor } from '@/lib/editor-context'
 import { useSaveStatus } from '@/components/layout/SaveStatusContext'
+import { runSaveBarrier } from '@/lib/save-barrier'
+import { reportSaveBarrierFailures } from '@/lib/save-feedback'
+import { currentStatus } from '@/lib/vault/vault-persist'
 import { VaultMenuSection } from '@/features/vault'
 import { useVault } from '@/lib/vault/vault-provider'
 import { NativeMacMenu } from './NativeMacMenu'
@@ -45,22 +48,29 @@ export function MenuBarMenus() {
   const [checkingUpdate, setCheckingUpdate] = useState(false)
 
   /**
-   * 保存：与 `AppShell` 里的 Ctrl/Cmd+S 走**同一套动作** ——
-   * 先让当前表单自己保存（含校验），再把落盘队列排干。
-   * 以前只有快捷键、菜单里没有入口，用户没法发现这个能力。
+   * 保存：与 `AppShell` 的 Ctrl/Cmd+S、关窗、换库走**同一个保存屏障** ——
+   * 先等草稿提交，再等落盘队列排干；失败给「保存未完成」，不制造「已保存」假回执。
    */
-  const { requestSave, status: saveStatus } = useSaveStatus()
+  const { status: saveStatus } = useSaveStatus()
   const handleSave = useCallback(() => {
-    // 笔记 / 小说是自动保存的，没有「脏表单」可存 —— 这时点「保存」以前什么都不发生，
-    // 看起来像按钮坏了。给一句明确的回执，别让用户去猜。
-    if (saveStatus !== 'dirty' && saveStatus !== 'saving') {
-      if (vault.supported && vault.status === 'ready') void vault.flush()
-      toast('没有需要保存的改动', { description: '笔记与章节是自动保存的' })
-      return
-    }
-    requestSave()
-    if (vault.supported && vault.status === 'ready') void vault.flush()
-  }, [requestSave, saveStatus, vault])
+    const wasClean = saveStatus !== 'dirty' && saveStatus !== 'saving'
+    const beforeWriteAt = currentStatus().lastFlushedAt
+    const hadQueuedWrites = currentStatus().pending > 0
+    void (async () => {
+      const failures = await runSaveBarrier()
+      if (failures.length > 0) {
+        reportSaveBarrierFailures(failures)
+        return
+      }
+      // 笔记 / 小说是自动保存的，没有「脏表单」可存 —— 这时点「保存」以前什么都不发生，
+      // 看起来像按钮坏了。给一句明确的回执，别让用户去猜。
+      // 隐藏的常驻编辑器也可能刚被屏障写掉：写过盘就不说「没有改动」。
+      const wroteSomething = currentStatus().lastFlushedAt !== beforeWriteAt
+      if (wasClean && !hadQueuedWrites && !wroteSomething) {
+        toast('没有需要保存的改动', { description: '笔记与章节是自动保存的' })
+      }
+    })()
+  }, [saveStatus])
 
   const handleCheckUpdate = useCallback(() => {
     if (checkingUpdate) return

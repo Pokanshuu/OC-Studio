@@ -69,6 +69,21 @@ function serializeRegistry(value: Registry): string {
   return `${JSON.stringify({ version: REGISTRY_VERSION, folders: value }, null, 2)}\n`
 }
 
+/**
+ * 文件形状校验：写出去的一定是 `{ version, folders: { 分类: [名字] } }`。
+ * JSON 能 parse 但 `folders` 不是对象也算坏文件（普通界面回落旧清单，备份标记未包含）。
+ */
+function readWorldFoldersPayload(payload: unknown): unknown {
+  if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new Error('分类文件夹清单文件结构不正确')
+  }
+  const folders = (payload as { folders?: unknown }).folders
+  if (folders === null || typeof folders !== 'object' || Array.isArray(folders)) {
+    throw new Error('分类文件夹清单文件结构不正确')
+  }
+  return payload
+}
+
 function root(): string | null {
   if (!isVaultSupported()) return null
   return getVaultSession()?.root ?? null
@@ -85,13 +100,13 @@ export async function loadWorldFolderRegistry(force = false): Promise<void> {
         if (await vaultFs.exists(readyRoot, REGISTRY_REL_PATH)) {
           const bytes = await vaultFs.readBytes(readyRoot, REGISTRY_REL_PATH)
           const payload = JSON.parse(new TextDecoder().decode(new Uint8Array(bytes))) as unknown
-          registry = normalizeRegistry(payload)
+          registry = normalizeRegistry(readWorldFoldersPayload(payload))
         } else {
           registry = {}
         }
       } else if (typeof window !== 'undefined') {
         const raw = localStorage.getItem(LS_KEY)
-        registry = raw === null ? {} : normalizeRegistry(JSON.parse(raw) as unknown)
+        registry = raw === null ? {} : normalizeRegistry(readWorldFoldersPayload(JSON.parse(raw) as unknown))
       }
       registryReadFailed = false
     } catch {
@@ -157,9 +172,85 @@ export function useWorldFolderRegistry(category: string): string[] {
   return all[category] ?? []
 }
 
+/** 整份「分类 → 文件夹名[]」（备份界面 / 恢复报告要一次看全） */
+export function useWorldFolderRegistryMap(): Record<string, string[]> {
+  return useSyncExternalStore(subscribe, snapshot, snapshot)
+}
+
+/** 非 Hook 版（备份导出用）：返回浅拷贝，调用方改它不会污染 store */
+export function getWorldFolderRegistry(): Record<string, string[]> {
+  const copy: Record<string, string[]> = {}
+  for (const [category, names] of Object.entries(registry)) copy[category] = [...names]
+  return copy
+}
+
 /** 非 Hook 版（脚本 / 调试） */
 export function getWorldFolderNames(category: string): string[] {
   return registry[category] ?? []
+}
+
+/**
+ * 备份读取用的只读状态（不触发加载）。
+ * 普通界面读失败仍保留旧清单，备份必须把这一段标成「未包含」。
+ */
+export interface WorldFolderRegistryReadState {
+  loaded: boolean
+  readFailed: boolean
+  root: string | null
+  reason?: string
+}
+
+export function getWorldFolderRegistryReadState(): WorldFolderRegistryReadState {
+  return {
+    loaded: registryLoaded,
+    readFailed: registryReadFailed,
+    root: registryLoadedRoot,
+    ...(registryReadFailed ? { reason: '分类空文件夹清单读取失败（权限 / 坏 JSON）' } : {}),
+  }
+}
+
+/**
+ * 整份清单替换（备份恢复用）。
+ *
+ * 与角色文件夹同一套写盘纪律：先等清单读完（否则会拿一份空表覆盖盘上的真清单），
+ * 再走 `saveRegistry` 的「先写盘、成功了才换内存」。
+ *
+ * 恢复**只在这里整份替换**：调用方（`backup-config`）已经确认目标没有任何
+ * 自建 / 改过的设置。不做逐分类的同名合并 —— 那需要猜「同名文件夹是不是同一个」。
+ */
+export async function saveWorldFolderRegistry(next: unknown): Promise<void> {
+  await loadWorldFolderRegistry()
+  await saveRegistry(normalizeFolderMap(next))
+}
+
+/**
+ * 按分类分组的空文件夹个数（库存卡片与导出摘要用）。
+ *
+ * 「空」= 清单里有这个名字，但库里没有属于该分类、且 `folder` 等于它的条目。
+ * 有成员的文件夹不算空 —— 它们能靠条目本身重建，空文件夹只能靠这份清单。
+ */
+export function countEmptyWorldFolders(
+  folderMap: Record<string, string[]>,
+  entries: readonly WorldEntry[],
+): number {
+  const used = new Set<string>()
+  for (const entry of entries) {
+    if (entry.deleted) continue
+    const category = (entry.category ?? '').trim()
+    const folder = (entry.folder ?? '').trim()
+    if (category === '' || folder === '') continue
+    used.add(`${category}\u0000${folder}`)
+  }
+  let empty = 0
+  for (const [rawCategory, names] of Object.entries(folderMap)) {
+    const category = rawCategory.trim()
+    for (const name of names) {
+      const folder = name.trim()
+      if (folder === '') continue
+      if (!used.has(`${category}\u0000${folder}`)) empty += 1
+    }
+  }
+  return empty
 }
 
 export async function createWorldFolder(category: string, name: string): Promise<void> {

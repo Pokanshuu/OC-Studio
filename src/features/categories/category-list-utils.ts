@@ -5,7 +5,7 @@
  * 手动排序留给下一步（`SortableList` + `order` 键）。
  */
 import { worldBodyOf } from '@/lib/world-body'
-import type { SortOption } from '@/components/shared/SortViewControls'
+import { normalizeViewMode, type SortOption } from '@/components/shared/SortViewControls'
 import type { WorldEntry } from '@/types'
 import { compareManual, readSortKey, writeSortKey } from '@/lib/sort-manual'
 
@@ -16,10 +16,10 @@ export type CategoryViewMode = 'grid' | 'gallery' | 'list'
 
 const CATEGORY_VIEW_STORAGE_KEY = 'oc-categories-view'
 
+/** 与角色 / 事件 / 国家同一默认：卡片视图（坏值回落 grid） */
 export function readCategoryViewMode(): CategoryViewMode {
-  if (typeof window === 'undefined') return 'list'
-  const saved = localStorage.getItem(CATEGORY_VIEW_STORAGE_KEY)
-  return saved === 'grid' || saved === 'gallery' ? saved : 'list'
+  if (typeof window === 'undefined') return 'grid'
+  return normalizeViewMode(localStorage.getItem(CATEGORY_VIEW_STORAGE_KEY))
 }
 
 export function writeCategoryViewMode(mode: CategoryViewMode): void {

@@ -15,7 +15,12 @@ import { setTemplateCustomFieldKeys } from './vault-field-keys'
 import type { VaultScanResult, VaultStorableKind } from './types'
 import { scanVault } from './scan'
 import { vaultFs } from './vault-fs'
-import { withVaultSuppressedAsync, resetVaultWriteState } from './vault-persist'
+import {
+  settleVaultWritesBeforeSwitch,
+  resetVaultWriteState,
+  currentStatus,
+  excludeVaultLoadTransaction,
+} from './vault-persist'
 import { applyTagMeta, parseTagMeta } from './vault-tags'
 import { applyDocumentBodies, documentOfEntity } from './markdown-bridge'
 import { MARKER_REL_PATH } from './vault-marker'
@@ -23,6 +28,7 @@ import { normalizeRelPath } from './vault-paths'
 import {
   createVaultSession,
   entityKey,
+  getVaultSession,
   setVaultSession,
   TAG_META_REL_PATH,
   type VaultEntryState,
@@ -33,7 +39,7 @@ import {
 // ── 装载：磁盘 → 内存（Dexie） ───────────────────────────────────────────
 // 两步刻意分开：
 //   readVault  只读盘 + 建会话（不改数据库，可安全用于「扫描体检」）
-//   applyDataset 在**一个事务**里整库替换 Dexie，并挂起落盘
+//   applyDataset 在一个事务里整库替换 Dexie；只排除该事务的落盘副作用。
 // 分开是为了 UI 能先展示扫描报告、用户确认后再真正装载。
 
 export interface VaultLoadResult {
@@ -58,6 +64,14 @@ interface RegisterArgs {
   table: VaultTableName
   kind: VaultStorableKind
   entries: { entity: { id: number }; relPath: string }[]
+  /**
+   * 没有独立文件的实体是否也登记（目前只有标签）。
+   *
+   * 必须登记：标签名只出现在各实体的 frontmatter 里，标签行本身没有 `.md`。
+   * 不登记 `装载时的旧名字`，改名时就取不到 before，既删不掉 tags.json 里的
+   * 旧键、也不会回写引用实体（F08）。
+   */
+  includeWithoutFile?: boolean
 }
 
 function registerEntities(
@@ -70,7 +84,24 @@ function registerEntities(
 
   for (const item of args.entries) {
     // relPath 为空 = 该实体没有文件（例如只存在于 frontmatter 里的标签）
-    if (item.relPath === '') continue
+    if (item.relPath === '') {
+      if (args.includeWithoutFile !== true) continue
+      const key = entityKey(args.table, item.entity.id)
+      session.entries.set(key, {
+        table: args.table,
+        id: item.entity.id,
+        kind: args.kind,
+        relPath: '',
+        content: '',
+        mtimeMs: 0,
+        entity: item.entity,
+        frontmatter: {},
+        bodyMarkdown: '',
+        bodyDoc: 'null',
+        trashed: false,
+      })
+      continue
+    }
     const relPath = normalizeRelPath(item.relPath)
     const file = files.get(relPath)
     const note = noteByPath.get(relPath)
@@ -165,6 +196,8 @@ export async function readVault(root: string): Promise<VaultLoadResult> {
     table: 'tags',
     kind: 'tag',
     entries: scan.dataset.tags,
+    // 标签通常没有独立文件，但它们的**旧名字**必须进会话（F08）
+    includeWithoutFile: true,
   })
   registerEntities(session, scan, files, {
     table: 'periods',
@@ -195,26 +228,36 @@ export async function readVault(root: string): Promise<VaultLoadResult> {
 
 /**
  * 整库替换 Dexie。
- * 必须在**挂起落盘**的前提下做：这个过程会产生上千次写入，
- * 若不挂起就会把中间态写进用户的文件夹。
+ *
+ * 替换期间产生上千次中间态写入，**不能**进落盘队列。以前用全局
+ * `withVaultSuppressedAsync` 挂起，但那是跨 await 的全局开关（会吞掉并发人工
+ * 保存，Q07）；现在只排除替换事务，不影响并发人工事务。
  */
 export async function applyDataset(scan: VaultScanResult): Promise<void> {
   const { dataset } = scan
-
-  await withVaultSuppressedAsync(async () => {
-    await db.transaction(
-      'rw',
-      [
-        db.characters,
-        db.events,
-        db.countries,
-        db.worldEntries,
-        db.tags,
-        db.periods,
-        db.meta,
-        db.operationLog,
-      ],
-      async () => {
+  const previousSession = getVaultSession()
+  await db.transaction(
+    'rw',
+    [
+      db.characters,
+      db.events,
+      db.countries,
+      db.worldEntries,
+      db.tags,
+      db.periods,
+      db.meta,
+      db.operationLog,
+    ],
+    async (transaction) => {
+      // IDB may queue the native transaction behind an existing writer even
+      // after this callback starts. Wait for its first request before the guard.
+      await db.meta.get(1)
+      const status = currentStatus()
+      if (getVaultSession() !== previousSession || status.pending > 0 || status.flushing) {
+        throw new Error('载入期间出现新的未保存改动，已取消替换；请保存后重试')
+      }
+      const includeTransaction = excludeVaultLoadTransaction(transaction)
+      try {
         await Promise.all([
           db.characters.clear(),
           db.events.clear(),
@@ -248,9 +291,11 @@ export async function applyDataset(scan: VaultScanResult): Promise<void> {
             : Promise.resolve(),
           dataset.project !== null ? db.meta.put(dataset.project.entity) : Promise.resolve(),
         ])
-      },
-    )
-  })
+      } finally {
+        includeTransaction()
+      }
+    },
+  )
   // 整库换过了：搜索索引里旧库的正文缓存不能留（同 id / 同 updatedAt 会串味）
   resetSearchIndex()
 }
@@ -258,6 +303,9 @@ export async function applyDataset(scan: VaultScanResult): Promise<void> {
 /** 打开一个 vault：读盘 → 整库替换 → 建立会话。
  *  返回装载结果以便 UI 展示扫描报告。 */
 export async function loadVault(root: string): Promise<VaultLoadResult> {
+  // 换库前先排干旧库的队列。排不干（写失败 / 冲突）就抛错，由调用方保留原会话 ——
+  // 以前的 `resetVaultWriteState()` 会把未确认的改动静默丢掉（F03 / 需求 7）。
+  await settleVaultWritesBeforeSwitch()
   resetVaultWriteState()
   // 扫描前先把两类字段键登记好：字段表（自建字段）+ 模板（宠物 / 武器的物种 / 材质…）。
   // 会话建立前也要能读 `.ocstudio/fields.json` 与模板文件，否则 scan 会把它们当陌生键。
@@ -268,6 +316,10 @@ export async function loadVault(root: string): Promise<VaultLoadResult> {
   syncCustomFieldKeys(fieldConfig)
   setTemplateCustomFieldKeys({ worldEntry: templateFieldKeys })
   const result = await readVault(root)
+  // 读盘期间旧会话还活着：编辑器的防抖保存 / 引用回写可能又排进了新任务。
+  // 换库前再排一次（这时 Dexie 仍是旧库，写回目标也仍是旧库），排不干就中止。
+  await settleVaultWritesBeforeSwitch()
+  resetVaultWriteState()
   await applyDataset(result.scan)
   setVaultSession(result.session)
   // 字段表跟文件夹走：会话建立后再正式装载一次（同一份文件）；基本信息组件同理

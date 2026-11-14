@@ -100,8 +100,8 @@ async function writeMedia(kind: EntityKind, id: number, slot: MediaSlot, path: s
   const column = MEDIA_FIELD[kind][slot]
   if (!column) throw new Error(`这个类型没有 ${slot} 槽位`)
   const normalized = await normalizeVaultPath(path)
-  const { db, runAsActorAsync } = await loadWriteDeps()
-  await runAsActorAsync('agent:assistant', async () => {
+  const { db, runAsActorTransaction } = await loadWriteDeps()
+  await runAsActorTransaction('agent:assistant', async () => {
     await db.table(TABLE_BY_KIND[kind]).update(id, {
       [column]: normalized,
       updatedAt: Date.now(),
@@ -142,7 +142,7 @@ function imageFileName(url: string, filename?: string): string {
  * 不去找 service 层是因为**不该绕过落盘链路，而 Dexie 就是那条链路本身** ——
  * `vault-persist` 挂在 dbcore 中间件上，任何写都会进队列、序列化成 frontmatter、
  * 走原子写，并在 flush 成功时追加一条带 `actor` 的时间线。所以这里只要两件事做对：
- *   1. 包在 `runAsActorAsync('agent:assistant', …)` 里（时间线才认得出是谁）
+ *   1. 包在 `runAsActorTransaction('agent:assistant', …)` 里（时间线才认得出是谁）
  *   2. 顺带把 `updatedAt` 推一下（列表按它排序）
  */
 /**
@@ -168,20 +168,20 @@ async function assertPerNoteTemplate(name: string): Promise<void> {
 
 const writer: LibraryWriter = {
   async setFields(kind, id, patch) {
-    const { db, runAsActorAsync } = await loadWriteDeps()
-    await runAsActorAsync('agent:assistant', async () => {
+    const { db, runAsActorTransaction } = await loadWriteDeps()
+    await runAsActorTransaction('agent:assistant', async () => {
       await db.table(TABLE_BY_KIND[kind]).update(id, { ...patch, updatedAt: Date.now() })
     })
   },
   async setBody(kind, id, markdown) {
-    const { db, runAsActorAsync } = await loadWriteDeps()
+    const { db, runAsActorTransaction } = await loadWriteDeps()
     const { bodyDocFromMarkdown } = await import('@/lib/vault/write-body')
     const { worldBodyPatch } = await import('@/lib/world-body')
     // 正文只写 `document`（`lib/world-body.ts`）—— 词条也一样。
     // 以前这里对词条写 `content: JSON.stringify(doc)`，等于把刚收敛掉的两份真源
     // 又装回来一份；`npm run audit:world` 里有断言钉着这条。
     const patch = worldBodyPatch(bodyDocFromMarkdown(markdown))
-    await runAsActorAsync('agent:assistant', async () => {
+    await runAsActorTransaction('agent:assistant', async () => {
       await db.table(TABLE_BY_KIND[kind]).update(id, { ...patch, updatedAt: Date.now() })
     })
   },
@@ -221,7 +221,6 @@ const writer: LibraryWriter = {
     }
   },
   async create(kind, input) {
-    const { runAsActorAsync } = await loadWriteDeps()
     const [defaults, characters, events, countries, world] = await Promise.all([
       import('@/lib/entity-defaults'),
       import('@/features/characters/services'),
@@ -229,34 +228,49 @@ const writer: LibraryWriter = {
       import('@/features/countries/services'),
       import('@/features/world/services'),
     ])
-    // 走各 feature 的 `create*`，不要在这里手拼一行塞进 Dexie ——
-    // 那条路会漏掉操作日志与索引维护（见 `LibraryWriter.create` 的注释）。
-    return runAsActorAsync('agent:assistant', async () => {
-      if (kind === 'character') {
-        return characters.createCharacter({ ...defaults.newCharacterData(), name: input.title, ...input.fields })
-      }
-      if (kind === 'event') {
-        return events.createEvent({ ...defaults.newEventData(), title: input.title, ...input.fields })
-      }
-      if (kind === 'country') {
-        return countries.createCountry({ ...defaults.newCountryData(), name: input.title, ...input.fields })
-      }
-      // 词条：分类 / 模板 / 父级是它的结构位（小说章节、自定义分类条目靠这三个）
-      if (input.template !== undefined && input.template.trim() !== '') {
-        await assertPerNoteTemplate(input.template.trim())
-      }
-      return world.createEntry({
+    /*
+     * 新建准备（模板校验 / 默认字段 / 正文骨架）全部在**写事务之前**完成；
+     * 身份只绑到 service 内部那一次 `db.add`（各 `create*` 的 `{ actor }`）。
+     * 不再用全局 `withVaultSuppressedAsync` 包住整个 create：那会跨越模板 / 文件
+     * 准备的 await，把期间并发的人工自动保存一起吞掉（Q07）。
+     */
+    const actor = 'agent:assistant' as const
+    if (kind === 'character') {
+      return characters.createCharacter(
+        { ...defaults.newCharacterData(), name: input.title, ...input.fields },
+        { actor },
+      )
+    }
+    if (kind === 'event') {
+      return events.createEvent(
+        { ...defaults.newEventData(), title: input.title, ...input.fields },
+        { actor },
+      )
+    }
+    if (kind === 'country') {
+      return countries.createCountry(
+        { ...defaults.newCountryData(), name: input.title, ...input.fields },
+        { actor },
+      )
+    }
+    // 词条：分类 / 模板 / 父级是它的结构位（小说章节、自定义分类条目靠这三个）
+    if (input.template !== undefined && input.template.trim() !== '') {
+      await assertPerNoteTemplate(input.template.trim())
+    }
+    return world.createEntry(
+      {
         ...defaults.newWorldEntryData(),
         title: input.title,
         ...input.fields,
         category: input.category,
         template: input.template,
         parentId: input.parentId ?? null,
-      })
-    })
+      },
+      { actor },
+    )
   },
   async delete(kind, id) {
-    const { runAsActorAsync } = await loadWriteDeps()
+    const { runAsActorTransaction } = await loadWriteDeps()
     const [characters, events, countries, world] = await Promise.all([
       import('@/features/characters/services'),
       import('@/features/events/services'),
@@ -264,7 +278,7 @@ const writer: LibraryWriter = {
       import('@/features/world/services'),
     ])
     // 走各 feature 的 `delete*`：软删除 + 清引用 + 落盘队列（回收站能还原）
-    await runAsActorAsync('agent:assistant', async () => {
+    await runAsActorTransaction('agent:assistant', async () => {
       if (kind === 'character') await characters.deleteCharacter(id)
       else if (kind === 'event') await events.deleteEvent(id)
       else if (kind === 'country') await countries.deleteCountry(id)
@@ -272,12 +286,12 @@ const writer: LibraryWriter = {
     })
   },
   async setTags(kind, id, names) {
-    const { db, runAsActorAsync } = await loadWriteDeps()
+    const { db, runAsActorTransaction } = await loadWriteDeps()
     const [{ getAllTags, createTag }, { pickTagColor }] = await Promise.all([
       import('@/features/tags/services'),
       import('@/lib/tag-colors'),
     ])
-    return runAsActorAsync('agent:assistant', async () => {
+    return runAsActorTransaction('agent:assistant', async () => {
       const existing = await getAllTags()
       const byName = new Map(existing.map((tag) => [tag.name.trim(), tag]))
       const resolved: { id: number; name: string }[] = []
@@ -300,8 +314,8 @@ const writer: LibraryWriter = {
     })
   },
   async setCustom(kind, id, fields) {
-    const { db, runAsActorAsync } = await loadWriteDeps()
-    await runAsActorAsync('agent:assistant', async () => {
+    const { db, runAsActorTransaction } = await loadWriteDeps()
+    await runAsActorTransaction('agent:assistant', async () => {
       const table = db.table(TABLE_BY_KIND[kind])
       const row = (await table.get(id)) as { custom?: Record<string, string> } | undefined
       const next = { ...(row?.custom ?? {}) }
@@ -341,14 +355,14 @@ const writer: LibraryWriter = {
     return { path: result.relPath, bytes: result.bytes }
   },
   async rename(kind, id, title, aliases) {
-    const { db, runAsActorAsync } = await loadWriteDeps()
+    const { db, runAsActorTransaction } = await loadWriteDeps()
     const [characters, events, countries, world] = await Promise.all([
       import('@/features/characters/services'),
       import('@/features/events/services'),
       import('@/features/countries/services'),
       import('@/features/world/services'),
     ])
-    await runAsActorAsync('agent:assistant', async () => {
+    await runAsActorTransaction('agent:assistant', async () => {
       if (kind === 'character') {
         // 角色的 update 同时吃 aliases；其余三种的 update 不接 aliases，下面补写
         await characters.updateCharacter(id, aliases ? { name: title, aliases } : { name: title })
@@ -390,7 +404,7 @@ const writer: LibraryWriter = {
       }
     }
 
-    const { db, runAsActorAsync } = await loadWriteDeps()
+    const { db, runAsActorTransaction } = await loadWriteDeps()
     if (input.parentId !== undefined && input.parentId !== null) {
       // 不能挂到自己或自己的子孙下面；父级必须存在
       let cursor: number | null = input.parentId
@@ -408,7 +422,7 @@ const writer: LibraryWriter = {
     }
 
     const world = await import('@/features/world/services')
-    await runAsActorAsync('agent:assistant', async () => {
+    await runAsActorTransaction('agent:assistant', async () => {
       await world.updateEntry(id, {
         ...(input.category !== undefined ? { category: input.category.trim() } : {}),
         ...(input.template !== undefined ? { template: input.template.trim() } : {}),
@@ -417,7 +431,7 @@ const writer: LibraryWriter = {
     })
   },
   async setNovel(id, input) {
-    const { db, runAsActorAsync } = await loadWriteDeps()
+    const { db, runAsActorTransaction } = await loadWriteDeps()
     const { NOVEL_CATEGORY } = await import('@/lib/entry-kinds')
     const row = await db.worldEntries.get(id)
     if (!row) throw new Error(`词条 #${id} 不存在`)
@@ -425,7 +439,7 @@ const writer: LibraryWriter = {
       throw new Error('这条不是小说根（先建一条 category=小说 的词条）')
     }
     const cover = input.cover !== undefined ? await normalizeVaultPath(input.cover) : undefined
-    await runAsActorAsync('agent:assistant', async () => {
+    await runAsActorTransaction('agent:assistant', async () => {
       await db.worldEntries.update(id, {
         ...(input.author !== undefined ? { novelAuthor: input.author } : {}),
         ...(input.synopsis !== undefined ? { novelSynopsis: input.synopsis } : {}),
@@ -518,9 +532,9 @@ const writer: LibraryWriter = {
     return { id: category.id, name, template: templateId, group: groupId, fields: input.fields }
   },
   async link(from, to, relation, toName) {
-    const { db, runAsActorAsync } = await loadWriteDeps()
+    const { db, runAsActorTransaction } = await loadWriteDeps()
     const now = Date.now()
-    return runAsActorAsync('agent:assistant', async () => {
+    return runAsActorTransaction('agent:assistant', async () => {
       if (from.kind === 'character' && to.kind === 'character') {
         const row = await db.characters.get(from.id)
         if (!row) return { changed: false }
@@ -651,13 +665,13 @@ const catalog: LibraryCatalog = {
 /** 写到一半才装载 Dexie，构建期与 SSR 都不会碰它 */
 async function loadWriteDeps(): Promise<{
   db: typeof import('@/lib/db').db
-  runAsActorAsync: typeof import('@/lib/vault/actor').runAsActorAsync
+  runAsActorTransaction: typeof import('@/lib/vault/actor').runAsActorTransaction
 }> {
-  const [{ db }, { runAsActorAsync }] = await Promise.all([
+  const [{ db }, { runAsActorTransaction }] = await Promise.all([
     import('@/lib/db'),
     import('@/lib/vault/actor'),
   ])
-  return { db, runAsActorAsync }
+  return { db, runAsActorTransaction }
 }
 
 let executor: Executor | null = null

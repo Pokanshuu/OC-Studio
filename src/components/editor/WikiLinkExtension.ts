@@ -1,7 +1,7 @@
 import Mention from '@tiptap/extension-mention'
 import type { SuggestionProps, SuggestionKeyDownProps } from '@tiptap/suggestion'
 import type { Editor } from '@tiptap/core'
-import { searchAllEntitiesFlat } from '@/lib/reference-registry'
+import { searchReferableEntities } from '@/lib/reference-registry'
 import { adjustSuggestionPosition } from '@/lib/menu-utils'
 import { MENU, MENU_ITEM_BASE } from '@/lib/ui-tokens'
 import type { ReferableEntity } from '@/lib/reference-registry'
@@ -55,7 +55,8 @@ function createWikiLinkRender() {
       popup.className = `pointer-events-auto fixed z-50 max-h-56 overflow-auto min-w-[180px] ${MENU}`
       popup.style.left = `${rect.left}px`
       popup.style.top = `${rect.bottom + 4}px`
-      renderWikiItems(popup, props.items, props.command, 0)
+      renderWikiItems(popup, props.items, props.command)
+      paintSelection(popup, selectedIndex)
       mountRoot().appendChild(popup)
       document.addEventListener('pointerdown', (e) => {
         if (popup && !popup.contains(e.target as Node)) closePopup()
@@ -76,7 +77,8 @@ function createWikiLinkRender() {
       currentCommand = props.command
       selectedIndex = Math.min(selectedIndex, props.items.length - 1)
       popup.innerHTML = ''
-      renderWikiItems(popup, props.items, props.command, selectedIndex)
+      renderWikiItems(popup, props.items, props.command)
+      paintSelection(popup, selectedIndex)
       if (rect) {
         const adjusted = adjustSuggestionPosition(rect, popup.offsetWidth, popup.offsetHeight)
         popup.style.left = `${adjusted.x}px`
@@ -90,18 +92,12 @@ function createWikiLinkRender() {
       if (props.event.key === 'Escape') { closePopup(); return true }
       if (props.event.key === 'ArrowDown') {
         selectedIndex = Math.min(selectedIndex + 1, currentItems.length - 1)
-        if (popup) {
-          popup.innerHTML = ''
-          renderWikiItems(popup, currentItems, currentCommand!, selectedIndex)
-        }
+        if (popup) paintSelection(popup, selectedIndex)
         return true
       }
       if (props.event.key === 'ArrowUp') {
         selectedIndex = Math.max(selectedIndex - 1, 0)
-        if (popup) {
-          popup.innerHTML = ''
-          renderWikiItems(popup, currentItems, currentCommand!, selectedIndex)
-        }
+        if (popup) paintSelection(popup, selectedIndex)
         return true
       }
       if (props.event.key === 'Enter') {
@@ -120,13 +116,12 @@ function renderWikiItems(
   container: HTMLElement,
   items: ReferableEntity[],
   command: (item: ReferableEntity) => void,
-  selectedIndex = -1,
 ) {
   items.forEach((item, index) => {
-    const isSelected = index === selectedIndex
     const btn = document.createElement('button')
     btn.type = 'button'
-    btn.className = `${MENU_ITEM_BASE} ${isSelected ? 'bg-[var(--oc-hover)] text-ink' : 'text-ink'}`
+    btn.dataset.wikiIndex = String(index)
+    btn.className = `${MENU_ITEM_BASE} text-ink`
 
     const nameSpan = document.createElement('span')
     nameSpan.className = 'truncate'
@@ -141,6 +136,16 @@ function renderWikiItems(
     btn.addEventListener('click', () => command(item))
     btn.addEventListener('mousedown', (e) => e.preventDefault())
     container.appendChild(btn)
+  })
+}
+
+/** 只切换高亮行：候选可达上限 200 条，方向键逐条重建整份列表会带来无谓的重排 */
+function paintSelection(container: HTMLElement, selectedIndex: number) {
+  container.querySelectorAll<HTMLElement>('[data-wiki-index]').forEach((row) => {
+    row.classList.toggle(
+      'bg-[var(--oc-hover)]',
+      Number(row.dataset.wikiIndex) === selectedIndex,
+    )
   })
 }
 
@@ -167,6 +172,11 @@ export function createWikiLinkExtension() {
           parseHTML: (element) => element.getAttribute('data-raw'),
           renderHTML: (attributes) => (attributes.raw ? { 'data-raw': attributes.raw } : {}),
         },
+        anchor: {
+          default: null,
+          parseHTML: (element) => element.getAttribute('data-anchor'),
+          renderHTML: (attributes) => (attributes.anchor ? { 'data-anchor': attributes.anchor } : {}),
+        },
       }
     },
 
@@ -187,6 +197,8 @@ export function createWikiLinkExtension() {
           'data-type': 'wiki-link',
           'data-id': node.attrs.id as string ?? '',
           'data-label': label,
+          ...(node.attrs.raw ? { 'data-raw': node.attrs.raw as string } : {}),
+          ...(node.attrs.anchor ? { 'data-anchor': node.attrs.anchor as string } : {}),
         },
         label,
       ]
@@ -194,8 +206,9 @@ export function createWikiLinkExtension() {
     suggestion: {
       char: '[[',
       items: async ({ query }) => {
-        const entities = await searchAllEntitiesFlat(query)
-        return entities.filter((e) => e.type === 'world').map((e) => ({ ...e, label: e.name }))
+        // 类型过滤在注册表内完成，词条不会因为角色 / 事件数量多而被截断掉
+        const entities = await searchReferableEntities(query, { types: ['world'] })
+        return entities.map((e) => ({ ...e, label: e.name }))
       },
       render: createWikiLinkRender(),
       command: ({ editor, range, props }) => {

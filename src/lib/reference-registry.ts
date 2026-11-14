@@ -1,4 +1,5 @@
 import { db } from '@/lib/db'
+import { isLatinQuery, pinyinInitials } from '@/lib/pinyin-initials'
 
 export interface ReferableEntity {
   type: string
@@ -14,57 +15,83 @@ export interface EntityTypeConfig {
   fetch: () => Promise<ReferableEntity[]>
 }
 
+/** 补全结果上限（`@` 与 `[[` 共用）。超过上限的条目需继续输入以缩小范围 */
+export const REFERABLE_RESULT_LIMIT = 200
+
 const registry: Map<string, EntityTypeConfig> = new Map()
 
 export function registerEntityType(config: EntityTypeConfig) {
   registry.set(config.type, config)
 }
 
-
-
-
 /**
  * 相关度排序（纯函数，`@` 与 `[[` 共用）：
- * 名字前缀 > 别名前缀 > 名字包含 > 别名包含，同分按名字（zh-Hans）。
+ * 名字前缀 > 名字拼音首字母 > 别名前缀 > 别名拼音首字母 > 名字包含 > 别名包含，
+ * 同分按名字（zh-Hans）。
+ *
+ * 拼音首字母只对纯拉丁字母的查询生效（`al` 命中「艾拉」、`k` 命中「凯尔」）；
+ * 汉字查询仍走字面匹配，因此「打首字母」与「打首字」两种输入习惯都可用。
+ * `limit` 为截断上限，传入 `Number.POSITIVE_INFINITY` 可取回全部命中（统计用）。
  */
-export function rankReferableEntities(entities: ReferableEntity[], query: string): ReferableEntity[] {
+export function rankReferableEntities(
+  entities: ReferableEntity[],
+  query: string,
+  limit: number = REFERABLE_RESULT_LIMIT,
+): ReferableEntity[] {
   const q = query.trim().toLowerCase()
+  const matchByInitials = q !== '' && isLatinQuery(q)
   const scored: Array<{ entity: ReferableEntity; score: number }> = []
 
   for (const entity of entities) {
-    const name = entity.name.toLowerCase()
-    const aliases = (Array.isArray(entity.keywords) ? entity.keywords : []).map((kw) => kw.toLowerCase())
-
     if (q === '') {
       scored.push({ entity, score: 0 })
       continue
     }
+
+    const name = entity.name.toLowerCase()
+    const keywords = Array.isArray(entity.keywords) ? entity.keywords : []
+    const aliases = keywords.map((keyword) => keyword.toLowerCase())
+    const nameInitials = matchByInitials ? pinyinInitials(entity.name) : ''
+    const aliasInitials = matchByInitials ? keywords.map((keyword) => pinyinInitials(keyword)) : []
+
     let score = Number.POSITIVE_INFINITY
     if (name.startsWith(q)) score = 0
-    else if (aliases.some((alias) => alias.startsWith(q))) score = 1
-    else if (name.includes(q)) score = 2
-    else if (aliases.some((alias) => alias.includes(q))) score = 3
+    else if (nameInitials !== '' && nameInitials.startsWith(q)) score = 1
+    else if (aliases.some((alias) => alias.startsWith(q))) score = 2
+    else if (aliasInitials.some((initials) => initials !== '' && initials.startsWith(q))) score = 3
+    else if (name.includes(q)) score = 4
+    else if (aliases.some((alias) => alias.includes(q))) score = 5
     if (score !== Number.POSITIVE_INFINITY) scored.push({ entity, score })
   }
 
   scored.sort(
     (a, b) => a.score - b.score || a.entity.name.localeCompare(b.entity.name, 'zh-Hans'),
   )
-  return scored.slice(0, 50).map((item) => item.entity)
+  return scored.slice(0, limit).map((item) => item.entity)
+}
+
+export interface ReferableSearchOptions {
+  /** 只查这几类实体。过滤发生在排序与截断之前 */
+  types?: readonly string[]
+  /** 结果上限，默认 `REFERABLE_RESULT_LIMIT` */
+  limit?: number
 }
 
 /**
- * 全局引用补全（`@` 与 `[[` 共用）。
+ * 全局引用补全的数据入口（`@` 与 `[[` 共用）。
  *
- * 以前每类写死 4 条、总共 16 条，类目一多就“只显示几个”。现在不再按类型截断，
- * 上限只留给 UI（50 条）—— 20 个角色 + 20 个词条时都能看到。
+ * 各注册表并发读取后合并，再交给 `rankReferableEntities` 排序截断。
+ * 类型过滤必须在这里完成：若先合并、排序、截断，再由调用方按类型挑选，
+ * 名字排序靠后的整类实体会全部缺失（大库输入 `[[` 时词条列表为空即由此产生）。
  */
-export async function searchAllEntitiesFlat(query: string): Promise<ReferableEntity[]> {
-  const all: ReferableEntity[] = []
-  for (const [, config] of registry) {
-    all.push(...(await config.fetch()))
-  }
-  return rankReferableEntities(all, query)
+export async function searchReferableEntities(
+  query: string,
+  options: ReferableSearchOptions = {},
+): Promise<ReferableEntity[]> {
+  const { types, limit } = options
+  const configs = [...registry.values()].filter((config) => !types || types.includes(config.type))
+  const lists = await Promise.all(configs.map((config) => config.fetch()))
+  return rankReferableEntities(lists.flat(), query, limit)
 }
 
 registerEntityType({

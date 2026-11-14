@@ -1,7 +1,7 @@
 # 文档入口
 
 > OC Studio 的文档地图。**先读这一页，再决定读哪份。**
-> 当前版本 **v0.20.4-beta**（发布在 `latest`）；版本变化一律记 `CHANGELOG.md`，本文不抄。
+> 当前源码 **v0.20.5-beta**；版本变化一律记 `CHANGELOG.md`，本文不抄。
 >
 > 一句话分工：
 > **领域文档写「这件事怎么做」· `todo.md` 只写「还没做」· `现状问题.md` 只写「仍然成立的债」· `归档/` 是不再维护的旧计划。**
@@ -99,4 +99,4 @@ npm run check      # tsc --noEmit + eslint + 全部 audit:*（约 30s）
 | 全量命令清单 | [`../AGENTS.md`](../AGENTS.md) 的「开发命令」一节 |
 
 只跑某几条：`node scripts/audit-all.mjs vault`（按名字过滤）。
-Rust 侧另跑 `cargo test --manifest-path src-tauri/Cargo.toml --lib`（44 项，约 20s，不进 `check`）。
+Rust 侧另跑 `cargo test --offline --manifest-path src-tauri/Cargo.toml --lib`（50 项，约 20s，不进本地 `check`；CI 会跑）。

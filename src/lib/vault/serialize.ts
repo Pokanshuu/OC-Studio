@@ -8,6 +8,7 @@ import {
   WORLD_KEYS,
   chainKeys,
   ownedKeys,
+  readStringList,
   writeBool,
   writeNumber,
   writePosition,
@@ -142,6 +143,31 @@ function tagNames(ctx: SerializeContext, ids: number[] | undefined): string[] | 
   return names.length === 0 ? undefined : names
 }
 
+/**
+ * 装载时磁盘上的标签名：**必须按文件里的旧名字取**，不能用当前标签表展开。
+ *
+ * 标签改名时，实体里的 tag id 不变，而 `ctx.tagName(id)` 已经返回新名字。
+ * 如果「现在」和「装载时」两边都走当前表，展开结果完全相同 → 序列化认为
+ * 没有改动 → 文件里永远留着旧标签名（F08 / R11）。
+ *
+ * 优先用文件里的 `tags` 数组（含中文键与手写数组）；文件里没有这个键
+ *（如导入行的快照为空）才回落到旧实体 + 当前表。
+ */
+function tagNamesAtLoad(
+  ctx: SerializeContext,
+  snapshot: EntitySnapshot,
+  chain: KeyChain,
+  prevIds: number[] | undefined,
+): string[] | undefined {
+  const existing = snapshot.frontmatter
+  for (const key of chainKeys(chain)) {
+    if (!(key in existing)) continue
+    const parsed = readStringList(existing, chain)
+    return parsed.length === 0 ? undefined : parsed
+  }
+  return tagNames(ctx, prevIds)
+}
+
 /** 角色所属国家：优先用解析出的国家正名，回落国籍原文 */
 function countryDiskValue(
   entity: Character,
@@ -254,7 +280,7 @@ export function serializeCharacter(
   putIfChanged(out, existing, CHARACTER_KEYS.avatar, writeString(entity.avatarUrl), prev === null ? null : writeString(prev.avatarUrl))
   putIfChanged(out, existing, CHARACTER_KEYS.header, writeString(entity.headerUrl ?? ''), prev === null ? null : writeString(prev.headerUrl ?? ''))
   putIfChanged(out, existing, CHARACTER_KEYS.animation, writeString(entity.animationUrl ?? ''), prev === null ? null : writeString(prev.animationUrl ?? ''))
-  putIfChanged(out, existing, CHARACTER_KEYS.tags, tagNames(ctx, entity.tags), prev === null ? null : tagNames(ctx, prev.tags))
+  putIfChanged(out, existing, CHARACTER_KEYS.tags, tagNames(ctx, entity.tags), prev === null ? null : tagNamesAtLoad(ctx, snapshot, CHARACTER_KEYS.tags, prev.tags))
   putIfChanged(out, existing, CHARACTER_KEYS.gallery, imageListDisk(entity.gallery), prev === null ? null : imageListDisk(prev.gallery))
   putIfChanged(out, existing, CHARACTER_KEYS.avatars, imageListDisk(entity.avatars), prev === null ? null : imageListDisk(prev.avatars))
   putIfChanged(out, existing, CHARACTER_KEYS.relations, relationDisk(entity, ctx), prev === null ? null : relationDisk(prev, ctx))
@@ -296,7 +322,7 @@ export function serializeCountry(
   putIfChanged(out, existing, COUNTRY_KEYS.gallery, imageListDisk(entity.gallery ?? []), p === null ? null : imageListDisk(p.gallery ?? []))
   // 成员名单不再落盘（阶段二·一）：角色侧国籍 / 事件侧相关国家才是真源。
   // 盘上遗留的 `characters` / `events` 键我们不管，也不删（外科式写入只动自己持有的键）。
-  putIfChanged(out, existing, COUNTRY_KEYS.tags, tagNames(ctx, entity.tags), p === null ? null : tagNames(ctx, p.tags))
+  putIfChanged(out, existing, COUNTRY_KEYS.tags, tagNames(ctx, entity.tags), p === null ? null : tagNamesAtLoad(ctx, snapshot, COUNTRY_KEYS.tags, p.tags))
   putCustomFields(out, existing, 'country', entity.custom, p === null ? undefined : p.custom)
   putIfChanged(out, existing, COUNTRY_KEYS.order, writeNumber(entity.order), p === null ? null : writeNumber(p.order))
   putIfChanged(out, existing, COUNTRY_KEYS.graphPosition, writePosition(entity.graphPosition), p === null ? null : writePosition(p.graphPosition))
@@ -333,7 +359,7 @@ export function serializeEvent(
   putIfChanged(out, existing, EVENT_KEYS.header, writeString(entity.headerUrl ?? ''), p === null ? null : writeString(p.headerUrl ?? ''))
   putIfChanged(out, existing, EVENT_KEYS.images, imageListDisk(entity.images), p === null ? null : imageListDisk(p.images))
   putIfChanged(out, existing, EVENT_KEYS.relations, eventRelationDisk(entity, ctx), p === null ? null : eventRelationDisk(p, ctx))
-  putIfChanged(out, existing, EVENT_KEYS.tags, tagNames(ctx, entity.tags), p === null ? null : tagNames(ctx, p.tags))
+  putIfChanged(out, existing, EVENT_KEYS.tags, tagNames(ctx, entity.tags), p === null ? null : tagNamesAtLoad(ctx, snapshot, EVENT_KEYS.tags, p.tags))
   putIfChanged(out, existing, EVENT_KEYS.order, writeNumber(entity.order), p === null ? null : writeNumber(p.order))
   putIfChanged(out, existing, EVENT_KEYS.graphPosition, writePosition(entity.graphPosition), p === null ? null : writePosition(p.graphPosition))
   putIfChanged(out, existing, EVENT_KEYS.mapPosition, writePosition(entity.mapPosition), p === null ? null : writePosition(p.mapPosition))
@@ -359,11 +385,20 @@ export function serializeWorldEntry(
 
   putIfChanged(out, existing, WORLD_KEYS.title, writeString(entity.title), p === null ? null : writeString(p.title))
   putIfChanged(out, existing, WORLD_KEYS.aliases, writeStringList(entity.aliases ?? []), p === null ? null : writeStringList(p.aliases ?? []))
-  // `分类` 已废弃：层级只由 `parent` 表达，界面不再编辑。
-  // 只在**有值**时写 —— 老数据迁移时保住原值，新条目（空）则绝不碰文件里已有的键。
-  if (entity.category.trim() !== '') {
-    putIfChanged(out, existing, WORLD_KEYS.category, writeString(entity.category), p === null ? null : writeString(p.category))
-    putIfChanged(out, existing, WORLD_KEYS.folder, writeString(entity.folder ?? ''), p === null ? null : writeString(p.folder ?? ''))
+  // 分类 / 文件夹的写入是**三态**：未修改 / 设置 / 清除。
+  // 不能只在有值时处理 —— 用户显式把条目移出分类时，真值是空串，旧写法直接跳过，
+  // 磁盘上的 `分类: 宠物` 永远留着，重开又回来（F10）。
+  // 删除分类是另一条规则：服务层不碰笔记上的名字（只有整个分类列表变了），
+  // 所以这里看到的「现在 == 装载时」是 no-op，既有语义保持不变。
+  const categoryNow = writeString(entity.category)
+  const categoryBefore = p === null ? null : writeString(p.category)
+  if (p !== null || categoryNow !== undefined) {
+    putIfChanged(out, existing, WORLD_KEYS.category, categoryNow, categoryBefore)
+  }
+  const folderNow = writeString(entity.folder ?? '')
+  const folderBefore = p === null ? null : writeString(p.folder ?? '')
+  if (p !== null || folderNow !== undefined) {
+    putIfChanged(out, existing, WORLD_KEYS.folder, folderNow, folderBefore)
   }
   putIfChanged(out, existing, WORLD_KEYS.summary, writeString(entity.summary ?? ''), p === null ? null : writeString(p.summary ?? ''))
   putIfChanged(out, existing, WORLD_KEYS.cover, writeString(entity.cover ?? ''), p === null ? null : writeString(p.cover ?? ''))
@@ -394,7 +429,7 @@ export function serializeWorldEntry(
   putIfChanged(out, existing, WORLD_KEYS.mapParams, writeString(entity.mapParams ?? ''), p === null ? null : writeString(p.mapParams ?? ''))
   putIfChanged(out, existing, WORLD_KEYS.mapMode, writeString(entity.mapMode ?? ''), p === null ? null : writeString(p.mapMode ?? ''))
   putIfChanged(out, existing, WORLD_KEYS.mapAnnotations, writeString(entity.mapAnnotations ?? ''), p === null ? null : writeString(p.mapAnnotations ?? ''))
-  putIfChanged(out, existing, WORLD_KEYS.tags, tagNames(ctx, entity.tags), p === null ? null : tagNames(ctx, p.tags))
+  putIfChanged(out, existing, WORLD_KEYS.tags, tagNames(ctx, entity.tags), p === null ? null : tagNamesAtLoad(ctx, snapshot, WORLD_KEYS.tags, p.tags))
   putCustomFields(out, existing, 'worldEntry', entity.custom, p === null ? undefined : p.custom)
   return out
 }

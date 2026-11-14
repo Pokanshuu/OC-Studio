@@ -172,6 +172,10 @@ pub struct ToolRequest {
     pub args: serde_json::Value,
     /// Sandbox root. Every path resolves inside this directory.
     pub workspace: String,
+    /// 用户在宿主里显式打开「Shell」高级授权后才为 true。
+    /// 缺省（旧前端 / 直接构造）一律 false —— 默认拒绝。
+    #[serde(default)]
+    pub allow_shell: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]

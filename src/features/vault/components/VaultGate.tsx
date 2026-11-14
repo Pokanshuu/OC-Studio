@@ -182,7 +182,7 @@ export function VaultGate({ children }: { children: ReactNode }) {
 
 /** 写盘发生冲突 / 失败时的顶部提示条（不做成模态，别打断创作） */
 export function VaultWriteBanner() {
-  const { supported, status, writeStatus, flush, rescan } = useVault()
+  const { supported, status, writeStatus, flush, adoptDiskVersion } = useVault()
   if (!supported || status !== 'ready') return null
   if (writeStatus.lastError === null) return null
 
@@ -193,8 +193,8 @@ export function VaultWriteBanner() {
         <RefreshCw size={13} strokeWidth={2} />
         重试保存
       </button>
-      <button type="button" className={BTN_QUIET} onClick={() => void rescan()}>
-        以文件夹为准重载
+      <button type="button" className={BTN_QUIET} onClick={() => void adoptDiskVersion()}>
+        采用磁盘版本…
       </button>
     </div>
   )

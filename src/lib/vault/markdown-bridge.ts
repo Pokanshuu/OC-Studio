@@ -1,5 +1,7 @@
 import { markdownToTiptap, tiptapToMarkdown, type LinkRef, type ResolvedLink, type TiptapNode } from './markdown'
 import { normalizeLinkKey } from './wikilink'
+import { imageMarkdown } from './markdown/image-src'
+import { readStoredBody } from '@/lib/body-content'
 import type { VaultEntityKind, VaultIndex, VaultScanResult, VaultStorableKind } from './types'
 
 // ── 正文桥：把「扫描出的实体」与「Markdown 正文」接起来 ─────────────────
@@ -96,10 +98,11 @@ export function applyDocumentBodies(scan: VaultScanResult): void {
 /** 取出实体当前正文对应的编辑器文档；没有正文时返回 null */
 export function documentOfEntity(kind: VaultStorableKind, entity: unknown): unknown | null {
   const record = entity as Record<string, unknown>
+  const document = readStoredBody(record.document)
 
   // 词条：`document` 是正字段，`content` 只剩老数据兜底（`lib/world-body.ts`）
   if (kind === 'worldEntry') {
-    if (record.document !== null && typeof record.document === 'object') return record.document
+    if (document !== null && typeof document === 'object') return document
     const content = record.content
     if (typeof content === 'string' && content.trim() !== '') {
       try {
@@ -112,7 +115,7 @@ export function documentOfEntity(kind: VaultStorableKind, entity: unknown): unkn
     return null
   }
 
-  return record.document ?? null
+  return document
 }
 
 /**
@@ -120,12 +123,20 @@ export function documentOfEntity(kind: VaultStorableKind, entity: unknown): unkn
  *
  * 优先用节点上的 `raw`（装载时保留的原文），这样带锚点/别名的链接
  * （带锚点与别名的 `[[ ]]`）能**逐字**写回，不会被规范化成裸链接。
- * 编辑器里新插入的引用没有 `raw`，才回落到按名字拼。
+ * 编辑器里新插入的引用没有 `raw`，才回落到按 id 反查。
  *
  * `fileBaseOfId` 是目标在磁盘上的文件名（已去 `NN.` 之外的扩展名）。
  * vault 里词条文件常带 `00.` / `02.` 这类序号前缀（用户自己的排序习惯），
  * 只写标题的话 Obsidian 根本解析不到 —— 于是写成 `[[02.元素与生命树|元素与生命树]]`：
  * 目标可解析，显示名仍是标题。
+ *
+ * **目标解析不到时写纯文本**（返回 null，由 `to-markdown` 按文字输出）：
+ * 目标被删 / 导入时解除跳转的引用，如果还写成 `[[名字]]`，下次扫描会按名字
+ * 绑到**同名的另一条实体**上（审查报告 Q02）。文字留着、链接不再成立，
+ * 与「目标被删后保留名字、不可点」的产品口径一致。
+ *
+ * `attrs.anchor`（`#锚点`）由导入重绑定从旧 raw 里解析出来单独保存 ——
+ * 目标换了落库身份时 raw 不能再用，但锚点是用户的跳转意图，必须拼回去。
  */
 export function createLinkSerializer(
   nameOfId: (kind: VaultEntityKind, id: number) => string | undefined,
@@ -136,28 +147,46 @@ export function createLinkSerializer(
     if (typeof raw === 'string' && raw !== '') return `[[${raw}]]`
 
     const label = typeof node.attrs?.label === 'string' ? node.attrs.label : ''
+    const anchor =
+      typeof node.attrs?.anchor === 'string' && node.attrs.anchor !== ''
+        ? node.attrs.anchor
+        : undefined
     const idValue = node.attrs?.id
-    const id = typeof idValue === 'string' ? Number.parseInt(idValue, 10) : Number.NaN
+    const id = refIdOf(idValue)
     const entityType = typeof node.attrs?.entityType === 'string' ? node.attrs.entityType : ''
     const kind: VaultEntityKind = node.type === 'wikiLink' ? 'worldEntry' : (entityType as VaultEntityKind)
 
-    const name = Number.isFinite(id) ? nameOfId(kind, id) : undefined
-    const text = name ?? label
-    if (text === '') return null
+    const name = id === null ? undefined : nameOfId(kind, id)
+    const fileBase = id === null ? undefined : fileBaseOfId?.(kind, id)
+    const target = fileBase !== undefined && fileBase !== '' ? fileBase : name
+    // 解析不到目标：只写可读文字，绝不写出会被同名实体重新解析的 [[ ]]
+    if (target === undefined || target === '') return null
 
-    const fileBase = Number.isFinite(id) ? fileBaseOfId?.(kind, id) : undefined
-    if (fileBase !== undefined && fileBase !== '' && fileBase !== text) {
-      return `[[${fileBase}|${text}]]`
-    }
-    return `[[${text}]]`
+    const anchorPart = anchor === undefined ? '' : `#${anchor}`
+    // 显示名优先用 label：它是用户写下的名字 / 别名（导入重绑定会丢掉 raw，
+    // 别名只剩 label 这一份）。`|`、`[`、`]`、换行会破坏 `[[ ]]` 语法，这类退回实体名。
+    const usableLabel = label.trim() !== '' && !/[|\[\]\n]/.test(label) ? label : ''
+    const display = usableLabel !== '' ? usableLabel : (name ?? '')
+    if (display !== '' && display !== target) return `[[${target}${anchorPart}|${display}]]`
+    return `[[${target}${anchorPart}]]`
   }
+}
+
+/** 节点 attrs.id 可能是字符串（编辑器写入）或数字（老数据）；不是 id 返回 null */
+function refIdOf(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isInteger(value) ? value : null
+  if (typeof value !== 'string') return null
+  const text = value.trim()
+  if (text === '') return null
+  const id = Number.parseInt(text, 10)
+  return Number.isFinite(id) ? id : null
 }
 
 /** 图片块 → Markdown。`imageBlock` 是 app 自定义节点，attrs 是 {src, width} */
 export function serializeImageBlock(node: TiptapNode): string | null {
   const src = node.attrs?.src
   if (typeof src !== 'string' || src === '') return null
-  return `![](${src})`
+  return imageMarkdown(src)
 }
 
 export interface BodySerialization {

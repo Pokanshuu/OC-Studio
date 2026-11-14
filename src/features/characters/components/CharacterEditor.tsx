@@ -13,6 +13,7 @@ import { EntityHistoryButton } from '@/features/vault'
 import { EntityExportButton } from '@/components/shared/EntityExportButton'
 import { useEditorLayout } from '@/lib/use-editor-layout'
 import { useDevice } from '@/lib/use-device'
+import { legacyBodySections, type LegacyBodySections } from '@/lib/body-content'
 import type { CharacterFormData } from '../types'
 import { useCharacter, useUpdateCharacter } from '../hooks/useCharacters'
 import { useCharacterForm } from '../hooks/useCharacterForm'
@@ -238,13 +239,6 @@ function CharacterEditorInner({
   )
 }
 
-function mergeBioLifeStory(bio: string, lifeStory: string): string | undefined {
-  if (!bio && !lifeStory) return undefined
-  const parts: string[] = []
-  if (bio) parts.push(bio)
-  if (lifeStory) {
-    parts.push('<h2>人物生平</h2>')
-    parts.push(lifeStory)
-  }
-  return parts.join('\n')
+function mergeBioLifeStory(bio: string, lifeStory: string): LegacyBodySections | undefined {
+  return legacyBodySections([{ content: bio }, { heading: '人物生平', content: lifeStory }])
 }

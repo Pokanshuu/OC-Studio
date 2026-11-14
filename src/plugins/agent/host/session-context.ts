@@ -617,7 +617,7 @@ export async function writeNovelChapter(
     }
   }
 
-  const [{ db }, { runAsActorAsync }, novelServices, { bodyDocFromMarkdown }, { worldBodyPatch }, { NOVEL_CATEGORY }] =
+  const [{ db }, { runAsActorTransaction }, novelServices, { bodyDocFromMarkdown }, { worldBodyPatch }, { NOVEL_CATEGORY }] =
     await Promise.all([
       import('@/lib/db'),
       import('@/lib/vault/actor'),
@@ -665,7 +665,7 @@ export async function writeNovelChapter(
       }
     }
     const patch = worldBodyPatch(bodyDocFromMarkdown(markdown))
-    await runAsActorAsync('agent:assistant', async () => {
+    await runAsActorTransaction('agent:assistant', async () => {
       await db.worldEntries.update(chapterId, { ...patch, updatedAt: Date.now() })
     })
     return {
@@ -676,9 +676,9 @@ export async function writeNovelChapter(
     }
   }
 
-  const createdId = await runAsActorAsync('agent:assistant', async () => {
+  const patch = worldBodyPatch(bodyDocFromMarkdown(markdown))
+  const createdId = await runAsActorTransaction('agent:assistant', async () => {
     const id = await novelServices.createNovelChapter(targetRootId, title)
-    const patch = worldBodyPatch(bodyDocFromMarkdown(markdown))
     await db.worldEntries.update(id, { ...patch, updatedAt: Date.now() })
     return id
   })

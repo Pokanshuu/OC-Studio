@@ -2,8 +2,13 @@
 
 import { createContext, useContext, useState, useCallback, useRef, type ReactNode } from 'react'
 
+import { saveFailed, saveNone, type SaveOutcome } from '@/lib/save-outcome'
+
 export type SaveStatus = 'idle' | 'dirty' | 'saving' | 'saved'
 export type EditorEntityType = 'character' | 'event' | 'country' | 'world'
+
+/** 保存回调：**必须**返回可等待的结果，不能把异步保存丢掉 */
+export type SaveHandler = () => Promise<SaveOutcome>
 
 interface SaveStatusContextValue {
   status: SaveStatus
@@ -11,9 +16,13 @@ interface SaveStatusContextValue {
   /** 由表单按「当前数据 ≠ 已保存数据」推送；不要手工调用，见 lib/dirty.ts */
   reportDirty: (dirty: boolean) => void
   resetStatus: () => void
-  registerSaveHandler: (type: EditorEntityType, fn: (() => void) | null) => void
+  registerSaveHandler: (type: EditorEntityType, fn: SaveHandler | null) => void
   setActiveEntity: (type: EditorEntityType | null) => void
-  requestSave: () => void
+  /**
+   * 请求保存当前实体。返回可等待的结果：
+   * `saved` / `clean` / `none` / `failed`。调用方可以据此决定是否继续关窗 / 换库。
+   */
+  requestSave: () => Promise<SaveOutcome>
 }
 
 const SaveStatusContext = createContext<SaveStatusContextValue>({
@@ -23,7 +32,7 @@ const SaveStatusContext = createContext<SaveStatusContextValue>({
   resetStatus: () => {},
   registerSaveHandler: () => {},
   setActiveEntity: () => {},
-  requestSave: () => {},
+  requestSave: async () => saveNone(),
 })
 
 export function useSaveStatus(): SaveStatusContextValue {
@@ -32,7 +41,7 @@ export function useSaveStatus(): SaveStatusContextValue {
 
 export function SaveStatusProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<SaveStatus>('idle')
-  const handlersRef = useRef<Partial<Record<EditorEntityType, () => void>>>({})
+  const handlersRef = useRef<Partial<Record<EditorEntityType, SaveHandler>>>({})
   const activeRef = useRef<EditorEntityType | null>(null)
   const savingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -74,7 +83,7 @@ export function SaveStatusProvider({ children }: { children: ReactNode }) {
     })
   }, [clearSavingTimer])
 
-  const registerSaveHandler = useCallback((type: EditorEntityType, fn: (() => void) | null) => {
+  const registerSaveHandler = useCallback((type: EditorEntityType, fn: SaveHandler | null) => {
     if (fn) {
       handlersRef.current[type] = fn
     } else {
@@ -86,9 +95,17 @@ export function SaveStatusProvider({ children }: { children: ReactNode }) {
     activeRef.current = type
   }, [])
 
-  const requestSave = useCallback(() => {
+  const requestSave = useCallback(async (): Promise<SaveOutcome> => {
     const active = activeRef.current
-    if (active) handlersRef.current[active]?.()
+    if (active === null) return saveNone()
+    const handler = handlersRef.current[active]
+    if (!handler) return saveNone()
+    try {
+      return await handler()
+    } catch (error) {
+      // 回调契约要求自己返回 failed；这里兜住意外抛出，别让调用方悬空
+      return saveFailed(error)
+    }
   }, [])
 
   return (

@@ -45,6 +45,12 @@ export interface VaultWriteEntry {
   content: string
   /** 上次读到的 mtime；磁盘上不一致时 Rust 侧拒绝覆盖 */
   expectedMtimeMs?: number
+  /**
+   * 新建文件的「不得覆盖」语义：目标已存在（含 Windows 大小写等价）时拒绝写入。
+   * 前端已按 `occupied` 去重，但外部程序可能在扫描之后刚建了同名文件 ——
+   * 原子写默认 rename 覆盖，会静默吃掉别人的笔记（F01）。
+   */
+  createOnly?: boolean
 }
 
 export interface VaultWriteResult {

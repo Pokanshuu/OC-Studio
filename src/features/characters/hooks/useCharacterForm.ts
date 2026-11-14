@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo, useLayoutEffect } from 'react'
 import type { Editor } from '@tiptap/core'
 import type { Character, GalleryImage, RelatedCharacter, WorldRelation } from '@/types'
 import type { RelatedItem } from '@/components/shared/RelatedItemsSelector'
@@ -15,6 +15,8 @@ import { useSaveStatus } from '@/components/layout/SaveStatusContext'
 import { toast } from 'sonner'
 import { useEditorDirty } from '@/components/layout/useEditorDirty'
 import { describeDocDiff, sameDocNodeIgnoringTrailingSpacer, snapshotKey, useDirtySnapshot } from '@/lib/dirty'
+import { docRevisionChanged } from '@/lib/save-revision'
+import { useSavePipeline } from '@/lib/use-save-pipeline'
 import { parseTime, assembleTime } from '@/features/events/utils'
 import { useAutoSave } from '@/components/layout/use-auto-save'
 
@@ -186,7 +188,6 @@ export function useCharacterForm(
   /** 自定义字段的值：键 = 字段表里的 key。内置字段不走这里（各有各的列） */
   const [custom, setCustom] = useState<Record<string, string>>(initial.custom)
 
-  const [saving, setSaving] = useState(false)
   const { markSaving, registerSaveHandler, reportDirty } = useSaveStatus()
   const docEditorRef = useRef<Editor | null>(null)
   /** 编辑器里「已保存」的那份文档：脏判断直接比 ProseMirror 文档，不比序列化文本 */
@@ -213,38 +214,30 @@ export function useCharacterForm(
   const snapshot = useMemo(() => valuesSnapshot(values), [values])
   const { dirty: fieldsDirty, diffSummary, markClean: markFieldsClean } = useDirtySnapshot(snapshot)
 
-  // 外部改写（别处保存 / 同步落地）后回灌，并把同一份值记为新的干净基线。
-  // 自己刚保存的那份回读不回灌 —— 否则会把保存期间还在输入的字冲掉。
-  useEffect(() => {
-    if (saving || prevUpdatedAtRef.current === character.updatedAt) return
-    prevUpdatedAtRef.current = character.updatedAt
-    const next = valuesFromEntity(character)
-    const nextKey = snapshotKey(valuesSnapshot(next))
-    if (nextKey === savedSnapshotRef.current) return
-    setName(next.name)
-    setAliasesStr(next.aliasesStr)
-    setRace(next.race)
-    setElement(next.element)
-    setOccupation(next.occupation)
-    setFaction(next.faction)
-    setNationalityLegacy(next.nationalityLegacy)
-    setCountryId(next.countryId)
-    setHeight(next.height)
-    setBirthdayYear(next.birthdayYear)
-    setBirthdayMonth(next.birthdayMonth)
-    setBirthdayDay(next.birthdayDay)
-    setAvatarUrl(next.avatarUrl)
-    setHeaderUrl(next.headerUrl)
-    setAvatarUrls(next.avatarUrls)
-    setGalleryUrls(next.galleryUrls)
-    setRelatedCharacters(next.relatedCharacters)
-    setRelatedNotes(next.relatedNotes)
-    setIsMajor(next.isMajor)
-    setCustom(next.custom)
-    setTags(next.tags)
-    setBio(next.bio)
-    markFieldsClean(nextKey)
-  }, [character, markFieldsClean, saving])
+  /** 字段 / 正文任一不同都算脏（自动保存、全局状态栏、离场屏障共用） */
+  const isDirty = fieldsDirty || docDirty
+
+  /** 最后一次确认保存的字段签名；await 结束后据此判断「这期间又改了吗」 */
+  const savedFieldsKeyRef = useRef<string>(snapshotKey(valuesSnapshot(initial)))
+
+  /**
+   * 保存是在 await 之后才执行的，必须读「此刻」的值而不是发起保存那一刻的 render 闭包。
+   * 用 layout effect 同步：离散输入事件提交后、微任务恢复前一定拿得到新值。
+   */
+  const latestRef = useRef({ values })
+  useLayoutEffect(() => {
+    latestRef.current = { values }
+  }, [values])
+
+  /** 读当前（非 render 快照）是否还有未保存的修订 */
+  const isDirtyNow = useCallback(() => {
+    if (snapshotKey(valuesSnapshot(latestRef.current.values)) !== savedFieldsKeyRef.current) return true
+    const editor = docEditorRef.current
+    const baseline = docBaselineRef.current
+    return editor !== null && baseline !== null && docRevisionChanged(editor.state.doc, baseline)
+  }, [])
+
+  // 外部改写（别处保存 / 同步落地）后回灌的逻辑在保存流水线之后（它要读 `saving`）。
 
   const { characters: allCharacters } = useCharacterList()
   const { countries } = useCountryList()
@@ -487,97 +480,129 @@ export function useCharacterForm(
     setCustom((prev) => ({ ...prev, [key]: value }))
   }, [])
 
-  const handleSave = useCallback(async () => {
-    markSaving()
-    setSaving(true)
-    try {
-      const document = docEditorRef.current?.getJSON()
+  /**
+   * 提交一版修订。
+   *
+   * **保存开始时**捕获不可变文档节点和字段签名；成功后只确认这一版：
+   * 文档基线 = 捕获的节点（不是保存完成时的 `editor.state.doc`），字段基线 = 提交的签名。
+   * await 期间继续输入的内容由 `isDirtyNow()` 重新比出来，保持 dirty、继续保存。
+   */
+  const commit = useCallback(async () => {
+    const submitted = latestRef.current.values
+    const submittedKey = snapshotKey(valuesSnapshot(submitted))
+    const editor = docEditorRef.current
+    const submittedDoc = editor ? editor.state.doc : null
+    const document = submittedDoc ? submittedDoc.toJSON() : undefined
 
+    markSaving()
+    try {
       await onSave(character.id, {
-        name,
-        aliases: parseAliases(aliasesStr),
-        race,
-        element,
-        occupation,
-        faction,
-        nationalityLegacy,
-        countryId,
-        height,
-        birthday: assembleTime(birthdayYear, birthdayMonth, birthdayDay),
-        avatarUrl,
-        headerUrl,
-        animationUrl,
-        bio,
+        name: submitted.name,
+        aliases: parseAliases(submitted.aliasesStr),
+        race: submitted.race,
+        element: submitted.element,
+        occupation: submitted.occupation,
+        faction: submitted.faction,
+        nationalityLegacy: submitted.nationalityLegacy,
+        countryId: submitted.countryId,
+        height: submitted.height,
+        birthday: assembleTime(submitted.birthdayYear, submitted.birthdayMonth, submitted.birthdayDay),
+        avatarUrl: submitted.avatarUrl,
+        headerUrl: submitted.headerUrl,
+        animationUrl: submitted.animationUrl,
+        bio: submitted.bio,
         lifeStory: character.lifeStory,
         document,
-        relatedCharacters,
-        relatedNotes,
-        gallery: galleryUrls.map((url) => ({ url, caption: '' })),
-        avatars: avatarUrls.map((url) => ({ url, type: 'portrait' as const })),
-        tags,
-        isMajor,
-        custom,
+        relatedCharacters: submitted.relatedCharacters,
+        relatedNotes: submitted.relatedNotes,
+        gallery: submitted.galleryUrls.map((url) => ({ url, caption: '' })),
+        avatars: submitted.avatarUrls.map((url) => ({ url, type: 'portrait' as const })),
+        tags: submitted.tags,
+        isMajor: submitted.isMajor,
+        custom: submitted.custom,
       })
-      savedSnapshotRef.current = snapshotKey(snapshot)
-      markFieldsClean()
-      const editor = docEditorRef.current
-      if (editor) docBaselineRef.current = editor.state.doc
-      setDocDirty(false)
+      savedSnapshotRef.current = submittedKey
+      savedFieldsKeyRef.current = submittedKey
+      markFieldsClean(submittedKey)
+      if (editor && submittedDoc) {
+        docBaselineRef.current = submittedDoc
+        const stillDirty = docRevisionChanged(editor.state.doc, submittedDoc)
+        setDocDirty(stillDirty)
+        docDiffLoggedRef.current = stillDirty
+      }
     } catch (err) {
       // 保存失败必须把状态从「保存中」拉回来：只 catch 不处理会永远转圈
       toast.error('保存失败', { description: err instanceof Error ? err.message : String(err) })
       reportDirty(true)
-    } finally {
-      setSaving(false)
+      throw err
     }
   }, [
     character.id,
     character.lifeStory,
-    bio,
-    avatarUrl,
-    headerUrl,
-    animationUrl,
-    avatarUrls,
-    galleryUrls,
-    name,
-    aliasesStr,
-    race,
-    element,
-    occupation,
-    faction,
-    nationalityLegacy,
-    countryId,
-    height,
-    birthdayYear,
-    birthdayMonth,
-    birthdayDay,
-    relatedCharacters,
-    relatedNotes,
-    tags,
-    isMajor,
-    custom,
     onSave,
     markSaving,
     markFieldsClean,
     reportDirty,
-    snapshot,
   ])
 
+  const { save: saveNow, saving } = useSavePipeline({ isDirty: isDirtyNow, commit })
+  /**
+   * 兼容既有调用点（`onBeforeOpen` / 工具栏按钮的 props 是 `() => void | Promise<void>`）。
+   * 真正的结果由流水线和离场屏障消费；这里拿到的是「这一轮已经跑完」。
+   */
+  const handleSave = useCallback(async (): Promise<void> => {
+    await saveNow()
+  }, [saveNow])
+
+  // 外部改写（别处保存 / 同步落地）后回灌，并把同一份值记为新的干净基线。
+  // 自己刚保存的那份回读不回灌 —— 否则会把保存期间还在输入的字冲掉。
   useEffect(() => {
-    registerSaveHandler('character', handleSave)
+    if (saving || prevUpdatedAtRef.current === character.updatedAt) return
+    prevUpdatedAtRef.current = character.updatedAt
+    const next = valuesFromEntity(character)
+    const nextKey = snapshotKey(valuesSnapshot(next))
+    if (nextKey === savedSnapshotRef.current) return
+    setName(next.name)
+    setAliasesStr(next.aliasesStr)
+    setRace(next.race)
+    setElement(next.element)
+    setOccupation(next.occupation)
+    setFaction(next.faction)
+    setNationalityLegacy(next.nationalityLegacy)
+    setCountryId(next.countryId)
+    setHeight(next.height)
+    setBirthdayYear(next.birthdayYear)
+    setBirthdayMonth(next.birthdayMonth)
+    setBirthdayDay(next.birthdayDay)
+    setAvatarUrl(next.avatarUrl)
+    setHeaderUrl(next.headerUrl)
+    setAvatarUrls(next.avatarUrls)
+    setGalleryUrls(next.galleryUrls)
+    setRelatedCharacters(next.relatedCharacters)
+    setRelatedNotes(next.relatedNotes)
+    setIsMajor(next.isMajor)
+    setCustom(next.custom)
+    setTags(next.tags)
+    setBio(next.bio)
+    savedFieldsKeyRef.current = nextKey
+    markFieldsClean(nextKey)
+  }, [character, markFieldsClean, saving])
+
+  useEffect(() => {
+    registerSaveHandler('character', saveNow)
     return () => registerSaveHandler('character', null)
-  }, [handleSave, registerSaveHandler])
+  }, [registerSaveHandler, saveNow])
 
   useEditorDirty(
     'character',
     character.id,
-    fieldsDirty || docDirty,
+    isDirty,
     saving,
     [fieldsDirty ? `字段 ${diffSummary}` : '', docDirty ? '正文文档与基线不同' : ''].filter(Boolean).join(' + '),
   )
 
   // 停手 1.5 秒自动落地：常驻挂载的编辑器没有「卸载」可挂，只能主动写
-  useAutoSave({ dirty: fieldsDirty || docDirty, saving, save: handleSave })
+  useAutoSave({ dirty: isDirty, saving, save: saveNow })
 
   // 名字下方的身份摘要（纯数据，不编辑器自身字段）
   const summaryLine = [
@@ -613,10 +638,11 @@ export function useCharacterForm(
 
     custom, setCustomValue,
     saving,
-    /** 字段或正文有未保存改动（离场时的「先保存再走」用它判断） */
-    dirty: fieldsDirty || docDirty,
+    /** 字段或正文有未保存改动（自动保存与离场判断共用这一项） */
+    dirty: isDirty,
     docDirty,
     handleSave,
+    saveNow,
     handleDocReady,
     handleDocChange,
     allCharacters,

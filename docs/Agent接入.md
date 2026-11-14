@@ -55,9 +55,16 @@ Agent 和插件**都不许直接写文件**，必须经过 Dexie 中间件 → �
 
 ### 2.2 journal 加 `actor`
 
-现在 `.ocstudio/journal.jsonl` 每条记录没有"谁改的"。加 `actor: 人 | agent:<名> | plugin:<id>`。
+`.ocstudio/journal.jsonl` 每条记录带 `actor: human | agent:<名> | plugin:<id>`。这是 agent 写入的**前提条件**，不是锦上添花——用户要能看出哪段是 AI 改的，也才可能"只回滚 AI 的改动"。
 
-这是 agent 写入的**前提条件**，不是锦上添花——用户要能看出哪段是 AI 改的，也才可能"只回滚 AI 的改动"。
+**2026-11-14 修 F14 后的口径：身份绑定具体命令 / 事务，不是跨 await 的全局栈。**
+
+- `runAsActor` / `currentActor` 只覆盖**同步**调用；`await` 期间外部读到的仍是 `human`。
+- 异步写入用 `runAsActorTransaction(actor, fn)`：身份绑在 Dexie 事务上，`vault-persist` 在中间件入口按当前事务（含嵌套事务的 `parent` 链）取 actor。人工写入不在这个事务里，两个事务交错也不会串。
+- `vault-persist` 在**入队那一刻**把 actor 存进 `PendingWrite`；失败重试、标签引用回写沿用这条任务的 actor，不在稍后的 flush 里重新猜。
+- 新建实体例外：service 在 `db.add` 前可能读模板 / 正文骨架（文件 IPC），不能整个包进事务；助手先 `withVaultSuppressedAsync` 挂起落盘，拿到 id 后用 `stampVaultWriteActor` 一次性以 `agent:assistant` 入队（不会先留下一个 human 的中间态）。
+
+验收：`tests/repair-actor.test.ts`（R16、事务交错、重试、标签引用回写）+ `scripts/journal-actor-check.ts`。
 
 ### 2.3 权限分级，默认只读
 
@@ -70,7 +77,18 @@ Agent 和插件**都不许直接写文件**，必须经过 Dexie 中间件 → �
 
 每次授权都要能单独撤销；agent 的操作在 journal 里可筛。
 
-> **2026-11-05 实装（助手侧）**：读库由插件权限 `read-entities` 控制，默认关。没开时 `library_*` **不进本轮请求**（模型看不到就不会去调），执行器再加一道兜底（`host/library-tools.ts#libraryAccessGranted`）；条目页的「和助手聊聊」也只在授权后出现。写入仍是 `requiresApproval: true`（每次点同意），且都包在 `runAsActorAsync('agent:assistant')` 里。
+> **2026-11-05 实装（助手侧）**：读库由插件权限 `read-entities` 控制，默认关。没开时 `library_*` **不进本轮请求**（模型看不到就不会去调），执行器再加一道兜底（`host/library-tools.ts#libraryAccessGranted`）；条目页的「和助手聊聊」也只在授权后出现。写入仍是 `requiresApproval: true`（默认每次点同意；设置里可选 auto，或按工具记住本次会话的 allow），且都包在事务身份里（见 §2.2）。
+
+### 2.5 原始文件工具与 shell 的执行边界
+
+**2026-11-14 修 F16 后**，写入边界不靠系统提示词：
+
+- **默认工具面**：笔记库模式下只把 `library_*` 与只读文件工具 / `fetch_url` 发给模型；`write_file` / `edit_file` 由「高级工具 › 原始文件写入」授权，`run_shell` 由「高级工具 › Shell 命令」单独授权（默认都关，打开 Shell 需要确认）。
+- **执行端拦截**：`host/tool-policy.ts#checkAgentToolPolicy` 在 `chat.ts` 的审批与执行两处各查一次。实体 `.md` 与任意层级的 `.ocstudio/` **永远**不允许原始写入，即使打开了「原始文件写入」；非实体文件（附件 / 导出）才可能放行。
+- **原生兜底**：`run_tool` 收到 `allowShell`，Rust 端 `run_shell` 未授权直接拒绝；`write_file` / `edit_file` 命中 `.md` 或 `.ocstudio` 也在 `resolve_new` **之前**拒绝（不会先建目录）。防旧前端 / 历史重放绕过前端。
+- **不删除写能力**：领域写入仍在，只是必须走 `library_*`；不要用「把助手改成只读」代替边界修复。
+
+验收：`tests/repair-agent-policy.test.ts` + `cargo test --lib` 的 `entity_write_guard` / `run_tool_blocks_shell_without_explicit_authorization`。
 
 ### 2.4 内置助手的「库手册」（2026-11-06 起；2026-11-10 改能力卡片）
 

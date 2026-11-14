@@ -1,7 +1,7 @@
 'use client'
 
 import { type ReactNode } from 'react'
-import { FolderInput, FolderOpen, FolderPlus, RefreshCw } from 'lucide-react'
+import { Download, FolderInput, FolderOpen, FolderPlus, RefreshCw } from 'lucide-react'
 
 import { useVault } from '@/lib/vault/vault-provider'
 import {
@@ -67,6 +67,10 @@ export function VaultMenuSection({ extra }: { extra?: ReactNode }) {
       <DropdownMenuItem disabled={!ready} onClick={() => void vault.rescan()}>
         <RefreshCw size={14} strokeWidth={2} />
         刷新
+      </DropdownMenuItem>
+      <DropdownMenuItem disabled={!ready} onClick={() => void vault.adoptDiskVersion()}>
+        <Download size={14} strokeWidth={2} />
+        采用磁盘版本…
       </DropdownMenuItem>
       <DropdownMenuItem disabled={!ready} onClick={vault.showReport}>
         <FolderOpen size={14} strokeWidth={2} />

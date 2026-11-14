@@ -252,11 +252,13 @@ pub async fn run_tool(
     name: String,
     args: Value,
     workspace: String,
+    allow_shell: Option<bool>,
 ) -> R<ToolResponse> {
     let req = ToolRequest {
         name,
         args,
         workspace,
+        allow_shell: allow_shell.unwrap_or(false),
     };
     let response = crate::agent::tools::execute(&req, &state.client).await;
     Ok(response)

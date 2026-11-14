@@ -1,14 +1,14 @@
 'use client'
 
 /**
- * 分类列表页头 —— 与角色 / 事件列表同一套形态：
- * 桌面「标题 + 搜索 + 排序 + 视图 + 新建」，移动端一条 `MobileFilterBar`。
+ * 分类列表页头 —— 与事件 / 国家列表同构：
+ * 桌面「标题 + 搜索 + 排序 / 视图 + 新建」，移动端一条 `MobileFilterBar`（排序 + 新建）。
  *
- * 排序、视图切换、新建全部复用共享件（`SortViewControls` / `ViewToggle`），
- * 不再单独维护一份分类专用的图标组。
+ * 视图切换在移动端交给 `MobileFab`（和实体列表一致），这里不再重复一枚。
+ * 分类名可能很长，标题只截断，不把排序 / 视图挤出页头。
  */
 import { Plus } from 'lucide-react'
-import { SortSelect, SortViewControls, ViewToggle } from '@/components/shared/SortViewControls'
+import { SortSelect, SortViewControls } from '@/components/shared/SortViewControls'
 import { DebouncedSearchInput } from '@/components/shared/DebouncedSearchInput'
 import { MobileFilterBar } from '@/components/layout/MobileFilterBar'
 import {
@@ -47,8 +47,8 @@ export function CategoryListToolbar({
   return (
     <>
       <div className={TOOLBAR}>
-        <div className="flex items-center gap-4">
-          <h2 className={PAGE_TITLE}>{title}</h2>
+        <div className="flex min-w-0 items-center gap-4">
+          <h2 className={`${PAGE_TITLE} max-w-40 truncate md:max-w-56`}>{title}</h2>
           <div className="max-md:hidden md:block">
             <DebouncedSearchInput
               value={search}
@@ -76,13 +76,10 @@ export function CategoryListToolbar({
           onChange={(key) => onSortKeyChange(key as CategorySortKey)}
           options={CATEGORY_SORT_OPTIONS}
         />
-        <div className="flex items-center gap-2">
-          <ViewToggle viewMode={viewMode} onViewModeChange={onViewModeChange} />
-          <button type="button" onClick={onCreate} className={MOBILE_FILTER_BTN}>
-            <Plus size={14} strokeWidth={2} />
-            <span>新建</span>
-          </button>
-        </div>
+        <button type="button" onClick={onCreate} className={MOBILE_FILTER_BTN}>
+          <Plus size={14} strokeWidth={2} />
+          <span>新建</span>
+        </button>
       </MobileFilterBar>
     </>
   )

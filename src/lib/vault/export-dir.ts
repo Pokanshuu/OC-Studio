@@ -10,6 +10,7 @@ import { createLinkSerializer, documentOfEntity, serializeBody } from './markdow
 import { serializeEntity, type SerializeContext } from './serialize'
 import { TAG_META_REL_PATH } from './vault-session'
 import { DEFAULT_ASSETS_DIR, allocateRelPath, normalizeRelPath, pickPreferredFolder, sanitizeFileName, trashBatchId, trashRelPath } from './vault-paths'
+import { createEntityPathIndex } from './reference-paths'
 import { allocateAssetPath, planImageRewrites } from './vault-assets'
 import { serializeTagMeta, tagMetaFromTags } from './vault-tags'
 import { MARKER_REL_PATH, buildMarkerContent } from './vault-marker'
@@ -145,12 +146,16 @@ function folderOf(relPath: string): string {
  * 一个实体 → 一份 .md 原文。
  * 传 `base` 表示**覆盖已有文件**：以原文件为底稿，只改我们拥有的那几个键与正文，
  * 用户自己加的键、注释、键顺序都原样留着（与落盘队列同一套外科式语义）。
+ *
+ * `serializeLink` 决定正文里的 `[[ ]]` 怎么写（按 id 反查名字 / 文件名）。
+ * 导入物化时必须传「已经知道所有目标路径」的那一份 —— 见 `exportLegacyToFolder`。
  */
 export function composeNote(
   kind: VaultStorableKind,
   row: unknown,
   ctx: SerializeContext,
   base?: string,
+  serializeLink?: ReturnType<typeof createLinkSerializer>,
 ): string {
   const snapshot =
     base === undefined
@@ -158,7 +163,7 @@ export function composeNote(
       : { entity: null, frontmatter: parseFrontmatter(base).data }
   const updates = serializeEntity(kind, row, null, snapshot, ctx)
   const head = setFrontmatterKeys(base ?? '', updates)
-  const body = serializeBody(kind, row, createLinkSerializer(ctx.nameOf))
+  const body = serializeBody(kind, row, serializeLink ?? createLinkSerializer(ctx.nameOf))
   const text = body === null ? head : setBody(head, body.markdown)
   // setBody 会吃掉定性行后的空行，这里补一个文件末尾换行（编辑器与 git 都指望它）
   return text.endsWith('\n') ? text : `${text}\n`
@@ -299,7 +304,7 @@ async function materializeImages(
   root: string,
   refs: string[],
   occupied: Set<string>,
-  report: ExportDirReport,
+  report: Pick<ExportDirReport, 'images' | 'missingImages' | 'failedImages'>,
 ): Promise<Map<string, string>> {
   const map = new Map<string, string>()
   if (refs.length === 0) return map
@@ -405,6 +410,31 @@ function applyMediaMap(rows: LegacyRows, map: Map<string, string>): void {
     entry.novelCover = swap(entry.novelCover)
     entry.mapImage = swap(entry.mapImage)
   }
+}
+
+/** Prepare imported assets only. Entity Markdown must still be written by vault-persist. */
+export async function prepareImportedAssets(root: string, rows: LegacyRows): Promise<{
+  images: number
+  missingImages: string[]
+  skippedImages: string[]
+  imageMap: Map<string, string>
+}> {
+  const refs = collectLegacyImageRefs(rows)
+  if (refs.copy.length === 0) return { images: 0, missingImages: [], skippedImages: refs.skipped, imageMap: new Map() }
+  const scan = await vaultFs.scan(root)
+  const occupied = new Set([...scan.files.map((file) => normalizeRelPath(file.relPath)), ...scan.otherFiles.map(normalizeRelPath)])
+  const report = { images: 0, missingImages: [] as string[], failedImages: [] as { path: string; message: string }[] }
+  const imageMap = await materializeImages(root, refs.copy, occupied, report)
+  if (report.failedImages.length > 0) {
+    throw new Error(`导入图片未全部写入，条目已保留在本地：${report.failedImages[0].message}`)
+  }
+  return { images: report.images, missingImages: report.missingImages, skippedImages: refs.skipped, imageMap }
+}
+
+/** Rewrite current rows after asset IO; callers re-read them to preserve concurrent edits. */
+export function applyImportedAssetMap(rows: LegacyRows, map: Map<string, string>): void {
+  applyImageMap(rows, map)
+  applyMediaMap(rows, map)
 }
 
 /** 正文里 imageBlock 的 src 换成新路径（词条的正文在 `content` 里，也要回写） */
@@ -575,9 +605,50 @@ export async function exportLegacyToFolder(
   applyImageMap(rows, imageMap)
   applyMediaMap(rows, imageMap)
 
-  // 2. 笔记
+  // 2. 笔记：**先规划完全部路径，再序列化正文**。
+  //    正文里的 `[[ ]]` 在磁盘上按文件解析；同名条目会落成 `同名角色 (2).md`，
+  //    只能先拿到目标的真实文件名，写出来的链接重扫后才指得回导入的那一条（Q02）。
   const ctx = buildContext(rows)
-  const texts: { relPath: string; content: string }[] = []
+  const entityPaths = createEntityPathIndex()
+  const plans: { kind: VaultStorableKind; row: unknown; relPath: string; base?: string }[] = []
+
+  const planNote = (
+    kind: VaultStorableKind,
+    row: { id: number; name?: string; title?: string; countryId?: number },
+    title: string,
+  ): void => {
+    const hit = byBaseName.get(sanitizeFileName(title).toLowerCase())
+
+    if (hit !== undefined && strategy === 'skip') {
+      // 同名文件原样保留：它代表了这条实体在磁盘上的身份，登记下来给别的条目写链接用
+      entityPaths.set(kind, row.id, hit)
+      report.skippedExisting += 1
+      return
+    }
+
+    let relPath: string
+    let base: string | undefined
+    if (hit !== undefined && strategy === 'overwrite') {
+      // 就地更新：拿原文件当底稿，改完只替换我们拥有的那几行，用户自造的键原样保留
+      relPath = hit
+      base = contentByPath.get(hit)
+      report.overwritten += 1
+    } else {
+      const hint =
+        kind === 'character' && typeof row.countryId === 'number'
+          ? ctx.nameOf('country', row.countryId)
+          : undefined
+      const folder = hit === undefined ? pickPreferredFolder(kind, [], hint) : folderOf(hit)
+      relPath = allocateRelPath(kind, title, occupied, folder)
+      report.created += 1
+    }
+
+    occupied.add(relPath)
+    entityPaths.set(kind, row.id, relPath)
+    plans.push({ kind, row, relPath, base })
+    if (kind === 'period') report.periods += 1
+    else report.notes += 1
+  }
 
   for (const kind of KINDS) {
     const list = [...rowsOfKind(rows, kind)] as { id: number; name?: string; title?: string; countryId?: number }[]
@@ -585,44 +656,31 @@ export async function exportLegacyToFolder(
     list.sort((a, b) => a.id - b.id)
 
     for (const row of list) {
-      const title = titleOf(kind, row)
-      const hit = byBaseName.get(sanitizeFileName(title).toLowerCase())
-
-      if (hit !== undefined && strategy === 'skip') {
-        report.skippedExisting += 1
-        continue
-      }
-
-      let relPath: string
-      if (hit !== undefined && strategy === 'overwrite') {
-        // 就地更新：拿原文件当底稿，改完只替换我们拥有的那几行，用户自造的键原样保留
-        relPath = hit
-        texts.push({ relPath, content: composeNote(kind, row, ctx, contentByPath.get(hit)) })
-        report.overwritten += 1
-      } else {
-        const hint =
-          kind === 'character' && typeof row.countryId === 'number'
-            ? ctx.nameOf('country', row.countryId)
-            : undefined
-        const folder = hit === undefined ? pickPreferredFolder(kind, [], hint) : folderOf(hit)
-        relPath = allocateRelPath(kind, title, occupied, folder)
-        texts.push({ relPath, content: composeNote(kind, row, ctx) })
-        report.created += 1
-      }
-
-      occupied.add(relPath)
-      if (kind === 'period') report.periods += 1
-      else report.notes += 1
+      planNote(kind, row, titleOf(kind, row))
     }
   }
 
-  // 3. 回收站：同样的内容，路径塞进本次的批次目录
+  // 3. 回收站：同样的内容，路径塞进本次的批次目录（**不登记**成链接目标：
+  //    回收站里的条目不该被活跃正文指到，链接宁可退化成纯文本）
+  const trashPlans: { kind: VaultStorableKind; row: unknown; relPath: string }[] = []
   for (const item of trashedRows) {
     const folder = trashRelPath(pickPreferredFolder(item.kind, []), trashBatch)
     const relPath = allocateRelPath(item.kind, item.title, occupied, folder)
     occupied.add(relPath)
-    texts.push({ relPath, content: composeNote(item.kind, item.row, ctx) })
+    trashPlans.push({ kind: item.kind, row: item.row, relPath })
   }
+
+  const serializeLink = createLinkSerializer(ctx.nameOf, entityPaths.fileBaseOf)
+  const texts: { relPath: string; content: string }[] = [
+    ...plans.map((plan) => ({
+      relPath: plan.relPath,
+      content: composeNote(plan.kind, plan.row, ctx, plan.base, serializeLink),
+    })),
+    ...trashPlans.map((plan) => ({
+      relPath: plan.relPath,
+      content: composeNote(plan.kind, plan.row, ctx, undefined, serializeLink),
+    })),
+  ]
 
   if (texts.length > 0) {
     const results = await vaultFs.writeTexts(root, texts)

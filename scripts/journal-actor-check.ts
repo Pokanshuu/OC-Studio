@@ -5,7 +5,14 @@
  * `actor` 字段能不能原样读回来）。中间那段「入队时抓身份」在
  * `vault-persist` 里，靠类型保证（`PendingWrite.actor` 不可省），这里不重复测。
  */
-import { currentActor, isAgentActor, runAsActor, runAsActorAsync } from '../src/lib/vault/actor'
+import {
+  actorOfTransaction,
+  bindActorToTransaction,
+  currentActor,
+  isAgentActor,
+  runAsActor,
+  runAsActorAsync,
+} from '../src/lib/vault/actor'
 import { normalizeActor, parseJournalLine, type JournalActor } from '../src/lib/vault/journal'
 
 let passed = 0
@@ -54,22 +61,23 @@ async function main(): Promise<void> {
   }
   check('作用域抛异常也不漏身份', currentActor() === 'human')
 
+  // 异步身份不再放在全局栈上：助手 await 期间，外部人工操作必须仍是 human（R16）。
   const asyncSeen = await runAsActorAsync('agent:assistant', async () => {
     await Promise.resolve()
     return currentActor()
   })
-  check('异步作用域跨 await 仍生效', asyncSeen === 'agent:assistant')
-  check('异步作用域退出后复原', currentActor() === 'human')
+  check('异步回调不把身份借给外部', asyncSeen === 'human' && currentActor() === 'human')
 
-  try {
-    await runAsActorAsync('agent:assistant', async () => {
-      await Promise.resolve()
-      throw new Error('boom')
-    })
-  } catch {
-    // 故意抛
-  }
-  check('异步作用域抛异常也不漏身份', currentActor() === 'human')
+  // 真正的异步身份绑在事务上：子事务沿 parent 链继承，事务外回落 human。
+  const outer = {}
+  const inner = { parent: outer }
+  bindActorToTransaction(outer, 'agent:assistant')
+  check('事务绑定身份', actorOfTransaction(outer) === 'agent:assistant')
+  check('嵌套事务沿 parent 继承', actorOfTransaction(inner) === 'agent:assistant')
+  const other = {}
+  bindActorToTransaction(other, 'plugin:official.map-generator')
+  check('两个事务互不串身份', actorOfTransaction(other) === 'plugin:official.map-generator')
+  check('未绑定事务回落 human', actorOfTransaction({}) === 'human')
 
   // ── 身份分类 ──────────────────────────────────────────────────────────
   const actors: JournalActor[] = ['human', 'agent:assistant', 'plugin:official.map-generator']

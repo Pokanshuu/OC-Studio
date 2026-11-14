@@ -6,6 +6,8 @@ import { updateReferencesAfterRename, syncReferenceLabels } from '@/lib/referenc
 import type { Event } from '@/types'
 import type { EventFormData } from './types'
 import { bodyPresetDoc } from '@/lib/templates/body-preset'
+import { writeAsActor } from '@/lib/vault/actor'
+import type { JournalActor } from '@/lib/vault/journal'
 
 const TABLE = 'events'
 
@@ -42,12 +44,16 @@ export async function getEvent(id: number): Promise<Event | undefined> {
   return getById(db.events, id)
 }
 
-export async function createEvent(data: EventFormData): Promise<number> {
+export async function createEvent(
+  data: EventFormData,
+  options?: { actor?: JournalActor },
+): Promise<number> {
   // 模板的正文预设（见 `lib/templates/body-preset.ts`）：只在空正文的新条目上铺
   const draft = buildDefaultEvent(data)
   const preset = draft.document == null ? await bodyPresetDoc('event') : null
   const event = preset === null ? draft : { ...draft, document: preset }
-  const id = await db.events.add(event)
+  // 准备在事务外；只有 add 绑身份
+  const id = await writeAsActor(options?.actor, () => db.events.add(event))
 
   await logOperation(TABLE, id, 'title', '', data.title)
   await logOperation(TABLE, id, 'time', '', data.time)

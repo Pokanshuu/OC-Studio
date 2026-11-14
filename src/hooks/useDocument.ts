@@ -3,11 +3,12 @@
 import { useState, useEffect } from 'react'
 import { db } from '@/lib/db'
 import { syncReferenceLabels } from '@/lib/reference-sync'
+import { readStoredBody, type StoredBodyContent } from '@/lib/body-content'
 
 type EntityType = 'character' | 'event' | 'country' | 'worldEntry'
 
 export function useDocument(entityId: number, entityType: EntityType) {
-  const [document, setDocument] = useState<Record<string, unknown> | null>(null)
+  const [document, setDocument] = useState<StoredBodyContent | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -38,7 +39,7 @@ export function useDocument(entityId: number, entityType: EntityType) {
           setError('记录不存在')
           return
         }
-        const doc = record.document as Record<string, unknown> | undefined
+        const doc = readStoredBody(record.document)
         if (doc && typeof doc === 'object' && !Array.isArray(doc)) {
           const synced = await syncReferenceLabels(doc)
           if (!cancelled) setDocument(synced)

@@ -1,4 +1,5 @@
 use std::fs;
+use std::io::Write;
 use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -100,6 +101,11 @@ pub struct WriteEntry {
     /// 上次读到的 mtime；不匹配则拒绝覆盖（乐观并发，避免抹掉 Obsidian 侧的改动）
     #[serde(rename = "expectedMtimeMs")]
     expected_mtime_ms: Option<i64>,
+    /// 新建文件语义：目标已存在就拒绝，**绝不覆盖**。
+    /// 前端已按占用表去重，但外部程序可能在扫描之后刚建了同名文件；
+    /// Windows 文件系统大小写不敏感，`测试.md` 与 `测试.MD` 是同一个目标。
+    #[serde(rename = "createOnly", default)]
+    create_only: bool,
 }
 
 #[derive(Serialize)]
@@ -407,10 +413,160 @@ fn probe_impl(path: &str) -> Result<VaultProbe, String> {
     })
 }
 
+/// 临时文件名：同目录、隐藏、带进程内序号。
+///
+/// 两个并发写打同一路径时（前端队列之外还有导出 / 备份这类独立入口），
+/// 固定名字会让两次写互相覆盖 rename —— 可能留下半截文件。
+fn temp_path_for(path: &Path) -> PathBuf {
+    static TMP_SEQ: AtomicU64 = AtomicU64::new(0);
+    let file_name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "unnamed".into());
+    let seq = TMP_SEQ.fetch_add(1, Ordering::Relaxed);
+    path.with_file_name(format!(".{file_name}.{seq}.octmp"))
+}
+
+/// 没有 `hard_link` 的文件系统（FAT / 部分网络盘）上的退路：
+/// `create_new` 本身就是原子的 no-replace，目标已存在时内核直接拒绝。
+fn write_create_new_fallback(path: &Path, contents: &[u8], rel: &str) -> WriteResult {
+    match fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)
+    {
+        Ok(mut file) => {
+            if let Err(err) = file.write_all(contents).and_then(|_| file.sync_all()) {
+                drop(file);
+                let _ = fs::remove_file(path);
+                return WriteResult {
+                    rel_path: rel.to_string(),
+                    ok: false,
+                    conflict: false,
+                    mtime_ms: None,
+                    error: Some(format!("写入新文件失败: {err}")),
+                };
+            }
+            let mtime = fs::metadata(path).map(|m| mtime_ms(&m)).ok();
+            WriteResult {
+                rel_path: rel.to_string(),
+                ok: true,
+                conflict: false,
+                mtime_ms: mtime,
+                error: None,
+            }
+        }
+        Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => WriteResult {
+            rel_path: rel.to_string(),
+            ok: false,
+            conflict: true,
+            mtime_ms: None,
+            error: Some("目标已存在，未覆盖".into()),
+        },
+        Err(err) => WriteResult {
+            rel_path: rel.to_string(),
+            ok: false,
+            conflict: false,
+            mtime_ms: None,
+            error: Some(format!("创建新文件失败: {err}")),
+        },
+    }
+}
+
+/// 新建专用写：**原子 no-replace**，而不是先 `exists` 再 rename。
+///
+/// 提交方式：先把内容完整写进同目录临时文件并 `sync_all`，再 `hard_link`
+/// 到目标。硬链接在目标已存在时由内核原子拒绝（Windows / Linux / macOS 都是
+/// 同一条语义），因此不存在「检查之后、替换之前被别人新建」的窗口；
+/// 链接成功时目标一出现就是完整内容。不支持硬链接的文件系统退到
+/// `OpenOptions::create_new`，同样是内核级 no-replace。
+fn write_create_new(path: &Path, contents: &[u8], rel: &str) -> WriteResult {
+    if let Some(parent) = path.parent() {
+        if let Err(err) = fs::create_dir_all(parent) {
+            return WriteResult {
+                rel_path: rel.to_string(),
+                ok: false,
+                conflict: false,
+                mtime_ms: None,
+                error: Some(format!("创建目录失败: {err}")),
+            };
+        }
+    }
+
+    let tmp = temp_path_for(path);
+    let mut file = match fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&tmp)
+    {
+        Ok(file) => file,
+        Err(err) => {
+            return WriteResult {
+                rel_path: rel.to_string(),
+                ok: false,
+                conflict: false,
+                mtime_ms: None,
+                error: Some(format!("创建临时文件失败: {err}")),
+            };
+        }
+    };
+    if let Err(err) = file.write_all(contents).and_then(|_| file.sync_all()) {
+        drop(file);
+        let _ = fs::remove_file(&tmp);
+        return WriteResult {
+            rel_path: rel.to_string(),
+            ok: false,
+            conflict: false,
+            mtime_ms: None,
+            error: Some(format!("写入临时文件失败: {err}")),
+        };
+    }
+    drop(file);
+
+    // 关键的一步：硬链接是内核原子的「只在目标不存在时创建」
+    let linked = fs::hard_link(&tmp, path);
+    let _ = fs::remove_file(&tmp);
+    match linked {
+        Ok(()) => {
+            let mtime = fs::metadata(path).map(|m| mtime_ms(&m)).ok();
+            WriteResult {
+                rel_path: rel.to_string(),
+                ok: true,
+                conflict: false,
+                mtime_ms: mtime,
+                error: None,
+            }
+        }
+        Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => WriteResult {
+            rel_path: rel.to_string(),
+            ok: false,
+            conflict: true,
+            mtime_ms: None,
+            error: Some("目标已存在，未覆盖".into()),
+        },
+        // 文件系统不支持硬链接（FAT / 部分网络盘）时才走 create_new 退路。
+        // 其它错误（权限 / 路径）也交给它给出可读错误；它同样是 no-replace。
+        Err(_) => write_create_new_fallback(path, contents, rel),
+    }
+}
+
 /// 原子写：先写同目录临时文件，再 rename 覆盖。
 /// 直接 write 一个被打断就会留下半截文件，把用户的笔记写坏。
-fn write_atomic(path: &Path, contents: &[u8], expected_mtime_ms: Option<i64>) -> WriteResult {
+///
+/// `create_only` 为真时走 `write_create_new`：目标已存在就判冲突、一个字节都不写。
+/// 这是前端「同批新建同名文件」去重的最后一道保险 —— 路径分配与真正落盘之间
+/// 可能隔着外部程序创建的同名文件，而默认的 rename 会静默覆盖它。
+fn write_atomic(
+    path: &Path,
+    contents: &[u8],
+    expected_mtime_ms: Option<i64>,
+    create_only: bool,
+) -> WriteResult {
     let rel = path.to_string_lossy().into_owned();
+
+    if create_only {
+        return write_create_new(path, contents, &rel);
+    }
 
     if let Some(expected) = expected_mtime_ms {
         match fs::metadata(path) {
@@ -451,15 +607,7 @@ fn write_atomic(path: &Path, contents: &[u8], expected_mtime_ms: Option<i64>) ->
         }
     }
 
-    let file_name = path
-        .file_name()
-        .map(|n| n.to_string_lossy().into_owned())
-        .unwrap_or_else(|| "unnamed".into());
-    // 临时文件名带序号：两个写并发打同一路径时（前端 store 的写队列之外，
-    // 还有导出 / 备份这类独立入口），固定名字会让两次写互相覆盖 rename —— 可能留下半截文件。
-    static TMP_SEQ: AtomicU64 = AtomicU64::new(0);
-    let seq = TMP_SEQ.fetch_add(1, Ordering::Relaxed);
-    let tmp = path.with_file_name(format!(".{file_name}.{seq}.octmp"));
+    let tmp = temp_path_for(path);
 
     if let Err(err) = fs::write(&tmp, contents) {
         let _ = fs::remove_file(&tmp);
@@ -596,6 +744,7 @@ pub async fn vault_write_texts(
                 &target,
                 entry.content.as_bytes(),
                 entry.expected_mtime_ms,
+                entry.create_only,
             ));
         }
         Ok(results)
@@ -616,7 +765,7 @@ pub async fn vault_import_file(path: String, source: String, rel_path: String) -
         }
         let bytes = fs::read(&source_path)
             .map_err(|err| format!("读取源文件失败 {}: {err}", source_path.display()))?;
-        let result = write_atomic(&target, &bytes, None);
+        let result = write_atomic(&target, &bytes, None, false);
         if result.ok {
             Ok(result.mtime_ms.unwrap_or_else(now_ms))
         } else {
@@ -632,7 +781,7 @@ pub async fn vault_write_bytes(path: String, rel_path: String, bytes: Vec<u8>) -
     blocking(move || {
         let root = PathBuf::from(&path);
         let target = safe_join(&root, &rel_path)?;
-        let result = write_atomic(&target, &bytes, None);
+        let result = write_atomic(&target, &bytes, None, false);
         if result.ok {
             Ok(result.mtime_ms.unwrap_or_else(now_ms))
         } else {
@@ -762,7 +911,7 @@ pub async fn vault_download_image(
     }
     let size = bytes.len();
     blocking(move || {
-        let result = write_atomic(&target, &bytes, None);
+        let result = write_atomic(&target, &bytes, None, false);
         if result.ok {
             Ok(())
         } else {
@@ -1006,6 +1155,12 @@ mod tests {
                 .expect("解析 WriteEntry");
         assert_eq!(entry.rel_path, "a.md");
         assert_eq!(entry.expected_mtime_ms, Some(7));
+        assert!(!entry.create_only, "省略 createOnly 时必须是可覆盖的旧语义");
+
+        let guarded: WriteEntry =
+            serde_json::from_str(r#"{"relPath":"a.md","content":"x","createOnly":true}"#)
+                .expect("解析带 createOnly 的 WriteEntry");
+        assert!(guarded.create_only);
 
         // 新建文件时前端会省略 expectedMtimeMs，必须仍能解析
         let fresh: WriteEntry = serde_json::from_str(r#"{"relPath":"a.md","content":"x"}"#)
@@ -1101,27 +1256,103 @@ mod tests {
         let target = dir.path().join("角色/新角色.md");
 
         // 无快照 → 直接建（含中间目录）
-        let created = write_atomic(&target, "第一版".as_bytes(), None);
+        let created = write_atomic(&target, "第一版".as_bytes(), None, false);
         assert!(created.ok, "首次写入应成功: {:?}", created.error);
         assert_eq!(fs::read_to_string(&target).unwrap(), "第一版");
         assert!(!target.with_file_name(".新角色.md.octmp").exists(), "临时文件应已清理");
 
         // 带上「很久以前」的 mtime → 必须判定冲突且**不覆盖**
-        let stale = write_atomic(&target, "第二版".as_bytes(), Some(1));
+        let stale = write_atomic(&target, "第二版".as_bytes(), Some(1), false);
         assert!(stale.conflict, "过期 mtime 应判定冲突");
         assert!(!stale.ok);
         assert_eq!(fs::read_to_string(&target).unwrap(), "第一版", "冲突时不得改写磁盘内容");
 
         // 带上真实 mtime → 允许覆盖
         let actual = mtime_ms(&fs::metadata(&target).unwrap());
-        let updated = write_atomic(&target, "第二版".as_bytes(), Some(actual));
+        let updated = write_atomic(&target, "第二版".as_bytes(), Some(actual), false);
         assert!(updated.ok, "mtime 匹配时应允许覆盖: {:?}", updated.error);
         assert_eq!(fs::read_to_string(&target).unwrap(), "第二版");
 
         // 我们以为文件在、实际已删除 → 也算冲突
         fs::remove_file(&target).unwrap();
-        let missing = write_atomic(&target, "第三版".as_bytes(), Some(actual));
+        let missing = write_atomic(&target, "第三版".as_bytes(), Some(actual), false);
         assert!(missing.conflict, "文件消失应判定冲突");
+    }
+
+    #[test]
+    fn create_only_never_overwrites_existing_target() {
+        let dir = TempDir::new("create-only");
+        let target = dir.path().join("角色/亚瑟.md");
+
+        // 目标不存在：允许创建
+        let created = write_atomic(&target, "第一版".as_bytes(), None, true);
+        assert!(created.ok, "目标不存在时应允许新建: {:?}", created.error);
+        assert_eq!(fs::read_to_string(&target).unwrap(), "第一版");
+
+        // 目标已存在：必须拒绝，且**一个字节都不改**
+        let denied = write_atomic(&target, "第二版".as_bytes(), None, true);
+        assert!(!denied.ok, "create-only 不得返回成功");
+        assert!(denied.conflict, "已存在应判为冲突而不是普通失败");
+        assert_eq!(
+            fs::read_to_string(&target).unwrap(),
+            "第一版",
+            "create-only 失败时不得改写磁盘内容"
+        );
+
+        // Windows 是大小写不敏感文件系统：换一种大小写写同一路径也算已存在
+        #[cfg(windows)]
+        {
+            let case_target = dir.path().join("角色/亚瑟.MD");
+            let case_denied = write_atomic(&case_target, "第三版".as_bytes(), None, true);
+            assert!(
+                case_denied.conflict && !case_denied.ok,
+                "Windows 上大小写等价的已有文件也必须拒绝覆盖"
+            );
+            assert_eq!(fs::read_to_string(&target).unwrap(), "第一版");
+        }
+    }
+
+    #[test]
+    fn create_only_is_atomic_under_concurrent_creation() {
+        use std::sync::{Arc, Barrier};
+
+        for round in 0..12 {
+            let dir = TempDir::new(&format!("create-race-{round}"));
+            let target = dir.path().join("角色/同名.md");
+            // 两个写者对齐到同一起跑线，保证检查 / 提交真的交错
+            let barrier = Arc::new(Barrier::new(2));
+            let mut handles = Vec::new();
+            for contents in ["第一版", "第二版"] {
+                let path = target.clone();
+                let gate = Arc::clone(&barrier);
+                handles.push(std::thread::spawn(move || {
+                    gate.wait();
+                    (contents, write_atomic(&path, contents.as_bytes(), None, true))
+                }));
+            }
+            let outcomes = handles
+                .into_iter()
+                .map(|handle| handle.join().expect("并发写线程"))
+                .collect::<Vec<_>>();
+
+            let winners = outcomes.iter().filter(|(_, result)| result.ok).collect::<Vec<_>>();
+            let losers = outcomes.iter().filter(|(_, result)| !result.ok).collect::<Vec<_>>();
+            assert_eq!(winners.len(), 1, "同一目标只能有一个新建成功");
+            assert_eq!(losers.len(), 1, "另一个必须失败");
+            assert!(losers[0].1.conflict, "竞争者应拿到 conflict，而不是普通错误");
+
+            let disk = fs::read_to_string(&target).expect("读回目标文件");
+            assert_eq!(
+                disk, winners[0].0,
+                "磁盘必须是成功写者的完整内容，不能是半截或另一版"
+            );
+            let leftover = fs::read_dir(target.parent().unwrap())
+                .expect("读目录")
+                .flatten()
+                .filter(|entry| entry.file_name().to_string_lossy().ends_with(".octmp"))
+                .count();
+            assert_eq!(leftover, 0, "临时文件不能留在库里");
+        }
     }
 
     #[test]

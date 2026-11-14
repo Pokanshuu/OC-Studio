@@ -12,6 +12,8 @@ import {
   type TiptapMark,
   type TiptapNode,
 } from './doc'
+import { parseWikiLinkInner } from '../wikilink'
+import { localImageSrc } from './image-src'
 
 // ── Markdown → Tiptap JSON ──────────────────────────────────────────────
 //
@@ -81,6 +83,20 @@ function getParser(): MarkdownItInstance {
   return cachedParser
 }
 
+/** Render legacy HTML or mixed Markdown/HTML only when HTML occurs outside code tokens. */
+export function legacyBodyHtml(markdown: string): string | null {
+  const tokens = getParser().parse(markdown, {})
+  // 兜底 JSON 才是完整正文；预览中的 <u>/<small> 不能抢走装载路径。
+  if (tokens.some((token) => token.type === 'fence' && token.info.trim() === FALLBACK_FENCE_INFO)) return null
+  const knownTag = /<\/?(?:p|div|h[1-6]|ul|ol|li|blockquote|table|thead|tbody|tr|td|th|pre|code|strong|b|em|i|u|s|del|small|br|hr|img|span)(?=[\s/>])/i
+  const hasHtml = tokens.some((token) =>
+    (token.type === 'html_block' && knownTag.test(token.content)) ||
+    (token.children ?? []).some((child) => child.type === 'html_inline' && knownTag.test(child.content) &&
+      pairedTagOf(child.content) === null && !isBreakTag(child.content)),
+  )
+  return hasHtml ? getParser().render(markdown) : null
+}
+
 /**
  * Markdown → Tiptap 文档。
  *
@@ -92,7 +108,7 @@ export function markdownToTiptap(markdown: string, options: MarkdownToTiptapOpti
   const tokens = getParser().parse(markdown, {})
 
   const restored = restoreFallback(tokens)
-  if (restored !== null) return restored
+  if (restored !== null) return restoreReferences(restored, options.resolveLink)
 
   const state: ConvertState = {
     resolveLink: options.resolveLink,
@@ -131,6 +147,26 @@ function restoreFallback(tokens: Token[]): TiptapDoc | null {
     return parsed as TiptapDoc
   }
   return null
+}
+
+/** Numeric IDs in old fallbacks belong to a past scan; only raw filenames can identify a target. */
+function restoreReferences(doc: TiptapDoc, resolveLink: MarkdownToTiptapOptions['resolveLink']): TiptapDoc {
+  const restore = (nodes: TiptapNode[]): TiptapNode[] => nodes.flatMap((node) => {
+    if (node.type === 'mention' || node.type === 'wikiLink') {
+      const raw = node.attrs?.raw
+      const ref = typeof raw === 'string' && raw.trim() !== '' ? parseLinkRef(raw) : null
+      const resolved = ref === null ? null : resolveLink(ref)
+      if (resolved === null) {
+        const label = typeof node.attrs?.label === 'string' ? node.attrs.label : (ref?.alias ?? ref?.target ?? '')
+        return label === '' ? [] : [{ type: 'text', text: label, ...(node.marks ? { marks: node.marks } : {}) }]
+      }
+      const attrs = { ...node.attrs }
+      for (const key of ['id', 'label', 'entityType', 'raw', 'anchor']) delete attrs[key]
+      return [{ ...node, type: resolved.type, attrs: { ...attrs, ...resolved.attrs, ...(ref?.anchor ? { anchor: ref.anchor } : {}) } }]
+    }
+    return [node.content === undefined ? node : { ...node, content: restore(node.content) }]
+  })
+  return { ...doc, content: restore(doc.content) }
 }
 
 /** 找到与 openIndex 处开标签配对的闭标签下标；找不到就返回末尾 */
@@ -430,7 +466,7 @@ type PairedInlineTag = 'small' | 'underline'
 function pairedTagOf(content: string): { tag: PairedInlineTag; closing: boolean } | null {
   const match = /^<\s*(\/?)\s*(small|u)\s*>$/i.exec(content.trim())
   if (match === null) return null
-  return { tag: match[2].toLowerCase() as PairedInlineTag, closing: match[1] === '/' }
+  return { tag: match[2].toLowerCase() === 'u' ? 'underline' : 'small', closing: match[1] === '/' }
 }
 
 function isBreakTag(content: string): boolean {
@@ -568,7 +604,7 @@ function convertInlineChildren(
         const src = child.attrGet('src')
         const alt = child.content
         if (typeof src === 'string' && src !== '') {
-          out.push({ type: 'imageBlock', attrs: { src, width: null } })
+          out.push({ type: 'imageBlock', attrs: { src: localImageSrc(src), width: null } })
         } else {
           pushText(alt)
         }
@@ -660,20 +696,15 @@ function splitWikiLinks(
   return nodes
 }
 
-/** 把 `[[ ]]` 内的原文拆成目标 / 别名 / 锚点。`raw` 逐字原样，不做 trim */
+/**
+ * `[[ ]]` 内部原文 → LinkRef。
+ *
+ * 解析规则收在 `vault/wikilink.ts`（`parseWikiLinkInner`）：导入重绑定与序列化
+ * 也要按同一套规则拆「目标 / 锚点 / 别名」，两边各写一份迟早会漂。
+ */
 function parseLinkRef(inner: string): LinkRef {
-  const pipe = inner.indexOf('|')
-  const beforePipe = pipe === -1 ? inner : inner.slice(0, pipe)
-  const aliasRaw = pipe === -1 ? undefined : inner.slice(pipe + 1)
-  const hash = beforePipe.indexOf('#')
-  const anchorRaw = hash === -1 ? undefined : beforePipe.slice(hash + 1)
-
-  return {
-    target: (hash === -1 ? beforePipe : beforePipe.slice(0, hash)).trim(),
-    alias: aliasRaw === undefined || aliasRaw === '' ? undefined : aliasRaw,
-    anchor: anchorRaw === undefined || anchorRaw === '' ? undefined : anchorRaw,
-    raw: inner,
-  }
+  const parts = parseWikiLinkInner(inner)
+  return { target: parts.target, alias: parts.alias, anchor: parts.anchor, raw: inner }
 }
 
 /**

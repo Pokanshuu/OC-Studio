@@ -17,7 +17,7 @@ description: >
 - shadcn/ui 生成的基础组件放 `src/components/ui/`，全局可复用。
 
 ## 2. 数据与状态
-- **单一数据源**：所有读写必须走 Dexie (`src/lib/db.ts`)。只能通过自定义 Hook 访问，组件内不得直接调用 `db.table`。
+- **单一写入链路**：桌面笔记库模式下，**文件夹里的 Markdown 是真源**，Dexie 是会话缓存；所有写入仍必须先走 Dexie (`src/lib/db.ts`)，由 `vault-persist` 的落盘队列写回文件。浏览器预览 / 移动端以 IndexedDB 为持久层。只能通过自定义 Hook / service 访问，组件内不得直接调用 `db.table`。
 - **异步优先**：所有 Dexie 操作必须使用 `async/await`，禁止 `.then()`。
 - 服务器状态用 TanStack Query，仅用于同步逻辑；UI 暂态用 React Context。
 - **列表/详情数据一律用 React Query**（useQuery/useMutation），四个实体模块已全部统一：列表 staleTime 30s + `DATA_UPDATED_EVENT` 刷新；详情 staleTime 0（跨模块写入后重挂载必须读到新值）。禁止再引入 `useState + refreshKey` 手写加载。
@@ -33,8 +33,9 @@ description: >
 - **未改动就不写 / 从不整体重写**：写回按**文档结构**比较（带装载快照），不是按正文文本比较；这是「不弄脏用户文件」的关键。
 - **frontmatter 必须外科式**（`lib/vault/frontmatter.ts`）：只替换我们拥有的键、只替换正文，键顺序与注释原样保留；键名**跟文件已有的走**（保留 `阵营`/`所属国家` 这类中文键）。键链唯一源是 `lib/vault/fields.ts`（读与写共用）。
 - **图片引用只走 `lib/image-refs.ts`**：字段图（头像 / 立绘 / 封面 / 图集 / 旗帜 / 世界封面）与正文 `imageBlock.src` 都由它收集，相册、`.ocbak` 备份、老数据落地三处共用。**不要在任何地方再手写遍历文档找 `imageBlock`** —— 三处各写一套的直接后果是「相册看不见正文图 / 备份少一半图」，而且不报错。
-- **整库替换要包 `suspend`**：装载 vault、批量导入这类操作必须包起来，否则成千上万次中间态会写进用户文件夹。
-- 正文位置：**词条在 `content`，其余实体在 `document`**；只有 `lib/vault/markdown-bridge.ts` 知道这件事。
+- **整库装载只排除自身事务**：`applyDataset` 用 `excludeVaultLoadTransaction` 排除装载事务的中间态写入；开始替换前再核对待写队列。禁止跨 await 全局暂停落盘或把会话置空，它们会吞掉并发人工保存。普通备份导入仍通过队列落盘。
+- **已开库导入只有一条正文写入链**：`vault/import-live.ts` 调 `importData`；仅对本次真正新增 / 覆盖的行准备附件，再把图片映射写回 Dexie，最终仍由 `vault-persist` 写 Markdown。禁止在这条路径再调全库 `exportLegacyToFolder` —— 那会和队列制造 createOnly / mtime 自冲突、把原有条目再次复制。`exportLegacyToFolder` 留给未绑定库的首次落地 / 迁移。`tests/vault-import-flow.test.ts` 跑实际导入 Hook、中间件、冲突判定与重新扫描。
+- 正文位置：**所有实体（含词条）都写 `document`**；`content` 只是更老数据的**只读兜底**（词条读入口是 `lib/world-body.ts`）。历史 JSON 字符串先走 `lib/body-content.ts` 的 `readStoredBody`；编辑器装载统一走 `components/editor/editor-content.ts` 的 `editorContentOf`（对象保留；字符串识别 Markdown / 旧 HTML；完整兜底正文优先）。角色 / 国家旧分段用 `legacyBodySections`，禁止拼 HTML 标题与原始 Markdown。只有 `lib/vault/markdown-bridge.ts` 知道「哪种实体的正文在哪个字段」。
 - Vault 是**跨域基础设施**，因此放 `src/lib/vault/`（不是 `features/`）；界面在 `src/features/vault/`。
 
 ### 数据库 Schema（Dexie 4 · schema v6 · 8 张表）
@@ -70,8 +71,8 @@ description: >
 - **尺寸**：页头与工具栏控件统一 `h-8`；页头内图标按钮 `h-6`；窄栏/页头内输入 `h-6`。**不存在 `h-9` 控件**。
 - **类名来源**：一律取 `src/lib/ui-tokens.ts`（`BTN_PRIMARY` / `BTN_QUIET` / `ICON_BTN` / `INPUT_LINE` / `PANEL` / `MENU` / `MENU_ITEM` / `FIELD_ROW` / `PAGE_TITLE` / `SECTION_TITLE` / `CHIP` / `EMPTY_STATE`），**不要就地拼写类名**
 - **全局按钮 hover**：所有 button 通过 `@layer base` 继承 `background-color: var(--oc-hover)`；因此整行按钮必须自带横向 padding（或用「行 `px-*` + 外层负 margin」）
-- **页头统一 48px**：`h-12 border-b border-line bg-paper/85 dark:bg-[#1C1B1A]/85 backdrop-blur-lg`（列表页 `px-6`，编辑器 `px-4`），标题用 `PAGE_TITLE`（18px 衬线加粗）
-- 页面外层 `flex flex-col min-h-full`（非 `h-full`），内容区 `flex-1`（无 `overflow-auto`，由 `<main>` 统一滚动）
+- **页头统一 48px**：`h-12 border-b border-line bg-paper/85 backdrop-blur-lg`（列表页 `px-6`，编辑器 `px-4`），标题用 `PAGE_TITLE`（18px 衬线加粗）。**不要写 `dark:bg-[#1C1B1A]/85`** —— `bg-paper/85` 自己跟主题走
+- **列表页外壳用 `ListShell`**（页头在滚动容器内部、一块页头表面、`useScrollShade`）；不要再手写 `min-h-full` + `sticky` 组合。编辑器按 `EDITOR_HEADER` / `EDITOR_BODY`，内容区 `flex-1`（无 `overflow-auto`，由 `<main>` 统一滚动）
 - **浮层强制 Portal**：所有下拉菜单、筛选面板、弹窗必须通过 `createPortal` 渲染到 `#overlay-root`。禁止在顶栏（含 `backdrop-blur` 合成层）内部使用 `absolute` 定位浮层。
 - **禁止浏览器原生的弹出型控件**：`<datalist>`、`<input type="date">`、`<select>` 的弹层由 WebView 自己绘制（不在 DOM 里、CSS 够不着、暗色下仍是一块浅灰）。需要建议列表 / 日期选择就自己写「input + portal 的 `MENU` 面板」，参考 `FilterSelect`。
 
@@ -79,9 +80,9 @@ description: >
 - **强制使用 Tailwind 类名**，禁止内联样式。例外：动态坐标/尺寸等无法用 Tailwind 表达的场景可用 `style`。
 - 颜色必须使用设计令牌，**禁止硬编码色值**。详细令牌见 `oc-studio-design` skill。
 - 下拉菜单/筛选面板选项 hover：`hover:bg-[var(--oc-hover)]`（全局统一的极低透明度墨色，亮暗自适应）
-- **极小圆角**（只有 4 / 6 / 8 三档，仅头像/徽章为圆形；见 `oc-studio-design` skill 的 item / control / panel）、**全程无阴影**（不写 `shadow-*`，卡片悬停改底色）；控件的边框规则见 `oc-studio-design` skill
+- **极小圆角**（只有 4 / 6 / 8 三档，仅头像/徽章为圆形；见 `oc-studio-design` skill 的 item / control / panel）、**内容面零阴影**（卡片 / 按钮 / 输入不写 `shadow-*`，悬停改底色）；**浮层只用唯一一档 `FLOAT_SHADOW`**（`float-shadow`），不要用 Tailwind 的 `shadow-sm/md/lg`；控件的边框规则见 `oc-studio-design` skill
 - 图标统一用 `lucide-react`，`strokeWidth={2}`，尺寸 16px(桌面)/20px(移动)
-- **旧内核 backdrop-blur 降级**：`isBelowTargetVersion()` 为 true 时 `AppShell.tsx` 设 `data-below-target-version` 属性到 `<html>`，`globals.css` 中 `[data-below-target-version] .backdrop-blur-lg` 统一禁用 `backdrop-filter` + 背景改不透明（亮 `#FEFCF8` paper / 暗 `#1C1B1A` dark-bg）。组件无需任何改动。
+- **旧内核 backdrop-blur 降级**：`isBelowTargetVersion()` 为 true 时 `AppShell.tsx` 设 `data-below-target-version` 属性到 `<html>`，`globals.css` 中 `[data-below-target-version] .backdrop-blur-lg` 统一禁用 `backdrop-filter` + 背景改不透明纸色（用 `--oc-paper` 令牌，不要在组件里抄十六进制）。组件无需任何改动。
 - **图标语义规则**：返回/关闭 = `ArrowLeft`，折叠（收起侧边栏）= `ChevronLeft`，展开（打开侧边栏）= `Menu`。桌面端折叠按钮：树可见时 `ChevronLeft`，树隐藏时 `Menu`
 - 触控区域：所有可点击元素最小热区 44x44px，通过 `padding` 或伪元素保证
 
@@ -105,9 +106,10 @@ description: >
   - 移动端键盘工具栏通过 `KeyboardContext` 精确定位，`paddingBottom: var(--safe-bottom)` 消化导航栏高度（与 `MobileSearchOverlay` 保持一致）
 - **侧边栏固定不滚动**：分栏布局中侧边栏用外层 `sticky overflow-hidden` + 内层 `overflow-auto` 两层解耦
 
-## 6. AI（暂不做）
-- 2026-10 已删除全部 AI 代码与入口：`src/lib/ai/`、`EventAiSummary`、设置里的 AI 页签、`settings.tsx` 的 `ai*` 字段、`useEventForm` 的概括逻辑。
-- **不要恢复旧实现、不要新增 AI 入口、不要在文案里承诺 AI**；要做得当成新功能重新设计。
+## 6. AI 与助手插件
+- 2026-10 已删除**旧内置 AI** 代码与入口：`src/lib/ai/`、`EventAiSummary`、设置里的 AI 页签、`settings.tsx` 的 `ai*` 字段、`useEventForm` 的概括逻辑。**不要恢复旧实现、不要新增内置 AI 入口、不要在文案里承诺 AI 能力。**
+- **当前助手是官方插件**（`src/plugins/agent/`）：它有自己的 provider / 模型设置、工具面与审批；不是旧内置 AI，也不在 `src/lib/ai/` 里。
+- 助手的写入边界：默认只开放 `library_*` 领域工具；`write_file` / `edit_file` 不能写实体 `.md` 与 `.ocstudio/` 内部配置；`run_shell` 默认关闭，必须由作者在「高级工具」里显式授权。执行端（TS 执行器 + Rust `run_tool`）各拦一次，**不要只靠系统提示词**。设计见 `docs/Agent接入.md` §2。
 
 ## 7. 编辑器扩展
 - TipTap 为全局内核，自定义节点必须注册在同一实例上。
@@ -117,12 +119,13 @@ description: >
 - suggestion 渲染器（`@` / `[[` / `/`）**每个编辑器各建一份**：`popup` / `AbortController` 活在闭包里，模块级共享（把扩展提升成常量）会让第二个编辑器 `abort()` 掉前一个的关闭监听、节点永久留在 DOM。浮层 `fixed` + Portal 到 `#overlay-root`，关闭只走一个 `closePopup()`（节点与监听一起收）；`clientRect()` 退化成 0×0 时不要弹。
 - 有 `addNodeView` 的节点（如 `TaskItem`）在编辑器 DOM 里**没有** `renderHTML` 写的 `data-type` —— 给它写样式要认 NodeView 真实产出的标记（`[data-type="taskList"] > li`），并把 `[data-type="xxx"]` 那套留给静态站导出 / 只读渲染。
 - 编辑/浏览模式切换时，禁止重建编辑器实例，仅切换 `editable` 和 UI 控件显隐。
+- **Markdown 写回必须验证最终候选**：最小转义与全量转义都失败时附现有 `oc-document` 兜底；不能只验证第一次。兜底里的引用也按实际文件目标保存，重开用新索引解析，不沿用旧数字 id；没有目标的引用保留文字与格式。`<u>` 映射到 `underline`，不能用类型断言把标签名冒充标记名。`tests/body-reopen.test.ts` 验证真实编辑器 schema 与连续重开。
 
 ## 8. 通用原则
 - TypeScript strict 模式，禁止 `any`。
 - 条件渲染优先用三元运算符，避免 `&&`（防 falsy 渲染）。
 - 所有数据变更必须立即写入 Dexie + 更新操作日志，无网络依赖。
-- 代码必须通过 ESLint 规则：`no-restricted-imports`（禁止跨域内部引用）、`import/no-cycle`。
+- **跨域内部引用 / 循环依赖目前是人工评审约定，不是 lint 门禁**：`eslint.config.mjs` 没有启用 `no-restricted-imports` / `import/no-cycle`（审查 D07 已核对生效配置）。不要把它当成机器检查；要落实就先画允许依赖图、给合理例外，再启用规则，不要为了数字归零把所有内部文件从 barrel 导出。
 - **数据 vs 展示**：反向列表 / 成员名单一律**查出来**，不落库。反例：`country.characters` / `country.events` 曾把「这个国家有哪些角色」存成镜像数组，与 `Character.countryId` 双写、四处会漂；阶段二·一拆掉后 `membership.ts` 只剩「单向应用」（真源只有实体侧：角色 `countryId`、事件 `countries`），国家页的名单是 `listCountryCharacters` / `listCountryEvents` 的查询结果。**再遇到「这里要不要也存一份」的问题，答案是不存。**
 - **一个实体不要一套编辑器**：统一形态是 `components/<X>Editor.tsx`（页头 + 头图 + 各 section 组装，约 120–240 行）+ `hooks/use<X>Form.ts`（表单状态 / 派生 / 保存管线，返回单个对象）+ 分节组件。不要在某个实体里另起一套保存管线或另一份派生逻辑 —— 那是「同一逻辑写四遍」的起点。
 
@@ -164,7 +167,8 @@ description: >
 | `src/lib/reference-labels.ts` | 引用标签与改名联动（键必须是 `类型:id`，防同名跨实体误改） |
 | `src/lib/export/backup-config.ts` | `.ocbak` 设置段：目标库已配置时保留当前设置，未配置才恢复 |
 | `src/components/shared/TreeRow.tsx` | 树行唯一实现（`actions` 槽位负责 hover 操作，拖拽手柄、右键菜单都在这里） |
-| `src/lib/reference-registry.ts` | @ 引用和 [[ 内链的数据源注册 |
+| `src/lib/reference-registry.ts` | @ 引用和 [[ 内链的数据源注册；补全排序 = 名字前缀 → 名字拼音首字母 → 别名前缀 → 别名拼音首字母 → 名字包含 → 别名包含，**类型过滤先于排序截断**（上限 200） |
+| `src/lib/pinyin-initials.ts` | 汉字 → 拼音首字母（ICU `zh-Hans-u-co-pinyin` + 锚点二分，不引拼音字典；只做首字母，多音字取 ICU 读音） |
 | `src/lib/use-device.ts` | useDevice() hook |
 | `src/lib/editor-context.tsx` | ActiveEditorProvider，追踪当前聚焦的编辑器 |
 | `src/lib/settings.tsx` | SettingsProvider，主题 / 同步设置 |
@@ -178,8 +182,8 @@ description: >
 | `src/lib/export.ts` | JSON 导出（.ocbak 格式） |
 | `src/lib/import.ts` | JSON 导入，4 种合并策略 |
 | `src/lib/vault/vault-provider.tsx` | Vault 上下文：打开哪个文件夹 / 装到哪一步 / 写盘是否顺利（状态用 `useSyncExternalStore` 派生） |
-| `src/lib/vault/vault-load.ts` | 读盘 + 建会话 + 整库替换 Dexie（挂起落盘） |
-| `src/lib/vault/vault-persist.ts` | 落盘队列：挂 Dexie `dbcore` 中间件；只在事务外 IO；`deleteRange` 忽略；`suspend` / `flush` |
+| `src/lib/vault/vault-load.ts` | 读盘 + 建会话 + 整库替换 Dexie（只排除装载事务；队列非空就取消） |
+| `src/lib/vault/vault-persist.ts` | 落盘队列：挂 Dexie `dbcore` 中间件；只在事务外 IO；`deleteRange` 忽略；事务级装载排除 / `flush` |
 | `src/lib/vault/scan.ts` | 文件集 → 数据集 + 解析索引 + 体检报告（纯函数，不动磁盘） |
 | `src/lib/vault/frontmatter.ts` / `fields.ts` / `serialize.ts` | 外科式 frontmatter 读写 / frontmatter 词汇表唯一源 / 未改动就不写 |
 | `src/lib/vault/markdown/` + `markdown-bridge.ts` | Tiptap JSON ⇄ Markdown 双向桥（`oc-document` 兜底块）；唯一知道正文字段位置的地方 |
@@ -198,7 +202,7 @@ description: >
 | `src/components/shared/image-gallery/` | 图片画廊：壳 + `ImageGallerySlider` / `ImageGalleryGrid` + `useImageUpload`（选文件→可选裁剪→落盘） |
 | `src/components/shared/FilterSelect.tsx` | 通用筛选下拉（样式由调用点传入；行为只有一份） |
 | `src/lib/export/` | 导出器：`payload`（.ocbak + 图片内联）/ `markdown` / `download`（含 Capacitor 适配）/ `site`（静态展示站：`render` 正文→HTML、`styles` 设计令牌、`build` 组装单文件 `index.html`）；`src/lib/export.ts` 只是 barrel |
-| `src/features/world/hooks/useWorldEntryDraft.ts` | 词条草稿 → 落库管线（2s 防抖 + 切词条 / beforeunload flush） |
+| `src/features/world/hooks/useWorldEntryDraft.ts` | 词条草稿 → 落库管线（1s 防抖；保存回执绑定正文与修订；离场等待全部草稿） |
 | `src/lib/world-tree.ts` | **词条树唯一实现**（`buildEntryTree`）：层级只由 `parentId` 表达，编辑器目录与静态站导出共用；`parentId` 悬空时当根处理 |
 | `src/components/editor/BubbleMenuButtons.tsx` | 气泡菜单按钮组 |
 | `src/features/timeline/hooks/useTimelineLayout.ts` | 时间线纯派生层：坐标 / 泳道 / 刻度 / 聚合桶 / 时期行（无状态无副作用） |

@@ -1,4 +1,5 @@
 import type { Editor } from '@tiptap/core'
+import { readStoredBody } from './body-content'
 
 /**
  * 词条正文的**唯一读取入口**。
@@ -31,21 +32,9 @@ interface WorldBodySource {
 
 /** 读正文；没有正文返回空串（编辑器和纯文本消费者都把它当"空"） */
 export function worldBodyOf(entry: WorldBodySource): WorldBody {
-  const doc = entry.document
-  if (doc !== null && typeof doc === 'object') return doc as object
-
-  const raw = (entry.content ?? '').trim()
-  if (raw === '') return ''
-
-  try {
-    const parsed: unknown = JSON.parse(raw)
-    if (parsed !== null && typeof parsed === 'object') return parsed as object
-    // JSON 但不是一个对象（比如存成了 `"abc"`）：当纯文本用
-    return raw
-  } catch {
-    // 不是 JSON —— 老数据直接把纯文本 / Markdown 存在 content 里
-    return raw
-  }
+  const doc = readStoredBody(entry.document)
+  if (doc !== null && (typeof doc !== 'string' || doc.trim() !== '')) return doc
+  return readStoredBody(entry.content) ?? ''
 }
 
 /** 有没有正文（避免各处自己判断空态） */

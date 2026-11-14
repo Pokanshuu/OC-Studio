@@ -31,7 +31,10 @@ import { useVault } from "@/lib/vault/vault-provider"
 import { useSettings } from "@/lib/settings"
 import { useKeyboard } from "@/lib/KeyboardContext"
 import { useBackButton } from "@/lib/useBackButton"
-import { flushPendingSaves } from "@/lib/pending-saves"
+import { runSaveBarrier } from "@/lib/save-barrier"
+import { reportSaveBarrierFailures } from "@/lib/save-feedback"
+import { createCloseCoordinator } from "@/lib/close-coordinator"
+import { currentStatus } from "@/lib/vault/vault-persist"
 import { isTauri } from "@/lib/env"
 import { getChromiumVersion, isBelowTargetVersion, isHarmonyOS, getHarmonyOSVersion, isSafeAreaEnvAvailable, estimateSafeAreaInsets, getSafeAreaBottomCorrection, isMobilePlatform } from "@/lib/browser-compat"
 import { toast } from 'sonner'
@@ -95,38 +98,43 @@ function AppShellChrome({ settings, children }: { settings: ReturnType<typeof us
   useBackButton()
   const { isEditing } = useEditor()
   const { visible: keyboardVisible } = useKeyboard()
-  const { requestSave, status } = useSaveStatus()
-  const vault = useVault()
+  const { status } = useSaveStatus()
   const hideMobileShell = isEditing
   const hideTabBar = isEditing || keyboardVisible
 
   /**
    * Ctrl/Cmd+S：显式保存。
    *
-   * 两件事都要做：
-   * 1. `requestSave()` —— 让当前实体表单走它自己的保存（含校验）；
-   * 2. `vault.flush()` —— 把落盘队列立刻排干。
-   *
-   * 只做 1 的话，**笔记 / 小说 / 分类条目按 Ctrl+S 是没反应的**（它们没有注册
-   * 保存处理器，`requestSave` 找不到人），而浏览器默认的「保存网页」又被
-   * `preventDefault` 挡掉了 —— 用户按下去像按了个空键。
+   * 与菜单「保存」、关窗、换库走**同一个**保存屏障：先等草稿提交，再等落盘队列排干；
+   * 有失败就说「保存未完成」，不制造「已保存」假回执。以前只调 `requestSave()`（void）
+   * + `vault.flush()`，两个 Promise 都没人等，失败也可能看起来像成功。
    */
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault()
-        requestSave()
-        if (vault.supported && vault.status === 'ready') void vault.flush()
-        // 没有脏表单时（笔记 / 章节都是自动保存）给一句回执：以前按下去毫无反应，
-        // 用户只会以为快捷键失效了
-        if (status !== 'dirty' && status !== 'saving') {
-          toast('没有需要保存的改动', { description: '笔记与章节是自动保存的' })
-        }
+        const wasClean = status !== 'dirty' && status !== 'saving'
+        const beforeWriteAt = currentStatus().lastFlushedAt
+        const hadQueuedWrites = currentStatus().pending > 0
+        void (async () => {
+          const failures = await runSaveBarrier()
+          if (failures.length > 0) {
+            reportSaveBarrierFailures(failures)
+            return
+          }
+          // 隐藏着的常驻编辑器也可能刚被屏障写掉；写过盘就不说「没有改动」
+          const wroteSomething = currentStatus().lastFlushedAt !== beforeWriteAt
+          // 没有脏表单、也没有排队中的写入时给一句回执：以前按下去毫无反应，
+          // 用户只会以为快捷键失效了
+          if (wasClean && !hadQueuedWrites && !wroteSomething) {
+            toast('没有需要保存的改动', { description: '笔记与章节是自动保存的' })
+          }
+        })()
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [requestSave, status, vault])
+  }, [status])
 
   // 未保存时关闭标签页/刷新浏览器 → 原生确认
   useEffect(() => {
@@ -140,40 +148,55 @@ function AppShellChrome({ settings, children }: { settings: ReturnType<typeof us
   }, [status])
 
   /**
-   * 关窗前落盘。
+   * 关窗协调：**整个应用只有这一套**。
    *
-   * 浏览器里 `beforeunload` 只能弹确认，拦不住异步写盘；Tauri 的 close 事件可以：
-   * 先 preventDefault，等当前表单 / 词条草稿 / 落盘队列都刷完，再 destroy。
-   * 以前关得比 1–2 秒的防抖快，最后一段就没了。
+   * 拦下 Tauri 的关闭请求 → 等草稿提交 → 等落盘队列排干 → 核对错误 / 冲突 → 全绿才 destroy。
+   * 以前这里和 `VaultProvider` 各挂一个监听，其中一个还在 `finally` 里无条件 `destroy()`，
+   * 保存失败也照样关。现在失败时窗口保持打开，由 `reportSaveBarrierFailures` 给出回执；
+   * 「仍然关闭」是用户明确放弃未写入内容的动作。
    */
   useEffect(() => {
     if (!isTauri()) return
     let unlisten: (() => void) | null = null
-    let closing = false
+    let disposed = false
     void (async () => {
       try {
         const { getCurrentWindow } = await import('@tauri-apps/api/window')
         const win = getCurrentWindow()
-        unlisten = await win.onCloseRequested(async (event) => {
-          if (closing) return
-          closing = true
-          event.preventDefault()
-          try {
-            requestSave()
-            await flushPendingSaves()
-            if (vault.supported && vault.status === 'ready') await vault.flush()
-          } finally {
-            await win.destroy()
-          }
+        const coordinator = createCloseCoordinator({
+          runBarrier: runSaveBarrier,
+          destroy: () => win.destroy(),
+          onBlocked: (failures) =>
+            reportSaveBarrierFailures(failures, {
+              // 明确放弃未写入内容：让协调器置位，避免和后续关闭事件重复 destroy
+              forceClose: () => {
+                void coordinator.forceClose().catch((error) => {
+                  console.error('[close] 强制关闭失败', error)
+                })
+              },
+            }),
         })
+        const stop = await win.onCloseRequested((event) => {
+          // 永远交给协调器决定：干净时它会自己 destroy，不干净时窗口保持打开
+          event.preventDefault()
+          void coordinator.requestClose().catch((error) => {
+            console.error('[close] 关闭流程失败', error)
+          })
+        })
+        if (disposed) {
+          stop()
+        } else {
+          unlisten = stop
+        }
       } catch (error) {
-        console.error('[close] 关窗落盘失败', error)
+        console.error('[close] 关窗协调器初始化失败', error)
       }
     })()
     return () => {
+      disposed = true
       unlisten?.()
     }
-  }, [requestSave, vault])
+  }, [])
 
   // 外壳容器**不写底色**：chrome 的底色由 globals.css 的
   // `html:not(.tauri-mica) [data-menubar|data-sidebar|data-statusbar]` 给成 paper-alt，

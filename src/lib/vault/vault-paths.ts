@@ -35,8 +35,23 @@ export function normalizeRelPath(path: string): string {
  * 这类目录**永远不参与条目落点推断**：它不是作者整理出来的分类目录，
  * 跟着它走会把新条目写进 `.ocstudio/`（界面上看起来就是「文件凭空消失」）。
  */
-function isInternalFolder(folder: string): boolean {
+export function isInternalFolder(folder: string): boolean {
   const top = normalizeRelPath(folder).split('/')[0]
+  return top !== '' && top.startsWith('.')
+}
+
+/**
+ * 相对路径是不是落在这个库的内部目录里（`.ocstudio/…`、`.trash/…` 这类）。
+ *
+ * 和 `isInternalFolder` 的分工：那个看的是「目录」，这个看的是「文件路径」。
+ * 新建条目的候选目录推断必须同时挡住两种：回收站里的条目（`trashed`）、
+ * 已经写错的内部路径（`.ocstudio/新书.md`）都不能再参与投票，否则错误会自我延续。
+ */
+export function isInternalRelPath(relPath: string): boolean {
+  const normalized = normalizeRelPath(relPath)
+  if (normalized === '') return false
+  const slash = normalized.indexOf('/')
+  const top = slash === -1 ? normalized : normalized.slice(0, slash)
   return top.startsWith('.')
 }
 
@@ -50,17 +65,21 @@ function isInternalFolder(folder: string): boolean {
  *  2. 一旦有文件被写到 `.ocstudio/`（上一条的后果，或手工挪错），它会**继续投票**，
  *     把后面每一条新建都拖进同一个错误目录（自我延续）。
  *
- * 所以判据是「活着的 + 不在内部目录里」，而不是「索引里有没有这条路」。
+ * 所以判据是「活着的 + 没被软删除 + 不在内部目录里」，而不是「索引里有没有这条路」。
+ *
+ * `entity.deleted` 只有会话条目带；纯函数调用方（脚本里的字面量）可以不给。
  */
 export function foldersOfKind(
-  entries: Iterable<{ kind: string; relPath: string; trashed: boolean }>,
+  entries: Iterable<{ kind: string; relPath: string; trashed: boolean; entity?: unknown }>,
   kind: string,
 ): string[] {
   const folders: string[] = []
   for (const entry of entries) {
     if (entry.kind !== kind || entry.trashed) continue
+    const deleted = (entry.entity as { deleted?: unknown } | null | undefined)?.deleted
+    if (deleted === true) continue
     const relPath = normalizeRelPath(entry.relPath)
-    if (relPath === '') continue
+    if (relPath === '' || isInternalRelPath(relPath)) continue
     const slash = relPath.lastIndexOf('/')
     if (slash <= 0) continue
     const folder = relPath.slice(0, slash)
@@ -138,9 +157,29 @@ export function pickPreferredFolder(
 }
 
 /**
+ * 比较用的路径键：Windows 与 macOS（默认 APFS）文件系统大小写不敏感，
+ * `世界观/测试.md` 与 `世界观/测试.MD` 是**同一个文件**。
+ * 分配新路径时只按字节比较会在这些平台上静默覆盖一条已有笔记。
+ */
+function pathKey(relPath: string): string {
+  return normalizeRelPath(relPath).toLowerCase()
+}
+
+export function isRelPathOccupied(occupied: ReadonlySet<string>, relPath: string): boolean {
+  const key = pathKey(relPath)
+  for (const path of occupied) {
+    if (pathKey(path) === key) return true
+  }
+  return false
+}
+
+/**
  * 分配一个未被占用的 vault 相对路径。
  * @param occupied 已占用的路径集合（含被忽略的非实体文件），避免撞名
  * @param fileName 文件名（不含扩展名）；缺省 = 标题（小说章节用它加「第 01 章-」前缀）
+ *
+ * 同一批次里的多次调用必须**每次分配后立刻把结果加进 occupied**，
+ * 否则两个新条目会拿到同一个路径，后写覆盖先写（F01）。
  */
 export function allocateRelPath(
   kind: VaultStorableKind,
@@ -154,9 +193,14 @@ export function allocateRelPath(
   const build = (suffix: string): string =>
     dir === '' ? `${base}${suffix}.md` : `${dir}/${base}${suffix}.md`
 
+  // 先拍一份小写键：集合可能包含整个库的文件（上千条），每次分配 O(n) 可接受，
+  // 但不应在每个候选后缀上重复构造。
+  const taken = new Set<string>()
+  for (const path of occupied) taken.add(pathKey(path))
+
   let candidate = build('')
   let counter = 2
-  while (occupied.has(candidate)) {
+  while (taken.has(pathKey(candidate))) {
     candidate = build(` (${counter})`)
     counter += 1
   }

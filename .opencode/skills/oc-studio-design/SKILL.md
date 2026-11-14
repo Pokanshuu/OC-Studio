@@ -166,7 +166,7 @@ description: >
 - 参考实现：`FilterSelect`（纯筛选）/ 需要「可自由输入 + 建议」时照它写 `input` + `createPortal` 到 `#overlay-root` 的 `MENU` 面板，注意 `onMouseDown` 要 `preventDefault()`，否则输入框先失焦、面板先关，`click` 永远到不了
 
 ### 浮层面板（统一）
-- 所有 Portal 浮层：`border border-line bg-paper/85 backdrop-blur-lg float-shadow rounded-menu`（即 `MENU`；大面板用 `PANEL` → `rounded-panel`）
+- 所有 Portal 浮层：`MENU`（`border border-line bg-paper/85 backdrop-blur-lg float-shadow rounded-control`；大面板用 `PANEL` → `rounded-panel`）。**没有 `rounded-menu` 这个类**，菜单容器一律 `rounded-control`
 - 菜单容器**只有 `py-1`、没有左右内边距**，行自带 `px-3` → hover 横向铺满、左右不留缝
 - 行高：`px-3 py-1 text-[13px]`（约 27px）；分组标题 `px-3 py-1 text-[11px]`；分隔线 `mx-2 my-1`
 - **无 `ring` 光晕**；菜单项 hover 统一 `bg-[var(--oc-hover)]`（亮暗自适应的一档极低透明度墨色）
@@ -188,12 +188,12 @@ description: >
 ### 下拉菜单 (DropdownMenu)
 - 使用 `@base-ui/react` Menu.Portal + Popup
 - Positioner 使用 `positionMethod="fixed" align="start"`
-- Popup 为 `MENU`（`rounded-menu`，`py-1` 无左右内边距）+ `pointer-events-none`，MenuItem 为 `pointer-events-auto`
+- Popup 为 `MENU`（`rounded-control`，`py-1` 无左右内边距）+ `pointer-events-none`，MenuItem 为 `pointer-events-auto`
 - Item 直接用 `MENU_ITEM`（含 `data-highlighted` 高亮），不要再写 `px-*/py-*`
 
 ### 右键菜单 (ContextMenu)
 - **系统右键菜单不出现在界面里**：`GlobalContextMenu` 在 `document` 上统一拦截 `contextmenu` —— 非文本区一律 `preventDefault()`（右键在那里就是「没反应」，需要菜单的地方由应用自己的菜单接手）；输入框 / textarea / 全选中的可编辑区保留系统菜单（复制粘贴靠它）
-- 面板：`MENU`（`border border-line bg-paper/85 backdrop-blur-lg float-shadow rounded-menu`，无 ring）
+- 面板：`MENU`（`border border-line bg-paper/85 backdrop-blur-lg float-shadow rounded-control`，无 ring）
 - 子菜单通过 `createPortal` 到 `#overlay-root`，`position: fixed` + 视口坐标，面板同样 `MENU`
 - 菜单项：`MENU_ITEM_BASE`（`gap-2 px-3 py-1 text-[13px] rounded-item`，hover `bg-[var(--oc-hover)]`）；自定义语气（危险/禁用）只换文字色，不重写盒子
 - 危险操作：`text-error`
@@ -211,8 +211,8 @@ description: >
 用固定色令牌：`text-ink-fixed`（`--oc-ink-fixed` #2B2B2B）/ `text-paper-fixed`（`--oc-paper-fixed` #FEFCF8），由亮度决定用哪个（`isLightColor()`）。
 
 ### 气泡菜单 (BubbleMenu)
-- 面板：`MENU`（`rounded-menu`）
-- 按钮：`h-8 w-8`，**激活 `bg-ink text-paper`**，未激活 `text-ink-muted hover:text-ink`
+- 面板：`MENU`（`rounded-control`）
+- 按钮：`h-8 w-8`，**激活浅底块 `bg-[var(--oc-hover)] text-ink`**，未激活 `text-ink-muted hover:text-ink`。格式栏会同时亮起多枚，不要用实心墨块（见「浮层内的按钮」）
 
 ### 应用外壳（MenuBar / Sidebar / StatusBar / 内容区）
 - **chrome 三块之间不画线**：菜单栏、状态栏、侧边栏去掉 `border-b / border-t / border-r`，共用同一个表面
