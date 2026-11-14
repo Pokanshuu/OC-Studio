@@ -184,6 +184,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
               root.classList.toggle("tauri-mica", applied)
             })
             .catch(() => {})
+          // 记下亮暗：下次启动时 Rust 要在前端起来之前就把窗口底色刷对（防白闪）。
+          // 写的是 `app_config_dir()/theme` 的一个字节，失败不影响界面。
+          invoke("remember_theme", { isDark }).catch(() => {})
         } catch {}
       }
     }

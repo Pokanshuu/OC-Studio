@@ -136,6 +136,61 @@ fn update_blur_effect(window: tauri::WebviewWindow, enabled: bool, is_dark: bool
     return false;
 }
 
+/// 上次退出时是不是暗色主题 —— 存在 `app_config_dir()/theme` 里的一个字节。
+///
+/// 为什么要有这个东西：窗口底色得在**前端起来之前**定下来，否则暗色用户每次启动都会
+/// 先看到一块米白再变黑（启动白闪）。Rust 读不到 localStorage，所以前端在主题变化时
+/// 调 `remember_theme` 写一个字节，`setup` 里读它决定 `set_background_color`。
+const THEME_FILE: &str = "theme";
+
+#[tauri::command]
+fn remember_theme(app: tauri::AppHandle, is_dark: bool) -> Result<(), String> {
+    use std::fs;
+
+    use tauri::Manager;
+    let dir = app.path().app_config_dir().map_err(|error| error.to_string())?;
+    fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
+    fs::write(dir.join(THEME_FILE), [u8::from(is_dark)]).map_err(|error| error.to_string())
+}
+
+fn remembered_dark_theme(app: &tauri::AppHandle) -> bool {
+    use std::fs;
+
+    use tauri::Manager;
+    app.path()
+        .app_config_dir()
+        .ok()
+        .and_then(|dir| fs::read(dir.join(THEME_FILE)).ok())
+        .and_then(|bytes| bytes.first().copied())
+        .map(|byte| byte == 1)
+        .unwrap_or(false)
+}
+
+/// 关掉 WebView2 的浏览器加速键（只 Windows）。
+///
+/// 前端 `BrowserKeyBlocker` 已经在 keydown 里兜底，但 WebView2 自己还会处理一部分
+/// （比如 Ctrl+P 的打印预览在渲染进程里就发起了）。`ICoreWebView2Settings3` 是官方开关。
+/// macOS 的 WKWebView 没有对应设置项，那边只靠前端拦截。
+#[cfg(target_os = "windows")]
+fn disable_browser_accelerator_keys(window: &tauri::WebviewWindow) {
+    use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Settings3;
+    use windows_core::Interface;
+
+    let _ = window.with_webview(|webview| {
+        // SAFETY: WebView2 的 COM 方法都是 unsafe；这里只读设置、不搬所有权。
+        unsafe {
+            let Ok(core) = webview.controller().CoreWebView2() else {
+                return;
+            };
+            let Ok(settings) = core.Settings() else { return };
+            let Ok(settings3) = settings.cast::<ICoreWebView2Settings3>() else {
+                return;
+            };
+            let _ = settings3.SetAreBrowserAcceleratorKeysEnabled(false);
+        }
+    });
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
@@ -143,6 +198,16 @@ pub fn run() {
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_fs::init())
     .plugin(tauri_plugin_opener::init())
+    // 窗口位置 / 尺寸 / 最大化状态：**不包含可见性** —— 窗口由 `ShowWindow.tsx`
+    // 在首帧后自己 show，插件要是把 `VISIBLE` 也存下来，启动时可能直接显示空白帧。
+    .plugin(
+      tauri_plugin_window_state::Builder::default()
+        .with_state_flags(
+          tauri_plugin_window_state::StateFlags::all()
+            - tauri_plugin_window_state::StateFlags::VISIBLE,
+        )
+        .build(),
+    )
     .setup(|app| {
       if cfg!(debug_assertions) {
         // 开发期只往 stdout 打日志。
@@ -167,7 +232,34 @@ pub fn run() {
       use tauri::Manager;
       let window = app.get_webview_window("main").expect("主窗口未找到");
       use tauri::webview::Color;
-      let _ = window.set_background_color(Some(Color(254, 252, 248, 255)));
+      // 底色按**上次的主题**给，别再无条件刷亮色：暗色用户启动时不会先闪一块米白。
+      let background = if remembered_dark_theme(app.handle()) {
+        Color(28, 27, 26, 255)
+      } else {
+        Color(254, 252, 248, 255)
+      };
+      let _ = window.set_background_color(Some(background));
+
+      // 兜底显示：窗口配置是 `visible: false`，由前端的 `ShowWindow` 在首帧后 show。
+      // 前端一旦报错（脚本挂了、资源 404、白屏），窗口就永远不出现 —— 那比白闪糟得多。
+      // 所以 3 秒后还没可见就自己 show 一次（前端正常时这一步什么都不做）。
+      {
+        let handle = app.handle().clone();
+        let fallback_window = window.clone();
+        std::thread::spawn(move || {
+          std::thread::sleep(std::time::Duration::from_secs(3));
+          let target = fallback_window.clone();
+          let _ = handle.run_on_main_thread(move || {
+            if matches!(target.is_visible(), Ok(false)) {
+              let _ = target.show();
+            }
+          });
+        });
+      }
+
+      // 浏览器加速键（只 Windows）：F5 / Ctrl+R / Ctrl+P 这类不该由 WebView 处理
+      #[cfg(target_os = "windows")]
+      disable_browser_accelerator_keys(&window);
 
       // macOS：应用一启动就必须有菜单栏（⌘Q / ⌘H 这些由系统项转发给 AppKit）。
       // 这里**只放系统项**，不重复任何业务动作 —— 「文件 / 编辑 / 视图」由前端的
@@ -198,6 +290,7 @@ pub fn run() {
       update_blur_effect,
       init_blur,
       blur_supported,
+      remember_theme,
       update::github_latest_release,
       open::open_external,
       vault::vault_probe,

@@ -34,7 +34,7 @@ export function MenuBar() {
 
       <MenuBarSearch />
 
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 -mr-3">
         <InspirationQuickNote />
         <WindowControls />
       </div>

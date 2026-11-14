@@ -1121,3 +1121,41 @@ body[data-map-immersive='true'] [data-dev-mock] {
 .graph-drag-ghost {
   animation: overlay-in var(--oc-duration-fast) var(--oc-ease-quiet);
 }
+
+/* ── 窗口失焦 ────────────────────────────────────────────────────
+   原生窗口失去焦点时标题栏文字变灰、选中高亮变淡：用户靠这个知道「现在键盘输入去哪了」。
+   状态由 `WindowFocusSync.tsx` 写到 <html data-window-inactive>（Tauri 走 onFocusChanged，
+   浏览器走 window 的 focus / blur）。 */
+[data-window-inactive='true'] [data-menubar],
+[data-window-inactive='true'] [data-sidebar],
+[data-window-inactive='true'] [data-statusbar] {
+  color: var(--oc-ink-faint);
+}
+
+[data-window-inactive='true'] [data-sidebar] .text-ink {
+  color: var(--oc-ink-muted);
+}
+
+/* 侧栏选中项的 2px 竖线跟着降一档（`ITEM_ON` 的 before:bg-ink） */
+[data-window-inactive='true'] [data-sidebar] [class*='before:bg-ink']::before {
+  background: var(--oc-ink-faint);
+}
+
+/* 窗口按钮的图标同样降一档（它们本来就比正文淡一级） */
+[data-window-inactive='true'] [data-window-controls] button {
+  color: var(--oc-ink-faint);
+}
+
+/* ── Mica 下的悬停可见性 ──────────────────────────────────────────
+   `--oc-hover` 是 4.5% 墨；铺在 Mica 透出来的桌面壁纸上几乎看不见（亮色壁纸下尤其）。
+   只在外壳两块上加深一档 —— 内容区的纸是不透明的，那里不需要动。 */
+html.tauri-mica [data-sidebar],
+html.tauri-mica [data-menubar] {
+  --oc-hover: rgba(43, 43, 43, 0.08);
+}
+
+html.tauri-mica.dark [data-sidebar],
+html.tauri-mica.dark [data-menubar] {
+  --oc-hover: rgba(227, 223, 216, 0.1);
+}
+

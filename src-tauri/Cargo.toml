@@ -31,6 +31,15 @@ tauri-plugin-fs = "2"
 window-vibrancy = "0.7"
 windows-version = "0.1"
 tauri-plugin-clipboard-manager = "2.3.2"
+# 窗口位置 / 尺寸 / 最大化状态记忆（可见性由我们自己控制，见 lib.rs 的 StateFlags）
+tauri-plugin-window-state = "2"
+
+# 只 Windows 用：关掉 WebView2 的浏览器加速键（F5 / Ctrl+R / Ctrl+P …）。
+# 版本必须与 Tauri 依赖树里 wry 用的那份一致（Cargo.lock：webview2-com 0.39.1 / windows-core 0.62），
+# 否则 `cast` 用到的 `Interface` trait 来自另一个 crate 版本，编译期就不认。
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.39"
+windows-core = "0.62"
 
 # ── 助手插件（照 Simple-Agent 的清单原样引）──────────────────────────────
 tauri-plugin-opener = "2"

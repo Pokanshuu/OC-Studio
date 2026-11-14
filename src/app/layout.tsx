@@ -14,6 +14,8 @@ import { OverlayRoot } from "@/components/layout/OverlayRoot";
 import { Toaster } from "@/components/shared/toaster";
 import { NativeMenuBlocker } from "@/components/shared/NativeMenuBlocker";
 import { BrowserKeyBlocker } from "@/components/shared/BrowserKeyBlocker";
+import { ShowWindow } from "@/components/layout/ShowWindow";
+import { WindowFocusSync } from "@/components/layout/WindowFocusSync";
 import { KeyboardProvider } from "@/lib/KeyboardContext";
 import { THEME_BOOT_SCRIPT } from "@/lib/theme/boot";
 import { PLATFORM_BOOT_SCRIPT } from "@/lib/env";
@@ -51,6 +53,10 @@ export default function RootLayout({
         </head>
         <body className="flex flex-col h-screen overflow-hidden">
         <Providers>
+          {/* 首帧后显示窗口（窗口配置是 visible:false，防启动白闪）；失焦同步写在 <html> 上。
+              两者都必须在 VaultGate 外面：闸门期间窗口一样要出来、一样要能变灰。 */}
+          <ShowWindow />
+          <WindowFocusSync />
           <VaultProvider>
             <KeyboardProvider>
             <SettingsProvider>

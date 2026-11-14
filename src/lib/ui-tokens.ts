@@ -287,6 +287,14 @@ export const MEDIA_GRADIENT =
 /** 无图占位：衬线首字，不用图形图标 */
 export const MEDIA_FALLBACK = 'absolute inset-0 grid place-items-center font-serif text-2xl text-ink-faint'
 
+/* ── 窗口控制按钮（Windows / Linux 自绘标题栏） ─────────
+   系统标题栏的按钮是 46×32、**贴死窗口右上角**、方角（贴边整条 → `rounded-none`）。
+   字形是系统画的那四个方框字形（`components/layout/window-glyphs.tsx`），不是 lucide。 */
+export const WINDOW_BTN =
+  'flex h-8 w-[46px] items-center justify-center rounded-none text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink'
+/** 关闭：悬停实心红 + 纸色图标。**唯一一处该打破「界面无色」的地方** —— 用户靠这块红确认「关的是窗口」。 */
+export const WINDOW_BTN_CLOSE = 'flex h-8 w-[46px] items-center justify-center rounded-none text-ink-muted transition-colors hover:bg-[#C42B1C] hover:text-paper-fixed active:bg-[#B22A1C]' // design-audit-allow raw-hex Windows 系统关闭色（#C42B1C 悬停 / #B22A1C 按下）：用户靠这块红确认关的是窗口
+
 /* ── 列表行 / 移动端筛选条 ───────────────────────────── */
 /** 列表行右侧的动作组（悬停才出现，纵向居中） */
 export const ROW_ACTIONS = 'absolute right-2 top-1/2 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100'

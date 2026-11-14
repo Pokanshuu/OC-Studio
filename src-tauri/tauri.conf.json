@@ -13,13 +13,15 @@
     "macOSPrivateApi": true,
     "windows": [
       {
+        "label": "main",
         "title": "OC Studio",
         "width": 1200,
         "height": 800,
         "resizable": true,
         "fullscreen": false,
 
-        "minWidth": 1050,
+        "visible": false,
+        "minWidth": 900,
         "minHeight": 625,
 
         "decorations": false,

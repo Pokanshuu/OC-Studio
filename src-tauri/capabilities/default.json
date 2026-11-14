@@ -14,6 +14,7 @@
     "core:window:allow-start-dragging",
     "clipboard-manager:default",
     "dialog:default",
+    "window-state:default",
     "fs:default",
     "fs:allow-app-write",
     "fs:allow-app-write-recursive",
