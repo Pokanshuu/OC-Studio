@@ -79,6 +79,9 @@ export function NavigationHistoryProvider({ children }: { children: ReactNode })
   const [backStack, setBackStack] = useState<NavLocation[]>([])
   const [forwardStack, setForwardStack] = useState<NavLocation[]>([])
   const currentRef = useRef<NavLocation | null>(null)
+  /** 栈的 ref 镜像：事件里读最新值，且**不在 setState 更新函数里做副作用**（见 back） */
+  const backStackRef = useRef<NavLocation[]>([])
+  const forwardStackRef = useRef<NavLocation[]>([])
   const replayRef = useRef<((location: NavLocation) => boolean | Promise<boolean>) | null>(null)
   const guardRef = useRef<((action: () => void) => void) | null>(null)
   /** 递归「继续退」要拿到最新的 back / forward（回调里不能直接引用自己） */
@@ -90,10 +93,11 @@ export function NavigationHistoryProvider({ children }: { children: ReactNode })
     const previous = currentRef.current
     currentRef.current = location
     if (previous === null) return
-    setBackStack((stack) => {
-      const next = [...stack, previous]
-      return next.length > MAX_DEPTH ? next.slice(next.length - MAX_DEPTH) : next
-    })
+    const next = [...backStackRef.current, previous]
+    const capped = next.length > MAX_DEPTH ? next.slice(next.length - MAX_DEPTH) : next
+    backStackRef.current = capped
+    setBackStack(capped)
+    forwardStackRef.current = []
     setForwardStack([])
   }, [])
 
@@ -112,29 +116,41 @@ export function NavigationHistoryProvider({ children }: { children: ReactNode })
     return replay(location)
   }, [])
 
+  /**
+   * 后退 / 前进。
+   *
+   * **栈的读写都用 ref 镜像，不在 `setState` 的更新函数里做副作用**：
+   * 更新函数会在渲染期执行，而回放要 `setActiveItem` / 打开实体 —— 那会变成
+   * 「渲染 A 的时候更新 B」，React 直接报
+   * 「Cannot update a component while rendering a different component」。
+   */
   const back = useCallback(() => {
     const run = (): void => {
-      setBackStack((stack) => {
-        if (stack.length === 0) return stack
-        const target = stack[stack.length - 1]
-        const rest = stack.slice(0, -1)
-        const current = currentRef.current
-        // 先把游标移过去，`record()` 就不会把这次回放当成一次新导航
-        currentRef.current = target
-        const result = apply(target)
-        const commit = (applied: boolean): void => {
-          if (!applied) {
-            // 那条已经不在了：继续退（栈每次少一格，递归一定收敛）
-            currentRef.current = target
-            backRef.current?.()
-            return
-          }
-          if (current !== null) setForwardStack((forward) => [...forward, current])
+      const stack = backStackRef.current
+      if (stack.length === 0) return
+      const target = stack[stack.length - 1]
+      const rest = stack.slice(0, -1)
+      const current = currentRef.current
+      // 先把游标移过去，`record()` 就不会把这次回放当成一次新导航
+      currentRef.current = target
+      backStackRef.current = rest
+      setBackStack(rest)
+
+      const commit = (applied: boolean): void => {
+        if (!applied) {
+          // 那条已经不在了：继续退（栈每次少一格，递归一定收敛）
+          backRef.current?.()
+          return
         }
-        if (typeof result === 'boolean') commit(result)
-        else void result.then(commit).catch(() => {})
-        return rest
-      })
+        if (current !== null) {
+          const nextForward = [...forwardStackRef.current, current]
+          forwardStackRef.current = nextForward
+          setForwardStack(nextForward)
+        }
+      }
+      const result = apply(target)
+      if (typeof result === 'boolean') commit(result)
+      else void result.then(commit).catch(() => {})
     }
     if (guardRef.current) guardRef.current(run)
     else run()
@@ -142,24 +158,29 @@ export function NavigationHistoryProvider({ children }: { children: ReactNode })
 
   const forward = useCallback(() => {
     const run = (): void => {
-      setForwardStack((stack) => {
-        if (stack.length === 0) return stack
-        const target = stack[stack.length - 1]
-        const rest = stack.slice(0, -1)
-        const current = currentRef.current
-        currentRef.current = target
-        const result = apply(target)
-        const commit = (applied: boolean): void => {
-          if (!applied) {
-            forwardRef.current?.()
-            return
-          }
-          if (current !== null) setBackStack((back) => [...back, current])
+      const stack = forwardStackRef.current
+      if (stack.length === 0) return
+      const target = stack[stack.length - 1]
+      const rest = stack.slice(0, -1)
+      const current = currentRef.current
+      currentRef.current = target
+      forwardStackRef.current = rest
+      setForwardStack(rest)
+
+      const commit = (applied: boolean): void => {
+        if (!applied) {
+          forwardRef.current?.()
+          return
         }
-        if (typeof result === 'boolean') commit(result)
-        else void result.then(commit).catch(() => {})
-        return rest
-      })
+        if (current !== null) {
+          const nextBack = [...backStackRef.current, current]
+          backStackRef.current = nextBack
+          setBackStack(nextBack)
+        }
+      }
+      const result = apply(target)
+      if (typeof result === 'boolean') commit(result)
+      else void result.then(commit).catch(() => {})
     }
     if (guardRef.current) guardRef.current(run)
     else run()
