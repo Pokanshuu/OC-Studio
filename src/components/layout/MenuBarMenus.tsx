@@ -67,7 +67,7 @@ export function MenuBarMenus() {
       // 隐藏的常驻编辑器也可能刚被屏障写掉：写过盘就不说「没有改动」。
       const wroteSomething = currentStatus().lastFlushedAt !== beforeWriteAt
       if (wasClean && !hadQueuedWrites && !wroteSomething) {
-        toast('没有需要保存的改动', { description: '笔记与章节是自动保存的' })
+        toast('没有需要保存的改动', { description: '已保存' })
       }
     })()
   }, [saveStatus])
