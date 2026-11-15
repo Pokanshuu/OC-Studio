@@ -16,14 +16,16 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* 标题衬线字体。
-   仓库里**不带字体文件**（体积该由作者决定，见 docs/衬线字体.md）：
-   把子集化后的思源宋体放到 `public/fonts/oc-serif.woff2` 就会自动生效；
-   文件不在时浏览器会跳过这条 @font-face（不报错），字体栈回落到系统的思源宋体 / 宋体。 */
+/* 标题衬线字体（思源宋体 / Noto Serif SC 子集，OFL）。
+   2026-11-15 起**随仓库打包**：`public/fonts/oc-serif.woff2`，1.35 MB。
+   字表是 GB2312 一级汉字 3755 + ASCII + CJK 标点（`scripts/fonts/charset.txt`，见 docs/衬线字体.md）。
+   单文件**可变字重**（wght 200–900）—— 比拆成 600 / 700 两份静态档（2.2 MB）小，
+   而且 400 / 500 也是真字重：正文衬线标题（`.tiptap h1/h2` 的 400、`h3` 的 500）
+   不会被吸到最近的一档去。 */
 @font-face {
   font-family: 'OC Serif';
   src: url('/fonts/oc-serif.woff2') format('woff2');
-  font-weight: 600 700;
+  font-weight: 200 900;
   font-display: swap;
 }
 
