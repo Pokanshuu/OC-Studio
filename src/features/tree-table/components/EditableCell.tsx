@@ -88,7 +88,7 @@ export function EditableCell({
             setEditing(false)
           }
         }}
-        className={`h-7 min-w-0 border-b border-line bg-transparent px-0 text-[13px] text-ink transition-colors focus:border-line-hover focus:outline-none ${
+        className={`h-7 min-w-0 border-b border-line bg-transparent px-0 text-ui text-ink transition-colors focus:border-line-hover focus:outline-none ${
           mono ? 'font-mono' : ''
         } ${className}`}
       />
@@ -104,7 +104,7 @@ export function EditableCell({
         setDraft(value)
         setEditing(true)
       }}
-      className={`-mx-1 flex h-7 min-w-0 items-center gap-1 px-1 text-left text-[13px] transition-colors hover:bg-[var(--oc-hover)] ${ROUND_ITEM} ${
+      className={`-mx-1 flex h-7 min-w-0 items-center gap-1 px-1 text-left text-ui transition-colors hover:bg-[var(--oc-hover)] ${ROUND_ITEM} ${
         mono ? 'font-mono' : ''
       } ${className}`}
     >

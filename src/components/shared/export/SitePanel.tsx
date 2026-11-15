@@ -311,7 +311,7 @@ export function SitePanel() {
       previewClassName="gap-2 p-4"
       preview={
         <>
-          <div className="flex shrink-0 items-center justify-between gap-3 text-[11px] text-ink-faint">
+          <div className="flex shrink-0 items-center justify-between gap-3 text-micro text-ink-faint">
             <span className="flex items-center gap-2">
               预览
               <span className="tabular-nums">
@@ -336,7 +336,7 @@ export function SitePanel() {
           </div>
           <div className={`relative min-h-0 flex-1 overflow-hidden border border-line bg-paper ${ROUND_CONTROL}`}>
             {data === null ? (
-              <div className="flex h-full items-center justify-center text-[12px] text-ink-faint">正在读取笔记库…</div>
+              <div className="flex h-full items-center justify-center text-caption text-ink-faint">正在读取笔记库…</div>
             ) : (
               <SitePreviewFrame html={previewHtml} mode={previewMode} />
             )}
@@ -359,7 +359,7 @@ export function SitePanel() {
                       active ? 'border-ink bg-[var(--oc-hover)]' : 'border-line hover:bg-[var(--oc-hover)]'
                     }`}
                   >
-                    <span className="text-[12px] text-ink">{item.name}</span>
+                    <span className="text-caption text-ink">{item.name}</span>
                     <span className="text-[10px] text-ink-faint">{item.hint}</span>
                   </button>
                 )
@@ -369,7 +369,7 @@ export function SitePanel() {
 
           <ExportSection title="站点">
             <label className="flex flex-col gap-1.5">
-              <span className="text-[12px] text-ink-muted">标题</span>
+              <span className="text-caption text-ink-muted">标题</span>
               <input
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
@@ -411,14 +411,14 @@ export function SitePanel() {
                     type="button"
                     aria-pressed={on}
                     onClick={() => setSections((previous) => ({ ...previous, [option.key]: !previous[option.key] }))}
-                    className={`${ROUND_ITEM} flex h-8 items-center justify-between gap-1 border px-2.5 text-[12px] transition-colors ${
+                    className={`${ROUND_ITEM} flex h-8 items-center justify-between gap-1 border px-2.5 text-caption transition-colors ${
                       on
                         ? 'border-line-hover bg-[var(--oc-hover)] font-medium text-ink'
                         : 'border-line text-ink-faint hover:text-ink'
                     }`}
                   >
                     <span>{option.label}</span>
-                    {count !== undefined ? <span className="tabular-nums text-[11px] text-ink-faint">{count}</span> : null}
+                    {count !== undefined ? <span className="tabular-nums text-micro text-ink-faint">{count}</span> : null}
                   </button>
                 )
               })}
@@ -447,7 +447,7 @@ export function SitePanel() {
                       setInlineImages(preset.config.inlineImages)
                       setTemplate(preset.config.template ?? 'book')
                     }}
-                    className={`${ROUND_ITEM} min-w-0 flex-1 truncate px-1.5 py-1 text-left text-[12px] text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink`}
+                    className={`${ROUND_ITEM} min-w-0 flex-1 truncate px-1.5 py-1 text-left text-caption text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink`}
                   >
                     {preset.name}
                   </button>
@@ -492,7 +492,7 @@ export function SitePanel() {
                 type="button"
                 onClick={() => void savePreset()}
                 disabled={presetName.trim() === ''}
-                className={`${BTN_PRIMARY} h-7 px-2 text-[12px] ${presetName.trim() === '' ? 'opacity-50' : ''}`}
+                className={`${BTN_PRIMARY} h-7 px-2 text-caption ${presetName.trim() === '' ? 'opacity-50' : ''}`}
               >
                 保存
               </button>
@@ -503,11 +503,11 @@ export function SitePanel() {
       footer={
         <>
           {error !== '' ? (
-            <p role="alert" className="min-w-0 flex-1 truncate text-[11px] text-error">
+            <p role="alert" className="min-w-0 flex-1 truncate text-micro text-error">
               {error}
             </p>
           ) : (
-            <span className="min-w-0 flex-1 truncate text-[11px] text-ink-faint">
+            <span className="min-w-0 flex-1 truncate text-micro text-ink-faint">
               {activeTemplate.name} · 单文件 HTML
             </span>
           )}

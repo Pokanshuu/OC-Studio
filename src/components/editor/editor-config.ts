@@ -137,10 +137,10 @@ export function buildEditorConfig({
         HTMLAttributes: { class: 'border-b border-line' },
       }),
       TableCell.configure({
-        HTMLAttributes: { class: 'border border-line px-3 py-2 text-sm text-ink' },
+        HTMLAttributes: { class: 'border border-line px-3 py-2 text-body leading-5 text-ink' },
       }),
       TableHeader.configure({
-        HTMLAttributes: { class: 'border border-line bg-paper-alt px-3 py-2 text-sm font-medium text-ink text-left' },
+        HTMLAttributes: { class: 'border border-line bg-paper-alt px-3 py-2 text-body leading-5 font-medium text-ink text-left' },
       }),
       ImageBlock,
       SmallMark,
@@ -192,7 +192,7 @@ export function buildEditorConfig({
         },
       }).configure({
         HTMLAttributes: {
-          class: 'inline-flex bg-paper-alt border border-line rounded-item px-1.5 text-sm text-ink',
+          class: 'inline-flex bg-paper-alt border border-line rounded-item px-1.5 text-body leading-5 text-ink',
         },
         renderHTML: ({ options, node }) => {
           const cls = options.HTMLAttributes?.class ?? ''
@@ -320,8 +320,8 @@ export function buildEditorConfig({
       },
       attributes: {
         class: plain
-          ? 'tiptap max-w-none pl-0 pr-0 py-0 text-[15px] leading-relaxed focus:outline-none min-h-[2em]'
-          : 'tiptap max-w-none pl-8 pr-4 py-2 text-[15px] leading-relaxed focus:outline-none min-h-[2em]',
+          ? 'tiptap max-w-none pl-0 pr-0 py-0 text-reading leading-relaxed focus:outline-none min-h-[2em]'
+          : 'tiptap max-w-none pl-8 pr-4 py-2 text-reading leading-relaxed focus:outline-none min-h-[2em]',
         ...(isMobile ? { /* virtualkeyboardpolicy removed — system handles keyboard natively */ } : {}),
       },
     },

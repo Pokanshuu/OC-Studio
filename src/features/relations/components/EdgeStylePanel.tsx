@@ -112,7 +112,7 @@ export function EdgeStylePanel({
             }}
             placeholder="关系名"
             aria-label="关系名"
-            className="h-6 w-full border-b border-line bg-transparent text-[12px] text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none"
+            className="h-6 w-full border-b border-line bg-transparent text-caption text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none"
           />
         </div>
       ) : null}

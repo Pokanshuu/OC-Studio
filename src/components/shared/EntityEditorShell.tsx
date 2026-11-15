@@ -85,7 +85,7 @@ export function EntityEditorShell({
                 aria-label="返回"
               >
                 <ArrowLeft size={16} strokeWidth={2} />
-                <span className="text-[13px]">返回</span>
+                <span className="text-ui">返回</span>
               </button>
             ) : null}
             <h2 className="sr-only">{title}</h2>

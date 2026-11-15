@@ -322,15 +322,23 @@ description: >
 | `text-body` | 14px | 正文段落 / 表单主文 |
 | `text-reading` | 15px | 长文阅读（编辑器正文） |
 
-`ui-tokens.ts` 里已全部换成这五档；业务文件里的 `text-[11px]` 这类字面量还有约 500 处，
-`audit:design` 的 `font-size-literal` 目前**只报计数、不计入失败**。
-`text-[10px]` / `text-[12.5px]` 这类不在五档内的，迁移时按语义归到最近一档。
+**只走五档**（2026-11-15 阶段 C 起，`audit:design` 的 `font-size-literal` 是**报错**规则）：
+- 等值迁移口径：`text-[11px]→micro` / `12→caption` / `13→ui` / `14→body` / `15→reading`；
+  `text-xs`（12px / 行高 1rem）→ `text-caption leading-4`，`text-sm`（14px / 1.25rem）→ `text-body leading-5`。
+  **五档令牌只定义字号、不定义行高**，所以从 `text-xs/sm` 换过来必须补 `leading-*`，否则行高会掉回继承值；
+  原来就写了 `leading-*` 的不要重复补。
+- 剩下的像素值只有白名单里的几个（10 / 12.5 / 17 / 18 / 24 / 26 / 28），每条都在
+  `scripts/design-audit.ts` 的 `FONT_SIZE_LITERAL_ALLOW` 里写了理由（纸面排版 / 展示用大字 / 极小角标）。
+- **什么时候能写字面量**：只有「纸面排版 / 导出预览 / 展示用数字大字 / 比 micro 还小的角标」这几种；
+  正文、按钮、菜单、列表、字段、说明文字一律五档。不确定就归到最近的一档，别新起一档。
+- **新加一档的完整步骤**：`@theme` 加 `--text-*` → `src/lib/utils.ts` 的 `extendTailwindMerge`
+  登记这个档名（漏了的话 `cn()` 会把它当颜色类合并掉、字号掉回 16px）→ 白名单 / 本节同步。
 
 ## 5. 数据可视化风格
 - 坐标轴 / 连线 / 刻度：1px `line`；数据线：1.5px `ink-muted`
 - 节点与图例标记**与实体形态一致**：角色 / 国家用圆形头像（唯一允许的圆形），事件块用方形矩形（`bg-paper-card` + 1px `line`）
 - 时间线上的时间点：**方形小色块**（`h-2 w-2`），不用圆点
-- 标签：`text-[11px]` / `text-xs`，颜色 `ink-muted`
+- 标签：`text-micro` / `text-caption`，颜色 `ink-muted`
 - 关系图的连线手柄：节点上 / 右 / 下 / 左**四向**小圆点（`NODE_HANDLE`，12px，移动端 16px），桌面**悬停节点才显形**（`md:group-hover`）、移动端常显，可落点时填墨（React Flow 的 `.valid`）；每条边按目标方位选落点（`routeEdges`），贝塞尔曲率 0.15，连线用 `ink-muted` 1.5px
 
 ## 6. 动画规范

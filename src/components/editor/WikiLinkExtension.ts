@@ -129,7 +129,7 @@ function renderWikiItems(
     btn.appendChild(nameSpan)
 
     const typeSpan = document.createElement('span')
-    typeSpan.className = 'ml-auto shrink-0 text-xs text-ink-faint'
+    typeSpan.className = 'ml-auto shrink-0 text-caption leading-4 text-ink-faint'
     typeSpan.textContent = '词条'
     btn.appendChild(typeSpan)
 
@@ -185,7 +185,7 @@ export function createWikiLinkExtension() {
     },
   }).configure({
     HTMLAttributes: {
-      class: 'inline-flex bg-paper-alt border border-line rounded-item px-1.5 text-sm text-ink cursor-pointer underline decoration-ink-faint decoration-dotted hover:decoration-ink',
+      class: 'inline-flex bg-paper-alt border border-line rounded-item px-1.5 text-body leading-5 text-ink cursor-pointer underline decoration-ink-faint decoration-dotted hover:decoration-ink',
     },
     renderHTML({ options, node }) {
       const cls = options.HTMLAttributes?.class ?? ''

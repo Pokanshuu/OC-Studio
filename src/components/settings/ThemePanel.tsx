@@ -160,7 +160,7 @@ export function ThemePanel() {
                       type="button"
                       aria-pressed={settings.backgroundMode === mode.value}
                       onClick={() => updateSetting('backgroundMode', mode.value)}
-                      className={`rounded-item px-2 py-1 text-[12px] transition-colors ${
+                      className={`rounded-item px-2 py-1 text-caption transition-colors ${
                         settings.backgroundMode === mode.value
                           ? 'bg-ink text-paper'
                           : 'text-ink-muted hover:text-ink'
@@ -171,7 +171,7 @@ export function ThemePanel() {
                   ))}
                 </div>
                 <label className="flex items-center gap-2">
-                  <span className="w-8 shrink-0 text-[11px] text-ink-faint">遮罩</span>
+                  <span className="w-8 shrink-0 text-micro text-ink-faint">遮罩</span>
                   <input
                     type="range"
                     min={BACKGROUND_MIN_SCRIM * 100}
@@ -182,7 +182,7 @@ export function ThemePanel() {
                     className="h-4 min-w-0 flex-1"
                     style={{ accentColor: 'var(--oc-ink-muted)' }}
                   />
-                  <span className="w-8 shrink-0 text-right text-[11px] tabular-nums text-ink-faint">
+                  <span className="w-8 shrink-0 text-right text-micro tabular-nums text-ink-faint">
                     {Math.round(settings.backgroundScrim * 100)}%
                   </span>
                 </label>

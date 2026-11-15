@@ -141,7 +141,7 @@ export function RelatedItemsSelector({
               }
             }}
             placeholder={placeholder}
-            className="h-6 w-full border-b border-line bg-transparent text-[12px] text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none"
+            className="h-6 w-full border-b border-line bg-transparent text-caption text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none"
           />
           {filtered.length > 0 ? (
             <div
@@ -159,14 +159,14 @@ export function RelatedItemsSelector({
                 >
                   <span>{item.name}</span>
                   {item.subtitle ? (
-                    <span className="ml-2 text-[12px] text-ink-faint">{item.subtitle}</span>
+                    <span className="ml-2 text-caption text-ink-faint">{item.subtitle}</span>
                   ) : null}
                 </button>
               ))}
             </div>
           ) : search.trim() ? (
             <div className={`absolute left-0 top-full z-50 mt-1 min-w-[220px] ${MENU}`}>
-              <p className="px-3 py-2 text-[12px] text-ink-faint">未找到匹配项</p>
+              <p className="px-3 py-2 text-caption text-ink-faint">未找到匹配项</p>
             </div>
           ) : null}
         </div>

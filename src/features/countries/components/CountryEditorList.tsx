@@ -39,7 +39,7 @@ export function CountryEditorList({ currentId, onSelect, onCollapse, onCreate }:
     >
       <Avatar src={country.flagUrl} type="flag" shape="square" size="md" className="shrink-0" />
       <span className="flex min-w-0 flex-col gap-0.5">
-        <span className="truncate text-[13px] font-medium text-ink">{country.name}</span>
+        <span className="truncate text-ui font-medium text-ink">{country.name}</span>
       </span>
     </button>
   )
@@ -83,16 +83,16 @@ export function CountryEditorList({ currentId, onSelect, onCollapse, onCreate }:
             onBlur={() => setSearchFocused(false)}
             placeholder="搜索国家…"
             aria-label="搜索国家"
-            className="h-6 w-full bg-transparent text-[13px] text-ink placeholder:text-ink-faint focus:outline-none"
+            className="h-6 w-full bg-transparent text-ui text-ink placeholder:text-ink-faint focus:outline-none"
           />
         </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-3">
-        {loading ? <p className="px-3 py-3 text-[12px] text-ink-faint">加载中…</p> : null}
-        {error ? <p className="px-3 py-3 text-[12px] text-error">{error}</p> : null}
+        {loading ? <p className="px-3 py-3 text-caption text-ink-faint">加载中…</p> : null}
+        {error ? <p className="px-3 py-3 text-caption text-error">{error}</p> : null}
         {!loading && !error && filtered.length === 0 ? (
-          <p className="px-3 py-6 text-center text-[12px] text-ink-faint">没有匹配的国家</p>
+          <p className="px-3 py-6 text-center text-caption text-ink-faint">没有匹配的国家</p>
         ) : null}
         <nav className="flex flex-col gap-1">{filtered.map(renderRow)}</nav>
       </div>

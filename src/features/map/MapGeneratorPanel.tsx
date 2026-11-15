@@ -126,7 +126,7 @@ const PARAM_GROUPS: Array<{ label?: string; fields: ParamField[] }> = [
 ]
 
 /** 分组小标题：比正文小一档、只靠字距与颜色分层 */
-const SECTION_LABEL = 'text-[11px] tracking-[0.08em] text-ink-faint'
+const SECTION_LABEL = 'text-micro tracking-[0.08em] text-ink-faint'
 
 /**
  * 堆叠式滑块：标签与当前值一行，滑杆下一行，必要时再加一句小字。
@@ -156,8 +156,8 @@ function ParamSlider({
   return (
     <label className={`flex flex-col gap-1 ${disabled ? 'opacity-60' : ''}`}>
       <span className="flex items-baseline justify-between gap-2 leading-4">
-        <span className="text-[12px] text-ink">{label}</span>
-        <span className="text-[11px] tabular-nums text-ink-muted">{display}</span>
+        <span className="text-caption text-ink">{label}</span>
+        <span className="text-micro tabular-nums text-ink-muted">{display}</span>
       </span>
       <input
         type="range"
@@ -169,7 +169,7 @@ function ParamSlider({
         onChange={(event) => onChange(Number(event.target.value))}
         className={RANGE_INPUT}
       />
-      {hint ? <span className="text-[11px] leading-4 text-ink-faint">{hint}</span> : null}
+      {hint ? <span className="text-micro leading-4 text-ink-faint">{hint}</span> : null}
     </label>
   )
 }
@@ -622,7 +622,7 @@ export function MapGeneratorPanel({
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1">
           <section className="flex flex-col">
             <div className="mb-2 flex items-baseline justify-between gap-2">
-              <p className="flex min-w-0 items-baseline gap-2"><span className={SECTION_LABEL}>形态</span>{target?.kind === 'existing' ? <span className="truncate text-[11px] text-ink-faint">写入「{target.name}」</span> : null}</p>
+              <p className="flex min-w-0 items-baseline gap-2"><span className={SECTION_LABEL}>形态</span>{target?.kind === 'existing' ? <span className="truncate text-micro text-ink-faint">写入「{target.name}」</span> : null}</p>
             </div>
 
             <div className="grid grid-cols-2 gap-1 rounded-control border border-line bg-paper p-1">
@@ -641,7 +641,7 @@ export function MapGeneratorPanel({
                       }))
                     }
                     aria-pressed={selected}
-                    className={`h-7 text-[12px] transition-colors ${ROUND_ITEM} ${
+                    className={`h-7 text-caption transition-colors ${ROUND_ITEM} ${
                       selected ? 'bg-paper-card text-ink' : 'text-ink-muted hover:text-ink'
                     }`}
                   >
@@ -653,7 +653,7 @@ export function MapGeneratorPanel({
 
             <div className="mt-3 grid grid-cols-2 gap-2">
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] text-ink-faint">宽度</span>
+                <span className="text-micro text-ink-faint">宽度</span>
                 <NumericField
                   value={params.width}
                   min={MAP_MIN_SIZE}
@@ -665,7 +665,7 @@ export function MapGeneratorPanel({
                 />
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] text-ink-faint">高度</span>
+                <span className="text-micro text-ink-faint">高度</span>
                 <NumericField
                   value={params.height}
                   min={MAP_MIN_SIZE}
@@ -698,8 +698,8 @@ export function MapGeneratorPanel({
                         : 'border-line hover:border-line-hover'
                     }`}
                   >
-                    <span className="text-[12px] text-ink">{preset.label}</span>
-                    <span className="text-[11px] leading-4 text-ink-faint">{preset.hint}</span>
+                    <span className="text-caption text-ink">{preset.label}</span>
+                    <span className="text-micro leading-4 text-ink-faint">{preset.hint}</span>
                   </button>
                 )
               })}
@@ -776,7 +776,7 @@ export function MapGeneratorPanel({
           </section>
 
           {/* 一句必要的口径：同样的种子 + 参数一定出同一张图（不占一块卡片） */}
-          <p className="flex items-center gap-1.5 text-[11px] leading-4 text-ink-faint">
+          <p className="flex items-center gap-1.5 text-micro leading-4 text-ink-faint">
             <Lock size={11} strokeWidth={2} />
             同样的种子与参数，生成同一张地图
           </p>
@@ -803,7 +803,7 @@ export function MapGeneratorPanel({
               onClick={() => switchView(item)}
               aria-pressed={view === item}
               disabled={!ready}
-              className={`h-6 px-2 text-[12px] transition-colors disabled:opacity-40 ${ROUND_ITEM} ${
+              className={`h-6 px-2 text-caption transition-colors disabled:opacity-40 ${ROUND_ITEM} ${
                 view === item
                   ? 'bg-[var(--oc-hover)] text-ink'
                   : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
@@ -849,7 +849,7 @@ export function MapGeneratorPanel({
                 className={`pointer-events-auto flex w-[264px] flex-col items-center gap-3 p-5 text-center ${PANEL}`}
               >
                 <Wand2 size={20} strokeWidth={2} className="text-ink-faint" />
-                <p className="text-sm text-ink-muted">还没有生成底图</p>
+                <p className="text-body leading-5 text-ink-muted">还没有生成底图</p>
                 <button
                   type="button"
                   onClick={generate}
@@ -883,7 +883,7 @@ export function MapGeneratorPanel({
               <button
                 type="button"
                 onClick={resetView}
-                className="min-w-[46px] px-1 text-[11px] tabular-nums text-ink-muted transition-colors hover:text-ink"
+                className="min-w-[46px] px-1 text-micro tabular-nums text-ink-muted transition-colors hover:text-ink"
                 title="适应画面"
               >
                 {Math.round(scale * 100)}%
@@ -916,14 +916,14 @@ export function MapGeneratorPanel({
                     style={{ width: `${Math.round(progress.value * 100)}%` }}
                   />
                 </div>
-                <span className="shrink-0 text-[11px] text-ink-faint">{progress.stage}</span>
+                <span className="shrink-0 text-micro text-ink-faint">{progress.stage}</span>
               </div>
             </div>
           ) : null}
         </div>
 
         <div className="mt-2 flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
-          <div className="flex min-w-0 flex-wrap items-baseline gap-x-4 gap-y-1 text-[11px] tabular-nums text-ink-faint">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-4 gap-y-1 text-micro tabular-nums text-ink-faint">
             {meta ? (
               <>
                 <span>
@@ -973,7 +973,7 @@ export function MapGeneratorPanel({
           </div>
         </div>
 
-        {error ? <p className="mt-1 text-xs text-error">{error}</p> : null}
+        {error ? <p className="mt-1 text-caption leading-4 text-error">{error}</p> : null}
       </div>
     </div>
   )

@@ -38,7 +38,7 @@ export function MergeStrategyPicker({
 }) {
   return (
     <div className="flex flex-col gap-2 py-2">
-      <span className="text-[13px] text-ink-muted">{label}</span>
+      <span className="text-ui text-ink-muted">{label}</span>
       {MERGE_OPTIONS.map((opt) => {
         const reason = disabled[opt.value]
         const blocked = reason !== undefined
@@ -59,8 +59,8 @@ export function MergeStrategyPicker({
             className="mt-0.5 h-4 w-4 shrink-0 border-line bg-paper-card text-ink accent-ink"
           />
           <div className="flex flex-col gap-0.5">
-            <span className="text-[13px] text-ink">{opt.label}</span>
-            <span className="text-[11px] text-ink-faint">{blocked ? reason : opt.description}</span>
+            <span className="text-ui text-ink">{opt.label}</span>
+            <span className="text-micro text-ink-faint">{blocked ? reason : opt.description}</span>
           </div>
         </label>
         )

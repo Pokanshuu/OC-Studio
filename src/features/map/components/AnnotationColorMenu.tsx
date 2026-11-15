@@ -55,10 +55,10 @@ function Swatches({
       <button
         type="button"
         onClick={() => onPick(undefined)}
-        className="mb-2 flex w-full items-center justify-between px-3 py-0.5 text-left text-[12px] text-ink-muted transition-colors hover:text-ink"
+        className="mb-2 flex w-full items-center justify-between px-3 py-0.5 text-left text-caption text-ink-muted transition-colors hover:text-ink"
       >
         <span>{clearLabel}</span>
-        {!selected ? <span className="text-[11px] text-ink-faint">当前</span> : null}
+        {!selected ? <span className="text-micro text-ink-faint">当前</span> : null}
       </button>
       <div className="grid grid-cols-6 gap-1.5 px-3">
         {RELATION_COLORS.map((color) => {

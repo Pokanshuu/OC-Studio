@@ -383,7 +383,7 @@ export function MapCanvas({
                 onPointerCancel={endPress}
                 onClick={() => handleClick(point)}
                 onContextMenu={(event) => handleContextMenu(event, point)}
-                className={`select-none whitespace-nowrap rounded-item border bg-paper/90 px-2 py-0.5 text-[11px] text-ink backdrop-blur transition-colors max-md:max-w-[36vw] max-md:truncate ${
+                className={`select-none whitespace-nowrap rounded-item border bg-paper/90 px-2 py-0.5 text-micro text-ink backdrop-blur transition-colors max-md:max-w-[36vw] max-md:truncate ${
                   dragging ? 'border-ink' : 'border-line hover:border-line-hover'
                 } ${locked ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'}`}
                 style={{ transform: `scale(${1 / scale})` }}
@@ -403,11 +403,11 @@ export function MapCanvas({
             className={`pointer-events-auto flex w-[280px] flex-col items-center gap-3 p-5 text-center ${PANEL}`}
           >
             <MapPin size={20} strokeWidth={2} className="text-ink-faint" />
-            <p className="text-sm text-ink-muted">
+            <p className="text-body leading-5 text-ink-muted">
               {empty === 'image-failed' ? '底图读不出来' : '还没有底图'}
             </p>
             {empty === 'image-failed' ? (
-              <p className="break-all text-[11px] leading-4 text-ink-faint">
+              <p className="break-all text-micro leading-4 text-ink-faint">
                 {map.image}
                 <br />
                 文件可能被移走，或没有读取权限

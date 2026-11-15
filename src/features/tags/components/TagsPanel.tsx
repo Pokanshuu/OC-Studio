@@ -149,11 +149,11 @@ export function TagsPanel() {
 
   return (
     <div className="flex flex-col gap-3">
-      {loading ? <p className="py-3 text-[12px] text-ink-faint">加载中…</p> : null}
-      {error ? <p className="py-3 text-[12px] text-error">{error}</p> : null}
+      {loading ? <p className="py-3 text-caption text-ink-faint">加载中…</p> : null}
+      {error ? <p className="py-3 text-caption text-error">{error}</p> : null}
 
       {sortedTags.length === 0 && !loading ? (
-        <p className="py-3 text-[12px] text-ink-faint">还没有标签</p>
+        <p className="py-3 text-caption text-ink-faint">还没有标签</p>
       ) : (
         <div className="flex flex-col rules-end">
           {sortedTags.map((tag) => {
@@ -162,7 +162,7 @@ export function TagsPanel() {
             return (
               <div
                 key={tag.id}
-                className="row-rule flex items-center gap-2 py-2 text-sm text-ink"
+                className="row-rule flex items-center gap-2 py-2 text-body leading-5 text-ink"
               >
                 <button
                   type="button"
@@ -201,7 +201,7 @@ export function TagsPanel() {
                 ) : (
                   <span className="min-w-0 flex-1 truncate">{tag.name}</span>
                 )}
-                <span className="shrink-0 text-[11px] tabular-nums text-ink-faint">
+                <span className="shrink-0 text-micro tabular-nums text-ink-faint">
                   {count} 篇
                 </span>
                 <button
@@ -306,7 +306,7 @@ export function TagsPanel() {
                     </button>
                   ))}
                 {sortedTags.length <= 1 ? (
-                  <p className="px-3 py-2 text-[12px] text-ink-faint">还没有别的标签</p>
+                  <p className="px-3 py-2 text-caption text-ink-faint">还没有别的标签</p>
                 ) : null}
               </div>
             </>

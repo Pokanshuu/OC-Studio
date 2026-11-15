@@ -75,7 +75,7 @@ export function WorldTreePanel({
             value={treeQuery}
             onChange={(e) => onTreeQueryChange(e.target.value)}
             placeholder="搜索词条"
-            className="h-6 w-full bg-transparent text-[13px] text-ink placeholder:text-ink-faint focus:outline-none"
+            className="h-6 w-full bg-transparent text-ui text-ink placeholder:text-ink-faint focus:outline-none"
           />
         </div>
       </div>

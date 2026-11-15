@@ -67,7 +67,7 @@ export function VaultOverlay({
           <div className="min-w-0">
             <h2 className={PAGE_TITLE}>{title}</h2>
             {description !== undefined ? (
-              <p className="mt-1 truncate text-[13px] text-ink-muted">{description}</p>
+              <p className="mt-1 truncate text-ui text-ink-muted">{description}</p>
             ) : null}
           </div>
           <button type="button" onClick={onClose} className={ICON_BTN} aria-label="关闭">

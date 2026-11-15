@@ -54,7 +54,7 @@ export function EventNode({ data, selected }: NodeProps) {
             </span>
           )}
         </div>
-        <span className="graph-node-label block w-full truncate text-center text-xs leading-4 text-ink">{label}</span>
+        <span className="graph-node-label block w-full truncate text-center text-caption leading-4 text-ink">{label}</span>
       </div>
     </>
   )

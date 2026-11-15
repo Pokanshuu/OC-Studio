@@ -159,7 +159,7 @@ export function NovelReader({
           style={{ padding: STAGE_PADDING }}
         >
           {page === undefined ? (
-            <p className="m-auto text-[12px] text-ink-faint">还没有内容</p>
+            <p className="m-auto text-caption text-ink-faint">还没有内容</p>
           ) : (
             <Sheet
               page={page}
@@ -173,7 +173,7 @@ export function NovelReader({
         </div>
       </div>
 
-      <div className="flex h-9 shrink-0 items-center gap-1 border-t border-line px-2 text-[11px] text-ink-faint">
+      <div className="flex h-9 shrink-0 items-center gap-1 border-t border-line px-2 text-micro text-ink-faint">
         <button
           type="button"
           onClick={() => goTo(index - 1)}
@@ -230,7 +230,7 @@ function ZoomChip({
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className={`${ROUND_ITEM} h-6 shrink-0 px-1.5 text-[11px] transition-colors ${
+      className={`${ROUND_ITEM} h-6 shrink-0 px-1.5 text-micro transition-colors ${
         active ? 'bg-[var(--oc-hover)] text-ink' : 'text-ink-muted hover:text-ink'
       }`}
     >

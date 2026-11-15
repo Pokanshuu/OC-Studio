@@ -234,7 +234,7 @@ export function MenuBarSearch() {
           }}
           onKeyDown={handleKeyDown}
           placeholder="搜索标题、正文…"
-          className="h-6 w-40 border-b border-transparent bg-transparent pl-7 pr-3 text-[12px] text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none sm:w-56 lg:w-64 xl:w-96"
+          className="h-6 w-40 border-b border-transparent bg-transparent pl-7 pr-3 text-caption text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none sm:w-56 lg:w-64 xl:w-96"
         />
 
         {isOpen
@@ -306,7 +306,7 @@ export function MenuBarSearch() {
                     ) : null}
                   </div>
                 ) : groups.length === 0 && sectionMatches.length === 0 ? (
-                  <div className="px-3 py-4 text-center text-sm text-ink-faint">
+                  <div className="px-3 py-4 text-center text-body leading-5 text-ink-faint">
                     {searching ? '搜索中…' : '无匹配结果'}
                   </div>
                 ) : (

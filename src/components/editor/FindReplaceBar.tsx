@@ -132,7 +132,7 @@ export function FindReplaceBar({ editor, onClose }: FindReplaceBarProps) {
           aria-label="查找"
           className={`${INPUT_LINE} h-8 min-w-0 flex-1`}
         />
-        <span className="w-12 shrink-0 text-center text-[11px] tabular-nums text-ink-muted">
+        <span className="w-12 shrink-0 text-center text-micro tabular-nums text-ink-muted">
           {matches.length ? `${safeIndex + 1}/${matches.length}` : '0/0'}
         </span>
         <Tip label="上一个" shortcut="Shift+Enter">

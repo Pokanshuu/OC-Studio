@@ -68,7 +68,7 @@ export function CoverTuningPanel() {
   return (
     <div className={`fixed right-3 top-14 z-40 w-[264px] ${PANEL}`}>
       <div className="flex items-center gap-2 border-b border-line px-3 py-2">
-        <span className="flex-1 text-[13px] font-medium text-ink">封面卡参数</span>
+        <span className="flex-1 text-ui font-medium text-ink">封面卡参数</span>
         <button type="button" onClick={() => void copy()} className={ICON_BTN} title="复制参数">
           {copied ? <Check size={14} strokeWidth={2} /> : <Copy size={14} strokeWidth={2} />}
         </button>
@@ -87,7 +87,7 @@ export function CoverTuningPanel() {
 
       <div className="max-h-[68vh] overflow-y-auto px-3 py-2">
         <div className="mb-2 flex items-center gap-1">
-          <span className="w-16 shrink-0 text-[11px] text-ink-muted">比例</span>
+          <span className="w-16 shrink-0 text-micro text-ink-muted">比例</span>
           <div className="flex flex-1 gap-1">
             {COVER_ASPECT_OPTIONS.map((option) => (
               <button
@@ -103,7 +103,7 @@ export function CoverTuningPanel() {
         </div>
 
         <div className="mb-2 flex items-center gap-1">
-          <span className="w-16 shrink-0 text-[11px] text-ink-muted">混色</span>
+          <span className="w-16 shrink-0 text-micro text-ink-muted">混色</span>
           <div className="flex flex-1 gap-1">
             {COVER_TINT_MODE_OPTIONS.map((option) => (
               <button
@@ -123,8 +123,8 @@ export function CoverTuningPanel() {
           return (
             <label key={key} className="mb-1.5 flex flex-col gap-0.5">
               <span className="flex items-baseline justify-between gap-2">
-                <span className="text-[11px] text-ink-muted">{range.label}</span>
-                <span className="text-[11px] tabular-nums text-ink-faint">
+                <span className="text-micro text-ink-muted">{range.label}</span>
+                <span className="text-micro tabular-nums text-ink-faint">
                   {tuning[key]}
                   {range.unit}
                 </span>

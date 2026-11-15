@@ -33,7 +33,7 @@ export function VaultStatus() {
       type="button"
       onClick={showReport}
       title={failed ? (writeStatus.lastError ?? '') : '笔记库概览'}
-      className="flex min-w-0 items-center gap-1.5 text-[11px] text-ink-faint transition-colors hover:text-ink"
+      className="flex min-w-0 items-center gap-1.5 text-micro text-ink-faint transition-colors hover:text-ink"
     >
       <FolderOpen size={12} strokeWidth={2} className="shrink-0" />
       <span className="max-w-[16ch] truncate">{name}</span>

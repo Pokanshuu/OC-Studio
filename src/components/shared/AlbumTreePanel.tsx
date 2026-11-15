@@ -63,12 +63,12 @@ export function AlbumTreePanel({
         <nav className="flex flex-col gap-1">
           <button
             onClick={() => { onSelectKey('all'); if (isMobile) onCloseMobileTree() }}
-            className={`flex w-full items-center rounded-item px-3 py-1.5 text-left text-[13px] transition-colors ${
+            className={`flex w-full items-center rounded-item px-3 py-1.5 text-left text-ui transition-colors ${
               selectedKey === 'all' ? 'bg-[var(--oc-hover)] text-ink' : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
             }`}
           >
             <span className="flex-1">全部</span>
-            {entries.length > 0 ? <span className="text-[11px] text-ink-faint">{entries.length}</span> : null}
+            {entries.length > 0 ? <span className="text-micro text-ink-faint">{entries.length}</span> : null}
           </button>
           {CATEGORY_TREE.map((top) => {
             const topCount = getTopCount(entries, top)
@@ -78,13 +78,13 @@ export function AlbumTreePanel({
               <div key={top.key}>
                 <button
                   onClick={() => { onToggleExpand(top.key); onSelectKey(top.key) }}
-                  className={`flex w-full items-center gap-1 rounded-item px-3 py-1.5 text-left text-[13px] transition-colors ${
+                  className={`flex w-full items-center gap-1 rounded-item px-3 py-1.5 text-left text-ui transition-colors ${
                     isTopSelected ? 'bg-[var(--oc-hover)] text-ink' : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
                   }`}
                 >
                   <ChevronRight size={13} strokeWidth={2} className={`shrink-0 text-ink-muted transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
                   <span className="flex-1">{top.label}</span>
-                  {topCount > 0 ? <span className="text-[11px] text-ink-faint">{topCount}</span> : null}
+                  {topCount > 0 ? <span className="text-micro text-ink-faint">{topCount}</span> : null}
                 </button>
                 <div className={`grid transition-[grid-template-rows] duration-base ease-quiet ${isExpanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
                   <div className="min-h-0 overflow-hidden">
@@ -95,7 +95,7 @@ export function AlbumTreePanel({
                         return (
                           <button key={sub.key}
                             onClick={() => { onSelectKey(sub.key); if (isMobile) onCloseMobileTree() }}
-                            className={`flex w-full items-center rounded-item py-1 pl-6 pr-3 text-left text-[12px] transition-colors ${
+                            className={`flex w-full items-center rounded-item py-1 pl-6 pr-3 text-left text-caption transition-colors ${
                               isSubSelected ? 'bg-[var(--oc-hover)] text-ink' : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
                             }`}
                           >

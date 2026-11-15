@@ -140,12 +140,12 @@ export function CharacterRow({
               <Circle size={8} fill="var(--color-ink-muted)" className="text-ink-muted" />
             </span>
           ) : null}
-          <h3 className="truncate text-sm font-medium text-ink">{character.name}</h3>
+          <h3 className="truncate text-body leading-5 font-medium text-ink">{character.name}</h3>
           {aliasText ? (
-            <span className="shrink-0 text-xs text-ink-muted">({aliasText})</span>
+            <span className="shrink-0 text-caption leading-4 text-ink-muted">({aliasText})</span>
           ) : null}
         </div>
-        <div className="truncate text-xs text-ink-muted">
+        <div className="truncate text-caption leading-4 text-ink-muted">
           {displayNationality ? <span>{displayNationality}</span> : null}
           {displayNationality && character.race ? <span> · </span> : null}
           {character.race ? <span>{character.race}</span> : null}

@@ -51,7 +51,7 @@ interface Figure {
   edges: number
 }
 
-const TEXT_BTN = `h-6 shrink-0 px-1.5 text-[11px] text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink ${ROUND_ITEM}`
+const TEXT_BTN = `h-6 shrink-0 px-1.5 text-micro text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink ${ROUND_ITEM}`
 
 type TypeFilter = 'all' | RelationNodeType
 
@@ -286,7 +286,7 @@ export function GraphPanel() {
       previewClassName="p-4"
       preview={
         <>
-          <div className="mb-2 flex shrink-0 items-center justify-between gap-2 text-[11px] text-ink-faint">
+          <div className="mb-2 flex shrink-0 items-center justify-between gap-2 text-micro text-ink-faint">
             <span className="truncate">
               {figure === null
                 ? status === 'error'
@@ -300,7 +300,7 @@ export function GraphPanel() {
             className={`relative flex min-h-0 flex-1 items-center justify-center overflow-auto border border-line bg-paper-alt p-2 ${ROUND_ITEM}`}
           >
             {figure === null ? (
-              <span className="text-[12px] text-ink-faint">{status === 'error' ? error : pendingLabel}</span>
+              <span className="text-caption text-ink-faint">{status === 'error' ? error : pendingLabel}</span>
             ) : (
               // eslint-disable-next-line @next/next/no-img-element -- 预览的是刚生成好的位图，不走 next/image
               <img src={figure.url} alt="关系图预览" className="max-h-full max-w-full object-contain" />
@@ -317,7 +317,7 @@ export function GraphPanel() {
               options={GRAPH_STYLE_OPTIONS}
               onChange={(value: GraphStylePresetId) => applyPreset(value)}
             />
-            <p className="text-[11px] text-ink-faint">{presetHint}</p>
+            <p className="text-micro text-ink-faint">{presetHint}</p>
             <ExportRow label="纸面">
               <Segmented
                 value={style.paper}
@@ -387,7 +387,7 @@ export function GraphPanel() {
 
           <ExportSection title="图">
             <label className="flex flex-col gap-1.5">
-              <span className="text-[12px] text-ink-muted">标题</span>
+              <span className="text-caption text-ink-muted">标题</span>
               <input
                 value={title}
                 onChange={(event) => setTitleOverride(event.target.value)}
@@ -407,7 +407,7 @@ export function GraphPanel() {
 
           <ExportSection title="范围">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] text-ink-faint">{scopeLabel}</span>
+              <span className="text-micro text-ink-faint">{scopeLabel}</span>
               <div className="flex items-center gap-0.5">
                 <button type="button" onClick={selectVisible} className={TEXT_BTN}>
                   全选
@@ -433,7 +433,7 @@ export function GraphPanel() {
                     type="button"
                     aria-pressed={active}
                     onClick={() => setTypeFilter(option.value)}
-                    className={`${ROUND_ITEM} h-6 px-1.5 text-[11px] tabular-nums transition-colors ${
+                    className={`${ROUND_ITEM} h-6 px-1.5 text-micro tabular-nums transition-colors ${
                       active
                         ? 'bg-ink font-medium text-paper'
                         : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
@@ -447,7 +447,7 @@ export function GraphPanel() {
             </div>
             <div className="flex max-h-56 flex-col overflow-y-auto">
               {candidates.length === 0 ? (
-                <p className="px-1.5 py-2 text-[11px] text-ink-faint">
+                <p className="px-1.5 py-2 text-micro text-ink-faint">
                   {status === 'loading' ? '正在读取…' : '没有匹配的实体'}
                 </p>
               ) : (
@@ -471,7 +471,7 @@ export function GraphPanel() {
                       >
                         <Check size={10} strokeWidth={2} />
                       </span>
-                      <span className="min-w-0 flex-1 truncate text-[12px]">{String(node.data?.label ?? '')}</span>
+                      <span className="min-w-0 flex-1 truncate text-caption">{String(node.data?.label ?? '')}</span>
                       <span className="shrink-0 text-[10px] text-ink-faint">{NODE_TYPE_LABELS[nodeTypeOf(node)]}</span>
                     </button>
                   )
@@ -490,7 +490,7 @@ export function GraphPanel() {
       }
       footer={
         <>
-          <span className="min-w-0 flex-1 truncate text-[11px] text-ink-faint">PNG · {sizeLabel}</span>
+          <span className="min-w-0 flex-1 truncate text-micro text-ink-faint">PNG · {sizeLabel}</span>
           <button
             type="button"
             onClick={() => void exportPng()}

@@ -104,7 +104,7 @@ function ImageBlockView({ node, updateAttributes, deleteNode }: ReactNodeViewPro
           onClick={handleUpload}
         >
           <ImageIcon size={24} strokeWidth={1.5} className="text-ink-faint" />
-          <span className="text-sm text-ink-faint">点击上传图片</span>
+          <span className="text-body leading-5 text-ink-faint">点击上传图片</span>
         </div>
       </NodeViewWrapper>
     )

@@ -65,13 +65,13 @@ export function ParticipantTracks({
             <button
               type="button"
               onClick={onToggleMore}
-              className="sticky left-2 z-10 inline-flex max-w-[140px] items-center gap-1 bg-paper/85 px-1 text-[11px] leading-[22px] text-ink-muted backdrop-blur transition-colors hover:text-ink"
+              className="sticky left-2 z-10 inline-flex max-w-[140px] items-center gap-1 bg-paper/85 px-1 text-micro leading-[22px] text-ink-muted backdrop-blur transition-colors hover:text-ink"
             >
               <span className="truncate">{row.label}</span>
               {row.expanded ? <ChevronUp size={11} strokeWidth={2} /> : <ChevronDown size={11} strokeWidth={2} />}
             </button>
           ) : (
-            <span className="sticky left-2 z-10 inline-block max-w-[88px] truncate bg-paper/85 px-1 text-[11px] leading-[22px] text-ink-faint backdrop-blur">
+            <span className="sticky left-2 z-10 inline-block max-w-[88px] truncate bg-paper/85 px-1 text-micro leading-[22px] text-ink-faint backdrop-blur">
               {row.label}
             </span>
           )}

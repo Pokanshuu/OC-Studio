@@ -53,7 +53,7 @@ export function DocumentEditor({
   if (loading) {
     return showLoading ? (
       <div className="flex py-8 items-center justify-center">
-        <span className="text-[13px] text-ink-faint">加载中…</span>
+        <span className="text-ui text-ink-faint">加载中…</span>
       </div>
     ) : null
   }
@@ -61,7 +61,7 @@ export function DocumentEditor({
   if (error) {
     return (
       <div className="flex py-8 items-center justify-center">
-        <span className="text-sm text-error">{error}</span>
+        <span className="text-body leading-5 text-error">{error}</span>
       </div>
     )
   }

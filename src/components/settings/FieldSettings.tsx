@@ -72,13 +72,13 @@ function FieldGroup({ kind, showTitle = true }: { kind: FieldKind; showTitle?: b
     <section className="flex flex-col gap-2 border-b border-line pb-4 last:border-b-0 last:pb-0">
       {showTitle ? (
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-medium text-ink">{FIELD_KIND_LABELS[kind]}</h3>
+          <h3 className="text-body leading-5 font-medium text-ink">{FIELD_KIND_LABELS[kind]}</h3>
           {missing.length > 0 ? (
             <button
               type="button"
               onClick={() => commit([...fields, ...missing])}
               title={missing.map((field) => field.label).join('、')}
-              className="flex items-center gap-1 text-[11px] text-ink-muted transition-colors hover:text-ink"
+              className="flex items-center gap-1 text-micro text-ink-muted transition-colors hover:text-ink"
             >
               <RotateCcw size={12} strokeWidth={2} />
               <span>加回 {missing.length} 项</span>
@@ -90,7 +90,7 @@ function FieldGroup({ kind, showTitle = true }: { kind: FieldKind; showTitle?: b
           type="button"
           onClick={() => commit([...fields, ...missing])}
           title={missing.map((field) => field.label).join('、')}
-          className="flex items-center gap-1 self-start text-[11px] text-ink-muted transition-colors hover:text-ink"
+          className="flex items-center gap-1 self-start text-micro text-ink-muted transition-colors hover:text-ink"
         >
           <RotateCcw size={12} strokeWidth={2} />
           <span>加回 {missing.length} 项</span>
@@ -106,7 +106,7 @@ function FieldGroup({ kind, showTitle = true }: { kind: FieldKind; showTitle?: b
               ...orphanKeys.map((key) => ({ id: newCustomFieldId(), label: key, type: 'text' as const, key })),
             ])
           }
-          className="flex items-center gap-1 self-start text-[11px] text-ink-muted transition-colors hover:text-ink"
+          className="flex items-center gap-1 self-start text-micro text-ink-muted transition-colors hover:text-ink"
         >
           <Plus size={12} strokeWidth={2} />
           <span>找回 {orphanKeys.length} 个有数据的字段</span>
@@ -141,20 +141,20 @@ function FieldGroup({ kind, showTitle = true }: { kind: FieldKind; showTitle?: b
               onChange={(e) => setDraftName(e.target.value)}
               onKeyDown={(e) => { if (isImeComposing(e)) return; if (e.key === 'Enter') addCustom() }}
               placeholder="新字段名"
-              className="h-7 min-w-0 flex-1 border-b border-line bg-transparent text-[12px] text-ink placeholder:text-ink-faint focus:border-line-hover focus:outline-none"
+              className="h-7 min-w-0 flex-1 border-b border-line bg-transparent text-caption text-ink placeholder:text-ink-faint focus:border-line-hover focus:outline-none"
             />
             <button
               type="button"
               onClick={addCustom}
               disabled={draftName.trim() === ''}
-              className={`flex h-7 shrink-0 items-center gap-1 px-2 text-[12px] text-ink-muted transition-colors hover:text-ink disabled:opacity-40 ${ROUND_ITEM}`}
+              className={`flex h-7 shrink-0 items-center gap-1 px-2 text-caption text-ink-muted transition-colors hover:text-ink disabled:opacity-40 ${ROUND_ITEM}`}
             >
               <Plus size={13} strokeWidth={2} />
               <span>添加</span>
             </button>
           </>
         ) : (
-          <span className="text-[11px] text-ink-faint">这一类暂时只能增删内置字段</span>
+          <span className="text-micro text-ink-faint">这一类暂时只能增删内置字段</span>
         )}
       </div>
     </section>
@@ -182,14 +182,14 @@ export function FieldKindSettings({ kind }: { kind: FieldKind }) {
         <button
           type="button"
           onClick={() => setConfirmReset(true)}
-          className="self-start text-[11px] text-ink-faint transition-colors hover:text-ink"
+          className="self-start text-micro text-ink-faint transition-colors hover:text-ink"
         >
           恢复默认字段
         </button>
       ) : null}
 
       {confirmReset ? (
-        <div className={`flex items-center gap-2 border border-line px-2 py-1.5 text-[12px] text-ink-muted ${ROUND_ITEM}`}>
+        <div className={`flex items-center gap-2 border border-line px-2 py-1.5 text-caption text-ink-muted ${ROUND_ITEM}`}>
           <span>恢复默认字段？自建字段会保留。</span>
           <button
             type="button"

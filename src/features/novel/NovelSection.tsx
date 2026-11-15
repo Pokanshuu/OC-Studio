@@ -440,8 +440,8 @@ function NovelRow({
       className="group relative row-rule flex w-full items-center gap-3 rounded-item py-2.5 pl-4 pr-4 text-left transition-colors hover:bg-[var(--oc-hover)] active:bg-[var(--oc-hover)] md:pr-10"
       {...longPress}
     >
-      <span className="min-w-0 flex-1 truncate text-sm text-ink">{book.title}</span>
-      <span className="shrink-0 text-[11px] text-ink-faint">
+      <span className="min-w-0 flex-1 truncate text-body leading-5 text-ink">{book.title}</span>
+      <span className="shrink-0 text-micro text-ink-faint">
         {book.chapters} 章 · {book.words} 字
       </span>
       {!isMobile ? (

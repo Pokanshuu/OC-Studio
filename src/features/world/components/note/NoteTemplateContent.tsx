@@ -147,7 +147,7 @@ export function NoteTemplateContent({
                           <button
                             key={item.id}
                             onClick={() => onNavigateNote(item.id)}
-                            className="text-[13px] text-ink-muted underline-offset-2 transition-colors hover:text-ink hover:underline"
+                            className="text-ui text-ink-muted underline-offset-2 transition-colors hover:text-ink hover:underline"
                           >
                             {item.title}
                           </button>

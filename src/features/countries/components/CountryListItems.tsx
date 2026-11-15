@@ -73,9 +73,9 @@ export function CountryRow({
       ) : null}
       <Avatar src={getImageUrl(country.flagUrl, 'flag')} size="md" type="flag" />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <h3 className="truncate text-sm font-medium text-ink">{country.name}</h3>
+        <h3 className="truncate text-body leading-5 font-medium text-ink">{country.name}</h3>
         {preview ? (
-          <span className="text-xs text-ink-muted truncate">{preview}</span>
+          <span className="text-caption leading-4 text-ink-muted truncate">{preview}</span>
         ) : null}
       </div>
       {!isMobile ? (

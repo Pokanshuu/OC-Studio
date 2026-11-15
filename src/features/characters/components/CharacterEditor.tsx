@@ -49,7 +49,7 @@ export function CharacterEditor({ editCharacterId, onBack, onCreate, onNavigateT
   if (loading) {
     return showLoading ? (
       <div className="flex h-full items-center justify-center">
-        <span className="text-[13px] text-ink-faint">加载中…</span>
+        <span className="text-ui text-ink-faint">加载中…</span>
       </div>
     ) : null
   }
@@ -57,7 +57,7 @@ export function CharacterEditor({ editCharacterId, onBack, onCreate, onNavigateT
   if (error) {
     return (
       <div className={CENTER_STATE}>
-        <span className="text-sm text-error">{error}</span>
+        <span className="text-body leading-5 text-error">{error}</span>
         <button onClick={onBack} className={BTN_QUIET}>返回</button>
       </div>
     )
@@ -66,7 +66,7 @@ export function CharacterEditor({ editCharacterId, onBack, onCreate, onNavigateT
   if (!character) {
     return (
       <div className={CENTER_STATE}>
-        <span className="text-sm text-ink-muted">角色不存在</span>
+        <span className="text-body leading-5 text-ink-muted">角色不存在</span>
         <button onClick={onBack} className={BTN_QUIET}>返回</button>
       </div>
     )

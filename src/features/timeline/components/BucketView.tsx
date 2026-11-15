@@ -27,14 +27,14 @@ export function BucketView({
             width: Math.max(bucket.width - 8, 120),
           }}
         >
-          <div className="mb-1.5 text-xs text-ink-muted font-mono border-b border-line pb-1">
+          <div className="mb-1.5 text-caption leading-4 text-ink-muted font-mono border-b border-line pb-1">
             {bucket.label}
           </div>
           {bucket.events.map((event) => (
             <button
               key={event.id}
               onClick={() => onSelectEvent(event.id)}
-              className="flex h-6 w-full items-center gap-1 truncate px-1 text-xs text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink active:bg-[var(--oc-hover)]"
+              className="flex h-6 w-full items-center gap-1 truncate px-1 text-caption leading-4 text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink active:bg-[var(--oc-hover)]"
               title={event.summary || event.title}
             >
               {event.isMajor ? (

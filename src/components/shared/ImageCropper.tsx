@@ -102,7 +102,7 @@ export function ImageCropper({
         {loading ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60">
             <Loader2 size={28} strokeWidth={2} className="animate-spin text-white/80 mb-2" />
-            <span className="text-sm text-white/70">图片转换中…</span>
+            <span className="text-body leading-5 text-white/70">图片转换中…</span>
           </div>
         ) : null}
       </div>
@@ -113,21 +113,21 @@ export function ImageCropper({
           <button
             type="button"
             onClick={() => setRotation((r) => r - 90)}
-            className="touch-feedback flex h-8 items-center gap-1.5 px-3 text-[13px] text-ink-muted transition-colors hover:text-ink"
+            className="touch-feedback flex h-8 items-center gap-1.5 px-3 text-ui text-ink-muted transition-colors hover:text-ink"
           >
             <RotateCcw size={16} strokeWidth={2} />
           </button>
           <button
             type="button"
             onClick={() => setRotation((r) => r + 90)}
-            className="touch-feedback flex h-8 items-center gap-1.5 px-3 text-[13px] text-ink-muted transition-colors hover:text-ink"
+            className="touch-feedback flex h-8 items-center gap-1.5 px-3 text-ui text-ink-muted transition-colors hover:text-ink"
           >
             <RotateCw size={16} strokeWidth={2} />
           </button>
           <button
             type="button"
             onClick={handleReset}
-            className="touch-feedback flex h-8 items-center gap-1.5 px-3 text-[13px] text-ink-muted transition-colors hover:text-ink"
+            className="touch-feedback flex h-8 items-center gap-1.5 px-3 text-ui text-ink-muted transition-colors hover:text-ink"
           >
             重置
           </button>
@@ -170,7 +170,7 @@ export function ImageCropper({
           <button
             type="button"
             onClick={onClose}
-            className="touch-feedback flex h-8 items-center gap-1.5 px-3 text-[13px] text-ink-muted transition-colors hover:text-ink"
+            className="touch-feedback flex h-8 items-center gap-1.5 px-3 text-ui text-ink-muted transition-colors hover:text-ink"
           >
             取消
           </button>
@@ -225,21 +225,21 @@ export function ImageCropper({
             <button
               type="button"
               onClick={() => setRotation((r) => r - 90)}
-              className="touch-feedback flex h-8 items-center gap-1.5 px-3 text-[13px] text-ink-muted transition-colors hover:text-ink"
+              className="touch-feedback flex h-8 items-center gap-1.5 px-3 text-ui text-ink-muted transition-colors hover:text-ink"
             >
               <RotateCcw size={16} strokeWidth={2} />
             </button>
             <button
               type="button"
               onClick={() => setRotation((r) => r + 90)}
-              className="touch-feedback flex h-8 items-center gap-1.5 px-3 text-[13px] text-ink-muted transition-colors hover:text-ink"
+              className="touch-feedback flex h-8 items-center gap-1.5 px-3 text-ui text-ink-muted transition-colors hover:text-ink"
             >
               <RotateCw size={16} strokeWidth={2} />
             </button>
             <button
               type="button"
               onClick={handleReset}
-              className="touch-feedback flex h-8 items-center gap-1.5 px-3 text-[13px] text-ink-muted transition-colors hover:text-ink"
+              className="touch-feedback flex h-8 items-center gap-1.5 px-3 text-ui text-ink-muted transition-colors hover:text-ink"
             >
               重置
             </button>
@@ -248,7 +248,7 @@ export function ImageCropper({
             <button
               type="button"
               onClick={onClose}
-              className="touch-feedback flex h-8 items-center gap-1.5 px-3 text-[13px] text-ink-muted transition-colors hover:text-ink"
+              className="touch-feedback flex h-8 items-center gap-1.5 px-3 text-ui text-ink-muted transition-colors hover:text-ink"
             >
               取消
             </button>

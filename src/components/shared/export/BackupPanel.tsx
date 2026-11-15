@@ -149,17 +149,17 @@ export function BackupPanel() {
       previewClassName="items-center justify-center p-8"
       preview={
         <div className={`w-full max-w-[420px] border border-line bg-paper p-8 ${ROUND_ITEM}`}>
-          <div className="text-[11px] tracking-[0.18em] text-ink-faint">OC STUDIO · BACKUP</div>
+          <div className="text-micro tracking-[0.18em] text-ink-faint">OC STUDIO · BACKUP</div>
           <h2 className="mt-3 font-serif text-[28px] font-bold leading-tight text-ink">{inventory.world}</h2>
           <div className="mt-6 grid grid-cols-3 gap-y-4">
             {rows.map((row) => (
               <div key={row.label} className="flex flex-col gap-1">
                 <span className="font-serif text-[24px] tabular-nums leading-none text-ink">{row.value}</span>
-                <span className="text-[11px] text-ink-faint">{row.label}</span>
+                <span className="text-micro text-ink-faint">{row.label}</span>
               </div>
             ))}
           </div>
-          <div className="mt-8 border-t border-line pt-4 text-[11px] leading-relaxed text-ink-faint">
+          <div className="mt-8 border-t border-line pt-4 text-micro leading-relaxed text-ink-faint">
             图片与封面一并内联；灵感正文、分类空文件夹，以及分类 / 字段表 / 模板 / 信息组 / 正文组 /
             文件夹清单与创作时间线都一起打包。助手会话与密钥、回收站、应用背景图和导出预设不在这个文件里。
             导入时设置只在目标还是空的时才恢复；灵感按条合并，同一条被两边改过时保留两份。
@@ -169,7 +169,7 @@ export function BackupPanel() {
       config={
         <>
           <ExportSection title="备份">
-            <p className="text-[12px] leading-relaxed text-ink-muted">
+            <p className="text-caption leading-relaxed text-ink-muted">
               一个 .ocbak 文件包含全部实体、图片与关系，换设备后可以还原。
               <span className="text-ink-faint">
                 {' '}
@@ -178,7 +178,7 @@ export function BackupPanel() {
             </p>
             <div className="flex flex-col gap-1 border-t border-line pt-3">
               {rows.map((row) => (
-                <div key={row.label} className="flex items-center justify-between text-[12px]">
+                <div key={row.label} className="flex items-center justify-between text-caption">
                   <span className="text-ink-muted">{row.label}</span>
                   <span className="tabular-nums text-ink">{row.value}</span>
                 </div>
@@ -187,7 +187,7 @@ export function BackupPanel() {
           </ExportSection>
 
           <ExportSection title="包含">
-            <p className="text-[11px] leading-relaxed text-ink-faint">
+            <p className="text-micro leading-relaxed text-ink-faint">
               {included.map((store) => store.label).join(' · ')}
             </p>
           </ExportSection>
@@ -196,42 +196,42 @@ export function BackupPanel() {
             <div className="flex flex-col gap-2 border-t border-line pt-3">
               {excluded.map((store) => (
                 <div key={store.id} className="flex flex-col gap-0.5">
-                  <span className="text-[12px] text-ink-muted">{store.label}</span>
-                  <span className="text-[11px] leading-relaxed text-ink-faint">{store.reason}</span>
+                  <span className="text-caption text-ink-muted">{store.label}</span>
+                  <span className="text-micro leading-relaxed text-ink-faint">{store.reason}</span>
                 </div>
               ))}
             </div>
           </ExportSection>
 
           <ExportSection title="最近">
-            <span className="truncate text-[11px] text-ink-faint">
+            <span className="truncate text-micro text-ink-faint">
               {saved === '' ? '还没有导出过' : saved}
             </span>
             {lastError !== '' && (
-              <p className="border-t border-line pt-3 text-[11px] leading-relaxed text-ink-muted">
+              <p className="border-t border-line pt-3 text-micro leading-relaxed text-ink-muted">
                 上次导出中止：{lastError}
               </p>
             )}
             {issues !== null && !issues.complete && (
               <div className="border-t border-line pt-3">
-                <span className="text-[12px] text-ink">清单：本次备份不完整</span>
-                <p className="mt-1 text-[11px] leading-relaxed text-ink-faint">
+                <span className="text-caption text-ink">清单：本次备份不完整</span>
+                <p className="mt-1 text-micro leading-relaxed text-ink-faint">
                   文件里的 manifest 已标注缺了哪些段；换机器恢复时这些段不会被还原。
                 </p>
               </div>
             )}
             {issues !== null && issues.missingImages.length > 0 && (
               <div className="flex flex-col gap-1 border-t border-line pt-3">
-                <span className="text-[12px] text-ink">
+                <span className="text-caption text-ink">
                   缺图 {issues.missingImages.length} 张（备份里只有路径）
                 </span>
                 {issues.missingImages.slice(0, ISSUE_PREVIEW).map((url) => (
-                  <span key={url} className="truncate text-[11px] text-ink-faint" title={url}>
+                  <span key={url} className="truncate text-micro text-ink-faint" title={url}>
                     {url}
                   </span>
                 ))}
                 {issues.missingImages.length > ISSUE_PREVIEW && (
-                  <span className="text-[11px] text-ink-faint">
+                  <span className="text-micro text-ink-faint">
                     …另有 {issues.missingImages.length - ISSUE_PREVIEW} 张，导入后需重新指图
                   </span>
                 )}
@@ -239,19 +239,19 @@ export function BackupPanel() {
             )}
             {issues !== null && issues.skippedImages.length > 0 && (
               <div className="flex flex-col gap-1 border-t border-line pt-3">
-                <span className="text-[12px] text-ink">
+                <span className="text-caption text-ink">
                   跳过 {issues.skippedImages.length} 个会话内素材
                 </span>
-                <span className="text-[11px] leading-relaxed text-ink-faint">
+                <span className="text-micro leading-relaxed text-ink-faint">
                   blob: 地址刷新即失效，写进备份也打不开；需要的话先保存到库里再导出。
                 </span>
               </div>
             )}
             {issues !== null && issues.configWarnings.length > 0 && (
               <div className="flex flex-col gap-1 border-t border-line pt-3">
-                <span className="text-[12px] text-ink">部分设置没读出来</span>
+                <span className="text-caption text-ink">部分设置没读出来</span>
                 {issues.configWarnings.map((warning) => (
-                  <span key={warning} className="text-[11px] leading-relaxed text-ink-faint">
+                  <span key={warning} className="text-micro leading-relaxed text-ink-faint">
                     {warning}
                   </span>
                 ))}
@@ -262,7 +262,7 @@ export function BackupPanel() {
       }
       footer={
         <>
-          <span className="min-w-0 flex-1 truncate text-[11px] text-ink-faint">.ocbak · 含图片与灵感</span>
+          <span className="min-w-0 flex-1 truncate text-micro text-ink-faint">.ocbak · 含图片与灵感</span>
           <button
             type="button"
             onClick={() => void handleExport()}

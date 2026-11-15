@@ -127,7 +127,7 @@ export function WorldTab({
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm text-ink">世界名称</label>
+        <label className="text-body leading-5 text-ink">世界名称</label>
         <input
           ref={worldNameRef}
           type="text"
@@ -138,12 +138,12 @@ export function WorldTab({
             void saveMeta({ worldName: e.target.value })
           }}
           placeholder="例：雾海纪元"
-          className="h-8 w-full border-b border-line bg-transparent text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
+          className="h-8 w-full border-b border-line bg-transparent text-body leading-5 text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
         />
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm text-ink">简介</label>
+        <label className="text-body leading-5 text-ink">简介</label>
         <input
           ref={taglineRef}
           type="text"
@@ -154,12 +154,12 @@ export function WorldTab({
             void saveMeta({ tagline: e.target.value })
           }}
           placeholder="例：被潮汐统治的群岛世界"
-          className="h-8 w-full border-b border-line bg-transparent text-sm text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
+          className="h-8 w-full border-b border-line bg-transparent text-body leading-5 text-ink placeholder:text-ink-faint outline-none transition-colors focus:border-line-hover"
         />
       </div>
 
       <div className="flex flex-col items-center gap-1.5">
-        <span className="self-start text-sm text-ink">封面</span>
+        <span className="self-start text-body leading-5 text-ink">封面</span>
         <ImageUploader
           value={coverUrl}
           onChange={(path) => {

@@ -152,7 +152,7 @@ export function MapToolView() {
 
           {progress ? (
             <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between gap-3 text-[12px] text-ink-faint">
+              <div className="flex items-center justify-between gap-3 text-caption text-ink-faint">
                 <span className="min-w-0 truncate">{progress.stage || '写入底图'}</span>
                 <span className="shrink-0 tabular-nums">{Math.round(progress.value * 100)}%</span>
               </div>

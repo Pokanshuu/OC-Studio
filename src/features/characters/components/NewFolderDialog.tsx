@@ -77,7 +77,7 @@ function NewFolderDialogBody({ existing, onClose, onCreate }: Omit<NewFolderDial
             }}
             className={INPUT_LINE}
           />
-          {error ? <p className="mt-3 text-[12px] text-error">{error}</p> : null}
+          {error ? <p className="mt-3 text-caption text-error">{error}</p> : null}
           <div className="mt-5 flex items-center justify-end gap-3">
             <button type="button" onClick={onClose} className={BTN_QUIET}>
               取消

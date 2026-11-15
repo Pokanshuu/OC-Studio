@@ -66,7 +66,7 @@ function UnknownList({ items }: { items: UnknownItem[] }) {
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
-        className="-mx-2 flex w-full items-center gap-2 rounded-item px-2 py-2.5 text-left text-[13px] text-ink transition-colors hover:bg-[var(--oc-hover)]"
+        className="-mx-2 flex w-full items-center gap-2 rounded-item px-2 py-2.5 text-left text-ui text-ink transition-colors hover:bg-[var(--oc-hover)]"
       >
         <Icon size={14} strokeWidth={2} className="shrink-0 text-ink-faint" />
         <span className="min-w-0 flex-1 truncate">未知 {items.length} 项</span>
@@ -78,12 +78,12 @@ function UnknownList({ items }: { items: UnknownItem[] }) {
               key={`${item.label}-${index}`}
               className="flex items-baseline gap-3 border-b border-line/60 py-[3px] last:border-b-0"
             >
-              <span className="min-w-0 flex-1 truncate text-[12px] text-ink-muted">{item.label}</span>
-              <span className="shrink-0 text-[11px] text-ink-faint">{item.note}</span>
+              <span className="min-w-0 flex-1 truncate text-caption text-ink-muted">{item.label}</span>
+              <span className="shrink-0 text-micro text-ink-faint">{item.note}</span>
             </div>
           ))}
           {items.length > LIST_LIMIT ? (
-            <span className="pt-1 text-[11px] text-ink-faint">
+            <span className="pt-1 text-micro text-ink-faint">
               … 另有 {items.length - LIST_LIMIT} 项
             </span>
           ) : null}
@@ -102,18 +102,18 @@ function OverviewBody({ report, truncated }: { report: VaultScanReport; truncate
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-[13px] text-ink">
+      <p className="text-ui text-ink">
         {report.noteCount} 篇笔记{composition === '' ? null : ` → ${composition}`}
       </p>
 
       {truncated ? (
-        <p className="text-[12px] text-warning">文件太多，只扫了一部分。</p>
+        <p className="text-caption text-warning">文件太多，只扫了一部分。</p>
       ) : null}
 
       {unknown.length > 0 ? (
         <UnknownList items={unknown} />
       ) : (
-        <p className="text-[12px] text-ink-faint">没有发现问题。</p>
+        <p className="text-caption text-ink-faint">没有发现问题。</p>
       )}
     </div>
   )

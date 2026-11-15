@@ -113,7 +113,7 @@ export function BodyPresetPanel({ onBack, initialId }: { onBack: () => void; ini
                 setNameDraft(active.name)
               }}
               title="重命名"
-              className="text-sm font-medium text-ink transition-colors hover:text-ink-muted"
+              className="text-body leading-5 font-medium text-ink transition-colors hover:text-ink-muted"
             >
               {active.name}
             </button>
@@ -149,7 +149,7 @@ export function BodyPresetPanel({ onBack, initialId }: { onBack: () => void; ini
         <button type="button" onClick={onBack} aria-label="返回" className={ICON_BTN}>
           <ArrowLeft size={16} strokeWidth={2} />
         </button>
-        <span className="text-sm text-ink">正文</span>
+        <span className="text-body leading-5 text-ink">正文</span>
       </div>
 
       {groups.length === 0 ? <p className={SETTINGS_EMPTY}>还没有正文组件</p> : null}
@@ -159,10 +159,10 @@ export function BodyPresetPanel({ onBack, initialId }: { onBack: () => void; ini
           key={group.id}
           type="button"
           onClick={() => setActiveId(group.id)}
-          className="flex items-center justify-between border-b border-line py-2.5 text-left text-sm text-ink transition-colors last:border-b-0 hover:bg-[var(--oc-hover)]"
+          className="flex items-center justify-between border-b border-line py-2.5 text-left text-body leading-5 text-ink transition-colors last:border-b-0 hover:bg-[var(--oc-hover)]"
         >
           <span>{group.name}</span>
-          <span className="shrink-0 text-[11px] tabular-nums text-ink-faint">
+          <span className="shrink-0 text-micro tabular-nums text-ink-faint">
             {bodyGroupHasPreset(group) ? `${wordCount(group.markdown)} 字` : '空'}
           </span>
         </button>

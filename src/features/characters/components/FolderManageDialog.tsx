@@ -112,7 +112,7 @@ function FolderDialogBody({
               }}
               className={INPUT_LINE}
             />
-            {error ? <p className="mt-3 text-[12px] text-error">{error}</p> : null}
+            {error ? <p className="mt-3 text-caption text-error">{error}</p> : null}
             <div className="mt-5 flex items-center justify-end gap-3">
               <button type="button" onClick={onClose} className={BTN_QUIET}>
                 取消
@@ -125,12 +125,12 @@ function FolderDialogBody({
           </div>
         ) : (
           <>
-            <p className="mb-3 text-[12px] text-ink-faint">
+            <p className="mb-3 text-caption text-ink-faint">
               {members.size > 0 ? `已在「${name}」里 ${members.size} 个` : `「${name}」里还没有角色`}
             </p>
             <div className="-mx-2 min-h-0 flex-1 overflow-y-auto">
               {characters.length === 0 ? (
-                <p className="px-2 py-6 text-center text-[13px] text-ink-faint">还没有角色</p>
+                <p className="px-2 py-6 text-center text-ui text-ink-faint">还没有角色</p>
               ) : (
                 characters.map((character) => {
                   const checked = members.has(character.id)
@@ -140,19 +140,19 @@ function FolderDialogBody({
                       type="button"
                       onClick={() => void toggle(character)}
                       disabled={pending.has(character.id)}
-                      className="flex w-full items-center gap-2 rounded-item px-2 py-1.5 text-left text-[13px] text-ink transition-colors hover:bg-[var(--oc-hover)] disabled:opacity-50"
+                      className="flex w-full items-center gap-2 rounded-item px-2 py-1.5 text-left text-ui text-ink transition-colors hover:bg-[var(--oc-hover)] disabled:opacity-50"
                     >
                       <CheckboxBox checked={checked} />
                       <span className="truncate">{character.name}</span>
                       {character.folder && character.folder !== name ? (
-                        <span className="ml-auto shrink-0 text-[11px] text-ink-faint">{character.folder}</span>
+                        <span className="ml-auto shrink-0 text-micro text-ink-faint">{character.folder}</span>
                       ) : null}
                     </button>
                   )
                 })
               )}
             </div>
-            {error ? <p className="mt-2 text-[12px] text-error">{error}</p> : null}
+            {error ? <p className="mt-2 text-caption text-error">{error}</p> : null}
             <div className="mt-4 flex items-center justify-end">
               <button type="button" onClick={onClose} className={BTN_PRIMARY}>
                 完成

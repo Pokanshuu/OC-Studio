@@ -118,7 +118,7 @@ export function LinkPopover({ editor, anchor, onClose }: LinkPopoverProps) {
           确定
         </button>
       </div>
-      {error ? <span className="px-1 text-[11px] text-error">{error}</span> : null}
+      {error ? <span className="px-1 text-micro text-error">{error}</span> : null}
     </div>,
     document.getElementById('overlay-root') ?? document.body,
   )

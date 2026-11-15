@@ -415,7 +415,7 @@ export function CharacterList({
               <ArrowLeft size={12} strokeWidth={2} />
               全部
             </button>
-            <span className="text-[13px] text-ink">
+            <span className="text-ui text-ink">
               {folderFilter === 'ungrouped' ? '未分组' : folderFilter}
             </span>
           </div>

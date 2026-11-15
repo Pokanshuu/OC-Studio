@@ -361,7 +361,7 @@ function CategoryDialogBody({ category, onClose, onCreated, onDeleted }: Omit<Ca
               </div>
             </div>
             {error !== '' ? (
-              <p id={errorId} role="alert" className="mt-1.5 text-[12px] text-error">
+              <p id={errorId} role="alert" className="mt-1.5 text-caption text-error">
                 {error}
               </p>
             ) : null}
@@ -377,7 +377,7 @@ function CategoryDialogBody({ category, onClose, onCreated, onDeleted }: Omit<Ca
                 return (
                   <div
                     key={doc.id}
-                    className={`row-rule flex items-center gap-1 rounded-item px-2 py-2.5 text-[13px] transition-colors hover:bg-[var(--oc-hover)] has-[:focus-visible]:bg-[var(--oc-hover)] ${
+                    className={`row-rule flex items-center gap-1 rounded-item px-2 py-2.5 text-ui transition-colors hover:bg-[var(--oc-hover)] has-[:focus-visible]:bg-[var(--oc-hover)] ${
                       selected ? 'text-ink' : 'text-ink-muted'
                     }`}
                   >

@@ -106,15 +106,15 @@ export function EventRow({
           {event.isMajor ? (
             <Circle size={8} fill="var(--color-error)" className="shrink-0 text-error" />
           ) : null}
-          <h3 className="truncate text-sm font-medium text-ink">{event.title}</h3>
+          <h3 className="truncate text-body leading-5 font-medium text-ink">{event.title}</h3>
         </div>
-        <span className="text-xs text-ink-faint">
+        <span className="text-caption leading-4 text-ink-faint">
           {event.time ? <span>{formatTimeDisplay(event)} · </span> : null}
           编辑于 {formatRelativeTime(event.updatedAt)}
         </span>
       </div>
       {event.summary ? (
-        <p className="min-w-0 flex-1 truncate text-xs text-ink-muted">{event.summary}</p>
+        <p className="min-w-0 flex-1 truncate text-caption leading-4 text-ink-muted">{event.summary}</p>
       ) : null}
       {!isMobile ? (
         <div className={ROW_ACTIONS}>

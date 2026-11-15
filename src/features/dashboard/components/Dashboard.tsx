@@ -108,12 +108,12 @@ export function Dashboard({ onNavigate, onOpenSection }: DashboardProps) {
 
         {/* 世界 */}
         <header className={`flex flex-col gap-2 ${coverSrc ? 'mt-8 md:mt-10' : ''}`}>
-          <span className="text-[11px] tracking-[0.14em] text-ink-faint">当前世界</span>
+          <span className="text-micro tracking-[0.14em] text-ink-faint">当前世界</span>
           <h1 className={PAGE_TITLE}>
             {meta.worldName.trim() || '未命名世界'}
           </h1>
           {meta.tagline.trim() ? (
-            <p className="max-w-xl text-[13px] leading-relaxed text-ink-muted">{meta.tagline}</p>
+            <p className="max-w-xl text-ui leading-relaxed text-ink-muted">{meta.tagline}</p>
           ) : null}
         </header>
 
@@ -128,8 +128,8 @@ export function Dashboard({ onNavigate, onOpenSection }: DashboardProps) {
               onClick={() => onOpenSection(s.item)}
               className={`group row-rule flex items-baseline justify-between px-2 py-2 text-left transition-colors hover:bg-[var(--oc-hover)] ${ROUND_ITEM}`}
             >
-              <span className="text-[13px] text-ink-muted transition-colors group-hover:text-ink">{s.label}</span>
-              <span className="font-serif text-[15px] text-ink tabular-nums">{s.value}</span>
+              <span className="text-ui text-ink-muted transition-colors group-hover:text-ink">{s.label}</span>
+              <span className="font-serif text-reading text-ink tabular-nums">{s.value}</span>
             </button>
           ))}
         </div>
@@ -147,14 +147,14 @@ export function Dashboard({ onNavigate, onOpenSection }: DashboardProps) {
                   title={c.name}
                 >
                   <Avatar src={getImageUrl(c.avatarUrl, 'avatar')} size="md" alt={c.name} />
-                  <span className="w-full truncate text-center text-[12px] text-ink-muted transition-colors hover:text-ink">
+                  <span className="w-full truncate text-center text-caption text-ink-muted transition-colors hover:text-ink">
                     {c.name}
                   </span>
                 </button>
               ))}
             </div>
           ) : (
-            <p className="font-serif text-sm text-ink-faint">还没有标记主要角色</p>
+            <p className="font-serif text-body leading-5 text-ink-faint">还没有标记主要角色</p>
           )}
         </section>
 
@@ -169,14 +169,14 @@ export function Dashboard({ onNavigate, onOpenSection }: DashboardProps) {
                   onClick={() => onNavigate(r.id, r.type)}
                   className="row-rule flex items-center gap-4 px-2 py-2 text-left transition-colors hover:bg-[var(--oc-hover)]"
                 >
-                  <span className="w-8 shrink-0 text-[11px] text-ink-faint">{TYPE_LABEL[r.type]}</span>
-                  <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{r.name}</span>
-                  <span className="shrink-0 text-[11px] text-ink-faint tabular-nums">{relativeTime(r.updatedAt)}</span>
+                  <span className="w-8 shrink-0 text-micro text-ink-faint">{TYPE_LABEL[r.type]}</span>
+                  <span className="min-w-0 flex-1 truncate text-ui text-ink">{r.name}</span>
+                  <span className="shrink-0 text-micro text-ink-faint tabular-nums">{relativeTime(r.updatedAt)}</span>
                 </button>
               ))}
             </div>
           ) : (
-            <p className="font-serif text-sm text-ink-faint">还没有内容</p>
+            <p className="font-serif text-body leading-5 text-ink-faint">还没有内容</p>
           )}
         </section>
 
@@ -193,7 +193,7 @@ export function Dashboard({ onNavigate, onOpenSection }: DashboardProps) {
                 <button
                   key={a.type}
                   onClick={() => requestCreate(a.type)}
-                  className="flex items-center gap-1.5 px-1.5 py-1 text-[13px] text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink"
+                  className="flex items-center gap-1.5 px-1.5 py-1 text-ui text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink"
                 >
                   <Plus size={13} strokeWidth={2} />
                   {a.label}

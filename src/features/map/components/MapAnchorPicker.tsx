@@ -209,8 +209,8 @@ export function MapAnchorPicker({
           <button type="button" className={ICON_BTN} onClick={close} aria-label="关闭">
             <ArrowLeft size={16} strokeWidth={2} />
           </button>
-          <p className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink">添加锚点</p>
-          <span className="shrink-0 text-[11px] text-ink-faint">{mapName.length > 0 ? mapName : '主地图'}</span>
+          <p className="min-w-0 flex-1 truncate text-ui font-medium text-ink">添加锚点</p>
+          <span className="shrink-0 text-micro text-ink-faint">{mapName.length > 0 ? mapName : '主地图'}</span>
         </div>
 
         {/* 放大镜挂在输入框自己的坐标系里：外层 px-3 是给行的，
@@ -233,13 +233,13 @@ export function MapAnchorPicker({
           {loading ? <p className={`px-3 py-6 text-center ${LOADING_TEXT}`}>加载中…</p> : null}
 
           {error !== null ? (
-            <p className="px-3 py-2 text-[12px] text-error" role="alert">
+            <p className="px-3 py-2 text-caption text-error" role="alert">
               {error}
             </p>
           ) : null}
 
           {!loading && error === null && groups.length === 0 ? (
-            <p className="px-3 py-6 text-center text-[12px] text-ink-faint">
+            <p className="px-3 py-6 text-center text-caption text-ink-faint">
               {query.trim().length > 0 ? '没有匹配的条目' : '没有可添加的条目'}
             </p>
           ) : null}
@@ -259,7 +259,7 @@ export function MapAnchorPicker({
                       >
                         <span className="min-w-0 flex-1 truncate">{candidate.title}</span>
                         {origin.length > 0 ? (
-                          <span className="shrink-0 text-[11px] text-ink-faint">{origin}</span>
+                          <span className="shrink-0 text-micro text-ink-faint">{origin}</span>
                         ) : null}
                       </button>
                     </li>

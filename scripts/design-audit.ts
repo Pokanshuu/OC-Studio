@@ -523,26 +523,40 @@ for (const rel of IME_GUARDED_FILES) {
 }
 
 /**
- * 字号字面量（**警告，不计入失败**）。
+ * 字号字面量 `text-[Npx]` —— **违规**（2026-11-15 阶段 C 起）。
  *
- * 设计系统管住了颜色和圆角，但没管字号：`text-[10px]`…`text-[15px]` 这类字面量
- * 有五百多处，实际在用的字号有八九档。五档语义字号（`--text-micro/caption/ui/body/reading`，
- * 见 globals.css 的 @theme）已经就位，`ui-tokens.ts` 已全部换过去；
- * 业务文件里的存量逐个改是另一个量级的改动，所以这条规则**先只报计数**。
+ * 五档语义字号（`--text-micro/caption/ui/body/reading`，见 globals.css 的 @theme）之外
+ * 不再允许出现像素字号：业务文件里那 480 处已按**像素等值**迁完
+ * （`scripts/migrate-font-sizes.ts`，`text-xs` / `text-sm` 连带补 `leading-4` / `leading-5`）。
+ * 剩下的值只有下面这张白名单里的几种，每个都写清了理由。
  *
- * 五档之外的（`text-[10px]` / `text-[12.5px]` 这类）不在迁移范围里，也会出现在计数中。
+ * 新字号需求的处理顺序：先看五档够不够 → 确实要新一档，就在 `@theme` 加 `--text-*`、
+ * 同步 `src/lib/utils.ts` 的 `extendTailwindMerge`（否则 `cn()` 会把它当颜色类吃掉）、
+ * 再回来把对应值从这里挪走。**不要**为了省事往白名单里加值。
  */
-const fontSizeLiterals: { file: string; line: number; text: string }[] = []
+const FONT_SIZE_LITERAL_ALLOW = new Map<string, string>([
+  ['10px', '极小的角标 / 提示字（快捷键提示、关系边标签、导出面板 hint、时间线桶计数）—— 比 micro(11) 还小一档'],
+  ['12.5px', '文档预览 PagePreview 的字段行（纸面上介于 caption 与 ui 之间）'],
+  ['17px', '文档预览 / 模板预览的二级标题（介于 reading 与 18px 页标题之间）'],
+  ['18px', '地图详情弹窗标题（与 PAGE_TITLE 的 18px 同值，但那一档是 ui-tokens 里的 PAGE_TITLE）'],
+  ['24px', '归档面板的数字大字（展示用，不参与界面层级）'],
+  ['26px', '文档预览的一级标题（纸面排版，与界面字号无关）'],
+  ['28px', '归档面板的世界名大字（展示用，不参与界面层级）'],
+])
+
 for (const file of walk(SRC)) {
   if (skipped(file)) continue
   const rel = relative(ROOT, file).replace(/\\/g, '/')
-  if (rel.endsWith('ui-tokens.ts')) continue
   const lines = readFileSync(file, 'utf8').split(/\r?\n/)
   lines.forEach((line, index) => {
     const trimmed = line.trim()
     if (trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*')) return
-    if (!/text-\[\d+(?:\.\d+)?px\]/.test(line)) return
-    fontSizeLiterals.push({ file: rel, line: index + 1, text: trimmed.slice(0, 120) })
+    for (const match of line.matchAll(/text-\[(\d+(?:\.\d+)?)px\]/g)) {
+      if (FONT_SIZE_LITERAL_ALLOW.has(`${match[1]}px`)) continue
+      const violation = { rule: 'font-size-literal', file: rel, line: index + 1, text: trimmed.slice(0, 120) }
+      violations.push(violation)
+      byRule.set('font-size-literal', [...(byRule.get('font-size-literal') ?? []), violation])
+    }
   })
 }
 
@@ -551,11 +565,6 @@ const repeated = [...fragments.entries()]
   .sort((a, b) => b[1].size - a[1].size)
 if (violations.length === 0) {
   console.log('设计令牌体检：干净（0 处违规）')
-  if (fontSizeLiterals.length > 0) {
-    console.log(`\n⚠ font-size-literal：字号字面量 ${fontSizeLiterals.length} 处（警告，不计入失败；五档见 globals.css 的 @theme）`)
-    for (const item of fontSizeLiterals.slice(0, 10)) console.log(`    ${item.file}:${item.line}  ${item.text.slice(0, 80)}`)
-    if (fontSizeLiterals.length > 10) console.log(`    …另有 ${fontSizeLiterals.length - 10} 处`)
-  }
   if (repeated.length > 0) {
     console.log(`\n可收进 ui-tokens 的重复片段（${repeated.length} 条，仅供整理，不算违规）：`)
     for (const [fragment, files] of repeated.slice(0, 12)) {
@@ -573,6 +582,7 @@ const EXTRA_WHY: Record<string, string> = {
   'dead-editor-event': '移动端下发的编辑器事件必须有接收方，否则点了没反应',
   'mutation-broadcast': '新建 / 删除 / 改名都要广播 DATA_UPDATED_EVENT，否则地图、相册这类视图不刷新',
   'retry-creates': '列表错误态的「重试」必须重新加载（onRetry），不能接新建 —— 点了会多出一条空实体',
+  'font-size-literal': '字号只走五档（text-micro/caption/ui/body/reading）；像素字面量见规则里的白名单与理由',
 }
 
 console.log(`设计令牌体检：${violations.length} 处违规\n`)

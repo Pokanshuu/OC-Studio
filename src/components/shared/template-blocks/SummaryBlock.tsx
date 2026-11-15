@@ -37,7 +37,7 @@ export function SummaryBlock({
         rows={rows}
         placeholder={placeholder}
         aria-label={title}
-        className="w-full resize-none bg-transparent text-sm leading-6 text-ink placeholder:text-ink-faint focus:outline-none"
+        className="w-full resize-none bg-transparent text-body leading-6 text-ink placeholder:text-ink-faint focus:outline-none"
       />
     </ComponentSection>
   )

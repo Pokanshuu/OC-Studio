@@ -31,7 +31,7 @@ export function CountryInfoSection({
         <ComponentEditButton componentId="info" />
       </div>
       {fields.length === 0 ? (
-        <p className="text-[12px] text-ink-faint">字段表里还没有字段。</p>
+        <p className="text-caption text-ink-faint">字段表里还没有字段。</p>
       ) : null}
       <div className={`grid grid-cols-1 gap-x-10 sm:grid-cols-2 ${FIELD_GRID}`}>
         {fields.map((field) => {

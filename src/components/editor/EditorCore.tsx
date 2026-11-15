@@ -239,7 +239,7 @@ export function EditorCore({
   )
   const { dragging } = useImagePasteDrop(editor)
   if (!editor) {
-    return <div className="flex h-32 items-center justify-center text-sm text-ink-muted">编辑器加载中...</div>
+    return <div className="flex h-32 items-center justify-center text-body leading-5 text-ink-muted">编辑器加载中...</div>
   }
 
   return (

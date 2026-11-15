@@ -211,7 +211,7 @@ export function CharacterFolderBar({
       })}
 
       {/* 和标签一样：末尾一个输入框，回车就新建 —— 空文件夹靠清单留住 */}
-      <div className="flex items-center gap-1 rounded-item bg-paper-alt px-2 py-[3px] text-[12px] transition-colors focus-within:bg-paper-card">
+      <div className="flex items-center gap-1 rounded-item bg-paper-alt px-2 py-[3px] text-caption transition-colors focus-within:bg-paper-card">
         <input
           value={createDraft}
           onChange={(event) => setCreateDraft(event.target.value)}
@@ -229,7 +229,7 @@ export function CharacterFolderBar({
           }}
           placeholder="新建文件夹"
           aria-label="新建文件夹"
-          className="w-16 bg-transparent text-[12px] text-ink placeholder:text-ink-faint focus:outline-none"
+          className="w-16 bg-transparent text-caption text-ink placeholder:text-ink-faint focus:outline-none"
         />
         <button
           type="button"

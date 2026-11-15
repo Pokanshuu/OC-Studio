@@ -113,8 +113,8 @@ export function MapSwitcher({
                 />
 
                 <span className="relative z-10 flex min-w-0 flex-1 flex-col justify-center gap-0.5 px-3">
-                  <span className="truncate text-[13px] text-ink">{map.name}</span>
-                  <span className="flex items-baseline gap-1 text-[11px] tabular-nums text-ink-faint">
+                  <span className="truncate text-ui text-ink">{map.name}</span>
+                  <span className="flex items-baseline gap-1 text-micro tabular-nums text-ink-faint">
                     {map.seed !== undefined ? <span>seed {map.seed}</span> : null}
                     {map.seed !== undefined ? <span aria-hidden>·</span> : null}
                     <span>{anchorCount(map)} 个锚点</span>

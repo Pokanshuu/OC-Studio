@@ -22,10 +22,10 @@ function CreditRow({ item }: { item: CreditItem }) {
         className="group flex min-w-0 items-baseline gap-2 text-left"
         title={item.url}
       >
-        <span className="shrink-0 text-[13px] text-ink underline-offset-2 group-hover:underline">{item.name}</span>
-        {item.note ? <span className="truncate text-[11px] text-ink-faint">{item.note}</span> : null}
+        <span className="shrink-0 text-ui text-ink underline-offset-2 group-hover:underline">{item.name}</span>
+        {item.note ? <span className="truncate text-micro text-ink-faint">{item.note}</span> : null}
       </button>
-      <span className="shrink-0 text-[11px] text-ink-faint">{item.license}</span>
+      <span className="shrink-0 text-micro text-ink-faint">{item.license}</span>
     </div>
   )
 }
@@ -51,12 +51,12 @@ export function AboutTab() {
           >
             <ArrowLeft size={16} strokeWidth={2} />
           </button>
-          <span className="text-sm text-ink">开源许可</span>
+          <span className="text-body leading-5 text-ink">开源许可</span>
         </div>
 
         {CREDIT_GROUPS.map((group) => (
           <div key={group.title}>
-            <h3 className="mb-1 text-[11px] tracking-[0.08em] text-ink-faint">{group.title}</h3>
+            <h3 className="mb-1 text-micro tracking-[0.08em] text-ink-faint">{group.title}</h3>
             {group.items.map((item) => (
               <CreditRow key={item.name} item={item} />
             ))}
@@ -69,8 +69,8 @@ export function AboutTab() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <span className="text-sm text-ink">版本</span>
-        <span className="font-mono text-sm text-ink-muted">v{APP_VERSION}</span>
+        <span className="text-body leading-5 text-ink">版本</span>
+        <span className="font-mono text-body leading-5 text-ink-muted">v{APP_VERSION}</span>
       </div>
 
       <button

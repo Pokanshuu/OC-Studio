@@ -164,7 +164,7 @@ export function MapDetailDialog({
         style={{ width: 'min(380px, calc(100vw - 2rem))', maxHeight: 'calc(100vh - 4rem)' }}
       >
         <div className="flex items-center justify-between gap-3 px-5 pb-2 pt-4">
-          <h2 id={titleId} className="text-[12px] tracking-[0.08em] text-ink-faint">
+          <h2 id={titleId} className="text-caption tracking-[0.08em] text-ink-faint">
             地图详情
           </h2>
           <button type="button" onClick={onClose} aria-label="关闭" className={`${ICON_BTN} -mr-2`}>
@@ -178,7 +178,7 @@ export function MapDetailDialog({
               <h3 className="truncate font-serif text-[18px] font-bold tracking-[-0.01em] text-ink">
                 {map.name}
               </h3>
-              <p className="mt-1 flex items-center gap-2 text-[11px] text-ink-faint">
+              <p className="mt-1 flex items-center gap-2 text-micro text-ink-faint">
                 {map.seed !== undefined ? (
                   <button
                     type="button"
@@ -243,32 +243,32 @@ export function MapDetailDialog({
           <dl className={`mt-4 grid grid-cols-2 gap-x-6 ${FIELD_GRID}`}>
             <div className={FIELD_ROW}>
               <dt className={FIELD_LABEL}>尺寸</dt>
-              <dd className="min-w-0 flex-1 truncate text-right text-[13px] tabular-nums text-ink">
+              <dd className="min-w-0 flex-1 truncate text-right text-ui tabular-nums text-ink">
                 {sizeLabel(map)}
               </dd>
             </div>
             <div className={FIELD_ROW}>
               <dt className={FIELD_LABEL}>类型</dt>
-              <dd className="min-w-0 flex-1 truncate text-right text-[13px] text-ink">
+              <dd className="min-w-0 flex-1 truncate text-right text-ui text-ink">
                 {kindLabel(map)}
               </dd>
             </div>
             <div className={FIELD_ROW}>
               <dt className={FIELD_LABEL}>锚点</dt>
-              <dd className="min-w-0 flex-1 truncate text-right text-[13px] tabular-nums text-ink">
+              <dd className="min-w-0 flex-1 truncate text-right text-ui tabular-nums text-ink">
                 {anchorCount} 个
               </dd>
             </div>
             <div className={FIELD_ROW}>
               <dt className={FIELD_LABEL}>标注</dt>
-              <dd className="min-w-0 flex-1 truncate text-right text-[13px] tabular-nums text-ink">
+              <dd className="min-w-0 flex-1 truncate text-right text-ui tabular-nums text-ink">
                 {annotations} 条
               </dd>
             </div>
           </dl>
 
           {unassignedAnchors > 0 ? (
-            <p className="mt-2 text-[11px] text-ink-faint">
+            <p className="mt-2 text-micro text-ink-faint">
               另有 {unassignedAnchors} 个锚点未归属地图，暂显示在当前地图
             </p>
           ) : null}
@@ -328,7 +328,7 @@ export function MapDetailDialog({
           </button>
 
           {error !== '' ? (
-            <p role="alert" className="mt-2 text-[12px] text-error">
+            <p role="alert" className="mt-2 text-caption text-error">
               {error}
             </p>
           ) : null}

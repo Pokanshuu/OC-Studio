@@ -58,7 +58,7 @@ export function SettingsDialog({
                 <TabsTrigger
                   key={item.value}
                   value={item.value}
-                  className="gap-1.5 text-xs sm:text-sm"
+                  className="gap-1.5 text-caption leading-4 sm:text-body"
                 >
                   <item.icon size={14} strokeWidth={2} className="shrink-0 sm:hidden" />
                   <span className="hidden sm:inline">{item.label}</span>
@@ -102,7 +102,7 @@ export function SettingsDialog({
         <div className="flex shrink-0 justify-end border-t border-line px-6 py-4">
           <button
             onClick={() => onOpenChange(false)}
-            className="touch-feedback inline-flex h-8 items-center justify-center px-3 text-[13px] text-ink-muted transition-colors hover:text-ink"
+            className="touch-feedback inline-flex h-8 items-center justify-center px-3 text-ui text-ink-muted transition-colors hover:text-ink"
           >
             关闭
           </button>

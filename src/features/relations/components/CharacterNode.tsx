@@ -51,7 +51,7 @@ export function CharacterNode({ data, selected }: NodeProps) {
             </span>
           )}
         </div>
-        <span className="graph-node-label block max-w-[80px] truncate whitespace-nowrap text-center text-xs leading-4 text-ink">
+        <span className="graph-node-label block max-w-[80px] truncate whitespace-nowrap text-center text-caption leading-4 text-ink">
           {label}
         </span>
       </div>

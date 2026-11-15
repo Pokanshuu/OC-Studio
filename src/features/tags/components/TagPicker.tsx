@@ -16,7 +16,7 @@ const DEFAULT_COLORS = ['#4ECDC4', '#45B7D1', '#FF6B6B', '#96CEB4', '#DDA0DD', '
 const MAX_CANDIDATES = 40
 
 /** 小圆角 chip，与 RelatedItemsSelector 的 chip 同一套：低对比底色 + 墨色文字，不用强调色 */
-const CHIP = `inline-flex items-center gap-1 bg-paper-alt px-2 py-[3px] text-[12px] text-ink transition-colors ${ROUND_ITEM}`
+const CHIP = `inline-flex items-center gap-1 bg-paper-alt px-2 py-[3px] text-caption text-ink transition-colors ${ROUND_ITEM}`
 
 /** 单个标签 chip：右侧 × 移除（移动端常显）；移动端长按弹出「从标签库删除」 */
 function TagChip({ tag, onRemove, onLongPress, isMobile }: {
@@ -170,7 +170,7 @@ export function TagPicker({ selectedIds, onChange }: TagPickerProps) {
         ))}
 
         {/* 输入与「＋」合并为一个 chip */}
-        <div className="relative flex items-center gap-1 bg-paper-alt px-2 py-[3px] text-[12px] transition-colors focus-within:bg-paper-card">
+        <div className="relative flex items-center gap-1 bg-paper-alt px-2 py-[3px] text-caption transition-colors focus-within:bg-paper-card">
           <input
             ref={searchInputRef}
             type="text"
@@ -195,7 +195,7 @@ export function TagPicker({ selectedIds, onChange }: TagPickerProps) {
               }
             }}
             placeholder="标签"
-            className="w-10 bg-transparent text-[12px] text-ink placeholder:text-ink-faint focus:outline-none"
+            className="w-10 bg-transparent text-caption text-ink placeholder:text-ink-faint focus:outline-none"
           />
           <button
             type="button"
@@ -211,7 +211,7 @@ export function TagPicker({ selectedIds, onChange }: TagPickerProps) {
           {panelOpen ? (
             <div className={`absolute left-0 z-50 max-h-48 min-w-[180px] overflow-auto ${MENU} ${keyboardHeight > 0 ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
               {!query.trim() ? (
-                <div className="px-3 py-2 text-[13px] text-ink-faint">输入关键词查找标签</div>
+                <div className="px-3 py-2 text-ui text-ink-faint">输入关键词查找标签</div>
               ) : (
                 <>
                   {candidates.map((tag) => (
@@ -251,7 +251,7 @@ export function TagPicker({ selectedIds, onChange }: TagPickerProps) {
                   ) : null}
 
                   {candidates.length === 0 && !canCreate ? (
-                    <div className="px-3 py-2 text-[13px] text-ink-faint">没有匹配的标签</div>
+                    <div className="px-3 py-2 text-ui text-ink-faint">没有匹配的标签</div>
                   ) : null}
                 </>
               )}

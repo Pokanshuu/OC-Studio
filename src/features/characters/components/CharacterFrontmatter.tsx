@@ -164,7 +164,7 @@ export function CharacterFrontmatter({
             placeholder="角色名称"
             className={TITLE_INPUT}
           />
-          {form.summaryLine ? <p className="text-sm text-ink-muted">{form.summaryLine}</p> : null}
+          {form.summaryLine ? <p className="text-body leading-5 text-ink-muted">{form.summaryLine}</p> : null}
         </div>
         <CharacterInfoSection form={form} onNavigateToCountry={onNavigateToCountry} compact={compact} />
         <div className="border-t border-line" />
@@ -217,7 +217,7 @@ export function CharacterFrontmatter({
                     placeholder="角色名称"
                     className={TITLE_INPUT}
                   />
-                  {form.summaryLine ? <p className="text-sm text-ink-muted">{form.summaryLine}</p> : null}
+                  {form.summaryLine ? <p className="text-body leading-5 text-ink-muted">{form.summaryLine}</p> : null}
                 </div>
                 <CharacterInfoSection form={form} onNavigateToCountry={onNavigateToCountry} compact={compact} />
               </div>

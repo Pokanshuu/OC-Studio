@@ -151,7 +151,7 @@ function renderMentionGroups(
   for (const type of orderedTypes) {
     if (orderedTypes.length > 1) {
       const hdr = document.createElement('div')
-      hdr.className = 'px-3 py-1 text-xs font-medium text-ink-faint'
+      hdr.className = 'px-3 py-1 text-caption leading-4 font-medium text-ink-faint'
       hdr.textContent = ENTITY_TYPE_LABELS[type] ?? type
       container.appendChild(hdr)
     }
@@ -181,7 +181,7 @@ function renderMentionGroups(
       btn.appendChild(nameSpan)
 
       const typeSpan = document.createElement('span')
-      typeSpan.className = 'ml-auto shrink-0 text-xs text-ink-faint'
+      typeSpan.className = 'ml-auto shrink-0 text-caption leading-4 text-ink-faint'
       typeSpan.textContent = ENTITY_TYPE_LABELS[item.type] ?? item.type
       btn.appendChild(typeSpan)
 

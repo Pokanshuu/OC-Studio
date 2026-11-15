@@ -288,14 +288,14 @@ export function CoverCard({
             盖住封面而不是只描一圈，是为了让「松手就不再是这张卡、而是一个夹」一眼可见。
           */}
           {mergeHover ? (
-            <div className="pointer-events-none absolute left-2 top-2 z-20 flex items-center gap-1 rounded-item bg-paper-card/92 px-1.5 py-0.5 text-[11px] text-ink">
+            <div className="pointer-events-none absolute left-2 top-2 z-20 flex items-center gap-1 rounded-item bg-paper-card/92 px-1.5 py-0.5 text-micro text-ink">
               <Folder size={12} strokeWidth={2} />
               停住新建文件夹
             </div>
           ) : null}
           {mergeTarget ? (
             <div className="pointer-events-none absolute inset-0 z-20 grid place-items-center border border-dashed border-ink bg-paper-card/92">
-              <span className="flex items-center gap-1.5 text-[12px] text-ink">
+              <span className="flex items-center gap-1.5 text-caption text-ink">
                 <Folder size={14} strokeWidth={2} />
                 松手新建文件夹
               </span>

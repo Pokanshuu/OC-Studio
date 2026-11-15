@@ -24,7 +24,7 @@ function DropdownMenuTrigger({
       className={cn(
         // 打开态给一块底色：菜单浮层和触发器之间有视觉联系（原生菜单栏就是这样）。
         // 也因为这个底色块，菜单名后面不再写 `(F)` 之类的助记字母。
-        "inline-flex items-center justify-center rounded-item px-2 py-1 text-[13px] text-ink-muted transition-colors hover:text-ink data-open:bg-[var(--oc-hover)] data-open:text-ink transparent-text",
+        "inline-flex items-center justify-center rounded-item px-2 py-1 text-ui text-ink-muted transition-colors hover:text-ink data-open:bg-[var(--oc-hover)] data-open:text-ink transparent-text",
         className
       )}
     />
@@ -72,7 +72,7 @@ function DropdownMenuLabel({
 }: React.ComponentProps<"div">) {
   return (
     <div
-      className={cn("px-3 py-1 text-[11px] tracking-[0.14em] text-ink-faint", className)}
+      className={cn("px-3 py-1 text-micro tracking-[0.14em] text-ink-faint", className)}
       {...props}
     />
   )
@@ -84,7 +84,7 @@ function DropdownMenuShortcut({
 }: React.ComponentProps<"span">) {
   return (
     <span
-      className={cn("ml-auto text-xs text-ink-faint", className)}
+      className={cn("ml-auto text-caption leading-4 text-ink-faint", className)}
       {...props}
     />
   )

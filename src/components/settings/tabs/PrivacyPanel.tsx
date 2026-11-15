@@ -16,8 +16,8 @@ function Section({
 }) {
   return (
     <section className="flex flex-col gap-1.5">
-      <h3 className="text-sm font-medium text-ink">{title}</h3>
-      <div className="flex flex-col gap-1.5 text-[13px] leading-6 text-ink-muted">{children}</div>
+      <h3 className="text-body leading-5 font-medium text-ink">{title}</h3>
+      <div className="flex flex-col gap-1.5 text-ui leading-6 text-ink-muted">{children}</div>
     </section>
   )
 }
@@ -40,15 +40,15 @@ export function PrivacyPanel({ onBack }: { onBack: () => void }) {
         <button type="button" onClick={onBack} aria-label="返回" className={ICON_BTN}>
           <ArrowLeft size={16} strokeWidth={2} />
         </button>
-        <span className="text-sm text-ink">隐私声明</span>
+        <span className="text-body leading-5 text-ink">隐私声明</span>
       </div>
 
-      <p className="text-[13px] leading-6 text-ink-muted">
+      <p className="text-ui leading-6 text-ink-muted">
         OC Studio 是本地优先的创作工具。您的笔记、图片和设定默认只保存在自己的设备上。
         OC Studio 没有账号系统，也不收集使用统计或诊断数据。
       </p>
 
-      <p className="text-[13px] leading-6 text-ink-muted">
+      <p className="text-ui leading-6 text-ink-muted">
         OC Studio 是开源软件，按 MIT 许可发布。任何个人或组织都可以检查、使用、修改它的源代码，也可以分发它的副本。
         分发副本或实质性部分时，需要保留版权声明和 MIT 许可声明。
       </p>
@@ -113,7 +113,7 @@ export function PrivacyPanel({ onBack }: { onBack: () => void }) {
       <button
         type="button"
         onClick={() => void openExternal(PRIVACY_URL)}
-        className="flex items-center gap-1.5 self-start text-[12px] text-ink-muted transition-colors hover:text-ink"
+        className="flex items-center gap-1.5 self-start text-caption text-ink-muted transition-colors hover:text-ink"
       >
         <ExternalLink size={13} strokeWidth={2} />
         在 GitHub 查看完整声明

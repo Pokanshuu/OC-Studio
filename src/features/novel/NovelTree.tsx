@@ -379,7 +379,7 @@ export function NovelTree({
   if (loading) {
     return showLoading ? (
       <div className={CENTER_STATE}>
-        <span className="text-[13px] text-ink-faint">加载中…</span>
+        <span className="text-ui text-ink-faint">加载中…</span>
       </div>
     ) : null
   }
@@ -387,7 +387,7 @@ export function NovelTree({
   if (error) {
     return (
       <div className={CENTER_STATE}>
-        <span className="text-sm text-error">{error}</span>
+        <span className="text-body leading-5 text-error">{error}</span>
         <button type="button" onClick={() => void reload()} className={BTN_QUIET}>
           重试
         </button>
@@ -449,7 +449,7 @@ export function NovelTree({
                   placeholder="章节标题"
                   className={TITLE_INPUT}
                 />
-                <span className="shrink-0 pb-1 text-xs tabular-nums text-ink-faint">
+                <span className="shrink-0 pb-1 text-caption leading-4 tabular-nums text-ink-faint">
                   本章 {chapterWords} 字
                 </span>
               </div>
@@ -618,7 +618,7 @@ function NovelTreePanel({
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
             placeholder="搜索章节"
-            className="h-6 w-full bg-transparent text-[13px] text-ink placeholder:text-ink-faint focus:outline-none"
+            className="h-6 w-full bg-transparent text-ui text-ink placeholder:text-ink-faint focus:outline-none"
           />
         </div>
       </div>
@@ -626,7 +626,7 @@ function NovelTreePanel({
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-1">
         {tree.length === 0 ? (
           <div className="flex flex-col items-center gap-2 px-3 py-8">
-            <p className="text-xs text-ink-faint">还没有章节</p>
+            <p className="text-caption leading-4 text-ink-faint">还没有章节</p>
             <button type="button" onClick={onCreate} className={BTN_PRIMARY}>
               <Plus size={13} strokeWidth={2} />
               新建第一章
@@ -658,7 +658,7 @@ function NovelTreePanel({
             className={`${ADD_ACTION} w-full justify-between px-3 py-2`}
             aria-expanded={metaOpen}
           >
-            <span className="flex items-center gap-1.5 text-[12px] text-ink-faint">
+            <span className="flex items-center gap-1.5 text-caption text-ink-faint">
               <Info size={12} strokeWidth={2} />
               作品信息
             </span>

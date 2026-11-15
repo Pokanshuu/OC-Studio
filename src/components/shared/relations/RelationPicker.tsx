@@ -155,12 +155,12 @@ export function RelationPicker({ candidates, onPick }: RelationPickerProps) {
                   }
                 }}
                 placeholder="搜索"
-                className="h-6 w-full border-b border-line bg-transparent text-[12px] text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none"
+                className="h-6 w-full border-b border-line bg-transparent text-caption text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none"
               />
             </div>
             <div style={{ maxHeight: anchor.maxHeight }} className="overflow-auto">
               {groups.length === 0 ? (
-                <p className="px-3 py-2 text-[12px] text-ink-faint">
+                <p className="px-3 py-2 text-caption text-ink-faint">
                   {search.trim() ? '未找到匹配项' : '没有可添加的对象'}
                 </p>
               ) : (
@@ -178,14 +178,14 @@ export function RelationPicker({ candidates, onPick }: RelationPickerProps) {
                         >
                           <span className="min-w-0 flex-1 truncate">{candidate.name}</span>
                           {candidate.subtitle ? (
-                            <span className="shrink-0 text-[11px] text-ink-faint">{candidate.subtitle}</span>
+                            <span className="shrink-0 text-micro text-ink-faint">{candidate.subtitle}</span>
                           ) : null}
                         </button>
                       ))}
                     </div>
                   ))}
                   {filtered.length > visible.length ? (
-                    <p className="px-3 py-1 text-[11px] text-ink-faint">
+                    <p className="px-3 py-1 text-micro text-ink-faint">
                       还有 {filtered.length - visible.length} 项，输入关键词筛选
                     </p>
                   ) : null}

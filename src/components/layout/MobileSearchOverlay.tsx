@@ -86,14 +86,14 @@ export function MobileSearchOverlay({ open, onClose }: { open: boolean; onClose:
         >
           <div className="mx-auto w-full max-w-lg">
             {groups.length === 0 ? (
-              <div className="flex items-center justify-center py-16 text-sm text-ink-faint">
+              <div className="flex items-center justify-center py-16 text-body leading-5 text-ink-faint">
                 {searching ? '搜索中…' : query.trim() ? '无匹配结果' : ''}
               </div>
             ) : (
               <div className="space-y-4">
                 {groups.map((group) => (
                   <div key={group.kind} className="overflow-hidden rounded-item border border-line bg-paper-card">
-                    <div className="border-b border-line px-3 py-1 text-xs font-medium text-ink-faint">
+                    <div className="border-b border-line px-3 py-1 text-caption leading-4 font-medium text-ink-faint">
                       {group.label} · {group.total > group.hits.length ? `${group.hits.length}+` : group.total}
                     </div>
                     <div>

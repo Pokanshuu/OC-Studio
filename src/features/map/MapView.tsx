@@ -936,7 +936,7 @@ export function MapView() {
     return (
       <div className={CENTER_STATE}>
         <MapPin size={20} strokeWidth={2} className="text-ink-faint" />
-        <p className="text-sm text-ink-muted">还没有地图</p>
+        <p className="text-body leading-5 text-ink-muted">还没有地图</p>
         <div className="flex items-center gap-2">
           <button type="button" onClick={() => void handleCreate()} className={BTN_PRIMARY}>
             新建地图
@@ -995,7 +995,7 @@ export function MapView() {
           />
         ) : (
           <div className="flex h-full items-center justify-center">
-            <p className="text-sm text-ink-muted">还没有地图</p>
+            <p className="text-body leading-5 text-ink-muted">还没有地图</p>
           </div>
         )}
 
@@ -1048,7 +1048,7 @@ export function MapView() {
                 aria-label="切换地图"
                 className={`flex h-8 min-w-0 max-w-[min(56vw,340px)] items-center gap-1.5 px-2.5 text-left transition-colors hover:bg-paper ${FLOAT_SKIN}`}
               >
-                <span className="min-w-0 truncate text-[13px] text-ink">{active.name}</span>
+                <span className="min-w-0 truncate text-ui text-ink">{active.name}</span>
                 <ChevronDown
                   size={13}
                   strokeWidth={2}
@@ -1056,7 +1056,7 @@ export function MapView() {
                     switcherOpen ? 'rotate-180' : ''
                   }`}
                 />
-                <span className="shrink-0 text-[11px] tabular-nums text-ink-faint max-sm:hidden">
+                <span className="shrink-0 text-micro tabular-nums text-ink-faint max-sm:hidden">
                   {shown.length} 个锚点
                 </span>
               </button>
@@ -1232,7 +1232,7 @@ export function MapView() {
               >
                 <Minus size={14} strokeWidth={2} />
               </button>
-              <span className="w-9 text-center text-[11px] tabular-nums text-ink-faint">
+              <span className="w-9 text-center text-micro tabular-nums text-ink-faint">
                 {Math.round(viewport.scale * 100)}%
               </span>
               <button
@@ -1258,7 +1258,7 @@ export function MapView() {
         {/* 画线中：计数 + 完成 / 取消（不放说明文字，按钮自己会说） */}
         {draft ? (
           <div className="pointer-events-none absolute bottom-16 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1.5">
-            <span className="pointer-events-auto rounded-control border border-line bg-paper/85 px-2.5 py-1 text-[12px] tabular-nums text-ink backdrop-blur-lg float-shadow">
+            <span className="pointer-events-auto rounded-control border border-line bg-paper/85 px-2.5 py-1 text-caption tabular-nums text-ink backdrop-blur-lg float-shadow">
               {draftPurpose === 'profile' ? '剖面' : ANNOTATION_LABELS[draft.kind]} · {draft.points.length}
             </span>
             {draftPurpose === 'annotation' ? (

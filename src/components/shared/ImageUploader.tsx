@@ -217,7 +217,7 @@ export function ImageUploader({
             className={`flex h-full w-full flex-col items-center justify-center gap-1 border border-dashed border-line bg-paper-card transition-colors hover:border-line-hover ${shape === 'circle' ? 'rounded-full' : 'rounded-item'}`}
           >
             <ImageIcon size={16} strokeWidth={2} className="text-ink-faint" />
-            <span className="text-xs text-ink-faint">{placeholderText}</span>
+            <span className="text-caption leading-4 text-ink-faint">{placeholderText}</span>
           </button>
         )}
       </div>

@@ -132,7 +132,7 @@ export function ExportCenter({ onClose, initialTab = 'poster', initialSubject, n
       <header className="flex h-12 shrink-0 items-center gap-3 border-b border-line px-4">
         <button type="button" onClick={onClose} className={`${ICON_BTN} w-auto gap-1 px-1.5`} aria-label="返回" data-overlay-back>
           <ArrowLeft size={16} strokeWidth={2} />
-          <span className="text-[13px] max-md:hidden">返回</span>
+          <span className="text-ui max-md:hidden">返回</span>
         </button>
         <h1 id="export-center-title" className={`${PAGE_TITLE} truncate`}>
           导出中心
@@ -159,7 +159,7 @@ export function ExportCenter({ onClose, initialTab = 'poster', initialSubject, n
               aria-controls={`export-panel-${item.id}`}
               tabIndex={active ? 0 : -1}
               onClick={() => selectTab(item.id)}
-              className={`relative flex shrink-0 items-center gap-1.5 px-3 text-[13px] transition-colors ${
+              className={`relative flex shrink-0 items-center gap-1.5 px-3 text-ui transition-colors ${
                 active ? 'text-ink' : 'text-ink-muted hover:text-ink'
               }`}
             >

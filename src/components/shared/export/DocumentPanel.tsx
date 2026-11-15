@@ -160,7 +160,7 @@ export function DocumentPanel() {
     <ExportPanelLayout
       preview={
         <>
-          <div className="flex shrink-0 items-center justify-between border-b border-line px-4 py-2 text-[11px] text-ink-faint">
+          <div className="flex shrink-0 items-center justify-between border-b border-line px-4 py-2 text-micro text-ink-faint">
             <span>
               {loading || doc === null ? '正在读取…' : `A4 · ${visible?.total ?? 0} 条 · ${charCount} 字`}
             </span>
@@ -170,7 +170,7 @@ export function DocumentPanel() {
             {doc !== null ? (
               <PagePreview doc={doc} />
             ) : (
-              <div className="flex h-full items-center justify-center text-[12px] text-ink-faint">
+              <div className="flex h-full items-center justify-center text-caption text-ink-faint">
                 {loading ? '正在读取…' : '读不到内容'}
               </div>
             )}
@@ -179,7 +179,7 @@ export function DocumentPanel() {
       }
       config={
         <>
-          <p className="text-[12px] leading-relaxed text-ink-muted">
+          <p className="text-caption leading-relaxed text-ink-muted">
             文档导出只含文字：标题、字段、正文文字与表格文字都在，正文里的图片不会进文档
             （要带图请用「相册」或整库备份）。
           </p>
@@ -207,12 +207,12 @@ export function DocumentPanel() {
                     type="button"
                     aria-pressed={on}
                     onClick={() => setSections((previous) => ({ ...previous, [option.key]: !previous[option.key] }))}
-                    className={`flex h-8 items-center justify-between gap-2 rounded-item px-1.5 text-[12px] transition-colors ${
+                    className={`flex h-8 items-center justify-between gap-2 rounded-item px-1.5 text-caption transition-colors ${
                       on ? 'bg-[var(--oc-hover)] text-ink' : 'text-ink-faint hover:bg-[var(--oc-hover)] hover:text-ink'
                     }`}
                   >
                     <span>{option.label}</span>
-                    <span className="tabular-nums text-[11px] text-ink-faint">{counts[option.key]}</span>
+                    <span className="tabular-nums text-micro text-ink-faint">{counts[option.key]}</span>
                   </button>
                 )
               })}
@@ -257,7 +257,7 @@ export function DocumentPanel() {
 
                 <div className={`max-h-56 overflow-y-auto ${ROUND_CONTROL}`}>
                   {pickable.length === 0 ? (
-                    <p className="px-1.5 py-2 text-[12px] text-ink-faint">
+                    <p className="px-1.5 py-2 text-caption text-ink-faint">
                       {counts.characters + counts.events + counts.countries + counts.world === 0
                         ? '这个库还没有可导出的条目'
                         : !DOCUMENT_SECTIONS.some((option) => sections[option.key])
@@ -275,7 +275,7 @@ export function DocumentPanel() {
                             <button
                               type="button"
                               onClick={() => setGroupPicked(ids, !allOn)}
-                              className="text-[11px] text-ink-faint transition-colors hover:text-ink"
+                              className="text-micro text-ink-faint transition-colors hover:text-ink"
                             >
                               {allOn ? '清空' : '全选'}
                             </button>
@@ -288,7 +288,7 @@ export function DocumentPanel() {
                                 type="button"
                                 aria-pressed={on}
                                 onClick={() => togglePicked(entry.id)}
-                                className={`flex h-8 items-center gap-2 rounded-item px-1.5 text-left text-[12px] transition-colors ${
+                                className={`flex h-8 items-center gap-2 rounded-item px-1.5 text-left text-caption transition-colors ${
                                   on ? 'bg-[var(--oc-hover)] text-ink' : 'text-ink-muted hover:bg-[var(--oc-hover)]'
                                 }`}
                               >
@@ -306,7 +306,7 @@ export function DocumentPanel() {
                 </div>
 
                 {visible !== null && visible.total === 0 ? (
-                  <p className="px-1.5 text-[11px] text-ink-faint">至少选一条才能导出</p>
+                  <p className="px-1.5 text-micro text-ink-faint">至少选一条才能导出</p>
                 ) : null}
               </>
             ) : null}
@@ -315,7 +315,7 @@ export function DocumentPanel() {
       }
       footer={
         <>
-          <span className="min-w-0 flex-1 truncate text-[11px] text-ink-faint">
+          <span className="min-w-0 flex-1 truncate text-micro text-ink-faint">
             .{FORMAT_EXTENSION[format]} · 单文件 · 只含文字
           </span>
           <button

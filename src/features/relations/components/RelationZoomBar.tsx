@@ -33,7 +33,7 @@ export function RelationZoomBar({
           <Minus size={14} strokeWidth={2} />
         </button>
       </Tip>
-      <span className="w-9 text-center text-[11px] tabular-nums text-ink-faint">{percent}%</span>
+      <span className="w-9 text-center text-micro tabular-nums text-ink-faint">{percent}%</span>
       <Tip label="放大">
         <button
           type="button"

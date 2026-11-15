@@ -56,7 +56,7 @@ export function InlineEditInput({
           if (event.key === 'Escape') onCancel()
         }}
         onBlur={commit}
-        className="min-w-0 flex-1 border-b border-line bg-transparent px-0 py-0.5 text-[13px] text-ink focus:border-line-hover focus:outline-none"
+        className="min-w-0 flex-1 border-b border-line bg-transparent px-0 py-0.5 text-ui text-ink focus:border-line-hover focus:outline-none"
       />
     </div>
   )
@@ -108,7 +108,7 @@ export function TreeRow({
     <div
       {...rowProps}
       onClick={onClick}
-      className={`group flex items-center gap-0.5 rounded-item py-1 text-[13px] transition-colors ${
+      className={`group flex items-center gap-0.5 rounded-item py-1 text-ui transition-colors ${
         onClick ? '' : ''
       } ${
         selected
@@ -154,7 +154,7 @@ export function TreeRow({
         <InlineEditInput initialValue={title} onSubmit={onCommitRename} onCancel={onCancelRename} />
       ) : (
         <span
-          className="flex min-w-0 flex-1 items-center gap-1 truncate pl-0.5 text-[13px]"
+          className="flex min-w-0 flex-1 items-center gap-1 truncate pl-0.5 text-ui"
           onDoubleClick={onStartRename}
           title={onStartRename ? '双击重命名' : undefined}
         >

@@ -61,7 +61,7 @@ function RadioGrid<T extends string>({
               onChange={() => onChange(option.value)}
               className="sr-only"
             />
-            <span className="whitespace-nowrap text-[13px] leading-none text-ink">{option.label}</span>
+            <span className="whitespace-nowrap text-ui leading-none text-ink">{option.label}</span>
           </label>
         )
       })}

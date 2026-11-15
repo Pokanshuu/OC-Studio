@@ -77,7 +77,7 @@ export function MapControlBar({
                 role="checkbox"
                 aria-checked={layer.visible}
                 onClick={() => onToggleLayer(layer.kind)}
-                className={`flex w-full items-center gap-2 px-1.5 py-1 text-left text-[12px] text-ink transition-colors hover:bg-[var(--oc-hover)] ${ROUND_ITEM}`}
+                className={`flex w-full items-center gap-2 px-1.5 py-1 text-left text-caption text-ink transition-colors hover:bg-[var(--oc-hover)] ${ROUND_ITEM}`}
               >
                 <CheckboxBox checked={layer.visible} />
                 <span className="min-w-0 flex-1 truncate">{MAP_LAYER_LABELS[layer.kind]}</span>
@@ -103,7 +103,7 @@ export function MapControlBar({
           onClick={() => setOpen((previous) => !previous)}
           aria-expanded={open}
           aria-label="图层"
-          className={`flex h-6 shrink-0 items-center gap-1 px-1.5 text-[12px] transition-colors ${ROUND_ITEM} ${
+          className={`flex h-6 shrink-0 items-center gap-1 px-1.5 text-caption transition-colors ${ROUND_ITEM} ${
             open
               ? 'bg-[var(--oc-hover)] text-ink'
               : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
@@ -132,7 +132,7 @@ export function MapControlBar({
                     onClick={() => onSelectView(view)}
                     disabled={busy}
                     aria-pressed={selected}
-                    className={`flex h-6 shrink-0 items-center gap-1 px-1.5 text-[12px] transition-colors disabled:opacity-50 ${ROUND_ITEM} ${
+                    className={`flex h-6 shrink-0 items-center gap-1 px-1.5 text-caption transition-colors disabled:opacity-50 ${ROUND_ITEM} ${
                       selected
                         ? 'bg-[var(--oc-hover)] text-ink'
                         : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'

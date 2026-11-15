@@ -27,7 +27,7 @@ export function ListGroupSection({ label, count, collapsed, onToggle, children }
         type="button"
         onClick={onToggle}
         aria-expanded={!collapsed}
-        className={`flex w-full items-center gap-1 px-3 py-1.5 text-left text-[13px] text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink ${ROUND_ITEM}`}
+        className={`flex w-full items-center gap-1 px-3 py-1.5 text-left text-ui text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink ${ROUND_ITEM}`}
       >
         <ChevronRight
           size={13}
@@ -35,7 +35,7 @@ export function ListGroupSection({ label, count, collapsed, onToggle, children }
           className={`shrink-0 text-ink-muted transition-transform ${collapsed ? '' : 'rotate-90'}`}
         />
         <span className="flex-1 truncate">{label}</span>
-        <span className="text-[11px] text-ink-faint">{count}</span>
+        <span className="text-micro text-ink-faint">{count}</span>
       </button>
       <div
         className={`grid transition-[grid-template-rows] duration-base ease-quiet ${

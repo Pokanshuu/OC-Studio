@@ -75,7 +75,7 @@ export function VaultGate({ children }: { children: ReactNode }) {
               : `正在载入${name === null ? '文件夹…' : `：${name}`}`}
           </p>
           {migrating ? null : (
-            <p className="text-[11px] text-ink-faint">读取文件夹并解析 Markdown 与 frontmatter</p>
+            <p className="text-micro text-ink-faint">读取文件夹并解析 Markdown 与 frontmatter</p>
           )}
         </div>
       </div>
@@ -85,8 +85,8 @@ export function VaultGate({ children }: { children: ReactNode }) {
   if (status === 'error') {
     return (
       <div className="flex h-full flex-1 flex-col items-center justify-center gap-4 px-6">
-        <p className="font-serif text-[15px] font-bold text-ink">无法载入文件夹</p>
-        <p className="max-w-md text-center text-[13px] text-ink-muted">{error ?? '未知错误'}</p>
+        <p className="font-serif text-reading font-bold text-ink">无法载入文件夹</p>
+        <p className="max-w-md text-center text-ui text-ink-muted">{error ?? '未知错误'}</p>
         <div className="mt-2 flex flex-col items-center gap-2">
           <button type="button" className={BTN_PRIMARY} onClick={() => void openFolder()}>
             <FolderOpen size={14} strokeWidth={2} />
@@ -112,19 +112,19 @@ export function VaultGate({ children }: { children: ReactNode }) {
           <div className="flex flex-col gap-2">
             {/* 抬头行：文字与链接并在一起居中 */}
             <div className="flex items-center justify-center gap-3">
-              <p className="truncate text-[12px] text-ink-muted">
+              <p className="truncate text-caption text-ink-muted">
                 检测到 {orphanCount} 条旧版本数据
               </p>
               <button
                 type="button"
-                className="shrink-0 text-[12px] text-ink-muted underline-offset-4 transition-colors hover:text-ink hover:underline"
+                className="shrink-0 text-caption text-ink-muted underline-offset-4 transition-colors hover:text-ink hover:underline"
                 onClick={() => void handleExport()}
               >
                 导出备份
               </button>
             </div>
             <div
-              className={`flex h-8 w-full items-stretch overflow-hidden bg-paper-card text-[13px] text-ink ${ROUND_CONTROL}`}
+              className={`flex h-8 w-full items-stretch overflow-hidden bg-paper-card text-ui text-ink ${ROUND_CONTROL}`}
             >
               <button
                 type="button"
@@ -167,7 +167,7 @@ export function VaultGate({ children }: { children: ReactNode }) {
         </div>
 
         {orphanCount > 0 ? (
-          <p className="flex items-center justify-center gap-1.5 text-[12px] text-warning">
+          <p className="flex items-center justify-center gap-1.5 text-caption text-warning">
             <TriangleAlert size={12} strokeWidth={2} />
             打开或新建文件夹会替换掉旧版数据
           </p>
@@ -188,7 +188,7 @@ export function VaultWriteBanner() {
 
   return (
     <div className="flex shrink-0 items-center gap-3 border-b border-line bg-paper-alt px-4 py-1.5">
-      <span className="min-w-0 flex-1 truncate text-[12px] text-ink-muted">{writeStatus.lastError}</span>
+      <span className="min-w-0 flex-1 truncate text-caption text-ink-muted">{writeStatus.lastError}</span>
       <button type="button" className={BTN_QUIET} onClick={() => void flush()}>
         <RefreshCw size={13} strokeWidth={2} />
         重试保存

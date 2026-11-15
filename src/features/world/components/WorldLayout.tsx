@@ -327,12 +327,12 @@ export function WorldLayout({ onMentionClick, onCharacterCount, selectedEntryId,
         ) : loading ? (
           showLoading ? (
             <div className="flex h-full items-center justify-center">
-              <span className="text-[13px] text-ink-faint">加载中…</span>
+              <span className="text-ui text-ink-faint">加载中…</span>
             </div>
           ) : null
         ) : error ? (
           <div className="flex h-full items-center justify-center">
-            <span className="text-sm text-error">{error}</span>
+            <span className="text-body leading-5 text-error">{error}</span>
           </div>
         ) : (
           <div className="flex h-full flex-col">

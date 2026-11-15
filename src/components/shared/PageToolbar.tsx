@@ -69,7 +69,7 @@ export function PageToolbar({
             aria-label="返回"
           >
             <ArrowLeft size={16} strokeWidth={2} />
-            <span className="text-[13px]">返回</span>
+            <span className="text-ui">返回</span>
           </button>
         ) : null}
         <h1 className={`shrink-0 ${PAGE_TITLE} ${hideTitleOnMobile ? 'max-md:hidden' : ''}`}>{title}</h1>

@@ -200,7 +200,7 @@ export function AgentPlugin() {
     return (
       <div className={CENTER_STATE}>
         <Wrench size={20} strokeWidth={2} className="text-ink-faint" />
-        <p className="text-sm text-ink-muted">桌面版才能用</p>
+        <p className="text-body leading-5 text-ink-muted">桌面版才能用</p>
       </div>
     )
   }

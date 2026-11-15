@@ -23,7 +23,7 @@ export function ToolSection({ item }: { item: string }) {
     return (
       <div className={CENTER_STATE}>
         <Wrench size={20} strokeWidth={2} className="text-ink-faint" />
-        <p className="text-sm text-ink-muted">这个工具还没装好</p>
+        <p className="text-body leading-5 text-ink-muted">这个工具还没装好</p>
       </div>
     )
   }
@@ -35,7 +35,7 @@ export function ToolSection({ item }: { item: string }) {
   return (
     <div className={CENTER_STATE}>
       <Wrench size={20} strokeWidth={2} className="text-ink-faint" />
-      <p className="text-sm text-ink-muted">这个工具还没有界面</p>
+      <p className="text-body leading-5 text-ink-muted">这个工具还没有界面</p>
     </div>
   )
 }

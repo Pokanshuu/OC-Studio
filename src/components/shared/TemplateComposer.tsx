@@ -388,11 +388,11 @@ function ComposerRow({
       className="flex items-center gap-2 border-b border-line py-2"
     >
       <DragHandle handleProps={{ attributes, listeners }} />
-      <span className={`min-w-0 flex-1 truncate text-[13px] ${wired ? 'text-ink' : 'text-ink-faint'}`}>
+      <span className={`min-w-0 flex-1 truncate text-ui ${wired ? 'text-ink' : 'text-ink-faint'}`}>
         {meta?.label ?? component.id}
       </span>
-      {!wired ? <span className="shrink-0 text-[11px] text-ink-faint">开发中</span> : null}
-      {groupName ? <span className="shrink-0 text-[11px] text-ink-faint">{groupName}</span> : null}
+      {!wired ? <span className="shrink-0 text-micro text-ink-faint">开发中</span> : null}
+      {groupName ? <span className="shrink-0 text-micro text-ink-faint">{groupName}</span> : null}
       {hasParams ? (
         <button
           type="button"
@@ -590,10 +590,10 @@ export function TemplateComposer({
       <header className="flex h-12 shrink-0 items-center gap-3 border-b border-line px-4">
         <button type="button" onClick={onClose} className={`${ICON_BTN} w-auto gap-1 px-1.5`} aria-label="返回">
           <ArrowLeft size={16} strokeWidth={2} />
-          <span className="text-[13px] max-md:hidden">返回</span>
+          <span className="text-ui max-md:hidden">返回</span>
         </button>
-        <span className="min-w-0 truncate font-serif text-[15px] font-bold text-ink">{active.name}</span>
-        <span className="shrink-0 text-[11px] text-ink-faint max-md:hidden">编排</span>
+        <span className="min-w-0 truncate font-serif text-reading font-bold text-ink">{active.name}</span>
+        <span className="shrink-0 text-micro text-ink-faint max-md:hidden">编排</span>
         <div className="ml-auto flex shrink-0 items-center gap-1">
           <button
             type="button"
@@ -685,7 +685,7 @@ export function TemplateComposer({
                   key={id}
                   type="button"
                   onClick={() => add(id)}
-                  className={`${BTN_QUIET} h-7 px-2 text-[12px]`}
+                  className={`${BTN_QUIET} h-7 px-2 text-caption`}
                 >
                   <Plus size={12} strokeWidth={2} />
                   {COMPONENT_BY_ID[id]?.label ?? id}
@@ -698,16 +698,16 @@ export function TemplateComposer({
         {/* 右：真实数据预览（空库回落到结构示例） */}
         <aside className="w-[360px] shrink-0 overflow-y-auto border-l border-line px-5 py-4 max-md:hidden">
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-[11px] text-ink-faint">预览</span>
+            <span className="text-micro text-ink-faint">预览</span>
             {previewData ? (
-              <span className="text-[11px] text-ink-faint">真实数据</span>
+              <span className="text-micro text-ink-faint">真实数据</span>
             ) : (
-              <span className="text-[11px] text-ink-faint">结构示例</span>
+              <span className="text-micro text-ink-faint">结构示例</span>
             )}
           </div>
           <div className={`flex flex-col gap-6 p-5 ${PANEL}`}>
             {enabled.length === 0 ? (
-              <p className="text-[12px] text-ink-faint">还没有组件</p>
+              <p className="text-caption text-ink-faint">还没有组件</p>
             ) : (
               enabled.map((component, index) => {
                 const meta = COMPONENT_BY_ID[component.id]
@@ -741,7 +741,7 @@ export function TemplateComposer({
                           />
                         </button>
                       ) : (
-                        <div className="flex aspect-[3/2] items-center justify-center rounded-item bg-paper-alt text-[11px] text-ink-faint">
+                        <div className="flex aspect-[3/2] items-center justify-center rounded-item bg-paper-alt text-micro text-ink-faint">
                           封面
                         </div>
                       )
@@ -786,7 +786,7 @@ export function TemplateComposer({
                           />
                         </button>
                       ) : (
-                        <div className="flex aspect-[3/2] items-center justify-center rounded-item bg-paper-alt text-[11px] text-ink-faint">
+                        <div className="flex aspect-[3/2] items-center justify-center rounded-item bg-paper-alt text-micro text-ink-faint">
                           图片
                         </div>
                       )
@@ -798,7 +798,7 @@ export function TemplateComposer({
                           {previewData.fields.length > 0 ? (
                             <div className="flex flex-col gap-1">
                               {previewData.fields.map(([label, value]) => (
-                                <div key={label} className="flex gap-2 text-[12px]">
+                                <div key={label} className="flex gap-2 text-caption">
                                   <span className="w-14 shrink-0 text-ink-faint">{label}</span>
                                   <span className="min-w-0 text-ink-muted">{value}</span>
                                 </div>
@@ -824,19 +824,19 @@ export function TemplateComposer({
                             ))}
                           </div>
                         ) : (
-                          <p className="text-[12px] text-ink-faint">标签</p>
+                          <p className="text-caption text-ink-faint">标签</p>
                         )
                       break
                     case 'summary':
                       body = (
-                        <p className="text-[12px] leading-6 text-ink-muted">
+                        <p className="text-caption leading-6 text-ink-muted">
                           {previewData.summary || '简介'}
                         </p>
                       )
                       break
                     case 'body':
                       body = (
-                        <p className="max-h-36 overflow-hidden whitespace-pre-line text-[12px] leading-6 text-ink-muted">
+                        <p className="max-h-36 overflow-hidden whitespace-pre-line text-caption leading-6 text-ink-muted">
                           {previewData.body || '正文'}
                         </p>
                       )
@@ -850,7 +850,7 @@ export function TemplateComposer({
                                 key={`${relation.label}-${relationIndex}`}
                                 type="button"
                                 onClick={() => openRelation(relation)}
-                                className="truncate rounded-item px-1 py-0.5 text-left text-[12px] text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink"
+                                className="truncate rounded-item px-1 py-0.5 text-left text-caption text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink"
                               >
                                 {relation.label}
                               </button>
@@ -859,7 +859,7 @@ export function TemplateComposer({
                         ) : previewData.relations.length > 0 ? (
                           <div className="flex flex-col gap-1">
                             {previewData.relations.slice(0, 4).map((relation) => (
-                              <p key={relation} className="text-[12px] text-ink-muted">
+                              <p key={relation} className="text-caption text-ink-muted">
                                 {relation}
                               </p>
                             ))}
@@ -867,7 +867,7 @@ export function TemplateComposer({
                         ) : (
                           <div className="flex flex-col gap-1">
                             {lines.map((line) => (
-                              <p key={line} className="text-[12px] text-ink-faint">
+                              <p key={line} className="text-caption text-ink-faint">
                                 {line}
                               </p>
                             ))}
@@ -903,7 +903,7 @@ export function TemplateComposer({
                         ) : previewData.gallery.length > 0 ? (
                           <div className="flex flex-col gap-1">
                             {previewData.gallery.slice(0, 4).map((caption, imageIndex) => (
-                              <p key={`${caption}-${imageIndex}`} className="text-[12px] text-ink-muted">
+                              <p key={`${caption}-${imageIndex}`} className="text-caption text-ink-muted">
                                 {caption}
                               </p>
                             ))}
@@ -911,7 +911,7 @@ export function TemplateComposer({
                         ) : (
                           <div className="flex flex-col gap-1">
                             {lines.map((line) => (
-                              <p key={line} className="text-[12px] text-ink-faint">
+                              <p key={line} className="text-caption text-ink-faint">
                                 {line}
                               </p>
                             ))}
@@ -932,14 +932,14 @@ export function TemplateComposer({
                       break
                     case 'animation':
                       body = (
-                        <p className="text-[12px] text-ink-muted">动画视频</p>
+                        <p className="text-caption text-ink-muted">动画视频</p>
                       )
                       break
                     default:
                       body = (
                         <div className="flex flex-col gap-1">
                           {lines.map((line) => (
-                            <p key={line} className="text-[12px] text-ink-faint">
+                            <p key={line} className="text-caption text-ink-faint">
                               {line}
                             </p>
                           ))}
@@ -950,7 +950,7 @@ export function TemplateComposer({
                   body = (
                     <div className="flex flex-col gap-1">
                       {lines.map((line) => (
-                        <p key={line} className="text-[12px] text-ink-faint">
+                        <p key={line} className="text-caption text-ink-faint">
                           {line}
                         </p>
                       ))}
@@ -990,7 +990,7 @@ export function TemplateComposer({
           >
             <header className="flex h-12 shrink-0 items-center gap-2 border-b border-line px-4">
               <span className={SECTION_TITLE_BARE}>{paramMeta?.label ?? paramComponent.id}</span>
-              <span className="text-[11px] text-ink-faint">参数</span>
+              <span className="text-micro text-ink-faint">参数</span>
               <button
                 type="button"
                 onClick={() => setParamsFor(null)}

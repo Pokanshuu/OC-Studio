@@ -390,7 +390,7 @@ export function TimelineView({ onSelectEvent, onSelectCharacter, onSelectCountry
   if (loading) {
     return showLoading ? (
       <div className="flex h-full items-center justify-center">
-        <span className="text-[13px] text-ink-faint">加载中…</span>
+        <span className="text-ui text-ink-faint">加载中…</span>
       </div>
     ) : null
   }
@@ -398,7 +398,7 @@ export function TimelineView({ onSelectEvent, onSelectCharacter, onSelectCountry
   if (error) {
     return (
       <div className="flex h-full items-center justify-center">
-        <span className="text-sm text-error">{error}</span>
+        <span className="text-body leading-5 text-error">{error}</span>
       </div>
     )
   }
@@ -417,10 +417,10 @@ export function TimelineView({ onSelectEvent, onSelectCharacter, onSelectCountry
         <div className="max-md:h-10 flex-shrink-0" />
         {isFiltering ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3">
-            <p className="text-sm text-ink-muted">没有符合筛选条件的事件</p>
+            <p className="text-body leading-5 text-ink-muted">没有符合筛选条件的事件</p>
             <button
               type="button"
-              className="text-[12px] text-ink-faint underline-offset-2 transition-colors hover:text-ink hover:underline"
+              className="text-caption text-ink-faint underline-offset-2 transition-colors hover:text-ink hover:underline"
               onClick={() => {
                 setCharacterFilter('all')
                 setCountryFilter('all')
@@ -443,7 +443,7 @@ export function TimelineView({ onSelectEvent, onSelectCharacter, onSelectCountry
         {emptyToolbar}
       <div className="max-md:h-10 flex-shrink-0" />
         <div className="flex flex-1 items-center justify-center">
-          <p className="text-sm text-ink-muted">
+          <p className="text-body leading-5 text-ink-muted">
             {isFiltering ? '暂无符合筛选条件的事件' : '暂无事件，请先创建事件后查看时间线'}
           </p>
         </div>
@@ -531,7 +531,7 @@ export function TimelineView({ onSelectEvent, onSelectCharacter, onSelectCountry
                   }}
                 />
                 <span
-                  className="absolute text-xs text-ink-muted whitespace-nowrap"
+                  className="absolute text-caption leading-4 text-ink-muted whitespace-nowrap"
                   style={{
                     left: 4,
                     top: axisY - YEAR_TICK_HEIGHT - 18,
@@ -583,7 +583,7 @@ export function TimelineView({ onSelectEvent, onSelectCharacter, onSelectCountry
           {labeledConnections.map((connection) => (
             <div
               key={connection.id}
-              className="pointer-events-none absolute z-20 whitespace-nowrap rounded-item border border-line bg-paper px-1.5 py-0.5 text-[11px] text-ink-muted"
+              className="pointer-events-none absolute z-20 whitespace-nowrap rounded-item border border-line bg-paper px-1.5 py-0.5 text-micro text-ink-muted"
               style={{
                 left: connection.labelX,
                 top: connection.labelY,
@@ -688,7 +688,7 @@ export function TimelineView({ onSelectEvent, onSelectCharacter, onSelectCountry
           {/* Mode indicator */}
           {editMode && !isMobile && inAggregation && hasContent ? (
             <div
-              className="absolute right-2 flex items-center gap-1 text-xs text-ink-faint"
+              className="absolute right-2 flex items-center gap-1 text-caption leading-4 text-ink-faint"
               style={{ top: 8 }}
             >
               <Lock size={12} strokeWidth={2} />
@@ -702,13 +702,13 @@ export function TimelineView({ onSelectEvent, onSelectCharacter, onSelectCountry
       {/* Untimed events */}
       {nodes.withoutTime.length > 0 ? (
         <div className="shrink-0 border-t border-dashed border-line pl-4 pr-4 py-3 bg-paper md:static fixed bottom-[calc(60px+var(--safe-bottom))] left-0 right-0 z-10">
-          <p className="mb-2 text-xs text-ink-faint">未标注时间的事件</p>
+          <p className="mb-2 text-caption leading-4 text-ink-faint">未标注时间的事件</p>
           <div className="flex flex-wrap gap-2">
             {nodes.withoutTime.map((e) => (
               <button
                 key={e.id}
                 onClick={() => handleSelect(e.id)}
-                className="touch-feedback flex items-center gap-1.5 px-2 py-1 text-[12px] text-ink-muted transition-colors hover:text-ink"
+                className="touch-feedback flex items-center gap-1.5 px-2 py-1 text-caption text-ink-muted transition-colors hover:text-ink"
               >
                 {e.isMajor ? (
                   <Circle

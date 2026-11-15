@@ -33,11 +33,11 @@ export function SettingsEntryRow({
         type="button"
         disabled={disabled}
         onClick={onClick}
-        className="flex h-11 w-full items-center gap-2.5 rounded-item px-2 text-left text-[13px] text-ink transition-colors hover:bg-[var(--oc-hover)] disabled:cursor-default disabled:text-ink-faint disabled:hover:bg-transparent"
+        className="flex h-11 w-full items-center gap-2.5 rounded-item px-2 text-left text-ui text-ink transition-colors hover:bg-[var(--oc-hover)] disabled:cursor-default disabled:text-ink-faint disabled:hover:bg-transparent"
       >
         {Icon !== undefined ? <Icon size={15} strokeWidth={2} className="shrink-0 text-ink-muted" /> : null}
         <span className="min-w-0 flex-1 truncate">{label}</span>
-        {meta !== undefined ? <span className="shrink-0 text-[11px] tabular-nums text-ink-faint">{meta}</span> : null}
+        {meta !== undefined ? <span className="shrink-0 text-micro tabular-nums text-ink-faint">{meta}</span> : null}
         {disabled ? null : <ChevronRight size={15} strokeWidth={2} className="shrink-0 text-ink-faint" />}
       </button>
     </div>

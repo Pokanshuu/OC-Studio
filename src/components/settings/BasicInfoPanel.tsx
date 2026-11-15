@@ -205,7 +205,7 @@ function GroupFieldsSettings({ group }: { group: InfoGroup }) {
                         setTypeMenu({ key, at: { x: rect.left, y: rect.bottom + 4 } })
                       }}
                       title="字段类型"
-                      className="flex shrink-0 items-center gap-0.5 px-1 text-[11px] text-ink-faint transition-colors hover:text-ink"
+                      className="flex shrink-0 items-center gap-0.5 px-1 text-micro text-ink-faint transition-colors hover:text-ink"
                     >
                       {INFO_FIELD_TYPE_LABELS[infoFieldTypeOf(group, key)]}
                       <ChevronDown size={10} strokeWidth={2} />
@@ -232,13 +232,13 @@ function GroupFieldsSettings({ group }: { group: InfoGroup }) {
             if (event.key === 'Enter') add()
           }}
           placeholder="新字段名"
-          className="h-7 min-w-0 flex-1 border-b border-line bg-transparent text-[12px] text-ink placeholder:text-ink-faint focus:border-line-hover focus:outline-none"
+          className="h-7 min-w-0 flex-1 border-b border-line bg-transparent text-caption text-ink placeholder:text-ink-faint focus:border-line-hover focus:outline-none"
         />
         <button
           type="button"
           onClick={add}
           disabled={draftName.trim() === ''}
-          className={`flex h-7 shrink-0 items-center gap-1 px-2 text-[12px] text-ink-muted transition-colors hover:text-ink disabled:opacity-40 ${ROUND_ITEM}`}
+          className={`flex h-7 shrink-0 items-center gap-1 px-2 text-caption text-ink-muted transition-colors hover:text-ink disabled:opacity-40 ${ROUND_ITEM}`}
         >
           <Plus size={13} strokeWidth={2} />
           <span>添加</span>
@@ -257,7 +257,7 @@ function GroupFieldsSettings({ group }: { group: InfoGroup }) {
               toast.error('恢复失败', { description: err instanceof Error ? err.message : String(err) })
             })
           }}
-          className="flex items-center gap-1 self-start text-[11px] text-ink-faint transition-colors hover:text-ink"
+          className="flex items-center gap-1 self-start text-micro text-ink-faint transition-colors hover:text-ink"
         >
           <RotateCcw size={11} strokeWidth={2} />
           恢复出厂字段
@@ -341,7 +341,7 @@ export function BasicInfoPanel({ onBack, initialId }: { onBack: () => void; init
           >
             <ArrowLeft size={16} strokeWidth={2} />
           </button>
-          <span className="text-sm font-medium text-ink">
+          <span className="text-body leading-5 font-medium text-ink">
             {FIELD_ROWS.find((row) => row.fieldKind === fieldKind)?.label ?? fieldKind}
           </span>
         </div>
@@ -380,7 +380,7 @@ export function BasicInfoPanel({ onBack, initialId }: { onBack: () => void; init
                 setNameDraft(activeGroup.name)
               }}
               title="重命名"
-              className="text-sm font-medium text-ink transition-colors hover:text-ink-muted"
+              className="text-body leading-5 font-medium text-ink transition-colors hover:text-ink-muted"
             >
               {activeGroup.name}
             </button>
@@ -395,7 +395,7 @@ export function BasicInfoPanel({ onBack, initialId }: { onBack: () => void; init
 
         {/* 反向关系：哪些模板选择了这个组件 */}
         {usage.length > 0 ? (
-          <p className="truncate text-[11px] text-ink-faint">
+          <p className="truncate text-micro text-ink-faint">
             {usage.map((doc) => doc.name).join('、')} 在用
           </p>
         ) : null}
@@ -440,7 +440,7 @@ export function BasicInfoPanel({ onBack, initialId }: { onBack: () => void; init
         <button type="button" onClick={onBack} aria-label="返回" className={ICON_BTN}>
           <ArrowLeft size={16} strokeWidth={2} />
         </button>
-        <span className="text-sm text-ink">基本信息</span>
+        <span className="text-body leading-5 text-ink">基本信息</span>
       </div>
 
       {/* 一张列表：内置（角色 / 事件 / 宠物 / 武器）+ 自建。

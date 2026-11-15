@@ -398,7 +398,7 @@ export function InspirationQuickNote() {
                   </>
                 ) : (
                   <>
-                    <span className="px-1 text-[11px] tracking-[0.08em] text-ink-faint">灵感</span>
+                    <span className="px-1 text-micro tracking-[0.08em] text-ink-faint">灵感</span>
                     <span className="flex-1" />
                     <Tip label="记一条">
                       <button
@@ -439,7 +439,7 @@ export function InspirationQuickNote() {
                     />
                   </div>
                   {selected.promotedId !== undefined ? (
-                    <div className="flex shrink-0 items-center gap-2 px-3 pb-2 text-[11px] text-ink-faint">
+                    <div className="flex shrink-0 items-center gap-2 px-3 pb-2 text-micro text-ink-faint">
                       <span className="min-w-0 flex-1 truncate">
                         已变成笔记「{selected.promotedTitle ?? inspirationLabel(selected)}」
                       </span>
@@ -452,16 +452,16 @@ export function InspirationQuickNote() {
                       </button>
                     </div>
                   ) : null}
-                  {error !== null ? <p className="px-3 pb-2 text-xs text-ink-faint">{error}</p> : null}
+                  {error !== null ? <p className="px-3 pb-2 text-caption leading-4 text-ink-faint">{error}</p> : null}
                 </div>
               ) : items.length === 0 ? (
                 <div className={`${CENTER_STATE} min-h-0 flex-1 px-4`}>
                   <Lightbulb size={20} strokeWidth={2} className="text-ink-faint" />
-                  <p className="text-sm text-ink-muted">还没有灵感</p>
+                  <p className="text-body leading-5 text-ink-muted">还没有灵感</p>
                   <button type="button" className={BTN_PRIMARY} onClick={() => void handleCreate()}>
                     记一条
                   </button>
-                  {error !== null ? <p className="text-xs text-ink-faint">{error}</p> : null}
+                  {error !== null ? <p className="text-caption leading-4 text-ink-faint">{error}</p> : null}
                 </div>
               ) : (
                 <>
@@ -474,19 +474,19 @@ export function InspirationQuickNote() {
                           className={`mb-0.5 flex w-full flex-col items-start gap-0.5 ${ROUND_ITEM} px-2 py-1.5 text-left transition-colors hover:bg-[var(--oc-hover)]`}
                         >
                           <span className="flex w-full items-baseline gap-2">
-                            <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{inspirationLabel(item)}</span>
-                            <span className="shrink-0 text-[11px] tabular-nums text-ink-faint">
+                            <span className="min-w-0 flex-1 truncate text-ui text-ink">{inspirationLabel(item)}</span>
+                            <span className="shrink-0 text-micro tabular-nums text-ink-faint">
                               {inspirationTimeLabel(item.updatedAt)}
                             </span>
                           </span>
-                          <span className="w-full truncate text-[11px] text-ink-faint">
+                          <span className="w-full truncate text-micro text-ink-faint">
                             {inspirationText(item.content).slice(0, 40)}
                           </span>
                         </button>
                       </li>
                     ))}
                   </ul>
-                  {error !== null ? <p className="shrink-0 px-3 pb-2 text-xs text-ink-faint">{error}</p> : null}
+                  {error !== null ? <p className="shrink-0 px-3 pb-2 text-caption leading-4 text-ink-faint">{error}</p> : null}
                 </>
               )}
             </div>,

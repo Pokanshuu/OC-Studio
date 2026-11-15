@@ -80,13 +80,13 @@ export function CategoryRow({
         <img src={cover} alt="" loading="lazy" className={`h-9 w-14 shrink-0 object-cover ${ROUND_ITEM}`} />
       ) : null}
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <h3 className="truncate text-sm font-medium text-ink">{entry.title || '未命名'}</h3>
-        <span className="truncate text-xs text-ink-faint">
+        <h3 className="truncate text-body leading-5 font-medium text-ink">{entry.title || '未命名'}</h3>
+        <span className="truncate text-caption leading-4 text-ink-faint">
           编辑于 {formatRelativeTime(entry.updatedAt)}
         </span>
       </div>
       {excerpt ? (
-        <p className="min-w-0 flex-1 truncate text-xs text-ink-muted">{excerpt}</p>
+        <p className="min-w-0 flex-1 truncate text-caption leading-4 text-ink-muted">{excerpt}</p>
       ) : null}
       {!isMobile ? (
         <div className={ROW_ACTIONS}>

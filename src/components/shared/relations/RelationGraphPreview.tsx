@@ -146,7 +146,7 @@ export function RelationGraphPreview({ rows, inbound, selfName, onNavigate }: Re
         })}
       </svg>
       {hidden > 0 ? (
-        <p className="mt-1 text-right text-[11px] text-ink-faint">另有 {hidden} 条</p>
+        <p className="mt-1 text-right text-micro text-ink-faint">另有 {hidden} 条</p>
       ) : null}
     </div>
   )

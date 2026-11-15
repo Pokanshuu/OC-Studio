@@ -545,7 +545,7 @@ export function Composer() {
 
         {menu?.kind === 'model' && (
           <>
-            {models.length === 0 && <div className="px-3 py-1 text-[12px] text-ink-faint">{t('settings.modelHint')}</div>}
+            {models.length === 0 && <div className="px-3 py-1 text-caption text-ink-faint">{t('settings.modelHint')}</div>}
             {models.map((model) => (
               <MenuItem
                 key={model.id}

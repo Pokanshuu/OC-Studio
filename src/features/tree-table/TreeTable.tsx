@@ -369,7 +369,7 @@ export function TreeTable({
                 className={SEARCH_INPUT}
               />
             </div>
-            <span className="ml-1 hidden text-xs tabular-nums text-ink-faint sm:inline">
+            <span className="ml-1 hidden text-caption leading-4 tabular-nums text-ink-faint sm:inline">
               {entityCount} {ENTITY_LABEL[tab]} · {rows.length} 行
             </span>
             <button
@@ -433,12 +433,12 @@ export function TreeTable({
           )
         ) : (
           <table
-            className={`w-full border-collapse text-left text-[13px] ${
+            className={`w-full border-collapse text-left text-ui ${
               tab === 'character' ? 'min-w-[880px]' : 'min-w-[680px]'
             }`}
           >
             <thead className="sticky top-0 z-10 bg-paper">
-              <tr className="border-b border-line text-xs text-ink-faint">
+              <tr className="border-b border-line text-caption leading-4 text-ink-faint">
                 <th className="py-2 pl-6 font-normal">{tab === 'character' ? '角色 / 国家' : '名称'}</th>
                 {tab === 'entry' ? <th className="w-48 py-2 pr-4 font-normal">分类</th> : null}
                 {tab === 'country' ? <th className="w-48 py-2 pr-4 font-normal">体制</th> : null}

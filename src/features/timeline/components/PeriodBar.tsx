@@ -54,7 +54,7 @@ export function PeriodBar({
       title={period.name}
       {...longPress}
     >
-      <span className={`sticky left-2 truncate pl-2 text-xs font-medium leading-4 ${labelInk} ${isMobile ? 'pr-2' : 'pr-5'}`}>
+      <span className={`sticky left-2 truncate pl-2 text-caption font-medium leading-4 ${labelInk} ${isMobile ? 'pr-2' : 'pr-5'}`}>
         {period.name}
       </span>
       {!isMobile ? (

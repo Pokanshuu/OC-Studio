@@ -395,7 +395,7 @@ export function CategorySection({
   if (!category) {
     return (
       <div className={CENTER_STATE}>
-        <span className="text-sm text-ink-muted">分类已被删除</span>
+        <span className="text-body leading-5 text-ink-muted">分类已被删除</span>
       </div>
     )
   }
@@ -404,7 +404,7 @@ export function CategorySection({
   if (loading) {
     return showLoading ? (
       <div className="flex h-full items-center justify-center">
-        <span className="text-[13px] text-ink-faint">加载中…</span>
+        <span className="text-ui text-ink-faint">加载中…</span>
       </div>
     ) : null
   }
@@ -412,7 +412,7 @@ export function CategorySection({
   if (error) {
     return (
       <div className={CENTER_STATE}>
-        <span className="text-sm text-error">{error}</span>
+        <span className="text-body leading-5 text-error">{error}</span>
         <button type="button" onClick={() => void reload()} className={BTN_QUIET}>
           重试
         </button>
@@ -497,7 +497,7 @@ export function CategorySection({
         <ArrowLeft size={12} strokeWidth={2} />
         全部
       </button>
-      <span className="text-[13px] text-ink">
+      <span className="text-ui text-ink">
         {folderFilter === 'ungrouped' ? '未分组' : folderFilter}
       </span>
     </div>

@@ -360,7 +360,7 @@ export default function Home() {
       >
         {showPlaceholder ? (
           <div className="flex h-full items-center justify-center">
-            <p className="font-serif text-sm text-ink-faint">{placeholderText}</p>
+            <p className="font-serif text-body leading-5 text-ink-faint">{placeholderText}</p>
           </div>
         ) : (
           <Dashboard

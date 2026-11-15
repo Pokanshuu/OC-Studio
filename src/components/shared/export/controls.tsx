@@ -11,8 +11,8 @@ import { Check, Star, X } from 'lucide-react'
 import { SWITCH_CLASSES, SWITCH_DOT } from '@/components/settings/controls'
 import { ROUND_ITEM } from '@/lib/ui-tokens'
 
-export const EXPORT_SECTION_LABEL = 'text-[11px] tracking-[0.08em] text-ink-faint'
-export const EXPORT_ROW_LABEL = 'text-[12px] text-ink-muted'
+export const EXPORT_SECTION_LABEL = 'text-micro tracking-[0.08em] text-ink-faint'
+export const EXPORT_ROW_LABEL = 'text-caption text-ink-muted'
 
 export function ExportSection({
   title,
@@ -64,7 +64,7 @@ export function Segmented<T extends string | number>({
             aria-pressed={active}
             title={option.title}
             onClick={() => onChange(option.value)}
-            className={`${ROUND_ITEM} h-7 px-2 text-[12px] transition-colors ${
+            className={`${ROUND_ITEM} h-7 px-2 text-caption transition-colors ${
               active
                 ? 'bg-ink font-medium text-paper'
                 : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
@@ -153,7 +153,7 @@ export function Slider({
         onChange={(event) => onChange(Number(event.target.value))}
         className={RANGE_CLASS}
       />
-      <span className="w-9 shrink-0 text-right text-[11px] tabular-nums text-ink-faint">{shown}</span>
+      <span className="w-9 shrink-0 text-right text-micro tabular-nums text-ink-faint">{shown}</span>
     </div>
   )
 }
@@ -187,7 +187,7 @@ export function Swatch({
       >
         {selected ? <Check size={14} strokeWidth={2} className="text-ink" /> : null}
       </span>
-      <span className={`text-[11px] ${selected ? 'text-ink' : 'text-ink-muted'}`}>{label}</span>
+      <span className={`text-micro ${selected ? 'text-ink' : 'text-ink-muted'}`}>{label}</span>
     </button>
   )
 }
@@ -215,7 +215,7 @@ export function PresetRow({
       <button
         type="button"
         onClick={onApply}
-        className={`${ROUND_ITEM} min-w-0 flex-1 truncate px-1.5 py-1 text-left text-[12px] transition-colors hover:bg-[var(--oc-hover)] ${
+        className={`${ROUND_ITEM} min-w-0 flex-1 truncate px-1.5 py-1 text-left text-caption transition-colors hover:bg-[var(--oc-hover)] ${
           active ? 'font-medium text-ink' : 'text-ink-muted hover:text-ink'
         }`}
       >
@@ -235,7 +235,7 @@ export function PresetRow({
           type="button"
           onClick={onDelete}
           aria-label={`删除预设${name}`}
-          className={`${ROUND_ITEM} flex h-6 w-6 shrink-0 items-center justify-center text-[11px] text-ink-faint transition-colors hover:bg-[var(--oc-hover)] hover:text-error`}
+          className={`${ROUND_ITEM} flex h-6 w-6 shrink-0 items-center justify-center text-micro text-ink-faint transition-colors hover:bg-[var(--oc-hover)] hover:text-error`}
         >
           <X size={12} strokeWidth={2} />
         </button>

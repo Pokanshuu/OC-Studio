@@ -56,7 +56,7 @@ export function MobileEditorToolbar({
               editor.chain().focus().run()
               setMobileBlockMenuOpen(!mobileBlockMenuOpen)
             })}
-            className="touch-feedback flex h-8 shrink-0 items-center gap-1 px-2.5 text-[13px] text-ink-muted"
+            className="touch-feedback flex h-8 shrink-0 items-center gap-1 px-2.5 text-ui text-ink-muted"
           >
             <Pilcrow size={14} strokeWidth={2} />
             <ChevronDown size={14} strokeWidth={2} />
@@ -142,7 +142,7 @@ export function MobileEditorToolbar({
                   key={item.label}
                   type="button"
                   onPointerDown={(e) => handleToolbarPointerDown(e, () => { item.action(); setMobileBlockMenuOpen(false) })}
-                  className={`touch-feedback flex items-center gap-1.5 px-2.5 py-1.5 text-[13px] transition-colors ${ROUND_ITEM} ${item.active() ? 'bg-[var(--oc-hover)] text-ink' : 'text-ink-muted'}`}
+                  className={`touch-feedback flex items-center gap-1.5 px-2.5 py-1.5 text-ui transition-colors ${ROUND_ITEM} ${item.active() ? 'bg-[var(--oc-hover)] text-ink' : 'text-ink-muted'}`}
                 >
                   {item.icon}
                   {item.label}

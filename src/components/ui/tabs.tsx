@@ -34,7 +34,7 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
         // 胶囊会把「选中」和「悬停」画成同一个东西；下划线只占线的位置、不占版面，
         // 也不受圆角影响（圆角块的选中态一旦配下划线，线会在拐角处翘起来）。
         // 下划线宽度 = 该 tab 的整列宽（等分时即列宽），左端与列边对齐，方头不收圆角。
-        "relative inline-flex items-center justify-center whitespace-nowrap px-3 pb-2 pt-1.5 text-[13px] text-ink-muted transition-colors",
+        "relative inline-flex items-center justify-center whitespace-nowrap px-3 pb-2 pt-1.5 text-ui text-ink-muted transition-colors",
         // 悬停只换文字色：这一排没有「块」，不铺底色（全局 button:hover 会给按钮铺块，这里显式取消）
         "hover:bg-transparent hover:text-ink",
         // 焦点交给下划线：不加方框（方框会被误读成「选中的胶囊」）

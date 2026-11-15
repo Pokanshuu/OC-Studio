@@ -32,7 +32,7 @@ export function TagBadge({ tag, onRemove }: TagBadgeProps) {
 
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-item px-2 py-[3px] text-[12px] ${colorClass}`}
+      className={`inline-flex items-center gap-1 rounded-item px-2 py-[3px] text-caption ${colorClass}`}
     >
       {tag.name}
       {onRemove ? (

@@ -34,7 +34,7 @@ function ParamRow({
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line py-2 last:border-b-0">
-      <span className="text-[13px] text-ink">{def.label}</span>
+      <span className="text-ui text-ink">{def.label}</span>
       <div className="flex items-center gap-0.5">
         {def.options.map((option) => {
           const selected = current === option.value
@@ -93,21 +93,21 @@ export function TemplateParamPanel({
           <button type="button" onClick={onBack} aria-label="返回" className={ICON_BTN}>
             <ArrowLeft size={16} strokeWidth={2} />
           </button>
-          <span className="text-sm text-ink">{label}</span>
+          <span className="text-body leading-5 text-ink">{label}</span>
         </div>
 
         {rows.length === 0 ? (
-          <p className="py-3 text-[12px] text-ink-faint">没有模板用到这一组参数</p>
+          <p className="py-3 text-caption text-ink-faint">没有模板用到这一组参数</p>
         ) : (
           rows.map((row) => (
             <button
               key={row.doc.id}
               type="button"
               onClick={() => setActiveId(row.doc.id)}
-              className="flex items-center justify-between border-b border-line py-2.5 text-left text-sm text-ink transition-colors hover:bg-[var(--oc-hover)]"
+              className="flex items-center justify-between border-b border-line py-2.5 text-left text-body leading-5 text-ink transition-colors hover:bg-[var(--oc-hover)]"
             >
               <span>{row.doc.name}</span>
-              <span className="flex items-center gap-1 text-[11px] text-ink-faint">
+              <span className="flex items-center gap-1 text-micro text-ink-faint">
                 {row.defs.length} 项
                 <ChevronRight size={16} strokeWidth={2} />
               </span>
@@ -124,7 +124,7 @@ export function TemplateParamPanel({
         <button type="button" onClick={() => setActiveId(null)} aria-label="返回" className={ICON_BTN}>
           <ArrowLeft size={16} strokeWidth={2} />
         </button>
-        <span className="text-sm font-medium text-ink">{active.doc.name}</span>
+        <span className="text-body leading-5 font-medium text-ink">{active.doc.name}</span>
       </div>
       <div className="flex flex-col">
         {active.defs

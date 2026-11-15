@@ -893,7 +893,7 @@ export function RelationGraph({
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <span className="text-[13px] text-ink-faint">加载图谱数据…</span>
+        <span className="text-ui text-ink-faint">加载图谱数据…</span>
       </div>
     )
   }
@@ -901,8 +901,8 @@ export function RelationGraph({
   if (error) {
     return (
       <div className={CENTER_STATE}>
-        <span className="text-[13px] text-error">{error}</span>
-        <button onClick={() => void refresh()} className="px-1.5 py-1 text-[13px] text-ink-muted transition-colors hover:text-ink">重试</button>
+        <span className="text-ui text-error">{error}</span>
+        <button onClick={() => void refresh()} className="px-1.5 py-1 text-ui text-ink-muted transition-colors hover:text-ink">重试</button>
       </div>
     )
   }
@@ -910,8 +910,8 @@ export function RelationGraph({
   if (rawNodes.length === 0) {
     return (
       <div className={CENTER_STATE}>
-        <span className="font-serif text-sm text-ink-faint">暂无关系数据，请先创建角色、事件或国家，并添加关联关系</span>
-        <button onClick={() => void refresh()} className="px-1.5 py-1 text-[13px] text-ink-muted transition-colors hover:text-ink">刷新</button>
+        <span className="font-serif text-body leading-5 text-ink-faint">暂无关系数据，请先创建角色、事件或国家，并添加关联关系</span>
+        <button onClick={() => void refresh()} className="px-1.5 py-1 text-ui text-ink-muted transition-colors hover:text-ink">刷新</button>
       </div>
     )
   }
@@ -1066,7 +1066,7 @@ export function RelationGraph({
 
       {filteredNodes.length === 0 ? (
         <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center">
-          <span className="text-[13px] text-ink-faint">当前筛选下没有节点</span>
+          <span className="text-ui text-ink-faint">当前筛选下没有节点</span>
         </div>
       ) : null}
 
@@ -1118,7 +1118,7 @@ export function RelationGraph({
       {dragGhost
         ? createPortal(
             <div
-              className="graph-drag-ghost pointer-events-none fixed z-[9999] max-w-[180px] truncate rounded-item border border-line-hover bg-paper/90 px-2 py-1 text-[12px] text-ink"
+              className="graph-drag-ghost pointer-events-none fixed z-[9999] max-w-[180px] truncate rounded-item border border-line-hover bg-paper/90 px-2 py-1 text-caption text-ink"
               style={{ left: dragGhost.x + 14, top: dragGhost.y + 12 }}
             >
               {dragGhost.label}

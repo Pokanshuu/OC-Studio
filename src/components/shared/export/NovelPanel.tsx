@@ -277,7 +277,7 @@ export function NovelPanel({ novelId }: { novelId?: number }) {
     <ExportPanelLayout
       preview={
         <>
-          <div className="flex h-9 shrink-0 items-center justify-between gap-2 border-b border-line px-3 text-[11px] text-ink-faint">
+          <div className="flex h-9 shrink-0 items-center justify-between gap-2 border-b border-line px-3 text-micro text-ink-faint">
             <span className="truncate text-ink-muted">{books.length === 0 ? '小说' : book.title}</span>
             <span className="shrink-0 truncate">{summary}</span>
           </div>
@@ -320,7 +320,7 @@ export function NovelPanel({ novelId }: { novelId?: number }) {
                           : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
                       }`}
                     >
-                      <span className="min-w-0 flex-1 truncate text-[12px]">{entry.title}</span>
+                      <span className="min-w-0 flex-1 truncate text-caption">{entry.title}</span>
                       <span className="shrink-0 text-[10px] text-ink-faint">
                         {chapterCounts.get(entry.id) ?? 0} 章
                       </span>
@@ -368,7 +368,7 @@ export function NovelPanel({ novelId }: { novelId?: number }) {
                   options={NOVEL_LAYOUT_OPTIONS}
                   onChange={(value: NovelLayoutPresetId) => applyPreset(value)}
                 />
-                <p className="text-[11px] text-ink-faint">{presetHint}</p>
+                <p className="text-micro text-ink-faint">{presetHint}</p>
 
                 <ExportRow label="字体">
                   <Segmented
@@ -491,7 +491,7 @@ export function NovelPanel({ novelId }: { novelId?: number }) {
                             <ImagePlus size={15} strokeWidth={2} className="text-ink-faint" />
                           ) : null}
                         </span>
-                        <span className="truncate text-[11px]">{option.label}</span>
+                        <span className="truncate text-micro">{option.label}</span>
                       </button>
                     )
                   })}
@@ -501,18 +501,18 @@ export function NovelPanel({ novelId }: { novelId?: number }) {
             </>
           ) : (
             <ExportSection title="内容">
-              <p className="text-[11px] leading-relaxed text-ink-faint">
+              <p className="text-micro leading-relaxed text-ink-faint">
                 {format === 'docx' ? 'Word 带作品信息（作者 / 简介 / 封面）' : format === 'markdown' ? 'Markdown 保留标题层级' : 'TXT 只有书名与纯文本'}
               </p>
             </ExportSection>
           )}
 
-          {error !== '' && loaded ? <p className="text-[11px] text-error">{error}</p> : null}
+          {error !== '' && loaded ? <p className="text-micro text-error">{error}</p> : null}
         </>
       }
       footer={
         <>
-          <span className="min-w-0 flex-1 truncate text-[11px] text-ink-faint">
+          <span className="min-w-0 flex-1 truncate text-micro text-ink-faint">
             {busy && progress !== null
               ? `正在导出 ${progress.done}/${progress.total}`
               : format === 'png'

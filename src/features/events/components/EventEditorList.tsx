@@ -41,12 +41,12 @@ export function EventEditorList({ currentId, onSelect, onCollapse, onCreate }: E
           event.id === currentId ? 'bg-[var(--oc-hover)] text-ink' : 'text-ink hover:bg-[var(--oc-hover)]'
         }`}
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-line bg-paper-card font-serif text-[13px] text-ink-muted">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-line bg-paper-card font-serif text-ui text-ink-muted">
           {event.title.slice(0, 1)}
         </span>
         <span className="flex min-w-0 flex-col gap-0.5">
-          <span className="truncate text-[13px] font-medium text-ink">{event.title}</span>
-          {subtitle ? <span className="truncate text-[11px] text-ink-muted">{subtitle}</span> : null}
+          <span className="truncate text-ui font-medium text-ink">{event.title}</span>
+          {subtitle ? <span className="truncate text-micro text-ink-muted">{subtitle}</span> : null}
         </span>
       </button>
     )
@@ -91,16 +91,16 @@ export function EventEditorList({ currentId, onSelect, onCollapse, onCreate }: E
             onBlur={() => setSearchFocused(false)}
             placeholder="搜索事件…"
             aria-label="搜索事件"
-            className="h-6 w-full bg-transparent text-[13px] text-ink placeholder:text-ink-faint focus:outline-none"
+            className="h-6 w-full bg-transparent text-ui text-ink placeholder:text-ink-faint focus:outline-none"
           />
         </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-3">
-        {loading ? <p className="px-3 py-3 text-[12px] text-ink-faint">加载中…</p> : null}
-        {error ? <p className="px-3 py-3 text-[12px] text-error">{error}</p> : null}
+        {loading ? <p className="px-3 py-3 text-caption text-ink-faint">加载中…</p> : null}
+        {error ? <p className="px-3 py-3 text-caption text-error">{error}</p> : null}
         {!loading && !error && filtered.length === 0 ? (
-          <p className="px-3 py-6 text-center text-[12px] text-ink-faint">没有匹配的事件</p>
+          <p className="px-3 py-6 text-center text-caption text-ink-faint">没有匹配的事件</p>
         ) : null}
         <nav className="flex flex-col gap-1">{filtered.map(renderRow)}</nav>
       </div>

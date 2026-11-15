@@ -15,9 +15,9 @@ import { pageDocIsEmpty, type PageDoc, type PageEntry } from '@/lib/export/page'
 function EntryTitle({ entry }: { entry: PageEntry }) {
   if ((entry.title ?? '').trim() === '') return null
   if (entry.depth === 2) {
-    return <h4 className="text-[13px] font-semibold leading-snug">{entry.title}</h4>
+    return <h4 className="text-ui font-semibold leading-snug">{entry.title}</h4>
   }
-  return <h3 className="text-[14px] font-semibold leading-snug">{entry.title}</h3>
+  return <h3 className="text-body font-semibold leading-snug">{entry.title}</h3>
 }
 
 export interface PagePreviewProps {
@@ -29,7 +29,7 @@ export interface PagePreviewProps {
 export function PagePreview({ doc, emptyHint = '没有可导出的内容' }: PagePreviewProps) {
   if (pageDocIsEmpty(doc)) {
     return (
-      <div className="flex h-full items-center justify-center text-[12px] text-ink-faint">
+      <div className="flex h-full items-center justify-center text-caption text-ink-faint">
         {emptyHint}
       </div>
     )
@@ -46,7 +46,7 @@ export function PagePreview({ doc, emptyHint = '没有可导出的内容' }: Pag
           <h1 className="font-serif text-[26px] font-bold leading-tight tracking-[0.02em]">
             {doc.title}
           </h1>
-          {doc.subtitle ? <p className="mt-2 text-[11px] text-ink-faint">{doc.subtitle}</p> : null}
+          {doc.subtitle ? <p className="mt-2 text-micro text-ink-faint">{doc.subtitle}</p> : null}
         </header>
 
         {doc.sections.map((section) => (

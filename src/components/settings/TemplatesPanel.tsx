@@ -89,11 +89,11 @@ function ComponentRow({
     <div ref={setNodeRef} style={style} className="border-b border-line last:border-b-0">
       <div className="flex items-center gap-1 py-1">
         <DragHandle handleProps={{ attributes, listeners }} />
-        <span className={`min-w-0 flex-1 truncate text-[13px] ${wired ? 'text-ink' : 'text-ink-faint'}`}>
+        <span className={`min-w-0 flex-1 truncate text-ui ${wired ? 'text-ink' : 'text-ink-faint'}`}>
           {meta?.label ?? component.id}
         </span>
-        {!wired ? <span className="shrink-0 text-[11px] text-ink-faint">开发中</span> : null}
-        {detail ? <span className="shrink-0 text-[11px] text-ink-faint">{detail}</span> : null}
+        {!wired ? <span className="shrink-0 text-micro text-ink-faint">开发中</span> : null}
+        {detail ? <span className="shrink-0 text-micro text-ink-faint">{detail}</span> : null}
         {hasParams ? (
           <button
             type="button"
@@ -168,7 +168,7 @@ export function TemplatesPanel({
   // 加载态不闪：200ms 内什么都不画，超过才显示「加载中…」
   const showLoading = useDelayedFlag(loading)
   if (loading && templates.length === 0) {
-    return showLoading ? <p className="py-6 text-[13px] text-ink-faint">加载中…</p> : null
+    return showLoading ? <p className="py-6 text-ui text-ink-faint">加载中…</p> : null
   }
 
   if (!active) {
@@ -289,7 +289,7 @@ export function TemplatesPanel({
               setRenaming(active.id)
               setNameDraft(active.name)
             }}
-            className="text-sm font-medium text-ink transition-colors hover:text-ink-muted"
+            className="text-body leading-5 font-medium text-ink transition-colors hover:text-ink-muted"
             title="重命名"
           >
             {active.name}
@@ -356,7 +356,7 @@ export function TemplatesPanel({
           setAddMenu({ x: rect.left, y: rect.bottom + 4 })
         }}
         disabled={disabled.length === 0}
-        className={`flex h-7 shrink-0 items-center gap-1 self-start px-2 text-[12px] text-ink-muted transition-colors hover:text-ink disabled:opacity-40 ${ROUND_ITEM}`}
+        className={`flex h-7 shrink-0 items-center gap-1 self-start px-2 text-caption text-ink-muted transition-colors hover:text-ink disabled:opacity-40 ${ROUND_ITEM}`}
       >
         <Plus size={13} strokeWidth={2} />
         <span>添加组件</span>
@@ -412,7 +412,7 @@ export function TemplatesPanel({
       </div>
 
       {/* 数据口径：改动落在库里的文件，不进应用设置 */}
-      <p className="text-[11px] text-ink-faint">改动即时写入 .ocstudio/templates/</p>
+      <p className="text-micro text-ink-faint">改动即时写入 .ocstudio/templates/</p>
 
       {composerOpen ? (
         <TemplateComposer initialId={active.id} onClose={() => setComposerOpen(false)} />

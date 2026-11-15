@@ -31,11 +31,11 @@ import {
 } from '@/lib/sidebar-width'
 
 const ITEM_BASE =
-  'relative flex h-8 w-full items-center gap-2 px-4 text-left text-[13px] transition-colors'
+  'relative flex h-8 w-full items-center gap-2 px-4 text-left text-ui transition-colors'
 const ITEM_OFF = 'text-ink-muted hover:text-ink hover:bg-[var(--oc-hover)]'
 const ITEM_ON =
   "text-ink before:absolute before:inset-y-1.5 before:left-0 before:w-[2px] before:bg-ink before:content-['']"
-const GROUP_LABEL = 'px-4 pb-1.5 pt-3 text-[11px] tracking-[0.14em] text-ink-faint'
+const GROUP_LABEL = 'px-4 pb-1.5 pt-3 text-micro tracking-[0.14em] text-ink-faint'
 
 const subscribeNoop = () => () => {}
 

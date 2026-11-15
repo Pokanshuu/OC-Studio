@@ -39,7 +39,7 @@ export function ImageGalleryGrid({
       {images.length === 0 && !addTile ? (
         <div className="flex h-32 flex-col items-center justify-center gap-2 rounded-item border border-dashed border-line bg-paper-card">
           <ImageIcon size={20} strokeWidth={2} className="text-ink-faint" />
-          <span className="text-xs text-ink-faint">暂无图片</span>
+          <span className="text-caption leading-4 text-ink-faint">暂无图片</span>
         </div>
       ) : (
         <div
@@ -85,7 +85,7 @@ export function ImageGalleryGrid({
       {onAdd && !addTile ? (
         <button
           onClick={onUploadClick}
-          className="mt-2 flex h-8 w-full items-center justify-center gap-1.5 rounded-item border border-dashed border-line bg-paper-card text-sm text-ink-faint transition-colors hover:border-line-hover"
+          className="mt-2 flex h-8 w-full items-center justify-center gap-1.5 rounded-item border border-dashed border-line bg-paper-card text-body leading-5 text-ink-faint transition-colors hover:border-line-hover"
         >
           <Plus size={16} strokeWidth={2} />
           <span>添加图片</span>

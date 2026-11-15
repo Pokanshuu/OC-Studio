@@ -60,7 +60,7 @@ export function CategoryEntryEditor(props: CategoryEntryEditorProps) {
   if (error || !entry) {
     return (
       <div className={CENTER_STATE}>
-        <span className="text-sm text-error">{error ?? '条目不存在'}</span>
+        <span className="text-body leading-5 text-error">{error ?? '条目不存在'}</span>
         <button type="button" onClick={props.onBack} className={BTN_QUIET}>
           返回
         </button>

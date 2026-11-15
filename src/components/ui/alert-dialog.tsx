@@ -114,7 +114,7 @@ function AlertDialogDescription({
   return (
     <AlertDialogPrimitive.Description
       data-slot="alert-dialog-description"
-      className={cn("text-[13px] text-ink-muted", className)}
+      className={cn("text-ui text-ink-muted", className)}
       {...props}
     />
   )
@@ -144,7 +144,7 @@ function AlertDialogCancel({
     <AlertDialogPrimitive.Cancel
       data-slot="alert-dialog-cancel"
       className={cn(
-        "touch-feedback inline-flex h-8 items-center justify-center px-3 text-[13px] text-ink-muted transition-colors hover:text-ink",
+        "touch-feedback inline-flex h-8 items-center justify-center px-3 text-ui text-ink-muted transition-colors hover:text-ink",
         className,
       )}
       {...props}

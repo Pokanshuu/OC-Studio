@@ -25,7 +25,7 @@ import { useListWidth } from '@/components/editor/useListWidth'
 import { CATEGORY_TREE, albumCategoryLabel, albumSourceLabel, albumSourceType, collectAlbumSources, matchesAlbumCategory } from './album-utils'
 
 /** 相册页头里的筛选触发按钮（比 ui-tokens 的 FILTER_TRIGGER 更紧一点） */
-const ALBUM_FILTER_TRIGGER = 'touch-feedback flex h-8 items-center gap-1 px-2 text-[13px] text-ink transition-colors hover:bg-[var(--oc-hover)]'
+const ALBUM_FILTER_TRIGGER = 'touch-feedback flex h-8 items-center gap-1 px-2 text-ui text-ink transition-colors hover:bg-[var(--oc-hover)]'
 
 interface GlobalAlbumProps {
   onNavigate?: (id: number, type: string) => void
@@ -261,7 +261,7 @@ export function GlobalAlbum({ onNavigate }: GlobalAlbumProps) {
                   <input
                     type="text" value={search} onChange={(e) => setSearch(e.target.value)}
                     placeholder="搜索..."
-                    className="h-8 w-48 border-b border-transparent bg-transparent pl-7 pr-2 text-[13px] text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none"
+                    className="h-8 w-48 border-b border-transparent bg-transparent pl-7 pr-2 text-ui text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none"
                   />
                 </div>
                 {/* 按来源筛选：只在具体分类下出现（角色 / 事件 / 国家） */}

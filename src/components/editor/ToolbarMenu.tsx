@@ -87,7 +87,7 @@ export function ToolbarMenu({ anchor, groups, onClose }: ToolbarMenuProps) {
             >
               {item.icon ? <span className="shrink-0 text-ink-muted">{item.icon}</span> : null}
               <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
-              {item.shortcut ? <span className="shrink-0 text-[11px] text-ink-faint">{shortcutLabel(item.shortcut)}</span> : null}
+              {item.shortcut ? <span className="shrink-0 text-micro text-ink-faint">{shortcutLabel(item.shortcut)}</span> : null}
               {item.active ? <Check size={13} strokeWidth={2} className="shrink-0 text-ink-muted" /> : null}
             </button>
           ))}

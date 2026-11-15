@@ -123,7 +123,7 @@ function PosterBlockRow({
     <div ref={setNodeRef} style={style} className="flex h-7 items-center gap-1">
       <DragHandle handleProps={{ attributes, listeners }} className="-ml-1" />
       <Checkbox checked={checked} onCheckedChange={onToggle} />
-      <span className={`min-w-0 flex-1 truncate text-[12px] ${checked ? 'text-ink' : 'text-ink-faint'}`}>
+      <span className={`min-w-0 flex-1 truncate text-caption ${checked ? 'text-ink' : 'text-ink-faint'}`}>
         {POSTER_BLOCK_LABELS[block]}
       </span>
     </div>
@@ -431,7 +431,7 @@ export function PosterPanel({
       previewClassName="p-4"
       preview={
         <>
-          <div className="mb-2 flex shrink-0 items-center justify-between gap-2 text-[11px] text-ink-faint">
+          <div className="mb-2 flex shrink-0 items-center justify-between gap-2 text-micro text-ink-faint">
             <span className="truncate">
               {subjectLoading
                 ? '正在读取…'
@@ -458,7 +458,7 @@ export function PosterPanel({
                 )}
               </PosterPreview>
             ) : (
-              <div className="flex h-full items-center justify-center text-[12px] text-ink-faint">
+              <div className="flex h-full items-center justify-center text-caption text-ink-faint">
                 {subjectLoading ? '正在读取…' : '选一个角色 / 事件 / 国家 / 词条'}
               </div>
             )}
@@ -495,7 +495,7 @@ export function PosterPanel({
             </div>
             <div className="flex max-h-44 flex-col gap-px overflow-y-auto">
               {list.length === 0 ? (
-                <span className="px-1 py-1 text-[12px] text-ink-faint">没有匹配</span>
+                <span className="px-1 py-1 text-caption text-ink-faint">没有匹配</span>
               ) : (
                 list.map((subject) => {
                   const active = subject.id === subjectId && subject.kind === kind
@@ -508,8 +508,8 @@ export function PosterPanel({
                         active ? 'bg-[var(--oc-hover)]' : 'hover:bg-[var(--oc-hover)]'
                       }`}
                     >
-                      <span className="min-w-0 flex-1 truncate text-[12px] text-ink">{subject.title}</span>
-                      <span className="max-w-[45%] shrink-0 truncate text-[11px] text-ink-faint">
+                      <span className="min-w-0 flex-1 truncate text-caption text-ink">{subject.title}</span>
+                      <span className="max-w-[45%] shrink-0 truncate text-micro text-ink-faint">
                         {subject.subtitle}
                       </span>
                     </button>
@@ -536,7 +536,7 @@ export function PosterPanel({
                         : 'border-line hover:bg-[var(--oc-hover)]'
                     }`}
                   >
-                    <span className={`text-[12px] ${active ? 'font-medium text-ink' : 'text-ink'}`}>
+                    <span className={`text-caption ${active ? 'font-medium text-ink' : 'text-ink'}`}>
                       {template.name}
                     </span>
                     <span className="text-[10px] text-ink-faint">{template.hint}</span>
@@ -568,7 +568,7 @@ export function PosterPanel({
               />
             </ExportRow>
             <div className="flex flex-col gap-1.5 pt-1">
-              <span className="text-[12px] text-ink-muted">背景</span>
+              <span className="text-caption text-ink-muted">背景</span>
               <div className="grid grid-cols-3 gap-1">
                 {(Object.keys(POSTER_BACKGROUND_LABELS) as PosterBackground[]).map((value) => (
                   <Swatch
@@ -764,7 +764,7 @@ export function PosterPanel({
                 type="button"
                 onClick={() => void savePreset()}
                 disabled={presetName.trim() === ''}
-                className={`${BTN_PRIMARY} h-7 px-2 text-[12px] ${presetName.trim() === '' ? 'opacity-50' : ''}`}
+                className={`${BTN_PRIMARY} h-7 px-2 text-caption ${presetName.trim() === '' ? 'opacity-50' : ''}`}
               >
                 保存
               </button>
@@ -774,7 +774,7 @@ export function PosterPanel({
       }
       footer={
         <>
-          <span className="min-w-0 flex-1 truncate text-[11px] text-ink-faint">
+          <span className="min-w-0 flex-1 truncate text-micro text-ink-faint">
             PNG · 2× · {ratio.width} × {ratio.height}
           </span>
           <button

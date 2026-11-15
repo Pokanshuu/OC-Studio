@@ -98,28 +98,28 @@ export function EntityHistoryButton({ table, id, name }: EntityHistoryButtonProp
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>历史</DialogTitle>
-            <DialogDescription className="text-[12px] text-ink-faint">
+            <DialogDescription className="text-caption text-ink-faint">
               {relPath ?? currentPath}
             </DialogDescription>
           </DialogHeader>
 
           <div className="max-h-[45vh] min-h-[120px] overflow-y-auto">
             {loading ? (
-              <div className="flex items-center justify-center gap-2 py-8 text-[13px] text-ink-muted">
+              <div className="flex items-center justify-center gap-2 py-8 text-ui text-ink-muted">
                 <Loader2 size={14} strokeWidth={2} className="animate-spin" />
                 读取中…
               </div>
             ) : entries.length === 0 ? (
               <div className="flex flex-col items-center gap-1 py-8 text-center">
-                <span className="text-[13px] text-ink-muted">还没有记录</span>
-                <span className="text-[12px] text-ink-faint">保存一次之后开始记录</span>
+                <span className="text-ui text-ink-muted">还没有记录</span>
+                <span className="text-caption text-ink-faint">保存一次之后开始记录</span>
               </div>
             ) : (
               <ul className="flex flex-col rules-end">
                 {entries.map((entry) => (
                   <li
                     key={`${entry.ts}-${entry.kind}-${entry.hash}`}
-                    className="row-rule flex items-baseline gap-3 py-2 text-[13px]"
+                    className="row-rule flex items-baseline gap-3 py-2 text-ui"
                   >
                     <span className="w-[110px] shrink-0 tabular-nums text-ink-muted">
                       {formatTimestamp(entry.ts)}

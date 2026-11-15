@@ -71,7 +71,7 @@ export function OutlinePanel({ editor, onClose }: OutlinePanelProps) {
   return createPortal(
     <div className={`fixed right-4 top-32 z-[60] flex max-h-[60vh] w-60 flex-col overflow-hidden ${PANEL} pointer-events-auto`}>
       <div className="flex h-9 shrink-0 items-center justify-between border-b border-line pl-3 pr-1">
-        <span className="text-[11px] tracking-[0.06em] text-ink-faint">大纲</span>
+        <span className="text-micro tracking-[0.06em] text-ink-faint">大纲</span>
         <button type="button" onClick={onClose} aria-label="关闭大纲" className={ICON_BTN_MD}>
           <X size={14} strokeWidth={2} />
         </button>
@@ -79,7 +79,7 @@ export function OutlinePanel({ editor, onClose }: OutlinePanelProps) {
 
       <div className="min-h-0 flex-1 overflow-y-auto p-1">
         {headings.length === 0 ? (
-          <p className="px-2 py-3 text-[12px] text-ink-faint">暂无标题</p>
+          <p className="px-2 py-3 text-caption text-ink-faint">暂无标题</p>
         ) : (
           headings.map((heading, index) => (
             <button
@@ -87,7 +87,7 @@ export function OutlinePanel({ editor, onClose }: OutlinePanelProps) {
               type="button"
               onClick={() => go(heading.pos)}
               title={heading.text}
-              className={`flex w-full items-center ${ROUND_ITEM} py-1 pr-2 text-left text-[13px] transition-colors ${
+              className={`flex w-full items-center ${ROUND_ITEM} py-1 pr-2 text-left text-ui transition-colors ${
                 index === active
                   ? 'bg-[var(--oc-hover)] text-ink'
                   : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'

@@ -52,7 +52,7 @@ function ToggleRow({
       role="checkbox"
       aria-checked={checked}
       onClick={onToggle}
-      className={`flex w-full items-center gap-2 px-1.5 py-1 text-left text-[12px] text-ink transition-colors hover:bg-[var(--oc-hover)] ${ROUND_ITEM}`}
+      className={`flex w-full items-center gap-2 px-1.5 py-1 text-left text-caption text-ink transition-colors hover:bg-[var(--oc-hover)] ${ROUND_ITEM}`}
     >
       <CheckboxBox checked={checked} />
       {children}
@@ -93,7 +93,7 @@ export function RelationControlBar({
                 checked={visible[type]}
                 onToggle={() => onToggleType(type)}
                 trailing={
-                  <span className="shrink-0 text-[11px] tabular-nums text-ink-faint">{counts[type]}</span>
+                  <span className="shrink-0 text-micro tabular-nums text-ink-faint">{counts[type]}</span>
                 }
               >
                 <span className="shrink-0 text-ink-faint" aria-hidden>
@@ -123,7 +123,7 @@ export function RelationControlBar({
                   type="button"
                   aria-pressed={edgeStyle === option.value}
                   onClick={() => onEdgeStyleChange(option.value)}
-                  className={`h-6 flex-1 text-[12px] transition-colors ${ROUND_ITEM} ${
+                  className={`h-6 flex-1 text-caption transition-colors ${ROUND_ITEM} ${
                     edgeStyle === option.value
                       ? 'bg-[var(--oc-hover)] text-ink'
                       : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
@@ -143,7 +143,7 @@ export function RelationControlBar({
           onClick={() => setOpen((previous) => !previous)}
           aria-expanded={open}
           aria-label="显示"
-          className={`flex h-6 shrink-0 items-center gap-1 px-1.5 text-[12px] transition-colors ${ROUND_ITEM} ${
+          className={`flex h-6 shrink-0 items-center gap-1 px-1.5 text-caption transition-colors ${ROUND_ITEM} ${
             open
               ? 'bg-[var(--oc-hover)] text-ink'
               : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
@@ -168,7 +168,7 @@ export function RelationControlBar({
               type="button"
               onClick={() => onToggleType(type)}
               aria-pressed={visible[type]}
-              className={`flex h-6 shrink-0 items-center gap-1 px-1.5 text-[12px] transition-colors ${ROUND_ITEM} ${
+              className={`flex h-6 shrink-0 items-center gap-1 px-1.5 text-caption transition-colors ${ROUND_ITEM} ${
                 visible[type]
                   ? 'bg-[var(--oc-hover)] text-ink'
                   : 'text-ink-faint hover:text-ink'

@@ -72,7 +72,7 @@ export function SettingsFieldRow({
           if (event.key === 'Enter') event.currentTarget.blur()
           if (event.key === 'Escape') setDraft(value)
         }}
-        className="min-w-0 flex-1 bg-transparent text-[13px] text-ink focus:outline-none"
+        className="min-w-0 flex-1 bg-transparent text-ui text-ink focus:outline-none"
       />
       {onKeyChange !== undefined ? (
         editingKey ? (
@@ -93,7 +93,7 @@ export function SettingsFieldRow({
             }}
             title="落盘键（frontmatter 里的键名）"
             aria-label="落盘键"
-            className="w-20 shrink-0 bg-transparent text-[11px] text-ink-faint placeholder:text-ink-faint focus:text-ink focus:outline-none"
+            className="w-20 shrink-0 bg-transparent text-micro text-ink-faint placeholder:text-ink-faint focus:text-ink focus:outline-none"
           />
         ) : (
           <button
@@ -103,13 +103,13 @@ export function SettingsFieldRow({
               setEditingKey(true)
             }}
             title="落盘键"
-            className="shrink-0 px-1 text-[11px] text-ink-faint transition-colors hover:text-ink"
+            className="shrink-0 px-1 text-micro text-ink-faint transition-colors hover:text-ink"
           >
             {keyValue !== undefined && keyValue !== value ? keyValue : '#'}
           </button>
         )
       ) : null}
-      {badge !== undefined ? <span className="shrink-0 text-[11px] text-ink-faint">{badge}</span> : null}
+      {badge !== undefined ? <span className="shrink-0 text-micro text-ink-faint">{badge}</span> : null}
       {typeSlot}
       <button
         type="button"

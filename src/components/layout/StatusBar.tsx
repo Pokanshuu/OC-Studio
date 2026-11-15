@@ -25,13 +25,13 @@ export function StatusBar() {
         <VaultStatus />
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
-        <span className="text-[11px] text-ink-faint transparent-text">
+        <span className="text-micro text-ink-faint transparent-text">
           字数：<span className="tabular-nums">{wordCount}</span>
         </span>
-        <span className="text-[11px] text-ink-faint opacity-60 transparent-text">·</span>
+        <span className="text-micro text-ink-faint opacity-60 transparent-text">·</span>
         <div className="flex items-center gap-1">
           <SaveIcon size={12} strokeWidth={2} className={iconClass} />
-          <span className="text-[11px] text-ink-faint transparent-text">{saveLabel}</span>
+          <span className="text-micro text-ink-faint transparent-text">{saveLabel}</span>
         </div>
       </div>
     </footer>

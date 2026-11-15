@@ -54,7 +54,7 @@ interface RelationsSectionProps {
 const COMPACT_MAX_WIDTH = 480
 
 const TABLE_HEAD =
-  'pb-2 pr-4 text-left text-[11px] font-normal tracking-[0.14em] text-ink-faint'
+  'pb-2 pr-4 text-left text-micro font-normal tracking-[0.14em] text-ink-faint'
 
 const VIEW_BTN = `flex h-6 w-6 shrink-0 items-center justify-center transition-colors hover:bg-[var(--oc-hover)] ${ROUND_CONTROL}`
 
@@ -89,7 +89,7 @@ function RelationArrowControl({
       <span
         title={label}
         aria-label={label}
-        className="w-5 shrink-0 text-center text-[12px] leading-none text-ink-faint"
+        className="w-5 shrink-0 text-center text-caption leading-none text-ink-faint"
       >
         {current.glyph}
       </span>
@@ -108,7 +108,7 @@ function RelationArrowControl({
           const rect = event.currentTarget.getBoundingClientRect()
           setAt({ x: rect.left, y: rect.bottom + 4 })
         }}
-        className={`w-5 shrink-0 text-center text-[12px] leading-none text-ink-faint transition-colors hover:bg-[var(--oc-hover)] hover:text-ink active:bg-[var(--oc-hover)] ${ROUND_CONTROL}`}
+        className={`w-5 shrink-0 text-center text-caption leading-none text-ink-faint transition-colors hover:bg-[var(--oc-hover)] hover:text-ink active:bg-[var(--oc-hover)] ${ROUND_CONTROL}`}
       >
         {current.glyph}
       </button>
@@ -151,13 +151,13 @@ function RelationName({
 }) {
   const text = row.name || '未命名'
   if (row.targetId === undefined || onNavigate === undefined) {
-    return <span className="block truncate font-serif text-[13px] text-ink">{text}</span>
+    return <span className="block truncate font-serif text-ui text-ink">{text}</span>
   }
   return (
     <button
       type="button"
       onClick={() => onNavigate(row.kind, row.targetId as number)}
-      className="block max-w-full truncate font-serif text-[13px] text-ink transition-colors hover:text-ink-muted"
+      className="block max-w-full truncate font-serif text-ui text-ink transition-colors hover:text-ink-muted"
     >
       {text}
     </button>
@@ -203,7 +203,7 @@ function RelationTable({
             <td className="py-2 pr-4">
               <RelationName row={row} onNavigate={onNavigate} />
             </td>
-            <td className="py-2 pr-4 text-[13px] text-ink-muted">
+            <td className="py-2 pr-4 text-ui text-ink-muted">
               {row.kindLabel ?? RELATION_KIND_LABEL[row.kind]}
             </td>
             <td className="py-2">
@@ -222,10 +222,10 @@ function RelationTable({
                     onChange={(event) => onRename(row, event.target.value)}
                     placeholder="关系"
                     aria-label={`${row.name}的关系`}
-                    className={`${row.directional ? 'w-24' : 'w-32'} bg-transparent text-right text-[13px] text-ink placeholder:text-ink-faint focus:outline-none`}
+                    className={`${row.directional ? 'w-24' : 'w-32'} bg-transparent text-right text-ui text-ink placeholder:text-ink-faint focus:outline-none`}
                   />
                 ) : (
-                  <span className="text-[13px] text-ink-muted">{row.relation}</span>
+                  <span className="text-ui text-ink-muted">{row.relation}</span>
                 )}
                 {withRemove && !row.readonly && onRemove !== undefined ? (
                   <button
@@ -292,10 +292,10 @@ function RelationChips({
               onChange={(event) => onRename(row, event.target.value)}
               placeholder="关系"
               aria-label={`${row.name}的关系`}
-              className="w-16 bg-transparent text-[12px] text-ink-muted placeholder:text-ink-faint focus:outline-none"
+              className="w-16 bg-transparent text-caption text-ink-muted placeholder:text-ink-faint focus:outline-none"
             />
           ) : row.relation ? (
-            <span className="text-[11px] text-ink-faint">{row.relation}</span>
+            <span className="text-micro text-ink-faint">{row.relation}</span>
           ) : null}
           {withRemove && !row.readonly && onRemove !== undefined ? (
             <button
@@ -409,7 +409,7 @@ export function RelationsSection({
             ) : null}
             {inbound.length > 0 ? (
               <div>
-                <h4 className="mb-2 text-[11px] tracking-[0.08em] text-ink-faint">来自</h4>
+                <h4 className="mb-2 text-micro tracking-[0.08em] text-ink-faint">来自</h4>
                 <RelationChips
                   rows={inbound}
                   withRemove={false}
@@ -434,7 +434,7 @@ export function RelationsSection({
             ) : null}
             {inbound.length > 0 ? (
               <div className={rows.length > 0 ? 'mt-4' : ''}>
-                <h4 className="mb-2 text-[11px] tracking-[0.08em] text-ink-faint">来自</h4>
+                <h4 className="mb-2 text-micro tracking-[0.08em] text-ink-faint">来自</h4>
                 <RelationTable
                   rows={inbound}
                   withHeader={rows.length === 0}

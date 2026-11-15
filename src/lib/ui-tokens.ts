@@ -32,7 +32,7 @@ export const FIELD_ROW_TOP = 'flex items-start gap-3 border-b border-line py-1.5
 export const LIST_END = '[&>*:last-child]:border-b-0'
 /** 字段行容器：两列网格 —— 最后**两格**都不要尾线（窄屏回落到 `LIST_END` 的效果） */
 export const FIELD_GRID = '[&>*:last-child]:border-b-0 sm:[&>*:nth-last-child(-n+2)]:border-b-0'
-export const FIELD_LABEL = 'w-16 shrink-0 text-sm text-ink-muted'
+export const FIELD_LABEL = 'w-16 shrink-0 text-body leading-5 text-ink-muted'
 /** 竖排表单里的标签（弹窗/设置） */
 export const FIELD_LABEL_BLOCK = 'mb-1.5 block text-ui text-ink-muted'
 
@@ -61,9 +61,9 @@ export const SETTINGS_EMPTY = 'py-2 text-ui leading-5 text-ink-faint'
 
 /* ── 区块标题 ───────────────────────────────────────────
    衬线 15px：靠字族而非字号与 14px 的字段标签拉开层级。 */
-export const SECTION_TITLE = 'mb-3 font-serif text-[15px] font-bold tracking-[-0.01em] text-ink'
+export const SECTION_TITLE = 'mb-3 font-serif text-reading font-bold tracking-[-0.01em] text-ink'
 /** 同行右侧还要放控件时用（自己控制 spacing） */
-export const SECTION_TITLE_BARE = 'font-serif text-[15px] font-bold tracking-[-0.01em] text-ink'
+export const SECTION_TITLE_BARE = 'font-serif text-reading font-bold tracking-[-0.01em] text-ink'
 
 /* ── 顶栏 / 页头 ───────────────────────────────────────
    页头统一 48px；页面标题统一 18px 衬线加粗（列表页 / 编辑器 / 浮层共用）。 */
@@ -96,11 +96,11 @@ export const TITLE_INPUT =
 
 /** 字段行里的行内输入（零描边，占满剩余宽度） */
 export const FIELD_INPUT =
-  'min-w-0 flex-1 bg-transparent text-sm text-ink placeholder:text-ink-faint focus:outline-none'
+  'min-w-0 flex-1 bg-transparent text-body leading-5 text-ink placeholder:text-ink-faint focus:outline-none'
 
 /** 年 / 月 / 日 三段输入（整组共用一条底线；事件时间与角色生日共用） */
 export const DATE_INPUT =
-  'h-6 w-14 min-w-0 bg-transparent text-sm text-ink placeholder:text-ink-faint focus:outline-none'
+  'h-6 w-14 min-w-0 bg-transparent text-body leading-5 text-ink placeholder:text-ink-faint focus:outline-none'
 
 /** 居中兜底态：空态 / 加载 / 错误（竖排、居中、gap-3） */
 export const CENTER_STATE = 'flex h-full flex-col items-center justify-center gap-3'
@@ -180,7 +180,7 @@ export const BTN_DANGER =
 /* ── 输入 ─────────────────────────────────────────────
    零描边：静默态只留一条极淡的线，聚焦时加深。 */
 export const INPUT_LINE =
-  'w-full border-b border-line bg-transparent px-0 text-sm text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none'
+  'w-full border-b border-line bg-transparent px-0 text-body leading-5 text-ink placeholder:text-ink-faint transition-colors focus:border-line-hover focus:outline-none'
 
 /**
  * 行内输入：固定宽度（`w-28`），用在 `flex-wrap` 的 chip 行里。
@@ -317,7 +317,7 @@ export const ROW_SELECTED = 'bg-[var(--oc-hover)] [box-shadow:inset_0_0_0_1px_va
 /** 列表行右侧的动作组（悬停才出现，纵向居中） */
 export const ROW_ACTIONS = 'absolute right-2 top-1/2 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100'
 /** 空态里那句「点这里去建一个」的衬线提示 */
-export const EMPTY_HINT = 'font-serif text-sm text-ink-faint transition-colors hover:text-ink'
+export const EMPTY_HINT = 'font-serif text-body leading-5 text-ink-faint transition-colors hover:text-ink'
 /** 移动端筛选条右侧的新建按钮 */
 export const MOBILE_FILTER_BTN =
   'touch-feedback flex items-center gap-1 bg-paper/85 px-2 py-1 text-micro text-ink-muted backdrop-blur transition-colors hover:text-ink'

@@ -47,7 +47,7 @@ export function TemplateParamRow({
         const current = component.params?.[def.key] ?? def.fallback
         return (
           <div key={def.key} className="flex items-center gap-1.5">
-            <span className="text-[11px] text-ink-faint">{def.label}</span>
+            <span className="text-micro text-ink-faint">{def.label}</span>
             <div className="flex items-center gap-0.5">
               {def.options.map((option) => {
                 const selected = current === option.value
@@ -97,7 +97,7 @@ export function TemplateTextParamRow({
   }
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-3 py-2 last:border-b-0">
-      <span className="text-[13px] text-ink">{def.label}</span>
+      <span className="text-ui text-ink">{def.label}</span>
       <input
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
@@ -194,7 +194,7 @@ function InfoGroupPicker({
   return (
     <div className="flex flex-col">
       <div className="px-3 py-1.5">
-        <span className="text-[11px] text-ink-faint">基本信息组件</span>
+        <span className="text-micro text-ink-faint">基本信息组件</span>
       </div>
 
       <div className="flex flex-col rules-end">
@@ -217,10 +217,10 @@ function InfoGroupPicker({
                 >
                   {selected ? <span className="h-2 w-2 rounded-full bg-ink-muted" /> : null}
                 </span>
-                <span className={`min-w-0 flex-1 truncate text-[13px] ${selected ? 'text-ink' : 'text-ink-muted'}`}>
+                <span className={`min-w-0 flex-1 truncate text-ui ${selected ? 'text-ink' : 'text-ink-muted'}`}>
                   {group.name}
                 </span>
-                <span className="shrink-0 text-[11px] text-ink-faint">{group.fields.length} 个字段</span>
+                <span className="shrink-0 text-micro text-ink-faint">{group.fields.length} 个字段</span>
               </button>
               <button
                 type="button"
@@ -238,11 +238,11 @@ function InfoGroupPicker({
 
       {legacyFields !== undefined ? (
         <div className="flex items-center justify-between gap-2 px-3 py-1.5">
-          <span className="min-w-0 truncate text-[12px] text-ink-faint">本模板内联字段（旧）</span>
+          <span className="min-w-0 truncate text-caption text-ink-faint">本模板内联字段（旧）</span>
           <button
             type="button"
             onClick={saveLegacy}
-            className="shrink-0 text-[12px] text-ink-muted transition-colors hover:text-ink"
+            className="shrink-0 text-caption text-ink-muted transition-colors hover:text-ink"
           >
             存为组件
           </button>
@@ -302,7 +302,7 @@ function BodyGroupPicker({
   return (
     <div className="flex flex-col">
       <div className="px-3 py-1.5">
-        <span className="text-[11px] text-ink-faint">正文组件</span>
+        <span className="text-micro text-ink-faint">正文组件</span>
       </div>
 
       <div className="flex flex-col rules-end">
@@ -322,10 +322,10 @@ function BodyGroupPicker({
                 >
                   {selected ? <span className="h-2 w-2 rounded-full bg-ink-muted" /> : null}
                 </span>
-                <span className={`min-w-0 flex-1 truncate text-[13px] ${selected ? 'text-ink' : 'text-ink-muted'}`}>
+                <span className={`min-w-0 flex-1 truncate text-ui ${selected ? 'text-ink' : 'text-ink-muted'}`}>
                   {group.name}
                 </span>
-                <span className="shrink-0 text-[11px] text-ink-faint">
+                <span className="shrink-0 text-micro text-ink-faint">
                   {group.markdown.trim() === '' ? '空' : '已设'}
                 </span>
               </button>
@@ -343,7 +343,7 @@ function BodyGroupPicker({
         })}
       </div>
 
-      <p className="px-3 pb-1 pt-0.5 text-[11px] text-ink-faint">
+      <p className="px-3 pb-1 pt-0.5 text-micro text-ink-faint">
         骨架只铺给新建的条目，已有正文不动。
       </p>
 

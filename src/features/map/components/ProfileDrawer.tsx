@@ -33,7 +33,7 @@ export function ProfileDrawer({ points, lengthKm, loading, progress, error, onCl
   return (
     <div className="flex h-40 shrink-0 flex-col border-t border-line bg-paper px-3 py-2">
       <div className="mb-1 flex items-center justify-between">
-        <span className="text-[12px] tabular-nums text-ink-muted">
+        <span className="text-caption tabular-nums text-ink-muted">
           {points.length > 0 ? `${Math.round(lengthKm)} km` : ''}
         </span>
         <button type="button" onClick={onClose} className={`${ICON_BTN} hover:text-ink`} aria-label="关闭剖面">
@@ -53,11 +53,11 @@ export function ProfileDrawer({ points, lengthKm, loading, progress, error, onCl
         </div>
       ) : error ? (
         <div className="flex flex-1 items-center justify-center">
-          <span className="text-xs text-error">{error}</span>
+          <span className="text-caption leading-4 text-error">{error}</span>
         </div>
       ) : points.length === 0 ? (
         <div className="flex flex-1 items-center justify-center">
-          <span className="text-xs text-ink-faint">在图上拖一条线</span>
+          <span className="text-caption leading-4 text-ink-faint">在图上拖一条线</span>
         </div>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col gap-1">

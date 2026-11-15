@@ -37,7 +37,7 @@ function EventNodeContent({
       */}
       <span className="sticky left-2 flex min-w-0 flex-1 flex-col justify-center">
         <span className={`truncate ${event.isMajor ? 'font-medium' : ''}`}>{event.title}</span>
-        {meta ? <span className="mt-0.5 truncate text-[11px] leading-none text-ink-muted">{meta}</span> : null}
+        {meta ? <span className="mt-0.5 truncate text-micro leading-none text-ink-muted">{meta}</span> : null}
       </span>
     </>
   )
@@ -86,7 +86,7 @@ export const DraggableNode = memo(function DraggableNode({
     // 不加 touch-feedback：拖动本体 / 拖右边缘调时长时按下去会整体缩一圈，跟手势冲突
     <div
       ref={bodyDrag.setNodeRef}
-      className={`absolute flex items-center gap-1.5 rounded-item border bg-[var(--oc-hover)] px-2 py-1 text-sm text-ink transition-colors ${
+      className={`absolute flex items-center gap-1.5 rounded-item border bg-[var(--oc-hover)] px-2 py-1 text-body leading-5 text-ink transition-colors ${
         isRange ? 'bg-paper-card' : ''
       } ${selected ? 'border-ink' : 'border-transparent hover:border-line-hover'}`}
       style={{
@@ -147,7 +147,7 @@ export const StaticNode = memo(function StaticNode({
   const tall = detail && event.kind === undefined
   return (
     <div
-      className={`touch-feedback absolute flex items-center gap-1.5 rounded-item border bg-[var(--oc-hover)] px-2 py-1 text-sm text-ink transition-colors ${
+      className={`touch-feedback absolute flex items-center gap-1.5 rounded-item border bg-[var(--oc-hover)] px-2 py-1 text-body leading-5 text-ink transition-colors ${
         isRange ? 'bg-paper-card' : ''
       } ${selected ? 'border-ink' : 'border-transparent hover:border-line-hover'}`}
       style={{

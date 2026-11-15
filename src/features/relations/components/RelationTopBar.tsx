@@ -136,12 +136,12 @@ export function RelationTopBar({ nodes, edgeCount, focusLabel, onExitFocus, onLo
               全部
             </button>
             <span className="mx-0.5 h-4 w-px shrink-0 bg-line" aria-hidden />
-            <span className="max-w-[160px] truncate px-1.5 text-[12px] text-ink">{focusLabel}</span>
+            <span className="max-w-[160px] truncate px-1.5 text-caption text-ink">{focusLabel}</span>
           </>
         ) : (
           <>
-            <span className="shrink-0 px-1.5 text-[12px] font-bold text-ink">关系图谱</span>
-            <span className="shrink-0 pr-1 text-[11px] tabular-nums text-ink-faint">
+            <span className="shrink-0 px-1.5 text-caption font-bold text-ink">关系图谱</span>
+            <span className="shrink-0 pr-1 text-micro tabular-nums text-ink-faint">
               {nodes.length} · {edgeCount}
             </span>
           </>
@@ -177,7 +177,7 @@ export function RelationTopBar({ nodes, edgeCount, focusLabel, onExitFocus, onLo
               }}
               placeholder="名字"
               aria-label="定位条目"
-              className="h-6 w-40 min-w-0 bg-transparent px-1 text-[12px] text-ink placeholder:text-ink-faint focus:outline-none"
+              className="h-6 w-40 min-w-0 bg-transparent px-1 text-caption text-ink placeholder:text-ink-faint focus:outline-none"
             />
             <button type="button" onClick={close} className={FLOAT_BAR_ICON} aria-label="关闭定位">
               <X size={13} strokeWidth={2} />
@@ -200,7 +200,7 @@ export function RelationTopBar({ nodes, edgeCount, focusLabel, onExitFocus, onLo
       {open ? (
         <div className={`absolute left-0 top-[calc(100%+6px)] w-64 p-1 ${PANEL}`}>
           {results.length === 0 ? (
-            <p className="px-2 py-1.5 text-[12px] text-ink-faint">没有匹配的条目</p>
+            <p className="px-2 py-1.5 text-caption text-ink-faint">没有匹配的条目</p>
           ) : (
             <div role="listbox" aria-label="定位结果">
               {results.map((item, index) => (
@@ -218,9 +218,9 @@ export function RelationTopBar({ nodes, edgeCount, focusLabel, onExitFocus, onLo
                   }`}
                 >
                   <NodeThumb type={item.type} src={item.image} />
-                  <span className="min-w-0 flex-1 truncate text-[12px]">{item.label}</span>
+                  <span className="min-w-0 flex-1 truncate text-caption">{item.label}</span>
                   {item.subtitle ? (
-                    <span className="shrink-0 text-[11px] text-ink-faint">{item.subtitle}</span>
+                    <span className="shrink-0 text-micro text-ink-faint">{item.subtitle}</span>
                   ) : null}
                   <span className="sr-only">{NODE_TYPE_LABELS[item.type]}</span>
                 </button>

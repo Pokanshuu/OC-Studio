@@ -130,7 +130,7 @@ function DetailSwitch({
         type="button"
         onClick={() => onChange(value)}
         aria-pressed={active}
-        className={`${size} shrink-0 text-[12px] transition-colors ${ROUND_ITEM} ${
+        className={`${size} shrink-0 text-caption transition-colors ${ROUND_ITEM} ${
           active
             ? 'bg-[var(--oc-hover)] text-ink'
             : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
@@ -164,7 +164,7 @@ function TrackToggle({
       type="button"
       onClick={onToggle}
       aria-pressed={on}
-      className={`${size} flex shrink-0 items-center text-[12px] transition-colors ${ROUND_ITEM} ${
+      className={`${size} flex shrink-0 items-center text-caption transition-colors ${ROUND_ITEM} ${
         on
           ? 'bg-[var(--oc-hover)] text-ink'
           : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'
@@ -262,16 +262,16 @@ export function TimelineToolbar({
       <div className="flex shrink-0 items-center gap-2">
         <button
           onClick={() => setFilterMajor(true)}
-          className={`h-8 shrink-0 px-1.5 text-[13px] transition-colors ${
+          className={`h-8 shrink-0 px-1.5 text-ui transition-colors ${
             filterMajor ? 'text-ink' : 'text-ink-faint hover:text-ink-muted'
           }`}
         >
           大事表
         </button>
-        <span className="text-[13px] text-ink-faint/50">/</span>
+        <span className="text-ui text-ink-faint/50">/</span>
         <button
           onClick={() => setFilterMajor(false)}
-          className={`h-8 shrink-0 px-1.5 text-[13px] transition-colors ${
+          className={`h-8 shrink-0 px-1.5 text-ui transition-colors ${
             !filterMajor ? 'text-ink' : 'text-ink-faint hover:text-ink-muted'
           }`}
         >
@@ -398,9 +398,9 @@ export function TimelineToolbar({
             <div className="flex items-center gap-2">
               {showZoom ? (
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] text-ink-faint">百年</span>
+                  <span className="text-micro text-ink-faint">百年</span>
                   <ZoomSlider zoomRatio={zoomRatio} onChange={onZoomChange} onCommit={onZoomCommit} />
-                  <span className="text-[11px] text-ink-faint">年</span>
+                  <span className="text-micro text-ink-faint">年</span>
                 </div>
               ) : null}
               {onExport ? (
@@ -435,14 +435,14 @@ export function TimelineToolbar({
         <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto">
           <button
             onClick={() => setFilterMajor(true)}
-            className={`h-7 shrink-0 text-[12px] transition-colors ${filterMajor ? 'text-ink' : 'text-ink-faint'}`}
+            className={`h-7 shrink-0 text-caption transition-colors ${filterMajor ? 'text-ink' : 'text-ink-faint'}`}
           >
             大事表
           </button>
-          <span className="text-[12px] text-ink-faint/50">/</span>
+          <span className="text-caption text-ink-faint/50">/</span>
           <button
             onClick={() => setFilterMajor(false)}
-            className={`h-7 shrink-0 text-[12px] transition-colors ${!filterMajor ? 'text-ink' : 'text-ink-faint'}`}
+            className={`h-7 shrink-0 text-caption transition-colors ${!filterMajor ? 'text-ink' : 'text-ink-faint'}`}
           >
             全部事件
           </button>

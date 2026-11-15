@@ -82,7 +82,7 @@ export function AlbumCard({
           }}
         />
       </div>
-      <div className="mt-1 truncate text-xs text-ink-faint">{entry.sourceName}</div>
+      <div className="mt-1 truncate text-caption leading-4 text-ink-faint">{entry.sourceName}</div>
 
       {menuAt ? (
         <MediaContextMenu at={menuAt} items={menuItems} onClose={() => setMenuAt(null)} />

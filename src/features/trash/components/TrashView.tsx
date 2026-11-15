@@ -187,7 +187,7 @@ export function TrashView({ onClose }: TrashViewProps) {
           <div className="flex items-center gap-3">
             <h2 className={PAGE_TITLE}>回收站</h2>
             {items.length > 0 ? (
-              <span className="text-[11px] text-ink-faint tabular-nums">
+              <span className="text-micro text-ink-faint tabular-nums">
                 {items.length} 项
               </span>
             ) : null}
@@ -196,7 +196,7 @@ export function TrashView({ onClose }: TrashViewProps) {
               onChange={(value) => void handleRetentionChange(value)}
               options={TRASH_RETENTION_OPTIONS.map((option) => ({ ...option }))}
               fallbackLabel="保留 30 天"
-              triggerClassName="flex h-7 items-center gap-1 px-1.5 text-[11px] text-ink-muted transition-colors hover:text-ink"
+              triggerClassName="flex h-7 items-center gap-1 px-1.5 text-micro text-ink-muted transition-colors hover:text-ink"
               panelClassName="flex flex-col overflow-auto"
             />
           </div>
@@ -211,12 +211,12 @@ export function TrashView({ onClose }: TrashViewProps) {
           </div>
         ) : error ? (
           <div className="flex flex-1 items-center justify-center">
-            <span className="text-sm text-error">{error}</span>
+            <span className="text-body leading-5 text-error">{error}</span>
           </div>
         ) : items.length === 0 ? (
           <div className={EMPTY_STATE}>
             <Trash2 size={28} strokeWidth={1.5} className="text-ink-faint" />
-            <p className="font-serif text-sm text-ink-faint">回收站为空</p>
+            <p className="font-serif text-body leading-5 text-ink-faint">回收站为空</p>
           </div>
         ) : (
           <div className="p-6">
@@ -224,7 +224,7 @@ export function TrashView({ onClose }: TrashViewProps) {
               {Object.entries(grouped).map(([typeLabel, groupItems]) => (
                 <div key={typeLabel}>
                   <div className="mb-2 flex items-center gap-3">
-                    <span className="text-[11px] tracking-[0.08em] text-ink-faint">{typeLabel}</span>
+                    <span className="text-micro tracking-[0.08em] text-ink-faint">{typeLabel}</span>
                     <Separator className="flex-1" />
                   </div>
                   <div className={`flex flex-col ${LIST_END}`}>
@@ -233,8 +233,8 @@ export function TrashView({ onClose }: TrashViewProps) {
                         className="flex items-center gap-4 border-b border-line px-1 py-2.5"
                       >
                         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                          <span className="truncate text-sm text-ink">{item.name}</span>
-                          <span className="text-[11px] text-ink-faint">删除于 {formatDeleteTime(item.deletedAt)}</span>
+                          <span className="truncate text-body leading-5 text-ink">{item.name}</span>
+                          <span className="text-micro text-ink-faint">删除于 {formatDeleteTime(item.deletedAt)}</span>
                         </div>
                         <div className="flex items-center gap-1">
                           <button
@@ -247,7 +247,7 @@ export function TrashView({ onClose }: TrashViewProps) {
                           </button>
                           <button
                             onClick={() => setConfirmTarget({ type: item.type, id: item.id })}
-                            className="flex h-8 shrink-0 items-center gap-1.5 px-1.5 text-[13px] text-ink-muted transition-colors hover:text-error"
+                            className="flex h-8 shrink-0 items-center gap-1.5 px-1.5 text-ui text-ink-muted transition-colors hover:text-error"
                           >
                             <XCircle size={13} strokeWidth={2} />
                             <span>永久删除</span>

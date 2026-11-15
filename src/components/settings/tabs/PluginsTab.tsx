@@ -39,21 +39,21 @@ export function PluginsTab() {
               />
               <div className="min-w-0 flex-1">
                 <span className="flex items-center gap-2">
-                  <span className={`truncate text-sm ${plugin.available ? 'text-ink' : 'text-ink-faint'}`}>
+                  <span className={`truncate text-body leading-5 ${plugin.available ? 'text-ink' : 'text-ink-faint'}`}>
                     {plugin.name}
                   </span>
-                  <span className="shrink-0 text-[11px] text-ink-faint">
+                  <span className="shrink-0 text-micro text-ink-faint">
                     {PLUGIN_KIND_LABELS[plugin.kind]} · {plugin.author}
                   </span>
                   {plugin.available ? null : (
-                    <span className="shrink-0 text-[11px] text-ink-faint">开发中</span>
+                    <span className="shrink-0 text-micro text-ink-faint">开发中</span>
                   )}
                 </span>
-                <span className="mt-0.5 block truncate text-[11px] text-ink-faint">
+                <span className="mt-0.5 block truncate text-micro text-ink-faint">
                   {plugin.description}
                 </span>
               </div>
-              <span className="shrink-0 text-[11px] tabular-nums text-ink-faint">
+              <span className="shrink-0 text-micro tabular-nums text-ink-faint">
                 {plugin.version}
               </span>
             </div>
@@ -62,10 +62,10 @@ export function PluginsTab() {
       </div>
 
       {/* 插件还没开放安装入口：这里只占位说明，不做成按钮（点了也只会弹提示） */}
-      <div className="flex items-center gap-1.5 text-[13px] text-ink-faint">
+      <div className="flex items-center gap-1.5 text-ui text-ink-faint">
         <Plus size={13} strokeWidth={2} />
         <span>添加插件</span>
-        <span className="text-[11px]">开发中</span>
+        <span className="text-micro">开发中</span>
       </div>
     </div>
   )

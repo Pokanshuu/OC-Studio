@@ -173,7 +173,7 @@ export function ImageGallerySlider({
           ) : (
             <ImageIcon size={24} strokeWidth={1.5} className="text-ink-faint" />
           )}
-          <span className="text-xs text-ink-faint">点击上传立绘</span>
+          <span className="text-caption leading-4 text-ink-faint">点击上传立绘</span>
         </button>
       )}
       {images.length > 1 ? (

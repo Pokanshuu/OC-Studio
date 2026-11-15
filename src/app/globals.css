@@ -131,8 +131,11 @@
      body      14px  正文段落 / 表单主文
      reading   15px  长文阅读（编辑器正文）
 
-   `text-[11px]` 这类字面量还没清完（业务文件里有五百多处），
-   `scripts/design-audit.ts` 的 `font-size-literal` 先以**警告**形式输出计数，不计入失败。 */
+   `text-[11px]` 这类字面量已经清完（2026-11-15 阶段 C，脚本 `scripts/migrate-font-sizes.ts`）：
+   业务文件里只剩白名单里的几个像素值（10 / 12.5 / 17 / 18 / 24 / 26 / 28，各有理由），
+   `scripts/design-audit.ts` 的 `font-size-literal` 已是**报错**规则。
+   要新加一档，除了在下面加 `--text-*`，还要同步 `src/lib/utils.ts` 的
+   `extendTailwindMerge`（否则 `cn()` 会把它当成颜色类合并掉、字号掉回 16px）。 */
 @theme {
   --text-micro: 11px;
   --text-caption: 12px;

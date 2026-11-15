@@ -180,7 +180,7 @@ export function WorldCustomFields({
         <ComponentEditButton componentId="info" />
       </div>
       {rows.length === 0 ? (
-        <p className="text-[12px] text-ink-faint">这个基本信息组件还没有字段。</p>
+        <p className="text-caption text-ink-faint">这个基本信息组件还没有字段。</p>
       ) : null}
       <div className={`grid grid-cols-1 gap-x-10 sm:grid-cols-2 ${FIELD_GRID}`}>
         {rows.map((row) => {

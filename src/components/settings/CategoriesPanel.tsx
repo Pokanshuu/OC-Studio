@@ -57,7 +57,7 @@ function CategorySettingRow({
         className: 'shrink-0 text-ink-muted',
       })}
       <span className="min-w-0 flex-1 truncate">{category.name}</span>
-      <span className="shrink-0 text-[11px] text-ink-faint">
+      <span className="shrink-0 text-micro text-ink-faint">
         {category.builtin ? '内置' : templateName(category.template)}
       </span>
     </>
@@ -67,7 +67,7 @@ function CategorySettingRow({
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-1 border-b border-line py-2 text-sm text-ink ${ROUND_ITEM} ${
+      className={`flex items-center gap-1 border-b border-line py-2 text-body leading-5 text-ink ${ROUND_ITEM} ${
         // 悬停单位是整行：只有自建分类可点（内置分类只能开关，整行就不是按钮）
         category.builtin ? '' : 'transition-colors hover:bg-[var(--oc-hover)]'
       }`}
@@ -188,7 +188,7 @@ export function CategoriesPanel() {
 
       {legacy.total > 0 ? (
         <div className="mt-3 flex items-center justify-between gap-3 border-t border-line pt-3">
-          <span className="text-[12px] text-ink-muted">旧武器 / 宠物角色 · {legacy.total}</span>
+          <span className="text-caption text-ink-muted">旧武器 / 宠物角色 · {legacy.total}</span>
           <button type="button" onClick={() => setImportOpen(true)} className={BTN_QUIET}>
             导入
           </button>

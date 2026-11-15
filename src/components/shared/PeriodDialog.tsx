@@ -10,7 +10,7 @@ import { BTN_PRIMARY, BTN_QUIET, FIELD_LABEL_BLOCK, INPUT_LINE, PAGE_TITLE, PANE
 
 /** 日期段：整组共用一条底线（与事件编辑器的年/月/日 同一语言），段内不再各自画线 */
 const DATE_GROUP = 'flex min-w-0 flex-1 items-center gap-1.5 border-b border-line transition-colors focus-within:border-line-hover'
-const DATE_INPUT = 'min-w-0 flex-1 bg-transparent text-sm text-ink placeholder:text-ink-faint focus:outline-none'
+const DATE_INPUT = 'min-w-0 flex-1 bg-transparent text-body leading-5 text-ink placeholder:text-ink-faint focus:outline-none'
 const DATE_YEAR = `${DATE_INPUT} flex-[3]`
 
 interface PeriodDialogProps {
@@ -94,7 +94,7 @@ export function PeriodDialog({ open, period, onSave, onClose }: PeriodDialogProp
               <input type="text" value={startMonth} onChange={(e) => setStartMonth(e.target.value)} placeholder="月" className={DATE_INPUT} />
               <input type="text" value={startDay} onChange={(e) => setStartDay(e.target.value)} placeholder="日" className={DATE_INPUT} />
             </div>
-            <span className="shrink-0 self-center text-[12px] text-ink-faint">→</span>
+            <span className="shrink-0 self-center text-caption text-ink-faint">→</span>
             <div className={DATE_GROUP}>
               <input type="text" value={endYear} onChange={(e) => setEndYear(e.target.value)} placeholder="年" className={DATE_YEAR} />
               <input type="text" value={endMonth} onChange={(e) => setEndMonth(e.target.value)} placeholder="月" className={DATE_INPUT} />
@@ -131,7 +131,7 @@ export function PeriodDialog({ open, period, onSave, onClose }: PeriodDialogProp
         </div>
 
         {error ? (
-          <p className="mb-3 text-[12px] text-error">{error}</p>
+          <p className="mb-3 text-caption text-error">{error}</p>
         ) : null}
 
         <div className="flex items-center justify-end gap-3">

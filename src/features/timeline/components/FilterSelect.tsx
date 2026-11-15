@@ -24,7 +24,7 @@ export function FilterSelect({
       onChange={onChange}
       options={options}
       fallbackLabel={placeholder}
-      triggerClassName="touch-feedback flex h-7 items-center gap-1 px-2 text-[12px] text-ink transition-colors hover:bg-[var(--oc-hover)] md:h-8 md:px-2 md:text-[13px]"
+      triggerClassName="touch-feedback flex h-7 items-center gap-1 px-2 text-caption text-ink transition-colors hover:bg-[var(--oc-hover)] md:h-8 md:px-2 md:text-ui"
       labelClassName="max-w-[120px] truncate"
       chevronSize={16}
     />

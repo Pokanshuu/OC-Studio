@@ -87,7 +87,7 @@ function TagCell({ ids, tagsById }: { ids: number[]; tagsById: Map<number, Tag> 
         <TagBadge key={tag.id} tag={tag} />
       ))}
       {resolved.length > shown.length ? (
-        <span className="text-[11px] tabular-nums text-ink-faint">+{resolved.length - shown.length}</span>
+        <span className="text-micro tabular-nums text-ink-faint">+{resolved.length - shown.length}</span>
       ) : null}
     </span>
   )
@@ -143,9 +143,9 @@ export function TreeTableRow({
           <KindIcon kind={row.kind} />
 
           {row.kind === 'group' ? (
-            <span className="min-w-0 flex-1 truncate text-[13px] text-ink">
+            <span className="min-w-0 flex-1 truncate text-ui text-ink">
               {row.label}
-              <span className="ml-1.5 text-[11px] tabular-nums text-ink-faint">{row.childCount}</span>
+              <span className="ml-1.5 text-micro tabular-nums text-ink-faint">{row.childCount}</span>
             </span>
           ) : (
             <EditableCell
@@ -230,7 +230,7 @@ export function TreeTableRow({
                 }}
                 options={countryOptions}
                 fallbackLabel="未归属"
-                triggerClassName={`flex h-7 w-full min-w-0 items-center gap-1 px-1 text-left text-[13px] text-ink-muted transition-colors hover:bg-[var(--oc-hover)] ${ROUND_ITEM}`}
+                triggerClassName={`flex h-7 w-full min-w-0 items-center gap-1 px-1 text-left text-ui text-ink-muted transition-colors hover:bg-[var(--oc-hover)] ${ROUND_ITEM}`}
                 labelClassName="min-w-0 flex-1 truncate"
                 chevronSize={12}
                 panelClassName={`fixed z-30 mt-1 flex flex-col overflow-auto ${MENU} w-48 pointer-events-auto`}

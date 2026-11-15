@@ -72,7 +72,7 @@ export function FolderStack({
             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-paper-card to-transparent" />
           </div>
 
-          <span className="absolute bottom-2 right-2.5 text-[11px] tracking-[0.08em] text-ink-muted">{count} 个</span>
+          <span className="absolute bottom-2 right-2.5 text-micro tracking-[0.08em] text-ink-muted">{count} 个</span>
         </div>
       </button>
 
@@ -83,7 +83,7 @@ export function FolderStack({
       ) : null}
 
       <div className="mt-2 text-center">
-        <p className="truncate text-[13px] text-ink">{name}</p>
+        <p className="truncate text-ui text-ink">{name}</p>
       </div>
     </div>
   )

@@ -120,7 +120,7 @@ export function WorldTree({
          *（创建 / 新建、暂无 / 还没有）。工具栏上也有「新建词条」，创建入口不会丢。
          */
         <div className="flex flex-1 items-center justify-center px-4">
-          <p className="text-center text-xs leading-relaxed text-ink-faint">
+          <p className="text-center text-caption leading-relaxed text-ink-faint">
             目录还是空的
             <br />
             点右上角的 ＋ 新建

@@ -69,7 +69,7 @@ export function DataTab() {
     <div className="flex flex-col gap-6">
       {/* ── 导入与导出 ───────────────────────────── */}
       <section className="flex flex-col gap-2">
-        <h3 className="text-sm font-medium text-ink">导入与导出</h3>
+        <h3 className="text-body leading-5 font-medium text-ink">导入与导出</h3>
         <button
           onClick={handleImportClick}
           className={SETTINGS_ACTION_BTN}
@@ -104,12 +104,12 @@ export function DataTab() {
       <section className="flex flex-col gap-3 border-t border-line pt-5">
         {/* 「开发中」标记整块功能，不挂在单个控件下面 —— 云同步与服务端地址是同一级的两项 */}
         <div className="flex items-baseline justify-between">
-          <h3 className="text-sm font-medium text-ink">同步</h3>
-          <span className="text-xs text-ink-faint">开发中</span>
+          <h3 className="text-body leading-5 font-medium text-ink">同步</h3>
+          <span className="text-caption leading-4 text-ink-faint">开发中</span>
         </div>
 
         <label className="flex items-center justify-between">
-          <span className="text-sm text-ink">云同步</span>
+          <span className="text-body leading-5 text-ink">云同步</span>
           <button
             role="switch"
             aria-checked={false}
@@ -123,7 +123,7 @@ export function DataTab() {
         </label>
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm text-ink">服务端地址</label>
+          <label className="text-body leading-5 text-ink">服务端地址</label>
           <input
             type="text"
             value={settings.syncServerUrl}
@@ -131,7 +131,7 @@ export function DataTab() {
             readOnly
             disabled
             placeholder="https://你的同步服务"
-            className="h-8 w-full cursor-not-allowed border-b border-line bg-transparent text-sm text-ink opacity-50 placeholder:text-ink-faint outline-none transition-colors"
+            className="h-8 w-full cursor-not-allowed border-b border-line bg-transparent text-body leading-5 text-ink opacity-50 placeholder:text-ink-faint outline-none transition-colors"
           />
         </div>
       </section>

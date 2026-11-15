@@ -28,7 +28,7 @@ export function ListEmptyState({ icon: Icon, message, action, className = '' }: 
   return (
     <div className={`${EMPTY_STATE} ${className}`}>
       <Icon size={20} strokeWidth={2} className="text-ink-faint" aria-hidden />
-      <p className="text-sm text-ink-muted">{message}</p>
+      <p className="text-body leading-5 text-ink-muted">{message}</p>
       {action ? (
         <button type="button" onClick={action.onClick} className={BTN_PRIMARY}>
           {action.label}

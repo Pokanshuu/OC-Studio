@@ -25,7 +25,7 @@ export function SettingsSubPage({
         <button type="button" onClick={onBack} aria-label="返回" className={ICON_BTN}>
           <ArrowLeft size={16} strokeWidth={2} />
         </button>
-        <span className="text-sm text-ink">{title}</span>
+        <span className="text-body leading-5 text-ink">{title}</span>
       </div>
       {children}
     </div>

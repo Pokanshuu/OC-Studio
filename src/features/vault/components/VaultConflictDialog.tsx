@@ -31,18 +31,18 @@ export function VaultConflictDialog() {
         </>
       }
     >
-      <p className="text-[13px] text-ink-muted">
+      <p className="text-ui text-ink-muted">
         采用后会放弃这些文件尚未写入的本地修改。磁盘上的文件不会被改写。
       </p>
       {paths.length > 0 ? (
         <ul className="mt-3 space-y-1">
           {paths.slice(0, 8).map((path) => (
-            <li key={path} className="truncate text-[12px] text-ink">
+            <li key={path} className="truncate text-caption text-ink">
               {path}
             </li>
           ))}
           {paths.length > 8 ? (
-            <li className="text-[12px] text-ink-faint">还有 {paths.length - 8} 个文件</li>
+            <li className="text-caption text-ink-faint">还有 {paths.length - 8} 个文件</li>
           ) : null}
         </ul>
       ) : null}

@@ -35,7 +35,7 @@ export function RelationCreateDialog({ draft, saving, onCancel, onSubmit }: Rela
           <DialogTitle>添加关系</DialogTitle>
         </DialogHeader>
 
-        <div className="flex items-center gap-2 text-[13px]">
+        <div className="flex items-center gap-2 text-ui">
           <span className="min-w-0 truncate text-ink">{draft.source.label}</span>
           <ArrowRight size={14} strokeWidth={2} className="shrink-0 text-ink-faint" />
           <span className="min-w-0 truncate text-ink">{draft.target.label}</span>

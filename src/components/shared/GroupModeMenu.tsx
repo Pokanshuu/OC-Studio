@@ -45,7 +45,7 @@ export function GroupModeMenu<T extends string>({
 }: GroupModeMenuProps<T>) {
   const [open, setOpen] = useState(false)
 
-  const triggerClass = `touch-feedback flex h-6 items-center gap-1 px-1.5 text-[12px] text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink max-md:h-8 max-md:text-[13px] ${ROUND_CONTROL} ${className}`
+  const triggerClass = `touch-feedback flex h-6 items-center gap-1 px-1.5 text-caption text-ink-muted transition-colors hover:bg-[var(--oc-hover)] hover:text-ink max-md:h-8 max-md:text-ui ${ROUND_CONTROL} ${className}`
 
   const container =
     typeof document === 'undefined'

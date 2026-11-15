@@ -147,7 +147,7 @@ export function TimelinePanel() {
       previewClassName="p-4"
       preview={
         <>
-          <div className="mb-2 flex shrink-0 items-center justify-between gap-2 text-[11px] text-ink-faint">
+          <div className="mb-2 flex shrink-0 items-center justify-between gap-2 text-micro text-ink-faint">
             <span className="truncate">
               {figure === null
                 ? status === 'error'
@@ -161,7 +161,7 @@ export function TimelinePanel() {
             className={`relative flex min-h-0 flex-1 items-center justify-center overflow-auto border border-line p-2 bg-paper-alt ${ROUND_CONTROL}`}
           >
             {figure === null ? (
-              <span className="max-w-full px-4 text-center text-[12px] text-ink-faint">
+              <span className="max-w-full px-4 text-center text-caption text-ink-faint">
                 {status === 'error' ? error : '正在生成…'}
               </span>
             ) : (
@@ -175,7 +175,7 @@ export function TimelinePanel() {
         <>
           <ExportSection title="图">
             <label className="flex flex-col gap-1.5">
-              <span className="text-[12px] text-ink-muted">标题</span>
+              <span className="text-caption text-ink-muted">标题</span>
               <input
                 value={title}
                 onChange={(event) => setTitleOverride(event.target.value)}
@@ -192,24 +192,24 @@ export function TimelinePanel() {
                 onChange={(value: TimelineExportDensity) => setDensity(value)}
               />
             </ExportRow>
-            <p className="text-[11px] leading-relaxed text-ink-faint">
+            <p className="text-micro leading-relaxed text-ink-faint">
               逐年排布，不聚成桶；太长的轴会压缩像素密度，保证事件都在这张图上。
             </p>
           </ExportSection>
 
           <ExportSection title="内容">
             <ExportRow label="跨度">
-              <span className="tabular-nums text-[12px] text-ink">{figure?.span ?? '—'}</span>
+              <span className="tabular-nums text-caption text-ink">{figure?.span ?? '—'}</span>
             </ExportRow>
             <ExportRow label="事件">
-              <span className="tabular-nums text-[12px] text-ink">{figure?.events ?? '—'}</span>
+              <span className="tabular-nums text-caption text-ink">{figure?.events ?? '—'}</span>
             </ExportRow>
             <ExportRow label="时期">
-              <span className="tabular-nums text-[12px] text-ink">{figure?.periods ?? '—'}</span>
+              <span className="tabular-nums text-caption text-ink">{figure?.periods ?? '—'}</span>
             </ExportRow>
             {/* 预览区出错时已经把那句话写在画面中间了，这里不再重复一遍 */}
             {onlyUntimed && status !== 'error' ? (
-              <p className="text-[11px] leading-relaxed text-ink-faint">
+              <p className="text-micro leading-relaxed text-ink-faint">
                 {untimedCount} 个事件都没标年份，补上时间才能画到轴上（没标时间的会被列在图底部）。
               </p>
             ) : null}
@@ -218,7 +218,7 @@ export function TimelinePanel() {
       }
       footer={
         <>
-          <span className="min-w-0 flex-1 truncate text-[11px] text-ink-faint">PNG · {sizeLabel}</span>
+          <span className="min-w-0 flex-1 truncate text-micro text-ink-faint">PNG · {sizeLabel}</span>
           <button
             type="button"
             onClick={() => void exportPng()}

@@ -94,32 +94,32 @@ export function JournalTimelineDialog({ open, onOpenChange }: JournalTimelineDia
       >
         <DialogHeader>
           <DialogTitle>创作时间线</DialogTitle>
-          <DialogDescription className="text-[12px] text-ink-faint">
+          <DialogDescription className="text-caption text-ink-faint">
             {loading ? '读取中…' : `${entries.length} 条记录`}
           </DialogDescription>
         </DialogHeader>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           {loading ? (
-            <div className="flex h-full items-center justify-center gap-2 py-10 text-[13px] text-ink-muted">
+            <div className="flex h-full items-center justify-center gap-2 py-10 text-ui text-ink-muted">
               <Loader2 size={14} strokeWidth={2} className="animate-spin" />
               读取中…
             </div>
           ) : session === null ? (
             <div className="flex h-full flex-col items-center justify-center gap-1 py-10 text-center">
-              <span className="text-[13px] text-ink-muted">仓库模式下才有记录</span>
-              <span className="text-[12px] text-ink-faint">打开本地文件夹后，保存动作会记在这里</span>
+              <span className="text-ui text-ink-muted">仓库模式下才有记录</span>
+              <span className="text-caption text-ink-faint">打开本地文件夹后，保存动作会记在这里</span>
             </div>
           ) : entries.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center gap-1 py-10 text-center">
-              <span className="text-[13px] text-ink-muted">还没有记录</span>
-              <span className="text-[12px] text-ink-faint">保存任意一篇笔记后开始记录</span>
+              <span className="text-ui text-ink-muted">还没有记录</span>
+              <span className="text-caption text-ink-faint">保存任意一篇笔记后开始记录</span>
             </div>
           ) : (
             <div className="flex flex-col gap-5">
               {groups.map((group) => (
                 <section key={group.day}>
-                  <h3 className="mb-1 text-[11px] tracking-[0.06em] text-ink-faint">{group.day}</h3>
+                  <h3 className="mb-1 text-micro tracking-[0.06em] text-ink-faint">{group.day}</h3>
                   <ul className="flex flex-col rules-end">
                     {group.items.map((entry) => {
                       const time = formatTimestamp(entry.ts).slice(11)
@@ -127,13 +127,13 @@ export function JournalTimelineDialog({ open, onOpenChange }: JournalTimelineDia
                       return (
                         <li
                           key={`${entry.ts}-${entry.kind}-${entry.hash}-${entry.relPath}`}
-                          className="row-rule flex items-baseline gap-3 py-2 text-[13px]"
+                          className="row-rule flex items-baseline gap-3 py-2 text-ui"
                         >
                           <span className="w-[42px] shrink-0 tabular-nums text-ink-muted">{time}</span>
                           <span className="w-[84px] shrink-0 text-ink">{journalKindLabel(entry.kind)}</span>
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-ink">{entry.title || entry.relPath}</span>
-                            <span className="mt-0.5 block truncate text-[11px] text-ink-faint">
+                            <span className="mt-0.5 block truncate text-micro text-ink-faint">
                               {entry.relPath}
                               {actor !== '' ? ` · ${actor}` : ''}
                             </span>

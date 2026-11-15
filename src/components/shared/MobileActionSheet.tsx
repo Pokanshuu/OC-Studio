@@ -68,7 +68,7 @@ export function MobileActionSheet({ open, onClose, title, actions }: MobileActio
         onPointerDown={(e) => e.stopPropagation()}
       >
         {title ? (
-          <h3 className="text-sm font-medium text-ink text-center pt-4 pb-2 px-4 truncate">
+          <h3 className="text-body leading-5 font-medium text-ink text-center pt-4 pb-2 px-4 truncate">
             {title}
           </h3>
         ) : null}
@@ -87,13 +87,13 @@ export function MobileActionSheet({ open, onClose, title, actions }: MobileActio
             <span className={item.destructive ? 'text-error' : 'text-ink-muted'}>
               {item.icon}
             </span>
-            <span className="text-sm">{item.label}</span>
+            <span className="text-body leading-5">{item.label}</span>
           </button>
         ))}
 
         <button
           onClick={onClose}
-          className="touch-feedback w-full py-3 text-center text-sm font-medium text-ink-muted hover:bg-[var(--oc-hover)]"
+          className="touch-feedback w-full py-3 text-center text-body leading-5 font-medium text-ink-muted hover:bg-[var(--oc-hover)]"
         >
           取消
         </button>

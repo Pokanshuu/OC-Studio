@@ -71,7 +71,7 @@ export function CharacterInfoSection({
                 type="text"
                 value={form.nationalityLegacy}
                 onChange={(e) => form.setNationalityLegacy(e.target.value)}
-                className="w-full bg-transparent text-sm text-ink placeholder:text-ink-faint focus:outline-none"
+                className="w-full bg-transparent text-body leading-5 text-ink placeholder:text-ink-faint focus:outline-none"
               />
             )}
           </div>
@@ -132,7 +132,7 @@ export function CharacterInfoSection({
         <ComponentEditButton componentId="info" />
       </div>
       {fields.length === 0 ? (
-        <p className="text-[12px] text-ink-faint">字段表里还没有字段。</p>
+        <p className="text-caption text-ink-faint">字段表里还没有字段。</p>
       ) : null}
       <div
         className={

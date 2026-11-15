@@ -92,8 +92,8 @@ export function CharacterEditorList({ currentId, onSelect, onCollapse, onCreate 
       >
         <Avatar src={character.avatarUrl} size="md" className="shrink-0" />
         <span className="flex min-w-0 flex-col gap-0.5">
-          <span className="truncate text-[13px] font-medium text-ink">{character.name}</span>
-          {subtitle ? <span className="truncate text-[11px] text-ink-muted">{subtitle}</span> : null}
+          <span className="truncate text-ui font-medium text-ink">{character.name}</span>
+          {subtitle ? <span className="truncate text-micro text-ink-muted">{subtitle}</span> : null}
         </span>
       </button>
     )
@@ -138,7 +138,7 @@ export function CharacterEditorList({ currentId, onSelect, onCollapse, onCreate 
             onBlur={() => setSearchFocused(false)}
             placeholder="搜索角色…"
             aria-label="搜索角色"
-            className="h-6 w-full bg-transparent text-[13px] text-ink placeholder:text-ink-faint focus:outline-none"
+            className="h-6 w-full bg-transparent text-ui text-ink placeholder:text-ink-faint focus:outline-none"
           />
         </div>
       </div>
@@ -153,10 +153,10 @@ export function CharacterEditorList({ currentId, onSelect, onCollapse, onCreate 
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-3">
-        {loading ? <p className="px-3 py-3 text-[12px] text-ink-faint">加载中…</p> : null}
-        {error ? <p className="px-3 py-3 text-[12px] text-error">{error}</p> : null}
+        {loading ? <p className="px-3 py-3 text-caption text-ink-faint">加载中…</p> : null}
+        {error ? <p className="px-3 py-3 text-caption text-error">{error}</p> : null}
         {!loading && !error && filtered.length === 0 ? (
-          <p className="px-3 py-6 text-center text-[12px] text-ink-faint">没有匹配的角色</p>
+          <p className="px-3 py-6 text-center text-caption text-ink-faint">没有匹配的角色</p>
         ) : null}
 
         {filtered.length > 0 ? (

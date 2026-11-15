@@ -33,7 +33,7 @@ function Ramp({ gradient, from, to }: { gradient: string; from: string; to: stri
   return (
     <div className="flex flex-col gap-1">
       <div className="h-2 w-full rounded-item border border-line" style={{ background: gradient }} />
-      <div className="flex justify-between text-[11px] text-ink-faint">
+      <div className="flex justify-between text-micro text-ink-faint">
         <span>{from}</span>
         <span>{to}</span>
       </div>
@@ -51,7 +51,7 @@ export function MapLegend({ view }: { view: string }) {
               className="h-2 w-2 shrink-0 rounded-item"
               style={{ background: BIOME_COLORS[index] ?? 'transparent' }}
             />
-            <span className="truncate text-[11px] text-ink-muted">{name}</span>
+            <span className="truncate text-micro text-ink-muted">{name}</span>
           </div>
         ))}
       </div>
@@ -63,13 +63,13 @@ export function MapLegend({ view }: { view: string }) {
       <div className="flex flex-col gap-1">
         <div className="flex items-center gap-1.5">
           <span className="h-2 w-4 shrink-0 rounded-item border border-line bg-[var(--oc-hover)]" />
-          <span className="text-[11px] text-ink-muted">国界</span>
+          <span className="text-micro text-ink-muted">国界</span>
         </div>
         <div className="flex items-center gap-1.5">
           <svg width="16" height="2" aria-hidden>
             <line x1="0" y1="1" x2="16" y2="1" stroke="currentColor" strokeWidth="1.5" strokeDasharray="4 2" />
           </svg>
-          <span className="text-[11px] text-ink-muted">道路</span>
+          <span className="text-micro text-ink-muted">道路</span>
         </div>
       </div>
     )

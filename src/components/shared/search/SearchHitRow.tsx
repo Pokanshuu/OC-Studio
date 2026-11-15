@@ -21,8 +21,8 @@ const MATCH_HINT: Record<Exclude<SearchMatchField, 'title'>, string> = {
 }
 
 /** 桌面菜单行与移动端列表行共用的结果行：标题 + 关键词摘要（两行布局） */
-const MENU_ROW = `flex w-full items-start gap-2 px-3 py-1 text-left text-[13px] transition-colors ${ROUND_ITEM}`
-const TOUCH_ROW = 'flex w-full items-start gap-3 px-3 py-2.5 text-left text-sm text-ink transition-colors active:bg-[var(--oc-hover)]'
+const MENU_ROW = `flex w-full items-start gap-2 px-3 py-1 text-left text-ui transition-colors ${ROUND_ITEM}`
+const TOUCH_ROW = 'flex w-full items-start gap-3 px-3 py-2.5 text-left text-body leading-5 text-ink transition-colors active:bg-[var(--oc-hover)]'
 
 interface SearchHitRowProps {
   hit: GlobalSearchHit
@@ -64,8 +64,8 @@ export function SearchHitRow({ hit, terms, variant, active = false, onSelect }: 
     ? `${MENU_ROW} ${active ? 'bg-[var(--oc-hover)] text-ink' : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'}`
     : TOUCH_ROW
   const snippetClass = isMenu
-    ? 'mt-0.5 block truncate text-[11px] leading-4 text-ink-faint'
-    : 'mt-0.5 block line-clamp-2 text-[12px] leading-[1.5] text-ink-faint'
+    ? 'mt-0.5 block truncate text-micro leading-4 text-ink-faint'
+    : 'mt-0.5 block line-clamp-2 text-caption leading-[1.5] text-ink-faint'
 
   return (
     <button
