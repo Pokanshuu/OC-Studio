@@ -44,10 +44,10 @@ export function BlockTypeMenu({ editor, position, onClose, blockPos }: BlockType
     }
   }, [position])
 
-  /** 关闭不淡出：系统菜单是瞬时的，淡出会让人觉得慢 */
+  /** 关闭先淡出 150ms 再卸载 */
   const handleClose = useCallback(() => {
     setVisible(false)
-    onClose()
+    setTimeout(() => onClose(), 150)
   }, [onClose])
 
   // 键盘：打开后焦点进第一枚按钮、←/↑ 与 →/↓ 在按钮间走（←/→ 与菜单朝向一致）

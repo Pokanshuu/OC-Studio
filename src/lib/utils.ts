@@ -1,5 +1,20 @@
 import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
+import { extendTailwindMerge } from "tailwind-merge"
+
+/**
+ * 字号五档（`--text-micro` 等，见 globals.css）生成的是 `text-micro` / `text-caption` /
+ * `text-ui` / `text-body` / `text-reading`。tailwind-merge 3.5 只认识 `text-xs/sm/base`，
+ * 认不出这些自定义档，会把它们当成 `text-color`（和 `text-ink` 同一组）整条丢掉。
+ * 丢掉之后元素没有字号，掉回浏览器默认 16px —— 菜单、按钮都比原来大一圈。
+ * 所以这里显式登记它们属于字号，不和颜色冲突。
+ */
+const twMerge = extendTailwindMerge({
+  extend: {
+    theme: {
+      text: ["micro", "caption", "ui", "body", "reading"],
+    },
+  },
+})
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))

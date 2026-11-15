@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect, useLayoutEffect, useRef, useDeferredValue } from 'react'
 import { withTouchFeedback } from '@/lib/animation'
-import { ArrowLeft, CircleAlert, FolderOpen, Pencil, SearchX, Trash2, Users } from 'lucide-react'
+import { ArrowLeft, CircleAlert, FolderOpen, FolderPlus, Pencil, SearchX, Trash2, Users } from 'lucide-react'
 import type { Character } from '@/types'
 import { useCountryList } from '@/features/countries/hooks/useCountries'
 import { resolveCharacterCountryId } from '@/lib/membership'
@@ -20,6 +20,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { CharacterCard, CharacterRow } from './CharacterListItems'
+import { NewFolderDialog } from './NewFolderDialog'
 import { ListShell } from '@/components/shared/ListShell'
 import { CoverFlow } from '@/components/shared/CoverFlow'
 import { FolderStack } from '@/components/shared/FolderStack'
@@ -90,6 +91,8 @@ export function CharacterList({
   const [deleteTargets, setDeleteTargets] = useState<number[] | null>(null)
   /** 列表右键菜单（对选中项 / 右键那一项） */
   const [listMenu, setListMenu] = useState<{ ids: number[]; at: { x: number; y: number } } | null>(null)
+  /** 右键「新建文件夹…」：菜单先关，弹窗记下要移进去的项 */
+  const [newFolderFor, setNewFolderFor] = useState<number[] | null>(null)
   /** 右键「堆」弹出的菜单（重命名 / 管理内容 / 删除） */
   const [stackMenu, setStackMenu] = useState<{ name: string; at: { x: number; y: number } } | null>(null)
   const [folderDialog, setFolderDialog] = useState<{ mode: 'rename' | 'members'; name: string } | null>(null)
@@ -651,11 +654,26 @@ export function CharacterList({
                     label: listMenu.ids.length > 1 ? `移到文件夹（${listMenu.ids.length} 项）` : '移到文件夹',
                     icon: <FolderOpen size={13} strokeWidth={2} />,
                     submenu: [
-                      ...folderNames.map((name) => ({
-                        label: name,
-                        onSelect: () => moveTo(listMenu.ids, name),
-                      })),
-                      { label: '移出文件夹', onSelect: () => moveTo(listMenu.ids, null) },
+                      // 已有文件夹都列出来（当前所在的那个不列：移过去等于没动）
+                      ...folderNames
+                        .filter((name) =>
+                          listMenu.ids.some(
+                            (id) => (characters.find((c) => c.id === id)?.folder ?? '').trim() !== name,
+                          ),
+                        )
+                        .map((name) => ({
+                          label: name,
+                          onSelect: () => moveTo(listMenu.ids, name),
+                        })),
+                      {
+                        label: '新建文件夹…',
+                        icon: <FolderPlus size={13} strokeWidth={2} />,
+                        onSelect: () => setNewFolderFor(listMenu.ids),
+                      },
+                      // 「移出」只在确实在某个文件夹里时才有意义
+                      ...(listMenu.ids.some((id) => (characters.find((c) => c.id === id)?.folder ?? '').trim())
+                        ? [{ label: '移出文件夹', onSelect: () => moveTo(listMenu.ids, null) }]
+                        : []),
                     ],
                   },
                 ]
@@ -669,6 +687,17 @@ export function CharacterList({
           ]}
         />
       ) : null}
+
+      <NewFolderDialog
+        open={newFolderFor !== null}
+        existing={folderNames}
+        onClose={() => setNewFolderFor(null)}
+        onCreate={async (name) => {
+          await handleCreateFolder(name)
+          if (newFolderFor) moveTo(newFolderFor, name)
+          setNewFolderFor(null)
+        }}
+      />
 
       {stackMenu ? (
         <MediaContextMenu

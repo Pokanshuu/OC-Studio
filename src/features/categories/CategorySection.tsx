@@ -16,13 +16,14 @@ import { useListNavigation } from '@/lib/use-list-navigation'
  */
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, FolderInput, FolderOpen, Pencil, SearchX, Trash2 } from 'lucide-react'
+import { ArrowLeft, FolderInput, FolderOpen, FolderPlus, Pencil, SearchX, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { withTouchFeedback } from '@/lib/animation'
 import type { WorldEntry } from '@/types'
 import { db } from '@/lib/db'
 import { listActive } from '@/lib/repository'
 import { useCategories } from '@/lib/categories/store'
+import { NewFolderDialog } from '@/features/characters/components/NewFolderDialog'
 import { categoryIconOf } from '@/lib/categories/icons'
 import { useDevice } from '@/lib/use-device'
 import { useMobilePageHeader } from '@/components/layout/MobilePageHeaderContext'
@@ -114,6 +115,8 @@ export function CategorySection({
   const [deleteTargets, setDeleteTargets] = useState<WorldEntry[] | null>(null)
   /** 列表右键菜单 */
   const [listMenu, setListMenu] = useState<{ ids: number[]; at: { x: number; y: number } } | null>(null)
+  /** 右键「新建文件夹…」：菜单先关，弹窗记下要移进去的项 */
+  const [newFolderFor, setNewFolderFor] = useState<number[] | null>(null)
   const [folderFilter, setFolderFilter] = useState<FolderFilter>('all')
   const [stackMenu, setStackMenu] = useState<{ name: string; at: { x: number; y: number } } | null>(null)
   const [folderDialog, setFolderDialog] = useState<{ mode: 'rename' | 'members'; name: string } | null>(null)
@@ -700,18 +703,35 @@ export function CategorySection({
                   label: listMenu.ids.length > 1 ? `移到文件夹（${listMenu.ids.length} 项）` : '移到文件夹',
                   icon: <FolderOpen size={13} strokeWidth={2} />,
                   submenu: [
-                    ...folders.map((folder) => ({
-                      label: folder.name,
-                      onSelect: () => {
-                        for (const id of listMenu.ids) handleMoveToFolder(id, folder.name)
-                      },
-                    })),
+                    // 已有文件夹都列出来（当前所在的那个不列：移过去等于没动）
+                    ...folders
+                      .filter((folder) =>
+                        listMenu.ids.some(
+                          (id) => (entries.find((entry) => entry.id === id)?.folder ?? '').trim() !== folder.name,
+                        ),
+                      )
+                      .map((folder) => ({
+                        label: folder.name,
+                        onSelect: () => {
+                          for (const id of listMenu.ids) handleMoveToFolder(id, folder.name)
+                        },
+                      })),
                     {
-                      label: '移出文件夹',
-                      onSelect: () => {
-                        for (const id of listMenu.ids) handleMoveToFolder(id, null)
-                      },
+                      label: '新建文件夹…',
+                      icon: <FolderPlus size={13} strokeWidth={2} />,
+                      onSelect: () => setNewFolderFor(listMenu.ids),
                     },
+                    // 「移出」只在确实在某个文件夹里时才有意义
+                    ...(listMenu.ids.some((id) => (entries.find((entry) => entry.id === id)?.folder ?? '').trim())
+                      ? [
+                          {
+                            label: '移出文件夹',
+                            onSelect: () => {
+                              for (const id of listMenu.ids) handleMoveToFolder(id, null)
+                            },
+                          },
+                        ]
+                      : []),
                   ],
                 },
                 {
@@ -728,6 +748,19 @@ export function CategorySection({
               ]}
             />
           ) : null}
+
+          <NewFolderDialog
+            open={newFolderFor !== null}
+            existing={folders.map((folder) => folder.name)}
+            onClose={() => setNewFolderFor(null)}
+            onCreate={async (name) => {
+              await handleCreateFolder(name)
+              if (newFolderFor) {
+                for (const id of newFolderFor) handleMoveToFolder(id, name)
+              }
+              setNewFolderFor(null)
+            }}
+          />
 
           <CategoryFolderManageDialog
             open={folderDialog !== null}

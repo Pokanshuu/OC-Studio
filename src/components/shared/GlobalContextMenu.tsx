@@ -138,11 +138,11 @@ export function GlobalContextMenu({ children }: { children: ReactNode }) {
 
   // 用函数声明而不是 const 箭头函数：上面的 effect 里要用到它们，
   // 函数声明会提升，避免「先使用后声明」（react-hooks/immutability）
-  // 关闭不做淡出：系统菜单是瞬时的，150ms 淡出期间菜单还在屏幕上、还能被点到
+  // 关闭先淡出（context-menu-fade，duration-fast），150ms 后再卸载
   function close() {
-    if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
     setVisible(false)
-    setOpen(false)
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+    closeTimerRef.current = setTimeout(() => setOpen(false), 150)
   }
   function closeImmediate() {
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current)

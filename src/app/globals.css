@@ -863,13 +863,6 @@ body[data-map-immersive='true'] [data-dev-mock] {
 .touch-feedback:active {
   transform: scale(0.96);
 }
-/* 桌面端不缩放：`scale(0.96)` 是触屏的按压反馈，鼠标点下去整颗按钮缩一下是移动网页的手感。
-   原生桌面控件按下只变色（见 ui-tokens 里各按钮的 active: 底色）。 */
-@media (hover: hover) and (pointer: fine) {
-  .touch-feedback:active {
-    transform: none;
-  }
-}
 
 /* 浮层阴影 —— 唯一一档（值见 :root / .dark 的 --oc-shadow-float）。
    只给浮在内容之上的东西用：菜单 / 下拉 / 右键 / 弹窗 / 抽屉 / 通知。
@@ -1010,27 +1003,7 @@ body[data-map-immersive='true'] [data-dev-mock] {
   animation: slide-out-left var(--oc-duration-fast) var(--oc-ease-quiet) forwards;
 }
 
-/* 桌面端不做横滑：横向位移是「进入详情页」的手机 / 网页语言。
-   桌面上编辑器与列表是同屏的主从布局，整块横着推一下只会让人以为页面在动。
-   只淡入淡出，移动端（粗指针）保留原来的横滑。 */
-@keyframes fade-in-only {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-@keyframes fade-out-only {
-  from { opacity: 1; }
-  to   { opacity: 0; }
-}
-@media (hover: hover) and (pointer: fine) {
-  .section-fade[data-animate="slide-in-right"],
-  .section-fade[data-animate="slide-in-left"] {
-    animation: fade-in-only var(--oc-duration-fast) var(--oc-ease-quiet);
-  }
-  .section-fade[data-animate="slide-out-right"],
-  .section-fade[data-animate="slide-out-left"] {
-    animation: fade-out-only var(--oc-duration-fast) var(--oc-ease-quiet) forwards;
-  }
-}
+/* 桌面与移动端都用同一套横滑：列表 ↔ 编辑器的进出靠方向感，纯淡入分不清是进还是退。 */
 
 /* Context menu fade transition */
 .context-menu-fade {

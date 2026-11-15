@@ -37,11 +37,11 @@ export function ContextMenu({ children, items }: ContextMenuProps) {
   const cooldownUntilRef = useRef(0)
   const closeTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
-  /** 关闭不做淡出：系统菜单是瞬时的，150ms 淡出期间菜单还在屏幕上、还能被点到 */
+  /** 关闭先淡出（context-menu-fade，duration-fast），150ms 后再卸载 */
   const close = useCallback(() => {
-    if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
     setVisible(false)
-    setOpen(false)
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+    closeTimerRef.current = setTimeout(() => setOpen(false), 150)
   }, [])
   const closeImmediate = useCallback(() => {
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
