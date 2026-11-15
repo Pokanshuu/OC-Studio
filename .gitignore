@@ -112,3 +112,8 @@ logs/
 /android/app/build/
 /android/app/src/main/assets/public/
 /.tmp*/
+
+# 本地审查留档（审查报告 / 证据 / metrics / 探针与 audit 日志）与执行 prompt：
+# 都是工作产物，不是产品文档 —— 留在本地按需查看，不进仓库
+docs/review-*/
+docs/*-执行prompt.md
