@@ -1,13 +1,8 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback, useLayoutEffect } from 'react'
-import { Separator } from '@/components/ui/separator'
-import { MENU } from '@/lib/ui-tokens'
-import { adjustContextMenuPosition } from '@/lib/menu-utils'
-import { ContextMenuButton } from './context-menu/ContextMenuButton'
-import { ContextSubMenu } from './context-menu/ContextSubMenu'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { PointMenu, type PointMenuItem } from './menu/PointMenu'
 import type { ContextMenuProps, ContextMenuItem } from './context-menu/context-menu-types'
-import { useMenuKeyboard } from '@/lib/use-menu-keyboard'
 
 export type { ContextMenuItem, ContextMenuProps }
 
@@ -18,98 +13,64 @@ interface SelectionSnapshot {
   endOffset: number
 }
 
+/** 调用点的 `ContextMenuItem[]` → `PointMenu` 的 items（`onClick` → `onSelect`、`children` → `submenu`） */
+function toPointItems(items: ContextMenuItem[]): PointMenuItem[] {
+  return items.map((item) =>
+    item.separator
+      ? { separator: true }
+      : {
+          label: item.label,
+          shortcut: item.shortcut,
+          danger: item.danger,
+          disabled: item.disabled,
+          onSelect: item.onClick,
+          submenu: item.children && item.children.length > 0 ? toPointItems(item.children) : undefined,
+        },
+  )
+}
+
 /**
  * 右键菜单：长按/右键弹出，位置自动贴边；带子菜单；选区变化时自动收起。
- * 分层：`context-menu/`（`context-menu-types` · `ContextMenuButton` · `ContextSubMenu`）。
  *
- * 与 `menu/MenuSurface` 的边界：这里只服务编辑器正文 / 选区的右键 —— 子菜单要再 Portal 一层、
- * 选区一变就收、150ms 淡入淡出与冷却计时都在本文件里；按点击坐标弹出的通用菜单
- * （媒体 / 文件夹 / 边样式 / 图片 ⋯）一律走 `MenuSurface`，不要再复制这里的 effect。
+ * 布局 / 键盘 / 子菜单 / 点外关闭都归 `PointMenu`（Base UI Menu + 虚拟锚点）——
+ * 子菜单现在能键盘进（→ / ← / Esc 逐层关 / Enter 确认）。
+ * 这个文件只剩**编辑器右键特有的行为**：选区快照与「选区一变就收」的 100 / 300ms 冷却。
  */
 export function ContextMenu({ children, items }: ContextMenuProps) {
   const [open, setOpen] = useState(false)
   const [position, setPosition] = useState({ x: 0, y: 0 })
-  const [adjPosition, setAdjPosition] = useState({ x: 0, y: 0 })
-  const [visible, setVisible] = useState(false)
-  const menuRef = useRef<HTMLDivElement>(null)
   const initialSelRef = useRef<SelectionSnapshot | null>(null)
   const openedAtRef = useRef(0)
   const cooldownUntilRef = useRef(0)
-  const closeTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
-  /** 关闭先淡出（context-menu-fade，duration-fast），150ms 后再卸载 */
-  const close = useCallback(() => {
-    setVisible(false)
-    if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
-    closeTimerRef.current = setTimeout(() => setOpen(false), 150)
-  }, [])
-  const closeImmediate = useCallback(() => {
-    if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
-    setOpen(false)
-    setVisible(false)
-  }, [])
+  /** 淡出由 PointMenu 负责，它播完才回调这里 */
+  const close = useCallback(() => setOpen(false), [])
 
-  useEffect(() => {
-    return () => { if (closeTimerRef.current) clearTimeout(closeTimerRef.current) }
-  }, [])
-
-  const handleContextMenu = useCallback(
-    (e: React.MouseEvent) => {
-      if (Date.now() < cooldownUntilRef.current) {
-        e.preventDefault()
-        return
-      }
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    if (Date.now() < cooldownUntilRef.current) {
       e.preventDefault()
-      e.stopPropagation()
-      setPosition({ x: e.clientX, y: e.clientY })
-      setVisible(false)
-      setOpen(true)
+      return
+    }
+    e.preventDefault()
+    e.stopPropagation()
+    // 坐标在「打开」的同一次更新里量好，不会先在左上角闪一帧
+    setPosition({ x: e.clientX, y: e.clientY })
+    setOpen(true)
 
-      const sel = window.getSelection()
-      if (sel && sel.rangeCount > 0) {
-        const r = sel.getRangeAt(0)
-        initialSelRef.current = {
-          startContainer: r.startContainer,
-          startOffset: r.startOffset,
-          endContainer: r.endContainer,
-          endOffset: r.endOffset,
-        }
-      } else {
-        initialSelRef.current = null
+    const sel = window.getSelection()
+    if (sel && sel.rangeCount > 0) {
+      const r = sel.getRangeAt(0)
+      initialSelRef.current = {
+        startContainer: r.startContainer,
+        startOffset: r.startOffset,
+        endContainer: r.endContainer,
+        endOffset: r.endOffset,
       }
-      openedAtRef.current = Date.now()
-    },
-    [],
-  )
-
-  useLayoutEffect(() => {
-    if (!open || !menuRef.current) return
-    const rect = menuRef.current.getBoundingClientRect()
-    const adjusted = adjustContextMenuPosition(position.x, position.y, rect.width, rect.height)
-    setAdjPosition(adjusted)
-    setVisible(true)
-  }, [open, position])
-
-  const handleClickOutside = useCallback((e: PointerEvent) => {
-    const target = e.target as Node
-    if (menuRef.current && !menuRef.current.contains(target)) {
-      /*
-       * 子菜单 Portal 到 `#overlay-root`：点它不能先把父菜单关掉 ——
-       * pointerdown 先于 click，父菜单一卸载，子菜单项的 click 就永远到不了。
-       * **只放过子菜单**：以前这里放宽成「overlay-root 里的点击都算里面」，
-       * 结果同样挂在 overlay-root 的浮层（灵感便签）里点空白处也收不掉菜单。
-       */
-      if (target instanceof Element && target.closest('[data-context-submenu]') !== null) return
-      close()
+    } else {
+      initialSelRef.current = null
     }
-  }, [close])
-
-  useEffect(() => {
-    if (open) {
-      document.addEventListener('pointerdown', handleClickOutside, true)
-      return () => document.removeEventListener('pointerdown', handleClickOutside, true)
-    }
-  }, [open, handleClickOutside])
+    openedAtRef.current = Date.now()
+  }, [])
 
   useEffect(() => {
     if (!open) return
@@ -129,47 +90,20 @@ export function ContextMenu({ children, items }: ContextMenuProps) {
         if (cooldownUntilRef.current < Date.now()) {
           cooldownUntilRef.current = Date.now() + 300
         }
-        closeImmediate()
+        // 选区已经变了：立刻收（不等淡出，菜单不该停在旧选区旁边）
+        setOpen(false)
       }
     }
     document.addEventListener('selectionchange', handler)
     return () => document.removeEventListener('selectionchange', handler)
-  }, [open, closeImmediate])
-
-  // 键盘：打开后焦点进第一项、↑/↓ 走、Enter 执行、Esc 关闭并把焦点还给原来的元素
-  useMenuKeyboard(menuRef, close, open)
+  }, [open])
 
   return (
     <div onContextMenu={handleContextMenu}>
       {children}
 
       {open ? (
-        <div className="pointer-events-none fixed inset-0 z-50">
-          <div
-            ref={menuRef}
-            className={`pointer-events-auto absolute flex flex-col ${MENU} context-menu-fade ${visible ? 'context-menu-visible' : ''}`}
-            style={{
-              left: adjPosition.x,
-              top: adjPosition.y,
-            }}
-          >
-            {items.map((item, i) => {
-              if (item.separator) {
-                return (
-                  <Separator key={i} className="mx-2 my-1" />
-                )
-              }
-
-              if (item.children && item.children.length > 0) {
-                return <ContextSubMenu key={i} item={item} onCloseParent={close} />
-              }
-
-              return (
-                <ContextMenuButton key={i} item={item} onSelect={close} />
-              )
-            })}
-          </div>
-        </div>
+        <PointMenu at={position} items={toPointItems(items)} onClose={close} minWidth={160} ariaLabel="右键菜单" />
       ) : null}
     </div>
   )

@@ -197,7 +197,7 @@ export function TrashView({ onClose }: TrashViewProps) {
               options={TRASH_RETENTION_OPTIONS.map((option) => ({ ...option }))}
               fallbackLabel="保留 30 天"
               triggerClassName="flex h-7 items-center gap-1 px-1.5 text-[11px] text-ink-muted transition-colors hover:text-ink"
-              panelClassName={`fixed z-30 mt-1 flex flex-col overflow-auto ${MENU} pointer-events-auto`}
+              panelClassName="flex flex-col overflow-auto"
             />
           </div>
           <button onClick={handleClose} className={ICON_BTN} aria-label="关闭回收站" data-overlay-back>

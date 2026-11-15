@@ -17,7 +17,6 @@ import {
   groupCharactersByCountry,
   groupCharactersByFolder,
 } from '@/features/characters/grouping'
-import { placeGroupMenu } from '@/components/shared/GroupModeMenu'
 import type { Character, Country } from '@/types'
 
 /* ── 造数据（只填分组用得到的字段，其余给完整的默认值） ─────── */
@@ -230,24 +229,5 @@ describe('分组方式偏好', () => {
     expect(readCharacterGroupMode()).toBe('folder')
     localStorage.setItem(CHARACTER_GROUP_MODE_STORAGE_KEY, '按国家')
     expect(readCharacterGroupMode()).toBe('country')
-  })
-})
-
-/* ── 菜单落点：视口内、下方放不下翻到上方 ───────────────── */
-
-describe('placeGroupMenu', () => {
-  it('默认在触发按钮下方并留出间隙', () => {
-    const placement = placeGroupMenu({ left: 40, top: 100, bottom: 124 }, { width: 1280, height: 720 }, 2)
-    expect(placement.left).toBe(40)
-    expect(placement.top).toBe(128)
-  })
-
-  it('底部放不下时翻到上方，窄视口里左右夹住', () => {
-    const flipped = placeGroupMenu({ left: 40, top: 680, bottom: 704 }, { width: 1280, height: 720 }, 2)
-    expect(flipped.top).toBeLessThan(680)
-
-    const narrow = placeGroupMenu({ left: 300, top: 100, bottom: 124 }, { width: 320, height: 720 }, 2)
-    expect(narrow.left + narrow.width).toBeLessThanOrEqual(320 - 8)
-    expect(narrow.left).toBeGreaterThanOrEqual(8)
   })
 })

@@ -3,6 +3,9 @@
  *
  * 用 `react-dom/client` 直接挂载（项目没有 testing-library），断言的是
  * **角色 / aria 状态 / 菜单里真实渲染出的选项**，不是类名字符串。
+ *
+ * 2026-11-15：组件换成 Base UI Menu（`Menu.RadioGroup`）后，关闭动画 / 焦点归还是
+ * 库在下一帧做的，所以「关闭之后」的断言统一先 `await flush()` 一次。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, createElement } from 'react'
@@ -42,8 +45,8 @@ function menu(): HTMLElement | null {
   return overlay.querySelector('[role="menu"]')
 }
 
-function optionButtons(): HTMLButtonElement[] {
-  return Array.from(overlay.querySelectorAll('[role="menuitemradio"]')) as HTMLButtonElement[]
+function optionButtons(): HTMLElement[] {
+  return Array.from(overlay.querySelectorAll<HTMLElement>('[role="menuitemradio"]'))
 }
 
 function click(element: Element): void {
@@ -55,6 +58,13 @@ function click(element: Element): void {
 function press(key: string, on: Element): void {
   act(() => {
     on.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }))
+  })
+}
+
+/** 库的关闭 / 焦点归还在动画帧里做，等一帧 */
+async function flush(): Promise<void> {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0))
   })
 }
 
@@ -97,7 +107,7 @@ describe('GroupModeMenu', () => {
     expect(trigger().getAttribute('aria-expanded')).toBe('true')
   })
 
-  it('选择「按文件夹」回调一次并关闭，焦点回到触发按钮', () => {
+  it('选择「按文件夹」回调一次并关闭，焦点回到触发按钮', async () => {
     const onChange = vi.fn()
     renderMenu('country', onChange)
     click(trigger())
@@ -105,6 +115,7 @@ describe('GroupModeMenu', () => {
     const folder = optionButtons().find((item) => item.textContent?.includes('按文件夹'))
     if (!folder) throw new Error('找不到「按文件夹」')
     click(folder)
+    await flush()
 
     expect(onChange).toHaveBeenCalledTimes(1)
     expect(onChange).toHaveBeenCalledWith('folder')
@@ -112,38 +123,47 @@ describe('GroupModeMenu', () => {
     expect(document.activeElement).toBe(trigger())
   })
 
-  it('Esc 关闭并把焦点还给触发按钮', () => {
+  it('Esc 关闭并把焦点还给触发按钮', async () => {
     renderMenu('folder', vi.fn())
     click(trigger())
     expect(optionButtons()[1].getAttribute('aria-checked')).toBe('true')
 
     press('Escape', optionButtons()[1])
+    await flush()
     expect(menu()).toBeNull()
     expect(document.activeElement).toBe(trigger())
   })
 
-  it('键盘：↓ 打开并聚焦当前项，↑↓ 在选项之间移动', () => {
+  it('键盘：↓ 打开并聚焦到选项上，↑↓ 在选项之间移动', async () => {
     renderMenu('folder', vi.fn())
     press('ArrowDown', trigger())
+    await flush()
 
     expect(menu()).not.toBeNull()
-    expect(document.activeElement).toBe(optionButtons()[1])
+    const start = document.activeElement as HTMLElement | null
+    expect(start?.closest('[role="menu"]')).toBe(menu())
 
-    press('ArrowDown', optionButtons()[1])
-    expect(document.activeElement).toBe(optionButtons()[0])
-    press('ArrowUp', optionButtons()[0])
-    expect(document.activeElement).toBe(optionButtons()[1])
+    press('ArrowDown', start!)
+    const next = document.activeElement
+    expect(next).not.toBe(start)
+    expect((next as HTMLElement).closest('[role="menu"]')).toBe(menu())
+
+    press('ArrowUp', next!)
+    expect(document.activeElement).toBe(start)
   })
 
-  it('点外部关闭，不改变选择', () => {
+  it('点外部关闭，不改变选择', async () => {
     const onChange = vi.fn()
     renderMenu('country', onChange)
     click(trigger())
     expect(menu()).not.toBeNull()
 
     act(() => {
+      const event = new PointerEvent('pointerdown', { bubbles: true })
+      document.body.dispatchEvent(event)
       document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
     })
+    await flush()
     expect(menu()).toBeNull()
     expect(onChange).not.toHaveBeenCalled()
   })

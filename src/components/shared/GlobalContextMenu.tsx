@@ -2,13 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef, createContext, useContext, type ReactNode } from 'react'
 import { readClipboardText } from '@/lib/clipboard-read'
-import { createPortal } from 'react-dom'
-import { Separator } from '@/components/ui/separator'
-import { MENU, MENU_ITEM } from '@/lib/ui-tokens'
-import { adjustContextMenuPosition } from '@/lib/menu-utils'
-import { shortcutLabel } from '@/lib/shortcut-label'
 import { toast } from 'sonner'
-import { useMenuKeyboard } from '@/lib/use-menu-keyboard'
+import { PointMenu, type PointMenuItem } from './menu/PointMenu'
 
 interface InputMenuContextValue {
   openMenuAt: (target: HTMLElement, x: number, y: number) => void
@@ -27,23 +22,29 @@ interface SelectionSnapshot {
   endOffset: number
 }
 
+/**
+ * 输入框 / textarea 的右键菜单（剪切 / 复制 / 粘贴 / 全选）。
+ *
+ * 两件事归这里，别的都归 `PointMenu`（Base UI Menu + 虚拟锚点）：
+ * - **拦截系统右键菜单**：非文本区一律 `preventDefault`（WebView 的「刷新 / 另存为 / 检查」
+ *   既用不上也不属于这套界面语言），文本区换成应用自己的菜单；
+ * - 编辑器正文（`.ProseMirror`）放行给 `ContextMenu`。
+ *
+ * 菜单动作自己在执行前把焦点还给输入框（`execCommand` 作用在聚焦元素上）。
+ */
 export function GlobalContextMenu({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false)
   const [position, setPosition] = useState({ x: 0, y: 0 })
-  const [adjPosition, setAdjPosition] = useState({ x: 0, y: 0 })
-  const [visible, setVisible] = useState(false)
-  const menuRef = useRef<HTMLDivElement>(null)
   const targetRef = useRef<HTMLElement | null>(null)
   const initialSelRef = useRef<SelectionSnapshot | null>(null)
   const openedAtRef = useRef(0)
   const cooldownUntilRef = useRef(0)
-  const closeTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   const openMenuAt = useCallback((target: HTMLElement, x: number, y: number) => {
     targetRef.current = target
     target.focus()
+    // 坐标在「打开」的同一次更新里量好，不会先在左上角闪一帧
     setPosition({ x, y })
-    setVisible(false)
     setOpen(true)
 
     const sel = window.getSelection()
@@ -61,37 +62,34 @@ export function GlobalContextMenu({ children }: { children: ReactNode }) {
     openedAtRef.current = Date.now()
   }, [])
 
-  const handleContextMenu = useCallback((e: MouseEvent) => {
-    if (Date.now() < cooldownUntilRef.current) {
+  const handleContextMenu = useCallback(
+    (e: MouseEvent) => {
+      if (Date.now() < cooldownUntilRef.current) {
+        e.preventDefault()
+        return
+      }
+      const target = e.target as HTMLElement
+      if (target.closest?.('.ProseMirror')) return
+
+      const isEditableEl =
+        target instanceof HTMLInputElement
+          ? !['radio', 'checkbox', 'button', 'submit', 'reset', 'file', 'image', 'range', 'color'].includes(
+              target.type,
+            )
+          : target instanceof HTMLTextAreaElement || target.isContentEditable
+
+      if (!isEditableEl) {
+        // 非文本区一律吃掉系统菜单：关掉后右键在这些区域就是「没反应」，
+        // 需要菜单的地方自有应用的右键菜单接手。
+        e.preventDefault()
+        return
+      }
+
       e.preventDefault()
-      return
-    }
-    const target = e.target as HTMLElement
-    if (target.closest?.('.ProseMirror')) return
-
-    const isEditableEl = target instanceof HTMLInputElement
-      ? !['radio', 'checkbox', 'button', 'submit', 'reset', 'file', 'image', 'range', 'color'].includes(target.type)
-      : target instanceof HTMLTextAreaElement || target.isContentEditable
-
-    if (!isEditableEl) {
-      // 非文本区一律吃掉系统菜单：WebView 自带的「刷新 / 另存为 / 检查」既用不上，
-      // 也不属于这套界面语言。关掉后右键在这些区域就是「没反应」，
-      // 需要菜单的地方自有应用的右键菜单接手。
-      e.preventDefault()
-      return
-    }
-
-    e.preventDefault()
-    openMenuAt(target, e.clientX, e.clientY)
-  }, [openMenuAt])
-
-  useEffect(() => {
-    if (!open || !menuRef.current) return
-    const rect = menuRef.current.getBoundingClientRect()
-    const adjusted = adjustContextMenuPosition(position.x, position.y, rect.width, rect.height)
-    setAdjPosition(adjusted)
-    setVisible(true)
-  }, [open, position])
+      openMenuAt(target, e.clientX, e.clientY)
+    },
+    [openMenuAt],
+  )
 
   useEffect(() => {
     document.addEventListener('contextmenu', handleContextMenu)
@@ -100,16 +98,7 @@ export function GlobalContextMenu({ children }: { children: ReactNode }) {
     }
   }, [handleContextMenu])
 
-  useEffect(() => {
-    if (!open) return
-    const handler = (e: PointerEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        close()
-      }
-    }
-    document.addEventListener('pointerdown', handler, true)
-    return () => document.removeEventListener('pointerdown', handler, true)
-  }, [open])
+  const close = useCallback(() => setOpen(false), [])
 
   useEffect(() => {
     if (!open) return
@@ -129,38 +118,24 @@ export function GlobalContextMenu({ children }: { children: ReactNode }) {
         if (cooldownUntilRef.current < Date.now()) {
           cooldownUntilRef.current = Date.now() + 300
         }
-        closeImmediate()
+        // 选区已经变了：立刻收（不等淡出）
+        setOpen(false)
       }
     }
     document.addEventListener('selectionchange', handler)
     return () => document.removeEventListener('selectionchange', handler)
   }, [open])
 
-  // 用函数声明而不是 const 箭头函数：上面的 effect 里要用到它们，
-  // 函数声明会提升，避免「先使用后声明」（react-hooks/immutability）
-  // 关闭先淡出（context-menu-fade，duration-fast），150ms 后再卸载
-  function close() {
-    setVisible(false)
-    if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
-    closeTimerRef.current = setTimeout(() => setOpen(false), 150)
-  }
-  function closeImmediate() {
-    if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
-    setOpen(false)
-    setVisible(false)
-  }
-
-  useEffect(() => {
-    return () => { if (closeTimerRef.current) clearTimeout(closeTimerRef.current) }
-  }, [])
-
   const handleCut = useCallback(() => {
     const el = targetRef.current
     if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
       el.focus()
     }
-    try { document.execCommand('cut') } catch { /* */ }
-    close()
+    try {
+      document.execCommand('cut')
+    } catch {
+      /* 浏览器拒绝就什么都不做（与原生菜单一致） */
+    }
   }, [])
 
   const handleCopy = useCallback(() => {
@@ -168,8 +143,11 @@ export function GlobalContextMenu({ children }: { children: ReactNode }) {
     if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
       el.focus()
     }
-    try { document.execCommand('copy') } catch { /* */ }
-    close()
+    try {
+      document.execCommand('copy')
+    } catch {
+      /* 同上 */
+    }
   }, [])
 
   const handlePaste = useCallback(async () => {
@@ -187,7 +165,6 @@ export function GlobalContextMenu({ children }: { children: ReactNode }) {
         el.dispatchEvent(new Event('input', { bubbles: true }))
       }
     }
-    close()
   }, [])
 
   const handleSelectAll = useCallback(() => {
@@ -195,51 +172,30 @@ export function GlobalContextMenu({ children }: { children: ReactNode }) {
     if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
       el.select()
     } else {
-      try { document.execCommand('selectAll') } catch { /* */ }
+      try {
+        document.execCommand('selectAll')
+      } catch {
+        /* 同上 */
+      }
     }
-    close()
   }, [])
 
-  // 键盘：打开后焦点进第一项、↑/↓ 走、Enter 执行、Esc 关闭并把焦点还给原来的输入框
-  useMenuKeyboard(menuRef, close, open)
-
-  const menuEl = open ? (
-    <div className="pointer-events-none fixed inset-0 z-50">
-      <div
-        ref={menuRef}
-        className={`pointer-events-auto absolute flex flex-col ${MENU} context-menu-fade ${visible ? 'context-menu-visible' : ''}`}
-        style={{
-          left: adjPosition.x,
-          top: adjPosition.y,
-        }}
-      >
-        <button role="menuitem" onClick={handleCut} className={MENU_ITEM}>
-          <span>剪切</span>
-          <span className="ml-auto text-[11px] text-ink-faint">{shortcutLabel('Ctrl+X')}</span>
-        </button>
-        <button role="menuitem" onClick={handleCopy} className={MENU_ITEM}>
-          <span>复制</span>
-          <span className="ml-auto text-[11px] text-ink-faint">{shortcutLabel('Ctrl+C')}</span>
-        </button>
-        <button role="menuitem" onClick={handlePaste} className={MENU_ITEM}>
-          <span>粘贴</span>
-          <span className="ml-auto text-[11px] text-ink-faint">{shortcutLabel('Ctrl+V')}</span>
-        </button>
-        <Separator className="mx-2 my-1" />
-        <button role="menuitem" onClick={handleSelectAll} className={MENU_ITEM}>
-          <span>全选</span>
-          <span className="ml-auto text-[11px] text-ink-faint">{shortcutLabel('Ctrl+A')}</span>
-        </button>
-      </div>
-    </div>
-  ) : null
+  const items: PointMenuItem[] = [
+    { label: '剪切', shortcut: 'Ctrl+X', onSelect: handleCut },
+    { label: '复制', shortcut: 'Ctrl+C', onSelect: handleCopy },
+    { label: '粘贴', shortcut: 'Ctrl+V', onSelect: () => void handlePaste() },
+    { separator: true },
+    { label: '全选', shortcut: 'Ctrl+A', onSelect: handleSelectAll },
+  ]
 
   const contextValue: InputMenuContextValue = { openMenuAt }
 
   return (
     <InputMenuContext.Provider value={contextValue}>
       {children}
-      {open ? createPortal(menuEl, document.getElementById('overlay-root')!) : null}
+      {open ? (
+        <PointMenu at={position} items={items} onClose={close} minWidth={160} ariaLabel="编辑菜单" />
+      ) : null}
     </InputMenuContext.Provider>
   )
 }

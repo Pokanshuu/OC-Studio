@@ -9,13 +9,13 @@
  * 「新建文件夹…」不再在原菜单里换成输入框，而是弹**居中的新建文件夹弹窗**：
  * 菜单在卡片旁边只有窄窄一条，输入框挤在里面既不像菜单也不像表单。
  *
- * 面板走 `MenuSurface`（Portal 到 `#overlay-root`、贴边翻转、点外 / Escape 关闭）：
- * 卡片在 `overflow` 容器里，用 `absolute` 会被裁掉。
+ * 面板走 `PointMenu`（Base UI Menu 虚拟锚点：贴边翻转、点外 / Escape 关闭、↑↓ Enter、
+ * 无子菜单）：卡片在 `overflow` 容器里，用 `absolute` 会被裁掉。
  */
 import { useState } from 'react'
-import { Check, FolderInput, FolderPlus } from 'lucide-react'
-import { ICON_BTN, MENU_ITEM_BASE } from '@/lib/ui-tokens'
-import { MenuSurface } from '@/components/shared/menu/MenuSurface'
+import { FolderPlus } from 'lucide-react'
+import { ICON_BTN } from '@/lib/ui-tokens'
+import { PointMenu, type PointMenuItem } from '@/components/shared/menu/PointMenu'
 import { OverlayIconButton } from '@/components/shared/OverlayIconButton'
 import { NewFolderDialog } from './NewFolderDialog'
 
@@ -44,11 +44,30 @@ export function MoveToFolderMenu({
     setAt(null)
   }
 
+  const items: PointMenuItem[] = [
+    ...folders.map((folder) => ({
+      label: folder,
+      checked: folder === current,
+      className: folder === current ? 'text-ink' : undefined,
+      onSelect: () => {
+        if (folder !== current) onMove(folder)
+      },
+    })),
+    {
+      label: '新建文件夹…',
+      icon: <FolderPlus size={12} strokeWidth={2} />,
+      onSelect: () => setNewFolderOpen(true),
+    },
+    ...(current === undefined
+      ? []
+      : [{ label: '移出文件夹', onSelect: () => onMove(null) }]),
+  ]
+
   return (
     <span className="inline-flex">
       {tone === 'overlay' ? (
         <OverlayIconButton label="移到文件夹" onClick={open}>
-          <FolderInput size={14} strokeWidth={2} />
+          <FolderPlus size={14} strokeWidth={2} />
         </OverlayIconButton>
       ) : (
         <button
@@ -58,58 +77,19 @@ export function MoveToFolderMenu({
           aria-label="移到文件夹"
           title="移到文件夹"
         >
-          <FolderInput size={14} strokeWidth={2} />
+          <FolderPlus size={14} strokeWidth={2} />
         </button>
       )}
 
       {at ? (
-        <MenuSurface at={at} onClose={close} className="min-w-40">
-          {folders.map((folder) => (
-            <button
-              key={folder}
-              type="button"
-              className={`${MENU_ITEM_BASE} ${
-                folder === current ? 'text-ink' : 'text-ink-muted hover:text-ink'
-              } hover:bg-[var(--oc-hover)]`}
-              onClick={() => {
-                close()
-                if (folder !== current) onMove(folder)
-              }}
-            >
-              <Check
-                size={12}
-                strokeWidth={2}
-                className={folder === current ? 'text-ink' : 'text-transparent'}
-              />
-              <span className="truncate">{folder}</span>
-            </button>
-          ))}
-
-          <button
-            type="button"
-            className={`${MENU_ITEM_BASE} text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink`}
-            onClick={() => {
-              close()
-              setNewFolderOpen(true)
-            }}
-          >
-            <FolderPlus size={12} strokeWidth={2} />
-            新建文件夹…
-          </button>
-
-          {current ? (
-            <button
-              type="button"
-              className={`${MENU_ITEM_BASE} text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink`}
-              onClick={() => {
-                close()
-                onMove(null)
-              }}
-            >
-              移出文件夹
-            </button>
-          ) : null}
-        </MenuSurface>
+        <PointMenu
+          at={at}
+          items={items}
+          onClose={close}
+          minWidth={160}
+          ariaLabel="移到文件夹"
+          itemClassName="text-ink-muted hover:text-ink"
+        />
       ) : null}
 
       <NewFolderDialog

@@ -1,10 +1,17 @@
 'use client'
 
-import { useState, useCallback, useRef, useEffect } from 'react'
-import { createPortal } from 'react-dom'
+/**
+ * 通用筛选下拉：触发按钮 + Base UI Menu 面板（触发器锚定，不是点击坐标菜单）。
+ * 样式由调用点传入（各列表页的触发按钮/面板密度不同），行为只有这一份实现。
+ *
+ * 换 Base UI 之后拿到的行为：↓ 打开、↑↓ 首尾循环、Enter 选中、Esc 关闭并把焦点还给
+ * 触发按钮、贴边翻转、点外部**按下即关**。
+ */
+import { useState } from 'react'
+import { Menu } from '@base-ui/react/menu'
 import { ChevronDown } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { MENU, MENU_ITEM_BASE } from '@/lib/ui-tokens'
-import { useMenuKeyboard } from '@/lib/use-menu-keyboard'
 
 export interface FilterOption<T extends string | number = number | 'all'> {
   value: T
@@ -19,6 +26,7 @@ interface FilterSelectProps<T extends string | number> {
   fallbackLabel: string
   /** 触发按钮类名（各调用点样式不同，从这里传） */
   triggerClassName: string
+  /** 面板的补充类名（只写内容相关的：滚动 / 留白；定位归 Positioner） */
   panelClassName?: string
   itemClassName?: string
   /** 当前项的高亮类名 */
@@ -26,21 +34,17 @@ interface FilterSelectProps<T extends string | number> {
   /** 触发按钮里文字那一层的类名（需要截断时传 max-w-* truncate） */
   labelClassName?: string
   chevronSize?: number
-  /** 面板最小高度保护（用于 max-h-64 这类滚动） */
+  /** 面板最大高度（用于长列表滚动） */
   maxHeightClassName?: string
 }
 
-/**
- * 通用筛选下拉：触发按钮 + portal 到 `#overlay-root` 的面板 + 点外部关闭。
- * 样式由调用点传入（各列表页的触发按钮/面板密度不同），行为只有这一份实现。
- */
 export function FilterSelect<T extends string | number>({
   value,
   onChange,
   options,
   fallbackLabel,
   triggerClassName,
-  panelClassName = `fixed z-30 mt-1 flex max-h-64 flex-col overflow-auto ${MENU} pointer-events-auto`,
+  panelClassName = 'flex flex-col overflow-auto',
   itemClassName = `${MENU_ITEM_BASE} whitespace-nowrap`,
   activeItemClassName = 'bg-[var(--oc-hover)] text-ink',
   labelClassName,
@@ -48,81 +52,57 @@ export function FilterSelect<T extends string | number>({
   maxHeightClassName = 'max-h-64',
 }: FilterSelectProps<T>) {
   const [open, setOpen] = useState(false)
-  const triggerRef = useRef<HTMLButtonElement>(null)
-  const panelRef = useRef<HTMLDivElement>(null)
-  const [pos, setPos] = useState({ x: 0, y: 0 })
-
-  // 位置必须和「打开」在同一次更新里算好：先按 (0,0) 渲染、再在 effect 里量真实坐标，
-  // 面板会先在左上角画一帧再跳回来（下拉「闪现再归位」）。
-  const toggle = useCallback(() => {
-    if (open) {
-      setOpen(false)
-      return
-    }
-    const rect = triggerRef.current?.getBoundingClientRect()
-    if (!rect) return
-    setPos({ x: rect.left, y: rect.bottom + 4 })
-    setOpen(true)
-  }, [open])
-
-  const handleClickOutside = useCallback((e: MouseEvent) => {
-    const target = e.target as Node
-    const overlay = document.getElementById('overlay-root')
-    if (triggerRef.current && !triggerRef.current.contains(target)) {
-      if (panelRef.current && !panelRef.current.contains(target)) {
-        if (overlay && overlay.contains(target)) return
-        setOpen(false)
-      }
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!open) return
-    document.addEventListener('pointerdown', handleClickOutside, true)
-    return () => document.removeEventListener('pointerdown', handleClickOutside, true)
-  }, [open, handleClickOutside])
-
-  const closePanel = useCallback(() => setOpen(false), [])
-  // 键盘：焦点进面板、↑/↓ 走、Enter 选、Esc 关闭并把焦点还给触发按钮
-  useMenuKeyboard(panelRef, closePanel, open)
-
   const selectedLabel = options.find((o) => o.value === value)?.label ?? fallbackLabel
 
+  const container =
+    typeof document === 'undefined'
+      ? undefined
+      : document.getElementById('overlay-root') ?? document.body
+
   return (
-    <div>
-      <button
-        ref={triggerRef}
-        onClick={toggle}
-        className={triggerClassName}
-      >
+    <Menu.Root open={open} onOpenChange={setOpen} modal={false} loopFocus>
+      <Menu.Trigger className={triggerClassName}>
         <span className={labelClassName}>{selectedLabel}</span>
         <ChevronDown size={chevronSize} strokeWidth={2} />
-      </button>
+      </Menu.Trigger>
 
-      {open
-        ? createPortal(
-            <div
-              ref={panelRef}
-              className={`${panelClassName} ${maxHeightClassName}`}
-              style={{ left: pos.x, top: pos.y }}
-            >
-              {options.map((opt) => (
-                <button
-                  key={String(opt.value)}
-                  role="menuitem"
-                  onClick={() => {
-                    onChange(opt.value)
-                    setOpen(false)
-                  }}
-                  className={`${itemClassName} ${value === opt.value ? activeItemClassName : 'text-ink-muted hover:bg-[var(--oc-hover)] hover:text-ink'}`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>,
-            document.getElementById('overlay-root')!,
-          )
-        : null}
-    </div>
+      <Menu.Portal container={container}>
+        <Menu.Positioner
+          side="bottom"
+          align="start"
+          sideOffset={4}
+          positionMethod="fixed"
+          collisionPadding={8}
+          className="z-[99999]"
+        >
+          <Menu.Popup
+            className={cn(
+              MENU,
+              'pointer-events-auto flex flex-col outline-none',
+              maxHeightClassName,
+              panelClassName,
+            )}
+          >
+            {options.map((option) => (
+              <Menu.Item
+                key={String(option.value)}
+                onClick={() => {
+                  onChange(option.value)
+                  setOpen(false)
+                }}
+                className={cn(
+                  itemClassName,
+                  value === option.value
+                    ? activeItemClassName
+                    : 'text-ink-muted data-highlighted:bg-[var(--oc-hover)] data-highlighted:text-ink',
+                )}
+              >
+                {option.label}
+              </Menu.Item>
+            ))}
+          </Menu.Popup>
+        </Menu.Positioner>
+      </Menu.Portal>
+    </Menu.Root>
   )
 }

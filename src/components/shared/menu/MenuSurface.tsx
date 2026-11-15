@@ -1,27 +1,23 @@
 'use client'
 
 /**
- * 按点击坐标弹出的菜单 —— **唯一实现**（S2）。
+ * 按点击坐标弹出的**面板** —— 唯一实现。
  *
- * 职责：Portal 到 `#overlay-root`、量宽高后夹进视口（`adjustContextMenuPosition`）、
- * 点外部 / Escape 关闭（`useDismissableLayer`）、`MENU` 容器。
- * 内容与语义由调用方给（媒体菜单 / 边样式面板 / 移到文件夹 / 文件夹条）。
+ * 收口后的分工：
+ * - **菜单**（item 数组：媒体右键 / 列表右键 / 编辑器选区 / 输入框 / 分组方式）走 `PointMenu`
+ *   （Base UI Menu + 虚拟锚点，带子菜单与菜单语义）；
+ * - **面板**（自定义内容：边样式 / 标注颜色 / 箭头方向 / 标签面板）走这里，用 Base UI **Popover**：
+ *   里面是色板、滑块、输入框，不是 menu 语义 —— 用 Menu 会把 Tab 当成「关菜单」，
+ *   也会把方向键从滑块抢走。
  *
- * 结构固定为两层：
- * - 根 `pointer-events-none fixed inset-0 z-50`：**透明**，不接事件，所以点外部能穿透到页面
- *   （点另一张图就是「关菜单 + 开大图」，而不是被这层吃掉）
- * - 面板 `MENU pointer-events-auto absolute`：菜单本体，接事件
- *
- * 与 `ContextMenu` 的边界（本轮不合并）：
- * - `ContextMenu` 只服务编辑器正文 / 选区的右键：带子菜单（再 Portal 一层）、
- *   选区变化自动收起、150ms 淡入淡出与 100/300ms 冷却，事件模型与这里不同；
- * - 其余「按点击坐标弹菜单」一律走这里，不要再复制 portal / measure / outside-click 代码。
+ * Popover 负责：Portal 到 `#overlay-root`、贴边翻转 / 夹进视口（`collisionPadding`）、
+ * 点外部**按下即关**、Escape 关闭。
+ * 键盘导航（↑↓ 在 `role="menuitem"` 之间走）保留原来的 `useMenuKeyboard`：
+ * 这几个面板里确实有一排可选项，换实现不该把这个功能弄丢。
  */
-import { useLayoutEffect, useState, type AriaRole, type ReactNode } from 'react'
-import { createPortal } from 'react-dom'
+import { useMemo, useRef, type AriaRole, type ReactNode } from 'react'
+import { Popover } from '@base-ui/react/popover'
 import { MENU } from '@/lib/ui-tokens'
-import { adjustContextMenuPosition } from '@/lib/menu-utils'
-import { useDismissableLayer } from '@/lib/use-dismissable-layer'
 import { useMenuKeyboard } from '@/lib/use-menu-keyboard'
 
 interface MenuSurfaceProps {
@@ -45,37 +41,54 @@ export function MenuSurface({
   width,
   ariaLabel,
 }: MenuSurfaceProps) {
-  const [position, setPosition] = useState(at)
-  const panelRef = useDismissableLayer<HTMLDivElement>({ onClose })
-  // 键盘：打开后焦点进第一项、↑/↓ 走、Enter 执行、Esc 关闭并把焦点还回去
+  // 面板的键盘导航（打开后焦点进第一项、↑/↓ 走、Enter 执行、Esc 关闭并归还焦点）
+  const panelRef = useRef<HTMLDivElement>(null)
   useMenuKeyboard(panelRef, onClose)
 
-  // 量出真实宽高再夹进视口：直接 left/top 会让右下角弹出的菜单飞出屏幕
-  useLayoutEffect(() => {
-    const el = panelRef.current
-    if (!el) return
-    const rect = el.getBoundingClientRect()
-    setPosition(adjustContextMenuPosition(at.x, at.y, rect.width, rect.height))
-  }, [at.x, at.y, panelRef])
+  // 虚拟锚点：落在点击处、零尺寸 —— Positioner 拿它做贴边翻转
+  const anchor = useMemo(
+    () => ({ getBoundingClientRect: () => new DOMRect(at.x, at.y, 0, 0) }),
+    [at.x, at.y],
+  )
 
-  // 菜单只在用户点击后出现（`at` 有值），SSR / 水合时不会渲染
-  if (typeof document === 'undefined') return null
-  const root = document.getElementById('overlay-root') ?? document.body
+  const container =
+    typeof document === 'undefined'
+      ? undefined
+      : document.getElementById('overlay-root') ?? document.body
 
-  return createPortal(
-    <div className="pointer-events-none fixed inset-0 z-50">
-      <div
-        ref={panelRef}
-        role={role}
-        aria-label={ariaLabel}
-        // 菜单里的点击不回到页面（卡片 / 行常常整块可点）
-        onClick={(event) => event.stopPropagation()}
-        className={`${MENU} pointer-events-auto absolute flex flex-col ${className}`}
-        style={{ left: position.x, top: position.y, ...(width ? { width } : {}) }}
-      >
-        {children}
-      </div>
-    </div>,
-    root,
+  return (
+    <Popover.Root
+      open
+      modal={false}
+      onOpenChange={(next) => {
+        if (!next) onClose()
+      }}
+    >
+      <Popover.Portal container={container}>
+        <Popover.Positioner
+          anchor={anchor}
+          side="bottom"
+          align="start"
+          sideOffset={0}
+          positionMethod="fixed"
+          collisionPadding={8}
+          className="z-[99999]"
+        >
+          <Popover.Popup
+            ref={panelRef}
+            role={role}
+            aria-label={ariaLabel}
+            // 焦点与键盘由 useMenuKeyboard 接管（与替换前一致）
+            initialFocus={false}
+            finalFocus={false}
+            onClick={(event) => event.stopPropagation()}
+            className={`${MENU} pointer-events-auto ${className}`}
+            style={width ? { width } : undefined}
+          >
+            {children}
+          </Popover.Popup>
+        </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
   )
 }

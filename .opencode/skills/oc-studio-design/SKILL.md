@@ -163,7 +163,7 @@ description: >
 - 触发器：**纯文字** `h-8 px-2 text-[13px] text-ink`，无边框无底色，hover `bg-[var(--oc-hover)]`；图标 `ChevronDown size={14} strokeWidth={2}`
 - 面板：`MENU`；选项：`MENU_ITEM`，选中项 `bg-[var(--oc-hover)] text-ink`
 - 列表页的「视图切换」用**图标**（lucide `LayoutGrid` / `List`，`h-8 w-8`）：当前项 `text-ink`、另一项 `text-ink-faint`（默认画廊、本地记忆）
-- 参考实现：`FilterSelect`（纯筛选）/ 需要「可自由输入 + 建议」时照它写 `input` + `createPortal` 到 `#overlay-root` 的 `MENU` 面板，注意 `onMouseDown` 要 `preventDefault()`，否则输入框先失焦、面板先关，`click` 永远到不了
+- 参考实现：`FilterSelect`（纯筛选，触发器锚定的 Base UI Menu）/ 需要「可自由输入 + 建议」时照它写 `input` + `createPortal` 到 `#overlay-root` 的 `MENU` 面板，注意 `onMouseDown` 要 `preventDefault()`，否则输入框先失焦、面板先关，`click` 永远到不了
 
 ### 浮层面板（统一）
 - 所有 Portal 浮层：`MENU`（`border border-line bg-paper/85 backdrop-blur-lg float-shadow rounded-control`；大面板用 `PANEL` → `rounded-panel`）。**没有 `rounded-menu` 这个类**，菜单容器一律 `rounded-control`
@@ -191,12 +191,23 @@ description: >
 - Popup 为 `MENU`（`rounded-control`，`py-1` 无左右内边距）+ `pointer-events-none`，MenuItem 为 `pointer-events-auto`
 - Item 直接用 `MENU_ITEM`（含 `data-highlighted` 高亮），不要再写 `px-*/py-*`
 
+### 按坐标弹出的菜单 (PointMenu)
+- **唯一实现** `src/components/shared/menu/PointMenu.tsx`：Base UI Menu + **虚拟锚点**（`Positioner.anchor` 传 `{ getBoundingClientRect: () => new DOMRect(clickX, clickY, 0, 0) }`）。媒体右键 / 列表右键 / 编辑器选区 / 输入框右键 / 移到文件夹都走它，不要再手写 portal + 量宽高 + 点外关闭
+- 子菜单用 `Menu.SubmenuRoot` / `Menu.SubmenuTrigger`（→ 展开、← 返回、Esc 只关一层、Enter 确认），**不要**再用 CSS `group-hover` 悬停展开
+- 皮肤：Popup 用 `MENU`，行用 `MENU_ITEM_BASE`；高亮靠 `data-highlighted:bg-[var(--oc-hover)]`（不是 `hover:`）—— 键盘和鼠标走同一个高亮态
+- 关闭淡出 150ms：`transition-opacity duration-fast ease-quiet data-ending-style:opacity-0`。调用点是 `{at ? <XxxMenu/> : null}`，父组件一关就卸载，所以**淡出由 `PointMenu` 自己播完再回调 `onClose`**，不要在调用点写计时器
+- 坐标必须在「打开」的同一次更新里量好（`setPosition` + `setOpen`），否则会先在 (0,0) 闪一帧
+
 ### 右键菜单 (ContextMenu)
-- **系统右键菜单不出现在界面里**：`GlobalContextMenu` 在 `document` 上统一拦截 `contextmenu` —— 非文本区一律 `preventDefault()`（右键在那里就是「没反应」，需要菜单的地方由应用自己的菜单接手）；输入框 / textarea / 全选中的可编辑区保留系统菜单（复制粘贴靠它）
+- **系统右键菜单不出现在界面里**：`GlobalContextMenu` 在 `document` 上统一拦截 `contextmenu` —— 非文本区一律 `preventDefault()`（右键在那里就是「没反应」，需要菜单的地方由应用自己的菜单接手）；输入框 / textarea / 可编辑区换成应用自己的菜单（剪切 / 复制 / 粘贴 / 全选）
 - 面板：`MENU`（`border border-line bg-paper/85 backdrop-blur-lg float-shadow rounded-control`，无 ring）
-- 子菜单通过 `createPortal` 到 `#overlay-root`，`position: fixed` + 视口坐标，面板同样 `MENU`
-- 菜单项：`MENU_ITEM_BASE`（`gap-2 px-3 py-1 text-[13px] rounded-item`，hover `bg-[var(--oc-hover)]`）；自定义语气（危险/禁用）只换文字色，不重写盒子
+- 菜单项：`MENU_ITEM_BASE`（`gap-2 px-3 py-1 text-[13px] rounded-item`，高亮 `data-highlighted:bg-[var(--oc-hover)]`）；自定义语气（危险/禁用）只换文字色，不重写盒子
 - 危险操作：`text-error`
+- 布局 / 键盘 / 子菜单 / 点外关闭全部归 `PointMenu`；`ContextMenu` 里只剩「选区一变就收」这类编辑器特有逻辑
+
+### 按坐标弹出的面板 (MenuSurface)
+- **不是菜单**（里面是色板 / 滑块 / 输入框：边样式、标注颜色、箭头方向、标签），用 Base UI **Popover** + 虚拟锚点，不用 Menu（Menu 会把 Tab 当成关闭，也会抢走滑块的方向键）
+- 皮肤同样是 `MENU`；键盘导航沿用 `useMenuKeyboard`（面板里那排可选项还在）
 
 ### 弹窗 (Dialog/AlertDialog)
 - 遮罩：`bg-[var(--oc-scrim)]`（无 blur；值见 `globals.css`，与旧写法 `bg-black/15 dark:bg-black/40` 一致）
