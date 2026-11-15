@@ -265,9 +265,8 @@ description: >
   Windows 的最大化是一个**方框**、还原是**两个错位叠放的方框**、最小化是一条横线、关闭是一个 X。
   这四个是 10×10 内联 SVG（`strokeWidth={1}`、`shape-rendering="crispEdges"`、`currentColor`），
   按系统标题栏的版式画 —— 用斜箭头一眼就能看出这不是系统窗口。
-- **例外：导航历史 ≠ 返回列表**。桌面编辑器页头的「后退 / 前进」是一对 `ChevronLeft` / `ChevronRight`
-  （历史语义），不是 `ArrowLeft`（返回 / 关闭）。移动端仍保留 `ArrowLeft` + 「返回」文字
-  （`data-mobile-back` 是 Android 物理返回键的落点，别动）。
+- 返回键永远是 `ArrowLeft` + 「返回」文字（桌面、移动端同一个），**不要**换成 Chevron：
+  它的语义是「回到列表」，不是浏览器的历史后退。`data-mobile-back` 是 Android 物理返回键的落点，别动。
 
 ## 4.1 桌面交互的三条新增规范（2026-11-14 前端桌面化）
 
